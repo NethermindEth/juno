@@ -1233,7 +1233,7 @@ func TestCall(t *testing.T) {
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
 
 		blockID := blockIDLatest(t)
 		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
@@ -1263,7 +1263,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockVM.EXPECT().Call(
 			&vm.CallInfo{
 				ContractAddress: contractAddr,
@@ -1314,7 +1314,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockVM.EXPECT().Call(
 			&vm.CallInfo{
 				ContractAddress: contractAddr,
@@ -1363,7 +1363,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockVM.EXPECT().Call(
 			gomock.Any(),
 			gomock.Any(),

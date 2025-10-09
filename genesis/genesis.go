@@ -257,7 +257,7 @@ func executeFunctionCalls(
 
 		callInfo := &vm.CallInfo{
 			ContractAddress: &contractAddress,
-			ClassHash:       classHash,
+			ClassHash:       &classHash,
 			Selector:        &entryPointSelector,
 			Calldata:        fnCall.Calldata,
 		}

@@ -115,12 +115,12 @@ func (c *ContractUpdater) Purge() error {
 
 // ContractNonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
-func ContractNonce(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
+func ContractNonce(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	nonce, err := GetContractNonce(txn, addr)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
-	return &nonce, nil // TODO: this should return a value
+	return nonce, nil
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -130,12 +130,13 @@ func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
 }
 
 // ContractRoot returns the root of the contract storage.
-func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
+func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
-	return cStorage.Root()
+	root, err := cStorage.Root()
+	return *root, err
 }
 
 type OnValueChanged = func(location, oldValue *felt.Felt) error
@@ -163,21 +164,22 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 	return cStorage.Commit()
 }
 
-func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
+func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
-	return cStorage.Get(key)
+	storage, err := cStorage.Get(key)
+	return *storage, err
 }
 
 // ContractClassHash returns hash of the class that the contract at the given address instantiates.
-func ContractClassHash(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
+func ContractClassHash(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	classHash, err := GetContractClassHash(txn, addr)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
-	return &classHash, nil // TODO: this should return a value
+	return classHash, nil
 }
 
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {
