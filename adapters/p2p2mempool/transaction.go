@@ -42,11 +42,14 @@ func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.N
 			return mempool.BroadcastedTransaction{}, err
 		}
 	case *mempooltransaction.MempoolTransaction_DeployAccountV3:
-		tx = p2p2core.AdaptDeployAccountV3TxnCommon(t.GetDeployAccountV3(), t.TransactionHash)
+		tx, err = p2p2core.AdaptDeployAccountV3TxnCommon(t.GetDeployAccountV3(), t.TransactionHash)
 	case *mempooltransaction.MempoolTransaction_InvokeV3:
-		tx = p2p2core.AdaptInvokeV3TxnCommon(t.GetInvokeV3(), t.TransactionHash)
+		tx, err = p2p2core.AdaptInvokeV3TxnCommon(t.GetInvokeV3(), t.TransactionHash)
 	default:
 		return mempool.BroadcastedTransaction{}, fmt.Errorf("unsupported tx type %T", t.Txn)
+	}
+	if err != nil {
+		return mempool.BroadcastedTransaction{}, err
 	}
 
 	computedTransactionHash, err := core.TransactionHash(tx, network)

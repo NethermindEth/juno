@@ -68,7 +68,7 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("failed to retrieve L1 handler txn %v", err))
 		}
-		status, rpcErr := h.TransactionStatus(ctx, *hash)
+		status, rpcErr := h.TransactionStatus(ctx, hash)
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
