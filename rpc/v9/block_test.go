@@ -390,9 +390,10 @@ func TestBlockWithTxs(t *testing.T) {
 		})
 	}
 
-	n := &utils.Mainnet
+	mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 	handler := rpcv9.New(mockReader, mockSyncReader, nil, nil)
 
+	n := &utils.Mainnet
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
@@ -407,7 +408,7 @@ func TestBlockWithTxs(t *testing.T) {
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
 
 		for i, txnHash := range blockWithTxHashes.TxnHashes {
-			txn, err := handler.TransactionByHash(*txnHash)
+			txn, err := handler.TransactionByHash(txnHash)
 			require.Nil(t, err)
 
 			assert.Equal(t, txn, blockWithTxs.Transactions[i])
@@ -419,12 +420,26 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-		if tx, found := latestBlockTxMap[*hash]; found {
-			return tx, nil
-		}
-		return nil, errors.New("txn not found")
-	}).Times(len(latestBlock.Transactions) * 6)
+	preConfirmed := &core.PreConfirmed{
+		Block: &core.Block{
+			Header: &core.Header{
+				Number: latestBlockNumber + 1,
+			},
+		},
+	}
+	mockSyncReader.EXPECT().PendingData().Return(
+		preConfirmed,
+		nil,
+	).Times(len(latestBlock.Transactions) * 5)
+
+	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(
+		func(hash *felt.Felt) (core.Transaction, error) {
+			if tx, found := latestBlockTxMap[*hash]; found {
+				return tx, nil
+			}
+			return nil, errors.New("txn not found")
+		},
+	).Times(len(latestBlock.Transactions) * 5)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)

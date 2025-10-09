@@ -741,20 +741,21 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
 		// Candidate Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		preConfirmed := core.NewPreConfirmed(
-			&core.Block{Header: block.Header},
-			nil,
-			nil,
-			[]core.Transaction{block.Transactions[0]})
+		preConfirmed := &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number,
+					TransactionCount: 1,
+				},
+			},
+			CandidateTxs: []core.Transaction{block.Transactions[0]},
+		}
 
 		mockSyncer.EXPECT().PendingData().Return(
-			&preConfirmed,
+			preConfirmed,
 			nil,
-		).Times(4)
-		handler.pendingData.Send(&core.PreConfirmed{
-			Block: &core.Block{Header: &core.Header{}},
-		})
-
+		).Times(2)
+		handler.pendingData.Send(preConfirmed)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusCandidate, UnknownExecution, "")
 		require.Equal(t, block.Transactions[0].Hash(), txHash)
 
@@ -762,28 +763,53 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		rpcTx := AdaptTransaction(block.Transactions[0])
 		rpcTx.Hash = txHash
 
-		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		preConfirmed = core.PreConfirmed{
+		preConfirmed = &core.PreConfirmed{
 			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number,
+					TransactionCount: 1,
+				},
 				Transactions: []core.Transaction{
 					block.Transactions[0],
 				},
 				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
 			},
-			CandidateTxs: []core.Transaction{block.Transactions[0]},
+			CandidateTxs: []core.Transaction{},
 		}
-
-		handler.pendingData.Send(&preConfirmed)
+		mockSyncer.EXPECT().PendingData().Return(
+			preConfirmed,
+			nil,
+		).Times(1)
+		handler.pendingData.Send(preConfirmed)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusPreConfirmed, TxnSuccess, "")
-		// Accepted on l1 Status
+
+		preConfirmed = &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number + 1,
+					TransactionCount: 0,
+				},
+				Transactions: []core.Transaction{},
+				Receipts:     []*core.TransactionReceipt{},
+			},
+			CandidateTxs: []core.Transaction{},
+		}
+		mockSyncer.EXPECT().PendingData().Return(
+			preConfirmed,
+			nil,
+		).Times(1)
+		// Accepted on l2 Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
-		handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
-
+		handler.newHeads.Send(block)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
+		mockSyncer.EXPECT().PendingData().Return(
+			preConfirmed,
+			nil,
+		).Times(1)
 		l1Head := &core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)

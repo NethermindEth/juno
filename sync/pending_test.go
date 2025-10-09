@@ -59,16 +59,16 @@ func TestPendingState(t *testing.T) {
 			t.Run("deployed", func(t *testing.T) {
 				cH, cErr := state.ContractClassHash(deployedAddr)
 				require.NoError(t, cErr)
-				assert.Equal(t, *deployedClassHash, cH)
+				assert.Equal(t, deployedClassHash, &cH)
 
 				cH, cErr = state.ContractClassHash(deployedAddr2)
 				require.NoError(t, cErr)
-				assert.Equal(t, *deployedClassHash, cH)
+				assert.Equal(t, deployedClassHash, &cH)
 			})
 			t.Run("replaced", func(t *testing.T) {
 				cH, cErr := state.ContractClassHash(replacedAddr)
 				require.NoError(t, cErr)
-				assert.Equal(t, *replacedClassHash, cH)
+				assert.Equal(t, replacedClassHash, &cH)
 			})
 		})
 		t.Run("from head", func(t *testing.T) {
@@ -77,7 +77,7 @@ func TestPendingState(t *testing.T) {
 
 			cH, cErr := state.ContractClassHash(&felt.Zero)
 			require.NoError(t, cErr)
-			assert.Equal(t, *expectedClassHash, cH)
+			assert.Equal(t, expectedClassHash, &cH)
 		})
 	})
 	t.Run("ContractNonce", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestPendingState(t *testing.T) {
 
 			cN, cErr := state.ContractNonce(&felt.Zero)
 			require.NoError(t, cErr)
-			assert.Equal(t, *expectedNonce, cN)
+			assert.Equal(t, expectedNonce, &cN)
 		})
 	})
 	t.Run("ContractStorage", func(t *testing.T) {
@@ -104,7 +104,7 @@ func TestPendingState(t *testing.T) {
 			expectedValue := new(felt.Felt).SetUint64(37)
 			cV, cErr := state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(44))
 			require.NoError(t, cErr)
-			assert.Equal(t, *expectedValue, cV)
+			assert.Equal(t, expectedValue, &cV)
 
 			cV, cErr = state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(0xDEADBEEF))
 			require.NoError(t, cErr)
@@ -120,7 +120,7 @@ func TestPendingState(t *testing.T) {
 
 			cV, cErr := state.ContractStorage(&felt.Zero, &felt.Zero)
 			require.NoError(t, cErr)
-			assert.Equal(t, *expectedValue, cV)
+			assert.Equal(t, expectedValue, &cV)
 		})
 	})
 	t.Run("Class", func(t *testing.T) {

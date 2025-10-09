@@ -46,7 +46,7 @@ func (p *PendingState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if nonce, found := p.stateDiff.Nonces[*addr]; found {
 		return *nonce, nil
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
-		return felt.Zero, nil
+		return felt.Felt{}, nil
 	}
 	nonce, err := p.head.ContractNonce(addr)
 	return nonce, err
@@ -59,7 +59,7 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 		}
 	}
 	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
-		return felt.Zero, nil
+		return felt.Felt{}, nil
 	}
 	value, err := p.head.ContractStorage(addr, key)
 	return value, err

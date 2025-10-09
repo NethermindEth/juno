@@ -296,7 +296,7 @@ func (p *SequencerMempool) validate(userTxn *BroadcastedTransaction) error {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
-			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce.String(), t.Nonce.String())
+			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", &nonce, t.Nonce)
 		}
 	case *core.InvokeTransaction:
 		if t.TxVersion().Is(0) { // cant verify nonce since SenderAddress was only added in v1
@@ -307,7 +307,7 @@ func (p *SequencerMempool) validate(userTxn *BroadcastedTransaction) error {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
-			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce.String(), t.Nonce.String())
+			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", &nonce, t.Nonce)
 		}
 	case *core.L1HandlerTransaction:
 		// todo: verification of the L1 handler nonce requires checking the

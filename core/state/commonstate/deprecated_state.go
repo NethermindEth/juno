@@ -14,27 +14,15 @@ func NewDeprecatedStateAdapter(s *core.State) *DeprecatedStateAdapter {
 }
 
 func (s *DeprecatedStateAdapter) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	value, err := (*core.State)(s).ContractStorageAt(addr, key, blockNumber)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *value, nil
+	return (*core.State)(s).ContractStorageAt(addr, key, blockNumber)
 }
 
 func (s *DeprecatedStateAdapter) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	nonce, err := (*core.State)(s).ContractNonceAt(addr, blockNumber)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *nonce, nil
+	return (*core.State)(s).ContractNonceAt(addr, blockNumber)
 }
 
 func (s *DeprecatedStateAdapter) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	classHash, err := (*core.State)(s).ContractClassHashAt(addr, blockNumber)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *classHash, nil
+	return (*core.State)(s).ContractClassHashAt(addr, blockNumber)
 }
 
 func (s *DeprecatedStateAdapter) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
@@ -42,27 +30,15 @@ func (s *DeprecatedStateAdapter) ContractDeployedAt(addr *felt.Felt, blockNumber
 }
 
 func (s *DeprecatedStateAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	classHash, err := (*core.State)(s).ContractClassHash(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *classHash, nil
+	return (*core.State)(s).ContractClassHash(addr)
 }
 
 func (s *DeprecatedStateAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	nonce, err := (*core.State)(s).ContractNonce(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *nonce, nil
+	return (*core.State)(s).ContractNonce(addr)
 }
 
 func (s *DeprecatedStateAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	value, err := (*core.State)(s).ContractStorage(addr, key)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *value, nil
+	return (*core.State)(s).ContractStorage(addr, key)
 }
 
 func (s *DeprecatedStateAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
@@ -94,11 +70,7 @@ func (s *DeprecatedStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontri
 }
 
 func (s *DeprecatedStateAdapter) Commitment() (felt.Felt, error) {
-	root, err := (*core.State)(s).Root()
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return *root, nil
+	return (*core.State)(s).Root()
 }
 
 func (s *DeprecatedStateAdapter) Revert(blockNumber uint64, update *core.StateUpdate) error {
@@ -128,27 +100,15 @@ func (s *DeprecatedStateReaderAdapter) Class(classHash *felt.Felt) (*core.Declar
 }
 
 func (s *DeprecatedStateReaderAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	classHash, err := s.StateReader.ContractClassHash(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *classHash, nil
+	return s.StateReader.ContractClassHash(addr)
 }
 
 func (s *DeprecatedStateReaderAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	nonce, err := s.StateReader.ContractNonce(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *nonce, nil
+	return s.StateReader.ContractNonce(addr)
 }
 
 func (s *DeprecatedStateReaderAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	value, err := s.StateReader.ContractStorage(addr, key)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *value, nil
+	return s.StateReader.ContractStorage(addr, key)
 }
 
 func (s *DeprecatedStateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
