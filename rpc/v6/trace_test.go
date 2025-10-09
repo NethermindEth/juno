@@ -83,7 +83,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
 		return gateway.BlockByNumber(t.Context(), number)
 	}).AnyTimes()
-	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
+	mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(gomock.Any()).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
 			return mockReader.BlockByNumber(blockNumber)
 		})
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 
 		// No feeder client is set
 		handler := rpc.New(mockReader, nil, nil, n, nil)
@@ -391,7 +391,7 @@ func TestTraceTransaction(t *testing.T) {
 			return gateway.BlockByNumber(t.Context(), blockNumber)
 		}).Times(2)
 
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: 19, // Doesn't really matter for this test
 		}, nil)
 

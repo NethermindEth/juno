@@ -25,7 +25,7 @@ type Reader interface {
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)
-	L1Head() (*core.L1Head, error)
+	L1Head() (core.L1Head, error)
 	SubscribeL1Head() L1HeadSubscription
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
@@ -231,10 +231,10 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 	return L1HeadSubscription{b.l1HeadFeed.Subscribe()}
 }
 
-func (b *Blockchain) L1Head() (*core.L1Head, error) {
+func (b *Blockchain) L1Head() (core.L1Head, error) {
 	b.listener.OnRead("L1Head")
 	l1Head, err := core.GetL1Head(b.database)
-	return &l1Head, err // TODO: this should return a value
+	return l1Head, err
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
