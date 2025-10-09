@@ -102,7 +102,7 @@ func TestGetMessageStatus(t *testing.T) {
 				// Expects for h.TransactionStatus()
 				mockReader.EXPECT().TransactionByHash(msg.L1HandlerHash).Return(l1handlerTxns[i], nil)
 				mockReader.EXPECT().Receipt(msg.L1HandlerHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-				mockReader.EXPECT().L1Head().Return(&core.L1Head{BlockNumber: uint64(test.l1HeadBlockNum)}, nil)
+				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: uint64(test.l1HeadBlockNum)}, nil)
 			}
 			msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &test.l1TxnHash)
 			require.Nil(t, rpcErr)

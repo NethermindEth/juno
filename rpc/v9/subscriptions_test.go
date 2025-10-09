@@ -276,7 +276,7 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil).Times(1)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
 
@@ -319,7 +319,7 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
@@ -362,7 +362,7 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1Filtered, preConfirmed1Filtered...), nil, nil)
@@ -397,7 +397,7 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: b1.Header.Number},
+				core.L1Head{BlockNumber: b1.Header.Number},
 				nil,
 			)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
@@ -424,7 +424,7 @@ func TestSubscribeEvents(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
 			cToken := new(blockchain.ContinuationToken)
@@ -481,7 +481,7 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1FilteredBySenders, preConfirmedFilteredBySenders...), nil, nil)
@@ -553,7 +553,7 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1FilteredByFromAddressAndKey, preConfirmedFilteredBySendersAndKey...), nil, nil)
@@ -797,7 +797,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		// Accepted on l2 Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		handler.newHeads.Send(block)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
@@ -806,11 +806,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			preConfirmed,
 			nil,
 		).Times(1)
-		l1Head := &core.L1Head{BlockNumber: block.Number}
+		l1Head := core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
-		handler.l1Heads.Send(l1Head)
+		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 	})
 }
@@ -1023,7 +1023,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-	mockChain.EXPECT().L1Head().Return(&core.L1Head{BlockNumber: 0}, nil)
+	mockChain.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 

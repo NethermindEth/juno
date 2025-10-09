@@ -344,7 +344,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
 			handler.pendingData.Send(&core.Pending{Block: &core.Block{Header: &core.Header{}}})
 			handler.pendingData.Send(&core.Pending{Block: &core.Block{Header: &core.Header{}}})
@@ -352,11 +352,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
-		l1Head := &core.L1Head{BlockNumber: block.Number}
+		l1Head := core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
-		handler.l1Heads.Send(l1Head)
+		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 	})
 }

@@ -148,7 +148,7 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("l1_accepted", func(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(
-			&core.L1Head{
+			core.L1Head{
 				BlockNumber: uint64(21656),
 				BlockHash:   update21656.BlockHash,
 				StateRoot:   update21656.NewRoot,
