@@ -25,7 +25,10 @@ func AdaptDeclareV3WithClass(
 		return nil, nil, err
 	}
 
-	declareCommon := AdaptDeclareV3TxnCommon(tx.Common, classHash, txnHash)
+	declareCommon, err := AdaptDeclareV3TxnCommon(tx.Common, classHash, txnHash)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to adapt declare v3 transaction common: %w", err)
+	}
 	if *class.Compiled.Hash() != *declareCommon.CompiledClassHash {
 		err := fmt.Errorf("compiled class hash mismatch: expected %s, got %s", class.Compiled.Hash(), declareCommon.CompiledClassHash)
 		return nil, nil, err
@@ -34,14 +37,24 @@ func AdaptDeclareV3WithClass(
 	return declareCommon, &class, nil
 }
 
-func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash *felt.Felt, txnHash *common.Hash) *core.DeclareTransaction {
+func AdaptDeclareV3TxnCommon(
+	tx *transaction.DeclareV3Common,
+	classHash *felt.Felt,
+	txnHash *common.Hash,
+) (*core.DeclareTransaction, error) {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
+		return nil,
+			fmt.Errorf(
+				"failed to convert Nonce DA mode %v to uint32: %w", tx.NonceDataAvailabilityMode, err,
+			)
 	}
 	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
+		return nil,
+			fmt.Errorf(
+				"failed to convert Fee DA mode %v to uint32: %w", tx.FeeDataAvailabilityMode, err,
+			)
 	}
 	declareTx := &core.DeclareTransaction{
 		TransactionHash:      AdaptHash(txnHash),
@@ -63,18 +76,27 @@ func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash *felt.Fe
 		NonceDAMode:           nDAMode,
 		FeeDAMode:             fDAMode,
 	}
-	return declareTx
+	return declareTx, nil
 }
 
-func AdaptDeployAccountV3TxnCommon(tx *transaction.DeployAccountV3, txnHash *common.Hash) *core.DeployAccountTransaction {
+func AdaptDeployAccountV3TxnCommon(
+	tx *transaction.DeployAccountV3,
+	txnHash *common.Hash,
+) (*core.DeployAccountTransaction, error) {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
+		return nil,
+			fmt.Errorf(
+				"failed to convert Nonce DA mode %v to uint32: %w", tx.NonceDataAvailabilityMode, err,
+			)
 	}
 
 	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
+		return nil,
+			fmt.Errorf(
+				"failed to convert Fee DA mode %v to uint32: %w", tx.FeeDataAvailabilityMode, err,
+			)
 	}
 
 	addressSalt := AdaptFelt(tx.AddressSalt)
@@ -102,18 +124,27 @@ func AdaptDeployAccountV3TxnCommon(tx *transaction.DeployAccountV3, txnHash *com
 		PaymasterData: utils.Map(tx.PaymasterData, AdaptFelt),
 		NonceDAMode:   nDAMode,
 		FeeDAMode:     fDAMode,
-	}
+	}, nil
 }
 
-func AdaptInvokeV3TxnCommon(tx *transaction.InvokeV3, txnHash *common.Hash) *core.InvokeTransaction {
+func AdaptInvokeV3TxnCommon(
+	tx *transaction.InvokeV3,
+	txnHash *common.Hash,
+) (*core.InvokeTransaction, error) {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
+		return nil,
+			fmt.Errorf(
+				"failed to convert Nonce DA mode %v to uint32: %w", tx.NonceDataAvailabilityMode, err,
+			)
 	}
 
 	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
+		return nil,
+			fmt.Errorf(
+				"failed to convert Fee DA mode %v to uint32: %w", tx.FeeDataAvailabilityMode, err,
+			)
 	}
 
 	return &core.InvokeTransaction{
@@ -136,7 +167,7 @@ func AdaptInvokeV3TxnCommon(tx *transaction.InvokeV3, txnHash *common.Hash) *cor
 		NonceDAMode:           nDAMode,
 		FeeDAMode:             fDAMode,
 		AccountDeploymentData: nil, // todo(kirill) recheck
-	}
+	}, nil
 }
 
 func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1HandlerTransaction {
@@ -151,11 +182,10 @@ func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1H
 }
 
 //nolint:funlen
-func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Network) core.Transaction {
-	if t == nil {
-		return nil
-	}
-
+func AdaptTransaction(
+	t *synctransaction.TransactionInBlock,
+	network *utils.Network,
+) (core.Transaction, error) {
 	// can Txn be nil?
 	switch t.Txn.(type) {
 	case *synctransaction.TransactionInBlock_DeclareV0:
@@ -179,7 +209,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 			FeeDAMode:             0,
 		}
 
-		return declareTx
+		return declareTx, nil
 	case *synctransaction.TransactionInBlock_DeclareV1:
 		tx := t.GetDeclareV1()
 		declareTx := &core.DeclareTransaction{
@@ -201,7 +231,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 			FeeDAMode:             0,
 		}
 
-		return declareTx
+		return declareTx, nil
 	case *synctransaction.TransactionInBlock_DeclareV2:
 		tx := t.GetDeclareV2()
 		declareTx := &core.DeclareTransaction{
@@ -222,7 +252,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 			FeeDAMode:             0,
 		}
 
-		return declareTx
+		return declareTx, nil
 	case *synctransaction.TransactionInBlock_DeclareV3:
 		tx := t.GetDeclareV3()
 		return AdaptDeclareV3TxnCommon(tx.Common, AdaptHash(tx.ClassHash), t.TransactionHash)
@@ -241,7 +271,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 			Version:             txVersion(0),
 		}
 
-		return deployTx
+		return deployTx, nil
 	case *synctransaction.TransactionInBlock_DeployAccountV1_:
 		tx := t.GetDeployAccountV1()
 
@@ -268,7 +298,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 			FeeDAMode:      0,
 		}
 
-		return deployAccTx
+		return deployAccTx, nil
 	case *synctransaction.TransactionInBlock_DeployAccountV3:
 		tx := t.GetDeployAccountV3()
 		return AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash)
@@ -294,7 +324,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 			FeeDAMode:             0,
 		}
 
-		return invTx
+		return invTx, nil
 	case *synctransaction.TransactionInBlock_InvokeV1_:
 		tx := t.GetInvokeV1()
 		invTx := &core.InvokeTransaction{
@@ -316,15 +346,15 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 			FeeDAMode:             0,
 		}
 
-		return invTx
+		return invTx, nil
 	case *synctransaction.TransactionInBlock_InvokeV3:
 		tx := t.GetInvokeV3()
 		return AdaptInvokeV3TxnCommon(tx, t.TransactionHash)
 	case *synctransaction.TransactionInBlock_L1Handler:
 		tx := t.GetL1Handler()
-		return AdaptL1Handler(tx, t.TransactionHash)
+		return AdaptL1Handler(tx, t.TransactionHash), nil
 	default:
-		panic(fmt.Errorf("unsupported tx type %T", t.Txn))
+		return nil, fmt.Errorf("unsupported tx type %T", t.Txn)
 	}
 }
 

@@ -29,9 +29,15 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 			return consensus.Transaction{}, err
 		}
 	case *p2pconsensus.ConsensusTransaction_DeployAccountV3:
-		tx = p2p2core.AdaptDeployAccountV3TxnCommon(t.GetDeployAccountV3(), t.TransactionHash)
+		tx, err = p2p2core.AdaptDeployAccountV3TxnCommon(t.GetDeployAccountV3(), t.TransactionHash)
+		if err != nil {
+			return consensus.Transaction{}, err
+		}
 	case *p2pconsensus.ConsensusTransaction_InvokeV3:
-		tx = p2p2core.AdaptInvokeV3TxnCommon(t.GetInvokeV3(), t.TransactionHash)
+		tx, err = p2p2core.AdaptInvokeV3TxnCommon(t.GetInvokeV3(), t.TransactionHash)
+		if err != nil {
+			return consensus.Transaction{}, err
+		}
 	case *p2pconsensus.ConsensusTransaction_L1Handler:
 		tx = p2p2core.AdaptL1Handler(t.GetL1Handler(), t.TransactionHash)
 		paidFeeOnL1 = felt.One.Clone()
