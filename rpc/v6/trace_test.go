@@ -1120,7 +1120,7 @@ func TestCall(t *testing.T) {
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
@@ -1149,7 +1149,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockVM.EXPECT().Call(
 			&vm.CallInfo{
 				ContractAddress: contractAddr,
@@ -1203,7 +1203,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockVM.EXPECT().Call(
 			gomock.Any(),
 			gomock.Any(),
@@ -1243,7 +1243,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockVM.EXPECT().Call(
 			gomock.Any(),
 			gomock.Any(),
@@ -1282,7 +1282,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockVM.EXPECT().Call(
 			gomock.Any(),
 			gomock.Any(),

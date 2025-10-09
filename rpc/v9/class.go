@@ -136,7 +136,7 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	return classHash, nil
+	return &classHash, nil
 }
 
 func adaptCairo0EntryPoints(entryPoints []core.EntryPoint) []rpcv6.EntryPoint {
