@@ -535,7 +535,7 @@ func TestBlockWithTxs(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
-		).Times(2)
+		).Times(2 + len(latestBlock.Transactions))
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		preConfirmedID := blockIDPreConfirmed(t)
