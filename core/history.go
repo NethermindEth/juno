@@ -82,8 +82,7 @@ func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt,
 		return felt.Felt{}, err
 	}
 
-	contractStorage := new(felt.Felt).SetBytes(value)
-	return *contractStorage, nil
+	return felt.FromBytes[felt.Felt](value), nil
 }
 
 func (h *history) LogContractNonce(contractAddress, oldValue *felt.Felt, height uint64) error {
@@ -100,8 +99,7 @@ func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (fe
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	contractNonce := new(felt.Felt).SetBytes(value)
-	return *contractNonce, nil
+	return felt.FromBytes[felt.Felt](value), nil
 }
 
 func (h *history) LogContractClassHash(contractAddress, oldValue *felt.Felt, height uint64) error {
@@ -119,6 +117,5 @@ func (h *history) ContractClassHashAt(contractAddress *felt.Felt, height uint64)
 		return felt.Felt{}, err
 	}
 
-	contractClassHash := new(felt.Felt).SetBytes(value)
-	return *contractClassHash, nil
+	return felt.FromBytes[felt.Felt](value), nil
 }
