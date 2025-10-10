@@ -14,6 +14,7 @@ import (
 
 	types "github.com/NethermindEth/juno/consensus/types"
 	actions "github.com/NethermindEth/juno/consensus/types/actions"
+	wal "github.com/NethermindEth/juno/consensus/types/wal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,6 +40,20 @@ func NewMockStateMachine[V types.Hashable[H], H types.Hash, A types.Addr](ctrl *
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStateMachine[V, H, A]) EXPECT() *MockStateMachineMockRecorder[V, H, A] {
 	return m.recorder
+}
+
+// Height mocks base method.
+func (m *MockStateMachine[V, H, A]) Height() types.Height {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(types.Height)
+	return ret0
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockStateMachineMockRecorder[V, H, A]) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).Height))
 }
 
 // ProcessPrecommit mocks base method.
@@ -97,6 +112,20 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessStart(arg0 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessStart", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessStart), arg0)
 }
 
+// ProcessSync mocks base method.
+func (m *MockStateMachine[V, H, A]) ProcessSync(arg0 *types.Proposal[V, H, A], arg1 []types.Precommit[H, A]) []actions.Action[V, H, A] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProcessSync", arg0, arg1)
+	ret0, _ := ret[0].([]actions.Action[V, H, A])
+	return ret0
+}
+
+// ProcessSync indicates an expected call of ProcessSync.
+func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessSync(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSync", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessSync), arg0, arg1)
+}
+
 // ProcessTimeout mocks base method.
 func (m *MockStateMachine[V, H, A]) ProcessTimeout(arg0 types.Timeout) []actions.Action[V, H, A] {
 	m.ctrl.T.Helper()
@@ -111,14 +140,16 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessTimeout(arg0 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessTimeout", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessTimeout), arg0)
 }
 
-// ReplayWAL mocks base method.
-func (m *MockStateMachine[V, H, A]) ReplayWAL() {
+// ProcessWAL mocks base method.
+func (m *MockStateMachine[V, H, A]) ProcessWAL(arg0 wal.Entry[V, H, A]) []actions.Action[V, H, A] {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ReplayWAL")
+	ret := m.ctrl.Call(m, "ProcessWAL", arg0)
+	ret0, _ := ret[0].([]actions.Action[V, H, A])
+	return ret0
 }
 
-// ReplayWAL indicates an expected call of ReplayWAL.
-func (mr *MockStateMachineMockRecorder[V, H, A]) ReplayWAL() *gomock.Call {
+// ProcessWAL indicates an expected call of ProcessWAL.
+func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessWAL(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplayWAL", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ReplayWAL))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessWAL", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessWAL), arg0)
 }
