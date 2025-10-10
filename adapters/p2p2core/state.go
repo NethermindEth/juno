@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
@@ -14,7 +15,7 @@ import (
 )
 
 func AdaptStateDiff(
-	reader core.StateReader,
+	reader commonstate.StateReader,
 	contractDiffs []*state.ContractDiff,
 	classes []*class.Class,
 ) (*core.StateDiff, error) {

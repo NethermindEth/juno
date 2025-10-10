@@ -80,7 +80,7 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 		}
 
 		results[i] = MsgStatus{
-			L1HandlerHash:   hash,
+			L1HandlerHash:   &hash,
 			FinalityStatus:  status.Finality,
 			FailureReason:   status.FailureReason,
 			ExecutionStatus: status.Execution,

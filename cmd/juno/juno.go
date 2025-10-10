@@ -148,6 +148,7 @@ const (
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
+	defaultNewState                           = false
 	defaultDisableRPCBatchRequests            = false
 
 	configFlagUsage                       = "The YAML configuration file."
@@ -429,7 +430,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
 	)
-	junoCmd.Flags().Bool(newStateF, false, newStateUsage)
+	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)

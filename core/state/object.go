@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
-	"github.com/NethermindEth/juno/db"
 	"golang.org/x/exp/maps"
 )
 
@@ -50,8 +49,13 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 		return felt.Zero, err
 	}
 
+	// TODO(maksym): test if this works instead of reading from disk
 	path := tr.FeltToPath(key)
-	v, err := trieutils.GetNodeByPath(s.state.db.disk, db.ContractTrieStorage, &s.addr, &path, true)
+	reader, err := s.state.db.triedb.NodeReader(trieutils.NewContractStorageTrieID(s.state.initRoot, s.addr))
+	if err != nil {
+		return felt.Zero, err
+	}
+	v, err := reader.Node(&s.addr, &path, nil, true)
 	if err != nil {
 		return felt.Zero, err
 	}
