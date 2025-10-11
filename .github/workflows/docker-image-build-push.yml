@@ -101,7 +101,9 @@ jobs:
 
   create_and_push_official_image:
     needs:
-      [setup, build_and_push_docker_image_amd, build_and_push_docker_image_arm]
+      - setup
+      - build_and_push_docker_image_amd
+      - build_and_push_docker_image_arm
     if: github.repository_owner == 'NethermindEth' && inputs.repo_type == 'official'
     runs-on: ubuntu-latest
     steps:
