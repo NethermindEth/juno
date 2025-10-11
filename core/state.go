@@ -98,7 +98,7 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 
 // Root returns the state commitment.
 func (s *State) Root() (felt.Felt, error) {
-	var storageRoot, classesRoot *felt.Felt
+	var storageRoot, classesRoot felt.Felt
 
 	sStorage, closer, err := s.storage()
 	if err != nil {
@@ -127,10 +127,10 @@ func (s *State) Root() (felt.Felt, error) {
 	}
 
 	if classesRoot.IsZero() {
-		return *storageRoot, nil
+		return storageRoot, nil
 	}
 
-	root := crypto.PoseidonArray(stateVersion, storageRoot, classesRoot)
+	root := crypto.PoseidonArray(stateVersion, &storageRoot, &classesRoot)
 	return *root, nil
 }
 
