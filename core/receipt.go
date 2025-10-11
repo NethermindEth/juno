@@ -116,7 +116,7 @@ func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process
 		if err != nil {
 			return err
 		}
-		commitment = root
+		commitment = &root
 
 		return nil
 	})

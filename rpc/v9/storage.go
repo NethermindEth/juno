@@ -137,8 +137,8 @@ func (h *Handler) StorageProof(
 		ContractsProof:         contractProof,
 		ContractsStorageProofs: contractStorageProof,
 		GlobalRoots: &GlobalRoots{
-			ContractsTreeRoot: contractTreeRoot,
-			ClassesTreeRoot:   classTreeRoot,
+			ContractsTreeRoot: &contractTreeRoot,
+			ClassesTreeRoot:   &classTreeRoot,
 			BlockHash:         head.Hash,
 		},
 	}, nil
@@ -247,7 +247,7 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 		contractLeavesData[i] = &LeafData{
 			Nonce:       &nonce,
 			ClassHash:   &classHash,
-			StorageRoot: root,
+			StorageRoot: &root,
 		}
 	}
 

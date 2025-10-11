@@ -255,18 +255,18 @@ func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
 }
 
 // Get the corresponding `value` for a `key`
-func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
+func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
 	storageKey := t.FeltToKey(key)
 	value, err := t.storage.Get(&storageKey)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return &felt.Zero, nil
+			return felt.Zero, nil
 		}
-		return nil, err
+		return felt.Zero, err
 	}
 	defer nodePool.Put(value)
 	leafValue := *value.Value
-	return &leafValue, nil
+	return leafValue, nil
 }
 
 // GetNodeFromKey returns the node for a given key.
@@ -348,10 +348,12 @@ func (t *Trie) insertOrUpdateValue(
 		}
 		if nodeKey.IsBitSet(commonKey.Len()) {
 			newParent.Right = nodeKey
-			newParent.RightHash = node.Hash(nodeKey, t.hash)
+			rightHash := node.Hash(nodeKey, t.hash)
+			newParent.RightHash = &rightHash
 		} else {
 			newParent.Left = nodeKey
-			newParent.LeftHash = node.Hash(nodeKey, t.hash)
+			leftHash := node.Hash(nodeKey, t.hash)
+			newParent.LeftHash = &leftHash
 		}
 		if err := t.storage.Put(&commonKey, newParent); err != nil {
 			return err
@@ -369,7 +371,9 @@ func (t *Trie) insertOrUpdateValue(
 		leftPath := path(newParent.Left, &commonKey)
 		rightPath := path(newParent.Right, &commonKey)
 
-		newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
+		leftChildHash := leftChild.Hash(&leftPath, t.hash)
+		rightChildHash := rightChild.Hash(&rightPath, t.hash)
+		newParent.Value = t.hash(&leftChildHash, &rightChildHash)
 		if err := t.storage.Put(&commonKey, newParent); err != nil {
 			return err
 		}
@@ -577,12 +581,14 @@ func (t *Trie) updateValueIfDirty(key *BitArray) (*Node, error) { //nolint:gocyc
 	if !leftIsProof {
 		leftPath := path(node.Left, key)
 		defer nodePool.Put(leftChild)
-		leftHash = leftChild.Hash(&leftPath, t.hash)
+		leftChildHash := leftChild.Hash(&leftPath, t.hash)
+		leftHash = &leftChildHash
 	}
 	if !rightIsProof {
 		rightPath := path(node.Right, key)
 		defer nodePool.Put(rightChild)
-		rightHash = rightChild.Hash(&rightPath, t.hash)
+		rightChildHash := rightChild.Hash(&rightPath, t.hash)
+		rightHash = &rightChildHash
 	}
 	node.Value = t.hash(leftHash, rightHash)
 	if err = t.storage.Put(key, node); err != nil {
@@ -681,22 +687,22 @@ func (t *Trie) deleteLast(nodes []StorageNode) error {
 }
 
 // Root returns the commitment of a [Trie]
-func (t *Trie) Root() (*felt.Felt, error) {
+func (t *Trie) Root() (felt.Felt, error) {
 	// We are careful to update the root key before returning.
 	// Otherwise, a new trie will not be able to find the root node.
 	if t.rootKeyIsDirty {
 		if t.rootKey == nil {
 			if err := t.storage.DeleteRootKey(); err != nil {
-				return nil, err
+				return felt.Zero, err
 			}
 		} else if err := t.storage.PutRootKey(t.rootKey); err != nil {
-			return nil, err
+			return felt.Zero, err
 		}
 		t.rootKeyIsDirty = false
 	}
 
 	if t.rootKey == nil {
-		return new(felt.Felt), nil
+		return felt.Zero, nil
 	}
 
 	storage := t.storage
@@ -704,7 +710,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	defer func() { t.storage = storage }()
 	root, err := t.updateValueIfDirty(t.rootKey)
 	if err != nil {
-		return nil, err
+		return felt.Zero, err
 	}
 	defer nodePool.Put(root)
 	t.dirtyNodes = nil
