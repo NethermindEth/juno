@@ -88,10 +88,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ClassTrie() *gomock.Call {
 }
 
 // ContractClassHash mocks base method.
-func (m *MockStateHistoryReader) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractClassHash", addr)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,10 +103,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractClassHash(addr any) *gomoc
 }
 
 // ContractClassHashAt mocks base method.
-func (m *MockStateHistoryReader) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractClassHashAt", addr, blockNumber)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -133,10 +133,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractIsAlreadyDeployedAt(addr, 
 }
 
 // ContractNonce mocks base method.
-func (m *MockStateHistoryReader) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractNonce", addr)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -148,10 +148,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractNonce(addr any) *gomock.Ca
 }
 
 // ContractNonceAt mocks base method.
-func (m *MockStateHistoryReader) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractNonceAt", addr, blockNumber)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,10 +163,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractNonceAt(addr, blockNumber 
 }
 
 // ContractStorage mocks base method.
-func (m *MockStateHistoryReader) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorage", addr, key)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -178,10 +178,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractStorage(addr, key any) *go
 }
 
 // ContractStorageAt mocks base method.
-func (m *MockStateHistoryReader) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageAt", addr, key, blockNumber)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

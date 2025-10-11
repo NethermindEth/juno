@@ -377,7 +377,7 @@ func TestPendingData(t *testing.T) {
 					val, err := pendingState.ContractStorage(contractAddress, storageKey)
 					require.NoError(t, err)
 					expected := new(felt.Felt).SetUint64(uint64(i) + 1)
-					require.Equal(t, expected, val)
+					require.Equal(t, expected, &val)
 					require.NoError(t, pendingStateCloser())
 				}
 			})
@@ -421,11 +421,11 @@ func TestPendingData(t *testing.T) {
 					val, err := pendingState.ContractStorage(contractAddress, storageKey)
 					require.NoError(t, err)
 					expected := new(felt.Felt).SetUint64(uint64(i) + 1)
-					require.Equal(t, expected, val)
+					require.Equal(t, expected, &val)
 
 					val, err = pendingState.ContractStorage(contractAddress, storageKey2)
 					require.NoError(t, err)
-					require.Equal(t, val2, val)
+					require.Equal(t, val2, &val)
 					require.NoError(t, pendingStateCloser())
 				}
 			})

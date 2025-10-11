@@ -252,7 +252,7 @@ func TestStore(t *testing.T) {
 
 		root, err := chain.StateCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, stateUpdate0.NewRoot, root)
+		assert.Equal(t, stateUpdate0.NewRoot, &root)
 
 		got0Block, err := chain.BlockByNumber(0)
 		require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestStore(t *testing.T) {
 
 		root, err := chain.StateCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, stateUpdate1.NewRoot, root)
+		assert.Equal(t, stateUpdate1.NewRoot, &root)
 
 		got1Block, err := chain.BlockByNumber(1)
 		require.NoError(t, err)

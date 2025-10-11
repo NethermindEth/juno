@@ -39,7 +39,7 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("call", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
 		_, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Latest: true})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})

@@ -26,9 +26,9 @@ func (s *stateSnapshot) ChainHeight() (uint64, error) {
 	return s.blockNumber, nil
 }
 
-func (s *stateSnapshot) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
+func (s *stateSnapshot) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	val, err := s.state.ContractClassHashAt(addr, s.blockNumber)
@@ -36,14 +36,14 @@ func (s *stateSnapshot) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
 		if errors.Is(err, ErrCheckHeadState) {
 			return s.state.ContractClassHash(addr)
 		}
-		return nil, err
+		return felt.Felt{}, err
 	}
 	return val, nil
 }
 
-func (s *stateSnapshot) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+func (s *stateSnapshot) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	val, err := s.state.ContractNonceAt(addr, s.blockNumber)
@@ -51,14 +51,14 @@ func (s *stateSnapshot) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 		if errors.Is(err, ErrCheckHeadState) {
 			return s.state.ContractNonce(addr)
 		}
-		return nil, err
+		return felt.Felt{}, err
 	}
 	return val, nil
 }
 
-func (s *stateSnapshot) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+func (s *stateSnapshot) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	val, err := s.state.ContractStorageAt(addr, key, s.blockNumber)
@@ -66,7 +66,7 @@ func (s *stateSnapshot) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error
 		if errors.Is(err, ErrCheckHeadState) {
 			return s.state.ContractStorage(addr, key)
 		}
-		return nil, err
+		return felt.Felt{}, err
 	}
 	return val, nil
 }

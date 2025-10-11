@@ -170,5 +170,5 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	return classHash, nil
+	return &classHash, nil
 }

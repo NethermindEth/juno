@@ -18,14 +18,14 @@ func TestHistory(t *testing.T) {
 
 	for desc, test := range map[string]struct {
 		logger  func(location, oldValue *felt.Felt, height uint64) error
-		getter  func(location *felt.Felt, height uint64) (*felt.Felt, error)
+		getter  func(location *felt.Felt, height uint64) (felt.Felt, error)
 		deleter func(location *felt.Felt, height uint64) error
 	}{
 		"contract storage": {
 			logger: func(location, oldValue *felt.Felt, height uint64) error {
 				return history.LogContractStorage(contractAddress, location, oldValue, height)
 			},
-			getter: func(location *felt.Felt, height uint64) (*felt.Felt, error) {
+			getter: func(location *felt.Felt, height uint64) (felt.Felt, error) {
 				return history.ContractStorageAt(contractAddress, location, height)
 			},
 			deleter: func(location *felt.Felt, height uint64) error {
@@ -61,19 +61,19 @@ func TestHistory(t *testing.T) {
 			t.Run("get value before height 5", func(t *testing.T) {
 				oldValue, err := test.getter(location, 1)
 				require.NoError(t, err)
-				assert.Equal(t, &felt.Zero, oldValue)
+				assert.Equal(t, felt.Zero, oldValue)
 			})
 
 			t.Run("get value between height 5-10 ", func(t *testing.T) {
 				oldValue, err := test.getter(location, 7)
 				require.NoError(t, err)
-				assert.Equal(t, value, oldValue)
+				assert.Equal(t, value, &oldValue)
 			})
 
 			t.Run("get value on height that change happened ", func(t *testing.T) {
 				oldValue, err := test.getter(location, 5)
 				require.NoError(t, err)
-				assert.Equal(t, value, oldValue)
+				assert.Equal(t, value, &oldValue)
 
 				_, err = test.getter(location, 10)
 				assert.ErrorIs(t, err, ErrCheckHeadState)
