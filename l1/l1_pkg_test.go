@@ -385,7 +385,7 @@ func TestClient(t *testing.T) {
 						BlockHash:   block.expectedL2BlockHash,
 						StateRoot:   block.expectedL2BlockHash,
 					}
-					assert.Equal(t, want, &got)
+					assert.Equal(t, want, got)
 				}
 			}
 		})
@@ -463,7 +463,7 @@ func TestUnreliableSubscription(t *testing.T) {
 				BlockHash:   block.expectedL2BlockHash,
 				StateRoot:   block.expectedL2BlockHash,
 			}
-			assert.Equal(t, want, &got)
+			assert.Equal(t, want, got)
 		}
 	}
 }
