@@ -323,25 +323,9 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 
 // replaceContract replaces the class that a contract at a given address instantiates
 func (s *State) replaceContract(stateTrie *trie.Trie, addr, classHash *felt.Felt) (felt.Felt, error) {
-	contract, err := NewContractUpdater(addr, s.txn)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	oldClassHash, err := ContractClassHash(addr, s.txn)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	if err = contract.Replace(classHash); err != nil {
-		return felt.Felt{}, err
-	}
-
-	if err = s.updateContractCommitment(stateTrie, contract); err != nil {
-		return felt.Felt{}, err
-	}
-
-	return oldClassHash, nil
+	return s.updateContract(stateTrie, addr, ContractClassHash, func(c *ContractUpdater) error {
+		return c.Replace(classHash)
+	})
 }
 
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
@@ -476,17 +460,28 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 // updateContractNonce updates nonce of the contract at the
 // given address in the given Txn context.
 func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt) (felt.Felt, error) {
+	return s.updateContract(stateTrie, addr, ContractNonce, func(c *ContractUpdater) error {
+		return c.UpdateNonce(nonce)
+	})
+}
+
+func (s *State) updateContract(
+	stateTrie *trie.Trie,
+	addr *felt.Felt,
+	getOldValue func(*felt.Felt, db.IndexedBatch) (felt.Felt, error),
+	updateValue func(*ContractUpdater) error,
+) (felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)
 	if err != nil {
 		return felt.Felt{}, err
 	}
 
-	oldNonce, err := ContractNonce(addr, s.txn)
+	oldVal, err := getOldValue(addr, s.txn)
 	if err != nil {
 		return felt.Felt{}, err
 	}
 
-	if err = contract.UpdateNonce(nonce); err != nil {
+	if err = updateValue(contract); err != nil {
 		return felt.Felt{}, err
 	}
 
@@ -494,7 +489,7 @@ func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt
 		return felt.Felt{}, err
 	}
 
-	return oldNonce, nil
+	return oldVal, nil
 }
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
