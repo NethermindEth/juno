@@ -3,6 +3,8 @@ package consensus_test
 import (
 	"fmt"
 	goitre "iter"
+	"maps"
+	"slices"
 	gosync "sync"
 	"testing"
 	"time"
@@ -291,6 +293,20 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 	}
 }
 
+func setupNodes(
+	t *testing.T,
+	msg string,
+	logger utils.Logger,
+	cfg *testConfig,
+	honestNodeCount int,
+) testutils.Nodes {
+	network := cfg.networkSetup(honestNodeCount)
+	for from, edges := range network {
+		logger.Infow(msg, "from", from, "to", slices.Sorted(maps.Keys(edges)))
+	}
+	return testutils.BuildNetworks(t, network)
+}
+
 func runTest(t *testing.T, cfg testConfig) {
 	t.Helper()
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
@@ -302,8 +318,8 @@ func runTest(t *testing.T, cfg testConfig) {
 
 	commits := make(chan commit, commitBufferSize)
 
-	consensusNodes := testutils.BuildNetworks(t, cfg.networkSetup(honestNodeCount))
-	syncNodes := testutils.BuildNetworks(t, cfg.networkSetup(honestNodeCount))
+	consensusNodes := setupNodes(t, "consensus network", logger, &cfg, honestNodeCount)
+	syncNodes := setupNodes(t, "sync network", logger, &cfg, honestNodeCount)
 
 	wg := gosync.WaitGroup{}
 	t.Cleanup(wg.Wait)
@@ -346,7 +362,7 @@ func runWithAllHonestAndSilentFaultyNodes(t *testing.T, cfg testConfig) {
 func TestTendermintCluster(t *testing.T) {
 	runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 		nodeCount:    4,
-		targetHeight: 10,
+		targetHeight: 60,
 		networkSetup: testutils.LineNetworkConfig,
 	})
 
