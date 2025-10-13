@@ -332,7 +332,7 @@ func TestRevert(t *testing.T) {
 
 		gotClassHash, err = state.ContractClassHash(&su1FirstDeployedAddress)
 		require.NoError(t, err)
-		assert.Equal(t, *su1.StateDiff.DeployedContracts[*new(felt.Felt).Set(&su1FirstDeployedAddress)], gotClassHash)
+		assert.Equal(t, *su1.StateDiff.DeployedContracts[su1FirstDeployedAddress], gotClassHash)
 	})
 
 	t.Run("revert a nonce update", func(t *testing.T) {
