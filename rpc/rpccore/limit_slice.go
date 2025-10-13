@@ -17,9 +17,9 @@ type (
 )
 
 const (
-	simulationLimit       = 1024
-	functionCalldataLimit = 10000
-	senderAddressLimit    = 1024
+	simulationLimit       = 5000
+	functionCalldataLimit = 50000
+	senderAddressLimit    = 5000
 )
 
 func (l SimulationLimit) Limit() int       { return simulationLimit }
