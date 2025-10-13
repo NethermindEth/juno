@@ -5,6 +5,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/types/wal"
 	"github.com/NethermindEth/juno/consensus/votecounter"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -102,6 +103,19 @@ func (s *stateMachine[V, H, A]) resetState(round types.Round) {
 
 func (s *stateMachine[V, H, A]) startRound(r types.Round) actions.Action[V, H, A] {
 	s.resetState(r)
+
+	if r > 0 {
+		proposer := felt.Felt(s.voteCounter.Proposer(r - 1))
+		s.log.Debugw(
+			"Failed round",
+			"height",
+			s.state.height,
+			"round",
+			r-1,
+			"proposer",
+			proposer.String(),
+		)
+	}
 
 	if p := s.voteCounter.Proposer(r); p == s.nodeAddr {
 		var proposalValue *V

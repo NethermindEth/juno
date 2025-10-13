@@ -2,6 +2,10 @@ package testutils
 
 import "math/rand"
 
+// Because the bootstrap peers process only connect to up to 2 nodes
+// See https://github.com/libp2p/go-libp2p-kad-dht/blob/v0.35.1/dht.go#L530-L541
+const maxBootstrappers = 2
+
 // AdjacentNodes is a slice of N sets, each representing the nodes adjacent to the node at the index.
 type AdjacentNodes []map[int]struct{}
 
@@ -38,45 +42,85 @@ func (a AdjacentNodes) ConnectRandomDirection(from, to int) bool {
 	return true
 }
 
+func (a AdjacentNodes) Validate() bool {
+	connected := make([]map[int]struct{}, len(a))
+	for from := range a {
+		connected[from] = make(map[int]struct{})
+	}
+
+	for from, edges := range a {
+		// Ignore all outgoing edges to nodes that have more than maxBootstrappers bootstrap peers.
+		if len(edges) > maxBootstrappers {
+			continue
+		}
+
+		for to := range edges {
+			connected[from][to] = struct{}{}
+			connected[to][from] = struct{}{}
+		}
+	}
+
+	// Simple BFS to check if all nodes are connected
+	visited := map[int]struct{}{0: {}}
+	queue := []int{0}
+	for len(queue) > 0 {
+		from := queue[0]
+		queue = queue[1:]
+		for to := range connected[from] {
+			if _, ok := visited[to]; !ok {
+				visited[to] = struct{}{}
+				queue = append(queue, to)
+			}
+		}
+	}
+
+	return len(visited) == len(a)
+}
+
 // NetworkConfigFn is a function that returns an AdjacentNodes for a given number of nodes.
 type NetworkConfigFn func(int) AdjacentNodes
 
-func LineNetworkConfig(n int) AdjacentNodes {
-	adjacentNodes := NewAdjacentNodes(n)
+func newNetworkConfigFn(f func(AdjacentNodes)) NetworkConfigFn {
+	return func(n int) AdjacentNodes {
+		for {
+			adjacentNodes := NewAdjacentNodes(n)
+			f(adjacentNodes)
+			if adjacentNodes.Validate() {
+				return adjacentNodes
+			}
+		}
+	}
+}
 
+var LineNetworkConfig = newNetworkConfigFn(func(adjacentNodes AdjacentNodes) {
+	n := len(adjacentNodes)
 	for i := 0; i+1 < n; i++ {
 		adjacentNodes.Connect(i, i+1)
 	}
-
-	return adjacentNodes
-}
+})
 
 //nolint:gosec // The whole package is for testing purpose only, so it's safe to use weak random.
-func SmallWorldNetworkConfig(n int) AdjacentNodes {
-	adjacentNodes := NewAdjacentNodes(n)
+var SmallWorldNetworkConfig = newNetworkConfigFn(func(adjacentNodes AdjacentNodes) {
+	const (
+		rateOfNeighborConnections = 0.2
+		rateOfRandomConnections   = 0.2
+	)
 
-	rateOfNeighborConnections := 0.25
+	n := len(adjacentNodes)
 	for i := range n {
 		// Connect to the next node
 		adjacentNodes.ConnectRandomDirection(i, (i+1)%n)
 
-		// 50% chance to connect to a node 2-5 hops away
-		for distance := 2; distance < 6; distance++ {
+		// 20% chance to connect to a node 2-3 hops away
+		for distance := 2; distance < 4; distance++ {
 			if rand.Float64() < rateOfNeighborConnections {
 				adjacentNodes.ConnectRandomDirection(i, (i+distance)%n)
 			}
 		}
-	}
 
-	for i := range n {
-		// Connect to 2 random nodes
-		for range 2 {
-			randomNode := rand.Intn(n)
-			for !adjacentNodes.ConnectRandomDirection(i, randomNode) {
-				randomNode = rand.Intn(n)
-			}
+		// 20% chance to connect to a random node
+		if rand.Float64() < rateOfRandomConnections {
+			adjacentNodes.ConnectRandomDirection(i, rand.Intn(n))
 		}
 	}
-
-	return adjacentNodes
-}
+})

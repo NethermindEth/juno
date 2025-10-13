@@ -249,17 +249,16 @@ func (d *Driver[V, H, A]) syncCurrentHeight(ctx context.Context) {
 	}
 
 	d.wg.Go(func() {
-		for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		if err := d.blockFetcher.ProcessBlock(ctx, uint64(height), d.syncListener); err != nil {
 			select {
 			case <-ctx.Done():
-				return
-			default:
-			}
-
-			if err := d.blockFetcher.ProcessBlock(ctx, uint64(height), d.syncListener); err != nil {
-				d.log.Errorw("failed to trigger sync", "block", height, "err", err)
-			} else {
-				break
+			case d.syncListener <- sync.BlockBody{Err: err}:
 			}
 		}
 	})
