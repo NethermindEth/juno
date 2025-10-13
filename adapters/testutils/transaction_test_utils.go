@@ -12,6 +12,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 	"github.com/stretchr/testify/require"
 )
@@ -23,11 +24,12 @@ type toCoreType[C any] func(core.Transaction, core.Class, *felt.Felt) C
 type toP2PType[P, I any] func(I, *common.Hash) P
 
 type TransactionBuilder[C, P any] struct {
-	ToCore         toCoreType[C]
-	ToP2PDeclare   toP2PType[P, *transaction.DeclareV3WithClass]
-	ToP2PDeploy    toP2PType[P, *transaction.DeployAccountV3]
-	ToP2PInvoke    toP2PType[P, *transaction.InvokeV3]
-	ToP2PL1Handler toP2PType[P, *transaction.L1HandlerV0]
+	ToCore           toCoreType[C]
+	ToP2PDeclare     toP2PType[P, *transaction.DeclareV3WithClass]
+	ToP2PDeclareSync toP2PType[P, *synctransaction.TransactionInBlock_DeclareV0WithoutClass]
+	ToP2PDeploy      toP2PType[P, *transaction.DeployAccountV3]
+	ToP2PInvoke      toP2PType[P, *transaction.InvokeV3]
+	ToP2PL1Handler   toP2PType[P, *transaction.L1HandlerV0]
 }
 
 type factory[C, P any] func(t *testing.T, network *utils.Network) (C, P)
@@ -74,6 +76,11 @@ func toFelt252Slice(felts [][]byte) []*common.Felt252 {
 		felt252s[i] = &common.Felt252{Elements: felts[i]}
 	}
 	return felt252s
+}
+
+func toFelt252(t *testing.T, felts []byte) *common.Felt252 {
+	t.Helper()
+	return &common.Felt252{Elements: felts}
 }
 
 func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.ResourceLimits) {
@@ -191,6 +198,51 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeclareTransaction, network)
 
 	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil), b.ToP2PDeclare(&p2pTransaction, p2pHash)
+}
+
+func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
+	t.Helper()
+	classHash, cairo1Class := getSampleClass(t)
+	senderAddress, senderAddressBytes := getRandomFelt(t)
+	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
+	nonce, nonceBytes := getRandomFelt(t)
+	version := new(core.TransactionVersion).SetUint64(0)
+
+	p2pTransaction := synctransaction.TransactionInBlock_DeclareV0WithoutClass{
+		Sender:    &common.Address{Elements: senderAddressBytes},
+		MaxFee:    toFelt252(t, nonceBytes),
+		Signature: &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+		ClassHash: core2p2p.AdaptHash(&classHash),
+	}
+
+	consensusDeclareTransaction := core.DeclareTransaction{
+		TransactionHash:       nil,
+		ClassHash:             &classHash,
+		SenderAddress:         &senderAddress,
+		MaxFee:                &nonce,
+		TransactionSignature:  transactionSignature,
+		Nonce:                 nil,
+		Version:               version,
+		CompiledClassHash:     nil,
+		ResourceBounds:        nil,
+		Tip:                   0,
+		PaymasterData:         nil,
+		AccountDeploymentData: nil,
+		NonceDAMode:           0,
+		FeeDAMode:             0,
+	}
+
+	var p2pHash *common.Hash
+	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeclareTransaction,
+		network,
+	)
+	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil),
+		b.ToP2PDeclareSync(&p2pTransaction, p2pHash)
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
