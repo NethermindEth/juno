@@ -275,7 +275,7 @@ func getContractProofWithDeprecatedTrie(tr *trie.Trie, state commonstate.StateRe
 		contractLeavesData[i] = &LeafData{
 			Nonce:       &nonce,
 			ClassHash:   &classHash,
-			StorageRoot: root,
+			StorageRoot: &root,
 		}
 	}
 

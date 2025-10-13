@@ -113,7 +113,10 @@ func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process
 			}
 		}
 
-		root := trie.Hash()
+		root, err := trie.Hash()
+		if err != nil {
+			return err
+		}
 		commitment = &root
 
 		return nil
