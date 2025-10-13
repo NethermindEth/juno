@@ -18,19 +18,11 @@ func (dta *DeprecatedTrieAdapter) Update(key, value *felt.Felt) error {
 }
 
 func (dta *DeprecatedTrieAdapter) Get(key *felt.Felt) (felt.Felt, error) {
-	value, err := (*trie.Trie)(dta).Get(key)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *value, nil
+	return (*trie.Trie)(dta).Get(key)
 }
 
 func (dta *DeprecatedTrieAdapter) Hash() (felt.Felt, error) {
-	root, err := (*trie.Trie)(dta).Root()
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *root, nil
+	return (*trie.Trie)(dta).Root()
 }
 
 func (dta *DeprecatedTrieAdapter) HashFn() crypto.HashFn {
