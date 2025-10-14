@@ -120,7 +120,7 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(number any) *gomock.Call {
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (blockchain.EventFilterer, error) {
+func (m *MockReader) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() (core.PendingData, error)) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventFilter", from, keys, pendingBlockFn)
 	ret0, _ := ret[0].(blockchain.EventFilterer)

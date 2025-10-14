@@ -84,7 +84,11 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(
+		args.EventFilter.Address,
+		args.EventFilter.Keys,
+		h.PendingData,
+	)
 	if err != nil {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
@@ -99,7 +103,12 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 		}
 	}
 
-	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
+	if err = setEventFilterRange(
+		filter,
+		args.EventFilter.FromBlock,
+		args.EventFilter.ToBlock,
+		height,
+	); err != nil {
 		return rpcv6.EventsChunk{}, rpccore.ErrBlockNotFound
 	}
 

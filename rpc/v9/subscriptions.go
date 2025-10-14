@@ -310,7 +310,7 @@ func (h *Handler) processHistoricalEvents(
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
 	if err != nil {
 		return err
 	}

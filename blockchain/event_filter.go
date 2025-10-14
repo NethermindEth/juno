@@ -25,14 +25,14 @@ type EventFilterer interface {
 }
 
 type EventFilter struct {
-	txn            db.KeyValueStore
-	fromBlock      uint64
-	toBlock        uint64
-	matcher        EventMatcher
-	maxScanned     uint // maximum number of scanned blocks in single call.
-	pendingBlockFn func() *core.Block
-	cachedFilters  *AggregatedBloomFilterCache
-	runningFilter  *core.RunningEventFilter
+	txn           db.KeyValueStore
+	fromBlock     uint64
+	toBlock       uint64
+	matcher       EventMatcher
+	maxScanned    uint // maximum number of scanned blocks in single call.
+	pendingDataFn func() (core.PendingData, error)
+	cachedFilters *AggregatedBloomFilterCache
+	runningFilter *core.RunningEventFilter
 }
 
 type EventFilterRange uint
@@ -47,19 +47,19 @@ func newEventFilter(
 	contractAddress *felt.Felt,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
-	pendingBlockFn func() *core.Block,
+	pendingDataFn func() (core.PendingData, error),
 	cachedFilters *AggregatedBloomFilterCache,
 	runningFilter *core.RunningEventFilter,
 ) *EventFilter {
 	return &EventFilter{
-		txn:            txn,
-		matcher:        NewEventMatcher(contractAddress, keys),
-		fromBlock:      fromBlock,
-		toBlock:        toBlock,
-		maxScanned:     math.MaxUint,
-		pendingBlockFn: pendingBlockFn,
-		cachedFilters:  cachedFilters,
-		runningFilter:  runningFilter,
+		txn:           txn,
+		matcher:       NewEventMatcher(contractAddress, keys),
+		fromBlock:     fromBlock,
+		toBlock:       toBlock,
+		maxScanned:    math.MaxUint,
+		pendingDataFn: pendingDataFn,
+		cachedFilters: cachedFilters,
+		runningFilter: runningFilter,
 	}
 }
 
@@ -165,18 +165,24 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	}
 
 	// Case [canonicalBlock, pending] || [pending, pending]
-	pending := e.pendingBlockFn()
-	if pending == nil {
-		return matchedEvents, nil, nil
+	pending, pendingDataErr := e.pendingDataFn()
+	if pendingDataErr != nil {
+		return matchedEvents, nil, nil //nolint:nilerr // ignore err return matches so for
 	}
 
-	header := pending.Header
+	header := pending.GetHeader()
 	if possibleMatches := e.matcher.TestBloom(header.EventsBloom); !possibleMatches {
 		return matchedEvents, nil, nil
 	}
 
 	var processedEvents uint64
-	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, pending.Receipts, skippedEvents, chunkSize)
+	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents,
+		header,
+		pending.GetBlock().Receipts,
+		skippedEvents,
+		chunkSize,
+	)
 	if err != nil {
 		// Max events to scan exhausted middle of pending block, continue from next unprocessed event
 		if errors.Is(err, errChunkSizeReached) {
