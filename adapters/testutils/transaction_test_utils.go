@@ -24,12 +24,12 @@ type toCoreType[C any] func(core.Transaction, core.Class, *felt.Felt) C
 type toP2PType[P, I any] func(I, *common.Hash) P
 
 type TransactionBuilder[C, P any] struct {
-	ToCore           toCoreType[C]
-	ToP2PDeclare     toP2PType[P, *transaction.DeclareV3WithClass]
-	ToP2PDeclareSync toP2PType[P, *synctransaction.TransactionInBlock_DeclareV0WithoutClass]
-	ToP2PDeploy      toP2PType[P, *transaction.DeployAccountV3]
-	ToP2PInvoke      toP2PType[P, *transaction.InvokeV3]
-	ToP2PL1Handler   toP2PType[P, *transaction.L1HandlerV0]
+	ToCore         toCoreType[C]
+	ToP2PDeclareV3 toP2PType[P, *transaction.DeclareV3WithClass]
+	ToP2PDeclareV0 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV0WithoutClass]
+	ToP2PDeploy    toP2PType[P, *transaction.DeployAccountV3]
+	ToP2PInvoke    toP2PType[P, *transaction.InvokeV3]
+	ToP2PL1Handler toP2PType[P, *transaction.L1HandlerV0]
 }
 
 type factory[C, P any] func(t *testing.T, network *utils.Network) (C, P)
@@ -197,7 +197,8 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 	var p2pHash *common.Hash
 	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeclareTransaction, network)
 
-	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil), b.ToP2PDeclare(&p2pTransaction, p2pHash)
+	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil),
+		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
@@ -205,7 +206,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
 	network *utils.Network,
 ) (C, P) {
 	t.Helper()
-	classHash, cairo1Class := getSampleClass(t)
+	classHash, _ := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
@@ -219,20 +220,20 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
 	}
 
 	consensusDeclareTransaction := core.DeclareTransaction{
-		TransactionHash:       nil,
+		TransactionHash:       nil, // this field is populated later
 		ClassHash:             &classHash,
 		SenderAddress:         &senderAddress,
 		MaxFee:                &nonce,
 		TransactionSignature:  transactionSignature,
-		Nonce:                 nil,
+		Nonce:                 nil, // this field is not available on v0
 		Version:               version,
-		CompiledClassHash:     nil,
-		ResourceBounds:        nil,
-		Tip:                   0,
-		PaymasterData:         nil,
-		AccountDeploymentData: nil,
-		NonceDAMode:           0,
-		FeeDAMode:             0,
+		CompiledClassHash:     nil, // this field is not available on v0
+		ResourceBounds:        nil, // this field is not available on v0
+		Tip:                   0,   // this field is not available on v0
+		PaymasterData:         nil, // this field is not available on v0
+		AccountDeploymentData: nil, // this field is not available on v0
+		NonceDAMode:           0,   // this field is not available on v0
+		FeeDAMode:             0,   // this field is not available on v0
 	}
 
 	var p2pHash *common.Hash
@@ -241,8 +242,8 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
 		&consensusDeclareTransaction,
 		network,
 	)
-	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil),
-		b.ToP2PDeclareSync(&p2pTransaction, p2pHash)
+	return b.ToCore(&consensusDeclareTransaction, nil, nil),
+		b.ToP2PDeclareV0(&p2pTransaction, p2pHash)
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {

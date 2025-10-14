@@ -52,6 +52,12 @@ type PendingDataSubscription struct {
 	*feed.Subscription[core.PendingData]
 }
 
+type Transaction struct {
+	Transaction core.Transaction
+	Class       core.Class
+	PaidFeeOnL1 *felt.Felt
+}
+
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
