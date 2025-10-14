@@ -260,7 +260,11 @@ func TestStateHistory(t *testing.T) {
 	})
 
 	t.Run("should return an error for not changed location", func(t *testing.T) {
-		val, err := state.ContractStorageAt(contractAddr, felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"), 0)
+		val, err := state.ContractStorageAt(
+			contractAddr,
+			felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"),
+			0,
+		)
 		assert.Equal(t, felt.Zero, val)
 		assert.ErrorIs(t, err, core.ErrCheckHeadState)
 	})
