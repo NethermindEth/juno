@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/memory"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContractAddress(t *testing.T) {
@@ -42,4 +44,29 @@ func TestContractAddress(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewContractUpdater(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
+
+	t.Run("contract not deployed returns ErrContractNotDeployed", func(t *testing.T) {
+		addr := felt.NewRandom[felt.Felt]()
+
+		_, err := NewContractUpdater(addr, txn)
+		require.ErrorIs(t, err, ErrContractNotDeployed)
+	})
+
+	t.Run("deployed contract returns updater", func(t *testing.T) {
+		addr := felt.NewRandom[felt.Felt]()
+		classHash := felt.NewRandom[felt.Felt]()
+
+		_, err := DeployContract(addr, classHash, txn)
+		require.NoError(t, err)
+
+		updater, err := NewContractUpdater(addr, txn)
+		require.NoError(t, err)
+		require.NotNil(t, updater)
+		require.Equal(t, addr, updater.Address)
+	})
 }
