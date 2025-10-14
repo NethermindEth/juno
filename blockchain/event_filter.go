@@ -70,19 +70,26 @@ func (e *EventFilter) WithLimit(limit uint) *EventFilter {
 }
 
 // SetRangeEndBlockByNumber sets an end of the block range by block number
-func (e *EventFilter) SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error {
-	if filterRange == EventFilterFrom {
+func (e *EventFilter) SetRangeEndBlockByNumber(
+	filterRange EventFilterRange,
+	blockNumber uint64,
+) error {
+	switch filterRange {
+	case EventFilterFrom:
 		e.fromBlock = blockNumber
-	} else if filterRange == EventFilterTo {
+	case EventFilterTo:
 		e.toBlock = blockNumber
-	} else {
+	default:
 		return errors.New("undefined range end")
 	}
 	return nil
 }
 
 // SetRangeEndBlockByHash sets an end of the block range by block hash
-func (e *EventFilter) SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error {
+func (e *EventFilter) SetRangeEndBlockByHash(
+	filterRange EventFilterRange,
+	blockHash *felt.Felt,
+) error {
 	header, err := core.GetBlockHeaderByHash(e.txn, blockHash)
 	if err != nil {
 		return err
@@ -126,7 +133,10 @@ type FilteredEvent struct {
 	EventIndex      int
 }
 
-func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
+func (e *EventFilter) Events(
+	cToken *ContinuationToken,
+	chunkSize uint64,
+) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
 
 	latest, err := core.GetChainHeight(e.txn)
@@ -134,25 +144,35 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		return nil, nil, err
 	}
 
-	e.toBlock = min(e.toBlock, latest+1)
-
 	var skippedEvents uint64
-	curBlock := e.fromBlock
+	startBlock := e.fromBlock
 	// skip the blocks that we previously processed for this request
 	if cToken != nil {
 		skippedEvents = cToken.processedEvents
-		curBlock = cToken.fromBlock
+		startBlock = cToken.fromBlock
 	}
 
-	// only canonical blocks
+	// Case [canonicalBlock, canonicalBlock]
 	if e.toBlock <= latest {
-		return e.canonicalEvents(matchedEvents, curBlock, e.toBlock, skippedEvents, chunkSize)
+		return e.canonicalEvents(
+			matchedEvents,
+			startBlock,
+			e.toBlock,
+			skippedEvents,
+			chunkSize,
+		)
 	}
 
-	var rToken *ContinuationToken
-	// [canonicalBlock, pending]
-	if curBlock <= latest {
-		matchedEvents, rToken, err = e.canonicalEvents(matchedEvents, curBlock, latest, skippedEvents, chunkSize)
+	// Case [canonicalBlock, pending]
+	if startBlock <= latest {
+		var rToken *ContinuationToken
+		matchedEvents, rToken, err = e.canonicalEvents(
+			matchedEvents,
+			startBlock,
+			latest,
+			skippedEvents,
+			chunkSize,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -163,36 +183,8 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		// Skipped events are processed, so we can reset the counter
 		skippedEvents = 0
 	}
-
 	// Case [canonicalBlock, pending] || [pending, pending]
-	pending, pendingDataErr := e.pendingDataFn()
-	if pendingDataErr != nil {
-		return matchedEvents, nil, nil //nolint:nilerr // ignore err return matches so for
-	}
-
-	header := pending.GetHeader()
-	if possibleMatches := e.matcher.TestBloom(header.EventsBloom); !possibleMatches {
-		return matchedEvents, nil, nil
-	}
-
-	var processedEvents uint64
-	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
-		matchedEvents,
-		header,
-		pending.GetBlock().Receipts,
-		skippedEvents,
-		chunkSize,
-	)
-	if err != nil {
-		// Max events to scan exhausted middle of pending block, continue from next unprocessed event
-		if errors.Is(err, errChunkSizeReached) {
-			rToken := &ContinuationToken{fromBlock: latest + 1, processedEvents: processedEvents}
-			return matchedEvents, rToken, nil
-		}
-		return nil, nil, err
-	}
-
-	return matchedEvents, nil, nil
+	return e.pendingEvents(matchedEvents, startBlock, skippedEvents, chunkSize)
 }
 
 func (e *EventFilter) canonicalEvents(
@@ -244,7 +236,14 @@ func (e *EventFilter) canonicalEvents(
 		}
 
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, receipts, skippedEvents, chunkSize)
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+			matchedEvents,
+			header,
+			receipts,
+			skippedEvents,
+			chunkSize,
+			false,
+		)
 		if err != nil {
 			// Max events to scan exhausted mid block, continue from next unprocessed event
 			if errors.Is(err, errChunkSizeReached) {
@@ -262,6 +261,110 @@ func (e *EventFilter) canonicalEvents(
 	if matchedBlockIter.scannedCount > matchedBlockIter.maxScanned && lastProccessedBlock <= e.toBlock {
 		rToken = &ContinuationToken{fromBlock: lastProccessedBlock, processedEvents: 0}
 		return matchedEvents, rToken, nil
+	}
+
+	return matchedEvents, nil, nil
+}
+
+// pendingEvents processes pending events
+// Returns events from pre-latest block and pre-confirmed block
+// Support access to pre-confirmed block in isolation when fromBlock > preLatest.Block.Number
+func (e *EventFilter) pendingEvents(
+	matchedEvents []*FilteredEvent,
+	fromBlock, skippedEvents, chunkSize uint64,
+) ([]*FilteredEvent, *ContinuationToken, error) {
+	pendingData, pendingDataErr := e.pendingDataFn()
+	if pendingDataErr != nil {
+		return matchedEvents, nil, nil //nolint:nilerr // ignore error return matches so far
+	}
+
+	preLatest := pendingData.GetPreLatest()
+	if preLatest != nil && fromBlock <= preLatest.Block.Number {
+		var rToken *ContinuationToken
+		var err error
+		matchedEvents, rToken, err = e.processPreLatestBlock(
+			matchedEvents,
+			preLatest.Block,
+			skippedEvents,
+			chunkSize,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if rToken != nil {
+			return matchedEvents, rToken, nil
+		}
+		skippedEvents = 0
+	}
+	// Process pre-confirmed block
+	return e.processPreConfirmedBlock(matchedEvents, pendingData, skippedEvents, chunkSize)
+}
+
+// processPreLatestBlock processes pre-latest block events
+func (e *EventFilter) processPreLatestBlock(
+	matchedEvents []*FilteredEvent,
+	preLatest *core.Block,
+	skippedEvents, chunkSize uint64,
+) ([]*FilteredEvent, *ContinuationToken, error) {
+	if !e.matcher.TestBloom(preLatest.EventsBloom) {
+		return matchedEvents, nil, nil
+	}
+
+	var processedEvents uint64
+	var err error
+	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents,
+		preLatest.Header,
+		preLatest.Receipts,
+		skippedEvents,
+		chunkSize,
+		true,
+	)
+	if err != nil {
+		if errors.Is(err, errChunkSizeReached) {
+			rToken := &ContinuationToken{
+				fromBlock:       preLatest.Number,
+				processedEvents: processedEvents,
+			}
+			return matchedEvents, rToken, nil
+		}
+		return nil, nil, err
+	}
+
+	return matchedEvents, nil, nil
+}
+
+// processPreConfirmedBlock processes pre-confirmed block events
+func (e *EventFilter) processPreConfirmedBlock(
+	matchedEvents []*FilteredEvent,
+	pendingData core.PendingData,
+	skippedEvents, chunkSize uint64,
+) ([]*FilteredEvent, *ContinuationToken, error) {
+	pendingHeader := pendingData.GetHeader()
+	if !e.matcher.TestBloom(pendingHeader.EventsBloom) {
+		return matchedEvents, nil, nil
+	}
+
+	var processedEvents uint64
+	var err error
+	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents,
+		pendingHeader,
+		pendingData.GetBlock().Receipts,
+		skippedEvents,
+		chunkSize,
+		false,
+	)
+	if err != nil {
+		if errors.Is(err, errChunkSizeReached) {
+			rToken := &ContinuationToken{
+				fromBlock:       pendingData.GetBlock().Number,
+				processedEvents: processedEvents,
+			}
+			return matchedEvents, rToken, nil
+		}
+		return nil, nil, err
 	}
 
 	return matchedEvents, nil, nil
