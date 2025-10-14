@@ -188,7 +188,9 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, errors.New("non-existent contract"))
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(
+			felt.Zero, errors.New("non-existent contract"),
+		)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, classHash)

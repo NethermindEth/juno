@@ -55,7 +55,10 @@ func TestNonce(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(felt.Zero, errors.New("non-existent contract"))
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(
+			felt.Zero,
+			errors.New("non-existent contract"),
+		)
 
 		latest := blockIDLatest(t)
 		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)

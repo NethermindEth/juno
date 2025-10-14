@@ -247,7 +247,7 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 		contractLeavesData[i] = &LeafData{
 			Nonce:       &nonce,
 			ClassHash:   &classHash,
-			StorageRoot: &root,
+			StorageRoot: root,
 		}
 	}
 

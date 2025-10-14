@@ -131,7 +131,11 @@ func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	return cStorage.Root()
+	root, err := cStorage.Root()
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *root, err
 }
 
 type OnValueChanged = func(location, oldValue *felt.Felt) error
@@ -168,7 +172,7 @@ func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, erro
 	if err != nil {
 		return felt.Zero, err
 	}
-	return storage, nil
+	return *storage, nil
 }
 
 // ContractClassHash returns hash of the class that the contract at the given address instantiates.
