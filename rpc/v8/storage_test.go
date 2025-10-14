@@ -671,7 +671,9 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		assert.Equal(
 			t,
 			&clsHash,
-			felt.NewUnsafeFromString[felt.Felt]("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+			felt.NewUnsafeFromString[felt.Felt](
+				"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+			),
 			clsHash.String(),
 		)
 	})
