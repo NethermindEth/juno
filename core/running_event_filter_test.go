@@ -21,8 +21,7 @@ func testBloomWithRandomKeys(t *testing.T, numKeys uint) *bloom.BloomFilter {
 	t.Helper()
 	filter := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 	for range numKeys {
-		key, err := new(felt.Felt).SetRandom()
-		require.NoError(t, err)
+		key := felt.NewRandom[felt.Felt]()
 		filter.Add(key.Marshal())
 	}
 	return filter

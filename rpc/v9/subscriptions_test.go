@@ -105,7 +105,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1024+1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -128,7 +128,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -201,7 +201,7 @@ func TestSubscribeEvents(t *testing.T) {
 	)
 
 	pendingB := createTestPendingBlock(t, b2, 6)
-	pending := sync.NewPending(pendingB, nil, nil)
+	pending := core.NewPending(pendingB, nil, nil)
 	_, pendingEmitted := createTestEvents(
 		t,
 		pendingB,
@@ -211,7 +211,7 @@ func TestSubscribeEvents(t *testing.T) {
 	)
 	pendingB2 := createTestPendingBlock(t, b2, 10)
 
-	pending2 := sync.NewPending(pendingB2, nil, nil)
+	pending2 := core.NewPending(pendingB2, nil, nil)
 	_, pending2Emitted := createTestEvents(
 		t,
 		pendingB2,
@@ -438,7 +438,7 @@ func TestSubscribeEvents(t *testing.T) {
 			},
 		},
 	}
-	targetAddress, err := new(felt.Felt).SetString("0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3")
+	targetAddress, err := felt.NewFromString[felt.Felt]("0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3")
 	require.NoError(t, err)
 	b1FilteredBySenders, b1EmittedFiltered := createTestEvents(
 		t,
@@ -508,7 +508,7 @@ func TestSubscribeEvents(t *testing.T) {
 		},
 	}
 
-	targetKey, err := new(felt.Felt).SetString("0x1dcde06aabdbca2f80aa51392b345d7549d7757aa855f7e37f5d335ac8243b1")
+	targetKey, err := felt.NewFromString[felt.Felt]("0x1dcde06aabdbca2f80aa51392b345d7549d7757aa855f7e37f5d335ac8243b1")
 	require.NoError(t, err)
 	keys := [][]felt.Felt{{*targetKey}}
 
@@ -625,7 +625,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 func TestSubscribeTxnStatus(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	txHash := new(felt.Felt).SetUint64(1)
+	txHash := felt.NewFromUint64[felt.Felt](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 
@@ -670,7 +670,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
-			txHash, err := new(felt.Felt).SetString("0x1011")
+			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
@@ -679,7 +679,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
 		t.Run("accepted on L1", func(t *testing.T) {
-			txHash, err := new(felt.Felt).SetString("0x1010")
+			txHash, err := felt.NewFromString[felt.Felt]("0x1010")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
@@ -737,20 +737,21 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
 		// Candidate Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		preConfirmed := core.NewPreConfirmed(
-			&core.Block{Header: block.Header},
-			nil,
-			nil,
-			[]core.Transaction{block.Transactions[0]})
+		preConfirmed := &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number,
+					TransactionCount: 1,
+				},
+			},
+			CandidateTxs: []core.Transaction{block.Transactions[0]},
+		}
 
 		mockSyncer.EXPECT().PendingData().Return(
-			&preConfirmed,
+			preConfirmed,
 			nil,
-		).Times(4)
-		handler.pendingData.Send(&core.PreConfirmed{
-			Block: &core.Block{Header: &core.Header{}},
-		})
-
+		).Times(2)
+		handler.pendingData.Send(preConfirmed)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusCandidate, UnknownExecution, "")
 		require.Equal(t, block.Transactions[0].Hash(), txHash)
 
@@ -758,28 +759,53 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		rpcTx := AdaptTransaction(block.Transactions[0])
 		rpcTx.Hash = txHash
 
-		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		preConfirmed = core.PreConfirmed{
+		preConfirmed = &core.PreConfirmed{
 			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number,
+					TransactionCount: 1,
+				},
 				Transactions: []core.Transaction{
 					block.Transactions[0],
 				},
 				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
 			},
-			CandidateTxs: []core.Transaction{block.Transactions[0]},
+			CandidateTxs: []core.Transaction{},
 		}
-
-		handler.pendingData.Send(&preConfirmed)
+		mockSyncer.EXPECT().PendingData().Return(
+			preConfirmed,
+			nil,
+		).Times(1)
+		handler.pendingData.Send(preConfirmed)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusPreConfirmed, TxnSuccess, "")
-		// Accepted on l1 Status
+
+		preConfirmed = &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number + 1,
+					TransactionCount: 0,
+				},
+				Transactions: []core.Transaction{},
+				Receipts:     []*core.TransactionReceipt{},
+			},
+			CandidateTxs: []core.Transaction{},
+		}
+		mockSyncer.EXPECT().PendingData().Return(
+			preConfirmed,
+			nil,
+		).Times(1)
+		// Accepted on l2 Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
-
+		handler.newHeads.Send(block)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
+		mockSyncer.EXPECT().PendingData().Return(
+			preConfirmed,
+			nil,
+		).Times(1)
 		l1Head := &core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
@@ -1057,12 +1083,12 @@ func TestSubscriptionReorg(t *testing.T) {
 
 			// Simulate a reorg
 			syncer.reorgs.Send(&sync.ReorgBlockRange{
-				StartBlockHash: utils.HexToFelt(
-					t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
+				StartBlockHash: felt.NewUnsafeFromString[felt.Felt](
+					"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
 				),
 				StartBlockNum: 0,
-				EndBlockHash: utils.HexToFelt(
-					t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
+				EndBlockHash: felt.NewUnsafeFromString[felt.Felt](
+					"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
 				),
 				EndBlockNum: 2,
 			})
@@ -1113,7 +1139,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	pendingBlockTxCount := 6
 	pendingBlock := createTestPendingBlock(t, newHead2, pendingBlockTxCount)
-	pending := sync.NewPending(pendingBlock, nil, nil)
+	pending := core.NewPending(pendingBlock, nil, nil)
 
 	initialPreconfirmedCount := 3
 	secondPreConfirmedCount := 6
@@ -1533,14 +1559,14 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pending",
 				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(sync.NewPending(pendingBlock1, nil, nil)))
+					syncer.pendingData.Send(utils.HeapPtr(core.NewPending(pendingBlock1, nil, nil)))
 				},
 				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock1, nil, TxnAcceptedOnL2)},
 			},
 			{
 				description: "on pending block update, without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(sync.NewPending(pendingBlock2, nil, nil)))
+					syncer.pendingData.Send(utils.HeapPtr(core.NewPending(pendingBlock2, nil, nil)))
 				},
 				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock2, nil, TxnAcceptedOnL2)[pendingB1TxCount:]},
 			},

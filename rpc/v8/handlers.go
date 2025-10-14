@@ -34,7 +34,6 @@ type Handler struct {
 	log           utils.Logger
 	memPool       mempool.Pool
 
-	version     string
 	newHeads    *feed.Feed[*core.Block]
 	reorgs      *feed.Feed[*sync.ReorgBlockRange]
 	pendingData *feed.Feed[core.PendingData]
@@ -48,6 +47,7 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
+	callMaxGas   uint64
 
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
@@ -109,6 +109,11 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	return h
 }
 
+func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
+	h.callMaxGas = maxGas
+	return h
+}
+
 func (h *Handler) WithIDGen(idgen func() string) *Handler {
 	h.idgen = idgen
 	return h
@@ -151,10 +156,6 @@ func (h *Handler) Run(ctx context.Context) error {
 		return true
 	})
 	return nil
-}
-
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {

@@ -30,7 +30,7 @@ func TestPendingDataWrapper(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Returns pending block data when starknet version < 0.14.0", func(t *testing.T) {
-		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&expectedPending,
 			nil,
@@ -38,7 +38,7 @@ func TestPendingDataWrapper(t *testing.T) {
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
 		require.Equal(t, core.PendingBlockVariant, pending.Variant())
-		require.Equal(t, expectedPending, sync.Pending{
+		require.Equal(t, expectedPending, core.Pending{
 			Block:       pending.GetBlock(),
 			StateUpdate: pending.GetStateUpdate(),
 			NewClasses:  pending.GetNewClasses(),
@@ -64,7 +64,7 @@ func TestPendingDataWrapper(t *testing.T) {
 	})
 
 	t.Run("Finality status is ACCEPTED_ON_L2 when pending block", func(t *testing.T) {
-		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&expectedPending,
 			nil,

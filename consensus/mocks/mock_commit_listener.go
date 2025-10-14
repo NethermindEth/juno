@@ -19,43 +19,31 @@ import (
 )
 
 // MockCommitListener is a mock of CommitListener interface.
-type MockCommitListener[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+type MockCommitListener[V types.Hashable[H], H types.Hash] struct {
 	ctrl     *gomock.Controller
-	recorder *MockCommitListenerMockRecorder[V, H, A]
+	recorder *MockCommitListenerMockRecorder[V, H]
 	isgomock struct{}
 }
 
 // MockCommitListenerMockRecorder is the mock recorder for MockCommitListener.
-type MockCommitListenerMockRecorder[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	mock *MockCommitListener[V, H, A]
+type MockCommitListenerMockRecorder[V types.Hashable[H], H types.Hash] struct {
+	mock *MockCommitListener[V, H]
 }
 
 // NewMockCommitListener creates a new mock instance.
-func NewMockCommitListener[V types.Hashable[H], H types.Hash, A types.Addr](ctrl *gomock.Controller) *MockCommitListener[V, H, A] {
-	mock := &MockCommitListener[V, H, A]{ctrl: ctrl}
-	mock.recorder = &MockCommitListenerMockRecorder[V, H, A]{mock}
+func NewMockCommitListener[V types.Hashable[H], H types.Hash](ctrl *gomock.Controller) *MockCommitListener[V, H] {
+	mock := &MockCommitListener[V, H]{ctrl: ctrl}
+	mock.recorder = &MockCommitListenerMockRecorder[V, H]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockCommitListener[V, H, A]) EXPECT() *MockCommitListenerMockRecorder[V, H, A] {
+func (m *MockCommitListener[V, H]) EXPECT() *MockCommitListenerMockRecorder[V, H] {
 	return m.recorder
 }
 
-// Commit mocks base method.
-func (m *MockCommitListener[V, H, A]) Commit(arg0 context.Context, arg1 types.Height, arg2 V) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Commit", arg0, arg1, arg2)
-}
-
-// Commit indicates an expected call of Commit.
-func (mr *MockCommitListenerMockRecorder[V, H, A]) Commit(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockCommitListener[V, H, A])(nil).Commit), arg0, arg1, arg2)
-}
-
 // Listen mocks base method.
-func (m *MockCommitListener[V, H, A]) Listen() <-chan sync.CommittedBlock {
+func (m *MockCommitListener[V, H]) Listen() <-chan sync.CommittedBlock {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Listen")
 	ret0, _ := ret[0].(<-chan sync.CommittedBlock)
@@ -63,7 +51,19 @@ func (m *MockCommitListener[V, H, A]) Listen() <-chan sync.CommittedBlock {
 }
 
 // Listen indicates an expected call of Listen.
-func (mr *MockCommitListenerMockRecorder[V, H, A]) Listen() *gomock.Call {
+func (mr *MockCommitListenerMockRecorder[V, H]) Listen() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Listen", reflect.TypeOf((*MockCommitListener[V, H, A])(nil).Listen))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Listen", reflect.TypeOf((*MockCommitListener[V, H])(nil).Listen))
+}
+
+// OnCommit mocks base method.
+func (m *MockCommitListener[V, H]) OnCommit(arg0 context.Context, arg1 types.Height, arg2 V) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "OnCommit", arg0, arg1, arg2)
+}
+
+// OnCommit indicates an expected call of OnCommit.
+func (mr *MockCommitListenerMockRecorder[V, H]) OnCommit(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnCommit", reflect.TypeOf((*MockCommitListener[V, H])(nil).OnCommit), arg0, arg1, arg2)
 }

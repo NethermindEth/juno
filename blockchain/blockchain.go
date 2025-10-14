@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -50,33 +49,7 @@ type Reader interface {
 	Network() *utils.Network
 }
 
-var (
-	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	SupportedStarknetVersion  = semver.MustParse("0.14.0")
-)
-
-func CheckBlockVersion(protocolVersion string) error {
-	blockVer, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return err
-	}
-
-	// We ignore changes in patch part of the version
-	blockVerMM, supportedVerMM := copyWithoutPatch(blockVer), copyWithoutPatch(SupportedStarknetVersion)
-	if blockVerMM.GreaterThan(supportedVerMM) {
-		return errors.New("unsupported block version")
-	}
-
-	return nil
-}
-
-func copyWithoutPatch(v *semver.Version) *semver.Version {
-	if v == nil {
-		return nil
-	}
-
-	return semver.New(v.Major(), v.Minor(), 0, v.Prerelease(), v.Metadata())
-}
+var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
 
 var _ Reader = (*Blockchain)(nil)
 
@@ -120,7 +93,7 @@ func (b *Blockchain) Network() *utils.Network {
 
 // StateCommitment returns the latest block state commitment.
 // If blockchain is empty zero felt is returned.
-func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
+func (b *Blockchain) StateCommitment() (felt.Felt, error) {
 	b.listener.OnRead("StateCommitment")
 	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
 	return core.NewState(batch).Root()
@@ -306,7 +279,7 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 }
 
 func verifyBlock(txn db.KeyValueReader, block *core.Block) error {
-	if err := CheckBlockVersion(block.ProtocolVersion); err != nil {
+	if err := core.CheckBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
 
@@ -587,7 +560,7 @@ func (b *Blockchain) updateStateRoots(
 	if err != nil {
 		return err
 	}
-	stateUpdate.OldRoot = oldStateRoot
+	stateUpdate.OldRoot = &oldStateRoot
 
 	// Apply state update
 	if err = state.Update(block.Number, stateUpdate, newClasses, true); err != nil {
@@ -600,7 +573,7 @@ func (b *Blockchain) updateStateRoots(
 		return err
 	}
 
-	block.GlobalStateRoot = newStateRoot
+	block.GlobalStateRoot = &newStateRoot
 	stateUpdate.NewRoot = block.GlobalStateRoot
 
 	return nil

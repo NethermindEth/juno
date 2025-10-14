@@ -16,8 +16,7 @@ import (
 // randomContractAddress generates a random contract address (felt) for testing.
 func randomContractAddress(t *testing.T) *felt.Felt {
 	t.Helper()
-	addr, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	addr := felt.NewRandom[felt.Felt]()
 	return addr
 }
 
@@ -29,8 +28,7 @@ func randomEventKeys(t *testing.T, keysPerEvent, subKeysPerKey int) [][]felt.Fel
 	for i := range keys {
 		keys[i] = make([]felt.Felt, subKeysPerKey)
 		for j := range keys[i] {
-			key, err := new(felt.Felt).SetRandom()
-			require.NoError(t, err)
+			key := felt.NewRandom[felt.Felt]()
 			keys[i][j] = *key
 		}
 	}

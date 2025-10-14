@@ -34,7 +34,6 @@ type Handler struct {
 	log           utils.Logger
 	memPool       mempool.Pool
 
-	version     string
 	newHeads    *feed.Feed[*core.Block]
 	reorgs      *feed.Feed[*sync.ReorgBlockRange]
 	pendingData *feed.Feed[core.PendingData]
@@ -43,11 +42,15 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache            *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
+	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
 	callMaxSteps uint64
+	callMaxGas   uint64
 
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
@@ -109,6 +112,11 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	return h
 }
 
+func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
+	h.callMaxGas = maxGas
+	return h
+}
+
 func (h *Handler) WithIDGen(idgen func() string) *Handler {
 	h.idgen = idgen
 	return h
@@ -151,10 +159,6 @@ func (h *Handler) Run(ctx context.Context) error {
 		return true
 	})
 	return nil
-}
-
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
@@ -238,10 +242,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: h.Events,
-		},
-		{
-			Name:    "juno_version",
-			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",

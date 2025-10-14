@@ -17,6 +17,7 @@ import (
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
@@ -83,6 +84,7 @@ const (
 	cnCoreContractAddressF              = "cn-core-contract-address"
 	cnUnverifiableRangeF                = "cn-unverifiable-range"
 	callMaxStepsF                       = "rpc-call-max-steps"
+	callMaxGasF                         = "rpc-call-max-gas"
 	corsEnableF                         = "rpc-cors-enable"
 	versionedConstantsFileF             = "versioned-constants-file"
 	pluginPathF                         = "plugin-path"
@@ -95,6 +97,7 @@ const (
 	httpUpdatePortF                     = "http-update-port"
 	submittedTransactionsCacheSizeF     = "submitted-transactions-cache-size"
 	submittedTransactionsCacheEntryTTLF = "submitted-transactions-cache-entry-ttl"
+	disableRPCBatchRequestsF            = "disable-rpc-batch-requests"
 
 	defaultConfig                             = ""
 	defaultHost                               = "localhost"
@@ -107,8 +110,8 @@ const (
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
-	defaultPendingPollInterval                = 5 * time.Second
-	defaultPreConfirmedPollInterval           = time.Second
+	defaultPendingPollInterval                = time.Second
+	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
@@ -130,7 +133,8 @@ const (
 	defaultCNL1ChainID                        = ""
 	defaultCNL2ChainID                        = ""
 	defaultCNCoreContractAddressStr           = ""
-	defaultCallMaxSteps                       = 4_000_000
+	defaultCallMaxSteps                       = vm.DefaultMaxSteps
+	defaultCallMaxGas                         = vm.DefaultMaxGas
 	defaultGwTimeout                          = "5s"
 	defaultCorsEnable                         = false
 	defaultVersionedConstantsFile             = ""
@@ -143,6 +147,7 @@ const (
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
+	defaultDisableRPCBatchRequests            = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -167,8 +172,9 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
-	pendingPollIntervalUsage      = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
+	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
+	pendingPollIntervalUsage   = "Sets polling interval for pending block updates before starknet v0.14.0;" +
+		"for pre_latest block updates from starknet v0.14.0 onward.(0s will disable polling)."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
@@ -196,7 +202,10 @@ const (
 		"- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically.\n" +
 		"- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures.\n" +
 		"- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment."
-	callMaxStepsUsage                  = "Maximum number of steps to be executed in starknet_call requests"
+
+	callMaxStepsUsage = "Maximum number of steps to be executed in starknet_call requests"
+	callMaxGasUsage   = "Maximum number of Sierra gas to be executed in starknet_call requests"
+
 	corsEnableUsage                    = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage        = "Use custom versioned constants from provided file"
 	pluginPathUsage                    = "Path to the plugin .so file"
@@ -209,6 +218,7 @@ const (
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 	submittedTransactionsCacheSize     = "Maximum number of entries in the submitted transactions cache"
 	submittedTransactionsCacheEntryTTL = "Time-to-live for each entry in the submitted transactions cache"
+	disableRPCBatchRequestsUsage       = "Disables handling of batched RPC requests."
 )
 
 var Version string
@@ -398,6 +408,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
+	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
 	junoCmd.Flags().String(gwTimeoutsF, defaultGwTimeout, gwTimeoutsUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
@@ -415,6 +426,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		submittedTransactionsCacheEntryTTLF,
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
+	)
+	junoCmd.Flags().Bool(
+		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 

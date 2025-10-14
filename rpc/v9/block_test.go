@@ -50,7 +50,7 @@ func TestBlockIDMarshalling(t *testing.T) {
 		"hash": {
 			blockIDJSON: `{ "block_hash" : "0x123" }`,
 			checkFunc: func(blockID *rpcv9.BlockID) bool {
-				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64(0x123)
+				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64[felt.Felt](0x123)
 			},
 		},
 		"l1_accepted": {
@@ -111,6 +111,7 @@ func TestBlockTransactionCount(t *testing.T) {
 
 	latestBlockNumber := uint64(56377)
 	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
+
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 	expectedCount := latestBlock.TransactionCount
@@ -125,7 +126,7 @@ func TestBlockTransactionCount(t *testing.T) {
 
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-		hash := blockIDHash(t, new(felt.Felt).SetBytes([]byte("random")))
+		hash := blockIDHash(t, felt.NewFromBytes[felt.Felt]([]byte("random")))
 		count, rpcErr := handler.BlockTransactionCount(&hash)
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -388,9 +389,10 @@ func TestBlockWithTxs(t *testing.T) {
 		})
 	}
 
-	n := &utils.Mainnet
+	mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 	handler := rpcv9.New(mockReader, mockSyncReader, nil, nil)
 
+	n := &utils.Mainnet
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
@@ -405,7 +407,7 @@ func TestBlockWithTxs(t *testing.T) {
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
 
 		for i, txnHash := range blockWithTxHashes.TxnHashes {
-			txn, err := handler.TransactionByHash(*txnHash)
+			txn, err := handler.TransactionByHash(txnHash)
 			require.Nil(t, err)
 
 			assert.Equal(t, txn, blockWithTxs.Transactions[i])
@@ -417,12 +419,26 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-		if tx, found := latestBlockTxMap[*hash]; found {
-			return tx, nil
-		}
-		return nil, errors.New("txn not found")
-	}).Times(len(latestBlock.Transactions) * 6)
+	preConfirmed := &core.PreConfirmed{
+		Block: &core.Block{
+			Header: &core.Header{
+				Number: latestBlockNumber + 1,
+			},
+		},
+	}
+	mockSyncReader.EXPECT().PendingData().Return(
+		preConfirmed,
+		nil,
+	).Times(len(latestBlock.Transactions) * 5)
+
+	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(
+		func(hash *felt.Felt) (core.Transaction, error) {
+			if tx, found := latestBlockTxMap[*hash]; found {
+				return tx, nil
+			}
+			return nil, errors.New("txn not found")
+		},
+	).Times(len(latestBlock.Transactions) * 5)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
@@ -518,7 +534,7 @@ func TestBlockWithTxs(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
-		).Times(2)
+		).Times(2 + len(latestBlock.Transactions))
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		preConfirmedID := blockIDPreConfirmed(t)
@@ -563,12 +579,12 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			ParentHash:      coreBlock.ParentHash,
 			L1DAMode:        utils.HeapPtr(rpcv6.Blob),
 			L1GasPrice: &rpcv6.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
-				InWei: utils.HexToFelt(t, "0x3b9aca10"),
+				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
+				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
 			L1DataGasPrice: &rpcv6.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
-				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
+				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
+				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
@@ -592,11 +608,11 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				EntryPointSelector: tx.EntryPointSelector,
 				ResourceBounds: &rpcv9.ResourceBoundsMap{
 					L1Gas: &rpcv9.ResourceBounds{
-						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
+						MaxAmount:       felt.NewFromUint64[felt.Felt](tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
 					L2Gas: &rpcv9.ResourceBounds{
-						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
+						MaxAmount:       felt.NewFromUint64[felt.Felt](tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
 					L1DataGas: &rpcv9.ResourceBounds{
@@ -604,7 +620,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 						MaxPricePerUnit: &felt.Zero,
 					},
 				},
-				Tip:                   new(felt.Felt).SetUint64(tx.Tip),
+				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
 				NonceDAMode:           utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.NonceDAMode)),

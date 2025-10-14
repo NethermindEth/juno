@@ -90,13 +90,13 @@ func TestIterator(t *testing.T) {
 		t.Run("wrong args", func(t *testing.T) {
 			reader := mocks.NewMockReader(mockCtrl)
 			// zero limit
-			hash := randFelt(t)
+			hash := felt.NewRandom[felt.Felt]()
 			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 1}}, nil)
 			_, err := newIteratorByHash(reader, hash, 0, 1, false)
 			assert.Error(t, err)
 
 			// zero step
-			hash = randFelt(t)
+			hash = felt.NewRandom[felt.Felt]()
 			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 2}}, nil)
 			_, err = newIteratorByHash(reader, hash, 1, 0, false)
 			assert.Error(t, err)
@@ -106,11 +106,11 @@ func TestIterator(t *testing.T) {
 			assert.Error(t, err)
 		})
 		t.Run("iteration", func(t *testing.T) {
-			firstBlockHash := randFelt(t)
+			firstBlockHash := felt.NewRandom[felt.Felt]()
 			blocks := []*core.Block{
 				newBlock(1, firstBlockHash),
-				newBlock(2, randFelt(t)),
-				newBlock(3, randFelt(t)),
+				newBlock(2, felt.NewRandom[felt.Felt]()),
+				newBlock(3, felt.NewRandom[felt.Felt]()),
 			}
 
 			reader := mocks.NewMockReader(mockCtrl)
@@ -147,13 +147,4 @@ func newBlock(number uint64, hash *felt.Felt) *core.Block {
 			Hash:   hash,
 		},
 	}
-}
-
-func randFelt(t *testing.T) *felt.Felt {
-	t.Helper()
-
-	f, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-
-	return f
 }

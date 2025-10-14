@@ -2,19 +2,20 @@ package starknet
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/address"
-	"github.com/NethermindEth/juno/core/hash"
+	"github.com/NethermindEth/juno/consensus/types/actions"
+	"github.com/NethermindEth/juno/consensus/types/wal"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
-type Value hash.Hash
+type Value felt.Hash
 
-func (v Value) Hash() hash.Hash {
-	return hash.Hash(v)
+func (v Value) Hash() felt.Hash {
+	return felt.Hash(v)
 }
 
 type (
-	Address = address.Address
-	Hash    = hash.Hash
+	Address = felt.Address
+	Hash    = felt.Hash
 
 	Message       = types.Message[Value, Hash, Address]
 	Proposal      = types.Proposal[Value, Hash, Address]
@@ -23,9 +24,15 @@ type (
 	Vote          = types.Vote[Hash, Address]
 	MessageHeader = types.MessageHeader[Address]
 
-	Action             = types.Action[Value, Hash, Address]
-	BroadcastProposal  = types.BroadcastProposal[Value, Hash, Address]
-	BroadcastPrevote   = types.BroadcastPrevote[Hash, Address]
-	BroadcastPrecommit = types.BroadcastPrecommit[Hash, Address]
-	Commit             = types.Commit[Value, Hash, Address]
+	Action             = actions.Action[Value, Hash, Address]
+	BroadcastProposal  = actions.BroadcastProposal[Value, Hash, Address]
+	BroadcastPrevote   = actions.BroadcastPrevote[Hash, Address]
+	BroadcastPrecommit = actions.BroadcastPrecommit[Hash, Address]
+	Commit             = actions.Commit[Value, Hash, Address]
+
+	WALEntry     = wal.Entry[Value, Hash, Address]
+	WALProposal  = wal.WALProposal[Value, Hash, Address]
+	WALPrevote   = wal.WALPrevote[Hash, Address]
+	WALPrecommit = wal.WALPrecommit[Hash, Address]
+	WALTimeout   = wal.WALTimeout
 )

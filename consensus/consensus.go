@@ -27,7 +27,7 @@ type ConsensusServices struct {
 	Proposer       proposer.Proposer[starknet.Value, starknet.Hash]
 	P2P            p2p.P2P[starknet.Value, starknet.Hash, starknet.Address]
 	Driver         *driver.Driver[starknet.Value, starknet.Hash, starknet.Address]
-	CommitListener driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address]
+	CommitListener driver.CommitListener[starknet.Value, starknet.Hash]
 }
 
 func Init(
@@ -47,7 +47,7 @@ func Init(
 	}
 	currentHeight := types.Height(chainHeight + 1)
 
-	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](database, currentHeight)
+	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](database)
 
 	executor := builder.NewExecutor(blockchain, vm, logger, false, true) // TODO: We're currently skipping signature validation
 	builder := builder.New(blockchain, executor)
@@ -59,7 +59,15 @@ func Init(
 	p2p := p2p.New(host, logger, &builder, &proposalStore, currentHeight, &config.DefaultBufferSizes, bootstrapPeersFn)
 
 	commitListener := driver.NewCommitListener(logger, &proposalStore, proposer, p2p)
-	driver := driver.New(logger, tendermintDB, stateMachine, commitListener, p2p, timeoutFn)
+	driver := driver.New(
+		logger,
+		tendermintDB,
+		stateMachine,
+		commitListener,
+		p2p.Broadcasters(),
+		p2p.Listeners(),
+		timeoutFn,
+	)
 
 	return ConsensusServices{
 		Proposer:       proposer,

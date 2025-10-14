@@ -145,7 +145,8 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	synchroniser := p2pSync.New(bc, p2phost, snNetwork, log)
+	blockFetcher := p2pSync.NewBlockFetcher(bc, p2phost, snNetwork, log)
+	synchroniser := p2pSync.New(bc, log, &blockFetcher)
 	s := &Service{
 		synchroniser: synchroniser,
 		log:          log,

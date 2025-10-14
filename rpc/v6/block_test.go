@@ -227,7 +227,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := sync.NewPending(latestBlock, nil, nil)
+		pending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -369,7 +369,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := sync.NewPending(latestBlock, nil, nil)
+		pending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -543,7 +543,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := sync.NewPending(latestBlock, nil, nil)
+		pending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -616,8 +616,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
 			L1GasPrice: &rpc.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
-				InWei: utils.HexToFelt(t, "0x3b9aca10"),
+				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
+				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
@@ -709,7 +709,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		}
 
 		t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
-			pending := sync.NewPending(block0, nil, nil)
+			pending := core.NewPending(block0, nil, nil)
 			mockSyncReader.EXPECT().PendingData().Return(
 				&pending,
 				nil,

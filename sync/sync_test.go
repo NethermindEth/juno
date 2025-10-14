@@ -163,7 +163,7 @@ func TestReorg(t *testing.T) {
 		// Ensure current head is Sepolia head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c"), head.Hash)
+		require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c"), head.Hash)
 		sepoliaEnd := head
 		sepoliaStart, err := bc.BlockHeaderByNumber(0)
 		require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestReorg(t *testing.T) {
 		// After syncing (and reorging) the current head should be at mainnet
 		head, err = bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
+		require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
 
 		// Validate reorg event
 		got, ok := <-sub.Recv()
@@ -211,21 +211,25 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("cannot store unsupported pending block version", func(t *testing.T) {
-			pending := &sync.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
-			require.Error(t, synchronizer.StorePending(pending))
+			pending := &core.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			changed, err := synchronizer.StorePending(pending)
+			require.Error(t, err)
+			require.False(t, changed)
 		})
 
 		t.Run("store genesis as pending", func(t *testing.T) {
-			pendingGenesis := &sync.Pending{
+			pendingGenesis := &core.Pending{
 				Block:       b,
 				StateUpdate: su,
 			}
 
-			require.NoError(t, synchronizer.StorePending(pendingGenesis))
+			changed, err := synchronizer.StorePending(pendingGenesis)
+			require.NoError(t, err)
+			require.True(t, changed)
 
 			gotPending, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
-			expectedPending := sync.NewPending(pendingGenesis.Block, pendingGenesis.StateUpdate, nil)
+			expectedPending := core.NewPending(pendingGenesis.Block, pendingGenesis.StateUpdate, nil)
 			assert.Equal(t, &expectedPending, gotPending)
 		})
 
@@ -237,9 +241,10 @@ func TestPendingData(t *testing.T) {
 			su, err = gw.StateUpdate(t.Context(), 2)
 			require.NoError(t, err)
 
-			notExpectedPending := sync.NewPending(b, su, nil)
-
-			require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+			notExpectedPending := core.NewPending(b, su, nil)
+			changed, err := synchronizer.StorePending(&notExpectedPending)
+			require.ErrorIs(t, err, blockchain.ErrParentDoesNotMatchHead)
+			require.False(t, changed)
 		})
 
 		t.Run("store expected pending block", func(t *testing.T) {
@@ -248,12 +253,13 @@ func TestPendingData(t *testing.T) {
 			su, err = gw.StateUpdate(t.Context(), 1)
 			require.NoError(t, err)
 
-			expectedPending := &sync.Pending{
+			expectedPending := &core.Pending{
 				Block:       b,
 				StateUpdate: su,
 			}
-
-			require.NoError(t, synchronizer.StorePending(expectedPending))
+			changed, err := synchronizer.StorePending(expectedPending)
+			require.NoError(t, err)
+			require.True(t, changed)
 
 			gotPending, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
@@ -286,19 +292,23 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("cannot store unsupported pre_confirmed block version", func(t *testing.T) {
-			preConfirmed := &core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
-			require.Error(t, synchronizer.StorePreConfirmed(preConfirmed))
+			preConfirmed := core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			isWritten, err := synchronizer.StorePreConfirmed(&preConfirmed)
+			require.Error(t, err)
+			require.False(t, isWritten)
 		})
 
 		t.Run("store genesis as pre_confirmed", func(t *testing.T) {
-			preConfirmedGenesis := &core.PreConfirmed{
+			preConfirmedGenesis := core.PreConfirmed{
 				Block: b,
 				StateUpdate: &core.StateUpdate{
 					OldRoot: &felt.Zero,
 				},
 			}
 
-			require.NoError(t, synchronizer.StorePreConfirmed(preConfirmedGenesis))
+			isWritten, err := synchronizer.StorePreConfirmed(&preConfirmedGenesis)
+			require.NoError(t, err)
+			require.True(t, isWritten)
 
 			gotPendingData, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
@@ -306,28 +316,30 @@ func TestPendingData(t *testing.T) {
 				Block:       preConfirmedGenesis.Block,
 				StateUpdate: preConfirmedGenesis.StateUpdate,
 			}
+
 			assert.Equal(t, expectedPreConfirmed, gotPendingData)
 		})
 
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 
 		t.Run("store expected pre_confirmed block", func(t *testing.T) {
-			b, err = gw.BlockByNumber(t.Context(), 1)
+			preConfirmedB, err := gw.BlockByNumber(t.Context(), 1)
 			require.NoError(t, err)
 			su, err = gw.StateUpdate(t.Context(), 1)
 			require.NoError(t, err)
-			head, err := chain.HeadsHeader()
-			require.NoError(t, err)
 
+			emptyStateDiff := core.EmptyStateDiff()
 			expectedPreConfirmed := &core.PreConfirmed{
-				Block: b,
+				Block: preConfirmedB,
 				StateUpdate: &core.StateUpdate{
-					OldRoot: head.GlobalStateRoot,
+					StateDiff: &emptyStateDiff,
 				},
 			}
 
-			require.NoError(t, synchronizer.StorePreConfirmed(expectedPreConfirmed))
-
+			emptyStateDiff = core.EmptyStateDiff()
+			isWritten, err := synchronizer.StorePreConfirmed(expectedPreConfirmed)
+			require.NoError(t, err)
+			require.True(t, isWritten)
 			gotPendingData, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
 			assert.Equal(t, expectedPreConfirmed, gotPendingData)
@@ -342,53 +354,80 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("get pending state before index", func(t *testing.T) {
-			var synchronizer *sync.Synchronizer
-			testDB := memory.New()
-			chain := blockchain.New(testDB, &utils.Mainnet)
-			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-			synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
+			contractAddress, err := new(felt.Felt).SetString("0xFFFFF")
+			require.NoError(t, err)
+			storageKey := &felt.One
 
-			require.NoError(t, err)
-			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
-			gw := adaptfeeder.New(client)
-			preConfirmed, err := gw.PreConfirmedBlockByNumber(t.Context(), 1204672)
-			preConfirmed.StateUpdate.OldRoot = &felt.Zero
-			preConfirmed.Block.Number = 0
-			require.NoError(t, err)
-			require.NoError(t, synchronizer.StorePreConfirmed(&preConfirmed))
-			txCount := len(preConfirmed.GetTransactions())
+			t.Run("Without Prelatest", func(t *testing.T) {
+				numTxs := 10
+				preConfirmed := makePreConfirmedWithIncrementingCounter(
+					1,
+					numTxs,
+					contractAddress,
+					storageKey,
+					0,
+				)
+				isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
+				require.NoError(t, err)
+				require.True(t, isWritten)
 
-			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
-			require.NoError(t, pErr)
-
-			// Check storage value in two different index
-			// See clients/feeder/testdata/sepolia-integration/pre_confirmed/1204672.json
-			contractAddress, err := new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
-			require.NoError(t, err)
-			key, err := new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
-			require.NoError(t, err)
-			val, err := pendingState.ContractStorage(contractAddress, key)
-			require.NoError(t, err)
-			expectedVal, err := new(felt.Felt).SetString("0x1d057bfbd3cadebffd74")
-			require.NoError(t, err)
-			require.Equal(t, expectedVal, val)
-			t.Cleanup(func() {
-				require.NoError(t, pendingStateCloser())
+				for i := range numTxs {
+					pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(i + 1)
+					require.NoError(t, pErr)
+					val, err := pendingState.ContractStorage(contractAddress, storageKey)
+					require.NoError(t, err)
+					expected := new(felt.Felt).SetUint64(uint64(i) + 1)
+					require.Equal(t, expected, &val)
+					require.NoError(t, pendingStateCloser())
+				}
 			})
 
-			pendingState, pendingStateCloser, pErr = synchronizer.PendingStateBeforeIndex(txCount)
-			require.NoError(t, pErr)
-			contractAddress, err = new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
-			require.NoError(t, err)
-			key, err = new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
-			require.NoError(t, err)
-			val, err = pendingState.ContractStorage(contractAddress, key)
-			require.NoError(t, err)
-			expectedVal, err = new(felt.Felt).SetString("0x1d057bfbd3df63f5dd54")
-			require.NoError(t, err)
-			require.Equal(t, expectedVal, val)
-			t.Cleanup(func() {
-				require.NoError(t, pendingStateCloser())
+			t.Run("With Prelatest", func(t *testing.T) {
+				storageKey2 := new(felt.Felt).SetUint64(11)
+				val2 := new(felt.Felt).SetUint64(15)
+				preLatestStateDiff := core.EmptyStateDiff()
+
+				preLatestStateDiff.StorageDiffs[*contractAddress] = map[felt.Felt]*felt.Felt{
+					*storageKey2: val2,
+				}
+
+				preLatest := core.PreLatest{
+					Block: &core.Block{
+						Header: &core.Header{
+							Number:     b.Number + 1,
+							ParentHash: b.Hash,
+						},
+					},
+					StateUpdate: &core.StateUpdate{
+						StateDiff: &preLatestStateDiff,
+					},
+				}
+
+				numTxs := 11
+				preConfirmed := makePreConfirmedWithIncrementingCounter(
+					preLatest.Block.Number+1,
+					numTxs,
+					contractAddress,
+					storageKey,
+					0,
+				)
+				preConfirmed.WithPreLatest(&preLatest)
+				isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
+				require.NoError(t, err)
+				require.True(t, isWritten)
+				for i := range numTxs {
+					pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(i + 1)
+					require.NoError(t, pErr)
+					val, err := pendingState.ContractStorage(contractAddress, storageKey)
+					require.NoError(t, err)
+					expected := new(felt.Felt).SetUint64(uint64(i) + 1)
+					require.Equal(t, expected, &val)
+
+					val, err = pendingState.ContractStorage(contractAddress, storageKey2)
+					require.NoError(t, err)
+					require.Equal(t, val2, &val)
+					require.NoError(t, pendingStateCloser())
+				}
 			})
 		})
 	})
@@ -448,8 +487,78 @@ func TestSubscribePending(t *testing.T) {
 
 	pendingData, err := synchronizer.PendingData()
 	require.NoError(t, err)
-	pendingBlock, ok := <-sub.Recv()
-	require.True(t, ok)
-	require.Equal(t, pendingData, pendingBlock)
+	select {
+	case pendingBlock, ok := <-sub.Recv():
+		require.True(t, ok)
+		require.Equal(t, pendingData, pendingBlock)
+	case <-time.After(time.Second):
+		t.Fatal("expected pending data")
+	}
+
 	sub.Unsubscribe()
+}
+
+func makePreConfirmedWithIncrementingCounter(
+	blockNumber uint64,
+	numTxs int,
+	contractAddr *felt.Felt,
+	storageKey *felt.Felt,
+	startingNonce uint64,
+) *core.PreConfirmed {
+	transactions := make([]core.Transaction, numTxs)
+	receipts := make([]*core.TransactionReceipt, numTxs)
+	stateDiffs := make([]*core.StateDiff, numTxs)
+
+	for i := range numTxs {
+		transactions[i] = &core.InvokeTransaction{}
+		receipts[i] = &core.TransactionReceipt{}
+
+		// Increment counter value: i+1 (1 for first tx, 2 for second, etc)
+		counterVal := new(felt.Felt).SetUint64(uint64(i + 1))
+
+		// Increment nonce: startingNonce + i + 1
+		nonceVal := new(felt.Felt).SetUint64(startingNonce + uint64(i) + 1)
+
+		// Compose storage diffs map for this tx
+		storageDiffForContract := map[felt.Felt]*felt.Felt{
+			*storageKey: counterVal,
+		}
+
+		stateDiff := &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*contractAddr: storageDiffForContract,
+			},
+			Nonces: map[felt.Felt]*felt.Felt{
+				*contractAddr: nonceVal,
+			},
+			DeployedContracts: make(map[felt.Felt]*felt.Felt, 0),
+			DeclaredV0Classes: make([]*felt.Felt, 0),
+			DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, 0),
+			ReplacedClasses:   make(map[felt.Felt]*felt.Felt, 0),
+		}
+
+		stateDiffs[i] = stateDiff
+	}
+
+	block := &core.Block{
+		Header: &core.Header{
+			Number:           blockNumber,
+			TransactionCount: uint64(numTxs),
+		},
+		Transactions: transactions,
+		Receipts:     receipts,
+	}
+
+	aggregatedStateDiff := core.EmptyStateDiff()
+	for _, stateDiff := range stateDiffs {
+		aggregatedStateDiff.Merge(stateDiff)
+	}
+
+	return &core.PreConfirmed{
+		Block:                 block,
+		TransactionStateDiffs: stateDiffs,
+		StateUpdate: &core.StateUpdate{
+			StateDiff: &aggregatedStateDiff,
+		},
+	}
 }

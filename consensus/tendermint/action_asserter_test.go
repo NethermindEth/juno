@@ -4,8 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/starknet"
-	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/hash"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,14 +37,14 @@ func (a actionAsserter[T]) expectActions(expected ...starknet.Action) actionAsse
 				assert.Equal(a.testing, getHash(a.stateMachine.state.validValue), action.ID)
 			}
 			assertPrecommit(a.testing, a.stateMachine, starknet.Precommit(*action))
-		case *types.ScheduleTimeout:
+		case *actions.ScheduleTimeout:
 			// ScheduleTimeout doesn't come with any state change, so there's nothing to assert here.
 		}
 	}
 	return a
 }
 
-func getHash(val *starknet.Value) *hash.Hash {
+func getHash(val *starknet.Value) *starknet.Hash {
 	if val != nil {
 		return utils.HeapPtr(val.Hash())
 	}

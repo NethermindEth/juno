@@ -259,11 +259,13 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 */
 
 func (h *Handler) EstimateFee(
-	broadcastedTxns []BroadcastedTransaction, simulationFlags []rpcv6.SimulationFlag, id *BlockID,
+	broadcastedTxns BroadcastedTransactionInputs,
+	simulationFlags []rpcv6.SimulationFlag,
+	id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
 		id,
-		broadcastedTxns,
+		broadcastedTxns.Data,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
 		true,
 	)
@@ -303,7 +305,11 @@ func (h *Handler) EstimateMessageFee(
 	}
 
 	bcTxn := [1]BroadcastedTransaction{tx}
-	estimates, httpHeader, err := h.EstimateFee(bcTxn[:], nil, id)
+	estimates, httpHeader, err := h.EstimateFee(
+		BroadcastedTransactionInputs{Data: bcTxn[:]},
+		nil,
+		id,
+	)
 	if err != nil {
 		if err.Code == rpccore.ErrTransactionExecutionError.Code {
 			data := err.Data.(TransactionExecutionErrorData)

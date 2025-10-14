@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -20,10 +19,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
-
-var traceFallbackVersion = semver.MustParse("0.13.1")
-
-const excludedVersion = "0.13.1.1"
 
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
@@ -55,8 +50,8 @@ type FunctionInvocation struct {
 	Calldata           []felt.Felt                  `json:"calldata"`
 	CallerAddress      felt.Felt                    `json:"caller_address"`
 	ClassHash          *felt.Felt                   `json:"class_hash"`
-	EntryPointType     string                       `json:"entry_point_type"` // shouldnt we put it as enum here ?
-	CallType           string                       `json:"call_type"`        // shouldnt we put it as enum here ?
+	EntryPointType     string                       `json:"entry_point_type"` // todo(rdr): use an enum here
+	CallType           string                       `json:"call_type"`        // todo(rdr): use an enum here
 	Result             []felt.Felt                  `json:"result"`
 	Calls              []FunctionInvocation         `json:"calls"`
 	Events             []rpcv6.OrderedEvent         `json:"events"`
@@ -73,10 +68,12 @@ type FunctionInvocation struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (TransactionTrace, http.Header, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(
+	// todo(rdr): `hash` should be passed by reference
+	ctx context.Context, hash felt.Felt,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(&hash)
-	httpHeader := http.Header{}
-	httpHeader.Set(ExecutionStepsHeader, "0")
+	httpHeader := defaultExecutionHeader()
 
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
@@ -134,9 +131,10 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (Transac
 	}
 }
 
-func (h *Handler) tracePreConfirmedTransaction(block *core.Block, txIndex int) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	httpHeader := http.Header{}
-	httpHeader.Set(ExecutionStepsHeader, "0")
+func (h *Handler) tracePreConfirmedTransaction(
+	block *core.Block, txIndex int,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	httpHeader := defaultExecutionHeader()
 	state, stateCloser, err := h.syncReader.PendingStateBeforeIndex(txIndex)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -164,7 +162,7 @@ func (h *Handler) tracePreConfirmedTransaction(block *core.Block, txIndex int) (
 	if err != nil {
 		return TransactionTrace{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
-	network := h.bcReader.Network()
+
 	header := block.Header
 	blockInfo := vm.BlockInfo{
 		Header:                header,
@@ -172,7 +170,7 @@ func (h *Handler) tracePreConfirmedTransaction(block *core.Block, txIndex int) (
 	}
 
 	executionResult, err := h.vm.Execute([]core.Transaction{transaction}, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, true, false)
+		&blockInfo, state, false, false, false, true, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -207,77 +205,66 @@ func (h *Handler) TraceBlockTransactions(
 	ctx context.Context, id *BlockID,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	if id.IsPreConfirmed() {
-		httpHeader := http.Header{}
-		httpHeader.Set(ExecutionStepsHeader, "0")
-		return nil, httpHeader, rpccore.ErrCallOnPreConfirmed
+		return nil, defaultExecutionHeader(), rpccore.ErrCallOnPreConfirmed
 	}
 
 	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
-		httpHeader := http.Header{}
-		httpHeader.Set(ExecutionStepsHeader, "0")
-		return nil, httpHeader, rpcErr
+		return nil, defaultExecutionHeader(), rpcErr
 	}
 
 	return h.traceBlockTransactions(ctx, block)
 }
 
-//nolint:funlen,gocyclo
-func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-	httpHeader := http.Header{}
-	httpHeader.Set(ExecutionStepsHeader, "0")
-
+// traceBlockTransactions gets the trace for a block. The block will always be traced locally except
+// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
+func (h *Handler) traceBlockTransactions(
+	ctx context.Context, block *core.Block,
+) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 	if !isPending {
-		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
-			return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
-		} else if blockVer.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion != excludedVersion {
-			// version <= 0.13.1 and not 0.13.1.1 fetch blocks from feeder gateway
-			result, err := h.fetchTraces(ctx, block.Hash)
-			if err != nil {
-				return nil, httpHeader, err
-			}
-
-			// fgw doesn't provide this data in traces endpoint. So, we get it from our block receipts
-			txTotalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(block.Receipts))
-			for _, receipt := range block.Receipts {
-				if receipt.ExecutionResources == nil {
-					continue
-				}
-
-				if receiptTGS := receipt.ExecutionResources.TotalGasConsumed; receiptTGS != nil {
-					tgs := core.GasConsumed{
-						L1Gas:     receiptTGS.L1Gas,
-						L1DataGas: receiptTGS.L1DataGas,
-						L2Gas:     receiptTGS.L2Gas,
-					}
-					txTotalGasConsumed[*receipt.TransactionHash] = tgs
-				}
-			}
-
-			// For every trace in block, add execution resources on root level
-			for index, trace := range result {
-				tgs := txTotalGasConsumed[*trace.TransactionHash]
-
-				result[index].TraceRoot.ExecutionResources = &ExecutionResources{
-					InnerExecutionResources: InnerExecutionResources{
-						L1Gas: tgs.L1Gas,
-						L2Gas: tgs.L2Gas,
-					},
-					L1DataGas: tgs.L1DataGas,
-				}
-			}
-
-			return result, httpHeader, err
+		// Check if it was already traced
+		traces, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{BlockHash: *block.Hash})
+		if hit {
+			return traces, defaultExecutionHeader(), nil
 		}
 
-		if trace, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{
-			BlockHash: *block.Hash,
-		}); hit {
-			return trace, httpHeader, nil
+		// Check if the trace should be provided by the feeder gateway
+		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+		if err != nil {
+			return nil,
+				defaultExecutionHeader(),
+				rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+		}
+
+		// We rely on the feeder gateway for Starknet version strictly older than "0.13.1.1"
+		fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2) &&
+			block.ProtocolVersion != "0.13.1.1"
+		// This specific block range caused a re-org, also related with Cairo 0 and we have to
+		// depend on the Sequencer to provide the correct traces
+		fetchFromFeederGW = fetchFromFeederGW ||
+			(block.Number >= 1943705 &&
+				block.Number <= 1952704 &&
+				*h.bcReader.Network() == utils.Mainnet)
+
+		if fetchFromFeederGW {
+			traces, err := h.fetchTracesFromFeederGateway(ctx, block)
+			if err != nil {
+				return nil, defaultExecutionHeader(), err
+			}
+			h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
+			return traces, defaultExecutionHeader(), nil
 		}
 	}
 
+	return h.traceBlockTransactionWithVM(block)
+}
+
+// `traceBlockTransactionWithVM` traces a block and stores it in the block cache
+func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
+	[]TracedBlockTransaction, http.Header, *jsonrpc.Error,
+) {
+	httpHeader := defaultExecutionHeader()
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrBlockNotFound
@@ -288,6 +275,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
+
+	isPending := block.Hash == nil
 	if isPending {
 		headState, headStateCloser, err = h.PendingState()
 	} else {
@@ -319,7 +308,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
-	network := h.bcReader.Network()
+
 	header := block.Header
 	blockInfo := vm.BlockInfo{
 		Header:                header,
@@ -327,7 +316,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, true, false)
+		&blockInfo, state, false, false, false, true, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -360,36 +349,83 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	if !isPending {
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{
-			BlockHash: *block.Hash,
-		}, result)
+		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, result)
 	}
 
 	return result, httpHeader, nil
 }
 
-func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	blockID := BlockIDFromHash(blockHash)
-	rpcBlock, err := h.BlockWithTxs(&blockID)
-	if err != nil {
-		return nil, err
+func (h *Handler) fetchTracesFromFeederGateway(
+	ctx context.Context, block *core.Block,
+) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	// todo(rdr): this feels unnatural, why if I have the `core.Block` should I still
+	// try to go for the rpcBlock? Ideally we extract all the info directly from `core.Block`
+	blockID := BlockIDFromHash(block.Hash)
+	rpcBlock, rpcErr := h.BlockWithTxs(&blockID)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	if h.feederClient == nil {
 		return nil, rpccore.ErrInternal.CloneWithData("no feeder client configured")
 	}
 
-	blockTrace, fErr := h.feederClient.BlockTrace(ctx, blockHash.String())
-	if fErr != nil {
-		return nil, rpccore.ErrUnexpectedError.CloneWithData(fErr.Error())
+	blockTrace, err := h.feederClient.BlockTrace(ctx, block.Hash.String())
+	if err != nil {
+		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces, aErr := AdaptFeederBlockTrace(rpcBlock, blockTrace)
-	if aErr != nil {
-		return nil, rpccore.ErrUnexpectedError.CloneWithData(aErr.Error())
+	traces, err := AdaptFeederBlockTrace(rpcBlock, blockTrace)
+	if err != nil {
+		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
+
+	traces = fillFeederGatewayData(traces, block.Receipts)
 
 	return traces, nil
+}
+
+// `fillFeederGatewayData` mutates the `traces` argument and fill it with the data from `receipts` which
+// the Feeder Gateway doesn't provide by default
+func fillFeederGatewayData(
+	traces []TracedBlockTransaction, receipts []*core.TransactionReceipt,
+) []TracedBlockTransaction {
+	totalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(receipts))
+	for _, re := range receipts {
+		if re.ExecutionResources == nil {
+			continue
+		}
+
+		if reGasConsumed := re.ExecutionResources.TotalGasConsumed; reGasConsumed != nil {
+			tgs := core.GasConsumed{
+				L1Gas:     reGasConsumed.L1Gas,
+				L1DataGas: reGasConsumed.L1DataGas,
+				L2Gas:     reGasConsumed.L2Gas,
+			}
+			totalGasConsumed[*re.TransactionHash] = tgs
+		}
+	}
+
+	// For every trace in block, add execution resources on root level
+	for index, trace := range traces {
+		tgs := totalGasConsumed[*trace.TransactionHash]
+
+		traces[index].TraceRoot.ExecutionResources = &ExecutionResources{
+			InnerExecutionResources: InnerExecutionResources{
+				L1Gas: tgs.L1Gas,
+				L2Gas: tgs.L2Gas,
+			},
+			L1DataGas: tgs.L1DataGas,
+		}
+	}
+
+	return traces
+}
+
+func defaultExecutionHeader() http.Header {
+	header := http.Header{}
+	header.Set(ExecutionStepsHeader, "0")
+	return header
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579
@@ -410,27 +446,28 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	declaredClass, err := state.Class(classHash)
-	if err != nil {
-		return nil, rpccore.ErrClassHashNotFound
-	}
-
-	sierraVersion := declaredClass.Class.SierraVersion()
-
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	res, err := h.vm.Call(&vm.CallInfo{
-		ContractAddress: &funcCall.ContractAddress,
-		Selector:        &funcCall.EntryPointSelector,
-		Calldata:        funcCall.Calldata,
-		ClassHash:       classHash,
-	}, &vm.BlockInfo{
-		Header:                header,
-		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, true, false)
+	res, err := h.vm.Call(
+		&vm.CallInfo{
+			ContractAddress: &funcCall.ContractAddress,
+			Selector:        &funcCall.EntryPointSelector,
+			Calldata:        funcCall.Calldata.Data,
+			ClassHash:       &classHash,
+		},
+		&vm.BlockInfo{
+			Header:                header,
+			BlockHashToBeRevealed: blockHashToBeRevealed,
+		},
+		state,
+		h.callMaxSteps,
+		h.callMaxGas,
+		true,
+		false,
+	)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)

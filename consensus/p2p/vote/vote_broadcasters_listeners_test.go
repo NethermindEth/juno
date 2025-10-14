@@ -41,11 +41,11 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 	for i := range voteCount {
 		vote := getRandomVote(t)
 		prevotes[i] = starknet.Prevote(vote)
-		voteSet[getPrevoteString(prevotes[i])] = struct{}{}
+		voteSet[getPrevoteString(&prevotes[i])] = struct{}{}
 
 		vote = getRandomVote(t)
 		precommits[i] = starknet.Precommit(vote)
-		voteSet[getPrecommitString(precommits[i])] = struct{}{}
+		voteSet[getPrecommitString(&precommits[i])] = struct{}{}
 	}
 
 	pending := maps.Clone(voteSet)
@@ -70,8 +70,8 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			prevotes[i], prevotes[j] = prevotes[j], prevotes[i]
 		})
 		for i := range prevotes {
-			logger.Debugw("broadcasting prevote", "vote", getPrevoteString(prevotes[i]))
-			prevoteBroadcaster.Broadcast(t.Context(), prevotes[i])
+			logger.Debugw("broadcasting prevote", "vote", getPrevoteString(&prevotes[i]))
+			prevoteBroadcaster.Broadcast(t.Context(), &prevotes[i])
 		}
 	}()
 
@@ -81,8 +81,8 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			precommits[i], precommits[j] = precommits[j], precommits[i]
 		})
 		for i := range precommits {
-			logger.Debugw("broadcasting precommit", "vote", getPrecommitString(precommits[i]))
-			precommitBroadcaster.Broadcast(t.Context(), precommits[i])
+			logger.Debugw("broadcasting precommit", "vote", getPrecommitString(&precommits[i]))
+			precommitBroadcaster.Broadcast(t.Context(), &precommits[i])
 		}
 	}()
 
@@ -138,34 +138,33 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 
 func getRandomVote(t *testing.T) starknet.Vote {
 	var id *starknet.Hash
+	var err error
 	if rand.IntN(100) >= 20 {
-		idFelt, err := new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		id = (*starknet.Hash)(idFelt)
+		id = felt.NewRandom[starknet.Hash]()
 	}
 
-	sender, err := new(felt.Felt).SetRandom()
+	sender := felt.NewRandom[starknet.Address]()
 	require.NoError(t, err)
 
 	return starknet.Vote{
 		MessageHeader: starknet.MessageHeader{
 			Height: types.Height(rand.Uint64()),
 			Round:  types.Round(rand.Int32()),
-			Sender: starknet.Address(*sender),
+			Sender: *sender,
 		},
 		ID: id,
 	}
 }
 
-func getPrevoteString(vote starknet.Prevote) string {
-	return getVoteString("prevote", starknet.Vote(vote))
+func getPrevoteString(vote *starknet.Prevote) string {
+	return getVoteString("prevote", (*starknet.Vote)(vote))
 }
 
-func getPrecommitString(vote starknet.Precommit) string {
-	return getVoteString("precommit", starknet.Vote(vote))
+func getPrecommitString(vote *starknet.Precommit) string {
+	return getVoteString("precommit", (*starknet.Vote)(vote))
 }
 
-func getVoteString(prefix string, vote starknet.Vote) string {
+func getVoteString(prefix string, vote *starknet.Vote) string {
 	id := "nil"
 	if vote.ID != nil {
 		id = vote.ID.String()

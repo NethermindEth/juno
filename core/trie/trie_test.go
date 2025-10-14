@@ -165,17 +165,8 @@ func TestPutZero(t *testing.T) {
 
 		// put random 64 keys and record roots
 		for range 64 {
-			key, value := new(felt.Felt), new(felt.Felt)
-
-			_, err = key.SetRandom()
-			require.NoError(t, err)
-
-			t.Logf("key: %s", key.String())
-
-			_, err = value.SetRandom()
-			require.NoError(t, err)
-
-			t.Logf("value: %s", value.String())
+			key := felt.NewRandom[felt.Felt]()
+			value := felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, value)
 			require.NoError(t, err)
@@ -189,19 +180,19 @@ func TestPutZero(t *testing.T) {
 			roots = append(roots, root)
 		}
 
-		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
-			var key, root *felt.Felt
-			key, err = new(felt.Felt).SetRandom()
-			require.NoError(t, err)
+		t.Run(
+			"adding a zero value to a non-existent key should not change Trie",
+			func(t *testing.T) {
+				key := felt.NewRandom[felt.Felt]()
 
-			_, err = tempTrie.Put(key, new(felt.Felt))
-			require.NoError(t, err)
+				_, err = tempTrie.Put(key, new(felt.Felt))
+				require.NoError(t, err)
 
-			root, err = tempTrie.Root()
-			require.NoError(t, err)
+				root, err := tempTrie.Root()
+				require.NoError(t, err)
 
-			assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
-		})
+				assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+			})
 
 		t.Run("remove keys one by one, check roots", func(t *testing.T) {
 			var gotRoot *felt.Felt
@@ -239,13 +230,8 @@ func TestTrie(t *testing.T) {
 
 		// put random 64 keys and record roots
 		for range 64 {
-			key, value := new(felt.Felt), new(felt.Felt)
-
-			_, err = key.SetRandom()
-			require.NoError(t, err)
-
-			_, err = value.SetRandom()
-			require.NoError(t, err)
+			key := felt.NewRandom[felt.Felt]()
+			value := felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, value)
 			require.NoError(t, err)
@@ -261,8 +247,7 @@ func TestTrie(t *testing.T) {
 
 		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
 			var key, root *felt.Felt
-			key, err = new(felt.Felt).SetRandom()
-			require.NoError(t, err)
+			key = felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, new(felt.Felt))
 			require.NoError(t, err)
@@ -435,8 +420,7 @@ var benchTriePutR *felt.Felt
 func BenchmarkTriePut(b *testing.B) {
 	keys := make([]*felt.Felt, 0, b.N)
 	for range b.N {
-		rnd, err := new(felt.Felt).SetRandom()
-		require.NoError(b, err)
+		rnd := felt.NewRandom[felt.Felt]()
 		keys = append(keys, rnd)
 	}
 

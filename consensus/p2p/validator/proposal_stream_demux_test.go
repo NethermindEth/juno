@@ -97,7 +97,7 @@ func TestProposalStreamDemux(t *testing.T) {
 
 	t.Run("send full proposal 1b", func(t *testing.T) {
 		messages1b = sendParts(t, topic, messages1b, len(messages1b))
-		assertExpectedProposal(t, outputs, proposal1b)
+		assertExpectedProposal(t, outputs, &proposal1b)
 	})
 
 	t.Run("send full proposal 2a", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestProposalStreamDemux(t *testing.T) {
 
 	t.Run("send remaining of proposal 1a", func(t *testing.T) {
 		messages1a = sendParts(t, topic, messages1a, len(messages1a))
-		assertExpectedProposal(t, outputs, proposal1a)
+		assertExpectedProposal(t, outputs, &proposal1a)
 	})
 
 	t.Run("send half proposal 2b", func(t *testing.T) {
@@ -126,29 +126,29 @@ func TestProposalStreamDemux(t *testing.T) {
 	})
 
 	t.Run("commit block 1", func(t *testing.T) {
-		commitNotifier <- block1
 		SetChainHeight(t, database, block1)
-		assertExpectedProposal(t, outputs, proposal2a)
+		commitNotifier <- block1
+		assertExpectedProposal(t, outputs, &proposal2a)
 	})
 
 	t.Run("send full proposal 2c", func(t *testing.T) {
 		messages2c = sendParts(t, topic, messages2c, len(messages2c))
-		assertExpectedProposal(t, outputs, proposal2c)
+		assertExpectedProposal(t, outputs, &proposal2c)
 	})
 
 	t.Run("send remaining of proposal 2b", func(t *testing.T) {
 		messages2b = sendParts(t, topic, messages2b, len(messages2b))
-		assertExpectedProposal(t, outputs, proposal2b)
+		assertExpectedProposal(t, outputs, &proposal2b)
 	})
 
 	t.Run("commit block 2", func(t *testing.T) {
-		commitNotifier <- block2
 		SetChainHeight(t, database, block2)
-		assertExpectedProposal(t, outputs, proposal3)
+		commitNotifier <- block2
+		assertExpectedProposal(t, outputs, &proposal3)
 	})
 }
 
-func assertExpectedProposal(t *testing.T, outputs <-chan starknet.Proposal, expectedProposal starknet.Proposal) {
+func assertExpectedProposal(t *testing.T, outputs <-chan *starknet.Proposal, expectedProposal *starknet.Proposal) {
 	select {
 	case proposal := <-outputs:
 		require.Equal(t, expectedProposal, proposal)
@@ -157,7 +157,7 @@ func assertExpectedProposal(t *testing.T, outputs <-chan starknet.Proposal, expe
 	}
 }
 
-func assertNoExpectedProposal(t *testing.T, outputs <-chan starknet.Proposal) {
+func assertNoExpectedProposal(t *testing.T, outputs <-chan *starknet.Proposal) {
 	select {
 	case <-outputs:
 		require.Fail(t, "expected no proposal")
@@ -196,8 +196,7 @@ type proposalBuilder struct {
 }
 
 func newProposalBuilder(t *testing.T) *proposalBuilder {
-	randomFelt, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	randomFelt := felt.NewRandom[felt.Felt]()
 
 	return &proposalBuilder{
 		t:        t,

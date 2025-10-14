@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +42,7 @@ func TestStateDiffCommitment(t *testing.T) {
 			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 			commitment := su.StateDiff.Commitment()
-			assert.Equal(t, utils.HexToFelt(t, test.expected), commitment)
+			assert.Equal(t, felt.NewUnsafeFromString[felt.Felt](test.expected), commitment)
 		})
 	}
 }
@@ -73,7 +75,7 @@ func TestStateDiffHash(t *testing.T) {
 		t.Run(fmt.Sprintf("blockNum_%d", test.blockNum), func(t *testing.T) {
 			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
-			assert.Equal(t, utils.HexToFelt(t, test.expected), su.StateDiff.Hash())
+			assert.Equal(t, felt.NewUnsafeFromString[felt.Felt](test.expected), su.StateDiff.Hash())
 		})
 	}
 }
@@ -109,4 +111,63 @@ func TestStateDiffLength(t *testing.T) {
 			assert.Equal(t, test.expectedLength, length)
 		})
 	}
+}
+
+func TestStateDiffMerge_StorageDiffsDifferentSlotsSameAddress(t *testing.T) {
+	addrA := new(felt.Felt).SetUint64(255)
+	slotX := new(felt.Felt).SetUint64(127)
+	slotY := new(felt.Felt).SetUint64(255)
+	v1 := new(felt.Felt).SetUint64(1)
+	v2 := new(felt.Felt).SetUint64(2)
+
+	d := core.EmptyStateDiff()
+
+	incomingV1 := core.EmptyStateDiff()
+	incomingV1.StorageDiffs[*addrA] = map[felt.Felt]*felt.Felt{*slotX: v1}
+
+	d.Merge(&incomingV1)
+
+	incomingV2 := core.EmptyStateDiff()
+	incomingV2.StorageDiffs[*addrA] = map[felt.Felt]*felt.Felt{*slotY: v2}
+
+	d.Merge(&incomingV2)
+
+	inner, ok := d.StorageDiffs[*addrA]
+	require.True(t, ok)
+	require.Len(t, inner, 2)
+	require.Equal(t, inner[*slotX], v1)
+	require.Equal(t, inner[*slotY], v2)
+	// incoming should remain unchanged
+	innerV1 := incomingV1.StorageDiffs[*addrA]
+	require.Len(t, innerV1, 1)
+	require.Equal(t, innerV1[*slotX], v1)
+	innerV2 := incomingV2.StorageDiffs[*addrA]
+	require.Len(t, innerV2, 1)
+	require.Equal(t, innerV2[*slotY], v2)
+}
+
+func TestStateDiffMerge_StorageDiffsSameSlotIncomingWins(t *testing.T) {
+	addrA := new(felt.Felt).SetUint64(255)
+	slotX := new(felt.Felt).SetUint64(127)
+	v1 := new(felt.Felt).SetUint64(1)
+	v2 := new(felt.Felt).SetUint64(2)
+
+	d := core.EmptyStateDiff()
+
+	incomingV1 := core.EmptyStateDiff()
+	incomingV1.StorageDiffs[*addrA] = map[felt.Felt]*felt.Felt{*slotX: v1}
+
+	d.Merge(&incomingV1)
+
+	incomingV2 := core.EmptyStateDiff()
+	incomingV2.StorageDiffs[*addrA] = map[felt.Felt]*felt.Felt{*slotX: v2}
+
+	d.Merge(&incomingV2)
+
+	inner := d.StorageDiffs[*addrA]
+	require.Len(t, inner, 1)
+	require.Equal(t, inner[*slotX], v2)
+	// incoming unchanged
+	require.Equal(t, incomingV1.StorageDiffs[*addrA][*slotX], v1)
+	require.Equal(t, incomingV2.StorageDiffs[*addrA][*slotX], v2)
 }

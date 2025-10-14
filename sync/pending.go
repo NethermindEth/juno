@@ -12,52 +12,6 @@ import (
 
 var feltOne = new(felt.Felt).SetUint64(1)
 
-type Pending struct {
-	Block       *core.Block
-	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.Class
-}
-
-func NewPending(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) Pending {
-	return Pending{
-		Block:       block,
-		StateUpdate: stateUpdate,
-		NewClasses:  newClasses,
-	}
-}
-
-func (p *Pending) GetBlock() *core.Block {
-	return p.Block
-}
-
-func (p *Pending) GetHeader() *core.Header {
-	return p.Block.Header
-}
-
-func (p *Pending) GetTransactions() []core.Transaction {
-	return p.Block.Transactions
-}
-
-func (p *Pending) GetStateUpdate() *core.StateUpdate {
-	return p.StateUpdate
-}
-
-func (p *Pending) GetNewClasses() map[felt.Felt]core.Class {
-	return p.NewClasses
-}
-
-func (p *Pending) GetCandidateTransaction() []core.Transaction {
-	return []core.Transaction{}
-}
-
-func (p *Pending) GetTransactionStateDiffs() []*core.StateDiff {
-	return []*core.StateDiff{}
-}
-
-func (p *Pending) Variant() core.PendingDataVariant {
-	return core.PendingBlockVariant
-}
-
 type PendingState struct {
 	stateDiff  *core.StateDiff
 	newClasses map[felt.Felt]core.Class
@@ -80,32 +34,32 @@ func (p *PendingState) StateDiff() *core.StateDiff {
 	return p.stateDiff
 }
 
-func (p *PendingState) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
+func (p *PendingState) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	if classHash, ok := p.stateDiff.ReplacedClasses[*addr]; ok {
-		return classHash, nil
+		return *classHash, nil
 	} else if classHash, ok = p.stateDiff.DeployedContracts[*addr]; ok {
-		return classHash, nil
+		return *classHash, nil
 	}
 	return p.head.ContractClassHash(addr)
 }
 
-func (p *PendingState) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+func (p *PendingState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if nonce, found := p.stateDiff.Nonces[*addr]; found {
-		return nonce, nil
+		return *nonce, nil
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
-		return &felt.Felt{}, nil
+		return felt.Felt{}, nil
 	}
 	return p.head.ContractNonce(addr)
 }
 
-func (p *PendingState) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	if diffs, found := p.stateDiff.StorageDiffs[*addr]; found {
 		if value, found := diffs[*key]; found {
-			return value, nil
+			return *value, nil
 		}
 	}
 	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
-		return &felt.Felt{}, nil
+		return felt.Felt{}, nil
 	}
 	return p.head.ContractStorage(addr, key)
 }
@@ -160,7 +114,7 @@ func (p *PendingStateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
 	}
-	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(currentNonce, feltOne)
+	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, feltOne)
 	return nil
 }
 
