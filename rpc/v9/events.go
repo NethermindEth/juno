@@ -35,7 +35,7 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 
 		switch blockID.Type() {
 		case preConfirmed:
-			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
+			return filter.SetRangeEndBlockByNumber(filterRange, ^uint64(0))
 		case latest:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
 		case hash:
@@ -119,12 +119,8 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 
 	emittedEvents := make([]*rpcv6.EmittedEvent, len(filteredEvents))
 	for i, fEvent := range filteredEvents {
-		var blockNumber *uint64
-		if fEvent.BlockHash != nil {
-			blockNumber = fEvent.BlockNumber
-		}
 		emittedEvents[i] = &rpcv6.EmittedEvent{
-			BlockNumber:     blockNumber,
+			BlockNumber:     fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
 			Event: &rpcv6.Event{

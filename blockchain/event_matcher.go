@@ -140,8 +140,13 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	return nil
 }
 
-func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header, receipts []*core.TransactionReceipt,
-	skippedEvents uint64, chunkSize uint64,
+func (e *EventMatcher) AppendBlockEvents(
+	matchedEventsSofar []*FilteredEvent,
+	header *core.Header,
+	receipts []*core.TransactionReceipt,
+	skippedEvents uint64,
+	chunkSize uint64,
+	isPreLatest bool,
 ) ([]*FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {
@@ -149,7 +154,8 @@ func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, he
 			var blockNumber *uint64
 			// if header.Hash == nil it's a pending block
 			// if header.Hash == nil and header.ParentHash is nil preconfirmed block
-			if header.Hash != nil || header.ParentHash == nil {
+			// if isPreLatest is true, it's a prelatest block (should have block number)
+			if header.Hash != nil || header.ParentHash == nil || isPreLatest {
 				blockNumber = &header.Number
 			}
 
