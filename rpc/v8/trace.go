@@ -359,7 +359,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 			ContractAddress: &funcCall.ContractAddress,
 			Selector:        &funcCall.EntryPointSelector,
 			Calldata:        funcCall.Calldata.Data,
-			ClassHash:       classHash,
+			ClassHash:       &classHash,
 		},
 		&vm.BlockInfo{
 			Header:                header,

@@ -108,13 +108,13 @@ func TestClassAt(t *testing.T) {
 	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
-	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(cairo0ClassHash, nil)
+	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(*cairo0ClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
 	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
-	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(cairo1ClassHash, nil)
+	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*cairo1ClassHash, nil)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
 		class, err := integGw.Class(t.Context(), classHash)
@@ -188,7 +188,9 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, errors.New("non-existent contract"))
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(
+			felt.Zero, errors.New("non-existent contract"),
+		)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, classHash)
@@ -199,7 +201,7 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, rpcErr)
@@ -208,7 +210,7 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, rpcErr)
@@ -217,7 +219,7 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, rpcErr)
@@ -228,7 +230,7 @@ func TestClassHashAt(t *testing.T) {
 		pending := core.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Pending: true}, felt.Zero)
 		require.Nil(t, rpcErr)

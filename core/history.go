@@ -75,14 +75,18 @@ func (h *history) DeleteContractStorageLog(contractAddress, storageLocation *fel
 }
 
 // ContractStorageAt returns the value of a storage location of the given contract at the height `height`
-func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt, height uint64) (*felt.Felt, error) {
+func (h *history) ContractStorageAt(
+	contractAddress,
+	storageLocation *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
 	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
 	value, err := h.valueAt(key, height)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
-	return new(felt.Felt).SetBytes(value), nil
+	return felt.FromBytes[felt.Felt](value), nil
 }
 
 func (h *history) LogContractNonce(contractAddress, oldValue *felt.Felt, height uint64) error {
@@ -93,14 +97,13 @@ func (h *history) DeleteContractNonceLog(contractAddress *felt.Felt, height uint
 	return h.deleteLog(db.ContractNonceHistoryKey(contractAddress), height)
 }
 
-func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*felt.Felt, error) {
+func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
 	key := db.ContractNonceHistoryKey(contractAddress)
 	value, err := h.valueAt(key, height)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
-
-	return new(felt.Felt).SetBytes(value), nil
+	return felt.FromBytes[felt.Felt](value), nil
 }
 
 func (h *history) LogContractClassHash(contractAddress, oldValue *felt.Felt, height uint64) error {
@@ -111,12 +114,15 @@ func (h *history) DeleteContractClassHashLog(contractAddress *felt.Felt, height 
 	return h.deleteLog(db.ContractClassHashHistoryKey(contractAddress), height)
 }
 
-func (h *history) ContractClassHashAt(contractAddress *felt.Felt, height uint64) (*felt.Felt, error) {
+func (h *history) ContractClassHashAt(
+	contractAddress *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
 	key := db.ContractClassHashHistoryKey(contractAddress)
 	value, err := h.valueAt(key, height)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
-	return new(felt.Felt).SetBytes(value), nil
+	return felt.FromBytes[felt.Felt](value), nil
 }

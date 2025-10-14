@@ -29,7 +29,7 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	return nonce, nil
+	return &nonce, nil
 }
 
 // StorageAt gets the value of the storage at the given address and key for a given block.
@@ -61,5 +61,5 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 		return nil, rpccore.ErrInternal
 	}
 
-	return value, nil
+	return &value, nil
 }
