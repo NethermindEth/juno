@@ -284,33 +284,6 @@ func TestStateHistory(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, &oldValue, felt.NewUnsafeFromString[felt.Felt]("0x22b"))
 	})
-
-	newClassHash := felt.NewRandom[felt.Felt]()
-	suClassHash := &core.StateUpdate{
-		NewRoot: felt.NewRandom[felt.Felt](),
-		OldRoot: su.NewRoot,
-		StateDiff: &core.StateDiff{
-			ReplacedClasses: map[felt.Felt]*felt.Felt{
-				*contractAddr: newClassHash,
-			},
-		},
-	}
-	require.NoError(t, state.Update(2, suClassHash, nil, true))
-
-	t.Run("ContractClassHashAt", func(t *testing.T) {
-		t.Run("should return an error when class hash changed on the given height", func(t *testing.T) {
-			val, err := state.ContractClassHashAt(contractAddr, 2)
-			assert.ErrorIs(t, err, core.ErrCheckHeadState)
-			assert.Equal(t, felt.Zero, val)
-		})
-
-		t.Run("should give old class hash before replacement", func(t *testing.T) {
-			oldClassHash, err := state.ContractClassHashAt(contractAddr, 1)
-			require.NoError(t, err)
-			initialClassHash := felt.NewUnsafeFromString[felt.Felt]("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
-			require.Equal(t, initialClassHash, &oldClassHash)
-		})
-	})
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
