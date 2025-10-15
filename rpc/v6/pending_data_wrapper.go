@@ -6,12 +6,11 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/sync"
 )
 
 func (h *Handler) PendingData() (core.PendingData, error) {
 	pending, err := h.syncReader.PendingData()
-	if err != nil && !errors.Is(err, sync.ErrPendingBlockNotFound) {
+	if err != nil && !errors.Is(err, core.ErrPendingDataNotFound) {
 		return nil, err
 	}
 	// If pending network is polling pending block and running on < 0.14.0
@@ -19,7 +18,7 @@ func (h *Handler) PendingData() (core.PendingData, error) {
 		return pending, nil
 	}
 
-	// If pending data variant is not `Pending` or err is `sync.ErrPendingBlockNotFound`
+	// If pending data variant is not `Pending` or err is `core.ErrPendingDataNotFound`
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, err
@@ -39,7 +38,7 @@ func (h *Handler) PendingBlock() *core.Block {
 func (h *Handler) PendingState() (core.StateReader, func() error, error) {
 	pending, err := h.syncReader.PendingData()
 	if err != nil {
-		if errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, core.ErrPendingDataNotFound) {
 			return h.bcReader.HeadState()
 		}
 		return nil, nil, err
@@ -48,7 +47,7 @@ func (h *Handler) PendingState() (core.StateReader, func() error, error) {
 	if pending.Variant() == core.PendingBlockVariant {
 		state, closer, err := h.syncReader.PendingState()
 		if err != nil {
-			if errors.Is(err, sync.ErrPendingBlockNotFound) {
+			if errors.Is(err, core.ErrPendingDataNotFound) {
 				return h.bcReader.HeadState()
 			}
 			return nil, nil, err
