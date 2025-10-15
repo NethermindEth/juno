@@ -25,7 +25,7 @@ func TestTrieKeys(t *testing.T) {
 		value, err := tempTrie.Get(key)
 		require.NoError(t, err)
 
-		assert.Equal(t, val, value, "key-val not match")
+		assert.Equal(t, val, &value, "key-val not match")
 		assert.Equal(t, tempTrie.FeltToKey(key), *tempTrie.rootKey, "root key not match single node's key")
 	})
 
