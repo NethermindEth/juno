@@ -731,7 +731,14 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 
 		clsHash, err := stateReader.ContractClassHash(expectedContractAddress)
 		assert.NoError(t, err)
-		assert.Equal(t, &clsHash, felt.NewUnsafeFromString[felt.Felt]("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"), clsHash.String())
+		assert.Equal(
+			t,
+			&clsHash,
+			felt.NewUnsafeFromString[felt.Felt](
+				"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+			),
+			clsHash.String(),
+		)
 	})
 
 	t.Run("get contract proof", func(t *testing.T) {

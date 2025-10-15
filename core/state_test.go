@@ -254,12 +254,18 @@ func TestStateHistory(t *testing.T) {
 	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
 	changedLoc := felt.NewUnsafeFromString[felt.Felt]("0x5")
 	t.Run("should return an error for a location that changed on the given height", func(t *testing.T) {
-		_, err = state.ContractStorageAt(contractAddr, changedLoc, 0)
+		val, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
 		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+		assert.Equal(t, felt.Zero, val)
 	})
 
 	t.Run("should return an error for not changed location", func(t *testing.T) {
-		_, err := state.ContractStorageAt(contractAddr, felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"), 0)
+		val, err := state.ContractStorageAt(
+			contractAddr,
+			felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"),
+			0,
+		)
+		assert.Equal(t, felt.Zero, val)
 		assert.ErrorIs(t, err, core.ErrCheckHeadState)
 	})
 

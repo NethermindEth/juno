@@ -8,10 +8,6 @@ import (
 
 type DeprecatedTrieAdapter trie.Trie
 
-func NewDeprecatedTrieAdapter(t *trie.Trie) *DeprecatedTrieAdapter {
-	return (*DeprecatedTrieAdapter)(t)
-}
-
 func (dta *DeprecatedTrieAdapter) Update(key, value *felt.Felt) error {
 	_, err := (*trie.Trie)(dta).Put(key, value)
 	return err

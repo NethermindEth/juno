@@ -220,7 +220,10 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 		return err
 	}
 	if !root.Equal(&currentRoot) {
-		return fmt.Errorf("state's current root: %s does not match the expected root: %s", &currentRoot, root)
+		return fmt.Errorf(
+			"state's current root: %s does not match the expected root: %s",
+			&currentRoot, root,
+		)
 	}
 	return nil
 }
@@ -323,7 +326,11 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
-func (s *State) replaceContract(stateTrie *trie.Trie, addr, classHash *felt.Felt) (felt.Felt, error) {
+func (s *State) replaceContract(
+	stateTrie *trie.Trie,
+	addr,
+	classHash *felt.Felt,
+) (felt.Felt, error) {
 	return s.updateContract(stateTrie, addr, ContractClassHash, func(c *ContractUpdater) error {
 		return c.Replace(classHash)
 	})
@@ -460,7 +467,11 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 // updateContractNonce updates nonce of the contract at the
 // given address in the given Txn context.
-func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt) (felt.Felt, error) {
+func (s *State) updateContractNonce(
+	stateTrie *trie.Trie,
+	addr,
+	nonce *felt.Felt,
+) (felt.Felt, error) {
 	return s.updateContract(stateTrie, addr, ContractNonce, func(c *ContractUpdater) error {
 		return c.UpdateNonce(nonce)
 	})

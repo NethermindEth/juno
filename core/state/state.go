@@ -223,7 +223,11 @@ func (s *State) Update(
 	// The following check isn't relevant for the centralised Juno sequencer
 	if !skipVerifyNewRoot {
 		if !newComm.Equal(update.NewRoot) {
-			return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
+			return fmt.Errorf(
+				"state commitment mismatch: %v (expected) != %v (actual)",
+				update.NewRoot,
+				&newComm,
+			)
 		}
 	}
 

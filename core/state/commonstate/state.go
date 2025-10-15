@@ -52,7 +52,7 @@ func (s *StateAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
 func (s *StateAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -60,7 +60,7 @@ func (s *StateAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
 func (s *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
@@ -68,7 +68,7 @@ func (s *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, er
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
 func (s *StateAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
@@ -117,7 +117,11 @@ func (s *StateAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return (*state.State)(s).ContractStorage(addr, key)
 }
 
-func (s *StateAdapter) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+func (s *StateAdapter) ContractStorageAt(
+	addr,
+	key *felt.Felt,
+	blockNumber uint64,
+) (felt.Felt, error) {
 	return (*state.State)(s).ContractStorageAt(addr, key, blockNumber)
 }
 
@@ -150,7 +154,7 @@ func (s *StateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
 func (s *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -158,7 +162,7 @@ func (s *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
 func (s *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
@@ -166,7 +170,7 @@ func (s *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Tr
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
 type StateFactory struct {
@@ -175,7 +179,11 @@ type StateFactory struct {
 	stateDB     *state.StateDB
 }
 
-func NewStateFactory(newState bool, triedb *triedb.Database, stateDB *state.StateDB) (*StateFactory, error) {
+func NewStateFactory(
+	newState bool,
+	triedb *triedb.Database,
+	stateDB *state.StateDB,
+) (*StateFactory, error) {
 	if !newState {
 		return &StateFactory{UseNewState: false}, nil
 	}
@@ -200,7 +208,11 @@ func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (Sta
 	return NewStateAdapter(stateState), nil
 }
 
-func (sf *StateFactory) NewStateReader(stateRoot *felt.Felt, txn db.IndexedBatch, blockNumber uint64) (StateReader, error) {
+func (sf *StateFactory) NewStateReader(
+	stateRoot *felt.Felt,
+	txn db.IndexedBatch,
+	blockNumber uint64,
+) (StateReader, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
 		snapshot := core.NewStateSnapshot(deprecatedState, blockNumber)

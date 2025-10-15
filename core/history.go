@@ -75,7 +75,11 @@ func (h *history) DeleteContractStorageLog(contractAddress, storageLocation *fel
 }
 
 // ContractStorageAt returns the value of a storage location of the given contract at the height `height`
-func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt, height uint64) (felt.Felt, error) {
+func (h *history) ContractStorageAt(
+	contractAddress,
+	storageLocation *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
 	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
 	value, err := h.valueAt(key, height)
 	if err != nil {
@@ -110,7 +114,10 @@ func (h *history) DeleteContractClassHashLog(contractAddress *felt.Felt, height 
 	return h.deleteLog(db.ContractClassHashHistoryKey(contractAddress), height)
 }
 
-func (h *history) ContractClassHashAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
+func (h *history) ContractClassHashAt(
+	contractAddress *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
 	key := db.ContractClassHashHistoryKey(contractAddress)
 	value, err := h.valueAt(key, height)
 	if err != nil {

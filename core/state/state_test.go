@@ -840,7 +840,12 @@ func setupState(t *testing.T, stateUpdates []*core.StateUpdate, blocks uint64) *
 		if i == 3 {
 			declaredClasses = su3DeclaredClasses()
 		}
-		require.NoError(t, state.Update(uint64(i), su, declaredClasses, false, true), "failed to update state for block %d", i)
+		require.NoError(
+			t,
+			state.Update(uint64(i), su, declaredClasses, false, true),
+			"failed to update state for block %d",
+			i,
+		)
 		newComm, err := state.Commitment()
 		require.NoError(t, err)
 		assert.Equal(t, *su.NewRoot, newComm)

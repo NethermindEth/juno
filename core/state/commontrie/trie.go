@@ -15,10 +15,6 @@ type Trie interface {
 
 type TrieAdapter trie2.Trie
 
-func NewTrieAdapter(t *trie2.Trie) *TrieAdapter {
-	return (*TrieAdapter)(t)
-}
-
 func (ta *TrieAdapter) Update(key, value *felt.Felt) error {
 	return (*trie2.Trie)(ta).Update(key, value)
 }
