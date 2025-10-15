@@ -280,7 +280,8 @@ func TestSubscribeEvents(t *testing.T) {
 				nil,
 			)
 
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+				Return(b1Filtered, blockchain.ContinuationToken{}, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -322,7 +323,8 @@ func TestSubscribeEvents(t *testing.T) {
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+				Return(b1Filtered, blockchain.ContinuationToken{}, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -365,7 +367,12 @@ func TestSubscribeEvents(t *testing.T) {
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1Filtered, preConfirmed1Filtered...), nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+				Return(
+					append(b1Filtered, preConfirmed1Filtered...),
+					blockchain.ContinuationToken{},
+					nil,
+				)
 		},
 		steps: []stepInfo{
 			{
@@ -401,7 +408,12 @@ func TestSubscribeEvents(t *testing.T) {
 				nil,
 			)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1Filtered, b2Filtered...), nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+				Return(
+					append(b1Filtered, b2Filtered...),
+					blockchain.ContinuationToken{},
+					nil,
+				)
 		},
 		steps: []stepInfo{
 			{
@@ -427,9 +439,11 @@ func TestSubscribeEvents(t *testing.T) {
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
-			cToken := new(blockchain.ContinuationToken)
+			cToken := blockchain.ContinuationToken{}
+			require.NoError(t, cToken.FromString(fmt.Sprintf("%d-0", b2.Number)))
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+				Return(b2Filtered, blockchain.ContinuationToken{}, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -484,7 +498,14 @@ func TestSubscribeEvents(t *testing.T) {
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1FilteredBySenders, preConfirmedFilteredBySenders...), nil, nil)
+			mockEventFilterer.EXPECT().Events(
+				gomock.Any(),
+				gomock.Any(),
+			).Return(
+				append(b1FilteredBySenders, preConfirmedFilteredBySenders...),
+				blockchain.ContinuationToken{},
+				nil,
+			)
 		},
 		steps: []stepInfo{
 			{
@@ -556,7 +577,14 @@ func TestSubscribeEvents(t *testing.T) {
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1FilteredByFromAddressAndKey, preConfirmedFilteredBySendersAndKey...), nil, nil)
+			mockEventFilterer.EXPECT().Events(
+				gomock.Any(),
+				gomock.Any(),
+			).Return(
+				append(b1FilteredByFromAddressAndKey, preConfirmedFilteredBySendersAndKey...),
+				blockchain.ContinuationToken{},
+				nil,
+			)
 		},
 		steps: []stepInfo{
 			{
@@ -1059,7 +1087,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
 		Return(nil).AnyTimes()
 	mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
-		Return(nil, nil, nil).AnyTimes()
+		Return(nil, blockchain.ContinuationToken{}, nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)

@@ -99,7 +99,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrBlockNotFound
 	}
 
-	filteredEvents, cToken, err := filter.Events(cToken, args.ChunkSize)
+	filteredEvents, cTokenValue, err := filter.Events(cToken, args.ChunkSize)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}
@@ -123,8 +123,8 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	}
 
 	cTokenStr := ""
-	if cToken != nil {
-		cTokenStr = cToken.String()
+	if !cTokenValue.IsEmpty() {
+		cTokenStr = cTokenValue.String()
 	}
 	return &EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
 }

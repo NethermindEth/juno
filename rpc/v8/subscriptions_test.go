@@ -155,14 +155,16 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
 			Return(nil).AnyTimes()
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(b1Filtered, blockchain.ContinuationToken{}, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
 		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, nil)
 
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(b2Filtered, blockchain.ContinuationToken{}, nil)
 		handler.newHeads.Send(b2)
 		assertNextEvents(t, clientConn, id, b2Emitted)
 	})
@@ -181,7 +183,8 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(b1Filtered, blockchain.ContinuationToken{}, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
 		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, &b1.Number)
@@ -202,15 +205,18 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
-		cToken := new(blockchain.ContinuationToken)
+		cToken := blockchain.ContinuationToken{}
+		require.NoError(t, cToken.FromString(fmt.Sprintf("%d-0", b2.Number)))
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(b2Filtered, blockchain.ContinuationToken{}, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
 		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, &b1.Number)
 
 		assertNextEvents(t, clientConn, id, b1Emitted)
+		assertNextEvents(t, clientConn, id, b2Emitted)
 	})
 
 	t.Run("Events from pending block without duplicates", func(t *testing.T) {
@@ -228,23 +234,27 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(b1Filtered, blockchain.ContinuationToken{}, nil)
 
 		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, nil)
 
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(pending1Filtered, blockchain.ContinuationToken{}, nil)
 		pendingData1 := core.NewPending(pending1, nil, nil)
 		handler.pendingData.Send(&pendingData1)
 		assertNextEvents(t, clientConn, id, pending1Emitted)
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(pending2Filtered, blockchain.ContinuationToken{}, nil)
 		pendingData2 := core.NewPending(pending2, nil, nil)
 		handler.pendingData.Send(&pendingData2)
 		assertNextEvents(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+			Return(b2Filtered, blockchain.ContinuationToken{}, nil)
 		handler.newHeads.Send(b2)
 		assertNextEvents(t, clientConn, id, b2Emitted[len(pending2Emitted):])
 	})
@@ -638,7 +648,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
 		Return(nil).AnyTimes()
 	mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
-		Return(nil, nil, nil).AnyTimes()
+		Return(nil, blockchain.ContinuationToken{}, nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
@@ -1083,12 +1093,17 @@ func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEve
 func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Block {
 	t.Helper()
 
-	pending := *b
-	pending.Header.Number = 0
-	pending.Header.Hash = nil
-	pending.Hash = nil
-	pending.Transactions = pending.Transactions[:txCount]
-	pending.Receipts = pending.Receipts[:txCount]
+	pending := core.Block{
+		Header: &core.Header{
+			// Pending block does not have number but we internaly set it
+			Number:           b.Number,
+			ParentHash:       b.ParentHash,
+			SequencerAddress: b.SequencerAddress,
+		},
+	}
+
+	pending.Transactions = b.Transactions[:txCount]
+	pending.Receipts = b.Receipts[:txCount]
 	return &pending
 }
 
