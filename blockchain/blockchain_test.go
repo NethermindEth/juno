@@ -555,13 +555,17 @@ func TestEvents(t *testing.T) {
 		t.Run("accumulate events with pagination", func(t *testing.T) {
 			for _, chunkSize := range []uint64{1, 2} {
 				var accEvents []*blockchain.FilteredEvent
-				var lastToken *blockchain.ContinuationToken
+				var lastToken blockchain.ContinuationToken
+				var lastTokenPtr *blockchain.ContinuationToken
 				var gotEvents []*blockchain.FilteredEvent
 				for range len(allEvents) + 1 {
-					gotEvents, lastToken, err = filter.Events(lastToken, chunkSize)
+					if !lastToken.IsEmpty() {
+						lastTokenPtr = &lastToken
+					}
+					gotEvents, lastToken, err = filter.Events(lastTokenPtr, chunkSize)
 					require.NoError(t, err)
 					accEvents = append(accEvents, gotEvents...)
-					if lastToken == nil {
+					if lastToken.IsEmpty() {
 						break
 					}
 				}
@@ -607,7 +611,7 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
 		events, cToken, err := filter.Events(nil, 10)
 		require.NoError(t, err)
-		require.Nil(t, cToken)
+		require.True(t, cToken.IsEmpty())
 		require.Empty(t, events)
 		require.NoError(t, filter.Close())
 	})

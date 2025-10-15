@@ -332,8 +332,8 @@ func (h *Handler) processHistoricalEvents(
 		return err
 	}
 
-	for cToken != nil {
-		filteredEvents, cToken, err = filter.Events(cToken, subscribeEventsChunkSize)
+	for !cToken.IsEmpty() {
+		filteredEvents, cToken, err = filter.Events(&cToken, subscribeEventsChunkSize)
 		if err != nil {
 			return err
 		}
