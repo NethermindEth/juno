@@ -142,8 +142,8 @@ func TestProposalStreamDemux(t *testing.T) {
 	})
 
 	t.Run("commit block 2", func(t *testing.T) {
-		commitNotifier <- block2
 		SetChainHeight(t, database, block2)
+		commitNotifier <- block2
 		assertExpectedProposal(t, outputs, &proposal3)
 	})
 }
