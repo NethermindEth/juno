@@ -36,7 +36,7 @@ func (s *rebroadcastStrategy[M, K]) Receive(msg M, msgBytes []byte) rebroadcastM
 	s.cache[key] = msgBytes
 
 	return rebroadcastMessages{
-		trigger:  time.After(s.rebroadcastInterval),
+		trigger:  time.Tick(s.rebroadcastInterval),
 		messages: maps.Values(s.cache),
 	}
 }
