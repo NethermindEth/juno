@@ -78,11 +78,6 @@ func toFelt252Slice(felts [][]byte) []*common.Felt252 {
 	return felt252s
 }
 
-func toFelt252(t *testing.T, felts []byte) *common.Felt252 {
-	t.Helper()
-	return &common.Felt252{Elements: felts}
-}
-
 func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.ResourceLimits) {
 	t.Helper()
 	maxAmount := rand.Uint64()
@@ -209,12 +204,12 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
 	classHash, _ := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	nonce, nonceBytes := getRandomFelt(t)
+	maxFee, maxFeeBytes := getRandomFelt(t)
 	version := new(core.TransactionVersion).SetUint64(0)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV0WithoutClass{
 		Sender:    &common.Address{Elements: senderAddressBytes},
-		MaxFee:    toFelt252(t, nonceBytes),
+		MaxFee:    &common.Felt252{Elements: maxFeeBytes},
 		Signature: &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
 		ClassHash: core2p2p.AdaptHash(&classHash),
 	}
@@ -223,7 +218,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
 		TransactionHash:       nil, // this field is populated later
 		ClassHash:             &classHash,
 		SenderAddress:         &senderAddress,
-		MaxFee:                &nonce,
+		MaxFee:                &maxFee,
 		TransactionSignature:  transactionSignature,
 		Nonce:                 nil, // this field is not available on v0
 		Version:               version,
