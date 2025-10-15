@@ -194,7 +194,10 @@ func (e *EventFilter) Events(
 
 func (e *EventFilter) canonicalEvents(
 	matchedEvents []*FilteredEvent,
-	fromBlock, toBlock, skippedEvents, chunkSize uint64,
+	fromBlock,
+	toBlock,
+	skippedEvents,
+	chunkSize uint64,
 ) ([]*FilteredEvent, ContinuationToken, error) {
 	matchedBlockIter, err := e.cachedFilters.NewMatchedBlockIterator(
 		fromBlock,
@@ -273,7 +276,9 @@ func (e *EventFilter) canonicalEvents(
 // Support access to pre-confirmed block in isolation when fromBlock > preLatest.Block.Number
 func (e *EventFilter) pendingEvents(
 	matchedEvents []*FilteredEvent,
-	fromBlock, skippedEvents, chunkSize uint64,
+	fromBlock,
+	skippedEvents,
+	chunkSize uint64,
 ) ([]*FilteredEvent, ContinuationToken, error) {
 	pendingData, err := e.pendingDataFn()
 	if err != nil {
@@ -307,7 +312,8 @@ func (e *EventFilter) pendingEvents(
 func (e *EventFilter) processPreLatestBlock(
 	matchedEvents []*FilteredEvent,
 	preLatest *core.Block,
-	skippedEvents, chunkSize uint64,
+	skippedEvents,
+	chunkSize uint64,
 ) ([]*FilteredEvent, ContinuationToken, error) {
 	if !e.matcher.TestBloom(preLatest.EventsBloom) {
 		return matchedEvents, ContinuationToken{}, nil
@@ -341,7 +347,8 @@ func (e *EventFilter) processPreLatestBlock(
 func (e *EventFilter) processPreConfirmedBlock(
 	matchedEvents []*FilteredEvent,
 	pendingData core.PendingData,
-	skippedEvents, chunkSize uint64,
+	skippedEvents,
+	chunkSize uint64,
 ) ([]*FilteredEvent, ContinuationToken, error) {
 	pendingHeader := pendingData.GetHeader()
 	if !e.matcher.TestBloom(pendingHeader.EventsBloom) {
