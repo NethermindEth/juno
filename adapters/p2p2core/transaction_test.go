@@ -37,13 +37,37 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[
 			TransactionHash: transactionHash,
 		}
 	},
+	ToP2PDeclareV1: func(
+		transaction *synctransaction.TransactionInBlock_DeclareV1WithoutClass,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_DeclareV1{
+				DeclareV1: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PDeclareV2: func(
+		transaction *synctransaction.TransactionInBlock_DeclareV2WithoutClass,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_DeclareV2{
+				DeclareV2: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
 }
 
-func TestAdaptTransactionInBlockDeclareV0(t *testing.T) {
+func TestAdaptTransactionInBlockDeclare(t *testing.T) {
 	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
 		&utils.Mainnet,
 		TransactionBuilder.GetTestDeclareV0Transaction,
+		TransactionBuilder.GetTestDeclareV1Transaction,
+		TransactionBuilder.GetTestDeclareV2Transaction,
 	)
 	for i := range consensusTransactions {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Hash()), func(t *testing.T) {

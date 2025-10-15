@@ -25,6 +25,8 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Trans
 		}
 	},
 	ToP2PDeclareV0: nil,
+	ToP2PDeclareV1: nil,
+	ToP2PDeclareV2: nil,
 	ToP2PDeclareV3: func(
 		transaction *transaction.DeclareV3WithClass,
 		transactionHash *common.Hash,
