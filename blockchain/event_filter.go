@@ -282,6 +282,9 @@ func (e *EventFilter) pendingEvents(
 ) ([]*FilteredEvent, ContinuationToken, error) {
 	pendingData, err := e.pendingDataFn()
 	if err != nil {
+		if errors.Is(err, core.ErrPendingDataNotFound) {
+			return matchedEvents, ContinuationToken{}, nil
+		}
 		return nil, ContinuationToken{}, err
 	}
 

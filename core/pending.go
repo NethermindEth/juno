@@ -12,6 +12,7 @@ var (
 )
 
 var (
+	ErrPendingDataNotFound        = errors.New("pending_data not found")
 	ErrTransactionNotFound        = errors.New("pending_data: transaction not found")
 	ErrTransactionReceiptNotFound = errors.New("pending_data: transaction receipt not found")
 )
