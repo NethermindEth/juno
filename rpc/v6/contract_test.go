@@ -54,7 +54,10 @@ func TestNonce(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(felt.Zero, errors.New("non-existent contract"))
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(
+			felt.Zero,
+			errors.New("non-existent contract"),
+		)
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, nonce)
@@ -149,7 +152,10 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("internal error while retrieving contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, errors.New("some internal error"))
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(
+			felt.Zero,
+			errors.New("some internal error"),
+		)
 
 		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storageValue)
@@ -169,7 +175,10 @@ func TestStorageAt(t *testing.T) {
 	t.Run("internal error while retrieving key", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(felt.Zero, errors.New("some internal error"))
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(
+			felt.Zero,
+			errors.New("some internal error"),
+		)
 
 		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storageValue)
