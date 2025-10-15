@@ -17,7 +17,8 @@ import (
 
 var TransactionBuilder = transactiontestutils.TransactionBuilder[
 	core.Transaction,
-	*synctransaction.TransactionInBlock]{
+	*synctransaction.TransactionInBlock,
+]{
 	ToCore: func(
 		transaction core.Transaction,
 		class core.Class,
