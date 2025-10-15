@@ -18,7 +18,11 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[mempool.Broadca
 			PaidFeeOnL1:   paidFeeOnL1,
 		}
 	},
-	ToP2PDeclare: func(transaction *transaction.DeclareV3WithClass, transactionHash *common.Hash) *p2pmempool.MempoolTransaction {
+	ToP2PDeclareV0: nil,
+	ToP2PDeclareV3: func(
+		transaction *transaction.DeclareV3WithClass,
+		transactionHash *common.Hash,
+	) *p2pmempool.MempoolTransaction {
 		return &p2pmempool.MempoolTransaction{
 			Txn: &p2pmempool.MempoolTransaction_DeclareV3{
 				DeclareV3: transaction,
