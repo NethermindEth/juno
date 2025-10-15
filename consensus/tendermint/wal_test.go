@@ -1,204 +1,155 @@
 package tendermint
 
 import (
-	"iter"
 	"testing"
 
-	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/consensus/types/wal"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	"go.uber.org/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
-func getPrevote(idx int) starknet.Prevote {
+type testCase struct {
+	name          string
+	nodeAddr      *starknet.Address
+	expectedState state[starknet.Value, starknet.Hash]
+	actions       func(*testStateMachine) [][]starknet.Action
+}
+
+func getPrevote(idx int, value *starknet.Value) starknet.Prevote {
 	return starknet.Prevote{
 		MessageHeader: starknet.MessageHeader{
 			Height: types.Height(0),
 			Round:  types.Round(0),
 			Sender: *getVal(idx),
 		},
-		ID: felt.NewFromUint64[starknet.Hash](1),
+		ID: utils.HeapPtr(value.Hash()),
 	}
 }
 
-func getPrecommit(idx int) starknet.Precommit {
+func getPrecommit(idx int, value *starknet.Value) starknet.Precommit {
 	return starknet.Precommit{
 		MessageHeader: starknet.MessageHeader{
 			Height: types.Height(0),
 			Round:  types.Round(0),
 			Sender: *getVal(idx),
 		},
-		ID: felt.NewFromUint64[starknet.Hash](1),
+		ID: utils.HeapPtr(value.Hash()),
 	}
 }
 
-func toSeq2(
-	entries []wal.Entry[starknet.Value, starknet.Hash, starknet.Address],
-) iter.Seq2[wal.Entry[starknet.Value, starknet.Hash, starknet.Address], error] {
-	return func(yield func(wal.Entry[starknet.Value, starknet.Hash, starknet.Address], error) bool) {
-		for _, entry := range entries {
-			if !yield(entry, nil) {
-				return
-			}
-		}
-	}
+func newStateMachine(nodeAddr *starknet.Address, vals *validators) *testStateMachine {
+	return New(utils.NewNopZapLogger(), *nodeAddr, newApp(), vals, types.Height(0)).(*testStateMachine)
 }
 
 func TestReplayWAL(t *testing.T) {
 	proposerAddr := getVal(0)
 	nonProposerAddr := getVal(3)
 	proposedValue := value(1)
-	app, vals := newApp(), newVals()
-	for i := range 4 {
-		vals.addValidator(*getVal(i))
-	}
 
-	ctrl := gomock.NewController(t)
-	proposalMessage := starknet.Proposal{
-		MessageHeader: starknet.MessageHeader{
-			Height: types.Height(0),
-			Round:  types.Round(0),
-			Sender: *proposerAddr,
+	testCases := []testCase{
+		{
+			name:     "ReplayWAL: proposer crashes right after proposing",
+			nodeAddr: proposerAddr,
+			expectedState: state[starknet.Value, starknet.Hash]{
+				height:      0,
+				round:       0,
+				step:        types.StepPrevote,
+				lockedRound: -1,
+				validRound:  -1,
+			},
+			actions: func(s *testStateMachine) [][]starknet.Action {
+				return [][]starknet.Action{
+					s.ProcessStart(0),
+				}
+			},
 		},
-		ValidRound: types.Round(-1),
-		Value:      &proposedValue,
+		{
+			name:     "ReplayWAL: non proposer crashes right before commit",
+			nodeAddr: nonProposerAddr,
+			expectedState: state[starknet.Value, starknet.Hash]{
+				height:                        0,
+				round:                         0,
+				step:                          types.StepPrecommit,
+				validValue:                    &proposedValue,
+				lockedValue:                   &proposedValue,
+				timeoutPrevoteScheduled:       true,
+				lockedValueAndOrValidValueSet: true,
+			},
+			actions: func(s *testStateMachine) [][]starknet.Action {
+				prevote0 := getPrevote(0, &proposedValue)
+				prevote1 := getPrevote(1, &proposedValue)
+				prevote2 := getPrevote(2, &proposedValue)
+				precommit0 := getPrecommit(0, &proposedValue)
+				proposalMessage := starknet.Proposal{
+					MessageHeader: starknet.MessageHeader{
+						Height: types.Height(0),
+						Round:  types.Round(0),
+						Sender: *proposerAddr,
+					},
+					ValidRound: types.Round(-1),
+					Value:      &proposedValue,
+				}
+
+				return [][]starknet.Action{
+					s.ProcessStart(0),
+					s.ProcessProposal(&proposalMessage),
+					s.ProcessPrevote(&prevote0),
+					s.ProcessPrevote(&prevote1),
+					s.ProcessPrevote(&prevote2),
+					s.ProcessPrecommit(&precommit0),
+				}
+			},
+		},
+		{
+			name:     "ReplayWAL: a test that requires timeouts",
+			nodeAddr: nonProposerAddr,
+			expectedState: state[starknet.Value, starknet.Hash]{
+				height:      0,
+				round:       0,
+				step:        types.StepPrevote,
+				validRound:  -1,
+				lockedRound: -1,
+			},
+			actions: func(s *testStateMachine) [][]starknet.Action {
+				timeout := types.Timeout{
+					Step:   types.StepPropose,
+					Height: 0,
+					Round:  0,
+				}
+				return [][]starknet.Action{
+					s.ProcessStart(0),
+					s.ProcessTimeout(timeout),
+				}
+			},
+		},
 	}
 
-	t.Run("ReplayWAL: replay on empty db", func(t *testing.T) {
-		mockDB := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-		stateMachine := New(mockDB, utils.NewNopZapLogger(), *getVal(0), app, vals, types.Height(0)).(*testStateMachine)
-		mockDB.EXPECT().LoadAllEntries().Return(toSeq2(nil))
-		stateMachine.ReplayWAL() // ReplayWAL will panic if anything goes wrong
-	})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			vals := newVals()
+			for i := range 4 {
+				vals.addValidator(*getVal(i))
+			}
 
-	t.Run("ReplayWAL: proposer crashes right after proposing", func(t *testing.T) {
-		mockDB := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-		sMachine := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, vals, types.Height(0)).(*testStateMachine)
+			before := newStateMachine(tc.nodeAddr, vals)
+			walEntries := []starknet.WALEntry{}
+			for _, actions := range tc.actions(before) {
+				for _, action := range actions {
+					if action, ok := action.(*starknet.WriteWAL); ok {
+						walEntries = append(walEntries, action.Entry)
+					}
+				}
+			}
+			assert.Equal(t, tc.expectedState, before.state)
 
-		// Start, Propose a block, Progress to Prevote step, assert state
-		mockDB.EXPECT().Flush().Return(nil).Times(2)
-		mockDB.EXPECT().SetWALEntry((*starknet.WALProposal)(&proposalMessage)).Return(nil)
-		sMachine.ProcessStart(0)
-		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
+			after := newStateMachine(tc.nodeAddr, vals)
+			for _, walEntry := range walEntries {
+				after.ProcessWAL(walEntry)
+			}
+			assert.Equal(t, tc.expectedState, after.state)
 
-		// Crash the node, replay wal, and assert we get to the expected state
-		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, vals, types.Height(0)).(*testStateMachine)
-		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
-		walEntries := toSeq2(
-			[]starknet.WALEntry{
-				(*starknet.WALProposal)(&proposalMessage),
-			},
-		)
-		mockDB.EXPECT().LoadAllEntries().Return(walEntries)
-		sMachineRecoverd.ReplayWAL() // Should not panic
-		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
-	})
-
-	t.Run("ReplayWAL: non proposer crashes right before commit", func(t *testing.T) {
-		// Setup
-		mockDB := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-		sMachine := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
-
-		prevote0 := getPrevote(0)
-		prevote1 := getPrevote(1)
-		prevote2 := getPrevote(2)
-		precommit0 := getPrecommit(0)
-		precommit1 := getPrecommit(1)
-
-		// Start
-		mockDB.EXPECT().Flush().Return(nil)
-		sMachine.ProcessStart(0)
-
-		// Receive proposal
-		mockDB.EXPECT().SetWALEntry((*starknet.WALProposal)(&proposalMessage)).Return(nil)
-		sMachine.ProcessProposal(&proposalMessage)
-
-		// Receive quorum of prevotes
-		mockDB.EXPECT().SetWALEntry((*starknet.WALPrevote)(&prevote0)).Return(nil)
-		mockDB.EXPECT().SetWALEntry((*starknet.WALPrevote)(&prevote1)).Return(nil)
-		mockDB.EXPECT().SetWALEntry((*starknet.WALPrevote)(&prevote2)).Return(nil)
-		sMachine.ProcessPrevote(&prevote0)
-		sMachine.ProcessPrevote(&prevote1)
-		sMachine.ProcessPrevote(&prevote2)
-
-		// Receive precommit
-		mockDB.EXPECT().SetWALEntry((*starknet.WALPrecommit)(&precommit0)).Return(nil)
-		sMachine.ProcessPrecommit(&precommit0)
-
-		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrecommit)
-
-		// Crash, recover, and assert we arrive at previous state
-		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
-		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
-		walEntries := toSeq2(
-			[]starknet.WALEntry{
-				(*starknet.WALProposal)(&proposalMessage),
-				(*starknet.WALPrevote)(&prevote0),
-				(*starknet.WALPrevote)(&prevote1),
-				(*starknet.WALPrevote)(&prevote2),
-				(*starknet.WALPrecommit)(&precommit0),
-			},
-		)
-		mockDB.EXPECT().LoadAllEntries().Return(walEntries)
-		sMachineRecoverd.ReplayWAL()
-		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPrecommit)
-
-		// Start
-		mockDB.EXPECT().Flush().Return(nil).Times(1)
-		sMachineRecoverd.ProcessStart(0)
-
-		// Todo: why do we only need two precommits for quorum.....
-		// Receive final precommit, now we reach quorum
-		mockDB.EXPECT().SetWALEntry((*starknet.WALPrecommit)(&precommit1)).Return(nil)
-		sMachineRecoverd.ProcessPrecommit(&precommit1)
-
-		// Progress to new height
-		assertState(t, sMachineRecoverd, types.Height(1), types.Round(0), types.StepPropose)
-	})
-
-	t.Run("ReplayWAL: a test that requires timeouts", func(t *testing.T) {
-		// This test highlights why we must store timeouts in the WAL.
-		// Imagine a node starts, and isn't the proposer. It schedules a
-		// timeout (line 21), which when triggered, results in a
-		// nil vote being cast (line 59).
-		// Now imagine it crashes, but this time receives a valid proposal
-		// before the new timeout was triggered. The node will send another
-		// vote for the same height and round. This is not good!
-		// To prevent this from happening, we store a triggered timeout in the WAL.
-		// When replaying the WAL msgs, the recovering node will move to the
-		// prevote step, which will prevent the node from vasting another prevote
-		// for this height and round.
-
-		// Setup
-		mockDB := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-		sMachine := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
-
-		timeout := types.Timeout{
-			Step:   types.StepPropose,
-			Height: types.Height(0),
-			Round:  types.Round(0),
-		}
-
-		// Start
-		mockDB.EXPECT().Flush().Return(nil)
-		sMachine.ProcessStart(0) // scheduleTimeout
-		mockDB.EXPECT().SetWALEntry((*starknet.WALTimeout)(&timeout)).Return(nil)
-		sMachine.ProcessTimeout(timeout) // trigger timeout, and cast vote (!)
-		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
-
-		// Crash and recover
-		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
-		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
-		walEntries := toSeq2(
-			[]starknet.WALEntry{
-				(*starknet.WALTimeout)(&timeout),
-			},
-		)
-		mockDB.EXPECT().LoadAllEntries().Return(walEntries)
-		sMachineRecoverd.ReplayWAL()
-		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPrevote)
-	})
+			assert.Equal(t, before.voteCounter, after.voteCounter)
+		})
+	}
 }

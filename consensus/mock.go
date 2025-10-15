@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/starknet"
+	consensusSync "github.com/NethermindEth/juno/consensus/sync"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/core/felt"
@@ -47,7 +48,14 @@ func (n mockValidators) TotalVotingPower(height types.Height) types.VotingPower 
 	return types.VotingPower(len(n))
 }
 
+// Currently we mock one voting power for all validators, to be removed once
+// we can query the voting power from the staking contracts.
+// The special case is for precommits from sync protocol, to be removed once
+// we can extract precommits from the sync protocol messages.
 func (n mockValidators) ValidatorVotingPower(height types.Height, addr *starknet.Address) types.VotingPower {
+	if addr != nil && *addr == consensusSync.SyncProtocolPrecommitSender {
+		return types.VotingPower(len(n))
+	}
 	return types.VotingPower(1)
 }
 

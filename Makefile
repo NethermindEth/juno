@@ -71,7 +71,7 @@ clean-testcache: ## Clean Go test cache
 	go clean -testcache
 
 test: clean-testcache rustdeps ## Run tests
-	go test $(GO_TAGS) ./...
+	go test $(GO_TAGS) $(PKG)
 
 test-cached: rustdeps ## Run cached tests
 	go test $(GO_TAGS) ./...

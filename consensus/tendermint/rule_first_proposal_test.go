@@ -18,7 +18,10 @@ func TestFirstProposal(t *testing.T) {
 
 		// Receive a valid proposal with lockedRound = -1
 		proposalValue := value(42)
-		currentRound.validator(0).proposal(proposalValue, -1).expectActions(currentRound.action().broadcastPrevote(&proposalValue))
+		currentRound.validator(0).proposal(proposalValue, -1).expectActions(
+			currentRound.action().writeWALProposal(0, proposalValue, -1),
+			currentRound.action().broadcastPrevote(&proposalValue),
+		)
 
 		// Assertions - We should be in prevote step
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
@@ -34,7 +37,10 @@ func TestFirstProposal(t *testing.T) {
 		// Simulate the previous round such that it times out in the precommit step
 		// Validator 0 is a faulty proposer, proposing an invalid value to validator 1
 		previousRound.start()
-		previousRound.validator(0).proposal(expectedValue, -1).expectActions(previousRound.action().broadcastPrevote(&expectedValue))
+		previousRound.validator(0).proposal(expectedValue, -1).expectActions(
+			previousRound.action().writeWALProposal(0, expectedValue, -1),
+			previousRound.action().broadcastPrevote(&expectedValue),
+		)
 		previousRound.validator(0).prevote(utils.HeapPtr(expectedValue))
 		previousRound.validator(1).prevote(nil)
 		previousRound.validator(2).prevote(utils.HeapPtr(expectedValue))
@@ -52,7 +58,10 @@ func TestFirstProposal(t *testing.T) {
 
 		// Validator 1 coincidentally proposes the same expected value with lockedRound = -1,
 		// even if it hasn't received a proposal in the previous round.
-		nextRound.validator(1).proposal(expectedValue, -1).expectActions(nextRound.action().broadcastPrevote(&expectedValue))
+		nextRound.validator(1).proposal(expectedValue, -1).expectActions(
+			nextRound.action().writeWALProposal(1, expectedValue, -1),
+			nextRound.action().broadcastPrevote(&expectedValue),
+		)
 		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPrevote)
 	})
 
@@ -83,7 +92,10 @@ func TestFirstProposal(t *testing.T) {
 		previousRound.processTimeout(types.StepPrecommit)
 
 		// Validator 1 proposes an unexpected value, because it hasn't received a proposal in the previous round.
-		nextRound.validator(1).proposal(value(43), -1).expectActions(nextRound.action().broadcastPrevote(nil))
+		nextRound.validator(1).proposal(value(43), -1).expectActions(
+			nextRound.action().writeWALProposal(1, value(43), -1),
+			nextRound.action().broadcastPrevote(nil),
+		)
 		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPrevote)
 	})
 
@@ -95,7 +107,10 @@ func TestFirstProposal(t *testing.T) {
 		currentRound.start()
 
 		// Receive an invalid proposal
-		currentRound.validator(0).proposal(value(0), -1).expectActions(currentRound.action().broadcastPrevote(nil))
+		currentRound.validator(0).proposal(value(0), -1).expectActions(
+			currentRound.action().writeWALProposal(0, value(0), -1),
+			currentRound.action().broadcastPrevote(nil),
+		)
 
 		// Assertions - We should be in prevote step
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
@@ -117,7 +132,9 @@ func TestFirstProposal(t *testing.T) {
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Receive a proposal while not in propose step
-		currentRound.validator(0).proposal(value(42), -1).expectActions()
+		currentRound.validator(0).proposal(value(42), -1).expectActions(
+			currentRound.action().writeWALProposal(0, value(42), -1),
+		)
 
 		// Assertions - We should still be in precommit step, nothing changed
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
