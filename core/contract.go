@@ -164,11 +164,7 @@ func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, erro
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	storage, err := cStorage.Get(key)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return storage, nil
+	return cStorage.Get(key)
 }
 
 // ContractClassHash returns hash of the class that the contract at the given address instantiates.
