@@ -73,7 +73,10 @@ func TestStorageAt(t *testing.T) {
 	t.Run("internal error while retrieving key", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(felt.Zero, errors.New("some internal error"))
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(
+			felt.Zero,
+			errors.New("some internal error"),
+		)
 
 		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
 		require.Nil(t, storageValue)
