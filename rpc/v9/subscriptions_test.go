@@ -422,7 +422,7 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 			mockChain.EXPECT().L1Head().Return(
-				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
