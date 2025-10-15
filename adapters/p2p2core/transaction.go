@@ -205,6 +205,9 @@ func AdaptDeclareV0TxnCommon(
 	}
 }
 
+// todo: refactor this function
+//
+//nolint:funlen
 func AdaptTransaction(
 	t *synctransaction.TransactionInBlock,
 	network *utils.Network,
