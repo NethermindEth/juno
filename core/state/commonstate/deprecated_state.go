@@ -13,19 +13,32 @@ func NewDeprecatedStateAdapter(s *core.State) *DeprecatedStateAdapter {
 	return (*DeprecatedStateAdapter)(s)
 }
 
-func (s *DeprecatedStateAdapter) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+func (s *DeprecatedStateAdapter) ContractStorageAt(
+	addr,
+	key *felt.Felt,
+	blockNumber uint64,
+) (felt.Felt, error) {
 	return (*core.State)(s).ContractStorageAt(addr, key, blockNumber)
 }
 
-func (s *DeprecatedStateAdapter) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+func (s *DeprecatedStateAdapter) ContractNonceAt(
+	addr *felt.Felt,
+	blockNumber uint64,
+) (felt.Felt, error) {
 	return (*core.State)(s).ContractNonceAt(addr, blockNumber)
 }
 
-func (s *DeprecatedStateAdapter) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+func (s *DeprecatedStateAdapter) ContractClassHashAt(
+	addr *felt.Felt,
+	blockNumber uint64,
+) (felt.Felt, error) {
 	return (*core.State)(s).ContractClassHashAt(addr, blockNumber)
 }
 
-func (s *DeprecatedStateAdapter) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+func (s *DeprecatedStateAdapter) ContractDeployedAt(
+	addr *felt.Felt,
+	blockNumber uint64,
+) (bool, error) {
 	return (*core.State)(s).ContractIsAlreadyDeployedAt(addr, blockNumber)
 }
 
@@ -50,7 +63,7 @@ func (s *DeprecatedStateAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+	return (*commontrie.DeprecatedTrieAdapter)(t), nil
 }
 
 func (s *DeprecatedStateAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -58,7 +71,7 @@ func (s *DeprecatedStateAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+	return (*commontrie.DeprecatedTrieAdapter)(t), nil
 }
 
 func (s *DeprecatedStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
@@ -66,7 +79,7 @@ func (s *DeprecatedStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontri
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+	return (*commontrie.DeprecatedTrieAdapter)(t), nil
 }
 
 func (s *DeprecatedStateAdapter) Commitment() (felt.Felt, error) {
@@ -115,7 +128,7 @@ func (s *DeprecatedStateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+	return (*commontrie.DeprecatedTrieAdapter)(t), nil
 }
 
 func (s *DeprecatedStateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -123,13 +136,15 @@ func (s *DeprecatedStateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+	return (*commontrie.DeprecatedTrieAdapter)(t), nil
 }
 
-func (s *DeprecatedStateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *DeprecatedStateReaderAdapter) ContractStorageTrie(
+	addr *felt.Felt,
+) (commontrie.Trie, error) {
 	t, err := s.StateReader.ContractStorageTrie(addr)
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+	return (*commontrie.DeprecatedTrieAdapter)(t), nil
 }

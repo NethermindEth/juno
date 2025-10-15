@@ -12,7 +12,7 @@ import (
 func TestTrieAdapter(t *testing.T) {
 	trie, err := trie2.NewEmptyPedersen()
 	require.NoError(t, err)
-	adapter := NewTrieAdapter(trie)
+	adapter := (*TrieAdapter)(trie)
 
 	t.Run("Update", func(t *testing.T) {
 		err := adapter.Update(&felt.Zero, &felt.Zero)

@@ -17,7 +17,7 @@ func TestDeprecatedTrieAdapter(t *testing.T) {
 	storage := trie.NewStorage(txn, db.ContractStorage.Key([]byte{0}))
 	trie, err := trie.NewTriePedersen(storage, 0)
 	require.NoError(t, err)
-	adapter := NewDeprecatedTrieAdapter(trie)
+	adapter := (*DeprecatedTrieAdapter)(trie)
 
 	t.Run("Update", func(t *testing.T) {
 		err := adapter.Update(&felt.Zero, &felt.Zero)
