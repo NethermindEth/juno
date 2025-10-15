@@ -24,6 +24,7 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Trans
 			PaidFeeOnL1: paidFeeOnL1,
 		}
 	},
+	ToP2PDeclareV0: nil,
 	ToP2PDeclareV3: func(
 		transaction *transaction.DeclareV3WithClass,
 		transactionHash *common.Hash,
@@ -59,7 +60,6 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Trans
 			TransactionHash: transactionHash,
 		}
 	},
-	ToP2PDeclareV0: nil,
 }
 
 func getRandomFelt(t *testing.T) (felt.Felt, []byte) {

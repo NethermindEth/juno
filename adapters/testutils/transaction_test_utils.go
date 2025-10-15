@@ -25,8 +25,8 @@ type toP2PType[P, I any] func(I, *common.Hash) P
 
 type TransactionBuilder[C, P any] struct {
 	ToCore         toCoreType[C]
-	ToP2PDeclareV3 toP2PType[P, *transaction.DeclareV3WithClass]
 	ToP2PDeclareV0 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV0WithoutClass]
+	ToP2PDeclareV3 toP2PType[P, *transaction.DeclareV3WithClass]
 	ToP2PDeploy    toP2PType[P, *transaction.DeployAccountV3]
 	ToP2PInvoke    toP2PType[P, *transaction.InvokeV3]
 	ToP2PL1Handler toP2PType[P, *transaction.L1HandlerV0]

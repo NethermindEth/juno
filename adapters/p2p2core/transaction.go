@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
@@ -209,23 +208,16 @@ func AdaptDeclareV0TxnCommon(
 func AdaptTransaction(
 	t *synctransaction.TransactionInBlock,
 	network *utils.Network,
-) (sync.Transaction, error) {
+) (core.Transaction, error) {
 	// can Txn be nil?
-
-	var (
-		coreTx      core.Transaction
-		class       core.Class
-		paidFeeOnL1 *felt.Felt
-		err         error
-	)
 
 	switch t.Txn.(type) {
 	case *synctransaction.TransactionInBlock_DeclareV0:
-		coreTx = AdaptDeclareV0TxnCommon(t, t.GetDeclareV0())
+		return AdaptDeclareV0TxnCommon(t, t.GetDeclareV0()), nil
 
 	case *synctransaction.TransactionInBlock_DeclareV1:
 		tx := t.GetDeclareV1()
-		coreTx = &core.DeclareTransaction{
+		return &core.DeclareTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
@@ -242,11 +234,11 @@ func AdaptTransaction(
 			Tip:                   0,
 			NonceDAMode:           0,
 			FeeDAMode:             0,
-		}
+		}, nil
 
 	case *synctransaction.TransactionInBlock_DeclareV2:
 		tx := t.GetDeclareV2()
-		coreTx = &core.DeclareTransaction{
+		return &core.DeclareTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
@@ -262,34 +254,31 @@ func AdaptTransaction(
 			Tip:                   0,
 			NonceDAMode:           0,
 			FeeDAMode:             0,
-		}
-
+		}, nil
 	case *synctransaction.TransactionInBlock_DeclareV3:
 		tx := t.GetDeclareV3()
-		coreTx, _ = AdaptDeclareV3TxnCommon(tx.Common, AdaptHash(tx.ClassHash), t.TransactionHash)
-
+		return AdaptDeclareV3TxnCommon(tx.Common, AdaptHash(tx.ClassHash), t.TransactionHash)
 	case *synctransaction.TransactionInBlock_Deploy_:
 		tx := t.GetDeploy()
 
 		addressSalt := AdaptFelt(tx.AddressSalt)
 		classHash := AdaptHash(tx.ClassHash)
 		callData := utils.Map(tx.Calldata, AdaptFelt)
-		coreTx = &core.DeployTransaction{
+		return &core.DeployTransaction{
 			TransactionHash:     AdaptHash(t.TransactionHash),
 			ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 			ContractAddressSalt: addressSalt,
 			ClassHash:           classHash,
 			ConstructorCallData: callData,
 			Version:             txVersion(0),
-		}
-
+		}, nil
 	case *synctransaction.TransactionInBlock_DeployAccountV1_:
 		tx := t.GetDeployAccountV1()
 
 		addressSalt := AdaptFelt(tx.AddressSalt)
 		classHash := AdaptHash(tx.ClassHash)
 		callData := utils.Map(tx.Calldata, AdaptFelt)
-		coreTx = &core.DeployAccountTransaction{
+		return &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
 				TransactionHash:     AdaptHash(t.TransactionHash),
 				ContractAddressSalt: addressSalt,
@@ -307,17 +296,13 @@ func AdaptTransaction(
 			Tip:            0,
 			NonceDAMode:    0,
 			FeeDAMode:      0,
-		}
-
+		}, nil
 	case *synctransaction.TransactionInBlock_DeployAccountV3:
 		tx := t.GetDeployAccountV3()
-		coreTx, err = AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash)
-		if err != nil {
-			return sync.Transaction{}, err
-		}
+		return AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash)
 	case *synctransaction.TransactionInBlock_InvokeV0_:
 		tx := t.GetInvokeV0()
-		coreTx = &core.InvokeTransaction{
+		return &core.InvokeTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -335,11 +320,11 @@ func AdaptTransaction(
 			AccountDeploymentData: nil,
 			NonceDAMode:           0,
 			FeeDAMode:             0,
-		}
+		}, nil
 
 	case *synctransaction.TransactionInBlock_InvokeV1_:
 		tx := t.GetInvokeV1()
-		coreTx = &core.InvokeTransaction{
+		return &core.InvokeTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
 			ContractAddress:      nil, // todo call core.ContractAddress() ?
 			Nonce:                AdaptFelt(tx.Nonce),
@@ -356,26 +341,18 @@ func AdaptTransaction(
 			AccountDeploymentData: nil,
 			NonceDAMode:           0,
 			FeeDAMode:             0,
-		}
+		}, nil
 
 	case *synctransaction.TransactionInBlock_InvokeV3:
 		tx := t.GetInvokeV3()
-		coreTx, err = AdaptInvokeV3TxnCommon(tx, t.TransactionHash)
-		if err != nil {
-			return sync.Transaction{}, err
-		}
+		return AdaptInvokeV3TxnCommon(tx, t.TransactionHash)
 	case *synctransaction.TransactionInBlock_L1Handler:
 		tx := t.GetL1Handler()
-		coreTx = AdaptL1Handler(tx, t.TransactionHash)
+		return AdaptL1Handler(tx, t.TransactionHash), nil
 
 	default:
-		return sync.Transaction{}, fmt.Errorf("unsupported tx type %T", t.Txn)
+		return nil, fmt.Errorf("unsupported tx type %T", t.Txn)
 	}
-	return sync.Transaction{
-		Transaction: coreTx,
-		Class:       class,
-		PaidFeeOnL1: paidFeeOnL1,
-	}, nil
 }
 
 func adaptResourceLimits(limits *transaction.ResourceLimits) core.ResourceBounds {

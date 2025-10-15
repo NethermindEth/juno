@@ -18,6 +18,7 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[mempool.Broadca
 			PaidFeeOnL1:   paidFeeOnL1,
 		}
 	},
+	ToP2PDeclareV0: nil,
 	ToP2PDeclareV3: func(
 		transaction *transaction.DeclareV3WithClass,
 		transactionHash *common.Hash,
@@ -46,5 +47,4 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[mempool.Broadca
 		}
 	},
 	ToP2PL1Handler: nil, // Mempool doesn't support L1 handler
-	ToP2PDeclareV0: nil,
 }

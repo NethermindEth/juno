@@ -323,7 +323,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt transaction: %w", err)}
 					return
 				}
-				coreTxs[i] = coreTx.Transaction
+				coreTxs[i] = coreTx
 			}
 
 			coreBlock.Transactions = coreTxs
