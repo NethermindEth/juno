@@ -196,7 +196,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeclareTransactionSync(
+func (b *TransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 	t *testing.T,
 	network *utils.Network,
 ) (C, P) {

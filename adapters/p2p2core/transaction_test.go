@@ -45,7 +45,7 @@ func TestAdaptTransactionInBlockDeclareV0(t *testing.T) {
 	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
 		&utils.Mainnet,
-		TransactionBuilder.GetTestDeclareTransactionSync,
+		TransactionBuilder.GetTestDeclareV0Transaction,
 	)
 	for i := range consensusTransactions {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Transaction), func(t *testing.T) {
