@@ -187,19 +187,19 @@ func AdaptDeclareV0TxnCommon(
 ) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
 		TransactionHash:      AdaptHash(t.TransactionHash),
-		Nonce:                nil, // for v0 nonce is not used for hash calculation
 		ClassHash:            AdaptHash(tx.ClassHash),
 		SenderAddress:        AdaptAddress(tx.Sender),
 		MaxFee:               AdaptFelt(tx.MaxFee),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
+		Nonce:                nil, // for v0 nonce is not used for hash calculation
 		Version:              txVersion(0),
 		// version 2 field
 		CompiledClassHash: nil,
 		// version 3 fields (zero values)
 		ResourceBounds:        nil,
+		Tip:                   0,
 		PaymasterData:         nil,
 		AccountDeploymentData: nil,
-		Tip:                   0,
 		NonceDAMode:           0,
 		FeeDAMode:             0,
 	}
@@ -217,13 +217,13 @@ func AdaptDeclareV1TxnCommon(
 		TransactionSignature:  adaptAccountSignature(tx.Signature),
 		Nonce:                 AdaptFelt(tx.Nonce),
 		Version:               txVersion(1),
-		CompiledClassHash:     nil,
-		ResourceBounds:        nil,
-		PaymasterData:         nil,
-		AccountDeploymentData: nil,
-		Tip:                   0,
-		NonceDAMode:           0,
-		FeeDAMode:             0,
+		CompiledClassHash:     nil, // this field is not available on v1
+		ResourceBounds:        nil, // this field is not available on v1
+		Tip:                   0,   // this field is not available on v1
+		PaymasterData:         nil, // this field is not available on v1
+		AccountDeploymentData: nil, // this field is not available on v1
+		NonceDAMode:           0,   // this field is not available on v1
+		FeeDAMode:             0,   // this field is not available on v1
 	}
 }
 
@@ -240,12 +240,12 @@ func AdaptDeclareV2TxnCommon(
 		Nonce:                 AdaptFelt(tx.Nonce),
 		Version:               txVersion(2),
 		CompiledClassHash:     AdaptHash(tx.CompiledClassHash),
-		ResourceBounds:        nil,
-		PaymasterData:         nil,
-		AccountDeploymentData: nil,
-		Tip:                   0,
-		NonceDAMode:           0,
-		FeeDAMode:             0,
+		ResourceBounds:        nil, // this field is not available on v2
+		Tip:                   0,   // this field is not available on v2
+		PaymasterData:         nil, // this field is not available on v2
+		AccountDeploymentData: nil, // this field is not available on v2
+		NonceDAMode:           0,   // this field is not available on v2
+		FeeDAMode:             0,   // this field is not available on v2
 	}
 }
 

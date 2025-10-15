@@ -61,7 +61,7 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[
 	},
 }
 
-func TestAdaptTransactionInBlockDeclare(t *testing.T) {
+func TestAdaptTransactionInBlock(t *testing.T) {
 	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
 		&utils.Mainnet,
