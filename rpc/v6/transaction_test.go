@@ -795,7 +795,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
 		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 4851}, nil) // block number not very important here
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{BlockNumber: 4851},
+			nil,
+		) // block number not very important here
 
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
 
