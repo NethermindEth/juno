@@ -706,7 +706,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
 		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, errors.New("some internal error"))
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, errors.New("some internal error"))
 
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
 
@@ -795,7 +795,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
 		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{BlockNumber: 4851}, nil) // block number not very important here
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{BlockNumber: 4851},
+			nil,
+		) // block number not very important here
 
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
 
@@ -932,7 +935,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 			txHash := block0.Transactions[test.index].Hash()
 			mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[test.index], nil)
 			mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[test.index], block0.Hash, block0.Number, nil)
-			mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 			checkTxReceipt(t, txHash, test.expected)
 		})
@@ -994,7 +997,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
 		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], block0.Hash, block0.Number, nil)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: block0.Number,
 			BlockHash:   block0.Hash,
 			StateRoot:   block0.GlobalStateRoot,
@@ -1029,7 +1032,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().TransactionByHash(revertedTxnHash).Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
 		mockReader.EXPECT().Receipt(revertedTxnHash).Return(blockWithRevertedTxn.Receipts[revertedTxnIdx],
 			blockWithRevertedTxn.Hash, blockWithRevertedTxn.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, revertedTxnHash, expected)
 	})
@@ -1086,7 +1089,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
 		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
 			block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)
 	})
@@ -1502,7 +1505,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-					mockReader.EXPECT().L1Head().Return(nil, nil)
+					mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 					handler := rpc.New(mockReader, nil, nil, test.network, nil)
 
@@ -1518,7 +1521,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-					mockReader.EXPECT().L1Head().Return(&core.L1Head{
+					mockReader.EXPECT().L1Head().Return(core.L1Head{
 						BlockNumber: block.Number + 1,
 					}, nil)
 

@@ -112,7 +112,7 @@ func TestNonce(t *testing.T) {
 		l1AcceptedBlockNumber := uint64(10)
 
 		mockReader.EXPECT().L1Head().Return(
-			&core.L1Head{
+			core.L1Head{
 				BlockNumber: l1AcceptedBlockNumber,
 				BlockHash:   &felt.One,
 				StateRoot:   &felt.One,

@@ -145,7 +145,7 @@ func TestStorageAt(t *testing.T) {
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
 		l1HeadBlockNumber := uint64(10)
 		mockReader.EXPECT().L1Head().Return(
-			&core.L1Head{
+			core.L1Head{
 				BlockNumber: l1HeadBlockNumber,
 				BlockHash:   &felt.Zero,
 				StateRoot:   &felt.Zero,
