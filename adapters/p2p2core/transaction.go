@@ -187,27 +187,68 @@ func AdaptDeclareV0TxnCommon(
 ) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
 		TransactionHash:      AdaptHash(t.TransactionHash),
-		Nonce:                nil, // for v0 nonce is not used for hash calculation
 		ClassHash:            AdaptHash(tx.ClassHash),
 		SenderAddress:        AdaptAddress(tx.Sender),
 		MaxFee:               AdaptFelt(tx.MaxFee),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
+		Nonce:                nil, // for v0 nonce is not used for hash calculation
 		Version:              txVersion(0),
 		// version 2 field
 		CompiledClassHash: nil,
 		// version 3 fields (zero values)
 		ResourceBounds:        nil,
+		Tip:                   0,
 		PaymasterData:         nil,
 		AccountDeploymentData: nil,
-		Tip:                   0,
 		NonceDAMode:           0,
 		FeeDAMode:             0,
 	}
 }
 
-// todo: refactor this function
-//
-//nolint:funlen
+func AdaptDeclareV1TxnCommon(
+	t *synctransaction.TransactionInBlock,
+	tx *synctransaction.TransactionInBlock_DeclareV1WithoutClass,
+) *core.DeclareTransaction {
+	return &core.DeclareTransaction{
+		TransactionHash:       AdaptHash(t.TransactionHash),
+		ClassHash:             AdaptHash(tx.ClassHash),
+		SenderAddress:         AdaptAddress(tx.Sender),
+		MaxFee:                AdaptFelt(tx.MaxFee),
+		TransactionSignature:  adaptAccountSignature(tx.Signature),
+		Nonce:                 AdaptFelt(tx.Nonce),
+		Version:               txVersion(1),
+		CompiledClassHash:     nil, // this field is not available on v1
+		ResourceBounds:        nil, // this field is not available on v1
+		Tip:                   0,   // this field is not available on v1
+		PaymasterData:         nil, // this field is not available on v1
+		AccountDeploymentData: nil, // this field is not available on v1
+		NonceDAMode:           0,   // this field is not available on v1
+		FeeDAMode:             0,   // this field is not available on v1
+	}
+}
+
+func AdaptDeclareV2TxnCommon(
+	t *synctransaction.TransactionInBlock,
+	tx *synctransaction.TransactionInBlock_DeclareV2WithoutClass,
+) *core.DeclareTransaction {
+	return &core.DeclareTransaction{
+		TransactionHash:       AdaptHash(t.TransactionHash),
+		ClassHash:             AdaptHash(tx.ClassHash),
+		SenderAddress:         AdaptAddress(tx.Sender),
+		MaxFee:                AdaptFelt(tx.MaxFee),
+		TransactionSignature:  adaptAccountSignature(tx.Signature),
+		Nonce:                 AdaptFelt(tx.Nonce),
+		Version:               txVersion(2),
+		CompiledClassHash:     AdaptHash(tx.CompiledClassHash),
+		ResourceBounds:        nil, // this field is not available on v2
+		Tip:                   0,   // this field is not available on v2
+		PaymasterData:         nil, // this field is not available on v2
+		AccountDeploymentData: nil, // this field is not available on v2
+		NonceDAMode:           0,   // this field is not available on v2
+		FeeDAMode:             0,   // this field is not available on v2
+	}
+}
+
 func AdaptTransaction(
 	t *synctransaction.TransactionInBlock,
 	network *utils.Network,
@@ -217,47 +258,10 @@ func AdaptTransaction(
 	switch t.Txn.(type) {
 	case *synctransaction.TransactionInBlock_DeclareV0:
 		return AdaptDeclareV0TxnCommon(t, t.GetDeclareV0()), nil
-
 	case *synctransaction.TransactionInBlock_DeclareV1:
-		tx := t.GetDeclareV1()
-		return &core.DeclareTransaction{
-			TransactionHash:      AdaptHash(t.TransactionHash),
-			ClassHash:            AdaptHash(tx.ClassHash),
-			SenderAddress:        AdaptAddress(tx.Sender),
-			MaxFee:               AdaptFelt(tx.MaxFee),
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			Nonce:                AdaptFelt(tx.Nonce),
-			Version:              txVersion(1),
-			// version 2 field
-			CompiledClassHash: nil,
-			// version 3 fields (zero values)
-			ResourceBounds:        nil,
-			PaymasterData:         nil,
-			AccountDeploymentData: nil,
-			Tip:                   0,
-			NonceDAMode:           0,
-			FeeDAMode:             0,
-		}, nil
-
+		return AdaptDeclareV1TxnCommon(t, t.GetDeclareV1()), nil
 	case *synctransaction.TransactionInBlock_DeclareV2:
-		tx := t.GetDeclareV2()
-		return &core.DeclareTransaction{
-			TransactionHash:      AdaptHash(t.TransactionHash),
-			ClassHash:            AdaptHash(tx.ClassHash),
-			SenderAddress:        AdaptAddress(tx.Sender),
-			MaxFee:               AdaptFelt(tx.MaxFee),
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			Nonce:                AdaptFelt(tx.Nonce),
-			Version:              txVersion(2),
-			CompiledClassHash:    AdaptHash(tx.CompiledClassHash),
-			// version 3 fields (zero values)
-			ResourceBounds:        nil,
-			PaymasterData:         nil,
-			AccountDeploymentData: nil,
-			Tip:                   0,
-			NonceDAMode:           0,
-			FeeDAMode:             0,
-		}, nil
+		return AdaptDeclareV2TxnCommon(t, t.GetDeclareV2()), nil
 	case *synctransaction.TransactionInBlock_DeclareV3:
 		tx := t.GetDeclareV3()
 		return AdaptDeclareV3TxnCommon(tx.Common, AdaptHash(tx.ClassHash), t.TransactionHash)
