@@ -786,7 +786,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		})
 	}
 
-	t.Run("receipt from pre_confirmed", func(t *testing.T) {
+	t.Run("receipt from pending data", func(t *testing.T) {
 		t.Run("found in pre_confirmed block", func(t *testing.T) {
 			i := 2
 			expected := `{
@@ -841,6 +841,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
+					"block_number": 0,
 					"finality_status": "ACCEPTED_ON_L2",
 					"execution_status": "SUCCEEDED",
 					"messages_sent": [
@@ -877,6 +878,44 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			mockSyncReader.EXPECT().PendingData().Return(
 				preConfirmed,
+				nil,
+			)
+
+			checkTxReceipt(t, txHash, expected)
+		})
+
+		t.Run("found in legacy pending block", func(t *testing.T) {
+			i := 2
+			expected := `{
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": {"amount": "0x0", "unit": "WEI"},
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCEEDED",
+					"messages_sent": [
+						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": [],
+					"execution_resources": {
+						"l1_data_gas": 0,
+						"l1_gas": 0,
+						"l2_gas": 0
+					}
+				}`
+
+			txHash := block0.Transactions[i].Hash()
+
+			pending := core.NewPending(block0, nil, nil)
+
+			mockSyncReader.EXPECT().PendingData().Return(
+				&pending,
 				nil,
 			)
 
