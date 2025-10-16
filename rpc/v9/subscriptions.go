@@ -404,7 +404,7 @@ func processBlockEvents(
 func sendEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
-	events []*blockchain.FilteredEvent,
+	events []blockchain.FilteredEvent,
 	eventsPreviouslySent map[SentEvent]TxnFinalityStatus,
 	id string,
 	height uint64,
@@ -427,7 +427,13 @@ func sendEvents(
 				finalityStatus = TxnAcceptedOnL2
 			}
 
-			if err := sendEventWithoutDuplicate(w, event, eventsPreviouslySent, id, finalityStatus); err != nil {
+			if err := sendEventWithoutDuplicate(
+				w,
+				&event,
+				eventsPreviouslySent,
+				id,
+				finalityStatus,
+			); err != nil {
 				return err
 			}
 		}

@@ -22,7 +22,7 @@ import (
 
 // createEventPendingFromBlock creates a pending block from the given block and
 // returns the pending data and emitted events
-func createEventPendingFromBlock(block *core.Block) (core.Pending, []*rpcv6.EmittedEvent) {
+func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpcv6.EmittedEvent) {
 	newHeader := &core.Header{
 		ParentHash: block.Header.ParentHash,
 		Number:     block.Header.Number,
@@ -37,10 +37,10 @@ func createEventPendingFromBlock(block *core.Block) (core.Pending, []*rpcv6.Emit
 	pending := core.NewPending(pendingBlock, nil, nil)
 
 	// Extract events from the block and convert to emitted events
-	var events []*rpcv6.EmittedEvent
+	var events []rpcv6.EmittedEvent
 	for _, receipt := range pendingBlock.Receipts {
 		for _, event := range receipt.Events {
-			events = append(events, &rpcv6.EmittedEvent{
+			events = append(events, rpcv6.EmittedEvent{
 				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
@@ -59,7 +59,7 @@ func createEventPendingFromBlock(block *core.Block) (core.Pending, []*rpcv6.Emit
 // createEventPreConfirmedFromBlock creates a pre_confirmed block from the given block and
 // returns the pre_confirmed data and emitted events
 func createEventPreConfirmedFromBlock(block *core.Block) (
-	core.PreConfirmed, []*rpcv6.EmittedEvent,
+	core.PreConfirmed, []rpcv6.EmittedEvent,
 ) {
 	newHeader := &core.Header{
 		Number:           block.Header.Number,
@@ -76,10 +76,10 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 	preConfirmed := core.NewPreConfirmed(preConfirmedBlock, nil, nil, nil)
 
 	// Extract events from the block and convert to emitted events
-	var events []*rpcv6.EmittedEvent
+	var events []rpcv6.EmittedEvent
 	for _, receipt := range preConfirmedBlock.Receipts {
 		for _, event := range receipt.Events {
-			events = append(events, &rpcv6.EmittedEvent{
+			events = append(events, rpcv6.EmittedEvent{
 				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
@@ -97,7 +97,7 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 
 // createEventPreLatestFromBlock creates a pre_latest block from the given block and
 // returns the pre_latest data and emitted events
-func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []*rpcv6.EmittedEvent) {
+func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []rpcv6.EmittedEvent) {
 	newHeader := &core.Header{
 		ParentHash: block.Header.ParentHash,
 		Number:     block.Header.Number,
@@ -112,10 +112,10 @@ func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []*rpcv6.
 	preLatest := core.PreLatest{Block: preLatestBlock}
 
 	// Extract events from the block and convert to emitted events
-	var events []*rpcv6.EmittedEvent
+	var events []rpcv6.EmittedEvent
 	for _, receipt := range preLatestBlock.Receipts {
 		for _, event := range receipt.Events {
-			events = append(events, &rpcv6.EmittedEvent{
+			events = append(events, rpcv6.EmittedEvent{
 				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
@@ -137,16 +137,16 @@ func extractCanonicalEvents(
 	chain *blockchain.Blockchain,
 	fromBlock uint64,
 	toBlock uint64,
-) []*rpcv6.EmittedEvent {
+) []rpcv6.EmittedEvent {
 	t.Helper()
-	var events []*rpcv6.EmittedEvent
+	var events []rpcv6.EmittedEvent
 
 	for i := fromBlock; i <= toBlock; i++ {
 		block, err := chain.BlockByNumber(i)
 		require.NoError(t, err)
 		for _, receipt := range block.Receipts {
 			for _, event := range receipt.Events {
-				events = append(events, &rpcv6.EmittedEvent{
+				events = append(events, rpcv6.EmittedEvent{
 					Event: &rpcv6.Event{
 						From: event.From,
 						Keys: event.Keys,
@@ -165,9 +165,9 @@ func extractCanonicalEvents(
 
 // collectAllEvents collects all events from the given handler and returns them
 // asserts that the number of events in each chunk is less than or equal to the chunk size
-func collectAllEvents(t *testing.T, h *rpc.Handler, args rpc.EventArgs) []*rpcv6.EmittedEvent {
+func collectAllEvents(t *testing.T, h *rpc.Handler, args rpc.EventArgs) []rpcv6.EmittedEvent {
 	t.Helper()
-	all := []*rpcv6.EmittedEvent{}
+	all := []rpcv6.EmittedEvent{}
 	cur := args
 	for {
 		chunk, err := h.Events(cur)
@@ -240,7 +240,7 @@ func TestEvents(t *testing.T) {
 
 	// Precalculate combined events to avoid repeated allocations
 	canonicalPending := make(
-		[]*rpcv6.EmittedEvent,
+		[]rpcv6.EmittedEvent,
 		0,
 		len(canonicalEvents)+len(pendingEvents),
 	)
@@ -248,7 +248,7 @@ func TestEvents(t *testing.T) {
 	canonicalPending = append(canonicalPending, pendingEvents...)
 
 	canonicalPreConfirmed := make(
-		[]*rpcv6.EmittedEvent,
+		[]rpcv6.EmittedEvent,
 		0,
 		len(canonicalEvents)+len(preConfirmedEvents),
 	)
@@ -256,7 +256,7 @@ func TestEvents(t *testing.T) {
 	canonicalPreConfirmed = append(canonicalPreConfirmed, preConfirmedEvents...)
 
 	canonicalPreLatestPreConfirmed := make(
-		[]*rpcv6.EmittedEvent,
+		[]rpcv6.EmittedEvent,
 		0,
 		len(canonicalEvents)+len(preLatestEvents)+len(preConfirmedWithPreLatestEvents),
 	)
@@ -283,7 +283,7 @@ func TestEvents(t *testing.T) {
 		description    string
 		args           rpc.EventArgs
 		pendingData    core.PendingData
-		expectedEvents []*rpcv6.EmittedEvent
+		expectedEvents []rpcv6.EmittedEvent
 		expectError    *jsonrpc.Error
 	}
 
@@ -392,7 +392,7 @@ func TestEvents(t *testing.T) {
 				},
 				ResultPageRequest: defaultPageRequest,
 			},
-			expectedEvents: []*rpcv6.EmittedEvent{},
+			expectedEvents: []rpcv6.EmittedEvent{},
 		},
 		{
 			description: "filter with no from_block",
@@ -462,8 +462,8 @@ func TestEvents(t *testing.T) {
 				},
 				ResultPageRequest: defaultPageRequest,
 			},
-			expectedEvents: func() []*rpcv6.EmittedEvent {
-				var filtered []*rpcv6.EmittedEvent
+			expectedEvents: func() []rpcv6.EmittedEvent {
+				var filtered []rpcv6.EmittedEvent
 				for _, event := range canonicalEvents {
 					if event.From.Equal(testAddress) {
 						filtered = append(filtered, event)
@@ -483,8 +483,8 @@ func TestEvents(t *testing.T) {
 				},
 				ResultPageRequest: defaultPageRequest,
 			},
-			expectedEvents: func() []*rpcv6.EmittedEvent {
-				var filtered []*rpcv6.EmittedEvent
+			expectedEvents: func() []rpcv6.EmittedEvent {
+				var filtered []rpcv6.EmittedEvent
 				for _, event := range canonicalEvents {
 					if event.From.Equal(testAddress) &&
 						len(event.Keys) > 0 && event.Keys[0].Equal(testKey) {
@@ -702,7 +702,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	}
 
 	// Collect events through pagination until we reach pending blocks
-	var allEvents []*rpcv6.EmittedEvent
+	var allEvents []rpcv6.EmittedEvent
 	curArgs := args
 
 	// Collect canonical events

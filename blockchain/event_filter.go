@@ -17,7 +17,7 @@ var errChunkSizeReached = errors.New("chunk size reached")
 type EventFilterer interface {
 	io.Closer
 
-	Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, ContinuationToken, error)
+	Events(cToken *ContinuationToken, chunkSize uint64) ([]FilteredEvent, ContinuationToken, error)
 	SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error
 	SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error
 	SetRangeEndBlockToL1Head(filterRange EventFilterRange) error
@@ -140,8 +140,8 @@ type FilteredEvent struct {
 func (e *EventFilter) Events(
 	cToken *ContinuationToken,
 	chunkSize uint64,
-) ([]*FilteredEvent, ContinuationToken, error) {
-	var matchedEvents []*FilteredEvent
+) ([]FilteredEvent, ContinuationToken, error) {
+	var matchedEvents []FilteredEvent
 
 	latest, err := core.GetChainHeight(e.txn)
 	if err != nil {
@@ -193,12 +193,12 @@ func (e *EventFilter) Events(
 }
 
 func (e *EventFilter) canonicalEvents(
-	matchedEvents []*FilteredEvent,
+	matchedEvents []FilteredEvent,
 	fromBlock,
 	toBlock,
 	skippedEvents,
 	chunkSize uint64,
-) ([]*FilteredEvent, ContinuationToken, error) {
+) ([]FilteredEvent, ContinuationToken, error) {
 	matchedBlockIter, err := e.cachedFilters.NewMatchedBlockIterator(
 		fromBlock,
 		toBlock,
@@ -275,11 +275,11 @@ func (e *EventFilter) canonicalEvents(
 // Returns events from pre-latest block and pre-confirmed block
 // Support access to pre-confirmed block in isolation when fromBlock > preLatest.Block.Number
 func (e *EventFilter) pendingEvents(
-	matchedEvents []*FilteredEvent,
+	matchedEvents []FilteredEvent,
 	fromBlock,
 	skippedEvents,
 	chunkSize uint64,
-) ([]*FilteredEvent, ContinuationToken, error) {
+) ([]FilteredEvent, ContinuationToken, error) {
 	pendingData, err := e.pendingDataFn()
 	if err != nil {
 		if errors.Is(err, core.ErrPendingDataNotFound) {
@@ -313,11 +313,11 @@ func (e *EventFilter) pendingEvents(
 
 // processPreLatestBlock processes pre-latest block events
 func (e *EventFilter) processPreLatestBlock(
-	matchedEvents []*FilteredEvent,
+	matchedEvents []FilteredEvent,
 	preLatest *core.Block,
 	skippedEvents,
 	chunkSize uint64,
-) ([]*FilteredEvent, ContinuationToken, error) {
+) ([]FilteredEvent, ContinuationToken, error) {
 	if !e.matcher.TestBloom(preLatest.EventsBloom) {
 		return matchedEvents, ContinuationToken{}, nil
 	}
@@ -348,11 +348,11 @@ func (e *EventFilter) processPreLatestBlock(
 
 // processPreConfirmedBlock processes pre-confirmed block events
 func (e *EventFilter) processPreConfirmedBlock(
-	matchedEvents []*FilteredEvent,
+	matchedEvents []FilteredEvent,
 	pendingData core.PendingData,
 	skippedEvents,
 	chunkSize uint64,
-) ([]*FilteredEvent, ContinuationToken, error) {
+) ([]FilteredEvent, ContinuationToken, error) {
 	pendingHeader := pendingData.GetHeader()
 	if !e.matcher.TestBloom(pendingHeader.EventsBloom) {
 		return matchedEvents, ContinuationToken{}, nil

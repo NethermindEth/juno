@@ -1082,7 +1082,12 @@ func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash 
 	})
 }
 
-func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*EmittedEvent) {
+func assertNextEvents(
+	t *testing.T,
+	conn net.Conn,
+	id SubscriptionID,
+	emittedEvents []EmittedEvent,
+) {
 	t.Helper()
 
 	for _, emitted := range emittedEvents {
@@ -1107,21 +1112,24 @@ func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Bloc
 	return &pending
 }
 
-func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*EmittedEvent) {
+func createTestEvents(
+	t *testing.T,
+	b *core.Block,
+) ([]blockchain.FilteredEvent, []EmittedEvent) {
 	t.Helper()
 
-	var filtered []*blockchain.FilteredEvent
-	var emitted []*EmittedEvent
+	var filtered []blockchain.FilteredEvent
+	var emitted []EmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
-			filtered = append(filtered, &blockchain.FilteredEvent{
+			filtered = append(filtered, blockchain.FilteredEvent{
 				Event:           event,
 				BlockNumber:     &b.Number,
 				BlockHash:       b.Hash,
 				TransactionHash: receipt.TransactionHash,
 				EventIndex:      i,
 			})
-			emitted = append(emitted, &EmittedEvent{
+			emitted = append(emitted, EmittedEvent{
 				Event: &Event{
 					From: event.From,
 					Keys: event.Keys,

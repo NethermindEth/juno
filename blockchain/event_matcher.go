@@ -141,13 +141,13 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 }
 
 func (e *EventMatcher) AppendBlockEvents(
-	matchedEventsSofar []*FilteredEvent,
+	matchedEventsSofar []FilteredEvent,
 	header *core.Header,
 	receipts []*core.TransactionReceipt,
 	skippedEvents uint64,
 	chunkSize uint64,
 	isPreLatest bool,
-) ([]*FilteredEvent, uint64, error) {
+) ([]FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {
 		for i, event := range receipt.Events {
@@ -177,7 +177,7 @@ func (e *EventMatcher) AppendBlockEvents(
 			}
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
-				matchedEventsSofar = append(matchedEventsSofar, &FilteredEvent{
+				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
 					BlockNumber:     blockNumber,
 					BlockHash:       header.Hash,
 					TransactionHash: receipt.TransactionHash,
