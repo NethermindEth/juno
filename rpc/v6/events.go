@@ -41,8 +41,8 @@ type EmittedEvent struct {
 }
 
 type EventsChunk struct {
-	Events            []*EmittedEvent `json:"events"`
-	ContinuationToken string          `json:"continuation_token,omitempty"`
+	Events            []EmittedEvent `json:"events"`
+	ContinuationToken string         `json:"continuation_token,omitempty"`
 }
 
 /****************************************************
@@ -104,13 +104,13 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	emittedEvents := make([]*EmittedEvent, len(filteredEvents))
+	emittedEvents := make([]EmittedEvent, len(filteredEvents))
 	for i, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
 			blockNumber = fEvent.BlockNumber
 		}
-		emittedEvents[i] = &EmittedEvent{
+		emittedEvents[i] = EmittedEvent{
 			BlockNumber:     blockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,

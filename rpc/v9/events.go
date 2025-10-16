@@ -117,9 +117,9 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
-	emittedEvents := make([]*rpcv6.EmittedEvent, len(filteredEvents))
+	emittedEvents := make([]rpcv6.EmittedEvent, len(filteredEvents))
 	for i, fEvent := range filteredEvents {
-		emittedEvents[i] = &rpcv6.EmittedEvent{
+		emittedEvents[i] = rpcv6.EmittedEvent{
 			BlockNumber:     fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
