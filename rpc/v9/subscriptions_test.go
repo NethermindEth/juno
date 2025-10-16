@@ -255,7 +255,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description string
 		setupMocks  func()
 		notify      func()
-		expect      [][]*SubscriptionEmittedEvent
+		expect      [][]SubscriptionEmittedEvent
 	}
 
 	type testCase struct {
@@ -286,28 +286,32 @@ func TestSubscribeEvents(t *testing.T) {
 		steps: []stepInfo{
 			{
 				description: "events from latest on start",
-				expect:      [][]*SubscriptionEmittedEvent{b1Emitted},
+				expect:      [][]SubscriptionEmittedEvent{b1Emitted},
 			},
 			{
 				description: "on pending block",
 				notify: func() {
 					handler.pendingData.Send(&pending)
 				},
-				expect: [][]*SubscriptionEmittedEvent{pendingEmitted},
+				expect: [][]SubscriptionEmittedEvent{pendingEmitted},
 			},
 			{
 				description: "on pending block update, without duplicates",
 				notify: func() {
 					handler.pendingData.Send(&pending2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{pending2Emitted[len(pendingEmitted):]},
+				expect: [][]SubscriptionEmittedEvent{
+					pending2Emitted[len(pendingEmitted):],
+				},
 			},
 			{
 				description: "on new head, without duplicates",
 				notify: func() {
 					handler.newHeads.Send(b2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{b2Emitted[len(pending2Emitted):]},
+				expect: [][]SubscriptionEmittedEvent{
+					b2Emitted[len(pending2Emitted):],
+				},
 			},
 		},
 	}
@@ -329,28 +333,28 @@ func TestSubscribeEvents(t *testing.T) {
 		steps: []stepInfo{
 			{
 				description: "events from latest on start",
-				expect:      [][]*SubscriptionEmittedEvent{b1Emitted},
+				expect:      [][]SubscriptionEmittedEvent{b1Emitted},
 			},
 			{
 				description: "on pre_confirmed block",
 				notify: func() {
 					handler.pendingData.Send(&preConfirmed1)
 				},
-				expect: [][]*SubscriptionEmittedEvent{},
+				expect: [][]SubscriptionEmittedEvent{},
 			},
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
 					handler.pendingData.Send(&preConfirmed2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{},
+				expect: [][]SubscriptionEmittedEvent{},
 			},
 			{
 				description: "on new head",
 				notify: func() {
 					handler.newHeads.Send(b2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{b2Emitted},
+				expect: [][]SubscriptionEmittedEvent{b2Emitted},
 			},
 		},
 	}
@@ -377,21 +381,21 @@ func TestSubscribeEvents(t *testing.T) {
 		steps: []stepInfo{
 			{
 				description: "events from latest and preconfirmed",
-				expect:      [][]*SubscriptionEmittedEvent{append(b1Emitted, preConfirmed1Emitted...)},
+				expect:      [][]SubscriptionEmittedEvent{append(b1Emitted, preConfirmed1Emitted...)},
 			},
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
 					handler.pendingData.Send(&preConfirmed2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{preConfirmed2Emitted[len(preConfirmed1Emitted):]},
+				expect: [][]SubscriptionEmittedEvent{preConfirmed2Emitted[len(preConfirmed1Emitted):]},
 			},
 			{
 				description: "on new head",
 				notify: func() {
 					handler.newHeads.Send(b2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{b2Emitted},
+				expect: [][]SubscriptionEmittedEvent{b2Emitted},
 			},
 		},
 	}
@@ -418,11 +422,11 @@ func TestSubscribeEvents(t *testing.T) {
 		steps: []stepInfo{
 			{
 				description: "events from ACCEPTED_ON_L1 on start, with blockNumber query",
-				expect:      [][]*SubscriptionEmittedEvent{b1EmittedAsAcceptedOnL1},
+				expect:      [][]SubscriptionEmittedEvent{b1EmittedAsAcceptedOnL1},
 			},
 			{
 				description: "events from ACCEPTED_ON_L2 on start",
-				expect:      [][]*SubscriptionEmittedEvent{b2Emitted},
+				expect:      [][]SubscriptionEmittedEvent{b2Emitted},
 			},
 		},
 	}
@@ -448,7 +452,7 @@ func TestSubscribeEvents(t *testing.T) {
 		steps: []stepInfo{
 			{
 				description: "events from last 2 blocks with continuation token",
-				expect:      [][]*SubscriptionEmittedEvent{append(b1Emitted, b2Emitted...)},
+				expect:      [][]SubscriptionEmittedEvent{append(b1Emitted, b2Emitted...)},
 			},
 		},
 	}
@@ -510,21 +514,25 @@ func TestSubscribeEvents(t *testing.T) {
 		steps: []stepInfo{
 			{
 				description: "events from latest and preconfirmed",
-				expect:      [][]*SubscriptionEmittedEvent{append(b1EmittedFiltered, preConfirmedEmittedFiltered...)},
+				expect: [][]SubscriptionEmittedEvent{
+					append(b1EmittedFiltered, preConfirmedEmittedFiltered...),
+				},
 			},
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
 					handler.pendingData.Send(&preConfirmed2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{preConfirmed2EmittedFiltered[len(preConfirmedEmittedFiltered):]},
+				expect: [][]SubscriptionEmittedEvent{
+					preConfirmed2EmittedFiltered[len(preConfirmedEmittedFiltered):],
+				},
 			},
 			{
 				description: "on new head",
 				notify: func() {
 					handler.newHeads.Send(b2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{b2EmittedFiltered},
+				expect: [][]SubscriptionEmittedEvent{b2EmittedFiltered},
 			},
 		},
 	}
@@ -589,21 +597,25 @@ func TestSubscribeEvents(t *testing.T) {
 		steps: []stepInfo{
 			{
 				description: "events from latest and preconfirmed on start",
-				expect:      [][]*SubscriptionEmittedEvent{append(b1EmittedWFilters, preConfirmedEmittedWFilters...)},
+				expect: [][]SubscriptionEmittedEvent{
+					append(b1EmittedWFilters, preConfirmedEmittedWFilters...),
+				},
 			},
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
 					handler.pendingData.Send(&preConfirmed2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{preConfirmed2EmittedWFilters[len(preConfirmedEmittedWFilters):]},
+				expect: [][]SubscriptionEmittedEvent{
+					preConfirmed2EmittedWFilters[len(preConfirmedEmittedWFilters):],
+				},
 			},
 			{
 				description: "on new head",
 				notify: func() {
 					handler.newHeads.Send(b2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{b2EmittedWFilters},
+				expect: [][]SubscriptionEmittedEvent{b2EmittedWFilters},
 			},
 		},
 	}
@@ -2014,7 +2026,12 @@ func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash 
 	})
 }
 
-func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*SubscriptionEmittedEvent) {
+func assertNextEvents(
+	t *testing.T,
+	conn net.Conn,
+	id SubscriptionID,
+	emittedEvents []SubscriptionEmittedEvent,
+) {
 	t.Helper()
 
 	for _, emitted := range emittedEvents {
@@ -2093,7 +2110,7 @@ func createTestEvents(
 	fromAddress *felt.Felt,
 	keys [][]felt.Felt,
 	finalityStatus TxnFinalityStatus,
-) ([]blockchain.FilteredEvent, []*SubscriptionEmittedEvent) {
+) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
 	var blockNumber *uint64
 	// if header.Hash == nil and parentHash != nil it's a pending block
@@ -2103,7 +2120,7 @@ func createTestEvents(
 	}
 	eventMatcher := blockchain.NewEventMatcher(fromAddress, keys)
 	var filtered []blockchain.FilteredEvent
-	var responses []*SubscriptionEmittedEvent
+	var responses []SubscriptionEmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			if fromAddress != nil && !event.From.Equal(fromAddress) {
@@ -2121,7 +2138,7 @@ func createTestEvents(
 				TransactionHash: receipt.TransactionHash,
 				EventIndex:      i,
 			})
-			responses = append(responses, &SubscriptionEmittedEvent{
+			responses = append(responses, SubscriptionEmittedEvent{
 				EmittedEvent: rpcv6.EmittedEvent{
 					Event: &rpcv6.Event{
 						From: event.From,
