@@ -1107,14 +1107,17 @@ func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Bloc
 	return &pending
 }
 
-func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*EmittedEvent) {
+func createTestEvents(
+	t *testing.T,
+	b *core.Block,
+) ([]blockchain.FilteredEvent, []*EmittedEvent) {
 	t.Helper()
 
-	var filtered []*blockchain.FilteredEvent
+	var filtered []blockchain.FilteredEvent
 	var emitted []*EmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
-			filtered = append(filtered, &blockchain.FilteredEvent{
+			filtered = append(filtered, blockchain.FilteredEvent{
 				Event:           event,
 				BlockNumber:     &b.Number,
 				BlockHash:       b.Hash,

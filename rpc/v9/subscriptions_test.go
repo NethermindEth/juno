@@ -2093,7 +2093,7 @@ func createTestEvents(
 	fromAddress *felt.Felt,
 	keys [][]felt.Felt,
 	finalityStatus TxnFinalityStatus,
-) ([]*blockchain.FilteredEvent, []*SubscriptionEmittedEvent) {
+) ([]blockchain.FilteredEvent, []*SubscriptionEmittedEvent) {
 	t.Helper()
 	var blockNumber *uint64
 	// if header.Hash == nil and parentHash != nil it's a pending block
@@ -2102,7 +2102,7 @@ func createTestEvents(
 		blockNumber = &b.Number
 	}
 	eventMatcher := blockchain.NewEventMatcher(fromAddress, keys)
-	var filtered []*blockchain.FilteredEvent
+	var filtered []blockchain.FilteredEvent
 	var responses []*SubscriptionEmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
@@ -2114,7 +2114,7 @@ func createTestEvents(
 				continue
 			}
 
-			filtered = append(filtered, &blockchain.FilteredEvent{
+			filtered = append(filtered, blockchain.FilteredEvent{
 				Event:           event,
 				BlockNumber:     blockNumber,
 				BlockHash:       b.Hash,

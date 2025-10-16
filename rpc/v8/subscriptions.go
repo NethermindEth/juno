@@ -409,8 +409,12 @@ func (h *Handler) processEvents(
 	return nil
 }
 
-func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent,
-	eventsPreviouslySent map[SentEvent]struct{}, id string,
+func sendEvents(
+	ctx context.Context,
+	w jsonrpc.Conn,
+	events []blockchain.FilteredEvent,
+	eventsPreviouslySent map[SentEvent]struct{},
+	id string,
 ) error {
 	for _, event := range events {
 		select {
