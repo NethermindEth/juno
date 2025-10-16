@@ -425,26 +425,27 @@ func TestSubscribeEvents(t *testing.T) {
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
 			)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+				Return(b1Filtered, blockchain.ContinuationToken{}, nil)
 		},
 		steps: []stepInfo{
 			{
 				description: "events from latest on start",
-				expect:      [][]*SubscriptionEmittedEvent{b1Emitted},
+				expect:      [][]SubscriptionEmittedEvent{b1Emitted},
 			},
 			{
 				description: "on PreLatest block",
 				notify: func() {
 					handler.preLatestFeed.Send(&preLatest)
 				},
-				expect: [][]*SubscriptionEmittedEvent{preLatest1Emitted},
+				expect: [][]SubscriptionEmittedEvent{preLatest1Emitted},
 			},
 			{
 				description: "on new head after PreLatest, without duplicates",
 				notify: func() {
 					handler.newHeads.Send(b2)
 				},
-				expect: [][]*SubscriptionEmittedEvent{},
+				expect: [][]SubscriptionEmittedEvent{},
 			},
 		},
 	}
