@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -125,26 +126,34 @@ func (h *Handler) TraceTransaction(
 		}
 		return *blockTraces[txIndex].TraceRoot, httphttpHeader, nil
 	case core.PreConfirmedBlockVariant:
-		return h.tracePreConfirmedTransaction(block, txIndex)
+		return h.tracePreConfirmedTransaction(pendingData.(*core.PreConfirmed), txIndex)
 	default:
 		panic(fmt.Errorf("unknown pending data variant: %v", v))
 	}
 }
 
 func (h *Handler) tracePreConfirmedTransaction(
-	block *core.Block, txIndex int,
+	preConfirmed *core.PreConfirmed, txIndex int,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
-	state, stateCloser, err := h.syncReader.PendingStateBeforeIndex(txIndex)
+
+	state, baseStateCloser, err := pendingdata.PendingStateBeforeIndex(
+		preConfirmed,
+		h.bcReader,
+		uint(txIndex),
+	)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
-	defer h.callAndLogErr(stateCloser, "Failed to close head state in TraceTransaction")
+	defer h.callAndLogErr(
+		baseStateCloser,
+		"Failed to close base state in TracePreConfirmedTransaction",
+	)
 
 	var classes []core.Class
 	paidFeesOnL1 := []*felt.Felt{}
 
-	transaction := block.Transactions[txIndex]
+	transaction := preConfirmed.Block.Transactions[txIndex]
 	switch tx := transaction.(type) {
 	/// TODO(Ege): decide what to do with this, should be an edge case
 	case *core.DeclareTransaction:
@@ -158,12 +167,12 @@ func (h *Handler) tracePreConfirmedTransaction(
 		paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
 	}
 
-	blockHashToBeRevealed, err := h.getRevealedBlockHash(block.Number)
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(preConfirmed.Block.Number)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	header := block.Header
+	header := preConfirmed.Block.Header
 	blockInfo := vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
