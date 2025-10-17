@@ -310,7 +310,7 @@ func (h *Handler) processHistoricalEvents(
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
@@ -332,8 +332,8 @@ func (h *Handler) processHistoricalEvents(
 		return err
 	}
 
-	for cToken != nil {
-		filteredEvents, cToken, err = filter.Events(cToken, subscribeEventsChunkSize)
+	for !cToken.IsEmpty() {
+		filteredEvents, cToken, err = filter.Events(&cToken, subscribeEventsChunkSize)
 		if err != nil {
 			return err
 		}
@@ -404,7 +404,7 @@ func processBlockEvents(
 func sendEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
-	events []*blockchain.FilteredEvent,
+	events []blockchain.FilteredEvent,
 	eventsPreviouslySent map[SentEvent]TxnFinalityStatus,
 	id string,
 	height uint64,
@@ -427,7 +427,13 @@ func sendEvents(
 				finalityStatus = TxnAcceptedOnL2
 			}
 
-			if err := sendEventWithoutDuplicate(w, event, eventsPreviouslySent, id, finalityStatus); err != nil {
+			if err := sendEventWithoutDuplicate(
+				w,
+				&event,
+				eventsPreviouslySent,
+				id,
+				finalityStatus,
+			); err != nil {
 				return err
 			}
 		}

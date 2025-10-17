@@ -487,8 +487,9 @@ func TestState(t *testing.T) {
 
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
-	pendingBlockFn := func() *core.Block {
-		return pendingB
+	pendingDataFunc := func() (core.PendingData, error) { //nolint:unparam // used in tests
+		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
+		return &preConfirmed, nil
 	}
 
 	testDB := memory.New()
@@ -511,7 +512,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
-		filter, err := chain.EventFilter(nil, nil, pendingBlockFn)
+		filter, err := chain.EventFilter(nil, nil, pendingDataFunc)
 
 		t.Run("block number", func(t *testing.T) {
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
@@ -532,13 +533,13 @@ func TestEvents(t *testing.T) {
 
 	from := felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	t.Run("filter with no keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, [][]felt.Felt{{}, {}, {}}, pendingBlockFn)
+		filter, err := chain.EventFilter(from, nil, pendingDataFunc)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
 
-		allEvents := []*blockchain.FilteredEvent{}
+		allEvents := []blockchain.FilteredEvent{}
 		t.Run("get all events without pagination", func(t *testing.T) {
 			events, cToken, eErr := filter.Events(nil, 10)
 			require.Empty(t, cToken)
@@ -553,14 +554,18 @@ func TestEvents(t *testing.T) {
 
 		t.Run("accumulate events with pagination", func(t *testing.T) {
 			for _, chunkSize := range []uint64{1, 2} {
-				var accEvents []*blockchain.FilteredEvent
-				var lastToken *blockchain.ContinuationToken
-				var gotEvents []*blockchain.FilteredEvent
+				var accEvents []blockchain.FilteredEvent
+				var lastToken blockchain.ContinuationToken
+				var lastTokenPtr *blockchain.ContinuationToken
+				var gotEvents []blockchain.FilteredEvent
 				for range len(allEvents) + 1 {
-					gotEvents, lastToken, err = filter.Events(lastToken, chunkSize)
+					if !lastToken.IsEmpty() {
+						lastTokenPtr = &lastToken
+					}
+					gotEvents, lastToken, err = filter.Events(lastTokenPtr, chunkSize)
 					require.NoError(t, err)
 					accEvents = append(accEvents, gotEvents...)
-					if lastToken == nil {
+					if lastToken.IsEmpty() {
 						break
 					}
 				}
@@ -573,7 +578,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with keys", func(t *testing.T) {
 		key := felt.NewUnsafeFromString[felt.Felt]("0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
-		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, pendingBlockFn)
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, pendingDataFunc)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
@@ -591,16 +596,22 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with not matching keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, [][]felt.Felt{
-			{*felt.NewUnsafeFromString[felt.Felt]("0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
-			{*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")},
-		}, pendingBlockFn)
+		filter, err := chain.EventFilter(
+			from,
+			[][]felt.Felt{
+				{*felt.NewUnsafeFromString[felt.Felt](
+					"0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533",
+				)},
+				{*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")},
+			},
+			pendingDataFunc,
+		)
 		require.NoError(t, err)
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
 		events, cToken, err := filter.Events(nil, 10)
 		require.NoError(t, err)
-		require.Nil(t, cToken)
+		require.True(t, cToken.IsEmpty())
 		require.Empty(t, events)
 		require.NoError(t, filter.Close())
 	})
