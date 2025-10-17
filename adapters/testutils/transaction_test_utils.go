@@ -30,6 +30,7 @@ type TransactionBuilder[C, P any] struct {
 	ToP2PDeclareV2     toP2PType[P, *synctransaction.TransactionInBlock_DeclareV2WithoutClass]
 	ToP2PDeclareV3Sync toP2PType[P, *synctransaction.TransactionInBlock_DeclareV3WithoutClass]
 	ToP2PDeclareV3     toP2PType[P, *transaction.DeclareV3WithClass]
+	ToP2PDeployV0      toP2PType[P, *synctransaction.TransactionInBlock_Deploy]
 	ToP2PDeploy        toP2PType[P, *transaction.DeployAccountV3]
 	ToP2PInvoke        toP2PType[P, *transaction.InvokeV3]
 	ToP2PL1Handler     toP2PType[P, *transaction.L1HandlerV0]
@@ -359,8 +360,10 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV3WithoutClass{
 		Common: &transaction.DeclareV3Common{
-			Sender:                    &common.Address{Elements: senderAddressBytes},
-			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+			Sender: &common.Address{Elements: senderAddressBytes},
+			Signature: &transaction.AccountSignature{
+				Parts: toFelt252Slice(transactionSignatureBytes),
+			},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
 			CompiledClassHash:         core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
 			ResourceBounds:            p2pResourceBounds,
@@ -398,6 +401,46 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	)
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
 		b.ToP2PDeclareV3Sync(&p2pTransaction, p2pHash)
+}
+
+func (b *TransactionBuilder[C, P]) GetTestDeployTransactionV0(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
+	t.Helper()
+	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
+	classHash, _ := getRandomFelt(t)
+	constructorCallData, _ := getRandomFeltSlice(t)
+	contractAddress := core.ContractAddress(
+		&felt.Zero, &classHash,
+		&contractAddressSalt,
+		constructorCallData,
+	)
+	version := new(core.TransactionVersion).SetUint64(0)
+
+	p2pTransaction := synctransaction.TransactionInBlock_Deploy{
+		ClassHash:   core2p2p.AdaptHash(&classHash),
+		AddressSalt: &common.Felt252{Elements: contractAddressSaltBytes},
+		Calldata:    utils.Map(constructorCallData, core2p2p.AdaptFelt),
+		Version:     0, // todo(kirill) remove field from spec? tx is deprecated so no future versions
+	}
+
+	consensusDeployTransaction := core.DeployTransaction{
+		TransactionHash:     nil,
+		ContractAddress:     contractAddress,
+		ContractAddressSalt: &contractAddressSalt,
+		ClassHash:           &classHash,
+		ConstructorCallData: constructorCallData,
+		Version:             version,
+	}
+	var p2pHash *common.Hash
+	consensusDeployTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeployTransaction,
+		network,
+	)
+	return b.ToCore(&consensusDeployTransaction, nil, nil),
+		b.ToP2PDeployV0(&p2pTransaction, p2pHash)
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
