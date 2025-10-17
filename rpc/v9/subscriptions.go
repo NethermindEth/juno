@@ -199,7 +199,7 @@ func (h *Handler) SubscribeEvents(
 	fromAddr *felt.Felt,
 	keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
-	finalityStatus *TxnFinalityStatusWithoutL1,
+	finalityStatus TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -219,8 +219,8 @@ func (h *Handler) SubscribeEvents(
 		return "", rpcErr
 	}
 	// default to ACCEPTED_ON_L2
-	if finalityStatus == nil {
-		finalityStatus = utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnAcceptedOnL2))
+	if finalityStatus == 0 {
+		finalityStatus = TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
 	}
 
 	l1Head, err := h.bcReader.L1Head()
@@ -235,7 +235,7 @@ func (h *Handler) SubscribeEvents(
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := BlockIDFromNumber(requestedHeader.Number)
 			var toBlock BlockID
-			if *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
+			if finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 				toBlock = BlockIDPreConfirmed()
 			} else {
 				toBlock = BlockIDFromNumber(headHeader.Number)
@@ -275,7 +275,7 @@ func (h *Handler) SubscribeEvents(
 			case core.PendingBlockVariant:
 				blockFinalityStatus = TxnAcceptedOnL2
 			case core.PreConfirmedBlockVariant:
-				if *finalityStatus != TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
+				if finalityStatus != TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 					return nil
 				}
 				blockFinalityStatus = TxnPreConfirmed
