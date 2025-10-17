@@ -24,14 +24,15 @@ type toCoreType[C any] func(core.Transaction, core.Class, *felt.Felt) C
 type toP2PType[P, I any] func(I, *common.Hash) P
 
 type TransactionBuilder[C, P any] struct {
-	ToCore         toCoreType[C]
-	ToP2PDeclareV0 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV0WithoutClass]
-	ToP2PDeclareV1 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV1WithoutClass]
-	ToP2PDeclareV2 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV2WithoutClass]
-	ToP2PDeclareV3 toP2PType[P, *transaction.DeclareV3WithClass]
-	ToP2PDeploy    toP2PType[P, *transaction.DeployAccountV3]
-	ToP2PInvoke    toP2PType[P, *transaction.InvokeV3]
-	ToP2PL1Handler toP2PType[P, *transaction.L1HandlerV0]
+	ToCore             toCoreType[C]
+	ToP2PDeclareV0     toP2PType[P, *synctransaction.TransactionInBlock_DeclareV0WithoutClass]
+	ToP2PDeclareV1     toP2PType[P, *synctransaction.TransactionInBlock_DeclareV1WithoutClass]
+	ToP2PDeclareV2     toP2PType[P, *synctransaction.TransactionInBlock_DeclareV2WithoutClass]
+	ToP2PDeclareV3Sync toP2PType[P, *synctransaction.TransactionInBlock_DeclareV3WithoutClass]
+	ToP2PDeclareV3     toP2PType[P, *transaction.DeclareV3WithClass]
+	ToP2PDeploy        toP2PType[P, *transaction.DeployAccountV3]
+	ToP2PInvoke        toP2PType[P, *transaction.InvokeV3]
+	ToP2PL1Handler     toP2PType[P, *transaction.L1HandlerV0]
 }
 
 type factory[C, P any] func(t *testing.T, network *utils.Network) (C, P)
@@ -339,6 +340,64 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	)
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
 		b.ToP2PDeclareV2(&p2pTransaction, p2pHash)
+}
+
+func (b *TransactionBuilder[C, P]) GetTestDeclareV3Transaction(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
+	t.Helper()
+	classHash, cairo1Class := getSampleClass(t)
+	senderAddress, senderAddressBytes := getRandomFelt(t)
+	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
+	nonce, nonceBytes := getRandomFelt(t)
+	version := new(core.TransactionVersion).SetUint64(3)
+	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
+	tip := rand.Uint64()
+	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
+	accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
+
+	p2pTransaction := synctransaction.TransactionInBlock_DeclareV3WithoutClass{
+		Common: &transaction.DeclareV3Common{
+			Sender:                    &common.Address{Elements: senderAddressBytes},
+			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+			Nonce:                     &common.Felt252{Elements: nonceBytes},
+			CompiledClassHash:         core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
+			ResourceBounds:            p2pResourceBounds,
+			Tip:                       tip,
+			PaymasterData:             toFelt252Slice(paymasterDataBytes),
+			AccountDeploymentData:     toFelt252Slice(accountDeploymentDataBytes),
+			NonceDataAvailabilityMode: common.VolitionDomain_L2,
+			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
+		},
+		ClassHash: core2p2p.AdaptHash(&classHash),
+	}
+
+	consensusDeclareTransaction := core.DeclareTransaction{
+		TransactionHash:       nil, // this field is populated later
+		ClassHash:             &classHash,
+		SenderAddress:         &senderAddress,
+		MaxFee:                nil, // this field is not available on v3
+		TransactionSignature:  transactionSignature,
+		Nonce:                 &nonce,
+		Version:               version,
+		CompiledClassHash:     cairo1Class.Compiled.Hash(),
+		ResourceBounds:        resourceBounds,
+		Tip:                   tip,
+		PaymasterData:         paymasterData,
+		AccountDeploymentData: accountDeploymentData,
+		NonceDAMode:           core.DAModeL2,
+		FeeDAMode:             core.DAModeL2,
+	}
+
+	var p2pHash *common.Hash
+	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeclareTransaction,
+		network,
+	)
+	return b.ToCore(&consensusDeclareTransaction, nil, nil),
+		b.ToP2PDeclareV3Sync(&p2pTransaction, p2pHash)
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
