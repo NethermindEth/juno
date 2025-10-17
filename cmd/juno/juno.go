@@ -340,6 +340,13 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 					UnverifiableRange: []uint64{uint64(unverifRange[0]), uint64(unverifRange[1])},
 				},
 			}
+		} else {
+			if v.IsSet(cnFeederURLF) {
+				config.Network.FeederURL = v.GetString(cnFeederURLF)
+			}
+			if v.IsSet(cnGatewayURLF) {
+				config.Network.GatewayURL = v.GetString(cnGatewayURLF)
+			}
 		}
 
 		return nil
@@ -405,7 +412,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
-	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
+	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)

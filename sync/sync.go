@@ -358,6 +358,11 @@ func (s *Synchronizer) storeTask(
 	block := committedBlock.Block
 	stateUpdate := committedBlock.StateUpdate
 	newClasses := committedBlock.NewClasses
+
+	if block.Number == 30000 {
+		panic("Done")
+	}
+
 	if err := s.blockchain.Store(block, commitments, stateUpdate, newClasses); err != nil {
 		if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 			// Block block.Number - 1 is the parent of this block which doesn't match
