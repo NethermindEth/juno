@@ -291,9 +291,9 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 		Compiled: coreCompiledClass,
 
 		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
+			Constructor []core.SierraEntryPoint `cbor:"1,keyasint"`
+			External    []core.SierraEntryPoint `cbor:"2,keyasint"`
+			L1Handler   []core.SierraEntryPoint `cbor:"3,keyasint"`
 		}{
 			Constructor: utils.MapByRef(utils.NonNilSlice(response.EntryPoints.Constructor), adapt),
 			External:    utils.MapByRef(utils.NonNilSlice(response.EntryPoints.External), adapt),

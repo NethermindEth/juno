@@ -57,9 +57,9 @@ const (
 
 // From the RPC spec: The max amount and max price per unit of gas used in this transaction.
 type ResourceBounds struct {
-	MaxAmount uint64
+	MaxAmount uint64 `cbor:"1,keyasint"`
 	// MaxPricePerUnit is technically a uint128
-	MaxPricePerUnit *felt.Felt
+	MaxPricePerUnit *felt.Felt `cbor:"2,keyasint"`
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
@@ -79,51 +79,51 @@ func (rb ResourceBounds) IsZero() bool {
 }
 
 type Event struct {
-	Data []*felt.Felt
-	From *felt.Felt
-	Keys []*felt.Felt
+	Data []*felt.Felt `cbor:"1,keyasint"`
+	From *felt.Felt   `cbor:"2,keyasint"`
+	Keys []*felt.Felt `cbor:"3,keyasint"`
 }
 
 type L1ToL2Message struct {
-	From     common.Address
-	Nonce    *felt.Felt
-	Payload  []*felt.Felt
-	Selector *felt.Felt
-	To       *felt.Felt
+	From     common.Address `cbor:"1,keyasint"`
+	Nonce    *felt.Felt     `cbor:"2,keyasint"`
+	Payload  []*felt.Felt   `cbor:"3,keyasint"`
+	Selector *felt.Felt     `cbor:"4,keyasint"`
+	To       *felt.Felt     `cbor:"5,keyasint"`
 }
 
 type L2ToL1Message struct {
-	From    *felt.Felt
-	Payload []*felt.Felt
-	To      common.Address
+	From    *felt.Felt     `cbor:"1,keyasint"`
+	Payload []*felt.Felt   `cbor:"2,keyasint"`
+	To      common.Address `cbor:"3,keyasint"`
 }
 
 type ExecutionResources struct {
-	BuiltinInstanceCounter BuiltinInstanceCounter
-	MemoryHoles            uint64
-	Steps                  uint64
-	DataAvailability       *DataAvailability
-	TotalGasConsumed       *GasConsumed
+	BuiltinInstanceCounter BuiltinInstanceCounter `cbor:"1,keyasint"`
+	MemoryHoles            uint64                 `cbor:"2,keyasint"`
+	Steps                  uint64                 `cbor:"3,keyasint"`
+	DataAvailability       *DataAvailability      `cbor:"4,keyasint"`
+	TotalGasConsumed       *GasConsumed           `cbor:"5,keyasint"`
 }
 
 type DataAvailability struct {
-	L1Gas     uint64
-	L1DataGas uint64
+	L1Gas     uint64 `cbor:"1,keyasint"`
+	L1DataGas uint64 `cbor:"2,keyasint"`
 }
 
 type BuiltinInstanceCounter struct {
-	Pedersen     uint64
-	RangeCheck   uint64
-	Bitwise      uint64
-	Output       uint64
-	Ecsda        uint64
-	EcOp         uint64
-	Keccak       uint64
-	Poseidon     uint64
-	SegmentArena uint64
-	AddMod       uint64
-	MulMod       uint64
-	RangeCheck96 uint64
+	Pedersen     uint64 `cbor:"1,keyasint"`
+	RangeCheck   uint64 `cbor:"2,keyasint"`
+	Bitwise      uint64 `cbor:"3,keyasint"`
+	Output       uint64 `cbor:"4,keyasint"`
+	Ecsda        uint64 `cbor:"5,keyasint"`
+	EcOp         uint64 `cbor:"6,keyasint"`
+	Keccak       uint64 `cbor:"7,keyasint"`
+	Poseidon     uint64 `cbor:"8,keyasint"`
+	SegmentArena uint64 `cbor:"9,keyasint"`
+	AddMod       uint64 `cbor:"10,keyasint"`
+	MulMod       uint64 `cbor:"11,keyasint"`
+	RangeCheck96 uint64 `cbor:"12,keyasint"`
 }
 
 type Transaction interface {
@@ -195,22 +195,22 @@ func (v *TransactionVersion) UnmarshalCBOR(data []byte) error {
 }
 
 type DeployTransaction struct {
-	TransactionHash *felt.Felt
+	TransactionHash *felt.Felt `cbor:"1,keyasint"`
 	// A random number used to distinguish between different instances of the contract.
-	ContractAddressSalt *felt.Felt
+	ContractAddressSalt *felt.Felt `cbor:"2,keyasint"`
 	// The address of the contract.
-	ContractAddress *felt.Felt
+	ContractAddress *felt.Felt `cbor:"3,keyasint"`
 	// The hash of the class which defines the contract’s functionality.
-	ClassHash *felt.Felt
+	ClassHash *felt.Felt `cbor:"4,keyasint"`
 	// The arguments passed to the constructor during deployment.
-	ConstructorCallData []*felt.Felt
+	ConstructorCallData []*felt.Felt `cbor:"5,keyasint"`
 	// The transaction’s version. Possible values are 1 or 0.
 	//
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
-	Version *TransactionVersion
+	Version *TransactionVersion `cbor:"6,keyasint"`
 }
 
 func (d *DeployTransaction) TxVersion() *TransactionVersion {
@@ -228,19 +228,19 @@ func (d *DeployTransaction) Signature() []*felt.Felt {
 type DeployAccountTransaction struct {
 	DeployTransaction
 	// The maximum fee that the sender is willing to pay for the transaction.
-	MaxFee *felt.Felt
+	MaxFee *felt.Felt `cbor:"7,keyasint"`
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []*felt.Felt
+	TransactionSignature []*felt.Felt `cbor:"8,keyasint"`
 	// The transaction nonce.
-	Nonce *felt.Felt
+	Nonce *felt.Felt `cbor:"9,keyasint"`
 
 	// Version 3 fields
 	// See InvokeTransaction for descriptions of the fields.
-	ResourceBounds map[Resource]ResourceBounds
-	Tip            uint64
-	PaymasterData  []*felt.Felt
-	NonceDAMode    DataAvailabilityMode
-	FeeDAMode      DataAvailabilityMode
+	ResourceBounds map[Resource]ResourceBounds `cbor:"10,keyasint"`
+	Tip            uint64                      `cbor:"11,keyasint"`
+	PaymasterData  []*felt.Felt                `cbor:"12,keyasint"`
+	NonceDAMode    DataAvailabilityMode        `cbor:"13,keyasint"`
+	FeeDAMode      DataAvailabilityMode        `cbor:"14,keyasint"`
 }
 
 func (d *DeployAccountTransaction) Hash() *felt.Felt {
@@ -252,42 +252,42 @@ func (d *DeployAccountTransaction) Signature() []*felt.Felt {
 }
 
 type InvokeTransaction struct {
-	TransactionHash *felt.Felt
+	TransactionHash *felt.Felt `cbor:"1,keyasint"`
 	// The arguments that are passed to the validated and execute functions.
-	CallData []*felt.Felt
+	CallData []*felt.Felt `cbor:"2,keyasint"`
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []*felt.Felt
+	TransactionSignature []*felt.Felt `cbor:"3,keyasint"`
 	// The maximum fee that the sender is willing to pay for the transaction
 	// Available in version 1 only
-	MaxFee *felt.Felt
+	MaxFee *felt.Felt `cbor:"4,keyasint"`
 	// The address of the contract invoked by this transaction.
-	ContractAddress *felt.Felt
+	ContractAddress *felt.Felt `cbor:"5,keyasint"`
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
-	Version *TransactionVersion
+	Version *TransactionVersion `cbor:"6,keyasint"`
 
 	// Version 0 fields
 	// The encoding of the selector for the function invoked (the entry point in the contract)
-	EntryPointSelector *felt.Felt
+	EntryPointSelector *felt.Felt `cbor:"7,keyasint"`
 
 	// Version 1 fields
 	// The transaction nonce.
-	Nonce *felt.Felt
+	Nonce *felt.Felt `cbor:"8,keyasint"`
 	// The address of the sender of this transaction
-	SenderAddress *felt.Felt
+	SenderAddress *felt.Felt `cbor:"9,keyasint"`
 
 	// Version 3 fields (there was no version 2)
-	ResourceBounds map[Resource]ResourceBounds
-	Tip            uint64
+	ResourceBounds map[Resource]ResourceBounds `cbor:"10,keyasint"`
+	Tip            uint64                      `cbor:"11,keyasint"`
 	// From the RPC spec: data needed to allow the paymaster to pay for the transaction in native tokens
-	PaymasterData []*felt.Felt
+	PaymasterData []*felt.Felt `cbor:"12,keyasint"`
 	// From RPC spec: data needed to deploy the account contract from which this tx will be initiated
-	AccountDeploymentData []*felt.Felt
+	AccountDeploymentData []*felt.Felt `cbor:"13,keyasint"`
 	// From RPC spec: The storage domain of the account's nonce (an account has a nonce per DA mode)
-	NonceDAMode DataAvailabilityMode
+	NonceDAMode DataAvailabilityMode `cbor:"14,keyasint"`
 	// From RPC spec: The storage domain of the account's balance from which fee will be charged
-	FeeDAMode DataAvailabilityMode
+	FeeDAMode DataAvailabilityMode `cbor:"15,keyasint"`
 }
 
 func (i *InvokeTransaction) TxVersion() *TransactionVersion {
@@ -303,36 +303,36 @@ func (i *InvokeTransaction) Signature() []*felt.Felt {
 }
 
 type DeclareTransaction struct {
-	TransactionHash *felt.Felt
+	TransactionHash *felt.Felt `cbor:"1,keyasint"`
 	// The class hash
-	ClassHash *felt.Felt
+	ClassHash *felt.Felt `cbor:"2,keyasint"`
 	// The address of the account initiating the transaction.
-	SenderAddress *felt.Felt
+	SenderAddress *felt.Felt `cbor:"3,keyasint"`
 	// The maximum fee that the sender is willing to pay for the transaction.
 	// Available in versions 1, 2
-	MaxFee *felt.Felt
+	MaxFee *felt.Felt `cbor:"4,keyasint"`
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []*felt.Felt
+	TransactionSignature []*felt.Felt `cbor:"5,keyasint"`
 	// The transaction nonce.
-	Nonce *felt.Felt
+	Nonce *felt.Felt `cbor:"6,keyasint"`
 	// The transaction’s version. Possible values are 0, 1, 2, or 3.
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
-	Version *TransactionVersion
+	Version *TransactionVersion `cbor:"7,keyasint"`
 
 	// Version 2 fields
-	CompiledClassHash *felt.Felt
+	CompiledClassHash *felt.Felt `cbor:"8,keyasint"`
 
 	// Version 3 fields
 	// See InvokeTransaction for descriptions of the fields.
-	ResourceBounds        map[Resource]ResourceBounds
-	Tip                   uint64
-	PaymasterData         []*felt.Felt
-	AccountDeploymentData []*felt.Felt
-	NonceDAMode           DataAvailabilityMode
-	FeeDAMode             DataAvailabilityMode
+	ResourceBounds        map[Resource]ResourceBounds `cbor:"9,keyasint"`
+	Tip                   uint64                      `cbor:"10,keyasint"`
+	PaymasterData         []*felt.Felt                `cbor:"11,keyasint"`
+	AccountDeploymentData []*felt.Felt                `cbor:"12,keyasint"`
+	NonceDAMode           DataAvailabilityMode        `cbor:"13,keyasint"`
+	FeeDAMode             DataAvailabilityMode        `cbor:"14,keyasint"`
 }
 
 func (d *DeclareTransaction) TxVersion() *TransactionVersion {
@@ -348,19 +348,19 @@ func (d *DeclareTransaction) Signature() []*felt.Felt {
 }
 
 type L1HandlerTransaction struct {
-	TransactionHash *felt.Felt
+	TransactionHash *felt.Felt `cbor:"1,keyasint"`
 	// The address of the contract.
-	ContractAddress *felt.Felt
+	ContractAddress *felt.Felt `cbor:"2,keyasint"`
 	// The encoding of the selector for the function invoked (the entry point in the contract)
-	EntryPointSelector *felt.Felt
+	EntryPointSelector *felt.Felt `cbor:"3,keyasint"`
 	// The transaction nonce.
-	Nonce *felt.Felt
+	Nonce *felt.Felt `cbor:"4,keyasint"`
 	// The arguments that are passed to the validated and execute functions.
-	CallData []*felt.Felt
+	CallData []*felt.Felt `cbor:"5,keyasint"`
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
-	Version *TransactionVersion
+	Version *TransactionVersion `cbor:"6,keyasint"`
 }
 
 func (l *L1HandlerTransaction) TxVersion() *TransactionVersion {

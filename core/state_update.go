@@ -9,19 +9,19 @@ import (
 )
 
 type StateUpdate struct {
-	BlockHash *felt.Felt
-	NewRoot   *felt.Felt
-	OldRoot   *felt.Felt
-	StateDiff *StateDiff
+	BlockHash *felt.Felt `cbor:"1,keyasint"`
+	NewRoot   *felt.Felt `cbor:"2,keyasint"`
+	OldRoot   *felt.Felt `cbor:"3,keyasint"`
+	StateDiff *StateDiff `cbor:"4,keyasint"`
 }
 
 type StateDiff struct {
-	StorageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
-	Nonces            map[felt.Felt]*felt.Felt               // addr -> nonce
-	DeployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
-	DeclaredV0Classes []*felt.Felt                           // class hashes
-	DeclaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
-	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
+	StorageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt `cbor:"1,keyasint"` // addr -> {key -> value, ...}
+	Nonces            map[felt.Felt]*felt.Felt               `cbor:"2,keyasint"` // addr -> nonce
+	DeployedContracts map[felt.Felt]*felt.Felt               `cbor:"3,keyasint"` // addr -> class hash
+	DeclaredV0Classes []*felt.Felt                           `cbor:"4,keyasint"` // class hashes
+	DeclaredV1Classes map[felt.Felt]*felt.Felt               `cbor:"5,keyasint"` // class hash -> compiled class hash
+	ReplacedClasses   map[felt.Felt]*felt.Felt               `cbor:"6,keyasint"` // addr -> class hash
 }
 
 func (d *StateDiff) Length() uint64 {

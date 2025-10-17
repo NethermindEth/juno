@@ -15,37 +15,37 @@ import (
 
 type Header struct {
 	// The hash of this block
-	Hash *felt.Felt
+	Hash *felt.Felt `cbor:"1,keyasint"`
 	// The hash of this block’s parent
-	ParentHash *felt.Felt
+	ParentHash *felt.Felt `cbor:"2,keyasint"`
 	// The number (height) of this block
-	Number uint64
+	Number uint64 `cbor:"3,keyasint"`
 	// The state commitment after this block
-	GlobalStateRoot *felt.Felt
+	GlobalStateRoot *felt.Felt `cbor:"4,keyasint"`
 	// The Starknet address of the sequencer who created this block
-	SequencerAddress *felt.Felt
+	SequencerAddress *felt.Felt `cbor:"5,keyasint"`
 	// The amount Transactions and Receipts stored in this block
-	TransactionCount uint64
+	TransactionCount uint64 `cbor:"6,keyasint"`
 	// The amount of events stored in transaction receipts
-	EventCount uint64
+	EventCount uint64 `cbor:"7,keyasint"`
 	// The time the sequencer created this block before executing transactions
-	Timestamp uint64
+	Timestamp uint64 `cbor:"8,keyasint"`
 	// Todo(rdr): It makes more sense for Protocol version to be stored in semver.Version instead
 	// The version of the Starknet protocol used when creating this block
-	ProtocolVersion string
+	ProtocolVersion string `cbor:"9,keyasint"`
 	// Bloom filter on the events emitted this block
-	EventsBloom *bloom.BloomFilter
+	EventsBloom *bloom.BloomFilter `cbor:"10,keyasint"`
 	// Amount of WEI charged per Gas spent on L1
-	L1GasPriceETH *felt.Felt `cbor:"gasprice"`
+	L1GasPriceETH *felt.Felt `cbor:"11,keyasint"`
 	// Amount of STRK charged per Gas spent on L2
-	Signatures [][]*felt.Felt
+	Signatures [][]*felt.Felt `cbor:"12,keyasint"`
 	// Amount of STRK charged per Gas spent on L1
-	L1GasPriceSTRK *felt.Felt `cbor:"gaspricestrk"`
+	L1GasPriceSTRK *felt.Felt `cbor:"13,keyasint"`
 	// Amount of STRK charged per Gas spent on L2
-	L1DAMode L1DAMode
+	L1DAMode L1DAMode `cbor:"14,keyasint"`
 	// The gas price for L1 data availability
-	L1DataGasPrice *GasPrice
-	L2GasPrice     *GasPrice
+	L1DataGasPrice *GasPrice `cbor:"15,keyasint"`
+	L2GasPrice     *GasPrice `cbor:"16,keyasint"`
 }
 
 type L1DAMode uint
@@ -62,8 +62,8 @@ var (
 )
 
 type GasPrice struct {
-	PriceInWei *felt.Felt
-	PriceInFri *felt.Felt
+	PriceInWei *felt.Felt `cbor:"1,keyasint"`
+	PriceInFri *felt.Felt `cbor:"2,keyasint"`
 }
 
 type Block struct {
@@ -81,10 +81,10 @@ func (b *Block) L2GasConsumed() uint64 {
 }
 
 type BlockCommitments struct {
-	TransactionCommitment *felt.Felt
-	EventCommitment       *felt.Felt
-	ReceiptCommitment     *felt.Felt
-	StateDiffCommitment   *felt.Felt
+	TransactionCommitment *felt.Felt `cbor:"1,keyasint"`
+	EventCommitment       *felt.Felt `cbor:"2,keyasint"`
+	ReceiptCommitment     *felt.Felt `cbor:"3,keyasint"`
+	StateDiffCommitment   *felt.Felt `cbor:"4,keyasint"`
 }
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have

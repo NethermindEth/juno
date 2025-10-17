@@ -437,9 +437,9 @@ func TestRevert(t *testing.T) {
 			Abi:     "some cairo 1 class abi",
 			AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xcd98"),
 			EntryPoints: struct {
-				Constructor []core.SierraEntryPoint
-				External    []core.SierraEntryPoint
-				L1Handler   []core.SierraEntryPoint
+				Constructor []core.SierraEntryPoint `cbor:"1,keyasint"`
+				External    []core.SierraEntryPoint `cbor:"2,keyasint"`
+				L1Handler   []core.SierraEntryPoint `cbor:"3,keyasint"`
 			}{
 				Constructor: []core.SierraEntryPoint{{1, new(felt.Felt).SetBytes([]byte("c1"))}},
 				External:    []core.SierraEntryPoint{{0, new(felt.Felt).SetBytes([]byte("e1"))}},

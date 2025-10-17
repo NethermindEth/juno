@@ -802,9 +802,17 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 	declaredClass := core.DeclaredClass{
 		At: class.At,
 		Class: &core.Cairo1Class{
-			Abi:             class.Class.Abi,
-			AbiHash:         class.Class.AbiHash,
-			EntryPoints:     class.Class.EntryPoints,
+			Abi:     class.Class.Abi,
+			AbiHash: class.Class.AbiHash,
+			EntryPoints: struct {
+				Constructor []core.SierraEntryPoint `cbor:"1,keyasint"`
+				External    []core.SierraEntryPoint `cbor:"2,keyasint"`
+				L1Handler   []core.SierraEntryPoint `cbor:"3,keyasint"`
+			}{
+				Constructor: class.Class.EntryPoints.Constructor,
+				External:    class.Class.EntryPoints.External,
+				L1Handler:   class.Class.EntryPoints.L1Handler,
+			},
 			Program:         class.Class.Program,
 			ProgramHash:     class.Class.ProgramHash,
 			SemanticVersion: class.Class.SemanticVersion,

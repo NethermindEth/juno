@@ -40,25 +40,25 @@ type Class interface {
 // todo(rdr): rename this to DeprecatedCairoClass
 // Cairo0Class unambiguously defines a [Contract]'s semantics.
 type Cairo0Class struct {
-	Abi json.RawMessage
+	Abi json.RawMessage `cbor:"1,keyasint"`
 	// External functions defined in the class.
-	Externals []EntryPoint
+	Externals []EntryPoint `cbor:"2,keyasint"`
 	// Functions that receive L1 messages. See
 	// https://www.cairo-lang.org/docs/hello_starknet/l1l2.html#receiving-a-message-from-l1
-	L1Handlers []EntryPoint
+	L1Handlers []EntryPoint `cbor:"3,keyasint"`
 	// Constructors for the class. Currently, only one is allowed.
-	Constructors []EntryPoint
+	Constructors []EntryPoint `cbor:"4,keyasint"`
 	// Base64 encoding of compressed Program
-	Program string
+	Program string `cbor:"5,keyasint"`
 }
 
 // todo(rdr): rename this to DeprecatedEntryPoint
 // EntryPoint uniquely identifies a Cairo function to execute.
 type EntryPoint struct {
 	// starknet_keccak hash of the function signature.
-	Selector *felt.Felt
+	Selector *felt.Felt `cbor:"1,keyasint"`
 	// The offset of the instruction in the class's bytecode.
-	Offset *felt.Felt
+	Offset *felt.Felt `cbor:"2,keyasint"`
 }
 
 func (c *Cairo0Class) Version() uint64 {
@@ -76,45 +76,45 @@ func (c *Cairo0Class) SierraVersion() string {
 // todo(rdr): rename this to CairoClass
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
 type Cairo1Class struct {
-	Abi     string
-	AbiHash *felt.Felt
+	Abi     string     `cbor:"1,keyasint"`
+	AbiHash *felt.Felt `cbor:"2,keyasint"`
 	// TODO: will implement this on a follow up PR commit to avoid the migration
 	// EntryPoints     SierraEntryPointsByType
 	EntryPoints struct {
-		Constructor []SierraEntryPoint
-		External    []SierraEntryPoint
-		L1Handler   []SierraEntryPoint
-	}
-	Program     []*felt.Felt
-	ProgramHash *felt.Felt
+		Constructor []SierraEntryPoint `cbor:"1,keyasint"`
+		External    []SierraEntryPoint `cbor:"2,keyasint"`
+		L1Handler   []SierraEntryPoint `cbor:"3,keyasint"`
+	} `cbor:"3,keyasint"`
+	Program     []*felt.Felt `cbor:"4,keyasint"`
+	ProgramHash *felt.Felt   `cbor:"5,keyasint"`
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
-	SemanticVersion string
-	Compiled        *CompiledClass
+	SemanticVersion string         `cbor:"6,keyasint"`
+	Compiled        *CompiledClass `cbor:"7,keyasint"`
 }
 
 type SegmentLengths struct {
-	Children []SegmentLengths
-	Length   uint64
+	Children []SegmentLengths `cbor:"1,keyasint"`
+	Length   uint64           `cbor:"2,keyasint"`
 }
 
 // todo(rdr): rename CompiledClass to CasmClass
 type CompiledClass struct {
-	Bytecode               []*felt.Felt
-	PythonicHints          json.RawMessage
-	CompilerVersion        string
-	Hints                  json.RawMessage
-	Prime                  *big.Int
-	External               []CompiledEntryPoint
-	L1Handler              []CompiledEntryPoint
-	Constructor            []CompiledEntryPoint
-	BytecodeSegmentLengths SegmentLengths
+	Bytecode               []*felt.Felt         `cbor:"1,keyasint"`
+	PythonicHints          json.RawMessage      `cbor:"2,keyasint"`
+	CompilerVersion        string               `cbor:"3,keyasint"`
+	Hints                  json.RawMessage      `cbor:"4,keyasint"`
+	Prime                  *big.Int             `cbor:"5,keyasint"`
+	External               []CompiledEntryPoint `cbor:"6,keyasint"`
+	L1Handler              []CompiledEntryPoint `cbor:"7,keyasint"`
+	Constructor            []CompiledEntryPoint `cbor:"8,keyasint"`
+	BytecodeSegmentLengths SegmentLengths       `cbor:"9,keyasint"`
 }
 
 // todo(rdr): rename this to CasmEntryPoint
 type CompiledEntryPoint struct {
-	Offset   uint64
-	Builtins []string
-	Selector *felt.Felt
+	Offset   uint64     `cbor:"1,keyasint"`
+	Builtins []string   `cbor:"2,keyasint"`
+	Selector *felt.Felt `cbor:"3,keyasint"`
 }
 
 // TODO: will implement this on a follow up PR commit to avoid the migration
@@ -125,8 +125,8 @@ type CompiledEntryPoint struct {
 // }
 
 type SierraEntryPoint struct {
-	Index    uint64
-	Selector *felt.Felt
+	Index    uint64     `cbor:"1,keyasint"`
+	Selector *felt.Felt `cbor:"2,keyasint"`
 }
 
 func (c *Cairo1Class) Version() uint64 {

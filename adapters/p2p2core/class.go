@@ -33,9 +33,9 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 		Abi:     cairo1.Abi,
 		AbiHash: abiHash,
 		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
+			Constructor []core.SierraEntryPoint `cbor:"1,keyasint"`
+			External    []core.SierraEntryPoint `cbor:"2,keyasint"`
+			L1Handler   []core.SierraEntryPoint `cbor:"3,keyasint"`
 		}{
 			Constructor: adaptEP(entryPoints.Constructors),
 			External:    adaptEP(entryPoints.Externals),
