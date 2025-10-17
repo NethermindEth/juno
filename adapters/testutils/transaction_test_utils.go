@@ -31,6 +31,7 @@ type TransactionBuilder[C, P any] struct {
 	ToP2PDeclareV3Sync toP2PType[P, *synctransaction.TransactionInBlock_DeclareV3WithoutClass]
 	ToP2PDeclareV3     toP2PType[P, *transaction.DeclareV3WithClass]
 	ToP2PDeployV0      toP2PType[P, *synctransaction.TransactionInBlock_Deploy]
+	ToP2PDeployV1      toP2PType[P, *synctransaction.TransactionInBlock_DeployAccountV1]
 	ToP2PDeploy        toP2PType[P, *transaction.DeployAccountV3]
 	ToP2PInvoke        toP2PType[P, *transaction.InvokeV3]
 	ToP2PL1Handler     toP2PType[P, *transaction.L1HandlerV0]
@@ -441,6 +442,63 @@ func (b *TransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	)
 	return b.ToCore(&consensusDeployTransaction, nil, nil),
 		b.ToP2PDeployV0(&p2pTransaction, p2pHash)
+}
+
+func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
+	t.Helper()
+	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
+	classHash, classHashBytes := getRandomFelt(t)
+	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
+	contractAddress := core.ContractAddress(
+		&felt.Zero, &classHash,
+		&contractAddressSalt,
+		constructorCallData,
+	)
+	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
+	maxFee, maxFeeBytes := getRandomFelt(t)
+	nonce, nonceBytes := getRandomFelt(t)
+	version := new(core.TransactionVersion).SetUint64(1)
+
+	p2pTransaction := synctransaction.TransactionInBlock_DeployAccountV1{
+		MaxFee: &common.Felt252{Elements: maxFeeBytes},
+		Signature: &transaction.AccountSignature{
+			Parts: toFelt252Slice(transactionSignatureBytes),
+		},
+		ClassHash:   &common.Hash{Elements: classHashBytes},
+		Nonce:       &common.Felt252{Elements: nonceBytes},
+		AddressSalt: &common.Felt252{Elements: contractAddressSaltBytes},
+		Calldata:    toFelt252Slice(constructorCallDataBytes),
+	}
+
+	consensusDeployAccountTransaction := core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     nil,
+			ContractAddressSalt: &contractAddressSalt,
+			ContractAddress:     contractAddress,
+			ClassHash:           &classHash,
+			ConstructorCallData: constructorCallData,
+			Version:             version,
+		},
+		MaxFee:               &maxFee,
+		TransactionSignature: transactionSignature,
+		Nonce:                &nonce,
+		ResourceBounds:       nil, // this field is not available on v1
+		PaymasterData:        nil, // this field is not available on v1
+		Tip:                  0,   // this field is not available on v1
+		NonceDAMode:          0,   // this field is not available on v1
+		FeeDAMode:            0,   // this field is not available on v1
+	}
+	var p2pHash *common.Hash
+	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeployAccountTransaction,
+		network,
+	)
+	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
+		b.ToP2PDeployV1(&p2pTransaction, p2pHash)
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
