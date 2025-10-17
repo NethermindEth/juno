@@ -188,6 +188,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL2,
+		false,
 	)
 
 	_, b1EmittedAsAcceptedOnL1 := createTestEvents(
@@ -196,6 +197,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL1,
+		false,
 	)
 	b2Filtered, b2Emitted := createTestEvents(
 		t,
@@ -203,6 +205,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL2,
+		false,
 	)
 
 	pending := createTestPending(t, b2, 6)
@@ -212,6 +215,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL2,
+		false,
 	)
 	pending2 := createTestPending(t, b2, 10)
 
@@ -221,6 +225,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL2,
+		false,
 	)
 	preConfirmed1 := createTestPreConfirmed(t, b2, 3)
 	preConfirmed2 := createTestPreConfirmed(t, b2, 6)
@@ -231,6 +236,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnPreConfirmed,
+		false,
 	)
 	_, preConfirmed2Emitted := createTestEvents(
 		t,
@@ -238,6 +244,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnPreConfirmed,
+		false,
 	)
 
 	// Create PreLatest block for testing
@@ -249,6 +256,7 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL2,
+		true,
 	)
 
 	mockCtrl := gomock.NewController(t)
@@ -514,6 +522,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		nil,
 		TxnAcceptedOnL2,
+		false,
 	)
 
 	preConfirmedFilteredBySenders, preConfirmedEmittedFiltered := createTestEvents(
@@ -522,6 +531,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		nil,
 		TxnPreConfirmed,
+		false,
 	)
 
 	_, preConfirmed2EmittedFiltered := createTestEvents(
@@ -530,6 +540,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		nil,
 		TxnPreConfirmed,
+		false,
 	)
 
 	_, b2EmittedFiltered := createTestEvents(
@@ -538,6 +549,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		nil,
 		TxnAcceptedOnL2,
+		false,
 	)
 
 	eventsWithFromAddressAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
@@ -597,6 +609,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		keys,
 		TxnAcceptedOnL2,
+		false,
 	)
 
 	preConfirmedFilteredBySendersAndKey, preConfirmedEmittedWFilters := createTestEvents(
@@ -605,6 +618,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		keys,
 		TxnPreConfirmed,
+		false,
 	)
 
 	_, preConfirmed2EmittedWFilters := createTestEvents(
@@ -613,6 +627,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		keys,
 		TxnPreConfirmed,
+		false,
 	)
 
 	_, b2EmittedWFilters := createTestEvents(
@@ -621,6 +636,7 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddress,
 		keys,
 		TxnAcceptedOnL2,
+		false,
 	)
 
 	eventsWithAllFilterAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
@@ -2368,12 +2384,13 @@ func createTestEvents(
 	fromAddress *felt.Felt,
 	keys [][]felt.Felt,
 	finalityStatus TxnFinalityStatus,
+	isPreLatest bool,
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
 	var blockNumber *uint64
 	// if header.Hash == nil and parentHash != nil it's a pending block
 	// if header.Hash == nil and parentHash == nil it's a pre_confirmed block
-	if b.Hash != nil || b.ParentHash == nil {
+	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
 		blockNumber = &b.Number
 	}
 	eventMatcher := blockchain.NewEventMatcher(fromAddress, keys)

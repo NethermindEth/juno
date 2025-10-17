@@ -275,6 +275,7 @@ func (h *Handler) SubscribeEvents(
 				&eventMatcher,
 				eventsPreviouslySent,
 				TxnAcceptedOnL2,
+				false,
 			)
 		},
 		onPreLatest: func(
@@ -292,6 +293,7 @@ func (h *Handler) SubscribeEvents(
 				&eventMatcher,
 				eventsPreviouslySent,
 				TxnAcceptedOnL2,
+				true,
 			)
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
@@ -317,6 +319,7 @@ func (h *Handler) SubscribeEvents(
 				&eventMatcher,
 				eventsPreviouslySent,
 				blockFinalityStatus,
+				false,
 			)
 		},
 	}
@@ -381,6 +384,7 @@ func processBlockEvents(
 	eventMatcher *blockchain.EventMatcher,
 	eventsPreviouslySent map[SentEvent]TxnFinalityStatus,
 	finalityStatus TxnFinalityStatus,
+	isPreLatest bool,
 ) error {
 	if isMatch := eventMatcher.TestBloom(block.EventsBloom); !isMatch {
 		return nil
@@ -389,7 +393,8 @@ func processBlockEvents(
 	var blockNumber *uint64
 	// if header.Hash == nil and parentHash != nil it's a pending block
 	// if header.Hash == nil and parentHash == nil it's a pre_confirmed block
-	if isNotPending := block.Hash != nil || block.ParentHash == nil; isNotPending {
+	isNotPending := block.Hash != nil || block.ParentHash == nil || isPreLatest
+	if isNotPending {
 		blockNumber = &block.Number
 	}
 
