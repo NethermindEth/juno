@@ -1773,7 +1773,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.pendingData.Send(&pending1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(pendingBlock1, nil, TxnAcceptedOnL2, false),
+					toAdaptedReceiptsWithFilter(pending1.Block, nil, TxnAcceptedOnL2, false),
 				},
 			},
 			{
@@ -1783,7 +1783,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
-						pendingBlock2,
+						pending2.Block,
 						nil,
 						TxnAcceptedOnL2,
 						false,
@@ -2014,7 +2014,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
 				},
 			},
 			{
@@ -2023,7 +2023,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.preLatest.Send(&preLatest)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(preLatest.Block, nil, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(preLatest.Block, nil, TxnAcceptedOnL2, true),
 				},
 			},
 			{

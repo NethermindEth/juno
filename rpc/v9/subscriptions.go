@@ -878,6 +878,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				preLatest.Block,
 				receiptsPreviouslySent,
 				TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+				true,
 			)
 		},
 		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
