@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
@@ -266,12 +267,19 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 	}
 
 	var finalityStatus TxnFinalityStatus
-	if blockStatus == BlockAcceptedL1 {
+	switch s := blockStatus; s {
+	case BlockAcceptedL1:
 		finalityStatus = TxnAcceptedOnL1
-	} else if blockStatus == BlockAcceptedL2 {
+	case BlockAcceptedL2:
 		finalityStatus = TxnAcceptedOnL2
-	} else {
-		finalityStatus = h.PendingBlockFinalityStatus()
+	case BlockPreConfirmed:
+		finalityStatus = TxnPreConfirmed
+		// legacy pending block
+		if block.ParentHash != nil {
+			finalityStatus = TxnAcceptedOnL2
+		}
+	default:
+		return nil, rpccore.ErrInternal.CloneWithData(fmt.Errorf("unknown block status '%v'", s))
 	}
 
 	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))

@@ -80,7 +80,6 @@ type Reader interface {
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -120,10 +119,6 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 
 func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
-}
-
-func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -635,19 +630,4 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 		return nil
 	}
 	return pendingData.GetBlock()
-}
-
-// PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
-	pending, err := s.PendingData()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	stateReader, baseStateCloser, err := PendingState(pending, s.blockchain)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return stateReader, baseStateCloser, nil
 }

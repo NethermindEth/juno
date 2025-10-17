@@ -394,7 +394,7 @@ func TestPendingData_PendingState(t *testing.T) {
 		// Test that we can query the updated storage value
 		retrievedValue, err := state.ContractStorage(&contractAddress, &storageKey)
 		require.NoError(t, err)
-		require.Equal(t, &storageValue, retrievedValue)
+		require.Equal(t, storageValue, retrievedValue)
 	})
 
 	t.Run("pre-confirmed", func(t *testing.T) {
@@ -432,7 +432,7 @@ func TestPendingData_PendingState(t *testing.T) {
 			// Test that we can query the updated storage value
 			retrievedValue, err := state.ContractStorage(&contractAddress, &storageKey)
 			require.NoError(t, err)
-			require.Equal(t, &storageValue, retrievedValue)
+			require.Equal(t, storageValue, retrievedValue)
 		})
 
 		t.Run("pending state with pre-latest", func(t *testing.T) {
@@ -446,12 +446,12 @@ func TestPendingData_PendingState(t *testing.T) {
 			// Test that we can query the storage value in pre_confirmed
 			retrievedValue, err := state.ContractStorage(&contractAddress, &storageKey)
 			require.NoError(t, err)
-			require.Equal(t, &storageValue, retrievedValue)
+			require.Equal(t, storageValue, retrievedValue)
 
 			// Test that we can query the storage value in pre_latest
 			retrievedValue, err = state.ContractStorage(&preLatestContractAddress, &preLatestStorageKey)
 			require.NoError(t, err)
-			require.Equal(t, &preLatestStorageValue, retrievedValue)
+			require.Equal(t, preLatestStorageValue, retrievedValue)
 		})
 	})
 }
@@ -510,13 +510,13 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 			)
 			require.NoError(t, err)
 			expectedValue := felt.FromUint64[felt.Felt](uint64(idx + 1))
-			require.Equal(t, &expectedValue, retrievedValue)
+			require.Equal(t, expectedValue, retrievedValue)
 
 			// Check that nonce value reflects the state up to transaction i
 			retrievedNonce, err := state.ContractNonce(&preConfirmedContractAddress)
 			require.NoError(t, err)
 			expectedNonce := felt.FromUint64[felt.Felt](uint64(idx + 1))
-			require.Equal(t, &expectedNonce, retrievedNonce)
+			require.Equal(t, expectedNonce, retrievedNonce)
 		}
 
 		preConfirmed := core.PreConfirmed{
@@ -554,7 +554,7 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 			// Test that we can query the storage value in pre_latest
 			retrievedValue, err := state.ContractStorage(&preLatestContractAddress, &preLatestStorageKey)
 			require.NoError(t, err)
-			require.Equal(t, &preLatestStorageValue, retrievedValue)
+			require.Equal(t, preLatestStorageValue, retrievedValue)
 
 			for i := range numTxs {
 				assertPendingStateAtIndex(t, &preConfirmed, i)

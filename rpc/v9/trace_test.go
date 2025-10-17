@@ -405,16 +405,21 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		pending := core.NewPending(block, nil, nil)
+		pendingStateDiff := core.EmptyStateDiff()
+		pending := core.Pending{
+			Block: block,
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &pendingStateDiff,
+			},
+			NewClasses: map[felt.Felt]core.Class{*tx.ClassHash: declaredClass.Class},
+		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
-		)
-
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
+		).Times(2)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
+			Return(headState, nopCloser, nil).Times(2)
 
 		innerExecutionResources := `{
 			"l1_gas": 1,
@@ -468,14 +473,13 @@ func TestTraceTransaction(t *testing.T) {
 
 	t.Run("pre_confirmed block", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
-		tx := &core.DeclareTransaction{
+		tx := &core.InvokeTransaction{
 			TransactionHash: hash,
-			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
 
 		header := &core.Header{
-			Number:           0,
+			Number:           1,
 			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
@@ -488,20 +492,22 @@ func TestTraceTransaction(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
-			At:    3002,
-			Class: &core.Cairo1Class{},
-		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		preConfirmed := core.NewPreConfirmed(block, nil, nil, nil)
+		preConfirmedStateDiff := core.EmptyStateDiff()
+		preConfirmed := core.PreConfirmed{
+			Block: block,
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &preConfirmedStateDiff,
+			},
+		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
 		)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(headState, nopCloser, nil)
-		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
+		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
+			Return(headState, nopCloser, nil)
 
 		innerExecutionResources := `{
 			"l1_gas": 1,
@@ -531,8 +537,18 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, true, false).
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			nil,
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			true,
+			false,
+		).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
 				GasConsumed: gc,

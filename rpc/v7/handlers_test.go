@@ -60,7 +60,7 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("trace", func(t *testing.T) {
 		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x0001")
 		header := &core.Header{
-			// hash is not set because it's pending block
+			Hash:            blockHash,
 			ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
 			Number:          0,
 			L1GasPriceETH:   felt.NewUnsafeFromString[felt.Felt]("0x777"),
@@ -87,10 +87,11 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		pending := core.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
+		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
+		_, httpHeader, rpcErr := handler.TraceBlockTransactions(
+			t.Context(),
+			rpcv7.BlockID{Hash: blockHash},
+		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv7.ExecutionStepsHeader))
 	})

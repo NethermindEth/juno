@@ -16,7 +16,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -137,7 +137,7 @@ func (h *Handler) tracePreConfirmedTransaction(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	state, baseStateCloser, err := sync.PendingStateBeforeIndex(
+	state, baseStateCloser, err := pendingdata.PendingStateBeforeIndex(
 		preConfirmed,
 		h.bcReader,
 		uint(txIndex),
