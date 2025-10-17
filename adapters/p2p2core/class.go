@@ -33,11 +33,7 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 	return core.SierraClass{
 		Abi:     cairo1.Abi,
 		AbiHash: &abiHash,
-		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
-		}{
+		EntryPoints: core.SierraEntryPointsByType{
 			Constructor: adaptEP(entryPoints.Constructors),
 			External:    adaptEP(entryPoints.Externals),
 			L1Handler:   adaptEP(entryPoints.L1Handlers),

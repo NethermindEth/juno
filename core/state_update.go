@@ -9,31 +9,31 @@ import (
 )
 
 type StateUpdate struct {
-	BlockHash *felt.Felt
-	NewRoot   *felt.Felt
-	OldRoot   *felt.Felt
-	StateDiff *StateDiff
+	BlockHash *felt.Felt `cbor:"1,keyasint,omitempty"`
+	NewRoot   *felt.Felt `cbor:"2,keyasint,omitempty"`
+	OldRoot   *felt.Felt `cbor:"3,keyasint,omitempty"`
+	StateDiff *StateDiff `cbor:"4,keyasint,omitempty"`
 }
 
 type StateDiff struct {
 	// todo(rdr): replace felt.Felt for the right types (felt.Address to felt.What? to felt.What?)
 	//            felt.What? means I'm not sure which type, but if it doesn't exist, create it.
-	StorageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
+	StorageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt `cbor:"1,keyasint,omitempty"` // addr -> {key -> value, ...}
 	// todo(rdr): felt.Address to felt.Nonce (`Nonce` is a new type that should be created?)
-	Nonces map[felt.Felt]*felt.Felt
+	Nonces map[felt.Felt]*felt.Felt `cbor:"2,keyasint,omitempty"`
 	// todo(rdr): felt.Addr to felt.ClassHash (do we know if it will be `SierraClassHash or
 	//            `CasmClassHash`)
-	DeployedContracts map[felt.Felt]*felt.Felt
+	DeployedContracts map[felt.Felt]*felt.Felt `cbor:"3,keyasint,omitempty"`
 	// todo(rdr): an array of felt.ClassHash, or perhaps, felt.DeprecatedCairoClassHash
 	//            Also, change the name from `DeclaredV0Classes` to `DeprecatedDeclaredClasses`
-	DeclaredV0Classes []*felt.Felt
+	DeclaredV0Classes []*felt.Felt `cbor:"4,keyasint,omitempty"`
 	// todo(rdr): felt.SierraClassHash to felt.CasmClassHash
-	DeclaredV1Classes map[felt.Felt]*felt.Felt // class hash -> compiled class hash
+	DeclaredV1Classes map[felt.Felt]*felt.Felt `cbor:"5,keyasint,omitempty"` // class hash -> compiled class hash
 	// todo(rdr): felt.Address to (felt.SierraClassHash or felt.CasmClassHash, I'm unsure)
-	ReplacedClasses map[felt.Felt]*felt.Felt // addr -> class hash
+	ReplacedClasses map[felt.Felt]*felt.Felt `cbor:"6,keyasint,omitempty"` // addr -> class hash
 	// Sierra Class definitions which had their compiled class hash definition (CASM)
 	// migrated from poseidon hash to blake2s hash (Starknet 0.14.1)
-	MigratedClasses map[felt.SierraClassHash]felt.CasmClassHash
+	MigratedClasses map[felt.SierraClassHash]felt.CasmClassHash `cbor:"7,keyasint,omitempty"`
 }
 
 func (d *StateDiff) Length() uint64 {
