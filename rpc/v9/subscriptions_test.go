@@ -1527,12 +1527,27 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		steps         []stepInfo
 	}
 
-	toAdaptedReceiptsWithFilter := func(b *core.Block, senderAddress []felt.Felt, finalityStatus TxnFinalityStatus) []*TransactionReceipt {
+	toAdaptedReceiptsWithFilter := func(
+		b *core.Block,
+		senderAddress []felt.Felt,
+		finalityStatus TxnFinalityStatus,
+		isPreLatest bool,
+	) []*TransactionReceipt {
 		receipts := make([]*TransactionReceipt, 0)
 		for i, receipt := range b.Receipts {
 			txn := b.Transactions[i]
 			if filterTxBySender(txn, senderAddress) {
-				receipts = append(receipts, AdaptReceipt(receipt, txn, finalityStatus, b.Hash, b.Number))
+				receipts = append(
+					receipts,
+					AdaptReceipt(
+						receipt,
+						txn,
+						finalityStatus,
+						b.Hash,
+						b.Number,
+						isPreLatest,
+					),
+				)
 			}
 		}
 		return receipts
@@ -1553,7 +1568,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
 				},
 			},
 			{
@@ -1561,14 +1576,23 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(utils.HeapPtr(core.NewPending(pendingBlock1, nil, nil)))
 				},
-				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock1, nil, TxnAcceptedOnL2)},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(pendingBlock1, nil, TxnAcceptedOnL2, false),
+				},
 			},
 			{
 				description: "on pending block update, without duplicates",
 				notify: func() {
 					syncer.pendingData.Send(utils.HeapPtr(core.NewPending(pendingBlock2, nil, nil)))
 				},
-				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock2, nil, TxnAcceptedOnL2)[pendingB1TxCount:]},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(
+						pendingBlock2,
+						nil,
+						TxnAcceptedOnL2,
+						false,
+					)[pendingB1TxCount:],
+				},
 			},
 			{
 				description: "on next head, without duplicates",
@@ -1576,7 +1600,12 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2)[pendingB2TxCount:],
+					toAdaptedReceiptsWithFilter(
+						newHead2,
+						nil,
+						TxnAcceptedOnL2,
+						false,
+					)[pendingB2TxCount:],
 				},
 			},
 		},
@@ -1597,7 +1626,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
 				},
 			},
 			{
@@ -1613,7 +1642,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2, false),
 				},
 			},
 		},
@@ -1636,7 +1665,12 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.pendingData.Send(&preConfirmed1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(preConfirmed1.GetBlock(), nil, TxnPreConfirmed),
+					toAdaptedReceiptsWithFilter(
+						preConfirmed1.Block,
+						nil,
+						TxnPreConfirmed,
+						false,
+					),
 				},
 			},
 			{
@@ -1645,7 +1679,12 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.pendingData.Send(&preConfirmed2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(preConfirmed2.GetBlock(), nil, TxnPreConfirmed)[preConfirmedB1TxCount:],
+					toAdaptedReceiptsWithFilter(
+						preConfirmed2.Block,
+						nil,
+						TxnPreConfirmed,
+						false,
+					)[preConfirmedB1TxCount:],
 				},
 			},
 			{
@@ -1668,7 +1707,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
 				},
 			},
 			{
@@ -1677,7 +1716,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.pendingData.Send(&preConfirmed1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(preConfirmed1.GetBlock(), nil, TxnPreConfirmed),
+					toAdaptedReceiptsWithFilter(preConfirmed1.Block, nil, TxnPreConfirmed, false),
 				},
 			},
 			{
@@ -1686,7 +1725,12 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.pendingData.Send(&preConfirmed2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(preConfirmed2.GetBlock(), nil, TxnPreConfirmed)[preConfirmedB1TxCount:],
+					toAdaptedReceiptsWithFilter(
+						preConfirmed2.Block,
+						nil,
+						TxnPreConfirmed,
+						false,
+					)[preConfirmedB1TxCount:],
 				},
 			},
 			{
@@ -1695,7 +1739,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2, false),
 				},
 			},
 		},
@@ -1704,7 +1748,12 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	preConfirmed3 := createTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
 	senderAddress := AdaptTransaction(newHead2.Transactions[0]).SenderAddress
 	senderFilter := []felt.Felt{*senderAddress}
-	preConfirmed1FilteredReceipts := toAdaptedReceiptsWithFilter(preConfirmed1.GetBlock(), senderFilter, TxnPreConfirmed)
+	preConfirmed1FilteredReceipts := toAdaptedReceiptsWithFilter(
+		preConfirmed1.Block,
+		senderFilter,
+		TxnPreConfirmed,
+		false,
+	)
 
 	allStatusesWithFilter := testCase{
 		description:   "subscription with filter and all statuses",
@@ -1726,7 +1775,12 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.pendingData.Send(&preConfirmed3)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(preConfirmed3.GetBlock(), senderFilter, TxnPreConfirmed)[len(preConfirmed1FilteredReceipts):],
+					toAdaptedReceiptsWithFilter(
+						preConfirmed3.Block,
+						senderFilter,
+						TxnPreConfirmed,
+						false,
+					)[len(preConfirmed1FilteredReceipts):],
 				},
 			},
 			{
@@ -1735,7 +1789,12 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead2, senderFilter, TxnAcceptedOnL2),
+					toAdaptedReceiptsWithFilter(
+						newHead2,
+						senderFilter,
+						TxnAcceptedOnL2,
+						false,
+					),
 				},
 			},
 		},

@@ -693,7 +693,14 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			txsWithReceipt = append(txsWithReceipt, rpcv9.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpcv9.AdaptReceipt(receipt, tx, rpcv9.TxnPreConfirmed, nil, 0),
+				Receipt: rpcv9.AdaptReceipt(
+					receipt,
+					tx,
+					rpcv9.TxnPreConfirmed,
+					nil,
+					0,
+					false,
+				),
 			})
 		}
 
@@ -736,7 +743,14 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			transactions[i] = rpcv9.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpcv9.AdaptReceipt(receipt, tx, rpcv9.TxnAcceptedOnL1, nil, 0),
+				Receipt: rpcv9.AdaptReceipt(
+					receipt,
+					tx,
+					rpcv9.TxnAcceptedOnL1,
+					nil,
+					0,
+					false,
+				),
 			}
 		}
 

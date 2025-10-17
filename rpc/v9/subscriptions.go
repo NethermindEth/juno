@@ -811,6 +811,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				head,
 				receiptsPreviouslySent,
 				TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+				false,
 			)
 		},
 		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
@@ -856,6 +857,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				block,
 				receiptsPreviouslySent,
 				blockFinalityStatus,
+				false,
 			)
 		},
 		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
@@ -873,13 +875,21 @@ func processBlockReceipts(
 	block *core.Block,
 	receiptsPreviouslySent map[SentReceipt]TxnFinalityStatusWithoutL1,
 	finalityStatus TxnFinalityStatusWithoutL1,
+	isPreLatest bool,
 ) error {
 	for i, txn := range block.Transactions {
 		if !filterTxBySender(txn, senderAddress) {
 			continue
 		}
 
-		adaptedReceipt := AdaptReceipt(block.Receipts[i], txn, TxnFinalityStatus(finalityStatus), block.Hash, block.Number)
+		adaptedReceipt := AdaptReceipt(
+			block.Receipts[i],
+			txn,
+			TxnFinalityStatus(finalityStatus),
+			block.Hash,
+			block.Number,
+			isPreLatest,
+		)
 
 		if receiptsPreviouslySent != nil {
 			sentReceipt := SentReceipt{
