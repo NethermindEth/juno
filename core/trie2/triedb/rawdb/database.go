@@ -10,8 +10,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type Config struct {
-}
+type Config struct{}
 
 type Database struct {
 	disk db.KeyValueStore
@@ -76,43 +75,44 @@ func (d *Database) Update(
 	}
 
 	for path, n := range classNodes {
-		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(batch, db.ClassTrie, &felt.Zero, &path, n.IsLeaf()); err != nil {
-				return err
-			}
-		} else {
-			if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
-				return err
-			}
+		if err := d.updateNode(batch, db.ClassTrie, &felt.Zero, &path, n); err != nil {
+			return err
 		}
 	}
 
 	for path, n := range contractNodes {
-		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(batch, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf()); err != nil {
-				return err
-			}
-		} else {
-			if err := trieutils.WriteNodeByPath(batch, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
-				return err
-			}
+		if err := d.updateNode(batch, db.ContractTrieContract, &felt.Zero, &path, n); err != nil {
+			return err
 		}
 	}
 
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
-			if _, deleted := n.(*trienode.DeletedNode); deleted {
-				if err := trieutils.DeleteNodeByPath(batch, db.ContractTrieStorage, &owner, &path, n.IsLeaf()); err != nil {
-					return err
-				}
-			} else {
-				if err := trieutils.WriteNodeByPath(batch, db.ContractTrieStorage, &owner, &path, n.IsLeaf(), n.Blob()); err != nil {
-					return err
-				}
+			if err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n); err != nil {
+				return err
 			}
 		}
 	}
 
+	return nil
+}
+
+func (d *Database) updateNode(
+	batch db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *trieutils.Path,
+	n trienode.TrieNode,
+) error {
+	if _, deleted := n.(*trienode.DeletedNode); deleted {
+		if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf()); err != nil {
+			return err
+		}
+	} else {
+		if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, n.IsLeaf(), n.Blob()); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
