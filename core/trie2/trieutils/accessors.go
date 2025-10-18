@@ -13,7 +13,7 @@ func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
 		func(value []byte) error {
-			res = append([]byte(nil), value...)
+			res = slices.Clone(value)
 			return nil
 		},
 	); err != nil {

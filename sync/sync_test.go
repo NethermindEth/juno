@@ -336,6 +336,7 @@ func TestPendingData(t *testing.T) {
 				Block: preConfirmedB,
 				StateUpdate: &core.StateUpdate{
 					StateDiff: &emptyStateDiff,
+					OldRoot:   su.OldRoot,
 				},
 			}
 
@@ -361,6 +362,11 @@ func TestPendingData(t *testing.T) {
 			require.NoError(t, err)
 			storageKey := &felt.One
 
+			// Get the state root after block 0 to use as OldRoot for block 1
+			head, err := chain.Head()
+			require.NoError(t, err)
+			oldRoot := head.GlobalStateRoot
+
 			t.Run("Without Prelatest", func(t *testing.T) {
 				numTxs := 10
 				preConfirmed := makePreConfirmedWithIncrementingCounter(
@@ -369,6 +375,7 @@ func TestPendingData(t *testing.T) {
 					contractAddress,
 					storageKey,
 					0,
+					oldRoot,
 				)
 				isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
 				require.NoError(t, err)
@@ -413,6 +420,7 @@ func TestPendingData(t *testing.T) {
 					contractAddress,
 					storageKey,
 					0,
+					oldRoot,
 				)
 				preConfirmed.WithPreLatest(&preLatest)
 				isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
@@ -507,6 +515,7 @@ func makePreConfirmedWithIncrementingCounter(
 	contractAddr *felt.Felt,
 	storageKey *felt.Felt,
 	startingNonce uint64,
+	oldRoot *felt.Felt,
 ) *core.PreConfirmed {
 	transactions := make([]core.Transaction, numTxs)
 	receipts := make([]*core.TransactionReceipt, numTxs)
@@ -562,6 +571,7 @@ func makePreConfirmedWithIncrementingCounter(
 		TransactionStateDiffs: stateDiffs,
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &aggregatedStateDiff,
+			OldRoot:   oldRoot,
 		},
 	}
 }
