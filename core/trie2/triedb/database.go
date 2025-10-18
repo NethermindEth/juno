@@ -33,9 +33,9 @@ type Database struct {
 func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	var triedb database.TrieDB
 	var err error
-	// Default to raw config if not provided
+	// Default to path config if not provided
 	if config == nil {
-		triedb = rawdb.New(disk)
+		triedb = rawdb.New(disk, nil)
 	} else if config.PathConfig != nil {
 		triedb, err = pathdb.New(disk, config.PathConfig)
 		if err != nil {
