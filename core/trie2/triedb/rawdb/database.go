@@ -96,49 +96,46 @@ func (d *Database) Update(
 	}
 
 	for path, n := range classNodes {
-		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(batch, db.ClassTrie, &felt.Zero, &path, n.IsLeaf()); err != nil {
-				return err
-			}
-			d.cleanCache.deleteNode(&felt.Zero, &path, true)
-		} else {
-			if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
-				return err
-			}
-			d.cleanCache.putNode(&felt.Zero, &path, true, n.Blob())
+		if err := d.updateNode(batch, db.ClassTrie, &felt.Zero, &path, n); err != nil {
+			return err
 		}
 	}
 
 	for path, n := range contractNodes {
-		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(batch, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf()); err != nil {
-				return err
-			}
-			d.cleanCache.deleteNode(&felt.Zero, &path, false)
-		} else {
-			if err := trieutils.WriteNodeByPath(batch, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
-				return err
-			}
-			d.cleanCache.putNode(&felt.Zero, &path, false, n.Blob())
+		if err := d.updateNode(batch, db.ContractTrieContract, &felt.Zero, &path, n); err != nil {
+			return err
 		}
 	}
 
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
-			if _, deleted := n.(*trienode.DeletedNode); deleted {
-				if err := trieutils.DeleteNodeByPath(batch, db.ContractTrieStorage, &owner, &path, n.IsLeaf()); err != nil {
-					return err
-				}
-				d.cleanCache.deleteNode(&owner, &path, false)
-			} else {
-				if err := trieutils.WriteNodeByPath(batch, db.ContractTrieStorage, &owner, &path, n.IsLeaf(), n.Blob()); err != nil {
-					return err
-				}
-				d.cleanCache.putNode(&owner, &path, false, n.Blob())
+			if err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n); err != nil {
+				return err
 			}
 		}
 	}
 
+	return nil
+}
+
+func (d *Database) updateNode(
+	batch db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *trieutils.Path,
+	n trienode.TrieNode,
+) error {
+	if _, deleted := n.(*trienode.DeletedNode); deleted {
+		if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf()); err != nil {
+			return err
+		}
+    d.cleanCache.deleteNode(owner, path, true)
+	} else {
+		if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, n.IsLeaf(), n.Blob()); err != nil {
+			return err
+		}
+    d.cleanCache.putNode(owner, path, true, n.Blob())
+	}
 	return nil
 }
 
