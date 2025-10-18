@@ -557,11 +557,14 @@ func (h *Handler) getPendingTransactionReceipt(
 	}
 
 	status := TxnPreConfirmed
+	isPreLatest := false
 	if parentHash != nil {
 		// pre-latest block or pending block
 		status = TxnAcceptedOnL2
+		// If pending data is pre_confirmed receipt is coming from pre_latest
+		isPreLatest = pending.Variant() == core.PreConfirmedBlockVariant
 	}
-	return AdaptReceipt(receipt, txn, status, nil, blockNumber), nil
+	return AdaptReceipt(receipt, txn, status, nil, blockNumber, isPreLatest), nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -597,7 +600,7 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 		status = TxnAcceptedOnL1
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, false), nil
 }
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
@@ -863,8 +866,13 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 }
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
-func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finalityStatus TxnFinalityStatus,
-	blockHash *felt.Felt, blockNumber uint64,
+func AdaptReceipt(
+	receipt *core.TransactionReceipt,
+	txn core.Transaction,
+	finalityStatus TxnFinalityStatus,
+	blockHash *felt.Felt,
+	blockNumber uint64,
+	isPreLatest bool,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
@@ -897,10 +905,9 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 
 	var receiptBlockNumber *uint64
 
-	// TODO(Ege): Should we return block number for prelatest receipts?
 	// Do not return block number for pending block
-	// Return block number for canonical blocks and pre_confirmed block
-	if blockHash != nil || finalityStatus == TxnPreConfirmed {
+	// Return block number for canonical, pre_latest and pre_confirmed block
+	if blockHash != nil || finalityStatus == TxnPreConfirmed || isPreLatest {
 		receiptBlockNumber = &blockNumber
 	}
 
