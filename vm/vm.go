@@ -20,6 +20,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -49,7 +50,7 @@ type VM interface {
 	Call(
 		callInfo *CallInfo,
 		blockInfo *BlockInfo,
-		state core.StateReader,
+		state commonstate.StateReader,
 		maxSteps uint64,
 		maxGas uint64,
 		structuredErrStack,
@@ -60,7 +61,7 @@ type VM interface {
 		declaredClasses []core.Class,
 		paidFeesOnL1 []*felt.Felt,
 		blockInfo *BlockInfo,
-		state core.StateReader,
+		state commonstate.StateReader,
 		skipChargeFee,
 		skipValidate,
 		errOnRevert,
@@ -86,7 +87,7 @@ func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.SimpleLogger) VM 
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
-	state core.StateReader
+	state commonstate.StateReader
 	log   utils.SimpleLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
@@ -280,7 +281,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 func (v *vm) Call(
 	callInfo *CallInfo,
 	blockInfo *BlockInfo,
-	state core.StateReader,
+	state commonstate.StateReader,
 	maxSteps uint64,
 	maxGas uint64,
 	structuredErrStack,
@@ -336,7 +337,7 @@ func (v *vm) Execute(
 	declaredClasses []core.Class,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
-	state core.StateReader,
+	state commonstate.StateReader,
 	skipChargeFee,
 	skipValidate,
 	errOnRevert,

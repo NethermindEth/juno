@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/triedb/hashdb"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
+	"github.com/NethermindEth/juno/core/trie2/triedb/rawdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
@@ -15,11 +16,13 @@ import (
 const (
 	PathScheme string = "path"
 	HashScheme string = "hash"
+	RawScheme  string = "raw"
 )
 
 type Config struct {
 	PathConfig *pathdb.Config
 	HashConfig *hashdb.Config
+	RawConfig  *rawdb.Config
 }
 
 type Database struct {
@@ -30,12 +33,9 @@ type Database struct {
 func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	var triedb database.TrieDB
 	var err error
-	// Default to path config if not provided
+	// Default to raw config if not provided
 	if config == nil {
-		triedb, err = pathdb.New(disk, nil)
-		if err != nil {
-			return nil, err
-		}
+		triedb = rawdb.New(disk)
 	} else if config.PathConfig != nil {
 		triedb, err = pathdb.New(disk, config.PathConfig)
 		if err != nil {
@@ -57,12 +57,15 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergeClassNodes,
 	mergeContractNodes *trienode.MergeNodeSet,
+	w db.KeyValueWriter,
 ) error {
 	switch td := d.triedb.(type) {
 	case *pathdb.Database:
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	case *hashdb.Database:
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
+	case *rawdb.Database:
+		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes, w)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
@@ -78,7 +81,7 @@ func (d *Database) Journal(root *felt.Felt) error {
 
 func (d *Database) Scheme() string {
 	if d.config == nil {
-		return PathScheme
+		return RawScheme
 	} else if d.config.PathConfig != nil {
 		return PathScheme
 	}

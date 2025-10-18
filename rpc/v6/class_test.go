@@ -27,7 +27,7 @@ func TestClass(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
 		class, err := integGw.Class(t.Context(), classHash)
@@ -79,7 +79,7 @@ func TestClass(t *testing.T) {
 
 	t.Run("class hash not found error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
-		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockState := mocks.NewMockStateReader(mockCtrl)
 		handler := rpc.New(mockReader, nil, nil, n, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(mockState, func() error {
@@ -102,7 +102,7 @@ func TestClassAt(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	cairo0ContractAddress := felt.NewRandom[felt.Felt]()
 	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt](
@@ -184,7 +184,7 @@ func TestClassHashAt(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
