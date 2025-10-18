@@ -6,9 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commonstate"
-	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -68,21 +65,9 @@ type Blockchain struct {
 	l1HeadFeed    *feed.Feed[*core.L1Head]
 	cachedFilters *AggregatedBloomFilterCache
 	runningFilter *core.RunningEventFilter
-	stateFactory  *commonstate.StateFactory
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
-	trieDB, err := triedb.New(database, nil) // TODO: handle hashdb
-	if err != nil {
-		panic(err)
-	}
-	stateDB := state.NewStateDB(database, trieDB)
-
-	stateFactory, err := commonstate.NewStateFactory(true, trieDB, stateDB)
-	if err != nil {
-		panic(err)
-	}
-
 	cachedFilters := NewAggregatedBloomCache(AggregatedBloomFilterCacheSize)
 	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilter, error) {
 		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
@@ -98,7 +83,6 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 		l1HeadFeed:    feed.New[*core.L1Head](),
 		cachedFilters: &cachedFilters,
 		runningFilter: runningFilter,
-		stateFactory:  stateFactory,
 	}
 }
 

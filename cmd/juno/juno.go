@@ -97,7 +97,6 @@ const (
 	httpUpdatePortF                     = "http-update-port"
 	submittedTransactionsCacheSizeF     = "submitted-transactions-cache-size"
 	submittedTransactionsCacheEntryTTLF = "submitted-transactions-cache-entry-ttl"
-	newStateF                           = "new-state"
 	disableRPCBatchRequestsF            = "disable-rpc-batch-requests"
 
 	defaultConfig                             = ""
@@ -219,7 +218,6 @@ const (
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 	submittedTransactionsCacheSize     = "Maximum number of entries in the submitted transactions cache"
 	submittedTransactionsCacheEntryTTL = "Time-to-live for each entry in the submitted transactions cache"
-	newStateUsage                      = "EXPERIMENTAL: Use the new state package implementation"
 	disableRPCBatchRequestsUsage       = "Disables handling of batched RPC requests."
 )
 
@@ -429,7 +427,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
 	)
-	junoCmd.Flags().Bool(newStateF, false, newStateUsage)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)
