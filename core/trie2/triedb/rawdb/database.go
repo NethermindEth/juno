@@ -10,30 +10,51 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type Config struct{}
+type Config struct {
+	CleanCacheSize uint64 // Maximum size (in bytes) for caching clean nodes
+}
 
 type Database struct {
 	disk db.KeyValueStore
 
 	lock sync.RWMutex
 	log  utils.SimpleLogger
+
+	config     Config
+	cleanCache *cleanCache
 }
 
-func New(disk db.KeyValueStore) *Database {
+func New(disk db.KeyValueStore, config *Config) *Database {
+	if config == nil {
+		config = &Config{
+			CleanCacheSize: 16 * utils.Megabyte,
+		}
+	}
+	cleanCache := newCleanCache(config.CleanCacheSize)
 	return &Database{
-		disk: disk,
-		log:  utils.NewNopZapLogger(),
+		disk:       disk,
+		config:     *config,
+		cleanCache: &cleanCache,
+		log:        utils.NewNopZapLogger(),
 	}
 }
 
 func (d *Database) readNode(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+
+	isClass := id.Type() == trieutils.Class
+	blob := d.cleanCache.getNode(owner, path, isClass)
+	if blob != nil {
+		return blob, nil
+	}
+
 	blob, err := trieutils.GetNodeByPath(d.disk, id.Bucket(), owner, path, isLeaf)
 	if err != nil {
 		return nil, err
 	}
 
+	d.cleanCache.putNode(owner, path, isClass, blob)
 	return blob, nil
 }
 
@@ -108,10 +129,12 @@ func (d *Database) updateNode(
 		if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf()); err != nil {
 			return err
 		}
+    d.cleanCache.deleteNode(owner, path, true)
 	} else {
 		if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, n.IsLeaf(), n.Blob()); err != nil {
 			return err
 		}
+    d.cleanCache.putNode(owner, path, true, n.Blob())
 	}
 	return nil
 }
