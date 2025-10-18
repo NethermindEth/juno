@@ -31,7 +31,7 @@ var (
 
 var _ StateReader = &State{}
 
-//go:generate mockgen -destination=../../mocks/mock_state_reader.go -package=mocks github.com/NethermindEth/juno/core/state StateReader
+// TODO(maksym): add mock generation after integration complete
 type StateReader interface {
 	ContractReader
 	ClassReader
@@ -168,6 +168,7 @@ func (s *State) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.Class,
 	skipVerifyNewRoot bool,
+	flushChanges bool,
 ) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
@@ -236,8 +237,10 @@ func (s *State) Update(
 		deployedContracts: update.StateDiff.ReplacedClasses,
 	})
 
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
-		return err
+	if flushChanges {
+		if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -395,7 +398,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 
 	for i, addr := range keys {
 		obj := s.stateObjects[addr]
-
+		idx := i
 		p.Go(func() error {
 			// Object is marked as delete
 			if obj == nil {
@@ -411,7 +414,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 				return err
 			}
 
-			comms[i] = obj.commitment()
+			comms[idx] = obj.commitment()
 			return nil
 		})
 	}
@@ -572,7 +575,6 @@ func (s *State) verifyComm(comm *felt.Felt) error {
 	if err != nil {
 		return err
 	}
-
 	if !curComm.Equal(comm) {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", comm, &curComm)
 	}
@@ -706,7 +708,7 @@ func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) erro
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 	if !it.Seek(seekKey) {
-		return ErrNoHistoryValue
+		return ErrCheckHeadState
 	}
 
 	key := it.Key()

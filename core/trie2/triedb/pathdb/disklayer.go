@@ -86,9 +86,11 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	if err != nil {
 		return nil, err
 	}
+	blobCopy := make([]byte, len(blob))
+	copy(blobCopy, blob)
 
-	dl.cleans.putNode(owner, path, isClass, blob)
-	return blob, nil
+	dl.cleans.putNode(owner, path, isClass, blobCopy)
+	return blobCopy, nil
 }
 
 func (dl *diskLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {

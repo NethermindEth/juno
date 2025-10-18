@@ -7,11 +7,12 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ import (
 )
 
 func TestStateUpdate(t *testing.T) {
-	errTests := map[string]rpcv9.BlockID{
+	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
 		"pre_confirmed": blockIDPreConfirmed(t),
 		"hash":          blockIDHash(t, &felt.One),
@@ -34,13 +35,13 @@ func TestStateUpdate(t *testing.T) {
 	n := &utils.Mainnet
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 			log := utils.NewNopZapLogger()
-			handler := rpcv9.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, log)
 
 			update, rpcErr := handler.StateUpdate(&id)
 			assert.Empty(t, update)
@@ -50,7 +51,7 @@ func TestStateUpdate(t *testing.T) {
 
 	log := utils.NewNopZapLogger()
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv9.New(mockReader, mockSyncReader, nil, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, log)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
