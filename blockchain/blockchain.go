@@ -6,6 +6,9 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/state/commonstate"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
@@ -112,14 +115,6 @@ func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
 
 func (b *Blockchain) Network() *utils.Network {
 	return b.network
-}
-
-// StateCommitment returns the latest block state commitment.
-// If blockchain is empty zero felt is returned.
-func (b *Blockchain) StateCommitment() (felt.Felt, error) {
-	b.listener.OnRead("StateCommitment")
-	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
-	return core.NewState(batch).Root()
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.

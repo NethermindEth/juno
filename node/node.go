@@ -118,6 +118,8 @@ type Config struct {
 	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
 
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
+
+	NewState bool `mapstructure:"new-state"`
 }
 
 type Node struct {

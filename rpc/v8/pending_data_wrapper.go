@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state/commonstate"
-	"github.com/NethermindEth/juno/sync"
 )
 
 func (h *Handler) PendingData() (core.PendingData, error) {
