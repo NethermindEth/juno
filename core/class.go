@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 var (
@@ -22,14 +21,15 @@ var (
 const minDeclaredClassSize = 8
 
 // Single felt identifying the number "0.1.0" as a short string
-var SierraVersion010 felt.Felt = felt.New(
-	fp.Element([4]uint64{
+var SierraVersion010 felt.Felt = felt.Felt(
+	[4]uint64{
 		18446737451840584193,
 		18446744073709551615,
 		18446744073709551615,
 		576348180530977296,
-	}))
+	})
 
+// todo(rdr): this Class name is not a really good name, what could be a more descriptive one
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64
@@ -37,6 +37,7 @@ type Class interface {
 	Hash() (*felt.Felt, error)
 }
 
+// todo(rdr): rename this to DeprecatedCairoClass
 // Cairo0Class unambiguously defines a [Contract]'s semantics.
 type Cairo0Class struct {
 	Abi json.RawMessage
@@ -51,6 +52,7 @@ type Cairo0Class struct {
 	Program string
 }
 
+// todo(rdr): rename this to DeprecatedEntryPoint
 // EntryPoint uniquely identifies a Cairo function to execute.
 type EntryPoint struct {
 	// starknet_keccak hash of the function signature.
@@ -71,6 +73,7 @@ func (c *Cairo0Class) SierraVersion() string {
 	return "0.0.0"
 }
 
+// todo(rdr): rename this to CairoClass
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
 type Cairo1Class struct {
 	Abi     string
@@ -94,6 +97,7 @@ type SegmentLengths struct {
 	Length   uint64
 }
 
+// todo(rdr): rename CompiledClass to CasmClass
 type CompiledClass struct {
 	Bytecode               []*felt.Felt
 	PythonicHints          json.RawMessage
@@ -106,6 +110,7 @@ type CompiledClass struct {
 	BytecodeSegmentLengths SegmentLengths
 }
 
+// todo(rdr): rename this to CasmEntryPoint
 type CompiledEntryPoint struct {
 	Offset   uint64
 	Builtins []string
@@ -139,6 +144,7 @@ func (c *Cairo1Class) Hash() (*felt.Felt, error) {
 	), nil
 }
 
+// todo(rdr): Make the SierraVersion returned here a sem ver
 // Returns the Sierra version for the Cairo 1 class
 //
 // Sierra programs contain the version number in two possible formats.
@@ -162,6 +168,7 @@ func (c *Cairo1Class) SierraVersion() string {
 	return string(b)
 }
 
+// todo(rdr): this is only used in one place, why is it a global var :(.Fix it
 var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
 
 func (c *CompiledClass) Hash() *felt.Felt {
@@ -261,6 +268,7 @@ func VerifyClassHashes(classes map[felt.Felt]Class) error {
 	return nil
 }
 
+// todo(rdr): We can find a better naming for this as well
 type DeclaredClass struct {
 	At    uint64 // block number at which the class was declared
 	Class Class

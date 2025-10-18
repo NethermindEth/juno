@@ -14,21 +14,21 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-type CasmEntryPoint struct {
-	Offset   uint64     `json:"offset"`
-	Selector *felt.Felt `json:"selector"`
-	Builtins []string   `json:"builtins"`
+type EntryPoint struct {
+	Offset   uint64    `json:"offset"`
+	Selector felt.Felt `json:"selector"`
+	Builtins []string  `json:"builtins"`
 }
 
 type EntryPointsByType struct {
-	Constructor []CasmEntryPoint `json:"CONSTRUCTOR"`
-	External    []CasmEntryPoint `json:"EXTERNAL"`
-	L1Handler   []CasmEntryPoint `json:"L1_HANDLER"`
+	Constructor []EntryPoint `json:"CONSTRUCTOR"`
+	External    []EntryPoint `json:"EXTERNAL"`
+	L1Handler   []EntryPoint `json:"L1_HANDLER"`
 }
 
-// CasmCompiledContractClass follows this specification:
-// https://github.com/starkware-libs/starknet-specs/blob/v0.8.0-rc0/api/starknet_executables.json#L45
-type CasmCompiledContractClass struct {
+// CompiledCasmResponse represents a compiled Cairo class. It follows this specification:
+// https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_executables.json#L45
+type CompiledCasmResponse struct {
 	EntryPointsByType EntryPointsByType `json:"entry_points_by_type"`
 	// can't use felt.Felt here because prime is larger than felt
 	Prime                  string          `json:"prime"`
@@ -38,84 +38,79 @@ type CasmCompiledContractClass struct {
 	BytecodeSegmentLengths []int           `json:"bytecode_segment_lengths,omitempty"`
 }
 
-func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass, *jsonrpc.Error) {
+// CompiledCasm receives a class hash and returns the compiled cairo assembly (CASM)
+func (h *Handler) CompiledCasm(classHash *felt.Felt) (CompiledCasmResponse, *jsonrpc.Error) {
 	state, stateCloser, err := h.bcReader.HeadState()
 	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 	defer h.callAndLogErr(stateCloser, "failed to close state reader")
 
 	declaredClass, err := state.Class(classHash)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrClassHashNotFound
+			return CompiledCasmResponse{}, rpccore.ErrClassHashNotFound
 		}
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
 	switch class := declaredClass.Class.(type) {
 	case *core.Cairo0Class:
-		resp, err := adaptCairo0Class(class)
+		resp, err := adaptDeprecatedCairoClass(class)
 		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+			return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		return resp, nil
 	case *core.Cairo1Class:
-		return adaptCompiledClass(class.Compiled), nil
+		return adaptCasmClass(class.Compiled), nil
 	}
 
-	return nil, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
+	return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
 }
 
-func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, error) {
+func adaptDeprecatedCairoClass(class *core.Cairo0Class) (CompiledCasmResponse, error) {
 	program, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
-		return nil, err
+		return CompiledCasmResponse{}, err
 	}
 
 	var cairo0 zero.ZeroProgram
 	err = json.Unmarshal(program, &cairo0)
 	if err != nil {
-		return nil, err
+		return CompiledCasmResponse{}, err
 	}
 
 	bytecode := make([]*felt.Felt, len(cairo0.Data))
 	for i, str := range cairo0.Data {
-		f, err := new(felt.Felt).SetString(str)
+		f, err := felt.NewFromString[felt.Felt](str)
 		if err != nil {
-			return nil, err
+			return CompiledCasmResponse{}, err
 		}
 		bytecode[i] = f
 	}
 
 	classHints, err := hintRunnerZero.GetZeroHints(&cairo0)
 	if err != nil {
-		return nil, err
+		return CompiledCasmResponse{}, err
 	}
 
-	//nolint:prealloc
-	var hints [][2]any // slice of 2-element tuples where first value is pc, and second value is slice of hints
+	// slice of 2-element tuples where first value is pc, and second value is slice of hints
+	hints := make([][2]any, len(classHints))
+	var count int
 	for pc, hintItems := range utils.SortedMap(classHints) {
-		hints = append(hints, [2]any{pc, hintItems})
+		hints[count] = [2]any{pc, hintItems}
+		count += 1
 	}
 	rawHints, err := json.Marshal(hints)
 	if err != nil {
-		return nil, err
+		return CompiledCasmResponse{}, err
 	}
 
-	adaptEntryPoint := func(ep core.EntryPoint) CasmEntryPoint {
-		return CasmEntryPoint{
-			Offset:   ep.Offset.Uint64(),
-			Selector: ep.Selector,
-			Builtins: nil,
-		}
-	}
-
-	result := &CasmCompiledContractClass{
+	result := CompiledCasmResponse{
 		EntryPointsByType: EntryPointsByType{
-			Constructor: utils.Map(class.Constructors, adaptEntryPoint),
-			External:    utils.Map(class.Externals, adaptEntryPoint),
-			L1Handler:   utils.Map(class.L1Handlers, adaptEntryPoint),
+			Constructor: adaptDeprecatedEntryPoints(class.Constructors),
+			External:    adaptDeprecatedEntryPoints(class.Externals),
+			L1Handler:   adaptDeprecatedEntryPoints(class.L1Handlers),
 		},
 		Prime:                  cairo0.Prime,
 		Bytecode:               bytecode,
@@ -126,20 +121,24 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 	return result, nil
 }
 
-func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
-	adaptEntryPoint := func(ep core.CompiledEntryPoint) CasmEntryPoint {
-		return CasmEntryPoint{
-			Offset:   ep.Offset,
-			Selector: ep.Selector,
-			Builtins: ep.Builtins,
+func adaptDeprecatedEntryPoints(deprecatedEntryPoints []core.EntryPoint) []EntryPoint {
+	entryPoints := make([]EntryPoint, len(deprecatedEntryPoints))
+	for i := range deprecatedEntryPoints {
+		entryPoints[i] = EntryPoint{
+			Offset:   deprecatedEntryPoints[i].Offset.Uint64(),
+			Selector: *deprecatedEntryPoints[i].Selector,
+			Builtins: nil,
 		}
 	}
+	return entryPoints
+}
 
-	result := &CasmCompiledContractClass{
+func adaptCasmClass(class *core.CompiledClass) CompiledCasmResponse {
+	result := CompiledCasmResponse{
 		EntryPointsByType: EntryPointsByType{
-			Constructor: utils.Map(class.Constructor, adaptEntryPoint),
-			External:    utils.Map(class.External, adaptEntryPoint),
-			L1Handler:   utils.Map(class.L1Handler, adaptEntryPoint),
+			Constructor: adaptCasmEntryPoints(class.Constructor),
+			External:    adaptCasmEntryPoints(class.External),
+			L1Handler:   adaptCasmEntryPoints(class.L1Handler),
 		},
 		Prime:                  utils.ToHex(class.Prime),
 		CompilerVersion:        class.CompilerVersion,
@@ -148,6 +147,18 @@ func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
 		BytecodeSegmentLengths: collectSegmentLengths(class.BytecodeSegmentLengths),
 	}
 	return result
+}
+
+func adaptCasmEntryPoints(casmEntryPoints []core.CompiledEntryPoint) []EntryPoint {
+	entryPoints := make([]EntryPoint, len(casmEntryPoints))
+	for i := range casmEntryPoints {
+		entryPoints[i] = EntryPoint{
+			Offset:   casmEntryPoints[i].Offset,
+			Selector: *casmEntryPoints[i].Selector,
+			Builtins: casmEntryPoints[i].Builtins,
+		}
+	}
+	return entryPoints
 }
 
 func collectSegmentLengths(segmentLengths core.SegmentLengths) []int {

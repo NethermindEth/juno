@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
-	"github.com/stretchr/testify/require"
 )
 
 type EmptyTestFixture struct {
@@ -34,11 +33,8 @@ func NewEmptyTestFixture(
 ) EmptyTestFixture {
 	headBlock, _ := LoadBlockDependencies(t, database, testCase.Height, testCase.Network)
 
-	proposer, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-
-	expectedHash, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	proposer := felt.NewRandom[felt.Felt]()
+	expectedHash := felt.NewRandom[felt.Felt]()
 
 	timestamp := rand.Uint64()
 
@@ -137,7 +133,7 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 				ReceiptCommitment:     new(felt.Felt).SetUint64(0),
 				StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 			},
-			ConcatCount: felt.FromUint64(0),
+			ConcatCount: felt.FromUint64[felt.Felt](0),
 		},
 	}
 }

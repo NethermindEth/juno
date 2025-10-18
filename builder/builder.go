@@ -50,6 +50,10 @@ func New(
 	}
 }
 
+func (b *Builder) Network() *utils.Network {
+	return b.blockchain.Network()
+}
+
 func (b *Builder) Finalise(preconfirmed *core.PreConfirmed, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
 	return b.blockchain.Finalise(preconfirmed.Block, preconfirmed.StateUpdate, preconfirmed.NewClasses, signer)
 }
@@ -128,7 +132,7 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 
 func (b *Builder) PendingState(buildState *BuildState) (commonstate.StateReader, func() error, error) {
 	if buildState.Preconfirmed == nil {
-		return nil, nil, sync.ErrPendingBlockNotFound
+		return nil, nil, core.ErrPendingDataNotFound
 	}
 
 	headState, headCloser, err := b.blockchain.HeadState()

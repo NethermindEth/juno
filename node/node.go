@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
+	"slices"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -95,11 +96,12 @@ type Config struct {
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
 
-	MaxVMs                  uint `mapstructure:"max-vms"`
-	MaxVMQueue              uint `mapstructure:"max-vm-queue"`
-	RPCMaxBlockScan         uint `mapstructure:"rpc-max-block-scan"`
-	RPCCallMaxSteps         uint `mapstructure:"rpc-call-max-steps"`
-	ReadinessBlockTolerance uint `mapstructure:"readiness-block-tolerance"`
+	MaxVMs                  uint   `mapstructure:"max-vms"`
+	MaxVMQueue              uint   `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan         uint   `mapstructure:"rpc-max-block-scan"`
+	RPCCallMaxSteps         uint64 `mapstructure:"rpc-call-max-steps"`
+	RPCCallMaxGas           uint64 `mapstructure:"rpc-call-max-gas"`
+	ReadinessBlockTolerance uint   `mapstructure:"readiness-block-tolerance"`
 
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
@@ -114,6 +116,8 @@ type Config struct {
 
 	HTTPUpdateHost string `mapstructure:"http-update-host"`
 	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
+
+	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
 
 	NewState bool `mapstructure:"new-state"`
 }
@@ -181,9 +185,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 	}
 
-	nodeVM := vm.New(false, log)
-	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
-
 	var synchronizer *sync.Synchronizer
 	var rpcHandler *rpc.Handler
 	var client *feeder.Client
@@ -199,19 +200,36 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services, plugin.NewService(junoPlugin))
 	}
 
+	var nodeVM vm.VM
+	var throttledVM *ThrottledVM
+
 	if cfg.Sequencer {
+		// Sequencer mode only supports known networks and
+		// uses default fee tokens (custom networks not supported yet)
+		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
+			return nil, fmt.Errorf("custom networks are not supported in sequencer mode yet")
+		}
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
 		if kErr != nil {
 			return nil, kErr
 		}
+		feeTokens := utils.DefaultFeeTokenAddresses
+		chainInfo := vm.ChainInfo{
+			ChainID:           cfg.Network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+		nodeVM = vm.New(&chainInfo, false, log)
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 		mempool := mempool.New(database, chain, mempoolLimit, log)
 		executor := builder.NewExecutor(chain, nodeVM, log, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)
-		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network)
-		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network).
+			WithMempool(mempool).
+			WithCallMaxSteps(cfg.RPCCallMaxSteps).
+			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
 	} else {
 		if cfg.GatewayTimeouts == "" {
@@ -226,6 +244,22 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
+
+		// Handle fee tokens for custom networks
+		feeTokens := utils.DefaultFeeTokenAddresses
+		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
+			// For custom networks, fetch fee tokens from the gateway
+			feeTokens, err = client.FeeTokenAddresses(context.Background())
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch fee token addresses for custom network: %w", err)
+			}
+		}
+		chainInfo := vm.ChainInfo{
+			ChainID:           cfg.Network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+		nodeVM = vm.New(&chainInfo, false, log)
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(
 			chain,
@@ -269,8 +303,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
-			WithSubmittedTransactionsCache(submittedTransactionsCache)
-		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+			WithSubmittedTransactionsCache(submittedTransactionsCache).
+			WithFilterLimit(cfg.RPCMaxBlockScan).
+			WithCallMaxSteps(cfg.RPCCallMaxSteps).
+			WithCallMaxGas(cfg.RPCCallMaxGas)
 		if synchronizer != nil {
 			services = append(services, synchronizer)
 		}
@@ -280,26 +316,37 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+
+	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).
+		WithValidator(validator.Validator()).
+		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
 	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+
+	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).
+		WithValidator(validator.Validator()).
+		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log)
+
+	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log).
+		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV07, pathV07 := rpcHandler.MethodsV0_7()
 	if err = jsonrpcServerV07.RegisterMethods(methodsV07...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerV06 := jsonrpc.NewServer(maxGoroutines, log)
+
+	jsonrpcServerV06 := jsonrpc.NewServer(maxGoroutines, log).
+		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV06, pathV06 := rpcHandler.MethodsV0_6()
 	if err = jsonrpcServerV06.RegisterMethods(methodsV06...); err != nil {
 		return nil, err
 	}
+
 	rpcServers := map[string]*jsonrpc.Server{
 		"/":              jsonrpcServerV08,
 		pathV09:          jsonrpcServerV09,
@@ -338,7 +385,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV08, pathV07, pathV06)
+		rpcMetricsV09, rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV09, pathV08, pathV07, pathV06)
+		jsonrpcServerV09.WithListener(rpcMetricsV09)
 		jsonrpcServerV08.WithListener(rpcMetricsV08)
 		jsonrpcServerV07.WithListener(rpcMetricsV07)
 		jsonrpcServerV06.WithListener(rpcMetricsV06)
@@ -483,8 +531,25 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	if n.cfg.Sequencer {
-		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
-			vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+		// Custom networks are not supported in sequencer mode yet
+		if !slices.Contains(utils.KnownNetworkNames, n.cfg.Network.Name) {
+			n.log.Errorw("Custom networks are not supported in sequencer mode yet")
+			return
+		}
+		feeTokens := utils.DefaultFeeTokenAddresses
+		chainInfo := vm.ChainInfo{
+			ChainID:           n.cfg.Network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+
+		err := buildGenesis(
+			n.cfg.SeqGenesisFile,
+			n.blockchain,
+			vm.New(&chainInfo, false, n.log),
+			n.cfg.RPCCallMaxSteps,
+			n.cfg.RPCCallMaxGas,
+		)
+		if err != nil {
 			n.log.Errorw("Error building genesis state", "err", err)
 			return
 		}

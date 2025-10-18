@@ -88,18 +88,18 @@ func (mr *MockSubscriberMockRecorder) FinalisedHeight(ctx any) *gomock.Call {
 }
 
 // LatestHeight mocks base method.
-func (m *MockSubscriber) LatestHeight(arg0 context.Context) (uint64, error) {
+func (m *MockSubscriber) LatestHeight(ctx context.Context) (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestHeight", arg0)
+	ret := m.ctrl.Call(m, "LatestHeight", ctx)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // LatestHeight indicates an expected call of LatestHeight.
-func (mr *MockSubscriberMockRecorder) LatestHeight(arg0 any) *gomock.Call {
+func (mr *MockSubscriberMockRecorder) LatestHeight(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestHeight", reflect.TypeOf((*MockSubscriber)(nil).LatestHeight), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestHeight", reflect.TypeOf((*MockSubscriber)(nil).LatestHeight), ctx)
 }
 
 // TransactionReceipt mocks base method.

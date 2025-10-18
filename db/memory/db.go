@@ -153,7 +153,7 @@ func (d *Database) NewSnapshot() db.Snapshot {
 	if d.db == nil {
 		panic(errDBClosed)
 	}
-	return d.copy()
+	return d.Copy()
 }
 
 func (d *Database) Update(fn func(db.IndexedBatch) error) error {
@@ -182,8 +182,8 @@ func (d *Database) WithListener(listener db.EventListener) db.KeyValueStore {
 	return d // no-op
 }
 
-// Returns a deep copy of the key-value store
-func (d *Database) copy() *Database {
+// Returns a deep Copy of the key-value store
+func (d *Database) Copy() *Database {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 

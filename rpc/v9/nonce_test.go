@@ -55,7 +55,10 @@ func TestNonce(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(felt.Zero, errors.New("non-existent contract"))
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(
+			felt.Zero,
+			errors.New("non-existent contract"),
+		)
 
 		latest := blockIDLatest(t)
 		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)
@@ -63,7 +66,7 @@ func TestNonce(t *testing.T) {
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
-	expectedNonce := new(felt.Felt).SetUint64(1)
+	expectedNonce := felt.NewFromUint64[felt.Felt](1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

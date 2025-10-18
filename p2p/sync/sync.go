@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
-	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -33,30 +32,34 @@ import (
 )
 
 type Service struct {
-	host    host.Host
-	network *utils.Network
-	client  *Client // todo: merge all the functionality of Client with p2p SyncService
-
 	blockchain *blockchain.Blockchain
-	listener   junoSync.EventListener
 	log        utils.SimpleLogger
+
+	blockFetcher *BlockFetcher
+	blockCh      chan BlockBody
 }
 
-func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
+func New(
+	bc *blockchain.Blockchain,
+	log utils.SimpleLogger,
+	blockFetcher *BlockFetcher,
+) *Service {
 	return &Service{
-		host:       h,
-		network:    n,
-		blockchain: bc,
-		log:        log,
-		listener:   &junoSync.SelectiveListener{},
+		blockchain:   bc,
+		log:          log,
+		blockFetcher: blockFetcher,
+		blockCh:      make(chan BlockBody),
 	}
+}
+
+func (s *Service) Listen() <-chan BlockBody {
+	return s.blockCh
 }
 
 func (s *Service) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	s.client = NewClient(s.randomPeerStream, s.network, s.log)
+	defer close(s.blockCh)
 
 	for i := 0; ; i++ {
 		if err := ctx.Err(); err != nil {
@@ -76,14 +79,17 @@ func (s *Service) Run(ctx context.Context) {
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
-		if err := s.processBlock(iterCtx, blockNumber); err != nil {
+		if err = s.blockFetcher.ProcessBlock(iterCtx, blockNumber, s.blockCh); err != nil {
 			s.logError("Failed to process block", fmt.Errorf("blockNumber: %d, err: %w", blockNumber, err))
 			cancelIteration()
 			continue
 		}
-
 		cancelIteration()
 	}
+}
+
+func (s *Service) WithListener(l junoSync.EventListener) {
+	s.blockFetcher.WithListener(l)
 }
 
 func (s *Service) getNextHeight() (int, error) {
@@ -96,7 +102,50 @@ func (s *Service) getNextHeight() (int, error) {
 	return 0, err
 }
 
-func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
+func (s *Service) logError(msg string, err error) {
+	if !errors.Is(err, context.Canceled) {
+		var log utils.SimpleLogger
+		if v, ok := s.log.(*utils.ZapLogger); ok {
+			enhancedLogger := v.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
+			log = &utils.ZapLogger{SugaredLogger: enhancedLogger}
+		} else {
+			log = s.log
+		}
+
+		log.Errorw(msg, "err", err)
+	} else {
+		s.log.Debugw("Sync context canceled")
+	}
+}
+
+type BlockFetcher struct {
+	network    *utils.Network
+	client     *Client // todo: merge all the functionality of Client with p2p SyncService
+	blockchain *blockchain.Blockchain
+	listener   junoSync.EventListener
+	log        utils.SimpleLogger
+}
+
+func NewBlockFetcher(
+	bc *blockchain.Blockchain,
+	h host.Host,
+	n *utils.Network,
+	log utils.SimpleLogger,
+) BlockFetcher {
+	return BlockFetcher{
+		network:    n,
+		blockchain: bc,
+		log:        log,
+		listener:   &junoSync.SelectiveListener{},
+		client:     NewClient(randomPeerStream(h, log), n, log),
+	}
+}
+
+func (s *BlockFetcher) ProcessBlock(
+	ctx context.Context,
+	blockNumber uint64,
+	outputs chan<- BlockBody,
+) error {
 	headersAndSigsCh, err := s.genHeadersAndSigs(ctx, blockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get block headers parts: %w", err)
@@ -122,28 +171,22 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		return fmt.Errorf("failed to get state diffs: %w", err)
 	}
 
-	blocksCh := pipeline.Bridge(ctx, s.processSpecBlockParts(ctx, blockNumber, pipeline.FanIn(ctx,
-		pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
-		pipeline.Stage(ctx, classesCh, specBlockPartsFunc[specClasses]),
-		pipeline.Stage(ctx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
-		pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
-		pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
-	)))
+	pipeline.Bridge(
+		ctx,
+		outputs,
+		s.processSpecBlockParts(
+			ctx,
+			blockNumber,
+			pipeline.FanIn(ctx,
+				pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+				pipeline.Stage(ctx, classesCh, specBlockPartsFunc[specClasses]),
+				pipeline.Stage(ctx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
+				pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
+				pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
+			),
+		),
+	)
 
-	for b := range blocksCh {
-		if b.err != nil {
-			return fmt.Errorf("failed to process block: %w", b.err)
-		}
-
-		storeTimer := time.Now()
-		if err := s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses); err != nil {
-			return fmt.Errorf("failed to store block: %w", err)
-		}
-
-		s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(),
-			"root", b.block.GlobalStateRoot.ShortString())
-		s.listener.OnSyncStepDone(junoSync.OpStore, b.block.Number, time.Since(storeTimer))
-	}
 	return nil
 }
 
@@ -151,36 +194,20 @@ func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEven
 	return specBlockParts(i)
 }
 
-func (s *Service) logError(msg string, err error) {
-	if !errors.Is(err, context.Canceled) {
-		var log utils.SimpleLogger
-		if v, ok := s.log.(*utils.ZapLogger); ok {
-			enhancedLogger := v.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
-			log = &utils.ZapLogger{SugaredLogger: enhancedLogger}
-		} else {
-			log = s.log
-		}
-
-		log.Errorw(msg, "err", err)
-	} else {
-		s.log.Debugw("Sync context canceled")
-	}
-}
-
-// blockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
-type blockBody struct {
-	block       *core.Block
-	stateUpdate *core.StateUpdate
-	newClasses  map[felt.Felt]core.Class
-	commitments *core.BlockCommitments
-	err         error
+// BlockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
+type BlockBody struct {
+	Block       *core.Block
+	StateUpdate *core.StateUpdate
+	NewClasses  map[felt.Felt]core.Class
+	Commitments *core.BlockCommitments
+	Err         error
 }
 
 //nolint:gocyclo
-func (s *Service) processSpecBlockParts(
+func (s *BlockFetcher) processSpecBlockParts(
 	ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts,
-) <-chan <-chan blockBody {
-	orderedBlockBodiesCh := make(chan (<-chan blockBody))
+) <-chan <-chan BlockBody {
+	orderedBlockBodiesCh := make(chan (<-chan BlockBody))
 
 	go func() {
 		defer close(orderedBlockBodiesCh)
@@ -270,7 +297,7 @@ func (s *Service) processSpecBlockParts(
 }
 
 //nolint:gocyclo,funlen
-func (s *Service) adaptAndSanityCheckBlock(
+func (s *BlockFetcher) adaptAndSanityCheckBlock(
 	ctx context.Context,
 	header *header.SignedBlockHeader,
 	contractDiffs []*state.ContractDiff,
@@ -279,19 +306,24 @@ func (s *Service) adaptAndSanityCheckBlock(
 	receipts []*receipt.Receipt,
 	events []*event.Event,
 	prevBlockRoot *felt.Felt,
-) <-chan blockBody {
-	bodyCh := make(chan blockBody)
+) <-chan BlockBody {
+	bodyCh := make(chan BlockBody)
 	go func() {
 		defer close(bodyCh)
 		select {
 		case <-ctx.Done():
-			bodyCh <- blockBody{err: ctx.Err()}
+			bodyCh <- BlockBody{Err: ctx.Err()}
 		default:
 			coreBlock := new(core.Block)
 
-			var coreTxs []core.Transaction
-			for _, tx := range txs {
-				coreTxs = append(coreTxs, p2p2core.AdaptTransaction(tx, s.network))
+			coreTxs := make([]core.Transaction, len(txs))
+			for i, tx := range txs {
+				coreTx, err := p2p2core.AdaptTransaction(tx, s.network)
+				if err != nil {
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt transaction: %w", err)}
+					return
+				}
+				coreTxs[i] = coreTx
 			}
 
 			coreBlock.Transactions = coreTxs
@@ -311,7 +343,12 @@ func (s *Service) adaptAndSanityCheckBlock(
 			coreBlock.Receipts = coreReceipts
 
 			eventsBloom := core.EventsBloom(coreBlock.Receipts)
-			coreBlock.Header = p2p2core.AdaptBlockHeader(header, eventsBloom)
+			header, err := p2p2core.AdaptBlockHeader(header, eventsBloom)
+			if err != nil {
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt block header: %w", err)}
+				return
+			}
+			coreBlock.Header = header
 
 			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
 				s.log.Errorw(
@@ -336,10 +373,15 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, cls := range classes {
-				coreC := p2p2core.AdaptClass(cls)
+				coreC, err := p2p2core.AdaptClass(cls)
+				if err != nil {
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt class: %w", err)}
+					return
+				}
+
 				h, err := coreC.Hash()
 				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %w", err)}
 					return
 				}
 				newClasses[*h] = coreC
@@ -364,11 +406,15 @@ func (s *Service) adaptAndSanityCheckBlock(
 				}
 			}()
 
-			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			stateDiff, err := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			if err != nil {
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt state diff: %w", err)}
+				return
+			}
 
 			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
 			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("failed to parse block version: %w", err)}
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to parse block version: %w", err)}
 				return
 			}
 
@@ -376,13 +422,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
 				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff)
 				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to compute p2p hash: %w", err)}
 					return
 				}
 
 				if !expectedHash.Equal(post0132Hash) {
 					err = fmt.Errorf("block hash mismatch: expected %s, got %s", expectedHash, post0132Hash)
-					bodyCh <- blockBody{err: err}
+					bodyCh <- BlockBody{Err: err}
 					return
 				}
 			}
@@ -396,13 +442,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
+				bodyCh <- BlockBody{Err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
 				return
 			}
 
 			select {
 			case <-ctx.Done():
-			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
+			case bodyCh <- BlockBody{Block: coreBlock, StateUpdate: stateUpdate, NewClasses: newClasses, Commitments: commitments}:
 			}
 		}
 	}()
@@ -422,7 +468,10 @@ func (s specBlockHeaderAndSigs) blockNumber() uint64 {
 	return s.header.Number
 }
 
-func (s *Service) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-chan specBlockHeaderAndSigs, error) {
+func (s *BlockFetcher) genHeadersAndSigs(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specBlockHeaderAndSigs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	headersIt, err := s.client.RequestBlockHeaders(ctx, &header.BlockHeadersRequest{Iteration: it})
 	if err != nil {
@@ -466,7 +515,10 @@ func (s specClasses) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genClasses(ctx context.Context, blockNumber uint64) (<-chan specClasses, error) {
+func (s *BlockFetcher) genClasses(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specClasses, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	classesIt, err := s.client.RequestClasses(ctx, &syncclass.ClassesRequest{Iteration: it})
 	if err != nil {
@@ -512,7 +564,10 @@ func (s specContractDiffs) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan specContractDiffs, error) {
+func (s *BlockFetcher) genStateDiffs(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specContractDiffs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	stateDiffsIt, err := s.client.RequestStateDiffs(ctx, &state.StateDiffsRequest{Iteration: it})
 	if err != nil {
@@ -560,7 +615,10 @@ func (s specEvents) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genEvents(ctx context.Context, blockNumber uint64) (<-chan specEvents, error) {
+func (s *BlockFetcher) genEvents(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specEvents, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	eventsIt, err := s.client.RequestEvents(ctx, &event.EventsRequest{Iteration: it})
 	if err != nil {
@@ -607,7 +665,10 @@ func (s specTxWithReceipts) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
+func (s *BlockFetcher) genTransactions(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specTxWithReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	txsIt, err := s.client.RequestTransactions(ctx, &synctransaction.TransactionsRequest{Iteration: it})
 	if err != nil {
@@ -653,11 +714,11 @@ func (s *Service) genTransactions(ctx context.Context, blockNumber uint64) (<-ch
 	return txsCh, nil
 }
 
-func (s *Service) randomPeer() peer.ID {
-	store := s.host.Peerstore()
+func randomPeer(host host.Host, log utils.SimpleLogger) peer.ID {
+	store := host.Peerstore()
 	// todo do not request same block from all peers
 	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
-		return peerID != s.host.ID()
+		return peerID != host.ID()
 	})
 	if len(peers) == 0 {
 		return ""
@@ -665,35 +726,37 @@ func (s *Service) randomPeer() peer.ID {
 
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
-	s.log.Debugw("Number of peers", "len", len(peers))
-	s.log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
+	log.Debugw("Number of peers", "len", len(peers))
+	log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
 
 	return p
 }
 
 var errNoPeers = errors.New("no peers available")
 
-func (s *Service) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
-	randPeer := s.randomPeer()
-	if randPeer == "" {
-		return nil, errNoPeers
+func randomPeerStream(host host.Host, log utils.SimpleLogger) NewStreamFunc {
+	return func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
+		randPeer := randomPeer(host, log)
+		if randPeer == "" {
+			return nil, errNoPeers
+		}
+		stream, err := host.NewStream(ctx, randPeer, pids...)
+		if err != nil {
+			log.Debugw("Error creating stream", "peer", randPeer, "err", err)
+			removePeer(host, log, randPeer)
+			return nil, err
+		}
+		return stream, err
 	}
-	stream, err := s.host.NewStream(ctx, randPeer, pids...)
-	if err != nil {
-		s.log.Debugw("Error creating stream", "peer", randPeer, "err", err)
-		s.removePeer(randPeer)
-		return nil, err
-	}
-	return stream, err
 }
 
-func (s *Service) removePeer(id peer.ID) {
-	s.log.Debugw("Removing peer", "peerID", id)
-	s.host.Peerstore().RemovePeer(id)
-	s.host.Peerstore().ClearAddrs(id)
+func removePeer(host host.Host, log utils.SimpleLogger, id peer.ID) {
+	log.Debugw("Removing peer", "peerID", id)
+	host.Peerstore().RemovePeer(id)
+	host.Peerstore().ClearAddrs(id)
 }
 
-func (s *Service) createIteratorForBlock(blockNumber uint64) *synccommon.Iteration {
+func (s *BlockFetcher) createIteratorForBlock(blockNumber uint64) *synccommon.Iteration {
 	return &synccommon.Iteration{
 		Start:     &synccommon.Iteration_BlockNumber{BlockNumber: blockNumber},
 		Direction: synccommon.Iteration_Forward,
@@ -702,6 +765,6 @@ func (s *Service) createIteratorForBlock(blockNumber uint64) *synccommon.Iterati
 	}
 }
 
-func (s *Service) WithListener(l junoSync.EventListener) {
+func (s *BlockFetcher) WithListener(l junoSync.EventListener) {
 	s.listener = l
 }

@@ -84,8 +84,12 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 			BlockHashToBeRevealed: state.RevealedBlockHash,
 		},
 		stateWriter,
-		e.blockchain.Network(),
-		e.disableFees, e.skipValidate, false, true, false)
+		e.disableFees,
+		e.skipValidate,
+		false,
+		true,
+		false,
+	)
 	if err != nil {
 		return err
 	}

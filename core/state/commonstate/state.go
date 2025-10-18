@@ -40,194 +40,89 @@ type StateReader interface {
 	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
 }
 
-// DeprecatedStateAdapter wraps core.State to implement CommonState
-type DeprecatedStateAdapter struct {
-	*core.State
-}
-
-func NewDeprecatedStateAdapter(s *core.State) *DeprecatedStateAdapter {
-	return &DeprecatedStateAdapter{State: s}
-}
-
-func (csa *DeprecatedStateAdapter) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	value, err := csa.State.ContractStorageAt(addr, key, blockNumber)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *value, nil
-}
-
-func (csa *DeprecatedStateAdapter) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	nonce, err := csa.State.ContractNonceAt(addr, blockNumber)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *nonce, nil
-}
-
-func (csa *DeprecatedStateAdapter) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	classHash, err := csa.State.ContractClassHashAt(addr, blockNumber)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *classHash, nil
-}
-
-func (csa *DeprecatedStateAdapter) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
-	return csa.State.ContractIsAlreadyDeployedAt(addr, blockNumber)
-}
-
-func (csa *DeprecatedStateAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	classHash, err := csa.State.ContractClassHash(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *classHash, nil
-}
-
-func (csa *DeprecatedStateAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	nonce, err := csa.State.ContractNonce(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *nonce, nil
-}
-
-func (csa *DeprecatedStateAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	value, err := csa.State.ContractStorage(addr, key)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *value, nil
-}
-
-func (csa *DeprecatedStateAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
-	return csa.State.Class(classHash)
-}
-
-func (csa *DeprecatedStateAdapter) ClassTrie() (commontrie.Trie, error) {
-	t, err := csa.State.ClassTrie()
-	if err != nil {
-		return nil, err
-	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
-}
-
-func (csa *DeprecatedStateAdapter) ContractTrie() (commontrie.Trie, error) {
-	t, err := csa.State.ContractTrie()
-	if err != nil {
-		return nil, err
-	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
-}
-
-func (csa *DeprecatedStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
-	t, err := csa.State.ContractStorageTrie(addr)
-	if err != nil {
-		return nil, err
-	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
-}
-
-func (csa *DeprecatedStateAdapter) Commitment() (felt.Felt, error) {
-	root, err := csa.State.Root()
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return *root, nil
-}
-
 // StateAdapter wraps state.State to implement CommonState
-type StateAdapter struct {
-	*state.State
-}
+type StateAdapter state.State
 
 func NewStateAdapter(s *state.State) *StateAdapter {
-	return &StateAdapter{State: s}
+	return (*StateAdapter)(s)
 }
 
-func (sa *StateAdapter) ClassTrie() (commontrie.Trie, error) {
-	t, err := sa.State.ClassTrie()
+func (s *StateAdapter) ClassTrie() (commontrie.Trie, error) {
+	t, err := (*state.State)(s).ClassTrie()
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
-func (sa *StateAdapter) ContractTrie() (commontrie.Trie, error) {
-	t, err := sa.State.ContractTrie()
+func (s *StateAdapter) ContractTrie() (commontrie.Trie, error) {
+	t, err := (*state.State)(s).ContractTrie()
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
-func (sa *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
-	t, err := sa.State.ContractStorageTrie(addr)
+func (s *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+	t, err := (*state.State)(s).ContractStorageTrie(addr)
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
-type DeprecatedStateReaderAdapter struct {
-	core.StateReader
+func (s *StateAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	return (*state.State)(s).Class(classHash)
 }
 
-func NewDeprecatedStateReaderAdapter(s core.StateReader) *DeprecatedStateReaderAdapter {
-	return &DeprecatedStateReaderAdapter{StateReader: s}
+func (s *StateAdapter) Commitment() (felt.Felt, error) {
+	return (*state.State)(s).Commitment()
 }
 
-func (ssa *DeprecatedStateReaderAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
-	return ssa.StateReader.Class(classHash)
+func (s *StateAdapter) Revert(blockNumber uint64, update *core.StateUpdate) error {
+	return (*state.State)(s).Revert(blockNumber, update)
 }
 
-func (ssa *DeprecatedStateReaderAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	classHash, err := ssa.StateReader.ContractClassHash(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *classHash, nil
+func (s *StateAdapter) Update(
+	blockNumber uint64,
+	update *core.StateUpdate,
+	declaredClasses map[felt.Felt]core.Class,
+	skipVerifyNewRoot bool,
+	flushChanges bool,
+) error {
+	return (*state.State)(s).Update(blockNumber, update, declaredClasses, skipVerifyNewRoot, flushChanges)
 }
 
-func (ssa *DeprecatedStateReaderAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	nonce, err := ssa.StateReader.ContractNonce(addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *nonce, nil
+func (s *StateAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	return (*state.State)(s).ContractClassHash(addr)
 }
 
-func (ssa *DeprecatedStateReaderAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	value, err := ssa.StateReader.ContractStorage(addr, key)
-	if err != nil {
-		return felt.Zero, err
-	}
-	return *value, nil
+func (s *StateAdapter) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	return (*state.State)(s).ContractClassHashAt(addr, blockNumber)
 }
 
-func (ssa *DeprecatedStateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
-	t, err := ssa.StateReader.ClassTrie()
-	if err != nil {
-		return nil, err
-	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+func (s *StateAdapter) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+	return (*state.State)(s).ContractDeployedAt(addr, blockNumber)
 }
 
-func (ssa *DeprecatedStateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
-	t, err := ssa.StateReader.ContractTrie()
-	if err != nil {
-		return nil, err
-	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+func (s *StateAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	return (*state.State)(s).ContractNonce(addr)
 }
 
-func (ssa *DeprecatedStateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
-	t, err := ssa.StateReader.ContractStorageTrie(addr)
-	if err != nil {
-		return nil, err
-	}
-	return commontrie.NewDeprecatedTrieAdapter(t), nil
+func (s *StateAdapter) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	return (*state.State)(s).ContractNonceAt(addr, blockNumber)
+}
+
+func (s *StateAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+	return (*state.State)(s).ContractStorage(addr, key)
+}
+
+func (s *StateAdapter) ContractStorageAt(
+	addr,
+	key *felt.Felt,
+	blockNumber uint64,
+) (felt.Felt, error) {
+	return (*state.State)(s).ContractStorageAt(addr, key, blockNumber)
 }
 
 type StateReaderAdapter struct {
@@ -238,44 +133,44 @@ func NewStateReaderAdapter(s state.StateReader) *StateReaderAdapter {
 	return &StateReaderAdapter{StateReader: s}
 }
 
-func (sha *StateReaderAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
-	return sha.StateReader.Class(classHash)
+func (s *StateReaderAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	return s.StateReader.Class(classHash)
 }
 
-func (sha *StateReaderAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	return sha.StateReader.ContractClassHash(addr)
+func (s *StateReaderAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	return s.StateReader.ContractClassHash(addr)
 }
 
-func (sha *StateReaderAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	return sha.StateReader.ContractNonce(addr)
+func (s *StateReaderAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	return s.StateReader.ContractNonce(addr)
 }
 
-func (sha *StateReaderAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	return sha.StateReader.ContractStorage(addr, key)
+func (s *StateReaderAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+	return s.StateReader.ContractStorage(addr, key)
 }
 
-func (sha *StateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
-	t, err := sha.StateReader.ClassTrie()
+func (s *StateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
+	t, err := s.StateReader.ClassTrie()
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
-func (sha *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
-	t, err := sha.StateReader.ContractTrie()
+func (s *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
+	t, err := s.StateReader.ContractTrie()
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
-func (sha *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
-	t, err := sha.StateReader.ContractStorageTrie(addr)
+func (s *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+	t, err := s.StateReader.ContractStorageTrie(addr)
 	if err != nil {
 		return nil, err
 	}
-	return commontrie.NewTrieAdapter(t), nil
+	return (*commontrie.TrieAdapter)(t), nil
 }
 
 type StateFactory struct {
@@ -284,7 +179,11 @@ type StateFactory struct {
 	stateDB     *state.StateDB
 }
 
-func NewStateFactory(newState bool, triedb *triedb.Database, stateDB *state.StateDB) (*StateFactory, error) {
+func NewStateFactory(
+	newState bool,
+	triedb *triedb.Database,
+	stateDB *state.StateDB,
+) (*StateFactory, error) {
 	if !newState {
 		return &StateFactory{UseNewState: false}, nil
 	}
@@ -298,8 +197,8 @@ func NewStateFactory(newState bool, triedb *triedb.Database, stateDB *state.Stat
 
 func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (State, error) {
 	if !sf.UseNewState {
-		coreState := core.NewState(txn)
-		return NewDeprecatedStateAdapter(coreState), nil
+		deprecatedState := core.NewState(txn)
+		return NewDeprecatedStateAdapter(deprecatedState), nil
 	}
 
 	stateState, err := state.New(stateRoot, sf.stateDB)
@@ -309,10 +208,14 @@ func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (Sta
 	return NewStateAdapter(stateState), nil
 }
 
-func (sf *StateFactory) NewStateReader(stateRoot *felt.Felt, txn db.IndexedBatch, blockNumber uint64) (StateReader, error) {
+func (sf *StateFactory) NewStateReader(
+	stateRoot *felt.Felt,
+	txn db.IndexedBatch,
+	blockNumber uint64,
+) (StateReader, error) {
 	if !sf.UseNewState {
-		coreState := core.NewState(txn)
-		snapshot := core.NewStateSnapshot(coreState, blockNumber)
+		deprecatedState := core.NewState(txn)
+		snapshot := core.NewStateSnapshot(deprecatedState, blockNumber)
 		return NewDeprecatedStateReaderAdapter(snapshot), nil
 	}
 

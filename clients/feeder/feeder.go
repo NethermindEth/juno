@@ -157,10 +157,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait < c.minWait {
 				wait = c.minWait
 			}
-			wait = c.backoff(wait)
-			if wait > c.maxWait {
-				wait = c.maxWait
-			}
+			wait = min(c.backoff(wait), c.maxWait)
 
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {
@@ -377,4 +374,19 @@ func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*st
 		return nil, err
 	}
 	return preConfirmedBlock, nil
+}
+
+func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error) {
+	queryURL := c.buildQueryString("get_contract_addresses", nil)
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return starknet.FeeTokenAddresses{}, err
+	}
+	defer body.Close()
+
+	contractAddresses := new(starknet.FeeTokenAddresses)
+	if err = json.NewDecoder(body).Decode(contractAddresses); err != nil {
+		return starknet.FeeTokenAddresses{}, err
+	}
+	return *contractAddresses, nil
 }

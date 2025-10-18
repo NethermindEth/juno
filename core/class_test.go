@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,7 +38,7 @@ func TestClassV0Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := utils.HexToFelt(t, tt.classHash)
+			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
 
@@ -69,7 +68,7 @@ func TestClassV1Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := utils.HexToFelt(t, tt.classHash)
+			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
 
@@ -106,7 +105,7 @@ func TestCompiledClassHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := utils.HexToFelt(t, tt.classHash)
+			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
 			got := class.(*core.Cairo1Class).Compiled.Hash()
@@ -126,7 +125,7 @@ func TestClassEncoding(t *testing.T) {
 			class: &core.Cairo0Class{
 				Abi: json.RawMessage("abi"),
 				Externals: []core.EntryPoint{
-					{Selector: utils.HexToFelt(t, "0x44"), Offset: utils.HexToFelt(t, "0x37")},
+					{Selector: felt.NewUnsafeFromString[felt.Felt]("0x44"), Offset: felt.NewUnsafeFromString[felt.Felt]("0x37")},
 				},
 				L1Handlers:   []core.EntryPoint{},
 				Constructors: []core.EntryPoint{},
@@ -136,7 +135,7 @@ func TestClassEncoding(t *testing.T) {
 			name: "V1",
 			class: &core.Cairo1Class{
 				Abi:     "abi",
-				AbiHash: utils.HexToFelt(t, "0xDEADBEEF"),
+				AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"),
 				EntryPoints: struct {
 					Constructor []core.SierraEntryPoint
 					External    []core.SierraEntryPoint
@@ -146,13 +145,13 @@ func TestClassEncoding(t *testing.T) {
 					External: []core.SierraEntryPoint{
 						{
 							Index:    1,
-							Selector: utils.HexToFelt(t, "0xDEADBEEF"),
+							Selector: felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"),
 						},
 					},
 					L1Handler: []core.SierraEntryPoint{},
 				},
-				Program:         []*felt.Felt{utils.HexToFelt(t, "0xDEAD"), utils.HexToFelt(t, "0xBEEF")},
-				ProgramHash:     utils.HexToFelt(t, "0xBEEFDEAD"),
+				Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0xDEAD"), felt.NewUnsafeFromString[felt.Felt]("0xBEEF")},
+				ProgramHash:     felt.NewUnsafeFromString[felt.Felt]("0xBEEFDEAD"),
 				SemanticVersion: "0.1.0",
 			},
 		},
@@ -195,7 +194,7 @@ func TestVerifyClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	cairo1Class, err := gw.Class(t.Context(), cairo1ClassHash)
 	require.NoError(t, err)
 
@@ -203,10 +202,10 @@ func TestVerifyClassHash(t *testing.T) {
 		tests := []Tests{
 			{
 				name:      "error if expected hash is not equal to gotten hash",
-				classHash: utils.HexToFelt(t, "0xab"),
+				classHash: felt.NewUnsafeFromString[felt.Felt]("0xab"),
 				class:     cairo1Class,
 				wantErr: fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cairo1ClassHash.String(),
-					utils.HexToFelt(t, "0xab").String()),
+					felt.NewUnsafeFromString[felt.Felt]("0xab").String()),
 			},
 			{
 				name:      "no error if expected hash is equal to gotten hash",
@@ -226,7 +225,7 @@ func TestVerifyClassHash(t *testing.T) {
 		}
 	})
 
-	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
 	cairo0Class, err := gw.Class(t.Context(), cairo0ClassHash)
 	require.NoError(t, err)
 
@@ -272,7 +271,13 @@ func TestSierraVersion(t *testing.T) {
 	})
 
 	t.Run("cairo one should return 0.1.0 when only one felt", func(t *testing.T) {
-		sierraVersion010 := felt.New(fp.Element([4]uint64{18446737451840584193, 18446744073709551615, 18446744073709551615, 576348180530977296}))
+		sierraVersion010 := felt.Felt(
+			[4]uint64{
+				18446737451840584193,
+				18446744073709551615,
+				18446744073709551615,
+				576348180530977296,
+			})
 		class := core.Cairo1Class{
 			Program: []*felt.Felt{
 				&sierraVersion010,

@@ -14,52 +14,6 @@ import (
 
 var feltOne = new(felt.Felt).SetUint64(1)
 
-type Pending struct {
-	Block       *core.Block
-	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.Class
-}
-
-func NewPending(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) Pending {
-	return Pending{
-		Block:       block,
-		StateUpdate: stateUpdate,
-		NewClasses:  newClasses,
-	}
-}
-
-func (p *Pending) GetBlock() *core.Block {
-	return p.Block
-}
-
-func (p *Pending) GetHeader() *core.Header {
-	return p.Block.Header
-}
-
-func (p *Pending) GetTransactions() []core.Transaction {
-	return p.Block.Transactions
-}
-
-func (p *Pending) GetStateUpdate() *core.StateUpdate {
-	return p.StateUpdate
-}
-
-func (p *Pending) GetNewClasses() map[felt.Felt]core.Class {
-	return p.NewClasses
-}
-
-func (p *Pending) GetCandidateTransaction() []core.Transaction {
-	return []core.Transaction{}
-}
-
-func (p *Pending) GetTransactionStateDiffs() []*core.StateDiff {
-	return []*core.StateDiff{}
-}
-
-func (p *Pending) Variant() core.PendingDataVariant {
-	return core.PendingBlockVariant
-}
-
 type PendingState struct {
 	stateDiff  *core.StateDiff
 	newClasses map[felt.Felt]core.Class
@@ -92,7 +46,7 @@ func (p *PendingState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if nonce, found := p.stateDiff.Nonces[*addr]; found {
 		return *nonce, nil
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
-		return felt.Zero, nil
+		return felt.Felt{}, nil
 	}
 	nonce, err := p.head.ContractNonce(addr)
 	return nonce, err
@@ -105,7 +59,7 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 		}
 	}
 	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
-		return felt.Zero, nil
+		return felt.Felt{}, nil
 	}
 	value, err := p.head.ContractStorage(addr, key)
 	return value, err

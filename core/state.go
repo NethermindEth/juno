@@ -31,17 +31,17 @@ var _ StateHistoryReader = (*State)(nil)
 type StateHistoryReader interface {
 	StateReader
 
-	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error)
-	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
-	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
+	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
+	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
+	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
 }
 
 type StateReader interface {
 	ChainHeight() (uint64, error)
-	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
+	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
+	ContractNonce(addr *felt.Felt) (felt.Felt, error)
+	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
 
 	ClassTrie() (*trie.Trie, error)
@@ -82,55 +82,56 @@ func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt,
 }
 
 // ContractClassHash returns class hash of a contract at a given address.
-func (s *State) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
+func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return ContractClassHash(addr, s.txn)
 }
 
 // ContractNonce returns nonce of a contract at a given address.
-func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return ContractNonce(addr, s.txn)
 }
 
 // ContractStorage returns value of a key in the storage of the contract at the given address.
-func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	return ContractStorage(addr, key, s.txn)
 }
 
 // Root returns the state commitment.
-func (s *State) Root() (*felt.Felt, error) {
-	var storageRoot, classesRoot *felt.Felt
+func (s *State) Root() (felt.Felt, error) {
+	var storageRoot, classesRoot felt.Felt
 
 	sStorage, closer, err := s.storage()
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	if storageRoot, err = sStorage.Root(); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	if err = closer(); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	classes, closer, err := s.classesTrie()
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	if classesRoot, err = classes.Root(); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	if err = closer(); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	if classesRoot.IsZero() {
 		return storageRoot, nil
 	}
 
-	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
+	root := crypto.PoseidonArray(stateVersion, &storageRoot, &classesRoot)
+	return *root, nil
 }
 
 func (s *State) ClassTrie() (*trie.Trie, error) {
@@ -218,8 +219,11 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 	if err != nil {
 		return err
 	}
-	if !root.Equal(currentRoot) {
-		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
+	if !root.Equal(&currentRoot) {
+		return fmt.Errorf(
+			"state's current root: %s does not match the expected root: %s",
+			&currentRoot, root,
+		)
 	}
 	return nil
 }
@@ -297,7 +301,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 		}
 
 		if logChanges {
-			if err = s.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
+			if err = s.LogContractClassHash(&addr, &oldClassHash, blockNumber); err != nil {
 				return err
 			}
 		}
@@ -311,7 +315,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 		}
 
 		if logChanges {
-			if err = s.LogContractNonce(&addr, oldNonce, blockNumber); err != nil {
+			if err = s.LogContractNonce(&addr, &oldNonce, blockNumber); err != nil {
 				return err
 			}
 		}
@@ -322,26 +326,14 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
-func (s *State) replaceContract(stateTrie *trie.Trie, addr, classHash *felt.Felt) (*felt.Felt, error) {
-	contract, err := NewContractUpdater(addr, s.txn)
-	if err != nil {
-		return nil, err
-	}
-
-	oldClassHash, err := ContractClassHash(addr, s.txn)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = contract.Replace(classHash); err != nil {
-		return nil, err
-	}
-
-	if err = s.updateContractCommitment(stateTrie, contract); err != nil {
-		return nil, err
-	}
-
-	return oldClassHash, nil
+func (s *State) replaceContract(
+	stateTrie *trie.Trie,
+	addr,
+	classHash *felt.Felt,
+) (felt.Felt, error) {
+	return s.updateContract(stateTrie, addr, ContractClassHash, func(c *ContractUpdater) error {
+		return c.Replace(classHash)
+	})
 }
 
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
@@ -475,26 +467,41 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 // updateContractNonce updates nonce of the contract at the
 // given address in the given Txn context.
-func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt) (*felt.Felt, error) {
+func (s *State) updateContractNonce(
+	stateTrie *trie.Trie,
+	addr,
+	nonce *felt.Felt,
+) (felt.Felt, error) {
+	return s.updateContract(stateTrie, addr, ContractNonce, func(c *ContractUpdater) error {
+		return c.UpdateNonce(nonce)
+	})
+}
+
+func (s *State) updateContract(
+	stateTrie *trie.Trie,
+	addr *felt.Felt,
+	getOldValue func(*felt.Felt, db.IndexedBatch) (felt.Felt, error),
+	updateValue func(*ContractUpdater) error,
+) (felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
-	oldNonce, err := ContractNonce(addr, s.txn)
+	oldVal, err := getOldValue(addr, s.txn)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
-	if err = contract.UpdateNonce(nonce); err != nil {
-		return nil, err
+	if err = updateValue(contract); err != nil {
+		return felt.Felt{}, err
 	}
 
 	if err = s.updateContractCommitment(stateTrie, contract); err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
-	return oldNonce, nil
+	return oldVal, nil
 }
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
@@ -514,7 +521,7 @@ func (s *State) updateContractCommitment(stateTrie *trie.Trie, contract *Contrac
 		return err
 	}
 
-	commitment := calculateContractCommitment(root, cHash, nonce)
+	commitment := calculateContractCommitment(&root, &cHash, &nonce)
 
 	_, err = stateTrie.Put(contract.Address, commitment)
 	return err
@@ -705,7 +712,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 	for addr, storageDiffs := range diff.StorageDiffs {
 		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
 		for key := range storageDiffs {
-			value := &felt.Zero
+			value := felt.Zero
 			if blockNumber > 0 {
 				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber-1)
 				if err != nil {
@@ -713,7 +720,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 				}
 				value = oldValue
 			}
-			reversedDiffs[key] = value
+			reversedDiffs[key] = &value
 		}
 		reversed.StorageDiffs[addr] = reversedDiffs
 	}
@@ -721,7 +728,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 	// nonces
 	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
 	for addr := range diff.Nonces {
-		oldNonce := &felt.Zero
+		oldNonce := felt.Zero
 		if blockNumber > 0 {
 			var err error
 			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
@@ -729,13 +736,13 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 				return nil, err
 			}
 		}
-		reversed.Nonces[addr] = oldNonce
+		reversed.Nonces[addr] = &oldNonce
 	}
 
 	// replaced
 	reversed.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
 	for addr := range diff.ReplacedClasses {
-		classHash := &felt.Zero
+		classHash := felt.Zero
 		if blockNumber > 0 {
 			var err error
 			classHash, err = s.ContractClassHashAt(&addr, blockNumber-1)
@@ -743,7 +750,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 				return nil, err
 			}
 		}
-		reversed.ReplacedClasses[addr] = classHash
+		reversed.ReplacedClasses[addr] = &classHash
 	}
 
 	return &reversed, nil

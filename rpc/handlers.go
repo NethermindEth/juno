@@ -66,6 +66,14 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	return h
 }
 
+func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
+	h.rpcv6Handler.WithCallMaxGas(maxGas)
+	h.rpcv7Handler.WithCallMaxGas(maxGas)
+	h.rpcv8Handler.WithCallMaxGas(maxGas)
+	h.rpcv9Handler.WithCallMaxGas(maxGas)
+	return h
+}
+
 func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	h.rpcv6Handler.WithFeeder(feederClient)
 	h.rpcv7Handler.WithFeeder(feederClient)
@@ -212,7 +220,7 @@ func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) { //nolint:funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv9Handler.Version,
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -254,9 +262,19 @@ func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) { //nolint:funlen
 			Handler: h.rpcv9Handler.SpecVersion,
 		},
 		{
-			Name:    "starknet_subscribeEvents",
-			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block_id", Optional: true}},
+			Name: "starknet_subscribeEvents",
+			Params: []jsonrpc.Parameter{
+				{Name: "from_address", Optional: true},
+				{Name: "keys", Optional: true},
+				{Name: "block_id", Optional: true},
+				{Name: "finality_status", Optional: true},
+			},
 			Handler: h.rpcv9Handler.SubscribeEvents,
+		},
+		{
+			Name:    "starknet_subscribeNewTransactionReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "sender_address", Optional: true}, {Name: "finality_status", Optional: true}},
+			Handler: h.rpcv9Handler.SubscribeNewTransactionReceipts,
 		},
 		{
 			Name:    "starknet_subscribeNewHeads",
@@ -269,9 +287,9 @@ func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) { //nolint:funlen
 			Handler: h.rpcv9Handler.SubscribeTransactionStatus,
 		},
 		{
-			Name:    "starknet_subscribePendingTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
-			Handler: h.rpcv9Handler.SubscribePendingTxs,
+			Name:    "starknet_subscribeNewTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "finality_status", Optional: true}, {Name: "sender_address", Optional: true}},
+			Handler: h.rpcv9Handler.SubscribeNewTransactions,
 		},
 		{
 			Name:    "starknet_unsubscribe",

@@ -380,12 +380,12 @@ func TestClient(t *testing.T) {
 					require.Error(t, err)
 				} else {
 					require.NoError(t, err)
-					want := &core.L1Head{
+					want := core.L1Head{
 						BlockNumber: block.expectedL2BlockHash.Uint64(),
 						BlockHash:   block.expectedL2BlockHash,
 						StateRoot:   block.expectedL2BlockHash,
 					}
-					assert.Equal(t, want, &got)
+					assert.Equal(t, want, got)
 				}
 			}
 		})
@@ -458,12 +458,12 @@ func TestUnreliableSubscription(t *testing.T) {
 			require.Error(t, err)
 		} else {
 			require.NoError(t, err)
-			want := &core.L1Head{
+			want := core.L1Head{
 				BlockNumber: block.expectedL2BlockHash.Uint64(),
 				BlockHash:   block.expectedL2BlockHash,
 				StateRoot:   block.expectedL2BlockHash,
 			}
-			assert.Equal(t, want, &got)
+			assert.Equal(t, want, got)
 		}
 	}
 }

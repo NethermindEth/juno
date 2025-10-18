@@ -3,8 +3,8 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime"
+	stdsync "sync"
 	"sync/atomic"
 	"time"
 
@@ -24,7 +24,6 @@ var (
 	_ service.Service = (*Synchronizer)(nil)
 	_ Reader          = (*Synchronizer)(nil)
 
-	ErrPendingBlockNotFound          = errors.New("pending block not found")
 	ErrMustSwitchPollingPreConfirmed = errors.New(
 		"reached starknet 0.14.0. node requires switching from pending to polling pre_confirmed blocks",
 	)
@@ -197,23 +196,69 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		default:
 			committedBlock, err := s.dataSource.BlockByNumber(ctx, height)
 			if err != nil {
+				if lastPossiblyValidHeight, isReorg := s.isReverting(ctx, height); isReorg {
+					return func() {
+						verifiers.Go(func() stream.Callback {
+							return func() {
+								s.revertTask(ctx, lastPossiblyValidHeight, resetStreams)
+							}
+						})
+					}
+				}
 				continue
 			}
 
 			return func() {
 				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(
-						ctx,
-						committedBlock.Block,
-						committedBlock.StateUpdate,
-						committedBlock.NewClasses,
-						resetStreams,
-						committedBlock.Persisted,
-					)
+					return s.verifierTask(ctx, &committedBlock, resetStreams)
 				})
 			}
 		}
 	}
+}
+
+func (s *Synchronizer) isReverting(
+	ctx context.Context,
+	nextHeight uint64,
+) (lastPossiblyValidHeight uint64, isReorg bool) {
+	// If localHead is somehow not available, we precautionarily assume we're not reverting
+	localHead, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		return 0, false
+	}
+	localHeight := localHead.Number
+
+	// Only check if we're waiting for the very next block
+	if localHeight+1 != nextHeight {
+		return 0, false
+	}
+
+	// If unable to fetch remoteHead block, we precautionarily assume we're not reverting
+	remoteHead, err := s.dataSource.BlockLatest(ctx)
+	if err != nil {
+		return 0, false
+	}
+	remoteHeight := remoteHead.Number
+
+	// If a newer block is available, revert will be handled in storeTask
+	if remoteHeight > localHeight {
+		return 0, false
+	}
+
+	// If the latest block is at the same height as the head, compare their hashes
+	// If the latest block is older than the head, compare with the stored block at the same height
+	if remoteHeight < localHeight {
+		localHeight = remoteHeight
+		if localHead, err = s.blockchain.BlockHeaderByNumber(localHeight); err != nil {
+			return 0, false
+		}
+	}
+
+	if *remoteHead.Hash == *localHead.Hash {
+		return 0, false
+	}
+
+	return remoteHeight - 1, true
 }
 
 func (s *Synchronizer) handlePluginRevertBlock() {
@@ -260,87 +305,142 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	}
 }
 
-//nolint:gocyclo
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc, persisted chan struct{},
+func (s *Synchronizer) verifierTask(
+	ctx context.Context,
+	committedBlock *CommittedBlock,
+	resetStreams context.CancelFunc,
 ) stream.Callback {
 	verifyTimer := time.Now()
-	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	if err == nil {
-		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
-	}
-	return func() {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			defer close(persisted)
-
-			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
-				resetStreams()
-				return
-			}
-			storeTimer := time.Now()
-			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			if err != nil {
-				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
-					// revert the head and restart the sync process, hoping that the reorg is not deep
-					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
-					// blocks
-					if s.plugin != nil {
-						s.handlePluginRevertBlock()
-					}
-					s.revertHead(block)
-
-					// The previous head has been reverted, hence, get the current head and store empty pending block
-					head, err := s.blockchain.HeadsHeader()
-					if err != nil {
-						s.log.Errorw("Failed to retrieve the head header", "err", err)
-					}
-
-					if head != nil {
-						s.storeEmptyPendingData(head)
-					}
-				} else {
-					s.log.Warnw("Failed storing Block", "number", block.Number,
-						"hash", block.Hash.ShortString(), "err", err)
-				}
-				resetStreams()
-				return
-			}
-
-			s.storeEmptyPendingData(block.Header)
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
-
-			highestBlockHeader := s.highestBlockHeader.Load()
-			if highestBlockHeader != nil {
-				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
-				if s.catchUpMode != isBehind {
-					resetStreams()
-				}
-				s.catchUpMode = isBehind
-			}
-
-			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
-				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
-			}
-
-			if s.currReorg != nil {
-				s.reorgFeed.Send(s.currReorg)
-				s.currReorg = nil // reset the reorg data
-			}
-
-			s.newHeads.Send(block)
-			s.log.Infow("Stored Block", "number", block.Number, "hash",
-				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
-			if s.plugin != nil {
-				err := s.plugin.NewBlock(block, stateUpdate, newClasses)
-				if err != nil {
-					s.log.Errorw("Plugin NewBlock failure:", err)
-				}
-			}
+	commitments, err := s.blockchain.SanityCheckNewHeight(
+		committedBlock.Block,
+		committedBlock.StateUpdate,
+		committedBlock.NewClasses,
+	)
+	if err != nil {
+		return func() {
+			defer close(committedBlock.Persisted)
+			s.log.Warnw(
+				"Sanity checks failed",
+				"number",
+				committedBlock.Block.Number,
+				"hash",
+				committedBlock.Block.Hash.ShortString(),
+				"err",
+				err,
+			)
+			resetStreams()
 		}
+	}
+
+	s.listener.OnSyncStepDone(OpVerify, committedBlock.Block.Number, time.Since(verifyTimer))
+	return func() {
+		s.storeTask(ctx, committedBlock, resetStreams, commitments)
+	}
+}
+
+func (s *Synchronizer) storeTask(
+	ctx context.Context,
+	committedBlock *CommittedBlock,
+	resetStreams context.CancelFunc,
+	commitments *core.BlockCommitments,
+) {
+	defer close(committedBlock.Persisted)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	storeTimer := time.Now()
+	block := committedBlock.Block
+	stateUpdate := committedBlock.StateUpdate
+	newClasses := committedBlock.NewClasses
+	if err := s.blockchain.Store(block, commitments, stateUpdate, newClasses); err != nil {
+		if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
+			// Block block.Number - 1 is the parent of this block which doesn't match
+			// so we need to revert the head to block.Number - 2
+			s.revertTask(ctx, block.Number-2, resetStreams)
+			return
+		}
+
+		s.log.Warnw("Failed storing Block", "number", block.Number,
+			"hash", block.Hash.ShortString(), "err", err)
+		resetStreams()
+		return
+	}
+
+	s.storeEmptyPendingData(block.Header)
+	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+
+	highestBlockHeader := s.highestBlockHeader.Load()
+	if highestBlockHeader != nil {
+		isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
+		if s.catchUpMode != isBehind {
+			resetStreams()
+			s.catchUpMode = isBehind
+		}
+	}
+
+	if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
+		s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
+	}
+
+	if s.currReorg != nil {
+		s.reorgFeed.Send(s.currReorg)
+		s.currReorg = nil // reset the reorg data
+	}
+
+	s.newHeads.Send(block)
+	s.log.Infow("Stored Block", "number", block.Number, "hash",
+		block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+	if s.plugin != nil {
+		err := s.plugin.NewBlock(block, stateUpdate, newClasses)
+		if err != nil {
+			s.log.Errorw("Plugin NewBlock failure:", err)
+		}
+	}
+}
+
+func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight uint64, resetStreams context.CancelFunc) {
+	defer resetStreams()
+	var lastHead *core.Header
+
+	shouldContinue := true
+	for shouldContinue {
+		localHeader, err := s.blockchain.HeadsHeader()
+		if err != nil {
+			s.log.Errorw("Failed to retrieve the local head header", "err", err)
+			break
+		}
+		lastHead = localHeader
+
+		// Always reorg head newer than lastPossiblyValidHeight. Otherwise, check the hash
+		if localHeader.Number <= lastPossiblyValidHeight {
+			remoteBlock, err := s.dataSource.BlockByNumber(ctx, localHeader.Number)
+			if err != nil {
+				s.log.Errorw("Failed to retrieve the remote header", "err", err)
+				break
+			}
+			remoteHeader := remoteBlock.Block.Header
+
+			// Double check to avoid reverting the head if the hash is the same
+			if *remoteHeader.Hash == *localHeader.Hash {
+				break
+			}
+
+			// Terminate the loop if the parent hash is the same
+			shouldContinue = *remoteHeader.ParentHash != *localHeader.ParentHash
+		}
+
+		// Actuallly revert the head and restart the sync process
+		if s.plugin != nil {
+			s.handlePluginRevertBlock()
+		}
+		s.revertHead(localHeader)
+	}
+
+	if lastHead != nil {
+		s.storeEmptyPendingData(lastHead)
 	}
 }
 
@@ -362,18 +462,18 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
 
-	latestSem := make(chan struct{}, 1)
 	if s.readOnlyBlockchain {
-		s.pollLatest(syncCtx, latestSem)
+		s.pollLatest(syncCtx)
 		return
 	}
 
 	fetchers, verifiers := s.setupWorkers()
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
 
-	go s.pollLatest(syncCtx, latestSem)
-	pendingSem := make(chan struct{}, 1)
-	go s.pollPendingData(syncCtx, pendingSem)
+	go s.pollLatest(syncCtx)
+
+	pollPendingWg := &stdsync.WaitGroup{}
+	pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
 
 	for {
 		select {
@@ -381,16 +481,16 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			streamCancel()
 			fetchers.Wait()
 			verifiers.Wait()
+			pollPendingWg.Wait()
 
 			select {
 			case <-syncCtx.Done():
-				pendingSem <- struct{}{}
-				latestSem <- struct{}{}
 				return
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
+				pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
 				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
 		default:
@@ -418,214 +518,27 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 }
 
-func (s *Synchronizer) revertHead(forkBlock *core.Block) {
-	var localHead *felt.Felt
-	head, err := s.blockchain.HeadsHeader()
-	if err == nil {
-		localHead = head.Hash
-	}
-	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
+func (s *Synchronizer) revertHead(localHeader *core.Header) {
+	s.log.Infow("Reorg detected", "localHead", localHeader.Hash)
 	if err := s.blockchain.RevertHead(); err != nil {
-		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
+		s.log.Warnw("Failed reverting HEAD", "reverted", localHeader.Hash, "err", err)
 	} else {
-		s.log.Infow("Reverted HEAD", "reverted", localHead)
+		s.log.Infow("Reverted HEAD", "reverted", localHeader.Hash)
 	}
 
 	if s.currReorg == nil { // first block of the reorg
 		s.currReorg = &ReorgBlockRange{
-			StartBlockHash: localHead,
-			StartBlockNum:  head.Number,
-			EndBlockHash:   localHead,
-			EndBlockNum:    head.Number,
+			StartBlockHash: localHeader.Hash,
+			StartBlockNum:  localHeader.Number,
+			EndBlockHash:   localHeader.Hash,
+			EndBlockNum:    localHeader.Number,
 		}
 	} else { // not the first block of the reorg, adjust the starting block
-		s.currReorg.StartBlockHash = localHead
-		s.currReorg.StartBlockNum = head.Number
+		s.currReorg.StartBlockHash = localHeader.Hash
+		s.currReorg.StartBlockNum = localHeader.Number
 	}
 
-	s.listener.OnReorg(head.Number)
-}
-
-func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
-	if s.pendingPollInterval == time.Duration(0) ||
-		s.preConfirmedPollInterval == time.Duration(0) {
-		s.log.Infow("Pending data polling is disabled")
-		return
-	}
-	s.pollPending(ctx, sem)
-	s.pollPreConfirmed(ctx, sem)
-}
-
-func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
-	if s.pendingPollInterval == time.Duration(0) {
-		s.log.Infow("Pending block polling is disabled")
-		return
-	}
-
-	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	for {
-		select {
-		case <-ctx.Done():
-			pendingPollTicker.Stop()
-			return
-		case <-pendingPollTicker.C:
-			select {
-			case sem <- struct{}{}:
-				go func() {
-					defer func() {
-						<-sem
-					}()
-					err := s.fetchAndStorePending(ctx)
-					if err != nil {
-						if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
-							s.log.Infow(
-								"Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks",
-							)
-							cancel()
-							return
-						}
-						s.log.Debugw("Error while trying to poll pending block", "err", err)
-					}
-				}()
-			default:
-			}
-		}
-	}
-}
-
-func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) {
-	if s.preConfirmedPollInterval == time.Duration(0) {
-		s.log.Infow("Pre-confirmed block polling is disabled")
-		return
-	}
-
-	preConfirmedPollTicker := time.NewTicker(s.preConfirmedPollInterval)
-	for {
-		select {
-		case <-ctx.Done():
-			preConfirmedPollTicker.Stop()
-			return
-		case <-preConfirmedPollTicker.C:
-			select {
-			case sem <- struct{}{}:
-				go func() {
-					defer func() {
-						<-sem
-					}()
-
-					err := s.fetchAndStorePreConfirmed(ctx)
-					if err != nil {
-						s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
-					}
-				}()
-			default:
-			}
-		}
-	}
-}
-
-func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
-	poll := func() {
-		select {
-		case sem <- struct{}{}:
-			go func() {
-				defer func() {
-					<-sem
-				}()
-				highestBlock, err := s.dataSource.BlockLatest(ctx)
-				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err)
-				} else {
-					s.highestBlockHeader.Store(highestBlock.Header)
-				}
-			}()
-		default:
-		}
-	}
-
-	ticker := time.NewTicker(time.Minute)
-	poll()
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			poll()
-		}
-	}
-}
-
-func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
-	highestBlockHeader := s.highestBlockHeader.Load()
-	if highestBlockHeader == nil {
-		return nil
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		return err
-	}
-
-	blockVer, err := core.ParseBlockVersion(head.ProtocolVersion)
-	if err != nil {
-		return err
-	}
-
-	if blockVer.GreaterThanEqual(core.Ver0_14_0) {
-		return ErrMustSwitchPollingPreConfirmed
-	}
-
-	// not at the tip of the chain yet, no need to poll pending
-	if highestBlockHeader.Number > head.Number {
-		return nil
-	}
-
-	pending, err := s.dataSource.BlockPending(ctx)
-	if err != nil {
-		return err
-	}
-	pending.Block.Number = head.Number + 1
-
-	blockVer, err = core.ParseBlockVersion(pending.Block.ProtocolVersion)
-	if err != nil {
-		return err
-	}
-
-	if blockVer.GreaterThanEqual(core.Ver0_14_0) {
-		return ErrMustSwitchPollingPreConfirmed
-	}
-
-	return s.StorePending(&pending)
-}
-
-func (s *Synchronizer) fetchAndStorePreConfirmed(ctx context.Context) error {
-	highestBlockHeader := s.highestBlockHeader.Load()
-	if highestBlockHeader == nil {
-		return nil
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		return err
-	}
-
-	// not at the tip of the chain yet, no need to poll preconfirmed
-	if highestBlockHeader.Number > head.Number {
-		return nil
-	}
-
-	preConfirmedBlock, err := s.dataSource.PreConfirmedBlockByNumber(ctx, highestBlockHeader.Number+1)
-	if err != nil {
-		return err
-	}
-
-	return s.StorePreConfirmed(&preConfirmedBlock)
+	s.listener.OnReorg(localHeader.Number)
 }
 
 func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
@@ -651,98 +564,57 @@ func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
 	return PendingDataSubscription{s.pendingDataFeed.Subscribe()}
 }
 
-// StorePending stores a pending block given that it is for the next height
-func (s *Synchronizer) StorePending(p *Pending) error {
-	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
-	if err != nil {
-		return err
-	}
+func (s *Synchronizer) pollLatest(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
 
-	expectedParentHash := new(felt.Felt)
-	h, err := s.blockchain.HeadsHeader()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return err
-	} else if err == nil {
-		expectedParentHash = h.Hash
-	}
-
-	if !expectedParentHash.Equal(p.Block.ParentHash) {
-		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
-	}
-
-	if existingPending, err := s.PendingData(); err == nil {
-		if existingPending.GetBlock().TransactionCount >= p.Block.TransactionCount {
-			// ignore the incoming pending if it has fewer transactions than the one we already have
-			return nil
+	for {
+		highestBlock, err := s.dataSource.BlockLatest(ctx)
+		if err != nil {
+			s.log.Warnw("Failed fetching latest block", "err", err)
+		} else {
+			s.highestBlockHeader.Store(highestBlock.Header)
 		}
-	} else if !errors.Is(err, ErrPendingBlockNotFound) {
-		return err
-	}
 
-	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
-
-	s.pendingDataFeed.Send(p)
-
-	return nil
-}
-
-// StorePreConfirmed stores a pre_confirmed block given that it is for the next height
-func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
-	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
-	if err != nil {
-		return err
-	}
-
-	if existingPending, err := s.PendingData(); err == nil {
-		existingPendingB := existingPending.GetBlock()
-		if existingPendingB.Number == p.Block.Number &&
-			existingPendingB.TransactionCount >= p.Block.TransactionCount {
-			// ignore the incoming prec_confirmed if it has fewer transactions than the one we already have
-			return nil
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			continue
 		}
-	} else if !errors.Is(err, ErrPendingBlockNotFound) {
-		return err
 	}
-
-	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
-
-	s.pendingDataFeed.Send(p)
-
-	return nil
 }
 
 func (s *Synchronizer) PendingData() (core.PendingData, error) {
 	ptr := s.pendingData.Load()
 	if ptr == nil || *ptr == nil {
-		return nil, ErrPendingBlockNotFound
+		return nil, core.ErrPendingDataNotFound
+	}
+
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, err
+		}
+		head = nil
 	}
 
 	p := *ptr
-	switch p.Variant() {
-	case core.PreConfirmedBlockVariant:
-		expectedOldRoot := &felt.Zero
-		expectedBlockNumber := uint64(0)
-		if head, err := s.blockchain.HeadsHeader(); err == nil {
-			expectedOldRoot = head.GlobalStateRoot
-			expectedBlockNumber = head.Number + 1
+	if p.Validate(head) {
+		// Special handling: if the pending data is PreConfirmed and contains a
+		// 'pre-latest' block attachment that is now outdated (head moved on),
+		// return a copy with the pre-latest attachment discarded.
+		if preConfirmed, ok := p.(*core.PreConfirmed); ok && head != nil {
+			shouldDiscardPreLatest := preConfirmed.Block.Number == head.Number+1 &&
+				preConfirmed.PreLatest != nil
+			if shouldDiscardPreLatest {
+				return preConfirmed.Copy().WithPreLatest(nil), nil
+			}
 		}
-
-		if p.GetStateUpdate().OldRoot.Equal(expectedOldRoot) &&
-			p.GetBlock().Number == expectedBlockNumber {
-			return p, nil
-		}
-
-	case core.PendingBlockVariant:
-		expectedParentHash := &felt.Zero
-		if head, err := s.blockchain.HeadsHeader(); err == nil {
-			expectedParentHash = head.Hash
-		}
-
-		if p.GetBlock().ParentHash.Equal(expectedParentHash) {
-			return p, nil
-		}
+		return p, nil
 	}
-	return nil, ErrPendingBlockNotFound
+
+	return nil, core.ErrPendingDataNotFound
 }
 
 func (s *Synchronizer) PendingBlock() *core.Block {
@@ -759,9 +631,42 @@ var noop = func() error { return nil }
 func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
-	pending, err := s.PendingData()
+	pendingPtr := s.pendingData.Load()
+	if pendingPtr == nil || *pendingPtr == nil {
+		return nil, nil, core.ErrPendingDataNotFound
+	}
+
+	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
-		return nil, nil, err
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, nil, err
+		}
+		head = nil
+	}
+
+	pending := *pendingPtr
+
+	if !pending.Validate(head) {
+		return nil, nil, core.ErrPendingDataNotFound
+	}
+
+	stateDiff := core.EmptyStateDiff()
+	newClasses := make(map[felt.Felt]core.Class)
+	switch pending.Variant() {
+	case core.PreConfirmedBlockVariant:
+		preLatest := pending.GetPreLatest()
+		// Built pre_confirmed state top on pre_latest if
+		// pre_confirmed is 2 blocks ahead of latest
+		if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
+			stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+			newClasses = preLatest.NewClasses
+		}
+		stateDiff.Merge(pending.GetStateUpdate().StateDiff)
+	case core.PendingBlockVariant:
+		newClasses = pending.GetNewClasses()
+		stateDiff.Merge(pending.GetStateUpdate().StateDiff)
+	default:
+		return nil, nil, errors.New("unsupported pending data variant")
 	}
 
 	pendingStateUpdate := pending.GetStateUpdate()
@@ -769,8 +674,7 @@ func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, er
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return NewPendingState(pendingStateUpdate.StateDiff, pending.GetNewClasses(), state), noop, nil
+	return NewPendingState(&stateDiff, newClasses, state), noop, nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
@@ -778,148 +682,52 @@ func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, er
 func (s *Synchronizer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
-	pending, err := s.PendingData()
-	if err != nil {
-		return nil, nil, err
+	pendingPtr := s.pendingData.Load()
+	if pendingPtr == nil || *pendingPtr == nil {
+		return nil, nil, core.ErrPendingDataNotFound
 	}
 
+	pending := *pendingPtr
 	if pending.Variant() != core.PreConfirmedBlockVariant {
 		return nil, nil, errors.New("only supported for pre_confirmed block")
 	}
 
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, nil, err
+		}
+		head = nil
+	}
+
+	if !pending.Validate(head) {
+		return nil, nil, core.ErrPendingDataNotFound
+	}
+
+	if index > len(pending.GetTransactions()) {
+		return nil, nil, errors.New("transaction index out of bounds")
+	}
+
 	stateDiff := core.EmptyStateDiff()
+	newClasses := make(map[felt.Felt]core.Class)
+	preLatest := pending.GetPreLatest()
+	// Built pre_confirmed state top on pre_latest if
+	// pre_confirmed is 2 blocks ahead of latest
+	if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
+		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+		newClasses = preLatest.NewClasses
+	}
+
 	// Transaction state diffs size must always match Transactions
 	txStateDiffs := pending.GetTransactionStateDiffs()
 	for _, txStateDiff := range txStateDiffs[:index] {
 		stateDiff.Merge(txStateDiff)
 	}
 
-	state, err := s.blockchain.StateFactory.NewState(pending.GetStateUpdate().OldRoot, txn)
+	pendingStateUpdate := pending.GetStateUpdate()
+	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return NewPendingState(&stateDiff, pending.GetNewClasses(), state), noop, nil
-}
-
-func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
-	blockVer, err := core.ParseBlockVersion(lastHeader.ProtocolVersion)
-	if err == nil {
-		if blockVer.GreaterThanEqual(core.Ver0_14_0) {
-			if err := s.storeEmptyPreConfirmed(lastHeader); err != nil {
-				s.log.Errorw("Failed to store empty pre_confirmed block", "number", lastHeader.Number)
-			}
-		} else {
-			if err := s.storeEmptyPending(lastHeader); err != nil {
-				s.log.Errorw("Failed to store empty pending block", "number", lastHeader.Number)
-			}
-		}
-	} else {
-		s.log.Errorw("Failed to parse block version", "err", err)
-	}
-}
-
-func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
-	receipts := make([]*core.TransactionReceipt, 0)
-	pendingBlock := &core.Block{
-		Header: &core.Header{
-			ParentHash:       latestHeader.Hash,
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    latestHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
-			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
-	if err != nil {
-		return err
-	}
-
-	pending := Pending{
-		Block: pendingBlock,
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   latestHeader.GlobalStateRoot,
-			StateDiff: stateDiff,
-		},
-		NewClasses: make(map[felt.Felt]core.Class, 0),
-	}
-
-	s.pendingData.Store(utils.HeapPtr[core.PendingData](&pending))
-	return nil
-}
-
-func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
-	receipts := make([]*core.TransactionReceipt, 0)
-	preConfirmedBlock := &core.Block{
-		// pre_confirmed block does not have parent hash
-		Header: &core.Header{
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    latestHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
-			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
-	if err != nil {
-		return err
-	}
-
-	preConfirmed := core.PreConfirmed{
-		Block: preConfirmedBlock,
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   latestHeader.GlobalStateRoot,
-			StateDiff: stateDiff,
-		},
-		NewClasses:            make(map[felt.Felt]core.Class, 0),
-		TransactionStateDiffs: make([]*core.StateDiff, 0),
-		CandidateTxs:          make([]core.Transaction, 0),
-	}
-
-	s.pendingData.Store(utils.HeapPtr[core.PendingData](&preConfirmed))
-	return nil
-}
-
-func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
-	stateDiff := &core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
-		Nonces:            make(map[felt.Felt]*felt.Felt),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt),
-		DeclaredV0Classes: make([]*felt.Felt, 0),
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
-	}
-
-	const blockHashLag = 10
-	if blockNumber < blockHashLag {
-		return stateDiff, nil
-	}
-
-	header, err := bc.BlockHeaderByNumber(blockNumber - blockHashLag)
-	if err != nil {
-		return nil, err
-	}
-
-	blockHashStorageContract := new(felt.Felt).SetUint64(1)
-	stateDiff.StorageDiffs[*blockHashStorageContract] = map[felt.Felt]*felt.Felt{
-		*new(felt.Felt).SetUint64(header.Number): header.Hash,
-	}
-	return stateDiff, nil
+	return NewPendingState(&stateDiff, newClasses, state), noop, nil
 }

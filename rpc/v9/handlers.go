@@ -34,7 +34,6 @@ type Handler struct {
 	log           utils.Logger
 	memPool       mempool.Pool
 
-	version     string
 	newHeads    *feed.Feed[*core.Block]
 	reorgs      *feed.Feed[*sync.ReorgBlockRange]
 	pendingData *feed.Feed[core.PendingData]
@@ -43,11 +42,15 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache            *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
+	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
 	callMaxSteps uint64
+	callMaxGas   uint64
 
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
@@ -109,6 +112,11 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	return h
 }
 
+func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
+	h.callMaxGas = maxGas
+	return h
+}
+
 func (h *Handler) WithIDGen(idgen func() string) *Handler {
 	h.idgen = idgen
 	return h
@@ -153,12 +161,8 @@ func (h *Handler) Run(ctx context.Context) error {
 	return nil
 }
 
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
-}
-
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.9.0-rc2", nil
+	return "0.9.0", nil
 }
 
 // Currently only used for testing
@@ -240,10 +244,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.Events,
 		},
 		{
-			Name:    "juno_version",
-			Handler: h.Version,
-		},
-		{
 			Name:    "starknet_getTransactionStatus",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.TransactionStatus,
@@ -288,9 +288,19 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "starknet_subscribeEvents",
-			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block_id", Optional: true}},
+			Name: "starknet_subscribeEvents",
+			Params: []jsonrpc.Parameter{
+				{Name: "from_address", Optional: true},
+				{Name: "keys", Optional: true},
+				{Name: "block_id", Optional: true},
+				{Name: "finality_status", Optional: true},
+			},
 			Handler: h.SubscribeEvents,
+		},
+		{
+			Name:    "starknet_subscribeNewTransactionReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "sender_address", Optional: true}, {Name: "finality_status", Optional: true}},
+			Handler: h.SubscribeNewTransactionReceipts,
 		},
 		{
 			Name:    "starknet_subscribeNewHeads",
@@ -303,9 +313,9 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SubscribeTransactionStatus,
 		},
 		{
-			Name:    "starknet_subscribePendingTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
-			Handler: h.SubscribePendingTxs,
+			Name:    "starknet_subscribeNewTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "finality_status", Optional: true}, {Name: "sender_address", Optional: true}},
+			Handler: h.SubscribeNewTransactions,
 		},
 		{
 			Name:    "starknet_unsubscribe",

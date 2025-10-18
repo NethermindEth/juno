@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v7"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -33,14 +32,14 @@ func TestPendingDataWrapper_PebndingData(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Returns pending block data when starknet version < 0.14.0", func(t *testing.T) {
-		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&expectedPending,
 			nil,
 		)
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
-		require.Equal(t, expectedPending, sync.Pending{
+		require.Equal(t, expectedPending, core.Pending{
 			Block:       pending.GetBlock(),
 			StateUpdate: pending.GetStateUpdate(),
 			NewClasses:  pending.GetNewClasses(),
@@ -82,7 +81,7 @@ func TestPendingDataWrapper_PebndingData(t *testing.T) {
 			ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 		}
 
-		expectedPending := &sync.Pending{
+		expectedPending := &core.Pending{
 			Block: expectedPendingB,
 			StateUpdate: &core.StateUpdate{
 				OldRoot:   latestBlock.GlobalStateRoot,
@@ -93,7 +92,7 @@ func TestPendingDataWrapper_PebndingData(t *testing.T) {
 
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
-		require.Equal(t, *expectedPending, sync.NewPending(
+		require.Equal(t, *expectedPending, core.NewPending(
 			pending.GetBlock(),
 			pending.GetStateUpdate(),
 			pending.GetNewClasses(),
@@ -111,7 +110,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	t.Run("Returns pending state when starknet version < 0.14.0", func(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
-			&sync.Pending{},
+			&core.Pending{},
 			nil,
 		)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
@@ -138,7 +137,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	t.Run("Returns latest state when pending data is nil", func(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			nil,
-			sync.ErrPendingBlockNotFound,
+			core.ErrPendingDataNotFound,
 		)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()

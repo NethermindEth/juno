@@ -31,7 +31,7 @@ func InitMockServices(hiSeed, loSeed uint64, nodeIndex, nodeCount int) MockServi
 		PrivateKey:  mockKey(nodeIndex),
 		NodeAddress: mockNodeAddress(nodeIndex),
 		Validators:  newMockValidators(hiSeed, loSeed, nodeCount),
-		TimeoutFn:   mockTimeoutFn(nodeCount),
+		TimeoutFn:   MockTimeoutFn(nodeCount),
 	}
 }
 
@@ -58,10 +58,10 @@ func (n mockValidators) Proposer(height types.Height, round types.Round) starkne
 }
 
 func mockNodeAddress(i int) starknet.Address {
-	return starknet.Address(felt.FromUint64(uint64(i)))
+	return felt.FromUint64[starknet.Address](uint64(i))
 }
 
-func mockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {
+func MockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {
 	return func(step types.Step, round types.Round) time.Duration {
 		// Total number of messages are N^2, so the load is roughly proportional to O(N^2)
 		// Every round increases the timeout by timeoutRoundFactor. It also guarantees that the timeout will be at least timeoutRoundFactor

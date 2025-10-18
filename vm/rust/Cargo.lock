@@ -101,10 +101,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
 
 [[package]]
-name = "apollo_compile_to_native"
-version = "0.15.0-rc.1"
+name = "apollo_compile_to_native_types"
+version = "0.15.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0991c3c7d8f17263c29b7125f2b63d7edc57624f9a3189041ff1650a81ca31ba"
+checksum = "389c8e9ea0c68822b179c75ac3aae646b101c390d01095d993e1ae41287d41d5"
 dependencies = [
  "apollo_config",
  "serde",
@@ -113,9 +113,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_config"
-version = "0.15.0-rc.1"
+version = "0.15.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c39449bebca20ed3afc6dad368d2fbb530133befaeb5830c932eae7d3bd462e"
+checksum = "b63c97b0be7573c6e0191c8b34776c64ed1bb621148f7d14d14fef4422d630a4"
 dependencies = [
  "apollo_infra_utils",
  "clap",
@@ -126,15 +126,17 @@ dependencies = [
  "strum_macros",
  "thiserror 1.0.69",
  "tracing",
+ "url",
  "validator",
 ]
 
 [[package]]
 name = "apollo_infra_utils"
-version = "0.15.0-rc.1"
+version = "0.15.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac9378ed6b1957b7327c407dd81a0c768e0f04184784f4702c0aae42cefcfdbd"
+checksum = "171220821a924e7c170341fc564553163488a17496194ea5f7d2039f294bc2e4"
 dependencies = [
+ "apollo_proc_macros",
  "num_enum",
  "serde",
  "serde_json",
@@ -145,15 +147,27 @@ dependencies = [
 
 [[package]]
 name = "apollo_metrics"
-version = "0.15.0-rc.1"
+version = "0.15.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09bb2ff0d8a95283888804decabd00a269f0c42af0411cfa722211a376db829c"
+checksum = "eddd44db0a445e928fd4e78641587ef33e4391f186418089511998a90c2f1f2e"
 dependencies = [
  "indexmap 2.9.0",
  "metrics",
  "num-traits",
  "paste",
  "regex",
+]
+
+[[package]]
+name = "apollo_proc_macros"
+version = "0.15.0-rc.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7989de6d0cf43a44d6c69c20f183e23af6959fc2be53f65554e4efaf8e6cb5b"
+dependencies = [
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -541,12 +555,12 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.15.0-rc.1"
+version = "0.15.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff1846a7ae3878bebad894513928c04c28293baa75c7ea98d3aece3c6d4ba2d"
+checksum = "63be42f5ff48f7f9065b8b03d137fece1cc153c7aefcffb267abd5abd6e4e09a"
 dependencies = [
  "anyhow",
- "apollo_compile_to_native",
+ "apollo_compile_to_native_types",
  "apollo_config",
  "apollo_infra_utils",
  "apollo_metrics",
@@ -1216,9 +1230,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "2.2.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d2a2f6d93aa279509d396d6f5c1992fa63d7d32c2b8d61ffa3398617c2cd0cd"
+checksum = "2afc2bb5cf948599994a1f1634edc81934c3952e2f32c8e49efbde63d767fa69"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -1493,6 +1507,15 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+]
+
+[[package]]
+name = "deranged"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d630bccd429a5bb5a64b5e94f693bfc48c9f8566418fda4c494cc94f911f87cc"
+dependencies = [
+ "powerfmt",
 ]
 
 [[package]]
@@ -2170,6 +2193,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "io-uring"
+version = "0.7.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "046fa2d4d00aea763528b4950358d0ead425372445dc8ff86312b3c69ff7727b"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "libc",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2514,6 +2548,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-conv"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
+
+[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2765,6 +2805,12 @@ checksum = "d8a2f0d8d040d7848a709caf78912debcc3f33ee4b3cac47d73d1e1069e83507"
 dependencies = [
  "portable-atomic",
 ]
+
+[[package]]
+name = "powerfmt"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "ppv-lite86"
@@ -3267,6 +3313,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "slab"
+version = "0.4.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
+
+[[package]]
 name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3353,9 +3405,9 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.15.0-rc.1"
+version = "0.15.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e148691693b2882d9a25bd1af3eaa001120317c78cd2251399ca71f3c3f23fe"
+checksum = "5d8aab893c06cdba387b8ef61a079ae0ccdcb926d6ecca11107f536d788e62a8"
 dependencies = [
  "apollo_infra_utils",
  "base64",
@@ -3384,6 +3436,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror 1.0.69",
+ "time",
 ]
 
 [[package]]
@@ -3540,6 +3593,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "time"
+version = "0.3.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83bde6f1ec10e72d583d91623c939f623002284ef622b87de38cfd546cbf2031"
+dependencies = [
+ "deranged",
+ "num-conv",
+ "powerfmt",
+ "serde",
+ "time-core",
+]
+
+[[package]]
+name = "time-core"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40868e7c1d2f0b8d73e4a8c7f0ff63af4f6d19be117e90bd73eb1d62cf831c6b"
+
+[[package]]
 name = "tinystr"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3566,19 +3638,21 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.2"
+version = "1.47.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
+checksum = "89e49afdadebb872d3145a5638b59eb0691ea23e46ca484037cfab3b76b95038"
 dependencies = [
  "backtrace",
  "bytes",
+ "io-uring",
  "libc",
  "mio",
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
+ "slab",
  "tokio-macros",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3772,6 +3846,7 @@ dependencies = [
  "form_urlencoded",
  "idna 1.0.3",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]

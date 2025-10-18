@@ -18,12 +18,6 @@ const (
 	opCount  = 100
 )
 
-// createTestHash creates a test Hash for testing purposes
-func createTestHash(value uint64) starknet.Hash {
-	f := new(felt.Felt).SetUint64(value)
-	return starknet.Hash(*f)
-}
-
 // createTestBuildResult creates a test BuildResult for testing purposes
 func createTestBuildResult() *builder.BuildResult {
 	blockNumber := rand.Uint64()
@@ -58,17 +52,17 @@ func TestProposalStore_StoreAndGet(t *testing.T) {
 	}{
 		{
 			name:  "store and get single value",
-			key:   createTestHash(1),
+			key:   felt.FromUint64[starknet.Hash](1),
 			value: createTestBuildResult(),
 		},
 		{
 			name:  "store and get multiple values",
-			key:   createTestHash(2),
+			key:   felt.FromUint64[starknet.Hash](2),
 			value: createTestBuildResult(),
 		},
 		{
 			name:  "store with zero hash key",
-			key:   starknet.Hash{},
+			key:   felt.FromUint64[starknet.Hash](0),
 			value: createTestBuildResult(),
 		},
 	}
@@ -90,7 +84,7 @@ func TestProposalStore_StoreAndGet(t *testing.T) {
 
 func TestProposalStore_StoreNilValue(t *testing.T) {
 	store := &ProposalStore[starknet.Hash]{}
-	key := createTestHash(1)
+	key := felt.FromUint64[starknet.Hash](1)
 
 	// Store nil value
 	store.Store(key, nil)
@@ -101,7 +95,7 @@ func TestProposalStore_StoreNilValue(t *testing.T) {
 
 func TestProposalStore_EmptyBuildResult(t *testing.T) {
 	store := &ProposalStore[starknet.Hash]{}
-	key := createTestHash(1)
+	key := felt.FromUint64[starknet.Hash](1)
 
 	// Create an empty BuildResult
 	emptyResult := &builder.BuildResult{}
@@ -129,7 +123,7 @@ func TestProposalStore_ConcurrentAccess(t *testing.T) {
 	store := &ProposalStore[starknet.Hash]{}
 
 	doNTimes(keyCount, func(i int) {
-		key := createTestHash(uint64(i))
+		key := felt.FromUint64[starknet.Hash](uint64(i))
 		value := createTestBuildResult()
 
 		doNTimes(opCount, func(_ int) {

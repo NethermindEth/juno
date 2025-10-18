@@ -1,7 +1,20 @@
 package core
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core/felt"
+)
+
+var (
+	_ PendingData = (*Pending)(nil)
+	_ PendingData = (*PreConfirmed)(nil)
+)
+
+var (
+	ErrPendingDataNotFound        = errors.New("pending_data not found")
+	ErrTransactionNotFound        = errors.New("pending_data: transaction not found")
+	ErrTransactionReceiptNotFound = errors.New("pending_data: transaction receipt not found")
 )
 
 type PendingDataVariant uint8
@@ -19,8 +32,96 @@ type PendingData interface {
 	GetNewClasses() map[felt.Felt]Class
 	GetCandidateTransaction() []Transaction
 	GetTransactionStateDiffs() []*StateDiff
+	GetPreLatest() *PreLatest
+	// Validate returns true if pendingData is valid for given predecessor,
+	// otherwise returns false
+	Validate(parent *Header) bool
 	Variant() PendingDataVariant
+	TransactionByHash(hash *felt.Felt) (Transaction, error)
+	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
 }
+
+type Pending struct {
+	Block       *Block
+	StateUpdate *StateUpdate
+	NewClasses  map[felt.Felt]Class
+}
+
+func NewPending(block *Block, stateUpdate *StateUpdate, newClasses map[felt.Felt]Class) Pending {
+	return Pending{
+		Block:       block,
+		StateUpdate: stateUpdate,
+		NewClasses:  newClasses,
+	}
+}
+
+func (p *Pending) GetBlock() *Block {
+	return p.Block
+}
+
+func (p *Pending) GetHeader() *Header {
+	return p.Block.Header
+}
+
+func (p *Pending) GetTransactions() []Transaction {
+	return p.Block.Transactions
+}
+
+func (p *Pending) GetStateUpdate() *StateUpdate {
+	return p.StateUpdate
+}
+
+func (p *Pending) GetNewClasses() map[felt.Felt]Class {
+	return p.NewClasses
+}
+
+func (p *Pending) GetCandidateTransaction() []Transaction {
+	return []Transaction{}
+}
+
+func (p *Pending) GetTransactionStateDiffs() []*StateDiff {
+	return []*StateDiff{}
+}
+
+func (p *Pending) GetPreLatest() *PreLatest {
+	return nil
+}
+
+func (p *Pending) Variant() PendingDataVariant {
+	return PendingBlockVariant
+}
+
+func (p *Pending) Validate(parent *Header) bool {
+	if parent == nil {
+		return p.Block.ParentHash.Equal(&felt.Zero)
+	}
+
+	return p.Block.ParentHash.Equal(parent.Hash)
+}
+
+func (p *Pending) TransactionByHash(hash *felt.Felt) (Transaction, error) {
+	for _, tx := range p.Block.Transactions {
+		if tx.Hash().Equal(hash) {
+			return tx, nil
+		}
+	}
+
+	return nil, ErrTransactionNotFound
+}
+
+func (p *Pending) ReceiptByHash(
+	hash *felt.Felt,
+) (*TransactionReceipt, *felt.Felt, uint64, error) {
+	for _, receipt := range p.Block.Receipts {
+		if receipt.TransactionHash.Equal(hash) {
+			return receipt, p.Block.ParentHash, p.Block.Number, nil
+		}
+	}
+
+	return nil, nil, 0, ErrTransactionReceiptNotFound
+}
+
+type PreLatest Pending
 
 type PreConfirmed struct {
 	Block       *Block
@@ -29,16 +130,37 @@ type PreConfirmed struct {
 	NewClasses            map[felt.Felt]Class
 	TransactionStateDiffs []*StateDiff
 	CandidateTxs          []Transaction
+	// Optional field, exists if pre_confirmed is N+2 when latest is N
+	PreLatest *PreLatest
 }
 
-func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDiffs []*StateDiff, candidateTxs []Transaction) PreConfirmed {
+func NewPreConfirmed(
+	block *Block,
+	stateUpdate *StateUpdate,
+	transactionStateDiffs []*StateDiff,
+	candidateTxs []Transaction,
+) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,
-		NewClasses:            make(map[felt.Felt]Class),
 		TransactionStateDiffs: transactionStateDiffs,
 		CandidateTxs:          candidateTxs,
 	}
+}
+
+func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) *PreConfirmed {
+	p.NewClasses = newClasses
+	return p
+}
+
+func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
+	p.PreLatest = preLatest
+	return p
+}
+
+func (p *PreConfirmed) Copy() *PreConfirmed {
+	cp := *p // shallow copy of the struct
+	return &cp
 }
 
 func (p *PreConfirmed) GetBlock() *Block {
@@ -69,6 +191,73 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
 	return p.TransactionStateDiffs
 }
 
+func (p *PreConfirmed) GetPreLatest() *PreLatest {
+	return p.PreLatest
+}
+
 func (p *PreConfirmed) Variant() PendingDataVariant {
 	return PreConfirmedBlockVariant
+}
+
+func (p *PreConfirmed) Validate(parent *Header) bool {
+	if parent == nil {
+		return p.Block.Number == 0
+	}
+
+	if p.Block.Number == parent.Number+1 {
+		// preconfirmed is latest + 1
+		return true
+	}
+
+	if p.PreLatest == nil {
+		return false
+	}
+
+	// is pre_confirmed based on valid pre_latest
+	return p.Block.Number == p.PreLatest.Block.Number+1 &&
+		p.PreLatest.Block.ParentHash.Equal(parent.Hash)
+}
+
+func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (Transaction, error) {
+	if preLatest := p.PreLatest; preLatest != nil {
+		for _, tx := range preLatest.Block.Transactions {
+			if tx.Hash().Equal(hash) {
+				return tx, nil
+			}
+		}
+	}
+
+	for _, tx := range p.CandidateTxs {
+		if tx.Hash().Equal(hash) {
+			return tx, nil
+		}
+	}
+
+	for _, tx := range p.Block.Transactions {
+		if tx.Hash().Equal(hash) {
+			return tx, nil
+		}
+	}
+
+	return nil, ErrTransactionNotFound
+}
+
+func (p *PreConfirmed) ReceiptByHash(
+	hash *felt.Felt,
+) (*TransactionReceipt, *felt.Felt, uint64, error) {
+	if preLatest := p.PreLatest; preLatest != nil {
+		for _, receipt := range preLatest.Block.Receipts {
+			if receipt.TransactionHash.Equal(hash) {
+				return receipt, preLatest.Block.Header.ParentHash, preLatest.Block.Number, nil
+			}
+		}
+	}
+
+	for _, receipt := range p.Block.Receipts {
+		if receipt.TransactionHash.Equal(hash) {
+			return receipt, nil, p.Block.Number, nil
+		}
+	}
+
+	return nil, nil, 0, ErrTransactionReceiptNotFound
 }

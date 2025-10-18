@@ -29,14 +29,21 @@ type TracedBlockTransaction struct {
 	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
 
+type BroadcastedTransactionInputs = rpccore.LimitSlice[
+	BroadcastedTransaction,
+	rpccore.SimulationLimit,
+]
+
 /****************************************************
 		Simulate Handlers
 *****************************************************/
 
-func (h *Handler) SimulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(
+	id *BlockID,
+	transactions BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false)
+	return h.simulateTransactions(id, transactions.Data, simulationFlags, false)
 }
 
 func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
@@ -75,7 +82,7 @@ func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTr
 	}
 
 	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, network, skipFeeCharge, skipValidate, errOnRevert, true, true)
+		state, skipFeeCharge, skipValidate, errOnRevert, true, true)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}
@@ -231,11 +238,11 @@ func createSimulatedTransactions(
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{
-				L1GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L1Gas),
+				L1GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L1Gas),
 				L1GasPrice:        l1GasPrice,
-				L2GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L2Gas),
+				L2GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L2Gas),
 				L2GasPrice:        l2GasPrice,
-				L1DataGasConsumed: new(felt.Felt).SetUint64(gasConsumed[i].L1DataGas),
+				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](gasConsumed[i].L1DataGas),
 				L1DataGasPrice:    l1DataGasPrice,
 				OverallFee:        overallFee,
 				Unit:              &feeUnit,

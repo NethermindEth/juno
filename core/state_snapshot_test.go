@@ -24,15 +24,15 @@ func TestStateSnapshot(t *testing.T) {
 	snapshotAfterChange := core.NewStateSnapshot(mockState, changeHeight+1)
 
 	historyValue := new(felt.Felt).SetUint64(1)
-	doAtReq := func(addr *felt.Felt, at uint64) (*felt.Felt, error) {
+	doAtReq := func(addr *felt.Felt, at uint64) (felt.Felt, error) {
 		if addr.IsZero() {
-			return nil, errors.New("some error")
+			return felt.Zero, errors.New("some error")
 		}
 
 		if at > changeHeight {
-			return nil, core.ErrCheckHeadState
+			return felt.Zero, core.ErrCheckHeadState
 		}
-		return historyValue, nil
+		return *historyValue, nil
 	}
 
 	mockState.EXPECT().ContractIsAlreadyDeployedAt(gomock.Any(), gomock.Any()).DoAndReturn(func(addr *felt.Felt, height uint64) (bool, error) {
@@ -41,50 +41,50 @@ func TestStateSnapshot(t *testing.T) {
 	mockState.EXPECT().ContractClassHashAt(gomock.Any(), gomock.Any()).DoAndReturn(doAtReq).AnyTimes()
 	mockState.EXPECT().ContractNonceAt(gomock.Any(), gomock.Any()).DoAndReturn(doAtReq).AnyTimes()
 	mockState.EXPECT().ContractStorageAt(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addr, loc *felt.Felt, at uint64) (*felt.Felt, error) {
+		func(addr, loc *felt.Felt, at uint64) (felt.Felt, error) {
 			return doAtReq(loc, at)
 		},
 	).AnyTimes()
 
 	headValue := new(felt.Felt).SetUint64(2)
 	var err error
-	doHeadReq := func(_ *felt.Felt) (*felt.Felt, error) {
-		return headValue, err
+	doHeadReq := func(_ *felt.Felt) (felt.Felt, error) {
+		return *headValue, err
 	}
 
 	mockState.EXPECT().ContractClassHash(gomock.Any()).DoAndReturn(doHeadReq).AnyTimes()
 	mockState.EXPECT().ContractNonce(gomock.Any()).DoAndReturn(doHeadReq).AnyTimes()
 	mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addr, loc *felt.Felt) (*felt.Felt, error) {
+		func(addr, loc *felt.Felt) (felt.Felt, error) {
 			return doHeadReq(loc)
 		},
 	).AnyTimes()
 
-	addr, err := new(felt.Felt).SetRandom()
+	addr := felt.NewRandom[felt.Felt]()
 	require.NoError(t, err)
 
 	for desc, test := range map[string]struct {
 		snapshot core.StateReader
-		checker  func(*testing.T, *felt.Felt, error)
+		checker  func(*testing.T, felt.Felt, error)
 	}{
 		"contract is not deployed": {
 			snapshot: snapshotBeforeDeployment,
-			checker: func(t *testing.T, _ *felt.Felt, err error) {
+			checker: func(t *testing.T, _ felt.Felt, err error) {
 				require.ErrorIs(t, err, db.ErrKeyNotFound)
 			},
 		},
 		"correct value is in history": {
 			snapshot: snapshotBeforeChange,
-			checker: func(t *testing.T, got *felt.Felt, err error) {
+			checker: func(t *testing.T, got felt.Felt, err error) {
 				require.NoError(t, err)
-				require.Equal(t, historyValue, got)
+				require.Equal(t, *historyValue, got)
 			},
 		},
 		"correct value is in HEAD": {
 			snapshot: snapshotAfterChange,
-			checker: func(t *testing.T, got *felt.Felt, err error) {
+			checker: func(t *testing.T, got felt.Felt, err error) {
 				require.NoError(t, err)
-				require.Equal(t, headValue, got)
+				require.Equal(t, *headValue, got)
 			},
 		},
 	} {

@@ -48,7 +48,7 @@ func TestTriePut(t *testing.T) {
 
 			value, err := tempTrie.Get(key)
 			assert.NoError(t, err)
-			assert.Equal(t, &felt.Zero, value)
+			assert.Equal(t, felt.Zero, value)
 			// Trie's root should be nil
 			assert.Nil(t, tempTrie.RootKey())
 
@@ -75,7 +75,7 @@ func TestTriePut(t *testing.T) {
 			value, err := tempTrie.Get(key)
 			require.NoError(t, err)
 
-			assert.Equal(t, newVal, value)
+			assert.Equal(t, newVal, &value)
 
 			return nil
 		}))
@@ -139,7 +139,7 @@ func TestTrieDeleteBasic(t *testing.T) {
 					val, err := tempTrie.Get(key)
 
 					assert.NoError(t, err, "shouldnt return an error when access a deleted key")
-					assert.Equal(t, &felt.Zero, val, "should return zero value when access a deleted key")
+					assert.Equal(t, felt.Zero, val, "should return zero value when access a deleted key")
 				}
 
 				// Check the final rootKey
@@ -165,46 +165,37 @@ func TestPutZero(t *testing.T) {
 
 		// put random 64 keys and record roots
 		for range 64 {
-			key, value := new(felt.Felt), new(felt.Felt)
-
-			_, err = key.SetRandom()
-			require.NoError(t, err)
-
-			t.Logf("key: %s", key.String())
-
-			_, err = value.SetRandom()
-			require.NoError(t, err)
-
-			t.Logf("value: %s", value.String())
+			key := felt.NewRandom[felt.Felt]()
+			value := felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, value)
 			require.NoError(t, err)
 
 			keys = append(keys, key)
 
-			var root *felt.Felt
+			var root felt.Felt
 			root, err = tempTrie.Root()
 			require.NoError(t, err)
 
-			roots = append(roots, root)
+			roots = append(roots, &root)
 		}
 
-		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
-			var key, root *felt.Felt
-			key, err = new(felt.Felt).SetRandom()
-			require.NoError(t, err)
+		t.Run(
+			"adding a zero value to a non-existent key should not change Trie",
+			func(t *testing.T) {
+				key := felt.NewRandom[felt.Felt]()
 
-			_, err = tempTrie.Put(key, new(felt.Felt))
-			require.NoError(t, err)
+				_, err = tempTrie.Put(key, new(felt.Felt))
+				require.NoError(t, err)
 
-			root, err = tempTrie.Root()
-			require.NoError(t, err)
+				root, err := tempTrie.Root()
+				require.NoError(t, err)
 
-			assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
-		})
+				assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+			})
 
 		t.Run("remove keys one by one, check roots", func(t *testing.T) {
-			var gotRoot *felt.Felt
+			var gotRoot felt.Felt
 			// put zero in reverse order and check roots still match
 			for i := range 64 {
 				root := roots[len(roots)-1-i]
@@ -212,7 +203,7 @@ func TestPutZero(t *testing.T) {
 				gotRoot, err = tempTrie.Root()
 				require.NoError(t, err)
 
-				assert.Equal(t, root, gotRoot)
+				assert.Equal(t, root, &gotRoot)
 
 				key := keys[len(keys)-1-i]
 				_, err = tempTrie.Put(key, new(felt.Felt))
@@ -224,7 +215,7 @@ func TestPutZero(t *testing.T) {
 			actualEmptyRoot, err := tempTrie.Root()
 			require.NoError(t, err)
 
-			assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
+			assert.Equal(t, true, actualEmptyRoot.Equal(&emptyRoot))
 		})
 		return nil
 	}))
@@ -239,42 +230,35 @@ func TestTrie(t *testing.T) {
 
 		// put random 64 keys and record roots
 		for range 64 {
-			key, value := new(felt.Felt), new(felt.Felt)
-
-			_, err = key.SetRandom()
-			require.NoError(t, err)
-
-			_, err = value.SetRandom()
-			require.NoError(t, err)
+			key := felt.NewRandom[felt.Felt]()
+			value := felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, value)
 			require.NoError(t, err)
 
 			keys = append(keys, key)
 
-			var root *felt.Felt
+			var root felt.Felt
 			root, err = tempTrie.Root()
 			require.NoError(t, err)
 
-			roots = append(roots, root)
+			roots = append(roots, &root)
 		}
 
 		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
-			var key, root *felt.Felt
-			key, err = new(felt.Felt).SetRandom()
-			require.NoError(t, err)
+			key := felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, new(felt.Felt))
 			require.NoError(t, err)
 
-			root, err = tempTrie.Root()
+			root, err := tempTrie.Root()
 			require.NoError(t, err)
 
-			assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+			assert.Equal(t, true, (&root).Equal(roots[len(roots)-1]))
 		})
 
 		t.Run("remove keys one by one, check roots", func(t *testing.T) {
-			var gotRoot *felt.Felt
+			var gotRoot felt.Felt
 			// put zero in reverse order and check roots still match
 			for i := range 64 {
 				root := roots[len(roots)-1-i]
@@ -282,7 +266,7 @@ func TestTrie(t *testing.T) {
 				gotRoot, err = tempTrie.Root()
 				require.NoError(t, err)
 
-				assert.Equal(t, root, gotRoot)
+				assert.Equal(t, root, &gotRoot)
 
 				key := keys[len(keys)-1-i]
 				_, err = tempTrie.Put(key, new(felt.Felt))
@@ -294,7 +278,7 @@ func TestTrie(t *testing.T) {
 			actualEmptyRoot, err := tempTrie.Root()
 			require.NoError(t, err)
 
-			assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
+			assert.Equal(t, true, actualEmptyRoot.Equal(&emptyRoot))
 		})
 		return nil
 	}))
@@ -418,7 +402,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	got, err := tempTrie.Root()
 	require.NoError(t, err)
 	// Ensure root value matches expectation.
-	assert.Equal(t, want, got)
+	assert.Equal(t, want, &got)
 
 	// Step 2: Different trie created with the same db transaction and calls [trie.Root].
 	tTxn = trie.NewStorage(txn, []byte{1, 2, 3})
@@ -427,7 +411,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	got, err = secondTrie.Root()
 	require.NoError(t, err)
 	// Ensure root value is the same as the first trie.
-	assert.Equal(t, want, got)
+	assert.Equal(t, want, &got)
 }
 
 var benchTriePutR *felt.Felt
@@ -435,8 +419,7 @@ var benchTriePutR *felt.Felt
 func BenchmarkTriePut(b *testing.B) {
 	keys := make([]*felt.Felt, 0, b.N)
 	for range b.N {
-		rnd, err := new(felt.Felt).SetRandom()
-		require.NoError(b, err)
+		rnd := felt.NewRandom[felt.Felt]()
 		keys = append(keys, rnd)
 	}
 

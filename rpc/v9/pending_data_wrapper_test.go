@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -30,7 +29,7 @@ func TestPendingDataWrapper(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Returns pending block data when starknet version < 0.14.0", func(t *testing.T) {
-		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&expectedPending,
 			nil,
@@ -38,7 +37,7 @@ func TestPendingDataWrapper(t *testing.T) {
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
 		require.Equal(t, core.PendingBlockVariant, pending.Variant())
-		require.Equal(t, expectedPending, sync.Pending{
+		require.Equal(t, expectedPending, core.Pending{
 			Block:       pending.GetBlock(),
 			StateUpdate: pending.GetStateUpdate(),
 			NewClasses:  pending.GetNewClasses(),
@@ -64,7 +63,7 @@ func TestPendingDataWrapper(t *testing.T) {
 	})
 
 	t.Run("Finality status is ACCEPTED_ON_L2 when pending block", func(t *testing.T) {
-		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&expectedPending,
 			nil,
@@ -109,7 +108,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 		mockSyncReader.EXPECT().PendingState().Return(
 			nil,
 			nil,
-			sync.ErrPendingBlockNotFound,
+			core.ErrPendingDataNotFound,
 		)
 
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

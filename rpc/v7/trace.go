@@ -231,15 +231,20 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
-	network := h.bcReader.Network()
+
 	header := block.Header
 	blockInfo := vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, false, false)
+	executionResult, err := h.vm.Execute(
+		block.Transactions,
+		classes,
+		paidFeesOnL1,
+		&blockInfo,
+		state,
+		false, false, false, false, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -324,27 +329,28 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	declaredClass, err := state.Class(&classHash)
-	if err != nil {
-		return nil, rpccore.ErrClassHashNotFound
-	}
-
-	sierraVersion := declaredClass.Class.SierraVersion()
-
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	res, err := h.vm.Call(&vm.CallInfo{
-		ContractAddress: &funcCall.ContractAddress,
-		Selector:        &funcCall.EntryPointSelector,
-		Calldata:        funcCall.Calldata,
-		ClassHash:       &classHash,
-	}, &vm.BlockInfo{
-		Header:                header,
-		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, false, false)
+	res, err := h.vm.Call(
+		&vm.CallInfo{
+			ContractAddress: &funcCall.ContractAddress,
+			Selector:        &funcCall.EntryPointSelector,
+			Calldata:        funcCall.Calldata.Data,
+			ClassHash:       &classHash,
+		},
+		&vm.BlockInfo{
+			Header:                header,
+			BlockHashToBeRevealed: blockHashToBeRevealed,
+		},
+		state,
+		h.callMaxSteps,
+		h.callMaxGas,
+		false,
+		false,
+	)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(throttledVMErr)

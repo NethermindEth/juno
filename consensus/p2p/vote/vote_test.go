@@ -5,9 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/address"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/hash"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
@@ -20,16 +18,9 @@ type testCase struct {
 	consensusVote *consensus.Vote
 }
 
-// createTestHash creates a test hash from a felt value
-func createTestHash(val uint64) *hash.Hash {
-	f := felt.FromUint64(val)
-	h := hash.Hash(f)
-	return &h
-}
-
 // createTestHashBytes creates the byte representation of a hash
 func createTestHashBytes(val uint64) []byte {
-	f := felt.FromUint64(val)
+	f := felt.FromUint64[felt.Felt](val)
 	bytes := f.Bytes()
 	return bytes[:]
 }
@@ -87,9 +78,9 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: 100,
 					Round:  5,
-					Sender: address.Address(felt.Zero),
+					Sender: starknet.Address(felt.Zero),
 				},
-				ID: createTestHash(0x123456789abcdef),
+				ID: felt.NewFromUint64[starknet.Hash](0x123456789abcdef),
 			},
 			consensusVote: &consensus.Vote{
 				VoteType:    consensus.Vote_Prevote,
@@ -109,16 +100,16 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(50),
 					Round:  types.Round(3),
-					Sender: address.Address(felt.FromUint64(42)),
+					Sender: felt.FromUint64[starknet.Address](42),
 				},
-				ID: createTestHash(0xdeadbeefcafebabe),
+				ID: felt.NewFromUint64[starknet.Hash](0xdeadbeefcafebabe),
 			},
 			consensusVote: &consensus.Vote{
 				VoteType:    consensus.Vote_Precommit,
 				BlockNumber: 50,
 				Round:       3,
 				Voter: &common.Address{
-					Elements: feltToBytes(felt.FromUint64(42)),
+					Elements: feltToBytes(felt.FromUint64[felt.Felt](42)),
 				},
 				ProposalCommitment: &common.Hash{
 					Elements: createTestHashBytes(0xdeadbeefcafebabe),
@@ -131,7 +122,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(200),
 					Round:  types.Round(10),
-					Sender: address.Address(felt.FromUint64(999)),
+					Sender: felt.FromUint64[starknet.Address](999),
 				},
 				ID: nil,
 			},
@@ -139,7 +130,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				VoteType:           consensus.Vote_Prevote,
 				BlockNumber:        200,
 				Round:              10,
-				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64(999))},
+				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64[felt.Felt](999))},
 				ProposalCommitment: nil,
 			},
 		},
@@ -149,7 +140,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(300),
 					Round:  types.Round(15),
-					Sender: address.Address(felt.FromUint64(1234)),
+					Sender: felt.FromUint64[starknet.Address](1234),
 				},
 				ID: nil,
 			},
@@ -157,7 +148,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				VoteType:           consensus.Vote_Precommit,
 				BlockNumber:        300,
 				Round:              15,
-				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64(1234))},
+				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64[felt.Felt](1234))},
 				ProposalCommitment: nil,
 			},
 		},
@@ -167,7 +158,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(0),
 					Round:  types.Round(0),
-					Sender: address.Address(felt.FromUint64(100)),
+					Sender: felt.FromUint64[starknet.Address](100),
 				},
 				ID: nil,
 			},
@@ -175,7 +166,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				VoteType:           consensus.Vote_Prevote,
 				BlockNumber:        0,
 				Round:              0,
-				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64(100))},
+				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64[felt.Felt](100))},
 				ProposalCommitment: nil,
 			},
 		},
@@ -185,16 +176,16 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(^uint64(0)),
 					Round:  types.Round(^uint32(0)),
-					Sender: address.Address(felt.FromUint64(^uint64(0))),
+					Sender: felt.FromUint64[starknet.Address](^uint64(0)),
 				},
-				ID: createTestHash(^uint64(0)),
+				ID: felt.NewFromUint64[starknet.Hash](^uint64(0)),
 			},
 			consensusVote: &consensus.Vote{
 				VoteType:    consensus.Vote_Prevote,
 				BlockNumber: ^uint64(0),
 				Round:       ^uint32(0),
 				Voter: &common.Address{
-					Elements: feltToBytes(felt.FromUint64(^uint64(0))),
+					Elements: feltToBytes(felt.FromUint64[felt.Felt](^uint64(0))),
 				},
 				ProposalCommitment: &common.Hash{
 					Elements: createTestHashBytes(^uint64(0)),
@@ -207,9 +198,9 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(1),
 					Round:  types.Round(1),
-					Sender: address.Address(felt.Zero),
+					Sender: starknet.Address(felt.Zero),
 				},
-				ID: createTestHash(0),
+				ID: felt.NewFromUint64[starknet.Hash](0),
 			},
 			consensusVote: &consensus.Vote{
 				VoteType:    consensus.Vote_Precommit,

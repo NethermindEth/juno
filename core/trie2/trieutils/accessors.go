@@ -2,6 +2,7 @@ package trieutils
 
 import (
 	"encoding/binary"
+	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -12,7 +13,7 @@ func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
 		func(value []byte) error {
-			res = value
+			res = slices.Clone(value)
 			return nil
 		},
 	); err != nil {
@@ -78,7 +79,7 @@ func WritePersistedStateID(w db.KeyValueWriter, id uint64) error {
 func ReadTrieJournal(r db.KeyValueReader) ([]byte, error) {
 	var journal []byte
 	if err := r.Get(db.TrieJournal.Key(), func(value []byte) error {
-		journal = append([]byte(nil), value...)
+		journal = slices.Clone(value)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -129,7 +130,7 @@ func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	var res []byte
 	if err := r.Get(nodeKeyByHash(bucket, owner, path, hash, isLeaf),
 		func(value []byte) error {
-			res = value
+			res = append([]byte(nil), value...)
 			return nil
 		},
 	); err != nil {

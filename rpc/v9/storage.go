@@ -275,7 +275,7 @@ func getContractProofWithDeprecatedTrie(tr *trie.Trie, state commonstate.StateRe
 		contractLeavesData[i] = &LeafData{
 			Nonce:       &nonce,
 			ClassHash:   &classHash,
-			StorageRoot: root,
+			StorageRoot: &root,
 		}
 	}
 
@@ -447,7 +447,7 @@ type EdgeNode struct {
 }
 
 func (e *EdgeNode) AsProofNode() trie.ProofNode {
-	f, _ := new(felt.Felt).SetString(e.Path)
+	f, _ := felt.NewFromString[felt.Felt](e.Path)
 	pbs := f.Bytes()
 
 	return &trie.Edge{

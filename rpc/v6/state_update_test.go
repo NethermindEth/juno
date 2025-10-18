@@ -13,7 +13,6 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,9 +34,10 @@ func TestStateUpdate(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
-			if description == "pending" {
+
+			if description == "pending" /*nolint:goconst*/ {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 			handler := rpc.New(chain, mockSyncReader, nil, n, nil)
 
@@ -146,7 +146,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pending starknet version < 0.14.0", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		pending := sync.NewPending(nil, update21656, nil)
+		pending := core.NewPending(nil, update21656, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,

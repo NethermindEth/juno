@@ -15,6 +15,12 @@ typedef struct CallInfo {
 	size_t len_calldata;
 } CallInfo;
 
+typedef struct ChainInfo {
+	char* chain_id;
+	unsigned char eth_fee_token_address[FELT_SIZE];
+	unsigned char strk_fee_token_address[FELT_SIZE];
+} ChainInfo;
+
 typedef struct BlockInfo {
 	unsigned long long block_number;
 	unsigned long long block_timestamp;
@@ -31,13 +37,32 @@ typedef struct BlockInfo {
 	unsigned char l2_gas_price_fri[FELT_SIZE];
 } BlockInfo;
 
-extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps, unsigned char concurrency_mode, char* sierra_version, unsigned char err_stack, unsigned char return_state_diff);
+extern void cairoVMCall(
+	CallInfo* call_info_ptr, 
+	BlockInfo* block_info_ptr, 
+	ChainInfo* chain_info_ptr, 
+	uintptr_t readerHandle,
+	unsigned long long max_steps, 
+	unsigned long long initial_gas,
+	unsigned char concurrency_mode, 
+	unsigned char err_stack, 
+	unsigned char return_state_diff
+);
 
-extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
-					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
-					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
-					unsigned char concurrency_mode, unsigned char err_stack,unsigned char allow_binary_search);
+extern void cairoVMExecute(
+	char* txns_json, 
+	char* classes_json, 
+	char* paid_fees_on_l1_json,
+	BlockInfo* block_info_ptr, 
+	ChainInfo* chain_info_ptr, 
+	uintptr_t readerHandle,
+	unsigned char skip_charge_fee, 
+	unsigned char skip_validate, 
+	unsigned char err_on_revert,
+	unsigned char concurrency_mode, 
+	unsigned char err_stack,
+	unsigned char allow_binary_search
+);
 
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);

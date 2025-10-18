@@ -12,7 +12,6 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,7 +42,7 @@ func TestClass(t *testing.T) {
 	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+		hash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -55,7 +54,7 @@ func TestClass(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+		hash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -105,12 +104,16 @@ func TestClassAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
-	cairo0ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0ContractAddress := felt.NewRandom[felt.Felt]()
+	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
 	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(*cairo0ClassHash, nil)
 
-	cairo1ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
+	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*cairo1ClassHash, nil)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
@@ -185,7 +188,9 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, errors.New("non-existent contract"))
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(
+			felt.Zero, errors.New("non-existent contract"),
+		)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, classHash)
@@ -222,7 +227,7 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
-		pending := sync.NewPending(nil, nil, nil)
+		pending := core.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)

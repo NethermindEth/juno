@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +26,7 @@ func TestProve(t *testing.T) {
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
 
-		val, err := trie.VerifyProof(root, record.key, proofSet, crypto.Pedersen)
+		val, err := trie.VerifyProof(&root, record.key, proofSet, crypto.Pedersen)
 		if err != nil {
 			t.Fatalf("failed for key %s", record.key.String())
 		}
@@ -51,7 +50,7 @@ func TestProveNonExistent(t *testing.T) {
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
 
-		val, err := trie.VerifyProof(root, keyFelt, proofSet, crypto.Pedersen)
+		val, err := trie.VerifyProof(&root, keyFelt, proofSet, crypto.Pedersen)
 		if err != nil {
 			t.Fatalf("failed for key %s", keyFelt.String())
 		}
@@ -71,7 +70,7 @@ func TestProveRandom(t *testing.T) {
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
 
-		val, err := trie.VerifyProof(root, record.key, proofSet, crypto.Pedersen)
+		val, err := trie.VerifyProof(&root, record.key, proofSet, crypto.Pedersen)
 		require.NoError(t, err)
 		require.Equal(t, record.value, val)
 	}
@@ -125,7 +124,7 @@ func TestProveCustom(t *testing.T) {
 				{
 					name:     "prove existing key",
 					key:      new(felt.Felt).SetUint64(0),
-					expected: utils.HexToFelt(t, "0xcc"),
+					expected: felt.NewUnsafeFromString[felt.Felt]("0xcc"),
 				},
 			},
 		},
@@ -139,7 +138,7 @@ func TestProveCustom(t *testing.T) {
 				require.NoError(t, err)
 
 				records := []*keyValue{
-					{key: utils.HexToFelt(t, "0xff"), value: utils.HexToFelt(t, "0xaa")},
+					{key: felt.NewUnsafeFromString[felt.Felt]("0xff"), value: felt.NewUnsafeFromString[felt.Felt]("0xaa")},
 				}
 
 				for _, record := range records {
@@ -152,8 +151,8 @@ func TestProveCustom(t *testing.T) {
 			testKeys: []testKey{
 				{
 					name:     "prove existing key",
-					key:      utils.HexToFelt(t, "0xff"),
-					expected: utils.HexToFelt(t, "0xaa"),
+					key:      felt.NewUnsafeFromString[felt.Felt]("0xff"),
+					expected: felt.NewUnsafeFromString[felt.Felt]("0xaa"),
 				},
 			},
 		},
@@ -185,7 +184,7 @@ func TestProveCustom(t *testing.T) {
 					root, err := tr.Root()
 					require.NoError(t, err)
 
-					val, err := trie.VerifyProof(root, tc.key, proofSet, crypto.Pedersen)
+					val, err := trie.VerifyProof(&root, tc.key, proofSet, crypto.Pedersen)
 					require.NoError(t, err)
 					require.Equal(t, tc.expected, val)
 				})
@@ -218,7 +217,7 @@ func TestRangeProof(t *testing.T) {
 			values = append(values, records[i].value)
 		}
 
-		_, err = trie.VerifyRangeProof(root, records[start].key, keys, values, proof)
+		_, err = trie.VerifyRangeProof(&root, records[start].key, keys, values, proof)
 		require.NoError(t, err)
 	}
 }
@@ -252,7 +251,7 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 			values[i-start] = records[i].value
 		}
 
-		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+		_, err = trie.VerifyRangeProof(&root, first, keys, values, proof)
 		require.NoError(t, err)
 	}
 }
@@ -282,7 +281,7 @@ func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 		values[i-start] = records[i].value
 	}
 
-	_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+	_, err = trie.VerifyRangeProof(&root, first, keys, values, proof)
 	require.Error(t, err)
 }
 
@@ -302,7 +301,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(records[start].key, records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[start].key, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			&root,
+			records[start].key,
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -314,7 +319,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, decrementFelt(records[start].key), []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			&root,
+			decrementFelt(records[start].key),
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -326,7 +337,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[end].key, []*felt.Felt{records[end].key}, []*felt.Felt{records[end].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			&root,
+			records[end].key,
+			[]*felt.Felt{records[end].key},
+			[]*felt.Felt{records[end].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -339,7 +356,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(first, last, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, first, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			&root,
+			first,
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -354,7 +377,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err = tr.GetRangeProof(&felt.Zero, records[0].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[0].key, []*felt.Felt{records[0].key}, []*felt.Felt{records[0].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			&root,
+			records[0].key,
+			[]*felt.Felt{records[0].key},
+			[]*felt.Felt{records[0].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 }
@@ -375,7 +404,7 @@ func TestAllElementsRangeProof(t *testing.T) {
 		values[i] = record.value
 	}
 
-	_, err = trie.VerifyRangeProof(root, nil, keys, values, nil)
+	_, err = trie.VerifyRangeProof(&root, nil, keys, values, nil)
 	require.NoError(t, err)
 
 	// Should also work with proof
@@ -383,7 +412,7 @@ func TestAllElementsRangeProof(t *testing.T) {
 	err = tr.GetRangeProof(records[0].key, records[n-1].key, proof)
 	require.NoError(t, err)
 
-	_, err = trie.VerifyRangeProof(root, keys[0], keys, values, proof)
+	_, err = trie.VerifyRangeProof(&root, keys[0], keys, values, proof)
 	require.NoError(t, err)
 }
 
@@ -407,7 +436,7 @@ func TestSingleSideRangeProof(t *testing.T) {
 			values[j] = records[j].value
 		}
 
-		_, err = trie.VerifyRangeProof(root, &felt.Zero, keys, values, proof)
+		_, err = trie.VerifyRangeProof(&root, &felt.Zero, keys, values, proof)
 		require.NoError(t, err)
 	}
 }
@@ -436,7 +465,7 @@ func TestGappedRangeProof(t *testing.T) {
 		values = append(values, records[i].value)
 	}
 
-	_, err = trie.VerifyRangeProof(root, records[first].key, keys, values, proof)
+	_, err = trie.VerifyRangeProof(&root, records[first].key, keys, values, proof)
 	require.Error(t, err)
 }
 
@@ -461,7 +490,7 @@ func TestEmptyRangeProof(t *testing.T) {
 		err = tr.GetRangeProof(first, first, proof)
 		require.NoError(t, err)
 
-		_, err := trie.VerifyRangeProof(root, first, nil, nil, proof)
+		_, err := trie.VerifyRangeProof(&root, first, nil, nil, proof)
 		if c.err {
 			require.Error(t, err)
 		} else {
@@ -516,7 +545,7 @@ func TestHasRightElement(t *testing.T) {
 			values = append(values, records[i].value)
 		}
 
-		hasMore, err := trie.VerifyRangeProof(root, first, keys, values, proof)
+		hasMore, err := trie.VerifyRangeProof(&root, first, keys, values, proof)
 		require.NoError(t, err)
 		require.Equal(t, c.hasMore, hasMore)
 	}
@@ -573,7 +602,7 @@ func TestBadRangeProof(t *testing.T) {
 			// 	keys = append(keys[:index], keys[index+1:]...)
 			// 	values = append(values[:index], values[index+1:]...)
 		}
-		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+		_, err = trie.VerifyRangeProof(&root, first, keys, values, proof)
 		if err == nil {
 			t.Fatalf("expected error for test case %d, index %d, start %d, end %d", testCase, index, start, end)
 		}
@@ -609,7 +638,12 @@ func BenchmarkVerifyProof(b *testing.B) {
 	b.ResetTimer()
 	for i := range b.N {
 		index := i % len(records)
-		if _, err := trie.VerifyProof(root, records[index].key, proofs[index], crypto.Pedersen); err != nil {
+		if _, err := trie.VerifyProof(
+			&root,
+			records[index].key,
+			proofs[index],
+			crypto.Pedersen,
+		); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -636,7 +670,7 @@ func BenchmarkVerifyRangeProof(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		_, err := trie.VerifyRangeProof(root, keys[0], keys, values, proof)
+		_, err := trie.VerifyRangeProof(&root, keys[0], keys, values, proof)
 		require.NoError(b, err)
 	}
 }
@@ -693,8 +727,8 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	//    /                    \
 	// (251, 0, cc)     (251, 11111.., dd)
 	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(0), value: utils.HexToFelt(t, "0xcc")},
-		{key: utils.HexToFelt(t, "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), value: utils.HexToFelt(t, "0xdd")},
+		{key: new(felt.Felt).SetUint64(0), value: felt.NewUnsafeFromString[felt.Felt]("0xcc")},
+		{key: felt.NewUnsafeFromString[felt.Felt]("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), value: felt.NewUnsafeFromString[felt.Felt]("0xdd")},
 	}
 	return buildTrie(t, records), records
 }

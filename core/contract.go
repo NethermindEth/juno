@@ -115,12 +115,8 @@ func (c *ContractUpdater) Purge() error {
 
 // ContractNonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
-func ContractNonce(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
-	nonce, err := GetContractNonce(txn, addr)
-	if err != nil {
-		return nil, err
-	}
-	return &nonce, nil // TODO: this should return a value
+func ContractNonce(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+	return GetContractNonce(txn, addr)
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -130,10 +126,10 @@ func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
 }
 
 // ContractRoot returns the root of the contract storage.
-func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
+func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 	return cStorage.Root()
 }
@@ -163,21 +159,17 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 	return cStorage.Commit()
 }
 
-func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
+func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 	return cStorage.Get(key)
 }
 
 // ContractClassHash returns hash of the class that the contract at the given address instantiates.
-func ContractClassHash(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
-	classHash, err := GetContractClassHash(txn, addr)
-	if err != nil {
-		return nil, err
-	}
-	return &classHash, nil // TODO: this should return a value
+func ContractClassHash(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+	return GetContractClassHash(txn, addr)
 }
 
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {

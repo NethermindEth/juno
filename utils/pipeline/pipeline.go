@@ -62,41 +62,35 @@ func FanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 	return out
 }
 
-func Bridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
-	out := make(chan T)
+func Bridge[T any](ctx context.Context, out chan<- T, chanCh <-chan <-chan T) {
 	if chanCh == nil {
-		close(out)
-		return out
+		return
 	}
-	go func() {
-		defer close(out)
-		for {
-			var ch <-chan T
-			select {
-			case <-ctx.Done():
+	for {
+		var ch <-chan T
+		select {
+		case <-ctx.Done():
+			return
+		case gotCh, ok := <-chanCh:
+			if !ok {
 				return
-			case gotCh, ok := <-chanCh:
-				if !ok {
-					return
-				}
-				ch = gotCh
-			innerLoop:
-				for {
+			}
+			ch = gotCh
+		innerLoop:
+			for {
+				select {
+				case <-ctx.Done():
+					break innerLoop
+				case val, ok := <-ch:
+					if !ok {
+						break innerLoop
+					}
 					select {
 					case <-ctx.Done():
-						break innerLoop
-					case val, ok := <-ch:
-						if !ok {
-							break innerLoop
-						}
-						select {
-						case <-ctx.Done():
-						case out <- val:
-						}
+					case out <- val:
 					}
 				}
 			}
 		}
-	}()
-	return out
+	}
 }

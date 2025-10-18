@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
@@ -44,7 +43,11 @@ type Reader interface {
 
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
-	EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (EventFilterer, error)
+	EventFilter(
+		from *felt.Felt,
+		keys [][]felt.Felt,
+		pendingDataFn func() (core.PendingData, error),
+	) (EventFilterer, error)
 
 	Network() *utils.Network
 }
@@ -55,33 +58,7 @@ type StateProvider interface {
 	StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, StateCloser, error)
 }
 
-var (
-	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	SupportedStarknetVersion  = semver.MustParse("0.14.0")
-)
-
-func CheckBlockVersion(protocolVersion string) error {
-	blockVer, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return err
-	}
-
-	// We ignore changes in patch part of the version
-	blockVerMM, supportedVerMM := copyWithoutPatch(blockVer), copyWithoutPatch(SupportedStarknetVersion)
-	if blockVerMM.GreaterThan(supportedVerMM) {
-		return errors.New("unsupported block version")
-	}
-
-	return nil
-}
-
-func copyWithoutPatch(v *semver.Version) *semver.Version {
-	if v == nil {
-		return nil
-	}
-
-	return semver.New(v.Major(), v.Minor(), 0, v.Prerelease(), v.Metadata())
-}
+var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
 
 var _ Reader = (*Blockchain)(nil)
 
@@ -105,7 +82,7 @@ func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *
 	}
 	stateDB := state.NewStateDB(database, trieDB)
 
-	StateFactory, err := commonstate.NewStateFactory(stateVersion, trieDB, stateDB)
+	stateFactory, err := commonstate.NewStateFactory(stateVersion, trieDB, stateDB)
 	if err != nil {
 		panic(err)
 	}
@@ -127,7 +104,7 @@ func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *
 		l1HeadFeed:    feed.New[*core.L1Head](),
 		cachedFilters: &cachedFilters,
 		runningFilter: runningFilter,
-		StateFactory:  StateFactory,
+		StateFactory:  stateFactory,
 	}
 }
 
@@ -272,13 +249,13 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	// old state
 	// TODO(maksymmalick): remove this once we have a new state implementation
 	if !b.StateFactory.UseNewState {
-		return b.storeCoreState(block, blockCommitments, stateUpdate, newClasses)
+		return b.deprecatedStore(block, blockCommitments, stateUpdate, newClasses)
 	}
 
 	return b.store(block, blockCommitments, stateUpdate, newClasses)
 }
 
-func (b *Blockchain) storeCoreState(
+func (b *Blockchain) deprecatedStore(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
@@ -384,7 +361,7 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 }
 
 func verifyBlock(txn db.KeyValueReader, block *core.Block) error {
-	if err := CheckBlockVersion(block.ProtocolVersion); err != nil {
+	if err := core.CheckBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
 
@@ -461,14 +438,32 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (commonstate.StateRe
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
-	header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
+	_, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stateReader, err := b.StateFactory.NewStateReader(header.GlobalStateRoot, txn, blockNumber)
+	if !b.StateFactory.UseNewState {
+		deprecatedState := core.NewState(txn)
+		snapshot := core.NewStateSnapshot(deprecatedState, blockNumber)
+		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
+	}
 
-	return stateReader, noopStateCloser, err
+	height, err := core.GetChainHeight(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	header, err := core.GetBlockHeaderByNumber(txn, height)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	history, err := state.NewStateHistory(blockNumber, header.GlobalStateRoot, b.stateDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return commonstate.NewStateReaderAdapter(&history), noopStateCloser, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
@@ -484,32 +479,64 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateRe
 	if err != nil {
 		return nil, nil, err
 	}
-	stateReader, err := b.StateFactory.NewStateReader(header.GlobalStateRoot, txn, header.Number)
-	return stateReader, noopStateCloser, err
+	if !b.StateFactory.UseNewState {
+		deprecatedState := core.NewState(txn)
+		snapshot := core.NewStateSnapshot(deprecatedState, header.Number)
+		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
+	}
+
+	height, err := core.GetChainHeight(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	headHeader, err := core.GetBlockHeaderByNumber(txn, height)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	history, err := state.NewStateHistory(header.Number, headHeader.GlobalStateRoot, b.stateDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return commonstate.NewStateReaderAdapter(&history), noopStateCloser, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
-func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (EventFilterer, error) {
+func (b *Blockchain) EventFilter(
+	from *felt.Felt,
+	keys [][]felt.Felt,
+	pendingDataFn func() (core.PendingData, error),
+) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
 	latest, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err
 	}
 
-	return newEventFilter(b.database, from, keys, 0, latest, pendingBlockFn, b.cachedFilters, b.runningFilter), nil
+	return newEventFilter(
+		b.database,
+		from,
+		keys,
+		0,
+		latest,
+		pendingDataFn,
+		b.cachedFilters,
+		b.runningFilter,
+	), nil
 }
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
 	if !b.StateFactory.UseNewState {
-		return b.database.Update(b.revertHeadCoreState)
+		return b.database.Update(b.deprecatedRevertHead)
 	}
 	return b.revertHead()
 }
 
 func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 	if !b.StateFactory.UseNewState {
-		reverseStateDiff, err := b.getReverseStateDiffCoreState()
+		reverseStateDiff, err := b.deprecatedGetReverseStateDiff()
 		if err != nil {
 			return core.StateDiff{}, err
 		}
@@ -520,7 +547,7 @@ func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 }
 
 // TODO(maksymmalick): remove this once we have a new state integrated
-func (b *Blockchain) getReverseStateDiffCoreState() (*core.StateDiff, error) {
+func (b *Blockchain) deprecatedGetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 
 	txn := b.database.NewIndexedBatch()
@@ -567,7 +594,7 @@ func (b *Blockchain) getReverseStateDiff() (core.StateDiff, error) {
 	return ret, nil
 }
 
-func (b *Blockchain) revertHeadCoreState(txn db.IndexedBatch) error {
+func (b *Blockchain) deprecatedRevertHead(txn db.IndexedBatch) error {
 	blockNumber, err := core.GetChainHeight(txn)
 	if err != nil {
 		return err

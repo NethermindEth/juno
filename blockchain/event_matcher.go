@@ -34,7 +34,7 @@ func makeKeysMaps(filterKeys [][]felt.Felt) []map[felt.Felt]struct{} {
 	return filterKeysMaps
 }
 
-func (e *EventMatcher) matchesEventKeys(eventKeys []*felt.Felt) bool {
+func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 	// short circuit if event doest have enough keys
 	for i := len(eventKeys); i < len(e.keysMap); i++ {
 		if len(e.keysMap[i]) > 0 {
@@ -140,15 +140,22 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	return nil
 }
 
-func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header, receipts []*core.TransactionReceipt,
-	skippedEvents uint64, chunkSize uint64,
-) ([]*FilteredEvent, uint64, error) {
+func (e *EventMatcher) AppendBlockEvents(
+	matchedEventsSofar []FilteredEvent,
+	header *core.Header,
+	receipts []*core.TransactionReceipt,
+	skippedEvents uint64,
+	chunkSize uint64,
+	isPreLatest bool,
+) ([]FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {
 		for i, event := range receipt.Events {
 			var blockNumber *uint64
 			// if header.Hash == nil it's a pending block
-			if header.Hash != nil {
+			// if header.Hash == nil and header.ParentHash is nil preconfirmed block
+			// if isPreLatest is true, it's a prelatest block (should have block number)
+			if header.Hash != nil || header.ParentHash == nil || isPreLatest {
 				blockNumber = &header.Number
 			}
 
@@ -164,13 +171,13 @@ func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, he
 				continue
 			}
 
-			if !e.matchesEventKeys(event.Keys) {
+			if !e.MatchesEventKeys(event.Keys) {
 				processedEvents++
 				continue
 			}
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
-				matchedEventsSofar = append(matchedEventsSofar, &FilteredEvent{
+				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
 					BlockNumber:     blockNumber,
 					BlockHash:       header.Hash,
 					TransactionHash: receipt.TransactionHash,

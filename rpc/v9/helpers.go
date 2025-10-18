@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync"
 )
 
 func (h *Handler) l1Head() (core.L1Head, *jsonrpc.Error) {
@@ -21,7 +20,7 @@ func (h *Handler) l1Head() (core.L1Head, *jsonrpc.Error) {
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return core.L1Head{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
-	// empty l1Head is returned if l1 head doesn't exist
+	// empty L1Head is returned if l1 head doesn't exist
 	return l1Head, nil
 }
 
@@ -59,7 +58,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -98,7 +97,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -177,7 +176,7 @@ func (h *Handler) stateByBlockID(blockID *BlockID) (commonstate.StateReader, blo
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

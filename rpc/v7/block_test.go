@@ -16,7 +16,6 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -110,9 +109,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 
-			if description == "pending" { //nolint:goconst
+			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
 			handler := rpcv7.New(chain, mockSyncReader, nil, n, log)
@@ -206,7 +205,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := sync.NewPending(latestBlock, nil, nil)
+		pending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -274,7 +273,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
 			handler := rpcv7.New(chain, mockSyncReader, nil, n, log)
@@ -391,7 +390,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := sync.NewPending(latestBlock, nil, nil)
+		pending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -469,12 +468,12 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			ParentHash:      coreBlock.ParentHash,
 			L1DAMode:        utils.HeapPtr(rpcv6.Blob),
 			L1GasPrice: &rpcv6.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
-				InWei: utils.HexToFelt(t, "0x3b9aca10"),
+				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
+				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
 			L1DataGasPrice: &rpcv6.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
-				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
+				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
+				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
@@ -552,7 +551,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
-		pending := sync.NewPending(block0, nil, nil)
+		pending := core.NewPending(block0, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,

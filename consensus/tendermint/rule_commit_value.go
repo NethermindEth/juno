@@ -1,7 +1,7 @@
 package tendermint
 
 import (
-	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 )
 
@@ -31,7 +31,7 @@ func (s *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V
 	return hasQuorum && isValid
 }
 
-func (s *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) actions.Action[V, H, A] {
 	s.voteCounter.StartNewHeight()
 	s.state.height++
 	s.state.lockedRound = -1
@@ -39,5 +39,5 @@ func (s *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, 
 	s.state.validRound = -1
 	s.state.validValue = nil
 	s.resetState(0)
-	return (*types.Commit[V, H, A])(&cachedProposal.Proposal)
+	return (*actions.Commit[V, H, A])(&cachedProposal.Proposal)
 }

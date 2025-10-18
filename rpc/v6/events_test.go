@@ -13,7 +13,6 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,14 +48,14 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	pending := sync.NewPending(pendingB, nil, nil)
+	pending := core.NewPending(pendingB, nil, nil)
 	mockSyncReader.EXPECT().PendingData().Return(
 		&pending,
 		nil,
 	)
 
 	handler := rpc.New(chain, mockSyncReader, nil, n, utils.NewNopZapLogger())
-	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+	from := felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	args := rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
 			FromBlock: &rpc.BlockID{Number: 0},
@@ -124,7 +123,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with no keys", func(t *testing.T) {
-		var allEvents []*rpc.EmittedEvent
+		var allEvents []rpc.EmittedEvent
 		t.Run("get canonical events without pagination", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Latest: true}
 			args.Address = from
@@ -136,7 +135,7 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("accumulate events with pagination", func(t *testing.T) {
-			var accEvents []*rpc.EmittedEvent
+			var accEvents []rpc.EmittedEvent
 			args.ChunkSize = 1
 
 			for range len(allEvents) + 1 {
@@ -153,7 +152,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with keys", func(t *testing.T) {
-		key := utils.HexToFelt(t, "0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e")
+		key := felt.NewUnsafeFromString[felt.Felt]("0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e")
 
 		t.Run("get all events without pagination", func(t *testing.T) {
 			args.ChunkSize = 100
@@ -166,18 +165,18 @@ func TestEvents(t *testing.T) {
 			require.Equal(t, from, events.Events[0].From)
 			require.Equal(t, []*felt.Felt{key}, events.Events[0].Keys)
 			require.Equal(t, []*felt.Felt{
-				utils.HexToFelt(t, "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5"),
-				utils.HexToFelt(t, "0x0"),
-				utils.HexToFelt(t, "0x4"),
-				utils.HexToFelt(t, "0x4574686572"),
-				utils.HexToFelt(t, "0x455448"),
-				utils.HexToFelt(t, "0x12"),
-				utils.HexToFelt(t, "0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f"),
-				utils.HexToFelt(t, "0x0"),
+				felt.NewUnsafeFromString[felt.Felt]("0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5"),
+				felt.NewUnsafeFromString[felt.Felt]("0x0"),
+				felt.NewUnsafeFromString[felt.Felt]("0x4"),
+				felt.NewUnsafeFromString[felt.Felt]("0x4574686572"),
+				felt.NewUnsafeFromString[felt.Felt]("0x455448"),
+				felt.NewUnsafeFromString[felt.Felt]("0x12"),
+				felt.NewUnsafeFromString[felt.Felt]("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f"),
+				felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			}, events.Events[0].Data)
 			require.Equal(t, uint64(4), *events.Events[0].BlockNumber)
-			require.Equal(t, utils.HexToFelt(t, "0x445152a69e628774b0f78a952e6f9ba0ffcda1374724b314140928fd2f31f4c"), events.Events[0].BlockHash)
-			require.Equal(t, utils.HexToFelt(t, "0x3c9dfcd3fe66be18b661ee4ebb62520bb4f13d4182b040b3c2be9a12dbcc09b"), events.Events[0].TransactionHash)
+			require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x445152a69e628774b0f78a952e6f9ba0ffcda1374724b314140928fd2f31f4c"), events.Events[0].BlockHash)
+			require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x3c9dfcd3fe66be18b661ee4ebb62520bb4f13d4182b040b3c2be9a12dbcc09b"), events.Events[0].TransactionHash)
 		})
 	})
 
@@ -198,7 +197,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with limit", func(t *testing.T) {
 		handler = handler.WithFilterLimit(1)
-		args.Address = utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+		args.Address = felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 		args.ChunkSize = 100
 		args.Keys = make([][]felt.Felt, 0)
 
@@ -232,7 +231,7 @@ func TestEvents(t *testing.T) {
 
 		assert.Nil(t, events.Events[0].BlockHash)
 		assert.Nil(t, events.Events[0].BlockNumber)
-		assert.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
+		assert.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
 	})
 
 	t.Run("get pending events with pagination", func(t *testing.T) {
@@ -255,7 +254,7 @@ func TestEvents(t *testing.T) {
 		for _, receipt := range pendingB.Receipts {
 			allEvents = append(allEvents, receipt.Events...)
 		}
-		pending := sync.NewPending(pendingB, nil, nil)
+		pending := core.NewPending(pendingB, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,

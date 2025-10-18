@@ -20,7 +20,7 @@ func TestTransactionMarshal(t *testing.T) {
 		Expected string
 	}{
 		"invoke v0": {
-			Hash: utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -41,7 +41,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"invoke v1": {
-			Hash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -73,7 +73,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"invoke v3": {
-			Hash: utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -129,7 +129,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"deploy v0": {
-			Hash: utils.HexToFelt(t, "0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -145,7 +145,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"declare v1": {
-			Hash: utils.HexToFelt(t, "0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -167,7 +167,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"declare v2": {
-			Hash: utils.HexToFelt(t, "0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -190,7 +190,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"declare v3": {
-			Hash: utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -231,7 +231,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"deploy account v1": {
-			Hash: utils.HexToFelt(t, "0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -256,7 +256,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"deploy account v3": {
-			Hash: utils.HexToFelt(t, "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -298,7 +298,7 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"declare v0": {
-			Hash: utils.HexToFelt(t, "0x6d346ba207eb124355960c19c737698ad37a3c920a588b741e0130ff5bd4d6d"),
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0x6d346ba207eb124355960c19c737698ad37a3c920a588b741e0130ff5bd4d6d"),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
