@@ -283,7 +283,7 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 		txsWithReceipts[index] = TransactionWithReceipt{
 			Transaction: t,
 			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
+			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
 		}
 	}
 

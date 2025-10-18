@@ -24,7 +24,6 @@ var (
 	_ service.Service = (*Synchronizer)(nil)
 	_ Reader          = (*Synchronizer)(nil)
 
-	ErrPendingBlockNotFound          = errors.New("pending block not found")
 	ErrMustSwitchPollingPreConfirmed = errors.New(
 		"reached starknet 0.14.0. node requires switching from pending to polling pre_confirmed blocks",
 	)
@@ -589,7 +588,7 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 func (s *Synchronizer) PendingData() (core.PendingData, error) {
 	ptr := s.pendingData.Load()
 	if ptr == nil || *ptr == nil {
-		return nil, ErrPendingBlockNotFound
+		return nil, core.ErrPendingDataNotFound
 	}
 
 	head, err := s.blockchain.HeadsHeader()
@@ -615,7 +614,7 @@ func (s *Synchronizer) PendingData() (core.PendingData, error) {
 		return p, nil
 	}
 
-	return nil, ErrPendingBlockNotFound
+	return nil, core.ErrPendingDataNotFound
 }
 
 func (s *Synchronizer) PendingBlock() *core.Block {
@@ -634,7 +633,7 @@ func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, er
 
 	pendingPtr := s.pendingData.Load()
 	if pendingPtr == nil || *pendingPtr == nil {
-		return nil, nil, ErrPendingBlockNotFound
+		return nil, nil, core.ErrPendingDataNotFound
 	}
 
 	head, err := s.blockchain.HeadsHeader()
@@ -648,7 +647,7 @@ func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, er
 	pending := *pendingPtr
 
 	if !pending.Validate(head) {
-		return nil, nil, ErrPendingBlockNotFound
+		return nil, nil, core.ErrPendingDataNotFound
 	}
 
 	stateDiff := core.EmptyStateDiff()
@@ -685,7 +684,7 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (commonstate.StateRead
 
 	pendingPtr := s.pendingData.Load()
 	if pendingPtr == nil || *pendingPtr == nil {
-		return nil, nil, ErrPendingBlockNotFound
+		return nil, nil, core.ErrPendingDataNotFound
 	}
 
 	pending := *pendingPtr
@@ -702,7 +701,7 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (commonstate.StateRead
 	}
 
 	if !pending.Validate(head) {
-		return nil, nil, ErrPendingBlockNotFound
+		return nil, nil, core.ErrPendingDataNotFound
 	}
 
 	if index > len(pending.GetTransactions()) {

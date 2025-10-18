@@ -17,7 +17,6 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -136,7 +135,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		preConfirmed := blockIDPreConfirmed(t)
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
@@ -229,7 +228,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
 			handler := rpcv9.New(chain, mockSyncReader, nil, log)
@@ -379,7 +378,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
 			handler := rpcv9.New(chain, mockSyncReader, nil, log)
@@ -694,7 +693,14 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			txsWithReceipt = append(txsWithReceipt, rpcv9.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpcv9.AdaptReceipt(receipt, tx, rpcv9.TxnPreConfirmed, nil, 0),
+				Receipt: rpcv9.AdaptReceipt(
+					receipt,
+					tx,
+					rpcv9.TxnPreConfirmed,
+					nil,
+					0,
+					false,
+				),
 			})
 		}
 
@@ -737,7 +743,14 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			transactions[i] = rpcv9.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpcv9.AdaptReceipt(receipt, tx, rpcv9.TxnAcceptedOnL1, nil, 0),
+				Receipt: rpcv9.AdaptReceipt(
+					receipt,
+					tx,
+					rpcv9.TxnAcceptedOnL1,
+					nil,
+					0,
+					false,
+				),
 			}
 		}
 

@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -137,7 +136,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	t.Run("Returns latest state when pending data is nil", func(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			nil,
-			sync.ErrPendingBlockNotFound,
+			core.ErrPendingDataNotFound,
 		)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()
