@@ -22,7 +22,8 @@ type cleanCache struct {
 	cache *fastcache.Cache // map[nodeKey]node
 }
 
-// Creates a new clean cache with the given size. The size is the maximum size of the cache in bytes.
+// Creates a new clean cache with the given size.
+// The size is the maximum size of the cache in bytes.
 func newCleanCache(size uint64) cleanCache {
 	if size > uint64(math.MaxInt) {
 		panic("cache size too large: uint64 to int conversion would overflow")
