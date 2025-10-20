@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -75,8 +76,8 @@ type Reader interface {
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
-	PendingStateBeforeIndex(index int) (core.StateReader, func() error, error)
+	PendingState() (commonstate.StateReader, func() error, error)
+	PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -110,11 +111,13 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingState() (commonstate.StateReader, func() error, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
-func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingStateBeforeIndex(
+	index int,
+) (commonstate.StateReader, func() error, error) {
 	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
@@ -297,7 +300,8 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	err = s.plugin.RevertBlock(
 		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
 		toBlockAndStateUpdate,
-		reverseStateDiff)
+		&reverseStateDiff,
+	)
 	if err != nil {
 		s.log.Errorw("Plugin RevertBlock failure:", "err", err)
 	}
@@ -626,7 +630,7 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 var noop = func() error { return nil }
 
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
 	pendingPtr := s.pendingData.Load()
@@ -667,12 +671,19 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, errors.New("unsupported pending data variant")
 	}
 
-	return NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
+	pendingStateUpdate := pending.GetStateUpdate()
+	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn)
+	if err != nil {
+		return nil, nil, err
+	}
+	return NewPendingState(&stateDiff, newClasses, state), noop, nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
 // up to given index in the pre-confirmed block.
-func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+func (s *Synchronizer) PendingStateBeforeIndex(
+	index int,
+) (commonstate.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
 	pendingPtr := s.pendingData.Load()
@@ -717,5 +728,10 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 		stateDiff.Merge(txStateDiff)
 	}
 
-	return NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
+	pendingStateUpdate := pending.GetStateUpdate()
+	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn)
+	if err != nil {
+		return nil, nil, err
+	}
+	return NewPendingState(&stateDiff, newClasses, state), noop, nil
 }
