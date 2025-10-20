@@ -138,8 +138,8 @@ func (p *Pending) PendingStateBeforeIndex(baseState StateReader, index uint) (St
 
 func (p *Pending) PendingState(baseState StateReader) StateReader {
 	return NewPendingState(
-		p.GetStateUpdate().StateDiff,
-		p.GetNewClasses(),
+		p.StateUpdate.StateDiff,
+		p.NewClasses,
 		baseState,
 	)
 }
@@ -289,7 +289,7 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 	baseState StateReader,
 	index uint,
 ) (StateReader, error) {
-	if index > uint(len(p.GetTransactions())) {
+	if index > uint(len(p.Block.Transactions)) {
 		return nil, ErrTransactionIndexOutOfBounds
 	}
 
@@ -297,14 +297,14 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 	newClasses := make(map[felt.Felt]Class)
 
 	// Add pre_latest state diff if available
-	preLatest := p.GetPreLatest()
+	preLatest := p.PreLatest
 	if preLatest != nil {
 		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
 		newClasses = preLatest.NewClasses
 	}
 
 	// Apply transaction state diffs up to the given index
-	txStateDiffs := p.GetTransactionStateDiffs()
+	txStateDiffs := p.TransactionStateDiffs
 	for _, txStateDiff := range txStateDiffs[:index] {
 		stateDiff.Merge(txStateDiff)
 	}
@@ -317,13 +317,13 @@ func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
 	newClasses := make(map[felt.Felt]Class)
 
 	// Add pre_latest state diff if available
-	preLatest := p.GetPreLatest()
+	preLatest := p.PreLatest
 	if preLatest != nil {
 		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
 		newClasses = preLatest.NewClasses
 	}
 
-	stateDiff.Merge(p.GetStateUpdate().StateDiff)
+	stateDiff.Merge(p.StateUpdate.StateDiff)
 
 	return NewPendingState(&stateDiff, newClasses, baseState)
 }
