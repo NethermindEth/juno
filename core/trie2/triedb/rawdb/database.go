@@ -96,20 +96,20 @@ func (d *Database) Update(
 	}
 
 	for path, n := range classNodes {
-		if err := d.updateNode(batch, db.ClassTrie, &felt.Zero, &path, n); err != nil {
+		if err := d.updateNode(batch, db.ClassTrie, &felt.Zero, &path, n, true); err != nil {
 			return err
 		}
 	}
 
 	for path, n := range contractNodes {
-		if err := d.updateNode(batch, db.ContractTrieContract, &felt.Zero, &path, n); err != nil {
+		if err := d.updateNode(batch, db.ContractTrieContract, &felt.Zero, &path, n, false); err != nil {
 			return err
 		}
 	}
 
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
-			if err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n); err != nil {
+			if err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n, false); err != nil {
 				return err
 			}
 		}
@@ -124,17 +124,18 @@ func (d *Database) updateNode(
 	owner *felt.Felt,
 	path *trieutils.Path,
 	n trienode.TrieNode,
+	isClass bool,
 ) error {
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
 		if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf()); err != nil {
 			return err
 		}
-    d.cleanCache.deleteNode(owner, path, true)
+		d.cleanCache.deleteNode(owner, path, isClass)
 	} else {
 		if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, n.IsLeaf(), n.Blob()); err != nil {
 			return err
 		}
-    d.cleanCache.putNode(owner, path, true, n.Blob())
+		d.cleanCache.putNode(owner, path, isClass, n.Blob())
 	}
 	return nil
 }
