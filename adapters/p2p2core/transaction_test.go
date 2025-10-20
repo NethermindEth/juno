@@ -92,6 +92,15 @@ var SyncTransactionBuilder = transactiontestutils.SyncTransactionBuilder[
 			TransactionHash: transactionHash,
 		}
 	},
+	ToP2PDeployV3: func(
+		transaction *synctransaction.TransactionInBlock_DeployAccountV3,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn:             transaction,
+			TransactionHash: transactionHash,
+		}
+	},
 }
 
 func TestAdaptTransactionInBlock(t *testing.T) {
@@ -104,6 +113,7 @@ func TestAdaptTransactionInBlock(t *testing.T) {
 		SyncTransactionBuilder.GetTestDeclareV3Transaction,
 		SyncTransactionBuilder.GetTestDeployTransactionV0,
 		SyncTransactionBuilder.GetTestDeployAccountTransactionV1,
+		SyncTransactionBuilder.GetTestDeployAccountTransactionV3,
 	)
 	for i := range consensusTransactions {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Hash()), func(t *testing.T) {

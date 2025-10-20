@@ -22,6 +22,7 @@ type SyncTransactionBuilder[C, P any] struct {
 	ToP2PDeclareV3 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV3WithoutClass]
 	ToP2PDeployV0  toP2PType[P, *synctransaction.TransactionInBlock_Deploy]
 	ToP2PDeployV1  toP2PType[P, *synctransaction.TransactionInBlock_DeployAccountV1]
+	ToP2PDeployV3  toP2PType[P, *synctransaction.TransactionInBlock_DeployAccountV3]
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
@@ -322,4 +323,67 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 	)
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PDeployV1(&p2pTransaction, p2pHash)
+}
+
+func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
+	t.Helper()
+	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
+	classHash, classHashBytes := getRandomFelt(t)
+	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
+	contractAddress := core.ContractAddress(
+		&felt.Zero, &classHash,
+		&contractAddressSalt,
+		constructorCallData,
+	)
+	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
+	nonce, nonceBytes := getRandomFelt(t)
+	version := new(core.TransactionVersion).SetUint64(3)
+	tip := rand.Uint64()
+	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
+	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
+
+	p2pTransaction := synctransaction.TransactionInBlock_DeployAccountV3{
+		DeployAccountV3: &transaction.DeployAccountV3{
+			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+			ClassHash:                 &common.Hash{Elements: classHashBytes},
+			Nonce:                     &common.Felt252{Elements: nonceBytes},
+			AddressSalt:               &common.Felt252{Elements: contractAddressSaltBytes},
+			Calldata:                  toFelt252Slice(constructorCallDataBytes),
+			ResourceBounds:            p2pResourceBounds,
+			Tip:                       tip,
+			PaymasterData:             toFelt252Slice(paymasterDataBytes),
+			NonceDataAvailabilityMode: common.VolitionDomain_L2,
+			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
+		},
+	}
+
+	consensusDeployAccountTransaction := core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     nil,
+			ContractAddressSalt: &contractAddressSalt,
+			ContractAddress:     contractAddress,
+			ClassHash:           &classHash,
+			ConstructorCallData: constructorCallData,
+			Version:             version,
+		},
+		MaxFee:               nil,
+		TransactionSignature: transactionSignature,
+		Nonce:                &nonce,
+		ResourceBounds:       resourceBounds,
+		Tip:                  tip,
+		PaymasterData:        paymasterData,
+		NonceDAMode:          core.DAModeL2,
+		FeeDAMode:            core.DAModeL2,
+	}
+	var p2pHash *common.Hash
+	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeployAccountTransaction,
+		network,
+	)
+	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
+		b.ToP2PDeployV3(&p2pTransaction, p2pHash)
 }
