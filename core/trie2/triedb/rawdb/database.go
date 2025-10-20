@@ -39,7 +39,12 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	}
 }
 
-func (d *Database) readNode(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
+func (d *Database) readNode(
+	id trieutils.TrieID,
+	owner *felt.Felt,
+	path *trieutils.Path,
+	isLeaf bool,
+) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
@@ -132,7 +137,14 @@ func (d *Database) updateNode(
 		}
 		d.cleanCache.deleteNode(owner, path, isClass)
 	} else {
-		if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, n.IsLeaf(), n.Blob()); err != nil {
+		if err := trieutils.WriteNodeByPath(
+			batch,
+			bucket,
+			owner,
+			path,
+			n.IsLeaf(),
+			n.Blob(),
+		); err != nil {
 			return err
 		}
 		d.cleanCache.putNode(owner, path, isClass, n.Blob())

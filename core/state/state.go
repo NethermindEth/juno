@@ -493,7 +493,14 @@ func (s *State) flush(
 	storeHistory bool,
 ) error {
 	batch := s.db.disk.NewBatch()
-	if err := s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes, batch); err != nil {
+	if err := s.db.triedb.Update(
+		&update.curComm,
+		&update.prevComm,
+		blockNum,
+		update.classNodes,
+		update.contractNodes,
+		batch,
+	); err != nil {
 		return err
 	}
 

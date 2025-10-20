@@ -41,7 +41,8 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 	// the returned value is always zero and error is nil.
 	_, err := stateReader.ContractClassHash(address)
 	if err != nil {
-		// TODO(maksymmalick): state.ErrContractNotDeployed is returned by new state. Remove db.ErrKeyNotFound after integration
+		// TODO(maksymmalick): state.ErrContractNotDeployed is returned by new state.
+		// Remove db.ErrKeyNotFound after integration
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, state.ErrContractNotDeployed) {
 			return nil, rpccore.ErrContractNotFound
 		}
@@ -234,7 +235,11 @@ func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, erro
 	}
 }
 
-func getContractProof(tr commontrie.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProof(
+	tr commontrie.Trie,
+	state commonstate.StateReader,
+	contracts []felt.Felt,
+) (*ContractProof, error) {
 	switch t := tr.(type) {
 	case *commontrie.DeprecatedTrieAdapter:
 		return getContractProofWithDeprecatedTrie((*trie.Trie)(t), state, contracts)
@@ -245,7 +250,11 @@ func getContractProof(tr commontrie.Trie, state commonstate.StateReader, contrac
 	}
 }
 
-func getContractProofWithDeprecatedTrie(tr *trie.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProofWithDeprecatedTrie(
+	tr *trie.Trie,
+	state commonstate.StateReader,
+	contracts []felt.Felt,
+) (*ContractProof, error) {
 	contractProof := trie.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 
@@ -285,7 +294,11 @@ func getContractProofWithDeprecatedTrie(tr *trie.Trie, state commonstate.StateRe
 	}, nil
 }
 
-func getContractProofWithTrie(tr *trie2.Trie, st commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProofWithTrie(
+	tr *trie2.Trie,
+	st commonstate.StateReader,
+	contracts []felt.Felt,
+) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 
@@ -298,7 +311,8 @@ func getContractProofWithTrie(tr *trie2.Trie, st commonstate.StateReader, contra
 
 		nonce, err := st.ContractNonce(&contract)
 		if err != nil {
-			if errors.Is(err, state.ErrContractNotDeployed) { // contract does not exist, skip getting leaf data
+			// contract does not exist, skip getting leaf data
+			if errors.Is(err, state.ErrContractNotDeployed) {
 				continue
 			}
 			return nil, err
@@ -322,7 +336,10 @@ func getContractProofWithTrie(tr *trie2.Trie, st commonstate.StateReader, contra
 	}, nil
 }
 
-func getContractStorageProof(state commonstate.StateReader, storageKeys []StorageKeys) ([][]*HashToNode, error) {
+func getContractStorageProof(
+	state commonstate.StateReader,
+	storageKeys []StorageKeys,
+) ([][]*HashToNode, error) {
 	contractStorageRes := make([][]*HashToNode, len(storageKeys))
 	for i, storageKey := range storageKeys {
 		contractStorageTrie, err := state.ContractStorageTrie(storageKey.Contract)

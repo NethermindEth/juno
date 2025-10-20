@@ -115,7 +115,9 @@ func (n *NoopSynchronizer) PendingState() (commonstate.StateReader, func() error
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
-func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingStateBeforeIndex(
+	index int,
+) (commonstate.StateReader, func() error, error) {
 	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
@@ -679,7 +681,9 @@ func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, er
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
 // up to given index in the pre-confirmed block.
-func (s *Synchronizer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
+func (s *Synchronizer) PendingStateBeforeIndex(
+	index int,
+) (commonstate.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
 	pendingPtr := s.pendingData.Load()
