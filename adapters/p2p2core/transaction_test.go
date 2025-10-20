@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var TransactionBuilder = transactiontestutils.TransactionBuilder[
+var SyncTransactionBuilder = transactiontestutils.SyncTransactionBuilder[
 	core.Transaction,
 	*synctransaction.TransactionInBlock,
 ]{
@@ -59,7 +59,7 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[
 			TransactionHash: transactionHash,
 		}
 	},
-	ToP2PDeclareV3Sync: func(
+	ToP2PDeclareV3: func(
 		transaction *synctransaction.TransactionInBlock_DeclareV3WithoutClass,
 		transactionHash *common.Hash,
 	) *synctransaction.TransactionInBlock {
@@ -98,12 +98,12 @@ func TestAdaptTransactionInBlock(t *testing.T) {
 	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
 		&utils.Mainnet,
-		TransactionBuilder.GetTestDeclareV0Transaction,
-		TransactionBuilder.GetTestDeclareV1Transaction,
-		TransactionBuilder.GetTestDeclareV2Transaction,
-		TransactionBuilder.GetTestDeclareV3Transaction,
-		TransactionBuilder.GetTestDeployTransactionV0,
-		TransactionBuilder.GetTestDeployAccountTransactionV1,
+		SyncTransactionBuilder.GetTestDeclareV0Transaction,
+		SyncTransactionBuilder.GetTestDeclareV1Transaction,
+		SyncTransactionBuilder.GetTestDeclareV2Transaction,
+		SyncTransactionBuilder.GetTestDeclareV3Transaction,
+		SyncTransactionBuilder.GetTestDeployTransactionV0,
+		SyncTransactionBuilder.GetTestDeployAccountTransactionV1,
 	)
 	for i := range consensusTransactions {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Hash()), func(t *testing.T) {
