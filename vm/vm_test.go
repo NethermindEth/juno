@@ -38,7 +38,9 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	require.NoError(t, err)
 	testState, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
-	newRoot := felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8")
+	newRoot := felt.NewUnsafeFromString[felt.Felt](
+		"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+	)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: newRoot,
@@ -186,7 +188,9 @@ func TestCallCairo(t *testing.T) {
 	require.NoError(t, err)
 	testState, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
-	newRoot := felt.NewUnsafeFromString[felt.Felt]("0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84")
+	newRoot := felt.NewUnsafeFromString[felt.Felt](
+		"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
+	)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: newRoot,

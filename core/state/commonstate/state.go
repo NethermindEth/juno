@@ -90,7 +90,13 @@ func (s *StateAdapter) Update(
 	skipVerifyNewRoot bool,
 	flushChanges bool,
 ) error {
-	return (*state.State)(s).Update(blockNumber, update, declaredClasses, skipVerifyNewRoot, flushChanges)
+	return (*state.State)(s).Update(
+		blockNumber,
+		update,
+		declaredClasses,
+		skipVerifyNewRoot,
+		flushChanges,
+	)
 }
 
 func (s *StateAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {

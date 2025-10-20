@@ -13,7 +13,12 @@ type reader struct {
 	d  *Database
 }
 
-func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(
+	owner *felt.Felt,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
 	return r.d.readNode(r.id, owner, path, isLeaf)
 }
 

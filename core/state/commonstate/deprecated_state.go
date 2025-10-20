@@ -97,7 +97,13 @@ func (s *DeprecatedStateAdapter) Update(
 	skipVerifyNewRoot bool,
 	flushChanges bool,
 ) error {
-	return (*core.State)(s).Update(blockNumber, update, declaredClasses, skipVerifyNewRoot, flushChanges)
+	return (*core.State)(s).Update(
+		blockNumber,
+		update,
+		declaredClasses,
+		skipVerifyNewRoot,
+		flushChanges,
+	)
 }
 
 type DeprecatedStateReaderAdapter struct {

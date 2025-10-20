@@ -215,7 +215,9 @@ func (s *Sequencer) PendingState() (commonstate.StateReader, func() error, error
 	return s.builder.PendingState(s.buildState)
 }
 
-func (s *Sequencer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
+func (s *Sequencer) PendingStateBeforeIndex(
+	index int,
+) (commonstate.StateReader, func() error, error) {
 	return nil, nil, errors.ErrUnsupported
 }
 

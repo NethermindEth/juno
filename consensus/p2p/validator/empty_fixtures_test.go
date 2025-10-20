@@ -42,7 +42,11 @@ func NewEmptyTestFixture(
 
 	executor.RegisterBuildResult(&buildResult)
 
-	b := builder.New(blockchain.New(database, testCase.Network, statetestutils.UseNewState()), executor)
+	b := builder.New(blockchain.New(
+		database,
+		testCase.Network,
+		statetestutils.UseNewState(),
+	), executor)
 
 	proposalCommitment := EmptyProposalCommitment(headBlock, proposer, timestamp)
 
