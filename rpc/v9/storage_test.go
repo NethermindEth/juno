@@ -200,7 +200,11 @@ func TestStorageProof(t *testing.T) {
 		contractTrie = (*commontrie.DeprecatedTrieAdapter)(tempTrie)
 	} else {
 		newComm := new(felt.Felt).SetUint64(1)
-		createTrie := func(t *testing.T, id trieutils.TrieID, trieDB *trie2.TestNodeDatabase) *trie2.Trie {
+		createTrie := func(
+			t *testing.T,
+			id trieutils.TrieID,
+			trieDB *trie2.TestNodeDatabase,
+		) *trie2.Trie {
 			tr, err := trie2.New(id, 251, crypto.Pedersen, trieDB)
 			_ = tr.Update(key, value)
 			_ = tr.Update(key2, value2)
@@ -219,9 +223,19 @@ func TestStorageProof(t *testing.T) {
 		trieRoot = tmpTrieRoot
 
 		// recreate because the previous ones are committed
-		classTrie2, err := trie2.New(trieutils.NewClassTrieID(*newComm), 251, crypto.Pedersen, &trieDB)
+		classTrie2, err := trie2.New(
+			trieutils.NewClassTrieID(*newComm),
+			251,
+			crypto.Pedersen,
+			&trieDB,
+		)
 		require.NoError(t, err)
-		contractTrie2, err = trie2.New(trieutils.NewContractTrieID(*newComm), 251, crypto.Pedersen, &trieDB)
+		contractTrie2, err = trie2.New(
+			trieutils.NewContractTrieID(*newComm),
+			251,
+			crypto.Pedersen,
+			&trieDB,
+		)
 		require.NoError(t, err)
 		classTrie = (*commontrie.TrieAdapter)(classTrie2)
 		contractTrie = (*commontrie.TrieAdapter)(contractTrie2)
@@ -357,8 +371,14 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
 		if statetestutils.UseNewState() {
-			mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, state.ErrContractNotDeployed).Times(1)
-			mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, state.ErrContractNotDeployed).Times(0)
+			mockState.EXPECT().ContractNonce(noSuchKey).Return(
+				felt.Zero,
+				state.ErrContractNotDeployed,
+			).Times(1)
+			mockState.EXPECT().ContractClassHash(noSuchKey).Return(
+				felt.Zero,
+				state.ErrContractNotDeployed,
+			).Times(0)
 		} else {
 			mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)
 			mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(0)

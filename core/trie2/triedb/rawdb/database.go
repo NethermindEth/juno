@@ -26,7 +26,12 @@ func New(disk db.KeyValueStore) *Database {
 	}
 }
 
-func (d *Database) readNode(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
+func (d *Database) readNode(
+	id trieutils.TrieID,
+	owner *felt.Felt,
+	path *trieutils.Path,
+	isLeaf bool,
+) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	blob, err := trieutils.GetNodeByPath(d.disk, id.Bucket(), owner, path, isLeaf)
@@ -109,7 +114,14 @@ func (d *Database) updateNode(
 			return err
 		}
 	} else {
-		if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, n.IsLeaf(), n.Blob()); err != nil {
+		if err := trieutils.WriteNodeByPath(
+			batch,
+			bucket,
+			owner,
+			path,
+			n.IsLeaf(),
+			n.Blob(),
+		); err != nil {
 			return err
 		}
 	}

@@ -434,7 +434,9 @@ func (b *Blockchain) HeadState() (commonstate.StateReader, StateCloser, error) {
 }
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockNumber(
+	blockNumber uint64,
+) (commonstate.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
@@ -467,7 +469,9 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (commonstate.StateRe
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockHash(
+	blockHash *felt.Felt,
+) (commonstate.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		emptyState, err := b.StateFactory.EmptyState()
@@ -686,7 +690,12 @@ func (b *Blockchain) revertHead() error {
 			return err
 		}
 	}
-	if err = core.DeleteTxsAndReceipts(b.database, batch, blockNumber, header.TransactionCount); err != nil {
+	if err = core.DeleteTxsAndReceipts(
+		b.database,
+		batch,
+		blockNumber,
+		header.TransactionCount,
+	); err != nil {
 		return err
 	}
 	if err = core.DeleteStateUpdateByBlockNum(batch, blockNumber); err != nil {

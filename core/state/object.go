@@ -51,7 +51,9 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 
 	// TODO(maksym): test if this works instead of reading from disk
 	path := tr.FeltToPath(key)
-	reader, err := s.state.db.triedb.NodeReader(trieutils.NewContractStorageTrieID(s.state.initRoot, s.addr))
+	reader, err := s.state.db.triedb.NodeReader(
+		trieutils.NewContractStorageTrieID(s.state.initRoot, s.addr),
+	)
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -71,7 +73,10 @@ func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
 		return s.storageTrie, nil
 	}
 
-	storageTrie, err := s.state.db.ContractStorageTrie(&s.state.initRoot, &s.addr)
+	storageTrie, err := s.state.db.ContractStorageTrie(
+		&s.state.initRoot,
+		&s.addr,
+	)
 	if err != nil {
 		return nil, err
 	}

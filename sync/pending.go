@@ -20,7 +20,11 @@ type PendingState struct {
 	head       commonstate.StateReader
 }
 
-func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head commonstate.StateReader) *PendingState {
+func NewPendingState(
+	stateDiff *core.StateDiff,
+	newClasses map[felt.Felt]core.Class,
+	head commonstate.StateReader,
+) *PendingState {
 	return &PendingState{
 		stateDiff:  stateDiff,
 		newClasses: newClasses,

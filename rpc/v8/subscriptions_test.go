@@ -415,7 +415,9 @@ func (fs *fakeSyncer) PendingState() (commonstate.StateReader, func() error, err
 	return nil, nil, nil
 }
 
-func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
+func (fs *fakeSyncer) PendingStateBeforeIndex(
+	index int,
+) (commonstate.StateReader, func() error, error) {
 	return nil, nil, nil
 }
 
