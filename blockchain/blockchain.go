@@ -348,11 +348,11 @@ func (b *Blockchain) store(
 		return err
 	}
 
-	if err := b.runningFilter.Insert(block.EventsBloom, block.Number); err != nil {
+	if err := batch.Write(); err != nil {
 		return err
 	}
 
-	return batch.Write()
+	return b.runningFilter.Insert(block.EventsBloom, block.Number)
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
