@@ -583,7 +583,6 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Update(block0, declareDiff, newClasses, false))
 		require.NoError(t, batch.Write())
 
-		batch = stateDB.disk.NewBatch()
 		declaredClass, err := state.Class(classHash)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(0), declaredClass.At)
