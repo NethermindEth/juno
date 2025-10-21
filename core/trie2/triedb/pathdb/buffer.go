@@ -68,9 +68,6 @@ func (b *buffer) flush(kvs db.KeyValueStore, cleans *cleanCache, id uint64) erro
 	dbSize := b.nodes.dbSize()
 
 	batch := kvs.NewBatchWithSize(dbSize)
-	if batch == nil {
-		return fmt.Errorf("failed to create batch")
-	}
 
 	if err := b.nodes.write(batch, cleans); err != nil {
 		return err
