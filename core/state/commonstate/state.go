@@ -52,7 +52,7 @@ func (s *StateAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.TrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *StateAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -60,7 +60,7 @@ func (s *StateAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.TrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
@@ -68,7 +68,7 @@ func (s *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, er
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.TrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *StateAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
@@ -153,7 +153,7 @@ func (s *StateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.TrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -161,7 +161,7 @@ func (s *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.TrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
@@ -169,7 +169,7 @@ func (s *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Tr
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.TrieAdapter)(t), nil
+	return t, nil
 }
 
 type StateFactory struct {

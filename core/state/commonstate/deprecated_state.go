@@ -63,7 +63,7 @@ func (s *DeprecatedStateAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.DeprecatedTrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *DeprecatedStateAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -71,7 +71,7 @@ func (s *DeprecatedStateAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.DeprecatedTrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *DeprecatedStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
@@ -79,7 +79,7 @@ func (s *DeprecatedStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontri
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.DeprecatedTrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *DeprecatedStateAdapter) Commitment() (felt.Felt, error) {
@@ -128,7 +128,7 @@ func (s *DeprecatedStateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.DeprecatedTrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *DeprecatedStateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
@@ -136,7 +136,7 @@ func (s *DeprecatedStateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.DeprecatedTrieAdapter)(t), nil
+	return t, nil
 }
 
 func (s *DeprecatedStateReaderAdapter) ContractStorageTrie(
@@ -146,5 +146,5 @@ func (s *DeprecatedStateReaderAdapter) ContractStorageTrie(
 	if err != nil {
 		return nil, err
 	}
-	return (*commontrie.DeprecatedTrieAdapter)(t), nil
+	return t, nil
 }

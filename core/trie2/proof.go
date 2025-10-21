@@ -238,7 +238,7 @@ func verifyRangeWithProof(rootHash, first, last *felt.Felt, keys, values []*felt
 		}
 	}
 
-	newRoot := tr.Hash()
+	newRoot, _ := tr.Hash()
 	if !newRoot.Equal(rootHash) {
 		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), newRoot.String())
 	}
@@ -260,7 +260,7 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 			}
 		}
 
-		recomputedRoot := tr.Hash()
+		recomputedRoot, _ := tr.Hash()
 		if !recomputedRoot.Equal(rootHash) {
 			return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), recomputedRoot.String())
 		}

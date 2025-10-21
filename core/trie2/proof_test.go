@@ -14,7 +14,7 @@ func TestProve(t *testing.T) {
 	tempTrie, records := nonRandomTrie(t, n)
 
 	for _, record := range records {
-		root := tempTrie.Hash()
+		root, _ := tempTrie.Hash()
 
 		proofSet := NewProofNodeSet()
 		err := tempTrie.Prove(record.key, proofSet)
@@ -36,7 +36,7 @@ func TestProveNonExistent(t *testing.T) {
 	tempTrie, _ := nonRandomTrie(t, n)
 
 	for i := 1; i < n+1; i++ {
-		root := tempTrie.Hash()
+		root, _ := tempTrie.Hash()
 
 		keyFelt := new(felt.Felt).SetUint64(uint64(i + n))
 		proofSet := NewProofNodeSet()
@@ -55,7 +55,7 @@ func TestProveRandom(t *testing.T) {
 	tempTrie, records := randomTrie(t, 1000)
 
 	for _, record := range records {
-		root := tempTrie.Hash()
+		root, _ := tempTrie.Hash()
 
 		proofSet := NewProofNodeSet()
 		err := tempTrie.Prove(record.key, proofSet)
@@ -165,7 +165,7 @@ func TestProveCustom(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					proofSet := NewProofNodeSet()
 
-					root := tr.Hash()
+					root, _ := tr.Hash()
 					err := tr.Prove(tc.key, proofSet)
 					require.NoError(t, err)
 
@@ -184,7 +184,7 @@ func TestProveCustom(t *testing.T) {
 func TestRangeProof(t *testing.T) {
 	n := 500
 	tr, records := randomTrie(t, n)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	for i := 0; i < 100; i++ {
 		start := rand.Intn(n)
@@ -208,7 +208,7 @@ func TestRangeProof(t *testing.T) {
 
 func TestRangeProofNonRandom(t *testing.T) {
 	tr, records := nonRandomTrie(t, 6)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	proof := NewProofNodeSet()
 	err := tr.GetRangeProof(records[0].key, records[3].key, proof)
@@ -229,7 +229,7 @@ func TestRangeProofNonRandom(t *testing.T) {
 func TestRangeProofWithNonExistentProof(t *testing.T) {
 	n := 500
 	tr, records := randomTrie(t, n)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	for i := 0; i < 100; i++ {
 		start := rand.Intn(n)
@@ -261,7 +261,7 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 	n := 500
 	tr, records := randomTrie(t, n)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	start, end := 100, 200
 	first := decrementFelt(records[start].key)
@@ -284,7 +284,7 @@ func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 
 func TestRangeProofCustom(t *testing.T) {
 	tr, records := build4KeysTrieD(t)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	proof := NewProofNodeSet()
 	err := tr.GetRangeProof(records[0].key, records[2].key, proof)
@@ -297,7 +297,7 @@ func TestRangeProofCustom(t *testing.T) {
 func TestOneElementRangeProof(t *testing.T) {
 	n := 1000
 	tr, records := randomTrie(t, n)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	t.Run("both edge proofs with the same key", func(t *testing.T) {
 		start := 100
@@ -342,7 +342,7 @@ func TestOneElementRangeProof(t *testing.T) {
 
 	t.Run("1 key trie", func(t *testing.T) {
 		tr, records := build1KeyTrie(t)
-		root := tr.Hash()
+		root, _ := tr.Hash()
 
 		proof := NewProofNodeSet()
 		err := tr.GetRangeProof(&felt.Zero, records[0].key, proof)
@@ -357,7 +357,7 @@ func TestOneElementRangeProof(t *testing.T) {
 func TestAllElementsRangeProof(t *testing.T) {
 	n := 1000
 	tr, records := randomTrie(t, n)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	keys := make([]*felt.Felt, n)
 	values := make([]*felt.Felt, n)
@@ -381,7 +381,7 @@ func TestAllElementsRangeProof(t *testing.T) {
 // TestSingleSideRangeProof tests the range proof starting with zero.
 func TestSingleSideRangeProof(t *testing.T) {
 	tr, records := randomTrie(t, 1000)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	for i := 0; i < len(records); i += 100 {
 		proof := NewProofNodeSet()
@@ -402,7 +402,7 @@ func TestSingleSideRangeProof(t *testing.T) {
 
 func TestGappedRangeProof(t *testing.T) {
 	tr, records := nonRandomTrie(t, 5)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	first, last := 1, 4
 	proof := NewProofNodeSet()
@@ -426,7 +426,7 @@ func TestGappedRangeProof(t *testing.T) {
 
 func TestEmptyRangeProof(t *testing.T) {
 	tr, records := randomTrie(t, 1000)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	cases := []struct {
 		pos int
@@ -453,7 +453,7 @@ func TestEmptyRangeProof(t *testing.T) {
 
 func TestHasRightElement(t *testing.T) {
 	tr, records := randomTrie(t, 10000)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	cases := []struct {
 		start   int
@@ -503,7 +503,7 @@ func TestHasRightElement(t *testing.T) {
 // TestBadRangeProof generates random bad proof scenarios and verifies that the proof is invalid.
 func TestBadRangeProof(t *testing.T) {
 	tr, records := randomTrie(t, 5000)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	for range 500 {
 		start := rand.Intn(len(records))
@@ -568,7 +568,7 @@ func BenchmarkProve(b *testing.B) {
 
 func BenchmarkVerifyProof(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	proofs := make([]*ProofNodeSet, 0, len(records))
 	for _, record := range records {
@@ -590,7 +590,7 @@ func BenchmarkVerifyProof(b *testing.B) {
 
 func BenchmarkVerifyRangeProof(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
-	root := tr.Hash()
+	root, _ := tr.Hash()
 
 	start := 2
 	end := start + 500
