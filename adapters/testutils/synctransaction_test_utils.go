@@ -579,7 +579,11 @@ func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T,
 	}
 
 	var p2pHash *common.Hash
-	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusL1HandlerTransaction, network)
+	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusL1HandlerTransaction,
+		network,
+	)
 
 	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
 }
