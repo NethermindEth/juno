@@ -104,6 +104,19 @@ func TestSubscriptionCache_Eviction(t *testing.T) {
 	})
 }
 
+func TestSubscriptionCache_ClearResetsAllData(t *testing.T) {
+	cache := rpcv9.NewSubscriptionCache[string, int]()
+	key := "k"
+	val := 1
+
+	cache.Put(10, &key, &val)
+	require.False(t, cache.ShouldSend(10, &key, &val))
+
+	cache.Clear()
+	// After clear, prior entries should be considered absent
+	require.True(t, cache.ShouldSend(10, &key, &val))
+}
+
 func BenchmarkSubscriptionCache_Put(b *testing.B) {
 	cache := rpcv9.NewSubscriptionCache[string, int]()
 
