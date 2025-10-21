@@ -506,7 +506,6 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 	tip := rand.Uint64()
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
-	// accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
 
 	p2pTransaction := synctransaction.TransactionInBlock_InvokeV3{
 		InvokeV3: &transaction.InvokeV3{
