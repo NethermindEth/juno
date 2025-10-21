@@ -239,9 +239,10 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
 	classHash, _ := getRandomFelt(t)
-	constructorCallData, _ := getRandomFeltSlice(t)
+	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		&felt.Zero, &classHash,
+		&felt.Zero,
+		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
 	)
@@ -250,7 +251,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	p2pTransaction := synctransaction.TransactionInBlock_Deploy{
 		ClassHash:   core2p2p.AdaptHash(&classHash),
 		AddressSalt: &common.Felt252{Elements: contractAddressSaltBytes},
-		Calldata:    utils.Map(constructorCallData, core2p2p.AdaptFelt),
+		Calldata:    toFelt252Slice(constructorCallDataBytes),
 		Version:     0, // todo(kirill) remove field from spec? tx is deprecated so no future versions
 	}
 
@@ -517,7 +518,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 			ResourceBounds:            p2pResourceBounds,
 			Tip:                       tip,
 			PaymasterData:             toFelt252Slice(paymasterDataBytes),
-			AccountDeploymentData:     nil, // this is for future use as per starknet document
+			AccountDeploymentData:     nil, // TODO: this is for future use as per starknet document
 			NonceDataAvailabilityMode: common.VolitionDomain_L2,
 			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
@@ -539,7 +540,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 		PaymasterData:         paymasterData,
 		NonceDAMode:           core.DAModeL2,
 		FeeDAMode:             core.DAModeL2,
-		AccountDeploymentData: nil, // this is for future use as per starknet document
+		AccountDeploymentData: nil, // TODO: this is for future use as per starknet document
 	}
 	var p2pHash *common.Hash
 	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
