@@ -112,6 +112,17 @@ var SyncTransactionBuilder = transactiontestutils.SyncTransactionBuilder[
 			TransactionHash: transactionHash,
 		}
 	},
+	ToP2PInvokeV1: func(
+		transaction *synctransaction.TransactionInBlock_InvokeV1,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_InvokeV1_{
+				InvokeV1: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
 }
 
 func TestAdaptTransactionInBlock(t *testing.T) {

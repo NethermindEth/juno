@@ -265,6 +265,30 @@ func AdaptInvokeV0TxnCommon(
 	}
 }
 
+func AdaptInvokeV1TxnCommon(
+	t *synctransaction.TransactionInBlock,
+	tx *synctransaction.TransactionInBlock_InvokeV1,
+) *core.InvokeTransaction {
+	return &core.InvokeTransaction{
+		TransactionHash:      AdaptHash(t.TransactionHash),
+		ContractAddress:      nil, // todo call core.ContractAddress() ?
+		Nonce:                AdaptFelt(tx.Nonce),
+		SenderAddress:        AdaptAddress(tx.Sender),
+		CallData:             utils.Map(tx.Calldata, AdaptFelt),
+		TransactionSignature: adaptAccountSignature(tx.Signature),
+		MaxFee:               AdaptFelt(tx.MaxFee),
+		Version:              txVersion(1),
+		EntryPointSelector:   nil,
+		// version 3 fields (zero values)
+		ResourceBounds:        nil,
+		Tip:                   0,
+		PaymasterData:         nil,
+		AccountDeploymentData: nil,
+		NonceDAMode:           0,
+		FeeDAMode:             0,
+	}
+}
+
 func AdaptInvokeV3TxnCommon(
 	tx *transaction.InvokeV3,
 	txnHash *common.Hash,
@@ -345,26 +369,7 @@ func AdaptTransaction(
 	case *synctransaction.TransactionInBlock_InvokeV0_:
 		return AdaptInvokeV0TxnCommon(t, t.GetInvokeV0()), nil
 	case *synctransaction.TransactionInBlock_InvokeV1_:
-		tx := t.GetInvokeV1()
-		return &core.InvokeTransaction{
-			TransactionHash:      AdaptHash(t.TransactionHash),
-			ContractAddress:      nil, // todo call core.ContractAddress() ?
-			Nonce:                AdaptFelt(tx.Nonce),
-			SenderAddress:        AdaptAddress(tx.Sender),
-			CallData:             utils.Map(tx.Calldata, AdaptFelt),
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			MaxFee:               AdaptFelt(tx.MaxFee),
-			Version:              txVersion(1),
-			EntryPointSelector:   nil,
-			// version 3 fields (zero values)
-			ResourceBounds:        nil,
-			Tip:                   0,
-			PaymasterData:         nil,
-			AccountDeploymentData: nil,
-			NonceDAMode:           0,
-			FeeDAMode:             0,
-		}, nil
-
+		return AdaptDeclareV1TxnCommon(t, t.GetDeclareV1()), nil
 	case *synctransaction.TransactionInBlock_InvokeV3:
 		tx := t.GetInvokeV3()
 		return AdaptInvokeV3TxnCommon(tx, t.TransactionHash)
