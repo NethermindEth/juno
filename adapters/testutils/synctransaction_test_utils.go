@@ -347,7 +347,9 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeployAccountV3{
 		DeployAccountV3: &transaction.DeployAccountV3{
-			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+			Signature: &transaction.AccountSignature{
+				Parts: toFelt252Slice(transactionSignatureBytes),
+			},
 			ClassHash:                 &common.Hash{Elements: classHashBytes},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
 			AddressSalt:               &common.Felt252{Elements: contractAddressSaltBytes},
