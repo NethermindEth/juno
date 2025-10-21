@@ -38,6 +38,7 @@ type Sequencer struct {
 	subPendingData       *feed.Feed[core.PendingData]
 	subReorgFeed         *feed.Feed[*sync.ReorgBlockRange]
 	subPreConfirmedBlock *feed.Feed[*core.PreConfirmed]
+	subPreLatest         *feed.Feed[*core.PreLatest]
 	plugin               plugin.JunoPlugin
 
 	mu syncLock.RWMutex
@@ -237,6 +238,10 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 
 func (s *Sequencer) SubscribePendingData() sync.PendingDataSubscription {
 	return sync.PendingDataSubscription{Subscription: s.subPendingData.Subscribe()}
+}
+
+func (s *Sequencer) SubscribePreLatest() sync.PreLatestDataSubscription {
+	return sync.PreLatestDataSubscription{Subscription: s.subPreLatest.Subscribe()}
 }
 
 func (s *Sequencer) PendingData() (core.PendingData, error) {
