@@ -18,7 +18,7 @@ type StateHistory struct {
 }
 
 func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (StateHistory, error) {
-	state, err := New(stateRoot, db)
+	state, err := New(stateRoot, db, nil)
 	if err != nil {
 		return StateHistory{}, err
 	}

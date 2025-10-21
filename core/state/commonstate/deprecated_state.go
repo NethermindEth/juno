@@ -95,14 +95,12 @@ func (s *DeprecatedStateAdapter) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.Class,
 	skipVerifyNewRoot bool,
-	flushChanges bool,
 ) error {
 	return (*core.State)(s).Update(
 		blockNumber,
 		update,
 		declaredClasses,
 		skipVerifyNewRoot,
-		flushChanges,
 	)
 }
 

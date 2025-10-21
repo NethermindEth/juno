@@ -672,7 +672,7 @@ func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, er
 	}
 
 	pendingStateUpdate := pending.GetStateUpdate()
-	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn)
+	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -729,7 +729,7 @@ func (s *Synchronizer) PendingStateBeforeIndex(
 	}
 
 	pendingStateUpdate := pending.GetStateUpdate()
-	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn)
+	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn, nil)
 	if err != nil {
 		return nil, nil, err
 	}
