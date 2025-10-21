@@ -25,6 +25,8 @@ type SyncTransactionBuilder[C, P any] struct {
 	ToP2PDeployV3  toP2PType[P, *synctransaction.TransactionInBlock_DeployAccountV3]
 	ToP2PInvokeV0  toP2PType[P, *synctransaction.TransactionInBlock_InvokeV0]
 	ToP2PInvokeV1  toP2PType[P, *synctransaction.TransactionInBlock_InvokeV1]
+	ToP2PInvokeV3  toP2PType[P, *synctransaction.TransactionInBlock_InvokeV3]
+	ToP2PL1Handler toP2PType[P, *synctransaction.TransactionInBlock_L1Handler]
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
@@ -446,9 +448,8 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 	network *utils.Network,
 ) (C, P) {
 	t.Helper()
-	_, constructorCallDataBytes := getRandomFeltSlice(t)
+	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
-	classHash, _ := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	version := new(core.TransactionVersion).SetUint64(1)
 	nonce, nonceBytes := getRandomFelt(t)
@@ -464,15 +465,16 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 		Nonce:    &common.Felt252{Elements: nonceBytes},
 	}
 
-	consensusDeployAccountTransaction := core.DeclareTransaction{
-		TransactionHash:       nil, // this field is populated later
-		ClassHash:             &classHash,
-		SenderAddress:         &senderAddress,
-		MaxFee:                &maxFee,
-		TransactionSignature:  transactionSignature,
+	consensusDeployAccountTransaction := core.InvokeTransaction{
+		TransactionHash:       nil, // This field is populated later
+		ContractAddress:       nil, // todo call core.ContractAddress() ?
 		Nonce:                 &nonce,
+		SenderAddress:         &senderAddress,
+		CallData:              constructorCallData,
+		TransactionSignature:  transactionSignature,
+		MaxFee:                &maxFee,
 		Version:               version,
-		CompiledClassHash:     nil, // this field is not available on v1
+		EntryPointSelector:    nil, // this field is not available on v1
 		ResourceBounds:        nil, // this field is not available on v1
 		Tip:                   0,   // this field is not available on v1
 		PaymasterData:         nil, // this field is not available on v1
@@ -488,4 +490,95 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 	)
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PInvokeV1(&p2pTransaction, p2pHash)
+}
+
+func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
+	t.Helper()
+	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
+	senderAddress, senderAddressBytes := getRandomFelt(t)
+	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
+	version := new(core.TransactionVersion).SetUint64(3)
+	nonce, nonceBytes := getRandomFelt(t)
+	tip := rand.Uint64()
+	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
+	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
+	// accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
+
+	p2pTransaction := synctransaction.TransactionInBlock_InvokeV3{
+		InvokeV3: &transaction.InvokeV3{
+			Sender: &common.Address{Elements: senderAddressBytes},
+			Signature: &transaction.AccountSignature{
+				Parts: toFelt252Slice(transactionSignatureBytes),
+			},
+			Calldata:                  toFelt252Slice(constructorCallDataBytes),
+			ResourceBounds:            p2pResourceBounds,
+			Tip:                       tip,
+			PaymasterData:             toFelt252Slice(paymasterDataBytes),
+			AccountDeploymentData:     nil, // this is for future use as per starknet document
+			NonceDataAvailabilityMode: common.VolitionDomain_L2,
+			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
+			Nonce:                     &common.Felt252{Elements: nonceBytes},
+		},
+	}
+
+	consensusDeployAccountTransaction := core.InvokeTransaction{
+		TransactionHash:       nil, // this field is populated later
+		ContractAddress:       nil, // todo call core.ContractAddress() ?
+		CallData:              constructorCallData,
+		TransactionSignature:  transactionSignature,
+		MaxFee:                nil, // in 3 version this field was removed
+		Version:               version,
+		Nonce:                 &nonce,
+		SenderAddress:         &senderAddress,
+		EntryPointSelector:    nil,
+		Tip:                   tip,
+		ResourceBounds:        resourceBounds,
+		PaymasterData:         paymasterData,
+		NonceDAMode:           core.DAModeL2,
+		FeeDAMode:             core.DAModeL2,
+		AccountDeploymentData: nil, // this is for future use as per starknet document
+	}
+	var p2pHash *common.Hash
+	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeployAccountTransaction,
+		network,
+	)
+	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
+		b.ToP2PInvokeV3(&p2pTransaction, p2pHash)
+}
+
+func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, network *utils.Network) (C, P) {
+	t.Helper()
+	contractAddress, contractAddressBytes := getRandomFelt(t)
+	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
+	nonce, nonceBytes := getRandomFelt(t)
+	callData, callDataBytes := getRandomFeltSlice(t)
+	version := new(core.TransactionVersion).SetUint64(0)
+
+	p2pTransaction := synctransaction.TransactionInBlock_L1Handler{
+		L1Handler: &transaction.L1HandlerV0{
+			Nonce:              &common.Felt252{Elements: nonceBytes},
+			Address:            &common.Address{Elements: contractAddressBytes},
+			EntryPointSelector: &common.Felt252{Elements: entryPointSelectorBytes},
+			Calldata:           toFelt252Slice(callDataBytes),
+		},
+	}
+
+	consensusL1HandlerTransaction := core.L1HandlerTransaction{
+		TransactionHash:    nil, // This field is populated later
+		ContractAddress:    &contractAddress,
+		EntryPointSelector: &entryPointSelector,
+		Nonce:              &nonce,
+		CallData:           callData,
+		Version:            version,
+	}
+
+	var p2pHash *common.Hash
+	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusL1HandlerTransaction, network)
+
+	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
 }

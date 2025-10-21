@@ -369,7 +369,7 @@ func AdaptTransaction(
 	case *synctransaction.TransactionInBlock_InvokeV0_:
 		return AdaptInvokeV0TxnCommon(t, t.GetInvokeV0()), nil
 	case *synctransaction.TransactionInBlock_InvokeV1_:
-		return AdaptDeclareV1TxnCommon(t, t.GetDeclareV1()), nil
+		return AdaptInvokeV1TxnCommon(t, t.GetInvokeV1()), nil
 	case *synctransaction.TransactionInBlock_InvokeV3:
 		tx := t.GetInvokeV3()
 		return AdaptInvokeV3TxnCommon(tx, t.TransactionHash)
