@@ -240,6 +240,31 @@ func AdaptDeployAccountV3TxnCommon(
 	}, nil
 }
 
+func AdaptInvokeV0TxnCommon(
+	t *synctransaction.TransactionInBlock,
+	tx *synctransaction.TransactionInBlock_InvokeV0,
+) *core.InvokeTransaction {
+	return &core.InvokeTransaction{
+		TransactionHash:      AdaptHash(t.TransactionHash),
+		CallData:             utils.Map(tx.Calldata, AdaptFelt),
+		TransactionSignature: adaptAccountSignature(tx.Signature),
+		MaxFee:               AdaptFelt(tx.MaxFee),
+		ContractAddress:      AdaptAddress(tx.Address),
+		Version:              txVersion(0),
+		EntryPointSelector:   AdaptFelt(tx.EntryPointSelector),
+		// version 1 fields (zero values)
+		Nonce:         nil,
+		SenderAddress: nil,
+		// version 3 fields (zero values)
+		ResourceBounds:        nil,
+		Tip:                   0,
+		PaymasterData:         nil,
+		AccountDeploymentData: nil,
+		NonceDAMode:           0,
+		FeeDAMode:             0,
+	}
+}
+
 func AdaptInvokeV3TxnCommon(
 	tx *transaction.InvokeV3,
 	txnHash *common.Hash,
@@ -318,27 +343,7 @@ func AdaptTransaction(
 		tx := t.GetDeployAccountV3()
 		return AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash)
 	case *synctransaction.TransactionInBlock_InvokeV0_:
-		tx := t.GetInvokeV0()
-		return &core.InvokeTransaction{
-			TransactionHash:      AdaptHash(t.TransactionHash),
-			CallData:             utils.Map(tx.Calldata, AdaptFelt),
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			MaxFee:               AdaptFelt(tx.MaxFee),
-			ContractAddress:      AdaptAddress(tx.Address),
-			Version:              txVersion(0),
-			EntryPointSelector:   AdaptFelt(tx.EntryPointSelector),
-			// version 1 fields (zero values)
-			Nonce:         nil,
-			SenderAddress: nil,
-			// version 3 fields (zero values)
-			ResourceBounds:        nil,
-			Tip:                   0,
-			PaymasterData:         nil,
-			AccountDeploymentData: nil,
-			NonceDAMode:           0,
-			FeeDAMode:             0,
-		}, nil
-
+		return AdaptInvokeV0TxnCommon(t, t.GetInvokeV0()), nil
 	case *synctransaction.TransactionInBlock_InvokeV1_:
 		tx := t.GetInvokeV1()
 		return &core.InvokeTransaction{

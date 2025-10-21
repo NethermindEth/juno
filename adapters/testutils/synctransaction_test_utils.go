@@ -23,6 +23,7 @@ type SyncTransactionBuilder[C, P any] struct {
 	ToP2PDeployV0  toP2PType[P, *synctransaction.TransactionInBlock_Deploy]
 	ToP2PDeployV1  toP2PType[P, *synctransaction.TransactionInBlock_DeployAccountV1]
 	ToP2PDeployV3  toP2PType[P, *synctransaction.TransactionInBlock_DeployAccountV3]
+	ToP2PInvokeV0  toP2PType[P, *synctransaction.TransactionInBlock_InvokeV0]
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
@@ -388,4 +389,53 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 	)
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PDeployV3(&p2pTransaction, p2pHash)
+}
+
+func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
+	t.Helper()
+	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
+	contractAddress, contractAddressBytes := getRandomFelt(t)
+	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
+	version := new(core.TransactionVersion).SetUint64(0)
+	maxFee, maxFeeBytes := getRandomFelt(t)
+	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
+
+	p2pTransaction := synctransaction.TransactionInBlock_InvokeV0{
+		MaxFee: &common.Felt252{Elements: maxFeeBytes},
+		Signature: &transaction.AccountSignature{
+			Parts: toFelt252Slice(transactionSignatureBytes),
+		},
+		Address:            &common.Address{Elements: contractAddressBytes},
+		EntryPointSelector: &common.Felt252{Elements: entryPointSelectorBytes},
+		Calldata:           toFelt252Slice(constructorCallDataBytes),
+	}
+
+	consensusDeployAccountTransaction := core.InvokeTransaction{
+		TransactionHash:       nil,
+		CallData:              constructorCallData,
+		TransactionSignature:  transactionSignature,
+		MaxFee:                &maxFee,
+		ContractAddress:       &contractAddress,
+		Version:               version,
+		EntryPointSelector:    &entryPointSelector,
+		Nonce:                 nil, // this field is not available on v0
+		SenderAddress:         nil, // this field is not available on v0
+		ResourceBounds:        nil, // this field is not available on v0
+		Tip:                   0,   // this field is not available on v0
+		PaymasterData:         nil, // this field is not available on v0
+		AccountDeploymentData: nil, // this field is not available on v0
+		NonceDAMode:           0,   // this field is not available on v0
+		FeeDAMode:             0,   // this field is not available on v0
+	}
+	var p2pHash *common.Hash
+	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeployAccountTransaction,
+		network,
+	)
+	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
+		b.ToP2PInvokeV0(&p2pTransaction, p2pHash)
 }
