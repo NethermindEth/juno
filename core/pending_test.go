@@ -332,13 +332,15 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 // Helper function to create state diffs with incrementing counter values
 func createStateDiffWithIncrementingCounter(
 	t *testing.T,
-	contractAddress felt.Felt,
-	storageKey felt.Felt,
+	contractAddress *felt.Felt,
+	storageKey *felt.Felt,
 	numTxs int,
 ) ([]*core.StateDiff, *core.StateDiff) {
 	t.Helper()
 
 	transactionStateDiffs := make([]*core.StateDiff, numTxs)
+	contractAddr := *contractAddress
+	storageKeyVal := *storageKey
 
 	for i := range numTxs {
 		counterValue := felt.FromUint64[felt.Felt](uint64(i + 1))
@@ -346,12 +348,12 @@ func createStateDiffWithIncrementingCounter(
 
 		stateDiff := &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				contractAddress: {
-					storageKey: &counterValue,
+				contractAddr: {
+					storageKeyVal: &counterValue,
 				},
 			},
 			Nonces: map[felt.Felt]*felt.Felt{
-				contractAddress: &nonceValue,
+				contractAddr: &nonceValue,
 			},
 			DeployedContracts: make(map[felt.Felt]*felt.Felt, 0),
 			DeclaredV0Classes: make([]*felt.Felt, 0),
@@ -493,8 +495,8 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 		numTxs := 10
 		transactionStateDiffs, aggregatedStateDiff := createStateDiffWithIncrementingCounter(
 			t,
-			preConfirmedContractAddress,
-			preConfirmedStorageKey,
+			&preConfirmedContractAddress,
+			&preConfirmedStorageKey,
 			numTxs,
 		)
 
