@@ -236,7 +236,7 @@ func (h *Handler) SubscribeEvents(
 	}
 
 	l1HeadNumber := l1Head.BlockNumber
-	sentCache := NewSubscriptionDeduplicationCache[SentEvent, TxnFinalityStatus]()
+	sentCache := NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
 	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
@@ -334,7 +334,7 @@ func (h *Handler) processHistoricalEvents(
 	from, to *BlockID,
 	fromAddr *felt.Felt,
 	keys [][]felt.Felt,
-	sentCache *SubscriptionDeduplicationCache[SentEvent, TxnFinalityStatus],
+	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
 	height uint64,
 	l1Head uint64,
 ) error {
@@ -382,7 +382,7 @@ func processBlockEvents(
 	block *core.Block,
 	fromAddr *felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
-	sentCache *SubscriptionDeduplicationCache[SentEvent, TxnFinalityStatus],
+	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
 	finalityStatus TxnFinalityStatus,
 	isPreLatest bool,
 ) error {
@@ -422,14 +422,15 @@ func processBlockEvents(
 				Event:           event,
 			}
 
-			if err := sendEventWithoutDuplicate(
+			err := sendEventWithoutDuplicate(
 				w,
 				&event,
 				sentCache,
 				id,
 				finalityStatus,
 				&block.Number,
-			); err != nil {
+			)
+			if err != nil {
 				return err
 			}
 		}
@@ -442,7 +443,7 @@ func sendEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
 	events []blockchain.FilteredEvent,
-	sentCache *SubscriptionDeduplicationCache[SentEvent, TxnFinalityStatus],
+	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
 	id string,
 	height uint64,
 	l1Head uint64,
@@ -483,21 +484,22 @@ func sendEvents(
 func sendEventWithoutDuplicate(
 	w jsonrpc.Conn,
 	event *blockchain.FilteredEvent,
-	sentCache *SubscriptionDeduplicationCache[SentEvent, TxnFinalityStatus],
+	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
 	id string,
 	finalityStatus TxnFinalityStatus,
 	blockNum *uint64,
 ) error {
+	// TODO: Remove this check when we drop support for starknet < 0.14.0.
 	// Only use cache for deduplication if we have a block number
 	if blockNum != nil {
 		sentEvent := SentEvent{
 			TransactionHash: *event.TransactionHash,
 			EventIndex:      event.EventIndex,
 		}
-		if !sentCache.ShouldSend(*blockNum, sentEvent, finalityStatus) {
+		if !sentCache.ShouldSend(*blockNum, &sentEvent, &finalityStatus) {
 			return nil
 		}
-		sentCache.Put(*blockNum, sentEvent, finalityStatus)
+		sentCache.Put(*blockNum, &sentEvent, &finalityStatus)
 	}
 
 	emittedEvent := rpcv6.EmittedEvent{
@@ -848,7 +850,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 		finalityStatuses = utils.Set(finalityStatuses)
 	}
 
-	sentCache := NewSubscriptionDeduplicationCache[SentReceipt, TxnFinalityStatusWithoutL1]()
+	sentCache := NewSubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1]()
 
 	subscriber := subscriber{
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
@@ -935,7 +937,7 @@ func processBlockReceipts(
 	w jsonrpc.Conn,
 	senderAddress []felt.Felt,
 	block *core.Block,
-	sentCache *SubscriptionDeduplicationCache[SentReceipt, TxnFinalityStatusWithoutL1],
+	sentCache *SubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1],
 	finalityStatus TxnFinalityStatusWithoutL1,
 	isPreLatest bool,
 ) error {
@@ -958,39 +960,17 @@ func processBlockReceipts(
 			TransactionIndex: i,
 		}
 
-		if err := sendReceiptWithoutDuplicate(
-			w,
-			sentCache,
-			block.Number,
-			sentReceipt,
-			finalityStatus,
-			id,
-			adaptedReceipt,
-		); err != nil {
+		if !sentCache.ShouldSend(block.Number, &sentReceipt, &finalityStatus) {
+			continue
+		}
+
+		sentCache.Put(block.Number, &sentReceipt, &finalityStatus)
+
+		if err := sendTransactionReceipt(w, adaptedReceipt, id); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// sendReceiptWithoutDuplicate is a helper function that handles receipt deduplication
-// and sends the receipt if it hasn't been sent before with the same finality status
-func sendReceiptWithoutDuplicate(
-	w jsonrpc.Conn,
-	sentCache *SubscriptionDeduplicationCache[SentReceipt, TxnFinalityStatusWithoutL1],
-	blockNumber uint64,
-	sentReceipt SentReceipt,
-	finalityStatus TxnFinalityStatusWithoutL1,
-	id string,
-	adaptedReceipt *TransactionReceipt,
-) error {
-	if !sentCache.ShouldSend(blockNumber, sentReceipt, finalityStatus) {
-		return nil
-	}
-
-	sentCache.Put(blockNumber, sentReceipt, finalityStatus)
-
-	return sendTransactionReceipt(w, adaptedReceipt, id)
 }
 
 type TxnStatusWithoutL1 TxnStatus
@@ -1063,7 +1043,7 @@ func (h *Handler) SubscribeNewTransactions(
 		finalityStatus = utils.Set(finalityStatus)
 	}
 
-	sentCache := NewSubscriptionDeduplicationCache[felt.Hash, TxnFinalityStatusWithoutL1]()
+	sentCache := NewSubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1]()
 	subscriber := subscriber{
 		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			sentCache.Clear()
@@ -1149,7 +1129,7 @@ func processBlockTransactions(
 	w jsonrpc.Conn,
 	senderAddr []felt.Felt,
 	b *core.Block,
-	sentCache *SubscriptionDeduplicationCache[felt.Hash, TxnFinalityStatusWithoutL1],
+	sentCache *SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
 	status TxnStatusWithoutL1,
 ) error {
 	for _, txn := range b.Transactions {
@@ -1177,7 +1157,7 @@ func processCandidateTransactions(
 	w jsonrpc.Conn,
 	senderAddr []felt.Felt,
 	preConfirmed core.PendingData,
-	sentCache *SubscriptionDeduplicationCache[felt.Hash, TxnFinalityStatusWithoutL1],
+	sentCache *SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
 ) error {
 	for _, txn := range preConfirmed.GetCandidateTransaction() {
 		if !filterTxBySender(txn, senderAddr) {
@@ -1202,22 +1182,23 @@ func processCandidateTransactions(
 // and sends the transaction if it hasn't been sent before with the same finality status
 func sendTransactionWithoutDuplicate(
 	w jsonrpc.Conn,
-	sentCache *SubscriptionDeduplicationCache[felt.Hash, TxnFinalityStatusWithoutL1],
+	sentCache *SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
 	blockNumber uint64,
 	txn core.Transaction,
 	finalityStatus TxnStatusWithoutL1,
 	id string,
 ) error {
+	txHash := felt.TransactionHash(*txn.Hash())
 	if !sentCache.ShouldSend(
 		blockNumber,
-		felt.Hash(*txn.Hash()),
-		TxnFinalityStatusWithoutL1(finalityStatus),
+		&txHash,
+		&finalityStatus,
 	) {
 		return nil
 	}
 
 	// Add to cache
-	sentCache.Put(blockNumber, felt.Hash(*txn.Hash()), TxnFinalityStatusWithoutL1(finalityStatus))
+	sentCache.Put(blockNumber, &txHash, &finalityStatus)
 
 	response := SubscriptionNewTransaction{
 		Transaction:    *AdaptTransaction(txn),

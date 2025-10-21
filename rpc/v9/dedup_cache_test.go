@@ -7,120 +7,141 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSubscriptionDeduplicationCache_BasicOperations(t *testing.T) {
+func TestSubscriptionCache_BasicOperations(t *testing.T) {
+	key1 := "key1"
+	key2 := "key2"
+	key3 := "key3"
+	val1 := 1
+	val2 := 2
+	val3 := 3
 	t.Run("block zero", func(t *testing.T) {
 		t.Run("should handle basic operations with block zero", func(t *testing.T) {
-			cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+			cache := rpcv9.NewSubscriptionCache[string, int]()
 
 			// Test with block 0
-			cache.Put(0, "key1", 1)
-			require.False(t, cache.ShouldSend(0, "key1", 1))
-			require.True(t, cache.ShouldSend(0, "key1", 2))
+			cache.Put(0, &key1, &val1)
+			require.False(t, cache.ShouldSend(0, &key1, &val1))
+			require.True(t, cache.ShouldSend(0, &key1, &val2))
 		})
 
 		t.Run("should prefer empty slots over eviction", func(t *testing.T) {
-			cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+			cache := rpcv9.NewSubscriptionCache[string, int]()
 
-			cache.Put(0, "a", 1)
-			cache.Put(1, "b", 2) // Should use empty slot, not evict block 0
-			require.False(t, cache.ShouldSend(0, "a", 1))
+			cache.Put(0, &key1, &val1)
+			cache.Put(1, &key1, &val2) // Should use empty slot, not evict block 0
+			require.False(t, cache.ShouldSend(0, &key1, &val1))
 		})
 	})
 
 	t.Run("block non-zero", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+		cache := rpcv9.NewSubscriptionCache[string, int]()
 
-		require.True(t, cache.ShouldSend(100, "key1", 1))
+		require.True(t, cache.ShouldSend(100, &key1, &val1))
 
-		cache.Put(100, "key1", 1)
-		cache.Put(101, "key2", 2)
-		cache.Put(102, "key3", 3)
+		cache.Put(100, &key1, &val1)
+		cache.Put(101, &key2, &val2)
+		cache.Put(102, &key3, &val3)
 
-		require.False(t, cache.ShouldSend(100, "key1", 1))
-		require.True(t, cache.ShouldSend(100, "key1", 2))
-		require.True(t, cache.ShouldSend(100, "key2", 1))
+		require.False(t, cache.ShouldSend(100, &key1, &val1))
+		require.True(t, cache.ShouldSend(100, &key1, &val2))
+		require.True(t, cache.ShouldSend(100, &key2, &val1))
 	})
 
 	t.Run("should update existing value", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+		cache := rpcv9.NewSubscriptionCache[string, int]()
 
-		cache.Put(100, "key1", 1)
-		cache.Put(100, "key1", 2)
-		require.True(t, cache.ShouldSend(100, "key1", 1))
-		require.False(t, cache.ShouldSend(100, "key1", 2))
+		cache.Put(100, &key1, &val1)
+		cache.Put(100, &key1, &val2)
+		require.True(t, cache.ShouldSend(100, &key1, &val1))
+		require.False(t, cache.ShouldSend(100, &key1, &val2))
 	})
 }
 
-func TestSubscriptionDeduplicationCache_Eviction(t *testing.T) {
+func TestSubscriptionCache_Eviction(t *testing.T) {
+	key1 := "key1"
+	key2 := "key2"
+	key3 := "key3"
+	key4 := "key4"
+	key5 := "key5"
+	val1 := 1
+	val2 := 2
+	val3 := 3
+	val4 := 4
 	t.Run("should evict lowest block number", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+		cache := rpcv9.NewSubscriptionCache[string, int]()
 
 		// Fill cache to capacity
-		cache.Put(100, "key1", 1)
-		cache.Put(101, "key2", 2)
-		cache.Put(102, "key3", 3)
+		cache.Put(100, &key1, &val1)
+		cache.Put(101, &key2, &val2)
+		cache.Put(102, &key3, &val3)
 
 		// Add 4th block - should evict block 100 (lowest)
-		cache.Put(103, "key4", 4)
-		require.True(t, cache.ShouldSend(100, "key1", 1))
-		require.False(t, cache.ShouldSend(101, "key2", 2))
-		require.False(t, cache.ShouldSend(102, "key3", 3))
-		require.False(t, cache.ShouldSend(103, "key4", 4))
+		cache.Put(103, &key4, &val4)
+		require.True(t, cache.ShouldSend(100, &key1, &val1))
+		require.False(t, cache.ShouldSend(101, &key2, &val2))
+		require.False(t, cache.ShouldSend(102, &key3, &val3))
+		require.False(t, cache.ShouldSend(103, &key4, &val4))
 
 		// insert much lower block number - should evict 101 (current lowest)
-		cache.Put(50, "d", 4)
-		require.True(t, cache.ShouldSend(101, "key2", 2))
-		require.False(t, cache.ShouldSend(50, "d", 4))
+		cache.Put(50, &key5, &val4)
+		require.True(t, cache.ShouldSend(101, &key2, &val2))
+		require.False(t, cache.ShouldSend(50, &key5, &val4))
 	})
 
 	t.Run("should not leak keys across eviction", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+		cache := rpcv9.NewSubscriptionCache[string, int]()
 
-		cache.Put(100, "leak", 42)
-		cache.Put(101, "k2", 2)
-		cache.Put(102, "k3", 3)
+		keyLeak := "leak"
+		val42 := 42
 
-		cache.Put(103, "k4", 4)
+		cache.Put(100, &keyLeak, &val42)
+		cache.Put(101, &key2, &val2)
+		cache.Put(102, &key3, &val3)
 
-		require.True(t, cache.ShouldSend(103, "leak", 42))
+		cache.Put(103, &key4, &val4)
+
+		require.True(t, cache.ShouldSend(103, &keyLeak, &val42))
 	})
 }
 
-func BenchmarkSubscriptionDeduplicationCache_Put(b *testing.B) {
-	cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+func BenchmarkSubscriptionCache_Put(b *testing.B) {
+	cache := rpcv9.NewSubscriptionCache[string, int]()
 
+	key := "key"
 	b.ResetTimer()
 	for i := range b.N {
-		cache.Put(uint64(i%10), "key", i)
+		cache.Put(uint64(i), &key, &i)
 	}
 }
 
-func BenchmarkSubscriptionDeduplicationCache_ShouldSend(b *testing.B) {
-	cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+func BenchmarkSubscriptionCache_ShouldSend(b *testing.B) {
+	cache := rpcv9.NewSubscriptionCache[string, int]()
 
+	key := "key"
 	// Pre-populate cache
 	for i := range 3 {
-		cache.Put(uint64(i), "key", i)
+		cache.Put(uint64(i), &key, &i)
 	}
 
 	b.ResetTimer()
 	for i := range b.N {
-		cache.ShouldSend(uint64(i%3), "key", i)
+		cache.ShouldSend(uint64(i%3), &key, &i)
 	}
 }
 
-func BenchmarkSubscriptionDeduplicationCache_MixedOperations(b *testing.B) {
-	cache := rpcv9.NewSubscriptionDeduplicationCache[string, int]()
+func BenchmarkSubscriptionCache_MixedOperations(b *testing.B) {
+	cache := rpcv9.NewSubscriptionCache[string, int]()
+	key := "k"
 	for i := range 3 {
-		cache.Put(uint64(i), "k", i)
+		cache.Put(uint64(i), &key, &i)
 	}
 
 	b.ResetTimer()
 	for i := range b.N {
 		if (i & 1) == 0 {
-			cache.Put(uint64(i%16), "k", i)
+			cache.Put(uint64(i%16), &key, &i)
 		} else {
-			cache.ShouldSend(uint64(i%16), "k", i)
+			cache.ShouldSend(uint64(i%16), &key, &i)
 		}
 	}
 }
