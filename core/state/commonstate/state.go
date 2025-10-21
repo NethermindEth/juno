@@ -23,7 +23,6 @@ type State interface {
 		update *core.StateUpdate,
 		declaredClasses map[felt.Felt]core.Class,
 		skipVerifyNewRoot bool,
-		flushChanges bool,
 	) error
 	Revert(blockNum uint64, update *core.StateUpdate) error
 	Commitment() (felt.Felt, error)
@@ -88,14 +87,12 @@ func (s *StateAdapter) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.Class,
 	skipVerifyNewRoot bool,
-	flushChanges bool,
 ) error {
 	return (*state.State)(s).Update(
 		blockNumber,
 		update,
 		declaredClasses,
 		skipVerifyNewRoot,
-		flushChanges,
 	)
 }
 
@@ -201,13 +198,13 @@ func NewStateFactory(
 	}, nil
 }
 
-func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (State, error) {
+func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch, batch db.Batch) (State, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
 		return NewDeprecatedStateAdapter(deprecatedState), nil
 	}
 
-	stateState, err := state.New(stateRoot, sf.stateDB)
+	stateState, err := state.New(stateRoot, sf.stateDB, batch)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +236,7 @@ func (sf *StateFactory) EmptyState() (StateReader, error) {
 		emptyState := core.NewState(txn)
 		return NewDeprecatedStateReaderAdapter(emptyState), nil
 	}
-	state, err := state.New(&felt.Zero, sf.stateDB)
+	state, err := state.New(&felt.Zero, sf.stateDB, nil)
 	if err != nil {
 		return nil, err
 	}

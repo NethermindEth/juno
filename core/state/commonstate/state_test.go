@@ -25,7 +25,7 @@ func TestStateAdapter(t *testing.T) {
 		panic(err)
 	}
 	stateDB := state.NewStateDB(memDB, db)
-	state, err := state.New(&felt.Zero, stateDB)
+	state, err := state.New(&felt.Zero, stateDB, nil)
 	require.NoError(t, err)
 
 	stateAdapter := NewStateAdapter(state)
@@ -75,10 +75,10 @@ func BenchmarkStateUpdate(b *testing.B) {
 
 			for i := range samples {
 				declaredClasses := make(map[felt.Felt]core.Class)
-				if err := state.Update(uint64(i), suList[i], declaredClasses, false, true); err != nil {
+				if err := state.Update(uint64(i), suList[i], declaredClasses, false); err != nil {
 					b.Fatalf("Update failed: %v", err)
 				}
-				state, err = stateFactory.NewState(suList[i].NewRoot, txn)
+				state, err = stateFactory.NewState(suList[i].NewRoot, txn, nil)
 				require.NoError(b, err)
 			}
 		}
@@ -96,7 +96,7 @@ func BenchmarkStateUpdate(b *testing.B) {
 
 			for i := range samples {
 				declaredClasses := make(map[felt.Felt]core.Class)
-				if err := state.Update(uint64(i), suList[i], declaredClasses, false, true); err != nil {
+				if err := state.Update(uint64(i), suList[i], declaredClasses, false); err != nil {
 					b.Fatalf("Update failed: %v", err)
 				}
 			}
@@ -113,7 +113,7 @@ func prepareState(b *testing.B, newState bool) (State, *StateFactory, db.Indexed
 	stateFactory, err := NewStateFactory(newState, trieDB, stateDB)
 	require.NoError(b, err)
 
-	state, err := stateFactory.NewState(&felt.Zero, txn)
+	state, err := stateFactory.NewState(&felt.Zero, txn, nil)
 	require.NoError(b, err)
 
 	return state, stateFactory, txn

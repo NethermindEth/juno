@@ -237,7 +237,6 @@ func (s *State) Update(
 	update *StateUpdate,
 	declaredClasses map[felt.Felt]Class,
 	skipVerifyNewRoot bool,
-	flushChanges bool, // TODO(maksym): added to satisfy the interface, but not used
 ) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {

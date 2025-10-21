@@ -119,7 +119,7 @@ func GenesisStateDiff(
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}
-	state, err := stateFactory.NewState(&felt.Zero, memDB.NewIndexedBatch())
+	state, err := stateFactory.NewState(&felt.Zero, memDB.NewIndexedBatch(), nil)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}

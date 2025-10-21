@@ -267,7 +267,7 @@ func (b *Blockchain) deprecatedStore(
 		}
 
 		state := core.NewState(txn)
-		if err := state.Update(block.Number, stateUpdate, newClasses, false, true); err != nil {
+		if err := state.Update(block.Number, stateUpdate, newClasses, false); err != nil {
 			return err
 		}
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
@@ -315,14 +315,15 @@ func (b *Blockchain) store(
 	if err := verifyBlock(b.database, block); err != nil {
 		return err
 	}
-	state, err := b.StateFactory.NewState(stateUpdate.OldRoot, nil)
+	batch := b.database.NewBatch()
+
+	state, err := b.StateFactory.NewState(stateUpdate.OldRoot, nil, batch)
 	if err != nil {
 		return err
 	}
-	if err := state.Update(block.Number, stateUpdate, newClasses, false, true); err != nil {
+	if err := state.Update(block.Number, stateUpdate, newClasses, false); err != nil {
 		return err
 	}
-	batch := b.database.NewBatch()
 	if err := core.WriteBlockHeader(batch, block.Header); err != nil {
 		return err
 	}
@@ -428,7 +429,7 @@ func (b *Blockchain) HeadState() (commonstate.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	state, err := b.StateFactory.NewState(header.GlobalStateRoot, txn)
+	state, err := b.StateFactory.NewState(header.GlobalStateRoot, txn, nil)
 
 	return state, noopStateCloser, err
 }
@@ -585,7 +586,7 @@ func (b *Blockchain) getReverseStateDiff() (core.StateDiff, error) {
 	if err != nil {
 		return ret, err
 	}
-	state, err := state.New(stateUpdate.NewRoot, b.stateDB)
+	state, err := state.New(stateUpdate.NewRoot, b.stateDB, nil)
 	if err != nil {
 		return ret, err
 	}
@@ -666,7 +667,9 @@ func (b *Blockchain) revertHead() error {
 	if err != nil {
 		return err
 	}
-	state, err := state.New(stateUpdate.NewRoot, b.stateDB)
+	batch := b.database.NewBatch()
+
+	state, err := state.New(stateUpdate.NewRoot, b.stateDB, batch)
 	if err != nil {
 		return err
 	}
@@ -680,7 +683,6 @@ func (b *Blockchain) revertHead() error {
 	}
 	genesisBlock := blockNumber == 0
 
-	batch := b.database.NewBatch()
 	for _, key := range [][]byte{
 		db.BlockHeaderByNumberKey(header.Number),
 		db.BlockHeaderNumbersByHashKey(header.Hash),
@@ -729,7 +731,7 @@ func (b *Blockchain) Simulate(
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
 	defer txn.Reset()
-	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses, false); err != nil {
+	if err := b.updateStateRoots(txn, nil, block, stateUpdate, newClasses); err != nil {
 		return SimulateResult{}, err
 	}
 
@@ -764,7 +766,7 @@ func (b *Blockchain) Finalise(
 ) error {
 	if !b.StateFactory.UseNewState {
 		err := b.database.Update(func(txn db.IndexedBatch) error {
-			if err := b.updateStateRoots(txn, block, stateUpdate, newClasses, true); err != nil {
+			if err := b.updateStateRoots(txn, nil, block, stateUpdate, newClasses); err != nil {
 				return err
 			}
 			commitments, err := b.updateBlockHash(block, stateUpdate)
@@ -786,7 +788,7 @@ func (b *Blockchain) Finalise(
 		return b.runningFilter.Insert(block.EventsBloom, block.Number)
 	} else {
 		batch := b.database.NewBatch()
-		if err := b.updateStateRoots(nil, block, stateUpdate, newClasses, true); err != nil {
+		if err := b.updateStateRoots(nil, batch, block, stateUpdate, newClasses); err != nil {
 			return err
 		}
 		commitments, err := b.updateBlockHash(block, stateUpdate)
@@ -812,10 +814,10 @@ func (b *Blockchain) Finalise(
 // updateStateRoots computes and updates state roots in the block and state update
 func (b *Blockchain) updateStateRoots(
 	txn db.IndexedBatch,
+	batch db.Batch,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
-	flushChanges bool,
 ) error {
 	var height uint64
 	var err error
@@ -831,7 +833,7 @@ func (b *Blockchain) updateStateRoots(
 		stateRoot = &felt.Zero
 	}
 
-	state, err := b.StateFactory.NewState(stateRoot, txn)
+	state, err := b.StateFactory.NewState(stateRoot, txn, batch)
 	if err != nil {
 		return err
 	}
@@ -844,7 +846,7 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate.OldRoot = &oldStateRoot
 
 	// Apply state update
-	if err = state.Update(block.Number, stateUpdate, newClasses, true, flushChanges); err != nil {
+	if err = state.Update(block.Number, stateUpdate, newClasses, true); err != nil {
 		return err
 	}
 
