@@ -39,7 +39,7 @@ func AdaptUint128(u *common.Uint128) *felt.Felt {
 		return nil
 	}
 
-	bytes := make([]byte, 16) //nolint:mnd
+	bytes := make([]byte, 16)
 
 	binary.BigEndian.PutUint64(bytes[:8], u.High)
 	binary.BigEndian.PutUint64(bytes[8:], u.Low)
