@@ -12,7 +12,6 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 	"github.com/stretchr/testify/require"
 )
@@ -25,9 +24,6 @@ type toP2PType[P, I any] func(I, *common.Hash) P
 
 type TransactionBuilder[C, P any] struct {
 	ToCore         toCoreType[C]
-	ToP2PDeclareV0 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV0WithoutClass]
-	ToP2PDeclareV1 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV1WithoutClass]
-	ToP2PDeclareV2 toP2PType[P, *synctransaction.TransactionInBlock_DeclareV2WithoutClass]
 	ToP2PDeclareV3 toP2PType[P, *transaction.DeclareV3WithClass]
 	ToP2PDeploy    toP2PType[P, *transaction.DeployAccountV3]
 	ToP2PInvoke    toP2PType[P, *transaction.InvokeV3]
@@ -196,149 +192,6 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 
 	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil),
 		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
-}
-
-func (b *TransactionBuilder[C, P]) GetTestDeclareV0Transaction(
-	t *testing.T,
-	network *utils.Network,
-) (C, P) {
-	t.Helper()
-	classHash, _ := getSampleClass(t)
-	senderAddress, senderAddressBytes := getRandomFelt(t)
-	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	maxFee, maxFeeBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(0)
-
-	p2pTransaction := synctransaction.TransactionInBlock_DeclareV0WithoutClass{
-		Sender:    &common.Address{Elements: senderAddressBytes},
-		MaxFee:    &common.Felt252{Elements: maxFeeBytes},
-		Signature: &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
-		ClassHash: core2p2p.AdaptHash(&classHash),
-	}
-
-	consensusDeclareTransaction := core.DeclareTransaction{
-		TransactionHash:       nil, // this field is populated later
-		ClassHash:             &classHash,
-		SenderAddress:         &senderAddress,
-		MaxFee:                &maxFee,
-		TransactionSignature:  transactionSignature,
-		Nonce:                 nil, // this field is not available on v0
-		Version:               version,
-		CompiledClassHash:     nil, // this field is not available on v0
-		ResourceBounds:        nil, // this field is not available on v0
-		Tip:                   0,   // this field is not available on v0
-		PaymasterData:         nil, // this field is not available on v0
-		AccountDeploymentData: nil, // this field is not available on v0
-		NonceDAMode:           0,   // this field is not available on v0
-		FeeDAMode:             0,   // this field is not available on v0
-	}
-
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
-		t,
-		&consensusDeclareTransaction,
-		network,
-	)
-	return b.ToCore(&consensusDeclareTransaction, nil, nil),
-		b.ToP2PDeclareV0(&p2pTransaction, p2pHash)
-}
-
-func (b *TransactionBuilder[C, P]) GetTestDeclareV1Transaction(
-	t *testing.T,
-	network *utils.Network,
-) (C, P) {
-	t.Helper()
-
-	classHash, _ := getSampleClass(t)
-	senderAddress, senderAddressBytes := getRandomFelt(t)
-	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	nonce, nonceBytes := getRandomFelt(t)
-	maxFee, maxFeeBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(1)
-
-	p2pTransaction := synctransaction.TransactionInBlock_DeclareV1WithoutClass{
-		Sender:    &common.Address{Elements: senderAddressBytes},
-		MaxFee:    &common.Felt252{Elements: maxFeeBytes},
-		Signature: &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
-		ClassHash: core2p2p.AdaptHash(&classHash),
-		Nonce:     &common.Felt252{Elements: nonceBytes},
-	}
-
-	consensusDeclareTransaction := core.DeclareTransaction{
-		TransactionHash:       nil, // this field is populated later
-		ClassHash:             &classHash,
-		SenderAddress:         &senderAddress,
-		MaxFee:                &maxFee,
-		TransactionSignature:  transactionSignature,
-		Nonce:                 &nonce,
-		Version:               version,
-		CompiledClassHash:     nil, // this field is not available on v1
-		ResourceBounds:        nil, // this field is not available on v1
-		PaymasterData:         nil, // this field is not available on v1
-		AccountDeploymentData: nil, // this field is not available on v1
-		Tip:                   0,   // this field is not available on v1
-		NonceDAMode:           0,   // this field is not available on v1
-		FeeDAMode:             0,   // this field is not available on v1
-	}
-
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
-		t,
-		&consensusDeclareTransaction,
-		network,
-	)
-	return b.ToCore(&consensusDeclareTransaction, nil, nil),
-		b.ToP2PDeclareV1(&p2pTransaction, p2pHash)
-}
-
-func (b *TransactionBuilder[C, P]) GetTestDeclareV2Transaction(
-	t *testing.T,
-	network *utils.Network,
-) (C, P) {
-	t.Helper()
-	classHash, cairo1Class := getSampleClass(t)
-	senderAddress, senderAddressBytes := getRandomFelt(t)
-	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	nonce, nonceBytes := getRandomFelt(t)
-	maxFee, maxFeeBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(2)
-
-	p2pTransaction := synctransaction.TransactionInBlock_DeclareV2WithoutClass{
-		Sender: &common.Address{Elements: senderAddressBytes},
-		MaxFee: &common.Felt252{Elements: maxFeeBytes},
-		Signature: &transaction.AccountSignature{
-			Parts: toFelt252Slice(transactionSignatureBytes),
-		},
-		ClassHash:         core2p2p.AdaptHash(&classHash),
-		Nonce:             &common.Felt252{Elements: nonceBytes},
-		CompiledClassHash: core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
-	}
-
-	consensusDeclareTransaction := core.DeclareTransaction{
-		TransactionHash:       nil, // this field is populated later
-		ClassHash:             &classHash,
-		SenderAddress:         &senderAddress,
-		MaxFee:                &maxFee,
-		TransactionSignature:  transactionSignature,
-		Nonce:                 &nonce,
-		Version:               version,
-		CompiledClassHash:     cairo1Class.Compiled.Hash(),
-		ResourceBounds:        nil, // this field is not available on v2
-		PaymasterData:         nil, // this field is not available on v2
-		AccountDeploymentData: nil, // this field is not available on v2
-		Tip:                   0,   // this field is not available on v2
-		NonceDAMode:           0,   // this field is not available on v2
-		FeeDAMode:             0,   // this field is not available on v2
-	}
-
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
-		t,
-		&consensusDeclareTransaction,
-		network,
-	)
-	return b.ToCore(&consensusDeclareTransaction, nil, nil),
-		b.ToP2PDeclareV2(&p2pTransaction, p2pHash)
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
