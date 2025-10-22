@@ -376,7 +376,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 			ConstructorCallData: constructorCallData,
 			Version:             version,
 		},
-		MaxFee:               nil,
+		MaxFee:               nil, // Unused field
 		TransactionSignature: transactionSignature,
 		Nonce:                &nonce,
 		ResourceBounds:       resourceBounds,
@@ -533,7 +533,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 		Version:               version,
 		Nonce:                 &nonce,
 		SenderAddress:         &senderAddress,
-		EntryPointSelector:    nil,
+		EntryPointSelector:    nil, // TODO: Figure out why the original adapter doesn't set this field
 		Tip:                   tip,
 		ResourceBounds:        resourceBounds,
 		PaymasterData:         paymasterData,
