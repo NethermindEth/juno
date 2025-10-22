@@ -551,7 +551,10 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 		b.ToP2PInvokeV3(&p2pTransaction, p2pHash)
 }
 
-func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
 	t.Helper()
 	contractAddress, contractAddressBytes := getRandomFelt(t)
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
@@ -584,5 +587,6 @@ func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T,
 		network,
 	)
 
-	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
+	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()),
+		b.ToP2PL1Handler(&p2pTransaction, p2pHash)
 }
