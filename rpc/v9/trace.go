@@ -194,7 +194,7 @@ func traceTransactionsWithState(
 	transactions []core.Transaction,
 	executionState core.StateReader,
 	classLookupState core.StateReader,
-	blockInfo vm.BlockInfo,
+	blockInfo *vm.BlockInfo,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
@@ -211,7 +211,7 @@ func traceTransactionsWithState(
 		transactions,
 		declaredClasses,
 		paidFeesOnL1,
-		&blockInfo,
+		blockInfo,
 		executionState,
 		false, // skipValidate
 		false, // skipFeeCharge
@@ -348,6 +348,7 @@ func (h *Handler) findAndTraceInPendingBlock(
 	case core.PreConfirmedBlockVariant:
 		return h.traceInPreConfirmedBlock(pendingData, txIndex)
 	case core.PendingBlockVariant:
+		// TODO: remove pending when its will be no longer supported
 		blockTraces, httpHeader, rpcErr := h.traceBlockWithVM(block)
 		if rpcErr != nil {
 			return TransactionTrace{}, nil, rpcErr
@@ -381,7 +382,7 @@ func (h *Handler) traceInPreConfirmedBlock(
 		[]core.Transaction{transaction},
 		state, // execution state
 		state, // class lookup state (same for preconfirmed)
-		blockInfo,
+		&blockInfo,
 	)
 	if rpcErr != nil {
 		return TransactionTrace{}, httpHeader, rpcErr
@@ -459,7 +460,7 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
-
+	// TODO: remove pending variant when it is no longer supported
 	isPending := block.Hash == nil
 	if isPending {
 		headState, headStateCloser, err = h.PendingState()
@@ -482,7 +483,7 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 		block.Transactions,
 		state,
 		headState,
-		blockInfo,
+		&blockInfo,
 	)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
