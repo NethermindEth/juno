@@ -12,9 +12,15 @@ var (
 )
 
 var (
-	ErrPendingDataNotFound        = errors.New("pending_data not found")
-	ErrTransactionNotFound        = errors.New("pending_data: transaction not found")
-	ErrTransactionReceiptNotFound = errors.New("pending_data: transaction receipt not found")
+	ErrPendingDataNotFound         = errors.New("pending_data not found")
+	ErrTransactionNotFound         = errors.New("pending_data: transaction not found")
+	ErrTransactionReceiptNotFound  = errors.New("pending_data: transaction receipt not found")
+	ErrTransactionIndexOutOfBounds = errors.New(
+		"pending_data: transaction index out of bounds",
+	)
+	ErrPendingStateBeforeIndexNotSupported = errors.New(
+		"pending_data: PendingStateBeforeIndex not supported for Pending block",
+	)
 )
 
 type PendingDataVariant uint8
@@ -39,6 +45,11 @@ type PendingData interface {
 	Variant() PendingDataVariant
 	TransactionByHash(hash *felt.Felt) (Transaction, error)
 	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
+	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
+	// up to given index in the pre-confirmed block.
+	PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error)
+	// PendingState returns the state resulting from execution of the pending data
+	PendingState(baseState StateReader) StateReader
 }
 
 type Pending struct {
@@ -119,6 +130,18 @@ func (p *Pending) ReceiptByHash(
 	}
 
 	return nil, nil, 0, ErrTransactionReceiptNotFound
+}
+
+func (p *Pending) PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error) {
+	return nil, ErrPendingStateBeforeIndexNotSupported
+}
+
+func (p *Pending) PendingState(baseState StateReader) StateReader {
+	return NewPendingState(
+		p.StateUpdate.StateDiff,
+		p.NewClasses,
+		baseState,
+	)
 }
 
 type PreLatest Pending
@@ -260,4 +283,47 @@ func (p *PreConfirmed) ReceiptByHash(
 	}
 
 	return nil, nil, 0, ErrTransactionReceiptNotFound
+}
+
+func (p *PreConfirmed) PendingStateBeforeIndex(
+	baseState StateReader,
+	index uint,
+) (StateReader, error) {
+	if index > uint(len(p.Block.Transactions)) {
+		return nil, ErrTransactionIndexOutOfBounds
+	}
+
+	stateDiff := EmptyStateDiff()
+	newClasses := make(map[felt.Felt]Class)
+
+	// Add pre_latest state diff if available
+	preLatest := p.PreLatest
+	if preLatest != nil {
+		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+		newClasses = preLatest.NewClasses
+	}
+
+	// Apply transaction state diffs up to the given index
+	txStateDiffs := p.TransactionStateDiffs
+	for _, txStateDiff := range txStateDiffs[:index] {
+		stateDiff.Merge(txStateDiff)
+	}
+
+	return NewPendingState(&stateDiff, newClasses, baseState), nil
+}
+
+func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
+	stateDiff := EmptyStateDiff()
+	newClasses := make(map[felt.Felt]Class)
+
+	// Add pre_latest state diff if available
+	preLatest := p.PreLatest
+	if preLatest != nil {
+		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+		newClasses = preLatest.NewClasses
+	}
+
+	stateDiff.Merge(p.StateUpdate.StateDiff)
+
+	return NewPendingState(&stateDiff, newClasses, baseState)
 }

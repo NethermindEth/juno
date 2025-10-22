@@ -80,8 +80,6 @@ type Reader interface {
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
-	PendingStateBeforeIndex(index int) (core.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -121,10 +119,6 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 
 func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
-}
-
-func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -636,101 +630,4 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 		return nil
 	}
 	return pendingData.GetBlock()
-}
-
-var noop = func() error { return nil }
-
-// PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
-	txn := s.db.NewIndexedBatch()
-
-	pendingPtr := s.pendingData.Load()
-	if pendingPtr == nil || *pendingPtr == nil {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, nil, err
-		}
-		head = nil
-	}
-
-	pending := *pendingPtr
-
-	if !pending.Validate(head) {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.Class)
-	switch pending.Variant() {
-	case core.PreConfirmedBlockVariant:
-		preLatest := pending.GetPreLatest()
-		// Built pre_confirmed state top on pre_latest if
-		// pre_confirmed is 2 blocks ahead of latest
-		if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
-			stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-			newClasses = preLatest.NewClasses
-		}
-		stateDiff.Merge(pending.GetStateUpdate().StateDiff)
-	case core.PendingBlockVariant:
-		newClasses = pending.GetNewClasses()
-		stateDiff.Merge(pending.GetStateUpdate().StateDiff)
-	default:
-		return nil, nil, errors.New("unsupported pending data variant")
-	}
-
-	return NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
-}
-
-// PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
-// up to given index in the pre-confirmed block.
-func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	txn := s.db.NewIndexedBatch()
-
-	pendingPtr := s.pendingData.Load()
-	if pendingPtr == nil || *pendingPtr == nil {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	pending := *pendingPtr
-	if pending.Variant() != core.PreConfirmedBlockVariant {
-		return nil, nil, errors.New("only supported for pre_confirmed block")
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, nil, err
-		}
-		head = nil
-	}
-
-	if !pending.Validate(head) {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	if index > len(pending.GetTransactions()) {
-		return nil, nil, errors.New("transaction index out of bounds")
-	}
-
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.Class)
-	preLatest := pending.GetPreLatest()
-	// Built pre_confirmed state top on pre_latest if
-	// pre_confirmed is 2 blocks ahead of latest
-	if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
-		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-		newClasses = preLatest.NewClasses
-	}
-
-	// Transaction state diffs size must always match Transactions
-	txStateDiffs := pending.GetTransactionStateDiffs()
-	for _, txStateDiff := range txStateDiffs[:index] {
-		stateDiff.Merge(txStateDiff)
-	}
-
-	return NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
 }

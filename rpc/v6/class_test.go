@@ -160,10 +160,12 @@ func TestClassHashAt(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, n, log)
 
+	latestID := rpc.BlockID{Latest: true}
+	targetAddress := felt.FromUint64[felt.Felt](1234)
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(latestID, targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -171,7 +173,10 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(
+			rpc.BlockID{Hash: &felt.Zero},
+			targetAddress,
+		)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -179,7 +184,10 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(
+			rpc.BlockID{Number: 0},
+			targetAddress,
+		)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -188,11 +196,10 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(
-			felt.Zero, errors.New("non-existent contract"),
-		)
+		mockState.EXPECT().ContractClassHash(&targetAddress).
+			Return(felt.Felt{}, errors.New("non-existent contract"))
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(latestID, targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
@@ -201,38 +208,61 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).
+			Return(*expectedClassHash, nil)
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Latest: true}, felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(latestID, targetAddress)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(
+			rpc.BlockID{Hash: &felt.Zero},
+			targetAddress,
+		)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(
+			rpc.BlockID{Number: 0},
+			targetAddress,
+		)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 
+	//nolint:dupl //  similar structure with nonce test, different endpoint.
 	t.Run("blockID - pending", func(t *testing.T) {
-		pending := core.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
+		pendingStateDiff := core.EmptyStateDiff()
+		pendingStateDiff.DeployedContracts[targetAddress] = expectedClassHash
 
-		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Pending: true}, felt.Zero)
+		pending := core.Pending{
+			Block: &core.Block{
+				Header: &core.Header{
+					ParentHash: felt.NewFromUint64[felt.Felt](2),
+				},
+			},
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &pendingStateDiff,
+			},
+		}
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
+		mockReader.EXPECT().StateAtBlockHash(pending.Block.ParentHash).
+			Return(mockState, nopCloser, nil)
+
+		classHash, rpcErr := handler.ClassHashAt(
+			rpc.BlockID{Pending: true},
+			targetAddress,
+		)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
