@@ -23,7 +23,7 @@ func AdaptTransaction(tx *consensus.Transaction) (*p2pconsensus.ConsensusTransac
 		}
 
 		switch class := tx.Class.(type) {
-		case *core.Cairo1Class:
+		case *core.SierraClass:
 			return &p2pconsensus.ConsensusTransaction{
 				Txn: &p2pconsensus.ConsensusTransaction_DeclareV3{
 					DeclareV3: &transaction.DeclareV3WithClass{

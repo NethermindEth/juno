@@ -17,7 +17,7 @@ import (
 )
 
 var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Transaction, *p2pconsensus.ConsensusTransaction]{
-	ToCore: func(transaction core.Transaction, class core.Class, paidFeeOnL1 *felt.Felt) consensus.Transaction {
+	ToCore: func(transaction core.Transaction, class core.ClassDefinition, paidFeeOnL1 *felt.Felt) consensus.Transaction {
 		return consensus.Transaction{
 			Transaction: transaction,
 			Class:       class,

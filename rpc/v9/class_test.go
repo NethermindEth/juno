@@ -51,7 +51,7 @@ func TestClass(t *testing.T) {
 
 		class, rpcErr := handler.Class(&latest, hash)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.Cairo1Class)
+		cairo1Class := coreClass.(*core.SierraClass)
 		assertEqualCairo1Class(t, cairo1Class, class)
 	})
 
@@ -64,7 +64,7 @@ func TestClass(t *testing.T) {
 		class, rpcErr := handler.Class(&latest, hash)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.Cairo0Class)
+		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
 		assertEqualCairo0Class(t, cairo0Class, class)
 	})
 
@@ -132,7 +132,7 @@ func TestClassAt(t *testing.T) {
 
 		class, rpcErr := handler.ClassAt(&latest, cairo1ContractAddress)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.Cairo1Class)
+		cairo1Class := coreClass.(*core.SierraClass)
 		assertEqualCairo1Class(t, cairo1Class, class)
 	})
 
@@ -143,7 +143,7 @@ func TestClassAt(t *testing.T) {
 		class, rpcErr := handler.ClassAt(&latest, cairo0ContractAddress)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.Cairo0Class)
+		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
 		assertEqualCairo0Class(t, cairo0Class, class)
 	})
 }
@@ -266,7 +266,7 @@ func TestClassHashAt(t *testing.T) {
 	})
 }
 
-func assertEqualCairo0Class(t *testing.T, cairo0Class *core.Cairo0Class, class *rpcv6.Class) {
+func assertEqualCairo0Class(t *testing.T, cairo0Class *core.DeprecatedCairoClass, class *rpcv6.Class) {
 	assert.Equal(t, cairo0Class.Program, class.Program)
 	assert.Equal(t, cairo0Class.Abi, class.Abi.(json.RawMessage))
 
@@ -292,7 +292,7 @@ func assertEqualCairo0Class(t *testing.T, cairo0Class *core.Cairo0Class, class *
 	}
 }
 
-func assertEqualCairo1Class(t *testing.T, cairo1Class *core.Cairo1Class, class *rpcv6.Class) {
+func assertEqualCairo1Class(t *testing.T, cairo1Class *core.SierraClass, class *rpcv6.Class) {
 	assert.Equal(t, cairo1Class.Program, class.SierraProgram)
 	assert.Equal(t, cairo1Class.Abi, class.Abi.(string))
 	assert.Equal(t, cairo1Class.SemanticVersion, class.ContractClassVersion)

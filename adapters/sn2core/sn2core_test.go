@@ -260,7 +260,7 @@ func TestClassV0(t *testing.T) {
 			require.NoError(t, err)
 			classGeneric, err := sn2core.AdaptCairo0Class(response.V0)
 			require.NoError(t, err)
-			class, ok := classGeneric.(*core.Cairo0Class)
+			class, ok := classGeneric.(*core.DeprecatedCairoClass)
 			require.True(t, ok)
 
 			for i, v := range response.V0.EntryPoints.External {

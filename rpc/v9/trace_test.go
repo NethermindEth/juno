@@ -318,7 +318,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
@@ -357,7 +357,7 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
+		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), false, false,
 			false, true, false).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
@@ -401,7 +401,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
@@ -411,7 +411,7 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,
 			},
-			NewClasses: map[felt.Felt]core.Class{*tx.ClassHash: declaredClass.Class},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
 		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
@@ -449,7 +449,7 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
+		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -758,7 +758,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
@@ -788,7 +788,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
+		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
 			gomock.Any(), false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,

@@ -150,7 +150,7 @@ func (h *Handler) tracePreConfirmedTransaction(
 		"Failed to close base state in TracePreConfirmedTransaction",
 	)
 
-	var classes []core.Class
+	var classes []core.ClassDefinition
 	paidFeesOnL1 := []*felt.Felt{}
 
 	transaction := preConfirmed.Block.Transactions[txIndex]
@@ -296,7 +296,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	}
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
-	var classes []core.Class
+	var classes []core.ClassDefinition
 	paidFeesOnL1 := []*felt.Felt{}
 
 	for _, transaction := range block.Transactions {

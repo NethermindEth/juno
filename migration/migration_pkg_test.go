@@ -337,7 +337,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 
 		assert.Equal(t, actualDeclared.At, expectedDeclared.At)
 
-		actualClass := actualDeclared.Class.(*core.Cairo1Class)
+		actualClass := actualDeclared.Class.(*core.SierraClass)
 		expectedClass := expectedDeclared.Class
 		assert.Equal(t, expectedClass.Abi, actualClass.Abi)
 		assert.Equal(t, expectedClass.AbiHash, actualClass.AbiHash)

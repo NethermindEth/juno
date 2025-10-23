@@ -55,20 +55,20 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (CompiledCasmResponse, *jso
 	}
 
 	switch class := declaredClass.Class.(type) {
-	case *core.Cairo0Class:
+	case *core.DeprecatedCairoClass:
 		resp, err := adaptDeprecatedCairoClass(class)
 		if err != nil {
 			return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		return resp, nil
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		return adaptCasmClass(class.Compiled), nil
 	}
 
 	return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
 }
 
-func adaptDeprecatedCairoClass(class *core.Cairo0Class) (CompiledCasmResponse, error) {
+func adaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (CompiledCasmResponse, error) {
 	program, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return CompiledCasmResponse{}, err
@@ -121,7 +121,7 @@ func adaptDeprecatedCairoClass(class *core.Cairo0Class) (CompiledCasmResponse, e
 	return result, nil
 }
 
-func adaptDeprecatedEntryPoints(deprecatedEntryPoints []core.EntryPoint) []EntryPoint {
+func adaptDeprecatedEntryPoints(deprecatedEntryPoints []core.DeprecatedEntryPoint) []EntryPoint {
 	entryPoints := make([]EntryPoint, len(deprecatedEntryPoints))
 	for i := range deprecatedEntryPoints {
 		entryPoints[i] = EntryPoint{
@@ -133,7 +133,7 @@ func adaptDeprecatedEntryPoints(deprecatedEntryPoints []core.EntryPoint) []Entry
 	return entryPoints
 }
 
-func adaptCasmClass(class *core.CompiledClass) CompiledCasmResponse {
+func adaptCasmClass(class *core.CasmClass) CompiledCasmResponse {
 	result := CompiledCasmResponse{
 		EntryPointsByType: EntryPointsByType{
 			Constructor: adaptCasmEntryPoints(class.Constructor),
@@ -149,7 +149,7 @@ func adaptCasmClass(class *core.CompiledClass) CompiledCasmResponse {
 	return result
 }
 
-func adaptCasmEntryPoints(casmEntryPoints []core.CompiledEntryPoint) []EntryPoint {
+func adaptCasmEntryPoints(casmEntryPoints []core.CasmEntryPoint) []EntryPoint {
 	entryPoints := make([]EntryPoint, len(casmEntryPoints))
 	for i := range casmEntryPoints {
 		entryPoints[i] = EntryPoint{

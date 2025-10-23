@@ -93,8 +93,8 @@ func TestUpdate(t *testing.T) {
 		t.Run("without class definition", func(t *testing.T) {
 			require.Error(t, state.Update(3, su3, nil, false))
 		})
-		require.NoError(t, state.Update(3, su3, map[felt.Felt]core.Class{
-			*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): &core.Cairo1Class{},
+		require.NoError(t, state.Update(3, su3, map[felt.Felt]core.ClassDefinition{
+			*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): &core.SierraClass{},
 		}, false))
 		assert.NotEqual(t, su3.NewRoot, su3.OldRoot)
 	})
@@ -354,7 +354,7 @@ func TestClass(t *testing.T) {
 	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
+	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
 		*cairo0Hash: cairo0Class,
 		*cairo1Hash: cairo1Class,
 	}, false))
@@ -421,19 +421,19 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("revert declared classes", func(t *testing.T) {
-		classesM := make(map[felt.Felt]core.Class)
-		cairo0 := &core.Cairo0Class{
+		classesM := make(map[felt.Felt]core.ClassDefinition)
+		cairo0 := &core.DeprecatedCairoClass{
 			Abi:          json.RawMessage("some cairo 0 class abi"),
-			Externals:    []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("e1")), new(felt.Felt).SetBytes([]byte("e2"))}},
-			L1Handlers:   []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("l1")), new(felt.Felt).SetBytes([]byte("l2"))}},
-			Constructors: []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("c1")), new(felt.Felt).SetBytes([]byte("c2"))}},
+			Externals:    []core.DeprecatedEntryPoint{{new(felt.Felt).SetBytes([]byte("e1")), new(felt.Felt).SetBytes([]byte("e2"))}},
+			L1Handlers:   []core.DeprecatedEntryPoint{{new(felt.Felt).SetBytes([]byte("l1")), new(felt.Felt).SetBytes([]byte("l2"))}},
+			Constructors: []core.DeprecatedEntryPoint{{new(felt.Felt).SetBytes([]byte("c1")), new(felt.Felt).SetBytes([]byte("c2"))}},
 			Program:      "some cairo 0 program",
 		}
 
 		cairo0Addr := felt.NewUnsafeFromString[felt.Felt]("0xab1234")
 		classesM[*cairo0Addr] = cairo0
 
-		cairo1 := &core.Cairo1Class{
+		cairo1 := &core.SierraClass{
 			Abi:     "some cairo 1 class abi",
 			AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xcd98"),
 			EntryPoints: struct {
@@ -448,7 +448,7 @@ func TestRevert(t *testing.T) {
 			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
 			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
 			SemanticVersion: "version 1",
-			Compiled:        &core.CompiledClass{},
+			Compiled:        &core.CasmClass{},
 		}
 
 		cairo1Addr := felt.NewUnsafeFromString[felt.Felt]("0xcd5678")
@@ -588,9 +588,9 @@ func TestRevertDeclaredClasses(t *testing.T) {
 			},
 		},
 	}
-	newClasses := map[felt.Felt]core.Class{
-		*classHash:  &core.Cairo0Class{},
-		*sierraHash: &core.Cairo1Class{},
+	newClasses := map[felt.Felt]core.ClassDefinition{
+		*classHash:  &core.DeprecatedCairoClass{},
+		*sierraHash: &core.SierraClass{},
 	}
 
 	require.NoError(t, state.Update(0, declareDiff, newClasses, false))

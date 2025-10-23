@@ -87,7 +87,7 @@ func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (c
 
 // Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
-func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
+func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {
 	response, err := f.client.ClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err

@@ -36,7 +36,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
+	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 
@@ -117,7 +117,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
+	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 
@@ -164,7 +164,7 @@ func TestCallCairo(t *testing.T) {
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
+	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 
@@ -250,7 +250,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
+	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 
@@ -319,7 +319,7 @@ func TestExecute(t *testing.T) {
 			ChainID:           utils.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		_, err := New(&chainInfo, false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
+		_, err := New(&chainInfo, false, nil).Execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),

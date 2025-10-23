@@ -13,7 +13,7 @@ func AdaptSegmentLengths(l core.SegmentLengths) starknet.SegmentLengths {
 	}
 }
 
-func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.CompiledClass {
+func AdaptCompiledClass(coreCompiledClass *core.CasmClass) starknet.CompiledClass {
 	var feederCompiledClass starknet.CompiledClass
 	feederCompiledClass.Bytecode = coreCompiledClass.Bytecode
 	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
@@ -22,7 +22,7 @@ func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.Compiled
 	feederCompiledClass.Prime = utils.ToHex(coreCompiledClass.Prime)
 	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCompiledClass.BytecodeSegmentLengths)
 
-	adapt := func(ep core.CompiledEntryPoint) starknet.CompiledEntryPoint {
+	adapt := func(ep core.CasmEntryPoint) starknet.CompiledEntryPoint {
 		return starknet.CompiledEntryPoint{
 			Selector: ep.Selector,
 			Builtins: ep.Builtins,
@@ -36,7 +36,7 @@ func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.Compiled
 	return feederCompiledClass
 }
 
-func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
+func AdaptSierraClass(class *core.SierraClass) *starknet.SierraDefinition {
 	adapt := func(ep core.SierraEntryPoint) starknet.SierraEntryPoint {
 		return starknet.SierraEntryPoint{
 			Selector: ep.Selector,
@@ -59,13 +59,13 @@ func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
 	}
 }
 
-func AdaptCairo0Class(class *core.Cairo0Class) (*starknet.Cairo0Definition, error) {
+func AdaptCairo0Class(class *core.DeprecatedCairoClass) (*starknet.Cairo0Definition, error) {
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err
 	}
 
-	adapt := func(ep core.EntryPoint) starknet.EntryPoint {
+	adapt := func(ep core.DeprecatedEntryPoint) starknet.EntryPoint {
 		return starknet.EntryPoint{
 			Selector: ep.Selector,
 			Offset:   ep.Offset,

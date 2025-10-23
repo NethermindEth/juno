@@ -11,7 +11,7 @@ import (
 )
 
 var TransactionBuilder = transactiontestutils.TransactionBuilder[mempool.BroadcastedTransaction, *p2pmempool.MempoolTransaction]{
-	ToCore: func(transaction core.Transaction, class core.Class, paidFeeOnL1 *felt.Felt) mempool.BroadcastedTransaction {
+	ToCore: func(transaction core.Transaction, class core.ClassDefinition, paidFeeOnL1 *felt.Felt) mempool.BroadcastedTransaction {
 		return mempool.BroadcastedTransaction{
 			Transaction:   transaction,
 			DeclaredClass: class,

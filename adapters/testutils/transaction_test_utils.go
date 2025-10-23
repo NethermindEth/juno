@@ -18,7 +18,7 @@ import (
 
 const maxTransactionSize = 10
 
-type toCoreType[C any] func(core.Transaction, core.Class, *felt.Felt) C
+type toCoreType[C any] func(core.Transaction, core.ClassDefinition, *felt.Felt) C
 
 type toP2PType[P, I any] func(I, *common.Hash) P
 
@@ -117,7 +117,7 @@ func getRandomResourceBounds(t *testing.T) (map[core.Resource]core.ResourceBound
 	return consensusResourceBounds, &p2pResourceBounds
 }
 
-func getSampleClass(t *testing.T) (felt.Felt, *core.Cairo1Class) {
+func getSampleClass(t *testing.T) (felt.Felt, *core.SierraClass) {
 	t.Helper()
 	var classHash felt.Felt
 	_, err := classHash.SetString("0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b")
@@ -129,7 +129,7 @@ func getSampleClass(t *testing.T) (felt.Felt, *core.Cairo1Class) {
 	class, err := gw.Class(t.Context(), &classHash)
 	require.NoError(t, err)
 
-	cairo1Class, ok := class.(*core.Cairo1Class)
+	cairo1Class, ok := class.(*core.SierraClass)
 	require.True(t, ok)
 
 	return classHash, cairo1Class
@@ -326,10 +326,10 @@ func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, net
 
 // StripCompilerFields strips the some fields related to compiler in the compiled class.
 // It's due to the difference between the expected compiler version and the actual compiler version.
-func StripCompilerFields(t *testing.T, class core.Class) {
+func StripCompilerFields(t *testing.T, class core.ClassDefinition) {
 	t.Helper()
 	switch class := class.(type) {
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		if class == nil {
 			return
 		}

@@ -241,7 +241,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		head0,
 		&core.BlockCommitments{},
 		stateUpdate0,
-		map[felt.Felt]core.Class{},
+		map[felt.Felt]core.ClassDefinition{},
 	))
 
 	t.Run("Skips when no target, polls when target set and at tip; retries on error then success", func(t *testing.T) {
@@ -336,7 +336,7 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 		block0,
 		&core.BlockCommitments{},
 		stateUpdate0,
-		map[felt.Felt]core.Class{},
+		map[felt.Felt]core.ClassDefinition{},
 	))
 
 	// Mock data source to delay pre_latest (pending) while allowing pre_confirmed to arrive
@@ -431,7 +431,7 @@ func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
 		block0,
 		&core.BlockCommitments{},
 		stateUpdate0,
-		map[felt.Felt]core.Class{},
+		map[felt.Felt]core.ClassDefinition{},
 	))
 
 	s.highestBlockHeader.Store(block0.Header)
@@ -497,7 +497,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			head,
 			&core.BlockCommitments{},
 			stateUpdate0,
-			map[felt.Felt]core.Class{},
+			map[felt.Felt]core.ClassDefinition{},
 		))
 		t.Run("not valid for head", func(t *testing.T) {
 			s.pendingData.Store(nil)
@@ -750,7 +750,7 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &stateDiff,
 		},
-		NewClasses:            make(map[felt.Felt]core.Class, 0),
+		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
 		TransactionStateDiffs: make([]*core.StateDiff, 0),
 		CandidateTxs:          make([]core.Transaction, 0),
 	}
@@ -791,7 +791,7 @@ func TestStorePending(t *testing.T) {
 			head,
 			&core.BlockCommitments{},
 			stateUpdate0,
-			map[felt.Felt]core.Class{},
+			map[felt.Felt]core.ClassDefinition{},
 		))
 		t.Run("not valid for head", func(t *testing.T) {
 			s.pendingData.Store(nil)
@@ -964,7 +964,7 @@ func makeTestPendingForParent(parent *core.Header) core.Pending {
 			OldRoot:   parent.GlobalStateRoot,
 			StateDiff: &stateDiff,
 		},
-		NewClasses: make(map[felt.Felt]core.Class, 0),
+		NewClasses: make(map[felt.Felt]core.ClassDefinition, 0),
 	}
 	return pending
 }

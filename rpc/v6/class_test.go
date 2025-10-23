@@ -49,7 +49,7 @@ func TestClass(t *testing.T) {
 
 		class, rpcErr := handler.Class(latest, *hash)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.Cairo1Class)
+		cairo1Class := coreClass.(*core.SierraClass)
 		assertEqualCairo1Class(t, cairo1Class, class)
 	})
 
@@ -62,7 +62,7 @@ func TestClass(t *testing.T) {
 		class, rpcErr := handler.Class(latest, *hash)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.Cairo0Class)
+		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
 		assertEqualCairo0Class(t, cairo0Class, class)
 	})
 
@@ -134,7 +134,7 @@ func TestClassAt(t *testing.T) {
 
 		class, rpcErr := handler.ClassAt(latest, *cairo1ContractAddress)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.Cairo1Class)
+		cairo1Class := coreClass.(*core.SierraClass)
 		assertEqualCairo1Class(t, cairo1Class, class)
 	})
 
@@ -145,7 +145,7 @@ func TestClassAt(t *testing.T) {
 		class, rpcErr := handler.ClassAt(latest, *cairo0ContractAddress)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.Cairo0Class)
+		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
 		assertEqualCairo0Class(t, cairo0Class, class)
 	})
 }

@@ -128,7 +128,7 @@ func getCommittedBlock(allNodes nodes) sync.BlockBody {
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &core.StateDiff{},
 		},
-		NewClasses:  make(map[felt.Felt]core.Class),
+		NewClasses:  make(map[felt.Felt]core.ClassDefinition),
 		Commitments: &core.BlockCommitments{},
 	}
 }

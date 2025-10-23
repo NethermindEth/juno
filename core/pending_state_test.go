@@ -47,8 +47,8 @@ func TestPendingState(t *testing.T) {
 				},
 			},
 		},
-		NewClasses: map[felt.Felt]core.Class{
-			*deployedClassHash: &core.Cairo0Class{},
+		NewClasses: map[felt.Felt]core.ClassDefinition{
+			*deployedClassHash: &core.DeprecatedCairoClass{},
 		},
 	}
 	state := core.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
@@ -126,16 +126,16 @@ func TestPendingState(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
 			pC, pErr := state.Class(deployedClassHash)
 			require.NoError(t, pErr)
-			_, ok := pC.Class.(*core.Cairo0Class)
+			_, ok := pC.Class.(*core.DeprecatedCairoClass)
 			assert.True(t, ok)
 		})
 		t.Run("from head", func(t *testing.T) {
 			mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClass{
-				Class: &core.Cairo1Class{},
+				Class: &core.SierraClass{},
 			}, nil)
 			pC, pErr := state.Class(&felt.Zero)
 			require.NoError(t, pErr)
-			_, ok := pC.Class.(*core.Cairo1Class)
+			_, ok := pC.Class.(*core.SierraClass)
 			assert.True(t, ok)
 		})
 	})

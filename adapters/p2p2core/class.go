@@ -14,13 +14,13 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
+func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 	program := utils.Map(cairo1.Program, AdaptFelt)
 	compiled, err := createCompiledClass(cairo1)
 	if err != nil {
-		return core.Cairo1Class{}, fmt.Errorf("invalid compiled class: %w", err)
+		return core.SierraClass{}, fmt.Errorf("invalid compiled class: %w", err)
 	}
 
 	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
@@ -29,7 +29,7 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 	}
 
 	entryPoints := cairo1.EntryPoints
-	return core.Cairo1Class{
+	return core.SierraClass{
 		Abi:     cairo1.Abi,
 		AbiHash: abiHash,
 		EntryPoints: struct {
@@ -48,20 +48,20 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 	}, nil
 }
 
-func AdaptClass(cls *class.Class) (core.Class, error) {
+func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
 	if cls == nil {
 		return nil, nil
 	}
 
 	switch cls := cls.Class.(type) {
 	case *class.Class_Cairo0:
-		adaptEP := func(points []*class.EntryPoint) []core.EntryPoint {
+		adaptEP := func(points []*class.EntryPoint) []core.DeprecatedEntryPoint {
 			// usage of NonNilSlice is essential because relevant core class fields are non nil
 			return utils.Map(utils.NonNilSlice(points), adaptEntryPoint)
 		}
 
 		cairo0 := cls.Cairo0
-		return &core.Cairo0Class{
+		return &core.DeprecatedCairoClass{
 			Abi:          json.RawMessage(cairo0.Abi),
 			Externals:    adaptEP(cairo0.Externals),
 			L1Handlers:   adaptEP(cairo0.L1Handlers),
@@ -83,14 +83,14 @@ func adaptSierra(e *class.SierraEntryPoint) core.SierraEntryPoint {
 	}
 }
 
-func adaptEntryPoint(e *class.EntryPoint) core.EntryPoint {
-	return core.EntryPoint{
+func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
+	return core.DeprecatedEntryPoint{
 		Selector: AdaptFelt(e.Selector),
 		Offset:   new(felt.Felt).SetUint64(e.Offset),
 	}
 }
 
-func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CompiledClass, error) {
+func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
 	if cairo1 == nil {
 		return nil, nil
 	}

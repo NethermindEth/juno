@@ -54,7 +54,7 @@ func TestCompiledCasm(t *testing.T) {
 		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
-		cairo0, ok := class.(*core.Cairo0Class)
+		cairo0, ok := class.(*core.DeprecatedCairoClass)
 		require.True(t, ok)
 		program, err := utils.Gzip64Decode(cairo0.Program)
 		require.NoError(t, err)
@@ -89,22 +89,22 @@ func TestCompiledCasm(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0x222")
 
 		// Create a compiled class with test data
-		casm := core.CompiledClass{
+		casm := core.CasmClass{
 			CompilerVersion: "1.0.0",
 			Prime:           big.NewInt(123),
-			External: []core.CompiledEntryPoint{
+			External: []core.CasmEntryPoint{
 				{
 					Offset:   42, // Test the uint64 offset
 					Selector: felt.NewUnsafeFromString[felt.Felt]("0xabc"),
 					Builtins: []string{"range_check"},
 				},
 			},
-			Constructor: []core.CompiledEntryPoint{},
-			L1Handler:   []core.CompiledEntryPoint{},
+			Constructor: []core.CasmEntryPoint{},
+			L1Handler:   []core.CasmEntryPoint{},
 			Bytecode:    []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x123")},
 		}
 
-		cairoClass := &core.Cairo1Class{
+		cairoClass := &core.SierraClass{
 			Compiled: &casm,
 		}
 
@@ -125,7 +125,7 @@ func TestCompiledCasm(t *testing.T) {
 	})
 }
 
-func adaptEntryPoint(point core.EntryPoint) rpc.EntryPoint {
+func adaptEntryPoint(point core.DeprecatedEntryPoint) rpc.EntryPoint {
 	return rpc.EntryPoint{
 		Offset:   point.Offset.Uint64(),
 		Selector: *point.Selector,

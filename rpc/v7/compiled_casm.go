@@ -54,20 +54,20 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass
 	}
 
 	switch class := declaredClass.Class.(type) {
-	case *core.Cairo0Class:
+	case *core.DeprecatedCairoClass:
 		resp, err := adaptCairo0Class(class)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		return resp, nil
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		return adaptCompiledClass(class.Compiled), nil
 	}
 
 	return nil, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
 }
 
-func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, error) {
+func adaptCairo0Class(class *core.DeprecatedCairoClass) (*CasmCompiledContractClass, error) {
 	program, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		return nil, err
 	}
 
-	adaptEntryPoint := func(ep core.EntryPoint) CasmEntryPoint {
+	adaptEntryPoint := func(ep core.DeprecatedEntryPoint) CasmEntryPoint {
 		return CasmEntryPoint{
 			Offset:   ep.Offset,
 			Selector: ep.Selector,
@@ -125,8 +125,8 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 	return result, nil
 }
 
-func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
-	adaptEntryPoint := func(ep core.CompiledEntryPoint) CasmEntryPoint {
+func adaptCompiledClass(class *core.CasmClass) *CasmCompiledContractClass {
+	adaptEntryPoint := func(ep core.CasmEntryPoint) CasmEntryPoint {
 		return CasmEntryPoint{
 			Offset:   new(felt.Felt).SetUint64(ep.Offset),
 			Selector: ep.Selector,

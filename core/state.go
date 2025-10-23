@@ -235,7 +235,7 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 func (s *State) Update(
 	blockNumber uint64,
 	update *StateUpdate,
-	declaredClasses map[felt.Felt]Class,
+	declaredClasses map[felt.Felt]ClassDefinition,
 	skipVerifyNewRoot bool,
 ) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
@@ -335,7 +335,7 @@ func (s *State) replaceContract(
 	})
 }
 
-func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
+func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
 
 	err := s.txn.Get(classKey, func(data []byte) error { return nil })
@@ -530,7 +530,7 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }
 
-func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefinitions map[felt.Felt]Class) error {
+func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefinitions map[felt.Felt]ClassDefinition) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err

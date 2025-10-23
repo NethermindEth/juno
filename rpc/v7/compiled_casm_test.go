@@ -53,7 +53,7 @@ func TestCompiledCasm(t *testing.T) {
 		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
-		cairo0, ok := class.(*core.Cairo0Class)
+		cairo0, ok := class.(*core.DeprecatedCairoClass)
 		require.True(t, ok)
 		program, err := utils.Gzip64Decode(cairo0.Program)
 		require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestCompiledCasm(t *testing.T) {
 	})
 }
 
-func adaptEntryPoint(point core.EntryPoint) rpc.CasmEntryPoint {
+func adaptEntryPoint(point core.DeprecatedEntryPoint) rpc.CasmEntryPoint {
 	return rpc.CasmEntryPoint{
 		Offset:   point.Offset,
 		Selector: point.Selector,

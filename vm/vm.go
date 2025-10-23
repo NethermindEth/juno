@@ -57,7 +57,7 @@ type VM interface {
 	) (CallResult, error)
 	Execute(
 		txns []core.Transaction,
-		declaredClasses []core.Class,
+		declaredClasses []core.ClassDefinition,
 		paidFeesOnL1 []*felt.Felt,
 		blockInfo *BlockInfo,
 		state core.StateReader,
@@ -102,7 +102,7 @@ type callContext struct {
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
 	receipts        []json.RawMessage
-	declaredClasses map[felt.Felt]core.Class
+	declaredClasses map[felt.Felt]core.ClassDefinition
 	executionFailed bool
 }
 
@@ -333,7 +333,7 @@ func (v *vm) Call(
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(
 	txns []core.Transaction,
-	declaredClasses []core.Class,
+	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
 	state core.StateReader,
@@ -418,7 +418,7 @@ func (v *vm) Execute(
 	}, nil
 }
 
-func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
+func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.ClassDefinition) (json.RawMessage, json.RawMessage, error) {
 	txnJSONs := make([]json.RawMessage, 0, len(txns))
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)

@@ -262,7 +262,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
-func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
+func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.SierraClass, error) {
 	var err error
 
 	// TODO: what's the absolute minimum size of a Sierra Definition?
@@ -280,7 +280,7 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
 	}
 
-	return &core.Cairo1Class{
+	return &core.SierraClass{
 		SemanticVersion: response.Version,
 		Program:         response.Program,
 		ProgramHash:     crypto.PoseidonArray(response.Program...),
@@ -302,12 +302,12 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 	}, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {
+func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CasmClass, error) {
 	if compiledClass == nil {
 		return nil, nil
 	}
 
-	var compiled core.CompiledClass
+	var compiled core.CasmClass
 	compiled.Bytecode = compiledClass.Bytecode
 	compiled.PythonicHints = compiledClass.PythonicHints
 	compiled.CompilerVersion = compiledClass.CompilerVersion
@@ -335,12 +335,12 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 	}
 }
 
-func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
-	class := new(core.Cairo0Class)
+func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.ClassDefinition, error) {
+	class := new(core.DeprecatedCairoClass)
 	class.Abi = response.Abi
 
-	adapt := func(ep starknet.EntryPoint) core.EntryPoint {
-		return core.EntryPoint{Selector: ep.Selector, Offset: ep.Offset}
+	adapt := func(ep starknet.EntryPoint) core.DeprecatedEntryPoint {
+		return core.DeprecatedEntryPoint{Selector: ep.Selector, Offset: ep.Offset}
 	}
 
 	class.Externals = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
@@ -516,8 +516,8 @@ func safeFeltToUint64(f *felt.Felt) uint64 {
 	return 0
 }
 
-func adaptCompiledEntryPoint(entryPoint starknet.CompiledEntryPoint) core.CompiledEntryPoint {
-	return core.CompiledEntryPoint{
+func adaptCompiledEntryPoint(entryPoint starknet.CompiledEntryPoint) core.CasmEntryPoint {
+	return core.CasmEntryPoint{
 		Offset:   entryPoint.Offset,
 		Selector: entryPoint.Selector,
 		Builtins: entryPoint.Builtins,

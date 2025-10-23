@@ -87,7 +87,7 @@ func MakeEmptyPendingForParent(
 			OldRoot:   latestHeader.GlobalStateRoot,
 			StateDiff: stateDiff,
 		},
-		NewClasses: make(map[felt.Felt]core.Class, 0),
+		NewClasses: make(map[felt.Felt]core.ClassDefinition, 0),
 	}
 	return pending, nil
 }
@@ -125,7 +125,7 @@ func MakeEmptyPreConfirmedForParent(
 		StateUpdate: &core.StateUpdate{
 			StateDiff: stateDiff,
 		},
-		NewClasses:            make(map[felt.Felt]core.Class, 0),
+		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
 		TransactionStateDiffs: make([]*core.StateDiff, 0),
 		CandidateTxs:          make([]core.Transaction, 0),
 	}

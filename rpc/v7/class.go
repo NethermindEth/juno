@@ -22,7 +22,7 @@ type FunctionCall struct {
 	Calldata           CalldataInputs `json:"calldata"`
 }
 
-func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
+func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, error) {
 	var feederClass starknet.ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)
 	if err != nil {

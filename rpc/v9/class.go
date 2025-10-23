@@ -24,7 +24,7 @@ type FunctionCall struct {
 	Calldata           CalldataInputs `json:"calldata"`
 }
 
-func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
+func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, error) {
 	var feederClass starknet.ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
@@ -80,7 +80,7 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*rpcv6.Class, *jsonr
 
 	var rpcClass *rpcv6.Class
 	switch c := declared.Class.(type) {
-	case *core.Cairo0Class:
+	case *core.DeprecatedCairoClass:
 		rpcClass = &rpcv6.Class{
 			Abi:     c.Abi,
 			Program: c.Program,
@@ -90,7 +90,7 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*rpcv6.Class, *jsonr
 				L1Handler:   adaptCairo0EntryPoints(c.L1Handlers),
 			},
 		}
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		rpcClass = &rpcv6.Class{
 			Abi:                  c.Abi,
 			SierraProgram:        c.Program,
@@ -139,7 +139,7 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	return &classHash, nil
 }
 
-func adaptCairo0EntryPoints(entryPoints []core.EntryPoint) []rpcv6.EntryPoint {
+func adaptCairo0EntryPoints(entryPoints []core.DeprecatedEntryPoint) []rpcv6.EntryPoint {
 	adaptedEntryPoints := make([]rpcv6.EntryPoint, len(entryPoints))
 	for i, entryPoint := range entryPoints {
 		adaptedEntryPoints[i] = rpcv6.EntryPoint{

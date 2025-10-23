@@ -120,7 +120,7 @@ func TestSyncBlocks(t *testing.T) {
 
 			return state, block, nil
 		}).AnyTimes()
-		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, hash *felt.Felt) (core.Class, error) {
+		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, hash *felt.Felt) (core.ClassDefinition, error) {
 			return gw.Class(ctx, hash)
 		}).AnyTimes()
 

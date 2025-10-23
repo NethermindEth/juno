@@ -97,7 +97,7 @@ func DeleteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint6
 	return w.Delete(dbKey)
 }
 
-func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class core.Class, declaredAt uint64) error {
+func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class core.ClassDefinition, declaredAt uint64) error {
 	key := db.ClassKey(classHash)
 
 	dc := core.DeclaredClass{

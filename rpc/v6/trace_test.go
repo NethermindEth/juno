@@ -267,7 +267,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
@@ -294,7 +294,7 @@ func TestTraceTransaction(t *testing.T) {
 	}`)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
+		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
@@ -328,7 +328,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
@@ -339,7 +339,7 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,
 			},
-			NewClasses: map[felt.Felt]core.Class{*tx.ClassHash: declaredClass.Class},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
 		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
@@ -366,7 +366,7 @@ func TestTraceTransaction(t *testing.T) {
 	}`)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
+		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				Traces:   []vm.TransactionTrace{*vmTrace},
@@ -547,7 +547,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 		declareTx := &core.DeclareTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
@@ -564,7 +564,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,
 			},
-			NewClasses: map[felt.Felt]core.Class{*declareTx.ClassHash: declaredClass.Class},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*declareTx.ClassHash: declaredClass.Class},
 		}
 
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -592,7 +592,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}`)
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
+		mockVM.EXPECT().Execute(block.Transactions, []core.ClassDefinition{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
 			gomock.Any(), false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{},
@@ -641,7 +641,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
@@ -667,7 +667,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}`)
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
+		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
 			gomock.Any(), false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{},

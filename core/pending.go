@@ -35,7 +35,7 @@ type PendingData interface {
 	GetHeader() *Header
 	GetTransactions() []Transaction
 	GetStateUpdate() *StateUpdate
-	GetNewClasses() map[felt.Felt]Class
+	GetNewClasses() map[felt.Felt]ClassDefinition
 	GetCandidateTransaction() []Transaction
 	GetTransactionStateDiffs() []*StateDiff
 	GetPreLatest() *PreLatest
@@ -55,10 +55,10 @@ type PendingData interface {
 type Pending struct {
 	Block       *Block
 	StateUpdate *StateUpdate
-	NewClasses  map[felt.Felt]Class
+	NewClasses  map[felt.Felt]ClassDefinition
 }
 
-func NewPending(block *Block, stateUpdate *StateUpdate, newClasses map[felt.Felt]Class) Pending {
+func NewPending(block *Block, stateUpdate *StateUpdate, newClasses map[felt.Felt]ClassDefinition) Pending {
 	return Pending{
 		Block:       block,
 		StateUpdate: stateUpdate,
@@ -82,7 +82,7 @@ func (p *Pending) GetStateUpdate() *StateUpdate {
 	return p.StateUpdate
 }
 
-func (p *Pending) GetNewClasses() map[felt.Felt]Class {
+func (p *Pending) GetNewClasses() map[felt.Felt]ClassDefinition {
 	return p.NewClasses
 }
 
@@ -150,7 +150,7 @@ type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
 	// Node does not fetch unknown classes. but we keep it for sequencer
-	NewClasses            map[felt.Felt]Class
+	NewClasses            map[felt.Felt]ClassDefinition
 	TransactionStateDiffs []*StateDiff
 	CandidateTxs          []Transaction
 	// Optional field, exists if pre_confirmed is N+2 when latest is N
@@ -171,7 +171,7 @@ func NewPreConfirmed(
 	}
 }
 
-func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) *PreConfirmed {
+func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]ClassDefinition) *PreConfirmed {
 	p.NewClasses = newClasses
 	return p
 }
@@ -202,7 +202,7 @@ func (p *PreConfirmed) GetStateUpdate() *StateUpdate {
 	return p.StateUpdate
 }
 
-func (p *PreConfirmed) GetNewClasses() map[felt.Felt]Class {
+func (p *PreConfirmed) GetNewClasses() map[felt.Felt]ClassDefinition {
 	return p.NewClasses
 }
 
@@ -294,7 +294,7 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 	}
 
 	stateDiff := EmptyStateDiff()
-	newClasses := make(map[felt.Felt]Class)
+	newClasses := make(map[felt.Felt]ClassDefinition)
 
 	// Add pre_latest state diff if available
 	preLatest := p.PreLatest
@@ -314,7 +314,7 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 
 func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
 	stateDiff := EmptyStateDiff()
-	newClasses := make(map[felt.Felt]Class)
+	newClasses := make(map[felt.Felt]ClassDefinition)
 
 	// Add pre_latest state diff if available
 	preLatest := p.PreLatest
