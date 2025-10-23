@@ -273,8 +273,7 @@ func fetchDeclaredClassesAndL1Fees(
 			}
 			declaredClasses = append(declaredClasses, class.Class)
 		case *core.L1HandlerTransaction:
-			var fee felt.Felt
-			l1HandlerFees = append(l1HandlerFees, fee.SetUint64(1))
+			l1HandlerFees = append(l1HandlerFees, &felt.One)
 		}
 	}
 
