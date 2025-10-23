@@ -422,27 +422,6 @@ func (h *Handler) traceBlockTransactions(
 	return h.traceBlockWithVM(block)
 }
 
-// shouldFetchTracesFromFeederGateway determines if
-// traces for a block should be fetched from the feeder gateway.
-func shouldFetchTracesFromFeederGateway(block *core.Block, network *utils.Network) (bool, error) {
-	blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
-	if err != nil {
-		return false, err
-	}
-
-	// We rely on the feeder gateway for Starknet version strictly older than "0.13.1.1"
-	fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2) &&
-		block.ProtocolVersion != "0.13.1.1"
-	// This specific block range caused a re-org, also related with Cairo 0 and we have to
-	// depend on the Sequencer to provide the correct traces
-	fetchFromFeederGW = fetchFromFeederGW ||
-		(block.Number >= 1943705 &&
-			block.Number <= 1952704 &&
-			*network == utils.Mainnet)
-
-	return fetchFromFeederGW, nil
-}
-
 // traceBlockWithVM traces a block using the local VM and stores the result in the block cache.
 func (h *Handler) traceBlockWithVM(block *core.Block) (
 	[]TracedBlockTransaction, http.Header, *jsonrpc.Error,
@@ -539,6 +518,27 @@ func (h *Handler) buildBlockInfo(header *core.Header) (vm.BlockInfo, *jsonrpc.Er
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}, nil
+}
+
+// shouldFetchTracesFromFeederGateway determines if
+// traces for a block should be fetched from the feeder gateway.
+func shouldFetchTracesFromFeederGateway(block *core.Block, network *utils.Network) (bool, error) {
+	blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+	if err != nil {
+		return false, err
+	}
+
+	// We rely on the feeder gateway for Starknet version strictly older than "0.13.1.1"
+	fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2) &&
+		block.ProtocolVersion != "0.13.1.1"
+	// This specific block range caused a re-org, also related with Cairo 0 and we have to
+	// depend on the Sequencer to provide the correct traces
+	fetchFromFeederGW = fetchFromFeederGW ||
+		(block.Number >= 1943705 &&
+			block.Number <= 1952704 &&
+			*network == utils.Mainnet)
+
+	return fetchFromFeederGW, nil
 }
 
 // fillFeederGatewayData mutates the `traces` argument and fills it with
