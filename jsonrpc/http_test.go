@@ -3,7 +3,6 @@ package jsonrpc_test
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,8 +28,6 @@ func TestHTTP(t *testing.T) {
 	rpc := jsonrpc.NewServer(1, log).WithListener(&listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
 	// Server
 	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
 	t.Cleanup(srv.Close)
@@ -39,7 +36,12 @@ func TestHTTP(t *testing.T) {
 	client := new(http.Client)
 
 	msg := `{"jsonrpc" : "2.0", "method" : "echo", "params" : [ "abc123" ], "id" : 1}`
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL, bytes.NewReader([]byte(msg)))
+	req, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		srv.URL,
+		bytes.NewReader([]byte(msg)),
+	)
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -57,7 +59,12 @@ func TestHTTP(t *testing.T) {
 
 	t.Run("GET", func(t *testing.T) {
 		t.Run("root path", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, http.NoBody)
+			req, err := http.NewRequestWithContext(
+				t.Context(),
+				http.MethodGet,
+				srv.URL,
+				http.NoBody,
+			)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -66,7 +73,12 @@ func TestHTTP(t *testing.T) {
 		})
 
 		t.Run("non-root path", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/notfound", http.NoBody)
+			req, err := http.NewRequestWithContext(
+				t.Context(),
+				http.MethodGet,
+				srv.URL+"/notfound",
+				http.NoBody,
+			)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -89,9 +101,6 @@ func TestGzipResponse(t *testing.T) {
 	rpc := jsonrpc.NewServer(1, log)
 	require.NoError(t, rpc.RegisterMethods(method))
 
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
 	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
 	t.Cleanup(srv.Close)
 	client := new(http.Client)
@@ -99,13 +108,12 @@ func TestGzipResponse(t *testing.T) {
 	payload := "rand.Text"
 	msg := fmt.Sprintf(`{"jsonrpc":"2.0", "method":"echo", "params":[%q], "id":1}`, payload)
 	expected := fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)
-	headers := map[string]string{
+	commonHeaders := map[string]string{
 		"Accept-Encoding": "gzip, deflate, br",
 		"Content-Type":    "application/json",
 	}
 	t.Run("success: gzip encoded response", func(t *testing.T) {
-		resp := setHeaderAndProcessRequest(ctx, client, headers, bytes.NewReader([]byte(msg)), t, srv)
-		defer resp.Body.Close()
+		resp := setHeaderAndProcessRequest(client, commonHeaders, bytes.NewReader([]byte(msg)), t, srv)
 		verifyResponse(resp, t, expected)
 	})
 
@@ -115,21 +123,22 @@ func TestGzipResponse(t *testing.T) {
 		_, err := gz.Write([]byte(msg))
 		require.NoError(t, err)
 		require.NoError(t, gz.Close())
+		headers := cloneMap(commonHeaders)
 		headers["Content-Encoding"] = "gzip"
-		resp := setHeaderAndProcessRequest(ctx, client, headers, &buf, t, srv)
-		defer resp.Body.Close()
+		resp := setHeaderAndProcessRequest(client, headers, &buf, t, srv)
 		verifyResponse(resp, t, expected)
 	})
 
-	t.Run("failed: request is not gzip encoded but set header as gzip encoded",	func(t *testing.T) {
-			resp := setHeaderAndProcessRequest(ctx, client, headers, bytes.NewReader([]byte(msg)), t, srv)
-			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		},
+	t.Run("failed: request is not gzip encoded but set header as gzip encoded", func(t *testing.T) {
+		headers := cloneMap(commonHeaders)
+		headers["Content-Encoding"] = "gzip"
+		resp := setHeaderAndProcessRequest(client, headers, bytes.NewReader([]byte(msg)), t, srv)
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	},
 	)
 }
 
 func setHeaderAndProcessRequest(
-	ctx context.Context,
 	client *http.Client,
 	headers map[string]string,
 	msg io.Reader,
@@ -163,4 +172,12 @@ func verifyResponse(resp *http.Response, t *testing.T, expected string) {
 	decompressedBody, err := io.ReadAll(gzr)
 	require.NoError(t, err)
 	assert.Equal(t, string(decompressedBody), expected)
+}
+
+func cloneMap(original map[string]string) map[string]string {
+	clone := make(map[string]string)
+	for key, value := range original {
+		clone[key] = value
+	}
+	return clone
 }
