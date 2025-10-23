@@ -66,7 +66,7 @@ func TestCompiledCasm(t *testing.T) {
 		require.NoError(t, err)
 
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: class}, nil)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: class}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)

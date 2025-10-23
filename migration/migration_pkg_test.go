@@ -329,7 +329,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 
 		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &utils.Mainnet))
 
-		var actualDeclared core.DeclaredClass
+		var actualDeclared core.DeclaredClassDefinition
 		err = txn.Get(key, func(data []byte) error {
 			return encoder.Unmarshal(data, &actualDeclared)
 		})

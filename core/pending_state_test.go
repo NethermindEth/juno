@@ -130,7 +130,7 @@ func TestPendingState(t *testing.T) {
 			assert.True(t, ok)
 		})
 		t.Run("from head", func(t *testing.T) {
-			mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClass{
+			mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClassDefinition{
 				Class: &core.SierraClass{},
 			}, nil)
 			pC, pErr := state.Class(&felt.Zero)

@@ -44,7 +44,7 @@ type ContractReader interface {
 }
 
 type ClassReader interface {
-	Class(classHash *felt.Felt) (*core.DeclaredClass, error)
+	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
 }
 
 type TrieProvider interface {
@@ -136,7 +136,7 @@ func (s *State) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, erro
 	return contract.DeployedHeight <= blockNum, nil
 }
 
-func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	return GetClass(s.db.disk, classHash)
 }
 

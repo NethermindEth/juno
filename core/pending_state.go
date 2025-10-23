@@ -67,9 +67,9 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return p.head.ContractStorage(addr, key)
 }
 
-func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	if class, found := p.newClasses[*classHash]; found {
-		return &DeclaredClass{
+		return &DeclaredClassDefinition{
 			At:    0,
 			Class: class,
 		}, nil

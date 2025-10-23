@@ -454,7 +454,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, state.Revert(block2, declaredClassesStateUpdate))
 
-		var decClass *core.DeclaredClass
+		var decClass *core.DeclaredClassDefinition
 		decClass, err = state.Class(cairo0Addr)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 		assert.Nil(t, decClass)

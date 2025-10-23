@@ -100,7 +100,7 @@ func DeleteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint6
 func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class core.ClassDefinition, declaredAt uint64) error {
 	key := db.ClassKey(classHash)
 
-	dc := core.DeclaredClass{
+	dc := core.DeclaredClassDefinition{
 		At:    declaredAt,
 		Class: class,
 	}
@@ -117,10 +117,10 @@ func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
 	return w.Delete(key)
 }
 
-func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClass, error) {
+func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	key := db.ClassKey(classHash)
 
-	var class core.DeclaredClass
+	var class core.DeclaredClassDefinition
 	if err := r.Get(key, class.UnmarshalBinary); err != nil {
 		return nil, err
 	}

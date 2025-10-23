@@ -799,7 +799,7 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 		}
 	}
 
-	declaredClass := core.DeclaredClass{
+	declaredClass := core.DeclaredClassDefinition{
 		At: class.At,
 		Class: &core.SierraClass{
 			Abi:             class.Class.Abi,

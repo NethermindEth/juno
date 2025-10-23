@@ -316,7 +316,7 @@ func TestTraceTransaction(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
 			Class: &core.SierraClass{},
 		}
@@ -399,7 +399,7 @@ func TestTraceTransaction(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
 			Class: &core.SierraClass{},
 		}
@@ -756,7 +756,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
 			Class: &core.SierraClass{},
 		}

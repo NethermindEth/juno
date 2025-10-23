@@ -42,7 +42,7 @@ type StateReader interface {
 	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-	Class(classHash *felt.Felt) (*DeclaredClass, error)
+	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
 
 	ClassTrie() (*trie.Trie, error)
 	ContractTrie() (*trie.Trie, error)
@@ -340,7 +340,7 @@ func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt
 
 	err := s.txn.Get(classKey, func(data []byte) error { return nil })
 	if errors.Is(err, db.ErrKeyNotFound) {
-		classEncoded, encErr := encoder.Marshal(DeclaredClass{
+		classEncoded, encErr := encoder.Marshal(DeclaredClassDefinition{
 			At:    declaredAt,
 			Class: class,
 		})
@@ -354,8 +354,8 @@ func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt
 }
 
 // Class returns the class object corresponding to the given classHash
-func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
-	var class *DeclaredClass
+func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+	var class *DeclaredClassDefinition
 	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
 		return encoder.Unmarshal(data, &class)
 	})

@@ -269,12 +269,12 @@ func VerifyClassHashes(classes map[felt.Felt]ClassDefinition) error {
 }
 
 // todo(rdr): We can find a better naming for this as well
-type DeclaredClass struct {
+type DeclaredClassDefinition struct {
 	At    uint64 // block number at which the class was declared
 	Class ClassDefinition
 }
 
-func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
+func (d *DeclaredClassDefinition) MarshalBinary() ([]byte, error) {
 	classEnc, err := encoder.Marshal(d.Class)
 	if err != nil {
 		return nil, err
@@ -288,7 +288,7 @@ func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
 	return buf, nil
 }
 
-func (d *DeclaredClass) UnmarshalBinary(data []byte) error {
+func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 	if len(data) < minDeclaredClassSize {
 		return errors.New("data too short to unmarshal DeclaredClass")
 	}
