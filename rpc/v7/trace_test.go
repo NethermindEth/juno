@@ -351,15 +351,22 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false,
-			false, false, false).
-			Return(vm.ExecutionResults{
-				OverallFees:      overallFee,
-				DataAvailability: dataGas,
-				Traces:           []vm.TransactionTrace{*vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			OverallFees:      overallFee,
+			DataAvailability: dataGas,
+			Traces:           []vm.TransactionTrace{*vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
@@ -457,14 +464,21 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				OverallFees:      overallFee,
-				DataAvailability: consumedGas,
-				Traces:           []vm.TransactionTrace{*vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(), false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			OverallFees:      overallFee,
+			DataAvailability: consumedGas,
+			Traces:           []vm.TransactionTrace{*vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
@@ -718,13 +732,21 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(block.Transactions, []core.ClassDefinition{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{{}, {}},
-				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			block.Transactions,
+			[]core.ClassDefinition{declaredClass.Class},
+			paidL1Fees,
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{{}, {}},
+			Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
 		result, httpHeader, err := handler.TraceBlockTransactions(
 			t.Context(),
@@ -820,13 +842,21 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{{L1Gas: 123, L1DataGas: 456}},
-				Traces:           []vm.TransactionTrace{vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{{L1Gas: 123, L1DataGas: 456}},
+			Traces:           []vm.TransactionTrace{vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
 		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
 

@@ -319,15 +319,18 @@ func TestExecute(t *testing.T) {
 			ChainID:           utils.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		_, err := New(&chainInfo, false, nil).Execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
-			Header: &core.Header{
-				Timestamp:        1666877926,
-				SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
-				L1GasPriceETH:    &felt.Zero,
-				L1GasPriceSTRK:   &felt.Zero,
-			},
-		}, state,
-			false, false, false, false, false)
+		_, err := New(&chainInfo, false, nil).
+			Execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
+				Header: &core.Header{
+					Timestamp: 1666877926,
+					SequencerAddress: felt.NewUnsafeFromString[felt.Felt](
+						"0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+					),
+					L1GasPriceETH:  &felt.Zero,
+					L1GasPriceSTRK: &felt.Zero,
+				},
+			}, state,
+				false, false, false, false, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {

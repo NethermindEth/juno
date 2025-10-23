@@ -294,13 +294,21 @@ func TestTraceTransaction(t *testing.T) {
 	}`)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
-				Traces:           []vm.TransactionTrace{*vmTrace},
-				NumSteps:         0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
+			Traces:           []vm.TransactionTrace{*vmTrace},
+			NumSteps:         0,
+		}, nil)
 
 		trace, err := handler.TraceTransaction(t.Context(), *hash)
 
@@ -366,12 +374,20 @@ func TestTraceTransaction(t *testing.T) {
 	}`)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				Traces:   []vm.TransactionTrace{*vmTrace},
-				NumSteps: 0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			Traces:   []vm.TransactionTrace{*vmTrace},
+			NumSteps: 0,
+		}, nil)
 
 		trace, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
@@ -592,13 +608,22 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}`)
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-		mockVM.EXPECT().Execute(block.Transactions, []core.ClassDefinition{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{},
-				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
-				NumSteps:         0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			block.Transactions,
+			[]core.ClassDefinition{declaredClass.Class},
+			paidL1Fees,
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false,
+		).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{},
+			Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
+			NumSteps:         0,
+		}, nil)
 
 		result, err := handler.TraceBlockTransactions(
 			t.Context(),
@@ -667,13 +692,21 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}`)
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.ClassDefinition{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{},
-				Traces:           []vm.TransactionTrace{vmTrace},
-				NumSteps:         0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{},
+			Traces:           []vm.TransactionTrace{vmTrace},
+			NumSteps:         0,
+		}, nil)
 
 		expectedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
 		expectedResult := []rpc.TracedBlockTransaction{

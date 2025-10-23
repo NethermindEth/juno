@@ -418,7 +418,10 @@ func (v *vm) Execute(
 	}, nil
 }
 
-func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.ClassDefinition) (json.RawMessage, json.RawMessage, error) {
+func marshalTxnsAndDeclaredClasses(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+) (json.RawMessage, json.RawMessage, error) {
 	txnJSONs := make([]json.RawMessage, 0, len(txns))
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)

@@ -423,11 +423,20 @@ func TestRevert(t *testing.T) {
 	t.Run("revert declared classes", func(t *testing.T) {
 		classesM := make(map[felt.Felt]core.ClassDefinition)
 		cairo0 := &core.DeprecatedCairoClass{
-			Abi:          json.RawMessage("some cairo 0 class abi"),
-			Externals:    []core.DeprecatedEntryPoint{{new(felt.Felt).SetBytes([]byte("e1")), new(felt.Felt).SetBytes([]byte("e2"))}},
-			L1Handlers:   []core.DeprecatedEntryPoint{{new(felt.Felt).SetBytes([]byte("l1")), new(felt.Felt).SetBytes([]byte("l2"))}},
-			Constructors: []core.DeprecatedEntryPoint{{new(felt.Felt).SetBytes([]byte("c1")), new(felt.Felt).SetBytes([]byte("c2"))}},
-			Program:      "some cairo 0 program",
+			Abi: json.RawMessage("some cairo 0 class abi"),
+			Externals: []core.DeprecatedEntryPoint{{
+				new(felt.Felt).SetBytes([]byte("e1")),
+				new(felt.Felt).SetBytes([]byte("e2")),
+			}},
+			L1Handlers: []core.DeprecatedEntryPoint{{
+				new(felt.Felt).SetBytes([]byte("l1")),
+				new(felt.Felt).SetBytes([]byte("l2")),
+			}},
+			Constructors: []core.DeprecatedEntryPoint{{
+				new(felt.Felt).SetBytes([]byte("c1")),
+				new(felt.Felt).SetBytes([]byte("c2")),
+			}},
+			Program: "some cairo 0 program",
 		}
 
 		cairo0Addr := felt.NewUnsafeFromString[felt.Felt]("0xab1234")
@@ -441,9 +450,18 @@ func TestRevert(t *testing.T) {
 				External    []core.SierraEntryPoint
 				L1Handler   []core.SierraEntryPoint
 			}{
-				Constructor: []core.SierraEntryPoint{{1, new(felt.Felt).SetBytes([]byte("c1"))}},
-				External:    []core.SierraEntryPoint{{0, new(felt.Felt).SetBytes([]byte("e1"))}},
-				L1Handler:   []core.SierraEntryPoint{{2, new(felt.Felt).SetBytes([]byte("l1"))}},
+				Constructor: []core.SierraEntryPoint{{
+					1,
+					new(felt.Felt).SetBytes([]byte("c1")),
+				}},
+				External: []core.SierraEntryPoint{{
+					0,
+					new(felt.Felt).SetBytes([]byte("e1")),
+				}},
+				L1Handler: []core.SierraEntryPoint{{
+					2,
+					new(felt.Felt).SetBytes([]byte("l1")),
+				}},
 			},
 			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
 			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
@@ -455,7 +473,9 @@ func TestRevert(t *testing.T) {
 		classesM[*cairo1Addr] = cairo1
 
 		declaredClassesStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				DeclaredV0Classes: []*felt.Felt{cairo0Addr},
@@ -518,8 +538,10 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 	value := new(felt.Felt).SetUint64(3)
 	su := &core.StateUpdate{
 		BlockHash: new(felt.Felt),
-		NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8"),
-		OldRoot:   new(felt.Felt),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8",
+		),
+		OldRoot: new(felt.Felt),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*addr: {
@@ -552,11 +574,15 @@ func TestRevertSystemContracts(t *testing.T) {
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
 	scKey := felt.NewUnsafeFromString[felt.Felt]("0x492e8")
-	scValue := felt.NewUnsafeFromString[felt.Felt]("0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+	scValue := felt.NewUnsafeFromString[felt.Felt](
+		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
+	)
 	scAddr := new(felt.Felt).SetUint64(1)
 
 	// update state root
-	su1.NewRoot = felt.NewUnsafeFromString[felt.Felt]("0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341")
+	su1.NewRoot = felt.NewUnsafeFromString[felt.Felt](
+		"0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341",
+	)
 
 	su1.StateDiff.StorageDiffs[*scAddr] = map[felt.Felt]*felt.Felt{*scKey: scValue}
 
@@ -578,8 +604,10 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	classHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	sierraHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
 	declareDiff := &core.StateUpdate{
-		OldRoot:   &felt.Zero,
-		NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a"),
+		OldRoot: &felt.Zero,
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a",
+		),
 		BlockHash: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			DeclaredV0Classes: []*felt.Felt{classHash},
@@ -615,14 +643,16 @@ func TestRevertDeclaredClasses(t *testing.T) {
 
 	require.NoError(t, state.Revert(1, declareDiff))
 
-	t.Run("reverting a re-declaration shouldnt change state commitment or remove class definitions", func(t *testing.T) {
-		declaredClass, err = state.Class(classHash)
-		require.NoError(t, err)
-		assert.Equal(t, uint64(0), declaredClass.At)
-		sierraClass, sErr = state.Class(sierraHash)
-		require.NoError(t, sErr)
-		assert.Equal(t, uint64(0), sierraClass.At)
-	})
+	t.Run(
+		"reverting a re-declaration shouldnt change state commitment or remove class definitions",
+		func(t *testing.T) {
+			declaredClass, err = state.Class(classHash)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(0), declaredClass.At)
+			sierraClass, sErr = state.Class(sierraHash)
+			require.NoError(t, sErr)
+			assert.Equal(t, uint64(0), sierraClass.At)
+		})
 
 	declareDiff.OldRoot = &felt.Zero
 	require.NoError(t, state.Revert(0, declareDiff))

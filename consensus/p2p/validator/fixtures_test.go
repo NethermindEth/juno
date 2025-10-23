@@ -327,7 +327,11 @@ func calculateConcatCounts(block *core.Block, stateUpdate *core.StateUpdate) fel
 	return core.ConcatCounts(block.TransactionCount, block.EventCount, stateUpdate.StateDiff.Length(), block.L1DAMode)
 }
 
-func calculateNewClasses(t *testing.T, gw *adaptfeeder.Feeder, stateUpdate *core.StateUpdate) map[felt.Felt]core.ClassDefinition {
+func calculateNewClasses(
+	t *testing.T,
+	gw *adaptfeeder.Feeder,
+	stateUpdate *core.StateUpdate,
+) map[felt.Felt]core.ClassDefinition {
 	newClasses := make(map[felt.Felt]core.ClassDefinition)
 	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
 		class, err := gw.Class(t.Context(), &classHash)

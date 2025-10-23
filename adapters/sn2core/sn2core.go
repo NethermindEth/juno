@@ -262,7 +262,10 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
-func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.SierraClass, error) {
+func AdaptCairo1Class(
+	response *starknet.SierraDefinition,
+	compiledClass *starknet.CompiledClass,
+) (*core.SierraClass, error) {
 	var err error
 
 	// TODO: what's the absolute minimum size of a Sierra Definition?

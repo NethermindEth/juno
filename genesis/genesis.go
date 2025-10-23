@@ -148,7 +148,11 @@ func declareClasses(
 	return nil
 }
 
-func setClass(genesisState *core.PendingStateWriter, classHash *felt.Felt, class core.ClassDefinition) error {
+func setClass(
+	genesisState *core.PendingStateWriter,
+	classHash *felt.Felt,
+	class core.ClassDefinition,
+) error {
 	if err := genesisState.SetContractClass(classHash, class); err != nil {
 		return fmt.Errorf("declare v0 class: %v", err)
 	}

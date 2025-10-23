@@ -530,7 +530,10 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }
 
-func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefinitions map[felt.Felt]ClassDefinition) error {
+func (s *State) updateDeclaredClassesTrie(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	classDefinitions map[felt.Felt]ClassDefinition,
+) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err

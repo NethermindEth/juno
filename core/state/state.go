@@ -543,7 +543,10 @@ func (s *State) flush(
 	return batch.Write()
 }
 
-func (s *State) updateClassTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefs map[felt.Felt]core.ClassDefinition) error {
+func (s *State) updateClassTrie(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	classDefs map[felt.Felt]core.ClassDefinition,
+) error {
 	for classHash, compiledClassHash := range declaredClasses {
 		if _, found := classDefs[classHash]; !found {
 			continue

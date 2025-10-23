@@ -93,40 +93,43 @@ func TestSyncBlocks(t *testing.T) {
 
 		syncingHeight := uint64(0)
 		reqCount := 0
-		mockSNData.EXPECT().StateUpdateWithBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {
-			curHeight := atomic.LoadUint64(&syncingHeight)
-			// reject any other requests
-			if height != curHeight {
-				return nil, nil, errors.New("try again")
-			}
+		mockSNData.EXPECT().StateUpdateWithBlock(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {
+				curHeight := atomic.LoadUint64(&syncingHeight)
+				// reject any other requests
+				if height != curHeight {
+					return nil, nil, errors.New("try again")
+				}
 
-			reqCount++
-			state, block, err := gw.StateUpdateWithBlock(t.Context(), curHeight)
-			if err != nil {
-				return nil, nil, err
-			}
+				reqCount++
+				state, block, err := gw.StateUpdateWithBlock(t.Context(), curHeight)
+				if err != nil {
+					return nil, nil, err
+				}
 
-			switch reqCount {
-			case 1:
-				return nil, nil, errors.New("try again")
-			case 2:
-				state.BlockHash = new(felt.Felt) // fail sanity checks
-			case 3:
-				state.OldRoot = new(felt.Felt).SetUint64(1) // fail store
-			default:
-				reqCount = 0
-				atomic.AddUint64(&syncingHeight, 1)
-			}
+				switch reqCount {
+				case 1:
+					return nil, nil, errors.New("try again")
+				case 2:
+					state.BlockHash = new(felt.Felt) // fail sanity checks
+				case 3:
+					state.OldRoot = new(felt.Felt).SetUint64(1) // fail store
+				default:
+					reqCount = 0
+					atomic.AddUint64(&syncingHeight, 1)
+				}
 
-			return state, block, nil
-		}).AnyTimes()
-		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, hash *felt.Felt) (core.ClassDefinition, error) {
-			return gw.Class(ctx, hash)
-		}).AnyTimes()
+				return state, block, nil
+			}).AnyTimes()
+		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, hash *felt.Felt) (core.ClassDefinition, error) {
+				return gw.Class(ctx, hash)
+			}).AnyTimes()
 
-		mockSNData.EXPECT().BlockLatest(gomock.Any()).DoAndReturn(func(ctx context.Context) (*core.Block, error) {
-			return gw.BlockLatest(t.Context())
-		}).AnyTimes()
+		mockSNData.EXPECT().BlockLatest(gomock.Any()).DoAndReturn(
+			func(ctx context.Context) (*core.Block, error) {
+				return gw.BlockLatest(t.Context())
+			}).AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
 		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)

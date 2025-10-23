@@ -404,11 +404,20 @@ func TestRevert(t *testing.T) {
 
 		classesM := make(map[felt.Felt]core.ClassDefinition)
 		cairo0 := &core.DeprecatedCairoClass{
-			Abi:          json.RawMessage("some cairo 0 class abi"),
-			Externals:    []core.DeprecatedEntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("e1")), Offset: new(felt.Felt).SetBytes([]byte("e2"))}},
-			L1Handlers:   []core.DeprecatedEntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("l1")), Offset: new(felt.Felt).SetBytes([]byte("l2"))}},
-			Constructors: []core.DeprecatedEntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("c1")), Offset: new(felt.Felt).SetBytes([]byte("c2"))}},
-			Program:      "some cairo 0 program",
+			Abi: json.RawMessage("some cairo 0 class abi"),
+			Externals: []core.DeprecatedEntryPoint{{
+				Selector: new(felt.Felt).SetBytes([]byte("e1")),
+				Offset:   new(felt.Felt).SetBytes([]byte("e2")),
+			}},
+			L1Handlers: []core.DeprecatedEntryPoint{{
+				Selector: new(felt.Felt).SetBytes([]byte("l1")),
+				Offset:   new(felt.Felt).SetBytes([]byte("l2")),
+			}},
+			Constructors: []core.DeprecatedEntryPoint{{
+				Selector: new(felt.Felt).SetBytes([]byte("c1")),
+				Offset:   new(felt.Felt).SetBytes([]byte("c2")),
+			}},
+			Program: "some cairo 0 program",
 		}
 
 		cairo0Addr := felt.NewUnsafeFromString[felt.Felt]("0xab1234")
@@ -422,9 +431,18 @@ func TestRevert(t *testing.T) {
 				External    []core.SierraEntryPoint
 				L1Handler   []core.SierraEntryPoint
 			}{
-				Constructor: []core.SierraEntryPoint{{Index: 1, Selector: new(felt.Felt).SetBytes([]byte("c1"))}},
-				External:    []core.SierraEntryPoint{{Index: 0, Selector: new(felt.Felt).SetBytes([]byte("e1"))}},
-				L1Handler:   []core.SierraEntryPoint{{Index: 2, Selector: new(felt.Felt).SetBytes([]byte("l1"))}},
+				Constructor: []core.SierraEntryPoint{{
+					Index:    1,
+					Selector: new(felt.Felt).SetBytes([]byte("c1")),
+				}},
+				External: []core.SierraEntryPoint{{
+					Index:    0,
+					Selector: new(felt.Felt).SetBytes([]byte("e1")),
+				}},
+				L1Handler: []core.SierraEntryPoint{{
+					Index:    2,
+					Selector: new(felt.Felt).SetBytes([]byte("l1")),
+				}},
 			},
 			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
 			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
@@ -436,7 +454,9 @@ func TestRevert(t *testing.T) {
 		classesM[*cairo1Addr] = cairo1
 
 		declaredClassesStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				DeclaredV0Classes: []*felt.Felt{cairo0Addr},

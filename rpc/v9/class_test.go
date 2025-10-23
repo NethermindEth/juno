@@ -31,10 +31,11 @@ func TestClass(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-		class, err := integGw.Class(t.Context(), classHash)
-		return &core.DeclaredClassDefinition{Class: class, At: 0}, err
-	}).AnyTimes()
+	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+		func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+			class, err := integGw.Class(t.Context(), classHash)
+			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+		}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
@@ -114,10 +115,11 @@ func TestClassAt(t *testing.T) {
 	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*cairo1ClassHash, nil)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-		class, err := integGw.Class(t.Context(), classHash)
-		return &core.DeclaredClassDefinition{Class: class, At: 0}, err
-	}).AnyTimes()
+	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+		func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+			class, err := integGw.Class(t.Context(), classHash)
+			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+		}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
@@ -266,7 +268,11 @@ func TestClassHashAt(t *testing.T) {
 	})
 }
 
-func assertEqualCairo0Class(t *testing.T, cairo0Class *core.DeprecatedCairoClass, class *rpcv6.Class) {
+func assertEqualCairo0Class(
+	t *testing.T,
+	cairo0Class *core.DeprecatedCairoClass,
+	class *rpcv6.Class,
+) {
 	assert.Equal(t, cairo0Class.Program, class.Program)
 	assert.Equal(t, cairo0Class.Abi, class.Abi.(json.RawMessage))
 

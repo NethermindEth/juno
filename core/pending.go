@@ -58,7 +58,11 @@ type Pending struct {
 	NewClasses  map[felt.Felt]ClassDefinition
 }
 
-func NewPending(block *Block, stateUpdate *StateUpdate, newClasses map[felt.Felt]ClassDefinition) Pending {
+func NewPending(
+	block *Block,
+	stateUpdate *StateUpdate,
+	newClasses map[felt.Felt]ClassDefinition,
+) Pending {
 	return Pending{
 		Block:       block,
 		StateUpdate: stateUpdate,

@@ -29,7 +29,10 @@ func TestClass(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+	mockState.EXPECT().Class(
+		gomock.Any()).DoAndReturn(func(
+		classHash *felt.Felt,
+	) (*core.DeclaredClassDefinition, error) {
 		class, err := integGw.Class(t.Context(), classHash)
 		return &core.DeclaredClassDefinition{Class: class, At: 0}, err
 	}).AnyTimes()
@@ -116,10 +119,11 @@ func TestClassAt(t *testing.T) {
 	)
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*cairo1ClassHash, nil)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-		class, err := integGw.Class(t.Context(), classHash)
-		return &core.DeclaredClassDefinition{Class: class, At: 0}, err
-	}).AnyTimes()
+	mockState.EXPECT().Class(gomock.Any()).
+		DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+			class, err := integGw.Class(t.Context(), classHash)
+			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+		}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
