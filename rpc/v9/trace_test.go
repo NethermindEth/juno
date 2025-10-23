@@ -96,6 +96,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 	}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+	mockReader.EXPECT().Network().Return(n).AnyTimes()
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
@@ -126,7 +127,8 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		mockReader := mocks.NewMockReader(mockCtrl)
 
-		client := feeder.NewTestClient(t, &utils.Sepolia)
+		network := utils.Sepolia
+		client := feeder.NewTestClient(t, &network)
 		gateway := adaptfeeder.New(client)
 
 		blockNumber := uint64(40000)
@@ -138,6 +140,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 			return mockReader.BlockByNumber(blockNumber)
 		})
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+		mockReader.EXPECT().Network().Return(&network)
 
 		// No feeder client is set
 		handler := rpc.New(mockReader, nil, nil, nil)

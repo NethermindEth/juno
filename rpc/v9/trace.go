@@ -405,7 +405,7 @@ func (h *Handler) traceBlockTransactions(
 		return traces, defaultExecutionHeader(), nil
 	}
 
-	fetchFromFeederGW, err := h.shouldFetchTracesFromFeederGateway(block)
+	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(block, h.bcReader.Network())
 	if err != nil {
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
@@ -424,7 +424,7 @@ func (h *Handler) traceBlockTransactions(
 
 // shouldFetchTracesFromFeederGateway determines if
 // traces for a block should be fetched from the feeder gateway.
-func (h *Handler) shouldFetchTracesFromFeederGateway(block *core.Block) (bool, error) {
+func shouldFetchTracesFromFeederGateway(block *core.Block, network *utils.Network) (bool, error) {
 	blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
 	if err != nil {
 		return false, err
@@ -438,7 +438,7 @@ func (h *Handler) shouldFetchTracesFromFeederGateway(block *core.Block) (bool, e
 	fetchFromFeederGW = fetchFromFeederGW ||
 		(block.Number >= 1943705 &&
 			block.Number <= 1952704 &&
-			*h.bcReader.Network() == utils.Mainnet)
+			*network == utils.Mainnet)
 
 	return fetchFromFeederGW, nil
 }
