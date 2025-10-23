@@ -138,7 +138,7 @@ func setHeaderAndProcessRequest(
 	srv *httptest.Server,
 ) *http.Response {
 	req, err := http.NewRequestWithContext(
-		ctx,
+		t.Context(),
 		http.MethodPost,
 		srv.URL,
 		msg,
