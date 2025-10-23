@@ -16,12 +16,12 @@ func Blake2s[F felt.FeltLike](x, y *F) (felt.Hash, error) {
 }
 
 func Blake2sArray[F felt.FeltLike](feltLikes ...*F) (felt.Hash, error) {
-	// It is assumed that F follows the exact same memory layout as felt.Felt
-	// Otherwise this code will fail
-	felts := unsafe.Slice((**felt.Felt)(unsafe.Pointer(&feltLikes[0])), len(feltLikes))
-
-	for _, f := range felts {
-		println(f.String())
+	var felts []*felt.Felt
+	if len(feltLikes) > 0 {
+		// It is assumed that type F follows the exact same memory layout as felt.Felt
+		felts = unsafe.Slice((**felt.Felt)(unsafe.Pointer(&feltLikes[0])), len(feltLikes))
+	} else {
+		felts = []*felt.Felt{}
 	}
 
 	encoding := encodeFeltsToBytes(felts...)
