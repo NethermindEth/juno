@@ -47,10 +47,14 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !decodeIfDataIsEncoded(writer, req) {
-		return
+	if req.Header.Get("Content-Encoding") == "gzip" {
+		gz, err := gzip.NewReader(req.Body)
+		if err != nil {
+			http.Error(writer, "invalid gzip", http.StatusBadRequest)
+			return
+		}
+		req.Body = gz
 	}
-
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	h.listener.OnNewRequest("any")
 	resp, header, err := h.rpc.HandleReader(req.Context(), req.Body)
@@ -63,7 +67,8 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {
-		if encodeIfEncodingIsAccepted(writer, req, resp) {
+		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+			encodeDataInGzip(writer, resp)
 			return
 		}
 		_, err = writer.Write(resp)
@@ -73,39 +78,17 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func decodeIfDataIsEncoded(writer http.ResponseWriter, req *http.Request) bool {
-	if req.Header.Get("Content-Encoding") == "gzip" {
-		gz, err := gzip.NewReader(req.Body)
-		if err != nil {
-			http.Error(writer, "invalid gzip", http.StatusBadRequest)
-			return false
-		}
-		defer gz.Close()
-		req.Body = gz
-	}
-	return true
-}
-
-func encodeIfEncodingIsAccepted(writer http.ResponseWriter, req *http.Request, data []byte) bool {
-	encHeaders := req.Header.Get("Accept-Encoding")
-	if strings.Contains(encHeaders, "gzip") {
-		writer.Header().Set("Content-Encoding", "gzip")
-		gw := gzip.NewWriter(writer)
-		_, err := gw.Write(data)
-		if err != nil {
-			// Handle gzip write error
-			http.Error(writer, "gzip write error", http.StatusInternalServerError)
-			return true
-		}
-
-		// Close and check for error
+func encodeDataInGzip(writer http.ResponseWriter, data []byte) {
+	writer.Header().Set("Content-Encoding", "gzip")
+	gw := gzip.NewWriter(writer)
+	defer func() {
 		if err := gw.Close(); err != nil {
-			// Handle gzip close error
 			http.Error(writer, "gzip close error", http.StatusInternalServerError)
-			return true
 		}
-
-		return true
+	}()
+	_, err := gw.Write(data)
+	if err != nil {
+		http.Error(writer, "gzip write error", http.StatusInternalServerError)
+		return
 	}
-	return false
 }

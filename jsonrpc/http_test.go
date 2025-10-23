@@ -98,7 +98,7 @@ func TestGzipResponse(t *testing.T) {
 	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
 	client := new(http.Client)
 
-	payload := randomAlphaNumeric(5)
+	payload := randomAlphaNumeric(5000)
 	msg := fmt.Sprintf(`{"jsonrpc":"2.0", "method":"echo", "params":[%q], "id":1}`, payload)
 	expected := fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)
 	t.Run("success: gzip encoded response", func(t *testing.T) {
@@ -113,54 +113,22 @@ func TestGzipResponse(t *testing.T) {
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		require.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
-		var compressedBody bytes.Buffer
-		_, err = io.Copy(&compressedBody, resp.Body)
-		require.NoError(t, err)
-
-		gzr, err := gzip.NewReader(&compressedBody)
-		require.NoError(t, err)
-		defer gzr.Close()
-
-		decompressedBody, err := io.ReadAll(gzr)
-		require.NoError(t, err)
-		assert.Contains(t, string(decompressedBody), expected)
+		verifyResponse(resp, t, expected)
 	})
 
 	t.Run("success: gzip encoded request & response", func(t *testing.T) {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
-		if _, err := gz.Write([]byte(msg)); err != nil {
-			panic(err)
-		}
-		if err := gz.Close(); err != nil {
-			panic(err)
-		}
+		_, err := gz.Write([]byte(msg))
+		require.NoError(t, err)
+		err = gz.Close()
+		require.NoError(t, err)
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL, &buf)
 		require.NoError(t, err)
-		req.Header.Set("Content-Encoding", "gzip")
-		req.Header.Set("Content-Type", "application/json") // still JSON payload, just compressed
-		req.Header.Set("Accept-Encoding", "gzip")
-		resp, err := client.Do(req)
-		require.NoError(t, err)
+		resp := setHeaderAndProcessRequest(client, t, req)
 		defer resp.Body.Close()
-
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		require.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
-		var compressedBody bytes.Buffer
-		_, err = io.Copy(&compressedBody, resp.Body)
-		require.NoError(t, err)
-
-		gzr, err := gzip.NewReader(&compressedBody)
-		require.NoError(t, err)
-		defer gzr.Close()
-
-		decompressedBody, err := io.ReadAll(gzr)
-		require.NoError(t, err)
-		t.Logf("Decompressed: %s\n", decompressedBody)
-		assert.Contains(t, string(decompressedBody), expected)
+		verifyResponse(resp, t, expected)
 	})
 
 	t.Run("failed: request is not gzip encoded but set header as gzip encoded",
@@ -172,13 +140,8 @@ func TestGzipResponse(t *testing.T) {
 				bytes.NewReader([]byte(msg)),
 			)
 			require.NoError(t, err)
-			req.Header.Set("Content-Encoding", "gzip")
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Accept-Encoding", "gzip")
-			resp, err := client.Do(req)
-			require.NoError(t, err)
+			resp := setHeaderAndProcessRequest(client, t, req)
 			defer resp.Body.Close()
-
 			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		})
 }
@@ -192,4 +155,30 @@ func randomAlphaNumeric(n int) string {
 		b[i] = letters[r.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+func setHeaderAndProcessRequest(
+	client *http.Client,
+	t *testing.T,
+	req *http.Request,
+) *http.Response {
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	return resp
+}
+
+func verifyResponse(resp *http.Response, t *testing.T, expected string) {
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
+
+	gzr, err := gzip.NewReader(resp.Body)
+	require.NoError(t, err)
+	defer gzr.Close()
+
+	decompressedBody, err := io.ReadAll(gzr)
+	require.NoError(t, err)
+	assert.Equal(t, string(decompressedBody), expected)
 }
