@@ -121,12 +121,11 @@ func TestGzipResponse(t *testing.T) {
 		verifyResponse(resp, t, expected)
 	})
 
-	t.Run("failed: request is not gzip encoded but set header as gzip encoded",
-		func(t *testing.T) {
+	t.Run("failed: request is not gzip encoded but set header as gzip encoded",	func(t *testing.T) {
 			resp := setHeaderAndProcessRequest(ctx, client, headers, bytes.NewReader([]byte(msg)), t, srv)
-			defer resp.Body.Close()
 			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		})
+		},
+	)
 }
 
 func setHeaderAndProcessRequest(
