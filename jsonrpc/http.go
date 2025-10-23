@@ -2,6 +2,7 @@ package jsonrpc
 
 import (
 	"compress/gzip"
+	"io"
 	"maps"
 	"net/http"
 	"strings"
@@ -67,28 +68,20 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {
+		var ioWriter io.Writer = writer
 		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
-			encodeDataInGzip(writer, resp)
-			return
+			writer.Header().Set("Content-Encoding", "gzip")
+			gw := gzip.NewWriter(writer)
+			defer func() {
+				if err := gw.Close(); err != nil {
+					http.Error(writer, "gzip close error", http.StatusInternalServerError)
+				}
+			}()
+			ioWriter = gw
 		}
-		_, err = writer.Write(resp)
+		_, err = ioWriter.Write(resp)
 		if err != nil {
 			h.log.Warnw("Failed writing response", "err", err)
 		}
-	}
-}
-
-func encodeDataInGzip(writer http.ResponseWriter, data []byte) {
-	writer.Header().Set("Content-Encoding", "gzip")
-	gw := gzip.NewWriter(writer)
-	defer func() {
-		if err := gw.Close(); err != nil {
-			http.Error(writer, "gzip close error", http.StatusInternalServerError)
-		}
-	}()
-	_, err := gw.Write(data)
-	if err != nil {
-		http.Error(writer, "gzip write error", http.StatusInternalServerError)
-		return
 	}
 }

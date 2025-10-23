@@ -6,11 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
@@ -33,9 +31,9 @@ func TestHTTP(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-
 	// Server
 	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
+	t.Cleanup(srv.Close)
 
 	// Client
 	client := new(http.Client)
@@ -87,31 +85,26 @@ func TestGzipResponse(t *testing.T) {
 		},
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
-	listener := CountingEventListener{}
 	log := utils.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, log).WithListener(&listener)
+	rpc := jsonrpc.NewServer(1, log)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
+	t.Cleanup(srv.Close)
 	client := new(http.Client)
 
-	payload := randomAlphaNumeric(5000)
+	payload := "rand.Text"
 	msg := fmt.Sprintf(`{"jsonrpc":"2.0", "method":"echo", "params":[%q], "id":1}`, payload)
 	expected := fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)
+	headers := map[string]string{
+		"Accept-Encoding": "gzip, deflate, br",
+		"Content-Type":    "application/json",
+	}
 	t.Run("success: gzip encoded response", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(
-			ctx,
-			http.MethodPost,
-			srv.URL,
-			bytes.NewReader([]byte(msg)),
-		)
-		require.NoError(t, err)
-		req.Header.Set("Accept-Encoding", "gzip")
-		resp, err := client.Do(req)
-		require.NoError(t, err)
+		resp := setHeaderAndProcessRequest(ctx, client, headers, bytes.NewReader([]byte(msg)), t, srv)
 		defer resp.Body.Close()
 		verifyResponse(resp, t, expected)
 	})
@@ -121,50 +114,40 @@ func TestGzipResponse(t *testing.T) {
 		gz := gzip.NewWriter(&buf)
 		_, err := gz.Write([]byte(msg))
 		require.NoError(t, err)
-		err = gz.Close()
-		require.NoError(t, err)
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL, &buf)
-		require.NoError(t, err)
-		resp := setHeaderAndProcessRequest(client, t, req)
+		require.NoError(t, gz.Close())
+		headers["Content-Encoding"] = "gzip"
+		resp := setHeaderAndProcessRequest(ctx, client, headers, &buf, t, srv)
 		defer resp.Body.Close()
 		verifyResponse(resp, t, expected)
 	})
 
 	t.Run("failed: request is not gzip encoded but set header as gzip encoded",
 		func(t *testing.T) {
-			req, err := http.NewRequestWithContext(
-				ctx,
-				http.MethodPost,
-				srv.URL,
-				bytes.NewReader([]byte(msg)),
-			)
-			require.NoError(t, err)
-			resp := setHeaderAndProcessRequest(client, t, req)
+			resp := setHeaderAndProcessRequest(ctx, client, headers, bytes.NewReader([]byte(msg)), t, srv)
 			defer resp.Body.Close()
 			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		})
 }
 
-func randomAlphaNumeric(n int) string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	letters := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[r.Intn(len(letters))]
-	}
-	return string(b)
-}
-
 func setHeaderAndProcessRequest(
+	ctx context.Context,
 	client *http.Client,
+	headers map[string]string,
+	msg io.Reader,
 	t *testing.T,
-	req *http.Request,
+	srv *httptest.Server,
 ) *http.Response {
-	req.Header.Set("Content-Encoding", "gzip")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		srv.URL,
+		msg,
+	)
+	t.Cleanup(func() { req.Body.Close() })
+	require.NoError(t, err)
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	return resp
