@@ -114,6 +114,7 @@ func TestGzipResponse(t *testing.T) {
 	}
 	t.Run("success: gzip encoded response", func(t *testing.T) {
 		resp := setHeaderAndProcessRequest(client, commonHeaders, bytes.NewReader([]byte(msg)), t, srv)
+		defer resp.Body.Close()
 		verifyResponse(resp, t, expected)
 	})
 
@@ -126,6 +127,7 @@ func TestGzipResponse(t *testing.T) {
 		headers := cloneMap(commonHeaders)
 		headers["Content-Encoding"] = "gzip"
 		resp := setHeaderAndProcessRequest(client, headers, &buf, t, srv)
+		defer resp.Body.Close()
 		verifyResponse(resp, t, expected)
 	})
 
@@ -133,6 +135,7 @@ func TestGzipResponse(t *testing.T) {
 		headers := cloneMap(commonHeaders)
 		headers["Content-Encoding"] = "gzip"
 		resp := setHeaderAndProcessRequest(client, headers, bytes.NewReader([]byte(msg)), t, srv)
+		defer resp.Body.Close()
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	},
 	)
