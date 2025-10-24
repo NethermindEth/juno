@@ -1,7 +1,17 @@
-name: Check generated protobufs
+name: Verify generated protobufs
 on:
-  pull_request:
   push:
+    tags:
+      - v*
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   verify-buf:
     runs-on: ubuntu-latest
@@ -16,7 +26,7 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
         with:
           version: latest
-      - name: Run code generation
+      - name: Generate protobuf files
         run: |
           make generate-buf
       - name: Check for uncommitted changes
