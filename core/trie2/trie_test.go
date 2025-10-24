@@ -71,7 +71,7 @@ func TestDelete(t *testing.T) {
 func TestHash(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		tr, _ := NewEmptyPedersen()
-		hash := tr.Hash()
+		hash, _ := tr.Hash()
 		require.Equal(t, felt.Zero, hash)
 	})
 
@@ -79,7 +79,7 @@ func TestHash(t *testing.T) {
 		tr, _ := NewEmptyPedersen()
 		err := tr.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(2))
 		require.NoError(t, err)
-		hash := tr.Hash()
+		hash, _ := tr.Hash()
 
 		expected := "0x2ab889bd35e684623df9b4ea4a4a1f6d9e0ef39b67c1293b8a89dd17e351330"
 		require.Equal(t, expected, hash.String(), "expected %s, got %s", expected, hash.String())
@@ -91,7 +91,7 @@ func TestHash(t *testing.T) {
 		require.NoError(t, err)
 		err = tr.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(3))
 		require.NoError(t, err)
-		root := tr.Hash()
+		root, _ := tr.Hash()
 
 		expected := "0x79acdb7a3d78052114e21458e8c4aecb9d781ce79308193c61a2f3f84439f66"
 		require.Equal(t, expected, root.String(), "expected %s, got %s", expected, root.String())
@@ -118,7 +118,7 @@ func TestHash(t *testing.T) {
 		}
 
 		expected := "0x7e2184e9e1a651fd556b42b4ff10e44a71b1709f641e0203dc8bd2b528e5e81"
-		root := tr.Hash()
+		root, _ := tr.Hash()
 		require.Equal(t, expected, root.String(), "expected %s, got %s", expected, root.String())
 	})
 
@@ -150,7 +150,7 @@ func TestHash(t *testing.T) {
 		}
 
 		expected := "0x6a316f09913454294c6b6751dea8449bc2e235fdc04b2ab0e1ac7fea25cc34f"
-		root := tr.Hash()
+		root, _ := tr.Hash()
 		require.Equal(t, expected, root.String(), "expected %s, got %s", expected, root.String())
 	})
 
@@ -178,7 +178,7 @@ func TestHash(t *testing.T) {
 		}
 
 		expected := "0x542ced3b6aeef48339129a03e051693eff6a566d3a0a94035fa16ab610dc9e2"
-		root := tr.Hash()
+		root, _ := tr.Hash()
 		require.Equal(t, expected, root.String(), "expected %s, got %s", expected, root.String())
 	})
 }
@@ -319,7 +319,7 @@ func runRandTest(rt randTest) error {
 					rt[i].err = fmt.Errorf("mismatch in get: key %s, expected %v, got %v", step.key.String(), want.String(), got.String())
 				}
 			case opProve:
-				hash := tr.Hash()
+				hash, _ := tr.Hash()
 				if hash.Equal(&felt.Zero) {
 					continue
 				}
@@ -333,7 +333,10 @@ func runRandTest(rt randTest) error {
 					rt[i].err = fmt.Errorf("verify proof failed for key %s: %w", step.key.String(), err)
 				}
 			case opHash:
-				tr.Hash()
+				_, err := tr.Hash()
+				if err != nil {
+					rt[i].err = fmt.Errorf("hash failed: %w", err)
+				}
 			case opCommit:
 				root, nodes := tr.Commit()
 				if nodes != nil {

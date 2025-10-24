@@ -80,7 +80,7 @@ func (s *stateObject) getStorageRoot() felt.Felt {
 	// If the storage trie is loaded, it may be modified somewhere already.
 	// Return the hash of the trie and update the contract's storage root.
 	if s.storageTrie != nil {
-		root := s.storageTrie.Hash()
+		root, _ := s.storageTrie.Hash()
 		s.contract.StorageRoot = root
 		return root
 	}

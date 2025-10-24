@@ -687,7 +687,7 @@ func (t *Trie) deleteLast(nodes []StorageNode) error {
 }
 
 // Root returns the commitment of a [Trie]
-func (t *Trie) Root() (felt.Felt, error) {
+func (t *Trie) Hash() (felt.Felt, error) {
 	// We are careful to update the root key before returning.
 	// Otherwise, a new trie will not be able to find the root node.
 	if t.rootKeyIsDirty {
@@ -721,7 +721,7 @@ func (t *Trie) Root() (felt.Felt, error) {
 
 // Commit forces root calculation
 func (t *Trie) Commit() error {
-	_, err := t.Root()
+	_, err := t.Hash()
 	return err
 }
 

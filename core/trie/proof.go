@@ -222,7 +222,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 			return false, err
 		}
 
-		recomputedRoot, err := tr.Root()
+		recomputedRoot, err := tr.Hash()
 		if err != nil {
 			return false, err
 		}
@@ -302,7 +302,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	}
 
 	// Verify that the recomputed root hash matches the provided root hash
-	recomputedRoot, err := tr.Root()
+	recomputedRoot, err := tr.Hash()
 	if err != nil {
 		return false, err
 	}
