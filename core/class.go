@@ -29,8 +29,6 @@ var SierraVersion010 felt.Felt = felt.Felt(
 		576348180530977296,
 	})
 
-// todo(rdr): this Class name is not a really good name, what could be a more descriptive one
-// Class unambiguously defines a [Contract]'s semantics.
 type ClassDefinition interface {
 	Version() uint64
 	SierraVersion() string
@@ -50,8 +48,6 @@ type DeprecatedCairoClass struct {
 	Program string
 }
 
-// todo(rdr): rename this to DeprecatedEntryPoint
-// EntryPoint uniquely identifies a Cairo function to execute.
 type DeprecatedEntryPoint struct {
 	// starknet_keccak hash of the function signature.
 	Selector *felt.Felt
@@ -105,7 +101,6 @@ type CasmClass struct {
 	BytecodeSegmentLengths SegmentLengths
 }
 
-// todo(rdr): rename this to CasmEntryPoint
 type CasmEntryPoint struct {
 	Offset   uint64
 	Builtins []string
