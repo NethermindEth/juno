@@ -117,19 +117,19 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractClassHashAt(addr, blockNum
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHashAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractClassHashAt), addr, blockNumber)
 }
 
-// ContractIsAlreadyDeployedAt mocks base method.
-func (m *MockStateHistoryReader) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+// ContractDeployedAt mocks base method.
+func (m *MockStateHistoryReader) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractIsAlreadyDeployedAt", addr, blockNumber)
+	ret := m.ctrl.Call(m, "ContractDeployedAt", addr, blockNumber)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ContractIsAlreadyDeployedAt indicates an expected call of ContractIsAlreadyDeployedAt.
-func (mr *MockStateHistoryReaderMockRecorder) ContractIsAlreadyDeployedAt(addr, blockNumber any) *gomock.Call {
+// ContractDeployedAt indicates an expected call of ContractDeployedAt.
+func (mr *MockStateHistoryReaderMockRecorder) ContractDeployedAt(addr, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractIsAlreadyDeployedAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractIsAlreadyDeployedAt), addr, blockNumber)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractDeployedAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractDeployedAt), addr, blockNumber)
 }
 
 // ContractNonce mocks base method.
