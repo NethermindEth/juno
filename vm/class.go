@@ -22,7 +22,7 @@ func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
 	case *core.DeprecatedCairoClass:
 		var err error
 		classInfo.CairoVersion = 0
-		classInfo.Class, err = core2sn.AdaptCairo0Class(c)
+		classInfo.Class, err = core2sn.AdaptDeprecatedCairoClass(c)
 		if err != nil {
 			return nil, err
 		}

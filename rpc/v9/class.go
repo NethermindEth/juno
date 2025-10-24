@@ -52,7 +52,7 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, er
 			return nil, err
 		}
 
-		return sn2core.AdaptCairo0Class(feederClass.V0)
+		return sn2core.AdaptDeprecatedCairoClass(feederClass.V0)
 	default:
 		return nil, errors.New("empty class")
 	}
@@ -85,9 +85,9 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*rpcv6.Class, *jsonr
 			Abi:     c.Abi,
 			Program: c.Program,
 			EntryPoints: rpcv6.EntryPoints{
-				Constructor: adaptCairo0EntryPoints(c.Constructors),
-				External:    adaptCairo0EntryPoints(c.Externals),
-				L1Handler:   adaptCairo0EntryPoints(c.L1Handlers),
+				Constructor: adaptDeprecatedCairoEntryPoints(c.Constructors),
+				External:    adaptDeprecatedCairoEntryPoints(c.Externals),
+				L1Handler:   adaptDeprecatedCairoEntryPoints(c.L1Handlers),
 			},
 		}
 	case *core.SierraClass:
@@ -139,7 +139,7 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	return &classHash, nil
 }
 
-func adaptCairo0EntryPoints(entryPoints []core.DeprecatedEntryPoint) []rpcv6.EntryPoint {
+func adaptDeprecatedCairoEntryPoints(entryPoints []core.DeprecatedEntryPoint) []rpcv6.EntryPoint {
 	adaptedEntryPoints := make([]rpcv6.EntryPoint, len(entryPoints))
 	for i, entryPoint := range entryPoints {
 		adaptedEntryPoints[i] = rpcv6.EntryPoint{

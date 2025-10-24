@@ -74,14 +74,14 @@ func adaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (CompiledCasmRe
 		return CompiledCasmResponse{}, err
 	}
 
-	var cairo0 zero.ZeroProgram
-	err = json.Unmarshal(program, &cairo0)
+	var deprecatedCairo zero.ZeroProgram
+	err = json.Unmarshal(program, &deprecatedCairo)
 	if err != nil {
 		return CompiledCasmResponse{}, err
 	}
 
-	bytecode := make([]*felt.Felt, len(cairo0.Data))
-	for i, str := range cairo0.Data {
+	bytecode := make([]*felt.Felt, len(deprecatedCairo.Data))
+	for i, str := range deprecatedCairo.Data {
 		f, err := felt.NewFromString[felt.Felt](str)
 		if err != nil {
 			return CompiledCasmResponse{}, err
@@ -89,7 +89,7 @@ func adaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (CompiledCasmRe
 		bytecode[i] = f
 	}
 
-	classHints, err := hintRunnerZero.GetZeroHints(&cairo0)
+	classHints, err := hintRunnerZero.GetZeroHints(&deprecatedCairo)
 	if err != nil {
 		return CompiledCasmResponse{}, err
 	}
@@ -112,9 +112,9 @@ func adaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (CompiledCasmRe
 			External:    adaptDeprecatedEntryPoints(class.Externals),
 			L1Handler:   adaptDeprecatedEntryPoints(class.L1Handlers),
 		},
-		Prime:                  cairo0.Prime,
+		Prime:                  deprecatedCairo.Prime,
 		Bytecode:               bytecode,
-		CompilerVersion:        cairo0.CompilerVersion,
+		CompilerVersion:        deprecatedCairo.CompilerVersion,
 		Hints:                  json.RawMessage(rawHints),
 		BytecodeSegmentLengths: nil, // Cairo 0 classes don't have this field (it was introduced since Sierra 1.5.0)
 	}

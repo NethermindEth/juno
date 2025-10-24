@@ -19,7 +19,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func cairo0ClassHash(class *DeprecatedCairoClass) (*felt.Felt, error) {
+func deprecatedCairoClassHash(class *DeprecatedCairoClass) (*felt.Felt, error) {
 	definition, err := makeDeprecatedVMClass(class)
 	if err != nil {
 		return nil, err

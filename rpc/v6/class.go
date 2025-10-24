@@ -66,7 +66,7 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, er
 			return nil, err
 		}
 
-		return sn2core.AdaptCairo0Class(feederClass.V0)
+		return sn2core.AdaptDeprecatedCairoClass(feederClass.V0)
 	default:
 		return nil, errors.New("empty class")
 	}

@@ -59,7 +59,7 @@ func AdaptSierraClass(class *core.SierraClass) *starknet.SierraDefinition {
 	}
 }
 
-func AdaptCairo0Class(class *core.DeprecatedCairoClass) (*starknet.Cairo0Definition, error) {
+func AdaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (*starknet.Cairo0Definition, error) {
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err

@@ -54,16 +54,16 @@ func TestCompiledCasm(t *testing.T) {
 		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
-		cairo0, ok := class.(*core.DeprecatedCairoClass)
+		deprecatedCairo, ok := class.(*core.DeprecatedCairoClass)
 		require.True(t, ok)
-		program, err := utils.Gzip64Decode(cairo0.Program)
+		program, err := utils.Gzip64Decode(deprecatedCairo.Program)
 		require.NoError(t, err)
 
 		// only fields that need to be unmarshaled specified
-		var cairo0Definition struct {
+		var deprecatedCairoDefinition struct {
 			Data []*felt.Felt `json:"data"`
 		}
-		err = json.Unmarshal(program, &cairo0Definition)
+		err = json.Unmarshal(program, &deprecatedCairoDefinition)
 		require.NoError(t, err)
 
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -76,12 +76,12 @@ func TestCompiledCasm(t *testing.T) {
 			Prime:           "0x800000000000011000000000000000000000000000000000000000000000001",
 			CompilerVersion: "0.10.3",
 			EntryPointsByType: rpc.EntryPointsByType{
-				Constructor: utils.Map(cairo0.Constructors, adaptEntryPoint),
-				External:    utils.Map(cairo0.Externals, adaptEntryPoint),
-				L1Handler:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
+				Constructor: utils.Map(deprecatedCairo.Constructors, adaptEntryPoint),
+				External:    utils.Map(deprecatedCairo.Externals, adaptEntryPoint),
+				L1Handler:   utils.Map(deprecatedCairo.L1Handlers, adaptEntryPoint),
 			},
 			Hints:    json.RawMessage(`[[2,[{"Dst":0}]]]`),
-			Bytecode: cairo0Definition.Data,
+			Bytecode: deprecatedCairoDefinition.Data,
 		}, resp)
 	})
 

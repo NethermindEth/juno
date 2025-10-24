@@ -7,12 +7,13 @@
 package class
 
 import (
-	common "github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	common "github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -384,7 +385,7 @@ func (x *Class) GetClass() isClass_Class {
 func (x *Class) GetCairo0() *Cairo0Class {
 	if x != nil {
 		if x, ok := x.Class.(*Class_Cairo0); ok {
-			return x.Cairo0
+			return x.DeprecatedCairo
 		}
 	}
 	return nil
@@ -418,7 +419,7 @@ type isClass_Class interface {
 }
 
 type Class_Cairo0 struct {
-	Cairo0 *Cairo0Class `protobuf:"bytes,1,opt,name=cairo0,proto3,oneof"`
+	DeprecatedCairo *Cairo0Class `protobuf:"bytes,1,opt,name=cairo0,proto3,oneof"`
 }
 
 type Class_Cairo1 struct {

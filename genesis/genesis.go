@@ -387,7 +387,7 @@ func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
 
 		var coreClass core.ClassDefinition
 		if response.V0 != nil {
-			if coreClass, err = sn2core.AdaptCairo0Class(response.V0); err != nil {
+			if coreClass, err = sn2core.AdaptDeprecatedCairoClass(response.V0); err != nil {
 				return nil, err
 			}
 		} else {

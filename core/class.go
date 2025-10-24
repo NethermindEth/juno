@@ -66,7 +66,7 @@ func (c *DeprecatedCairoClass) Version() uint64 {
 }
 
 func (c *DeprecatedCairoClass) Hash() (*felt.Felt, error) {
-	return cairo0ClassHash(c)
+	return deprecatedCairoClassHash(c)
 }
 
 func (c *DeprecatedCairoClass) SierraVersion() string {

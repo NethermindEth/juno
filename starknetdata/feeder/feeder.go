@@ -102,7 +102,7 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDef
 
 		return sn2core.AdaptCairo1Class(response.V1, compiledClass)
 	case response.V0 != nil:
-		return sn2core.AdaptCairo0Class(response.V0)
+		return sn2core.AdaptDeprecatedCairoClass(response.V0)
 	default:
 		return nil, errors.New("empty class")
 	}

@@ -258,7 +258,7 @@ func TestClassV0(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt](hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
-			classGeneric, err := sn2core.AdaptCairo0Class(response.V0)
+			classGeneric, err := sn2core.AdaptDeprecatedCairoClass(response.V0)
 			require.NoError(t, err)
 			class, ok := classGeneric.(*core.DeprecatedCairoClass)
 			require.True(t, ok)

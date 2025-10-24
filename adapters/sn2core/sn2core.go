@@ -338,7 +338,7 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 	}
 }
 
-func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.ClassDefinition, error) {
+func AdaptDeprecatedCairoClass(response *starknet.Cairo0Definition) (core.ClassDefinition, error) {
 	class := new(core.DeprecatedCairoClass)
 	class.Abi = response.Abi
 

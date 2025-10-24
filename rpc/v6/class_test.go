@@ -65,8 +65,8 @@ func TestClass(t *testing.T) {
 		class, rpcErr := handler.Class(latest, *hash)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
-		assertEqualCairo0Class(t, cairo0Class, class)
+		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
+		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
 	})
 
 	t.Run("state by id error", func(t *testing.T) {
@@ -107,11 +107,11 @@ func TestClassAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	cairo0ContractAddress := felt.NewRandom[felt.Felt]()
-	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt](
+	deprecatedCairoContractAddress := felt.NewRandom[felt.Felt]()
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
-	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(*cairo0ClassHash, nil)
+	mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
 	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt](
@@ -143,14 +143,14 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		coreClass, err := integGw.Class(t.Context(), cairo0ClassHash)
+		coreClass, err := integGw.Class(t.Context(), deprecatedCairoClassHash)
 		require.NoError(t, err)
 
-		class, rpcErr := handler.ClassAt(latest, *cairo0ContractAddress)
+		class, rpcErr := handler.ClassAt(latest, *deprecatedCairoContractAddress)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
-		assertEqualCairo0Class(t, cairo0Class, class)
+		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
+		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
 	})
 }
 

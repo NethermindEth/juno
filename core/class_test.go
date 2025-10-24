@@ -225,14 +225,14 @@ func TestVerifyClassHash(t *testing.T) {
 		}
 	})
 
-	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	cairo0Class, err := gw.Class(t.Context(), cairo0ClassHash)
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with no error", func(t *testing.T) {
 		classMap := map[felt.Felt]core.ClassDefinition{
-			*cairo1ClassHash: cairo1Class,
-			*cairo0ClassHash: cairo0Class,
+			*cairo1ClassHash:          cairo1Class,
+			*deprecatedCairoClassHash: deprecatedCairoClass,
 		}
 
 		assert.NoError(t, core.VerifyClassHashes(classMap))

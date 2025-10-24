@@ -65,8 +65,8 @@ func TestClass(t *testing.T) {
 		class, rpcErr := handler.Class(&latest, hash)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
-		assertEqualCairo0Class(t, cairo0Class, class)
+		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
+		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
 	})
 
 	t.Run("state by id error", func(t *testing.T) {
@@ -107,9 +107,9 @@ func TestClassAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	cairo0ContractAddress := felt.NewRandom[felt.Felt]()
-	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(*cairo0ClassHash, nil)
+	deprecatedCairoContractAddress := felt.NewRandom[felt.Felt]()
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
 	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
@@ -139,14 +139,14 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		coreClass, err := integGw.Class(t.Context(), cairo0ClassHash)
+		coreClass, err := integGw.Class(t.Context(), deprecatedCairoClassHash)
 		require.NoError(t, err)
 
-		class, rpcErr := handler.ClassAt(&latest, cairo0ContractAddress)
+		class, rpcErr := handler.ClassAt(&latest, deprecatedCairoContractAddress)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.DeprecatedCairoClass)
-		assertEqualCairo0Class(t, cairo0Class, class)
+		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
+		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
 	})
 }
 
@@ -268,33 +268,33 @@ func TestClassHashAt(t *testing.T) {
 	})
 }
 
-func assertEqualCairo0Class(
+func assertEqualDeprecatedCairoClass(
 	t *testing.T,
-	cairo0Class *core.DeprecatedCairoClass,
+	deprecatedCairoClass *core.DeprecatedCairoClass,
 	class *rpcv6.Class,
 ) {
-	assert.Equal(t, cairo0Class.Program, class.Program)
-	assert.Equal(t, cairo0Class.Abi, class.Abi.(json.RawMessage))
+	assert.Equal(t, deprecatedCairoClass.Program, class.Program)
+	assert.Equal(t, deprecatedCairoClass.Abi, class.Abi.(json.RawMessage))
 
-	require.Equal(t, len(cairo0Class.L1Handlers), len(class.EntryPoints.L1Handler))
-	for idx := range cairo0Class.L1Handlers {
+	require.Equal(t, len(deprecatedCairoClass.L1Handlers), len(class.EntryPoints.L1Handler))
+	for idx := range deprecatedCairoClass.L1Handlers {
 		assert.Nil(t, class.EntryPoints.L1Handler[idx].Index)
-		assert.Equal(t, cairo0Class.L1Handlers[idx].Offset, class.EntryPoints.L1Handler[idx].Offset)
-		assert.Equal(t, cairo0Class.L1Handlers[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		assert.Equal(t, deprecatedCairoClass.L1Handlers[idx].Offset, class.EntryPoints.L1Handler[idx].Offset)
+		assert.Equal(t, deprecatedCairoClass.L1Handlers[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
 	}
 
-	require.Equal(t, len(cairo0Class.Constructors), len(class.EntryPoints.Constructor))
-	for idx := range cairo0Class.Constructors {
+	require.Equal(t, len(deprecatedCairoClass.Constructors), len(class.EntryPoints.Constructor))
+	for idx := range deprecatedCairoClass.Constructors {
 		assert.Nil(t, class.EntryPoints.Constructor[idx].Index)
-		assert.Equal(t, cairo0Class.Constructors[idx].Offset, class.EntryPoints.Constructor[idx].Offset)
-		assert.Equal(t, cairo0Class.Constructors[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		assert.Equal(t, deprecatedCairoClass.Constructors[idx].Offset, class.EntryPoints.Constructor[idx].Offset)
+		assert.Equal(t, deprecatedCairoClass.Constructors[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
 	}
 
-	require.Equal(t, len(cairo0Class.Externals), len(class.EntryPoints.External))
-	for idx := range cairo0Class.Externals {
+	require.Equal(t, len(deprecatedCairoClass.Externals), len(class.EntryPoints.External))
+	for idx := range deprecatedCairoClass.Externals {
 		assert.Nil(t, class.EntryPoints.External[idx].Index)
-		assert.Equal(t, cairo0Class.Externals[idx].Offset, class.EntryPoints.External[idx].Offset)
-		assert.Equal(t, cairo0Class.Externals[idx].Selector, class.EntryPoints.External[idx].Selector)
+		assert.Equal(t, deprecatedCairoClass.Externals[idx].Offset, class.EntryPoints.External[idx].Offset)
+		assert.Equal(t, deprecatedCairoClass.Externals[idx].Selector, class.EntryPoints.External[idx].Selector)
 	}
 }
 
