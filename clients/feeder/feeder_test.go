@@ -42,8 +42,11 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			"0x2ed6bb4d57ad27a22972b81feb9d09798ff8c273684376ec72c154d90343453",
 			declareTx.ClassHash.String(),
 		)
-		assert.Equal(t, "0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23",
-			declareTx.SenderAddress.String())
+		assert.Equal(
+			t,
+			"0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23",
+			declareTx.SenderAddress.String(),
+		)
 		assert.Equal(t, starknet.TxnDeclare, declareTx.Type)
 		assert.Equal(t, 2, len(*declareTx.Signature))
 		assert.Equal(
@@ -909,7 +912,7 @@ func TestCompiledClassDefinition(t *testing.T) {
 	classHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
-	class, err := client.CompiledClassDefinition(t.Context(), classHash)
+	class, err := client.CasmClassDefinition(t.Context(), classHash)
 	require.NoError(t, err)
 	assert.Equal(t, "1.0.0", class.CompilerVersion)
 	assert.Equal(
@@ -1035,8 +1038,10 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
 	})
 	t.Run("Test on unexisting block", func(t *testing.T) {
-		actualStateUpdate, err := client.
-			StateUpdateWithBlock(t.Context(), strconv.Itoa(10000000000))
+		actualStateUpdate, err := client.StateUpdateWithBlock(
+			t.Context(),
+			strconv.Itoa(10000000000),
+		)
 		assert.Error(t, err)
 		assert.Nil(t, actualStateUpdate)
 	})
@@ -1051,21 +1056,19 @@ func TestBlockTrace(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 
 	t.Run("old block", func(t *testing.T) {
-		trace, err := client.
-			BlockTrace(
-				t.Context(),
-				"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
-			)
+		trace, err := client.BlockTrace(
+			t.Context(),
+			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
+		)
 		require.NoError(t, err)
 		require.Len(t, trace.Traces, 4)
 	})
 
 	t.Run("newer block", func(t *testing.T) {
-		trace, err := client.
-			BlockTrace(
-				t.Context(),
-				"0xe3828bd9154ab385e2cbb95b3b650365fb3c6a4321660d98ce8b0a9194f9a3",
-			)
+		trace, err := client.BlockTrace(
+			t.Context(),
+			"0xe3828bd9154ab385e2cbb95b3b650365fb3c6a4321660d98ce8b0a9194f9a3",
+		)
 		require.NoError(t, err)
 		require.Len(t, trace.Traces, 2)
 	})

@@ -256,7 +256,7 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 	return class, nil
 }
 
-func (c *Client) CompiledClassDefinition(
+func (c *Client) CasmClassDefinition(
 	ctx context.Context,
 	classHash *felt.Felt,
 ) (*starknet.CasmClass, error) {

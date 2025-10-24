@@ -559,7 +559,7 @@ func TestClassV1(t *testing.T) {
 
 			feederClass, err := client.ClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
-			compiled, err := client.CompiledClassDefinition(t.Context(), classHash)
+			compiled, err := client.CasmClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
 
 			v1Class, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiled)

@@ -28,7 +28,7 @@ func TestCompile(t *testing.T) {
 
 		classDef, err := cl.ClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
-		compiledDef, err := cl.CompiledClassDefinition(t.Context(), classHash)
+		compiledDef, err := cl.CasmClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
 
 		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)

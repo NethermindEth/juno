@@ -95,12 +95,12 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDef
 
 	switch {
 	case response.Sierra != nil:
-		compiledClass, cErr := f.client.CompiledClassDefinition(ctx, classHash)
+		casmClass, cErr := f.client.CasmClassDefinition(ctx, classHash)
 		if cErr != nil && !errors.Is(cErr, feeder.ErrDeprecatedCompiledClass) {
 			return nil, cErr
 		}
 
-		return sn2core.AdaptSierraClass(response.Sierra, compiledClass)
+		return sn2core.AdaptSierraClass(response.Sierra, casmClass)
 	case response.DeprecatedCairo != nil:
 		return sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo)
 	default:

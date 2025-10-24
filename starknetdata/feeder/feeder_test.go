@@ -201,7 +201,7 @@ func TestClassV1(t *testing.T) {
 
 		feederClass, err := client.ClassDefinition(t.Context(), test.classHash)
 		require.NoError(t, err)
-		compiled, err := client.CompiledClassDefinition(t.Context(), test.classHash)
+		compiled, err := client.CasmClassDefinition(t.Context(), test.classHash)
 		if test.hasCompiledClass {
 			require.NoError(t, err)
 		} else {
