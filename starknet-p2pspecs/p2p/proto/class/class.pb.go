@@ -385,7 +385,7 @@ func (x *Class) GetClass() isClass_Class {
 func (x *Class) GetCairo0() *Cairo0Class {
 	if x != nil {
 		if x, ok := x.Class.(*Class_Cairo0); ok {
-			return x.Cairo0
+			return x.DeprecatedCairo
 		}
 	}
 	return nil
