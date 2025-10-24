@@ -52,8 +52,8 @@ func TestClass(t *testing.T) {
 
 		class, rpcErr := handler.Class(latest, *hash)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.SierraClass)
-		assertEqualCairo1Class(t, cairo1Class, class)
+		sierraClass := coreClass.(*core.SierraClass)
+		assertEqualSierraClass(t, sierraClass, class)
 	})
 
 	t.Run("casm class", func(t *testing.T) {
@@ -114,10 +114,10 @@ func TestClassAt(t *testing.T) {
 	mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
-	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt](
+	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
-	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*cairo1ClassHash, nil)
+	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 
 	mockState.EXPECT().Class(gomock.Any()).
 		DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
@@ -133,13 +133,13 @@ func TestClassAt(t *testing.T) {
 	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
-		coreClass, err := integGw.Class(t.Context(), cairo1ClassHash)
+		coreClass, err := integGw.Class(t.Context(), sierraClassHash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.ClassAt(latest, *cairo1ContractAddress)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.SierraClass)
-		assertEqualCairo1Class(t, cairo1Class, class)
+		sierraClass := coreClass.(*core.SierraClass)
+		assertEqualSierraClass(t, sierraClass, class)
 	})
 
 	t.Run("casm class", func(t *testing.T) {

@@ -262,7 +262,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
-func AdaptCairo1Class(
+func AdaptSierraClass(
 	response *starknet.SierraDefinition,
 	compiledClass *starknet.CompiledClass,
 ) (*core.SierraClass, error) {

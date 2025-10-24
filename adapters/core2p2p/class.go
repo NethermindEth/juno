@@ -36,7 +36,7 @@ func AdaptClass(cls core.ClassDefinition) *class.Class {
 	case *core.SierraClass:
 		return &class.Class{
 			Class: &class.Class_Cairo1{
-				Cairo1: AdaptCairo1Class(v),
+				Cairo1: AdaptSierraClass(v),
 			},
 			Domain:    0, // todo(kirill) recheck
 			ClassHash: AdaptHash(hash),
@@ -46,7 +46,7 @@ func AdaptClass(cls core.ClassDefinition) *class.Class {
 	}
 }
 
-func AdaptCairo1Class(cls *core.SierraClass) *class.Cairo1Class {
+func AdaptSierraClass(cls *core.SierraClass) *class.Cairo1Class {
 	return &class.Cairo1Class{
 		Abi: cls.Abi,
 		EntryPoints: &class.Cairo1EntryPoints{

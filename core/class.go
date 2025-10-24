@@ -73,8 +73,6 @@ func (c *DeprecatedCairoClass) SierraVersion() string {
 	return "0.0.0"
 }
 
-// todo(rdr): rename this to CairoClass
-// Cairo1Class unambiguously defines a [Contract]'s semantics.
 type SierraClass struct {
 	Abi     string
 	AbiHash *felt.Felt

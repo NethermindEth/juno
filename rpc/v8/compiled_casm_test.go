@@ -104,12 +104,12 @@ func TestCompiledCasm(t *testing.T) {
 			Bytecode:    []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x123")},
 		}
 
-		cairo1Class := &core.SierraClass{
+		sierraClass := &core.SierraClass{
 			Compiled: compiledClass,
 		}
 
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: cairo1Class}, nil)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: sierraClass}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)

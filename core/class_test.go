@@ -194,8 +194,8 @@ func TestVerifyClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	cairo1Class, err := gw.Class(t.Context(), cairo1ClassHash)
+	sierraClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	sierraClass, err := gw.Class(t.Context(), sierraClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with error", func(t *testing.T) {
@@ -203,14 +203,14 @@ func TestVerifyClassHash(t *testing.T) {
 			{
 				name:      "error if expected hash is not equal to gotten hash",
 				classHash: felt.NewUnsafeFromString[felt.Felt]("0xab"),
-				class:     cairo1Class,
-				wantErr: fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cairo1ClassHash.String(),
+				class:     sierraClass,
+				wantErr: fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", sierraClassHash.String(),
 					felt.NewUnsafeFromString[felt.Felt]("0xab").String()),
 			},
 			{
 				name:      "no error if expected hash is equal to gotten hash",
-				classHash: cairo1ClassHash,
-				class:     cairo1Class,
+				classHash: sierraClassHash,
+				class:     sierraClass,
 				wantErr:   nil,
 			},
 		}
@@ -231,7 +231,7 @@ func TestVerifyClassHash(t *testing.T) {
 
 	t.Run("class(es) with no error", func(t *testing.T) {
 		classMap := map[felt.Felt]core.ClassDefinition{
-			*cairo1ClassHash:          cairo1Class,
+			*sierraClassHash:          sierraClass,
 			*deprecatedCairoClassHash: deprecatedCairoClass,
 		}
 

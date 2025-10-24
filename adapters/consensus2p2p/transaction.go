@@ -28,7 +28,7 @@ func AdaptTransaction(tx *consensus.Transaction) (*p2pconsensus.ConsensusTransac
 				Txn: &p2pconsensus.ConsensusTransaction_DeclareV3{
 					DeclareV3: &transaction.DeclareV3WithClass{
 						Common: core2p2p.AdaptDeclareV3Common(t),
-						Class:  core2p2p.AdaptCairo1Class(class),
+						Class:  core2p2p.AdaptSierraClass(class),
 					},
 				},
 				TransactionHash: toHash(t.TransactionHash),

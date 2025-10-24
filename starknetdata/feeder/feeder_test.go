@@ -208,7 +208,7 @@ func TestClassV1(t *testing.T) {
 			require.EqualError(t, err, "deprecated compiled class")
 		}
 
-		adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.V1, compiled)
 		require.NoError(t, err)
 		assert.Equal(t, adaptedResponse, class)
 

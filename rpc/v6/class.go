@@ -57,7 +57,7 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, er
 		if cErr != nil {
 			return nil, cErr
 		}
-		return sn2core.AdaptCairo1Class(feederClass.V1, compiledClass)
+		return sn2core.AdaptSierraClass(feederClass.V1, compiledClass)
 	case feederClass.V0 != nil:
 		// strip the quotes
 		base64Program := string(feederClass.V0.Program[1 : len(feederClass.V0.Program)-1])

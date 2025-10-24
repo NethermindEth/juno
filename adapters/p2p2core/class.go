@@ -14,7 +14,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
+func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 	program := utils.Map(cairo1.Program, AdaptFelt)
@@ -69,7 +69,7 @@ func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
 			Program:      deprecatedCairo.Program,
 		}, nil
 	case *class.Class_Cairo1:
-		cairoClass, err := AdaptCairo1Class(cls.Cairo1)
+		cairoClass, err := AdaptSierraClass(cls.Cairo1)
 		return &cairoClass, err
 	default:
 		return nil, fmt.Errorf("unsupported class %T", cls)
