@@ -1,0 +1,27 @@
+name: Check generated protobufs
+on:
+  pull_request:
+  push:
+jobs:
+  verify-buf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Set up buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: latest
+      - name: Run code generation
+        run: |
+          make generate-buf
+      - name: Check for uncommitted changes
+        run: |
+          if ! git diff --exit-code; then
+            echo "Generated protobuf files don't match. Running 'make generate-buf' should fix the issue."
+            exit 1
+          fi
