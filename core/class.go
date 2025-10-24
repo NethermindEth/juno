@@ -258,7 +258,7 @@ func VerifyClassHashes(classes map[felt.Felt]ClassDefinition) error {
 	return nil
 }
 
-// todo(rdr): We can find a better naming for this as well
+// DeclaredClassDefinition represents a class definition and the block number where it was declared
 type DeclaredClassDefinition struct {
 	At    uint64 // block number at which the class was declared
 	Class ClassDefinition

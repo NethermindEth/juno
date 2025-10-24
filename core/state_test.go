@@ -384,9 +384,10 @@ func TestClass(t *testing.T) {
 	)
 	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
-	cairo1Hash := felt.NewUnsafeFromString[felt.Felt](
+	sierraHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
+	// todo: verify if `deprecatedCairoHash` is the right value to use here
 	sierraClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
 
@@ -395,10 +396,10 @@ func TestClass(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
-		*cairo1Hash:          sierraClass,
+		*sierraHash:          sierraClass,
 	}, false))
 
-	gotSierraClass, err := state.Class(cairo1Hash)
+	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)
 	assert.Zero(t, gotSierraClass.At)
 	assert.Equal(t, sierraClass, gotSierraClass.Class)

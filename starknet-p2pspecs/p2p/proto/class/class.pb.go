@@ -385,7 +385,7 @@ func (x *Class) GetClass() isClass_Class {
 func (x *Class) GetCairo0() *Cairo0Class {
 	if x != nil {
 		if x, ok := x.Class.(*Class_Cairo0); ok {
-			return x.DeprecatedCairo
+			return x.Cairo0
 		}
 	}
 	return nil
@@ -419,7 +419,7 @@ type isClass_Class interface {
 }
 
 type Class_Cairo0 struct {
-	DeprecatedCairo *Cairo0Class `protobuf:"bytes,1,opt,name=cairo0,proto3,oneof"`
+	Cairo0 *Cairo0Class `protobuf:"bytes,1,opt,name=cairo0,proto3,oneof"`
 }
 
 type Class_Cairo1 struct {

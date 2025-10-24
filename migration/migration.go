@@ -785,7 +785,7 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 		return err
 	}
 
-	var coreCasmClass *core.CasmClass
+	var casmClass *core.CasmClass
 	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(class.Class.Compiled); !deprecated {
 		var starknetCompiledClass starknet.CasmClass
 		err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
@@ -793,7 +793,7 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 			return err
 		}
 
-		coreCasmClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
+		casmClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
 		if err != nil {
 			return err
 		}
@@ -808,7 +808,7 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 			Program:         class.Class.Program,
 			ProgramHash:     class.Class.ProgramHash,
 			SemanticVersion: class.Class.SemanticVersion,
-			Compiled:        coreCasmClass,
+			Compiled:        casmClass,
 		},
 	}
 

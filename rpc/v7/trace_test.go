@@ -364,11 +364,11 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 		).Return(
 			vm.ExecutionResults{
-			OverallFees:      overallFee,
-			DataAvailability: dataGas,
-			Traces:           []vm.TransactionTrace{*vmTrace},
-			NumSteps:         stepsUsed,
-		}, nil)
+				OverallFees:      overallFee,
+				DataAvailability: dataGas,
+				Traces:           []vm.TransactionTrace{*vmTrace},
+				NumSteps:         stepsUsed,
+			}, nil)
 
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
@@ -475,7 +475,8 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			false,
-			false).Return(vm.ExecutionResults{
+			false,
+		).Return(vm.ExecutionResults{
 			OverallFees:      overallFee,
 			DataAvailability: consumedGas,
 			Traces:           []vm.TransactionTrace{*vmTrace},
@@ -744,7 +745,8 @@ func TestTraceBlockTransactions(t *testing.T) {
 			false,
 			false,
 			false,
-			false).Return(vm.ExecutionResults{
+			false,
+		).Return(vm.ExecutionResults{
 			DataAvailability: []core.DataAvailability{{}, {}},
 			Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
 			NumSteps:         stepsUsed,

@@ -385,26 +385,26 @@ func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
 			return nil, fmt.Errorf("unmarshal class: %v", err)
 		}
 
-		var coreClass core.ClassDefinition
+		var class core.ClassDefinition
 		if response.DeprecatedCairo != nil {
-			if coreClass, err = sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo); err != nil {
+			if class, err = sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo); err != nil {
 				return nil, err
 			}
 		} else {
-			var compiledClass *starknet.CasmClass
-			if compiledClass, err = compiler.Compile(response.Sierra); err != nil {
+			var casmClass *starknet.CasmClass
+			if casmClass, err = compiler.Compile(response.Sierra); err != nil {
 				return nil, err
 			}
-			if coreClass, err = sn2core.AdaptSierraClass(response.Sierra, compiledClass); err != nil {
+			if class, err = sn2core.AdaptSierraClass(response.Sierra, casmClass); err != nil {
 				return nil, err
 			}
 		}
 
-		classhash, err := coreClass.Hash()
+		classhash, err := class.Hash()
 		if err != nil {
 			return nil, fmt.Errorf("calculate class hash: %v", err)
 		}
-		classMap[*classhash] = coreClass
+		classMap[*classhash] = class
 	}
 	return classMap, nil
 }

@@ -304,7 +304,8 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			false,
-			false).Return(vm.ExecutionResults{
+			false,
+		).Return(vm.ExecutionResults{
 			DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
 			Traces:           []vm.TransactionTrace{*vmTrace},
 			NumSteps:         0,
@@ -384,7 +385,8 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			false,
-			false).Return(vm.ExecutionResults{
+			false,
+		).Return(vm.ExecutionResults{
 			Traces:   []vm.TransactionTrace{*vmTrace},
 			NumSteps: 0,
 		}, nil)

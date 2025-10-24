@@ -60,7 +60,7 @@ func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
 			return utils.Map(utils.NonNilSlice(points), adaptEntryPoint)
 		}
 
-		deprecatedCairo := cls.DeprecatedCairo
+		deprecatedCairo := cls.Cairo0
 		return &core.DeprecatedCairoClass{
 			Abi:          json.RawMessage(deprecatedCairo.Abi),
 			Externals:    adaptEP(deprecatedCairo.Externals),

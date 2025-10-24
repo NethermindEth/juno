@@ -201,14 +201,14 @@ func TestClassV1(t *testing.T) {
 
 		feederClass, err := client.ClassDefinition(t.Context(), test.classHash)
 		require.NoError(t, err)
-		compiled, err := client.CasmClassDefinition(t.Context(), test.classHash)
+		casmClass, err := client.CasmClassDefinition(t.Context(), test.classHash)
 		if test.hasCompiledClass {
 			require.NoError(t, err)
 		} else {
 			require.EqualError(t, err, "deprecated compiled class")
 		}
 
-		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiled)
+		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.Sierra, casmClass)
 		require.NoError(t, err)
 		assert.Equal(t, adaptedResponse, class)
 

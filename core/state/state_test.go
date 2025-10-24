@@ -248,10 +248,10 @@ func TestClass(t *testing.T) {
 	)
 	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
-	cairo1Hash := felt.NewUnsafeFromString[felt.Felt](
+	sierraHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
-	sierraClass, err := gw.Class(t.Context(), cairo1Hash)
+	sierraClass, err := gw.Class(t.Context(), sierraHash)
 	require.NoError(t, err)
 
 	state, err := New(&felt.Zero, stateDB)
@@ -261,10 +261,10 @@ func TestClass(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
-		*cairo1Hash:          sierraClass,
+		*sierraHash:          sierraClass,
 	}))
 
-	gotSierraClass, err := state.Class(cairo1Hash)
+	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)
 	assert.Zero(t, gotSierraClass.At)
 	assert.Equal(t, sierraClass, gotSierraClass.Class)
@@ -455,8 +455,8 @@ func TestRevert(t *testing.T) {
 		deprecatedCairoAddr := felt.NewUnsafeFromString[felt.Felt]("0xab1234")
 		classesM[*deprecatedCairoAddr] = deprecatedCairo
 
-		cairo1 := &core.SierraClass{
-			Abi:     "some cairo 1 class abi",
+		sierra := &core.SierraClass{
+			Abi:     "some sierra class abi",
 			AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xcd98"),
 			EntryPoints: struct {
 				Constructor []core.SierraEntryPoint
@@ -483,7 +483,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		cairo1Addr := felt.NewUnsafeFromString[felt.Felt]("0xcd5678")
-		classesM[*cairo1Addr] = cairo1
+		classesM[*cairo1Addr] = sierra
 
 		declaredClassesStateUpdate := &core.StateUpdate{
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](

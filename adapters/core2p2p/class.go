@@ -22,7 +22,7 @@ func AdaptClass(cls core.ClassDefinition) *class.Class {
 	case *core.DeprecatedCairoClass:
 		return &class.Class{
 			Class: &class.Class_Cairo0{
-				DeprecatedCairo: &class.Cairo0Class{
+				Cairo0: &class.Cairo0Class{
 					Abi:          string(v.Abi),
 					Externals:    utils.Map(v.Externals, adaptEntryPoint),
 					L1Handlers:   utils.Map(v.L1Handlers, adaptEntryPoint),

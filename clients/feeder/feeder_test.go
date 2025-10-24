@@ -146,7 +146,8 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			invokeTx.EntryPointSelector.String(),
 		)
 		assert.Equal(t, 2, len(*invokeTx.CallData))
-		assert.Equal(t,
+		assert.Equal(
+			t,
 			"0x346f2b6376b4b57f714ba187716fce9edff1361628cc54783ed0351538faa5e",
 			(*invokeTx.CallData)[0].String(),
 		)
