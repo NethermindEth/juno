@@ -194,6 +194,8 @@ func (t *Trie) Delete(key *felt.Felt) error {
 func (t *Trie) Hash() (felt.Felt, error) {
 	hash, cached := t.hashRoot()
 	t.root = cached
+	// TODO: return of error added to comply with common trie interface.
+	// Should be removed after integration.
 	return felt.Felt(*hash.(*trienode.HashNode)), nil
 }
 
