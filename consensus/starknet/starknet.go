@@ -25,14 +25,15 @@ type (
 	MessageHeader = types.MessageHeader[Address]
 
 	Action             = actions.Action[Value, Hash, Address]
+	WriteWAL           = actions.WriteWAL[Value, Hash, Address]
 	BroadcastProposal  = actions.BroadcastProposal[Value, Hash, Address]
 	BroadcastPrevote   = actions.BroadcastPrevote[Hash, Address]
 	BroadcastPrecommit = actions.BroadcastPrecommit[Hash, Address]
 	Commit             = actions.Commit[Value, Hash, Address]
 
 	WALEntry     = wal.Entry[Value, Hash, Address]
-	WALProposal  = wal.WALProposal[Value, Hash, Address]
-	WALPrevote   = wal.WALPrevote[Hash, Address]
-	WALPrecommit = wal.WALPrecommit[Hash, Address]
-	WALTimeout   = wal.WALTimeout
+	WALProposal  = wal.Proposal[Value, Hash, Address]
+	WALPrevote   = wal.Prevote[Hash, Address]
+	WALPrecommit = wal.Precommit[Hash, Address]
+	WALTimeout   = wal.Timeout
 )
