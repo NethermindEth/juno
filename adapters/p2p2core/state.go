@@ -33,9 +33,9 @@ func AdaptStateDiff(
 			return nil, fmt.Errorf("unexpected error when calculating class hash: %w", err)
 		}
 		switch c := class.(type) {
-		case *core.Cairo0Class:
+		case *core.DeprecatedCairoClass:
 			declaredV0Classes = append(declaredV0Classes, h)
-		case *core.Cairo1Class:
+		case *core.SierraClass:
 			declaredV1Classes[*h] = c.Compiled.Hash()
 			// todo add type?
 		}

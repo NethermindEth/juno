@@ -51,7 +51,7 @@ func (a *starknetProposerAdapter) ProposalBlockInfo(buildResult *builder.BuildRe
 func (a *starknetProposerAdapter) ProposalTransactions(buildResult *builder.BuildResult) ([]types.Transaction, error) {
 	transactions := make([]types.Transaction, len(buildResult.Preconfirmed.Block.Transactions))
 	for i := range buildResult.Preconfirmed.Block.Transactions {
-		var class core.Class
+		var class core.ClassDefinition
 		var paidFeeOnL1 *felt.Felt
 
 		switch tx := buildResult.Preconfirmed.Block.Transactions[i].(type) {

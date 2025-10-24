@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 )
 
-func marshalClassInfo(class core.Class) (json.RawMessage, error) {
+func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
 	var classInfo struct {
 		CairoVersion  uint32 `json:"cairo_version"`
 		Class         any    `json:"contract_class"`
@@ -19,22 +19,22 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 	}
 
 	switch c := class.(type) {
-	case *core.Cairo0Class:
+	case *core.DeprecatedCairoClass:
 		var err error
 		classInfo.CairoVersion = 0
-		classInfo.Class, err = core2sn.AdaptCairo0Class(c)
+		classInfo.Class, err = core2sn.AdaptDeprecatedCairoClass(c)
 		if err != nil {
 			return nil, err
 		}
 		classInfo.AbiLength = uint32(len(c.Abi))
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		if c.Compiled == nil {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
 
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
 		classInfo.CairoVersion = 1
-		classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
+		classInfo.Class = core2sn.AdaptCasmClass(c.Compiled)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
 		classInfo.SierraVersion = c.SierraVersion()
