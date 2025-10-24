@@ -35,7 +35,7 @@ func TestStateSnapshot(t *testing.T) {
 		return *historyValue, nil
 	}
 
-	mockState.EXPECT().ContractIsAlreadyDeployedAt(gomock.Any(), gomock.Any()).DoAndReturn(func(addr *felt.Felt, height uint64) (bool, error) {
+	mockState.EXPECT().ContractDeployedAt(gomock.Any(), gomock.Any()).DoAndReturn(func(addr *felt.Felt, height uint64) (bool, error) {
 		return deployedHeight <= height, nil
 	}).AnyTimes()
 	mockState.EXPECT().ContractClassHashAt(gomock.Any(), gomock.Any()).DoAndReturn(doAtReq).AnyTimes()

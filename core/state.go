@@ -12,6 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
@@ -34,7 +35,7 @@ type StateHistoryReader interface {
 	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
+	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
 }
 
 type StateReader interface {
@@ -44,9 +45,9 @@ type StateReader interface {
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
 
-	ClassTrie() (*trie.Trie, error)
-	ContractTrie() (*trie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
+	ClassTrie() (commontrie.Trie, error)
+	ContractTrie() (commontrie.Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
 }
 
 type State struct {
@@ -97,7 +98,7 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 }
 
 // Root returns the state commitment.
-func (s *State) Root() (felt.Felt, error) {
+func (s *State) Commitment() (felt.Felt, error) {
 	var storageRoot, classesRoot felt.Felt
 
 	sStorage, closer, err := s.storage()
@@ -134,18 +135,18 @@ func (s *State) Root() (felt.Felt, error) {
 	return *root, nil
 }
 
-func (s *State) ClassTrie() (*trie.Trie, error) {
+func (s *State) ClassTrie() (commontrie.Trie, error) {
 	// We don't need to call the closer function here because we are only reading the trie
 	tr, _, err := s.classesTrie()
 	return tr, err
 }
 
-func (s *State) ContractTrie() (*trie.Trie, error) {
+func (s *State) ContractTrie() (commontrie.Trie, error) {
 	tr, _, err := s.storage()
 	return tr, err
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return storage(addr, s.txn)
 }
 
@@ -215,7 +216,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 }
 
 func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
-	currentRoot, err := s.Root()
+	currentRoot, err := s.Commitment()
 	if err != nil {
 		return err
 	}
@@ -551,7 +552,7 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 }
 
 // ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber
-func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+func (s *State) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
 
 	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {

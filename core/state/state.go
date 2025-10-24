@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -19,8 +20,10 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
-const systemContract1Addr = 1
-const systemContract2Addr = 2
+const (
+	systemContract1Addr = 1
+	systemContract2Addr = 2
+)
 
 var (
 	stateVersion0             = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
@@ -52,9 +55,9 @@ type ClassReader interface {
 }
 
 type TrieProvider interface {
-	ClassTrie() (*trie2.Trie, error)
-	ContractTrie() (*trie2.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error)
+	ClassTrie() (commontrie.Trie, error)
+	ContractTrie() (commontrie.Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
 }
 
 type State struct {
@@ -144,15 +147,15 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *State) ClassTrie() (*trie2.Trie, error) {
+func (s *State) ClassTrie() (commontrie.Trie, error) {
 	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (*trie2.Trie, error) {
+func (s *State) ContractTrie() (commontrie.Trie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 

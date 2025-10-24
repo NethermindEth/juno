@@ -660,10 +660,10 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		contractTrie, err := reader.ContractTrie()
 		assert.NoError(t, err)
 
-		clsRoot, err := classTrie.Root()
+		clsRoot, err := classTrie.Hash()
 		assert.NoError(t, err)
 
-		stgRoot, err := contractTrie.Root()
+		stgRoot, err := contractTrie.Hash()
 		assert.NoError(t, err)
 
 		assert.Equal(t, expectedClsRoot, &clsRoot, clsRoot.String())
