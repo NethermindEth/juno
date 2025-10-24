@@ -89,7 +89,7 @@ func TestCompiledCasm(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0x222")
 
 		// Create a compiled class with test data
-		compiledClass := &core.CasmClass{
+		casmClass := &core.CasmClass{
 			CompilerVersion: "1.0.0",
 			Prime:           big.NewInt(123),
 			External: []core.CasmEntryPoint{
@@ -105,7 +105,7 @@ func TestCompiledCasm(t *testing.T) {
 		}
 
 		sierraClass := &core.SierraClass{
-			Compiled: compiledClass,
+			Compiled: casmClass,
 		}
 
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
