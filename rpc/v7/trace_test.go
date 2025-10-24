@@ -361,7 +361,9 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			false,
-			false).Return(vm.ExecutionResults{
+			false,
+		).Return(
+			vm.ExecutionResults{
 			OverallFees:      overallFee,
 			DataAvailability: dataGas,
 			Traces:           []vm.TransactionTrace{*vmTrace},
