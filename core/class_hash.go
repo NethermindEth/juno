@@ -43,7 +43,7 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (*felt.Felt, error) {
 	return &hash, nil
 }
 
-func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.Cairo0Definition, error) {
+func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.DeprecatedCairoClass, error) {
 	adaptEntryPoint := func(ep DeprecatedEntryPoint) starknet.EntryPoint {
 		return starknet.EntryPoint{
 			Selector: ep.Selector,
@@ -60,7 +60,7 @@ func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.Cairo0Definit
 		return nil, err
 	}
 
-	return &starknet.Cairo0Definition{
+	return &starknet.DeprecatedCairoClass{
 		Program: decompressedProgram,
 		Abi:     class.Abi,
 		EntryPoints: starknet.EntryPoints{

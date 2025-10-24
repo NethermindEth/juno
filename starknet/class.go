@@ -36,14 +36,14 @@ type EntryPoints struct {
 	L1Handler   []EntryPoint `json:"L1_HANDLER"`
 }
 
-type Cairo0Definition struct {
+type DeprecatedCairoClass struct {
 	Abi         json.RawMessage `json:"abi"`
 	EntryPoints EntryPoints     `json:"entry_points_by_type"`
 	Program     json.RawMessage `json:"program"`
 }
 
 type ClassDefinition struct {
-	V0 *Cairo0Definition
+	V0 *DeprecatedCairoClass
 	V1 *SierraDefinition
 }
 
@@ -57,7 +57,7 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 		c.V1 = new(SierraDefinition)
 		return json.Unmarshal(data, c.V1)
 	}
-	c.V0 = new(Cairo0Definition)
+	c.V0 = new(DeprecatedCairoClass)
 	return json.Unmarshal(data, c.V0)
 }
 

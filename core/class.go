@@ -37,8 +37,6 @@ type ClassDefinition interface {
 	Hash() (*felt.Felt, error)
 }
 
-// todo(rdr): rename this to DeprecatedCairoClass
-// Cairo0Class unambiguously defines a [Contract]'s semantics.
 type DeprecatedCairoClass struct {
 	Abi json.RawMessage
 	// External functions defined in the class.

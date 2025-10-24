@@ -59,7 +59,7 @@ func AdaptSierraClass(class *core.SierraClass) *starknet.SierraDefinition {
 	}
 }
 
-func AdaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (*starknet.Cairo0Definition, error) {
+func AdaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (*starknet.DeprecatedCairoClass, error) {
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func AdaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (*starknet.Cair
 	external := utils.Map(utils.NonNilSlice(class.Externals), adapt)
 	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), adapt)
 
-	return &starknet.Cairo0Definition{
+	return &starknet.DeprecatedCairoClass{
 		Program: decompressedProgram,
 		Abi:     class.Abi,
 		EntryPoints: starknet.EntryPoints{
