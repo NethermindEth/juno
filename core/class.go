@@ -95,7 +95,6 @@ type SegmentLengths struct {
 	Length   uint64
 }
 
-// todo(rdr): rename CompiledClass to CasmClass
 type CasmClass struct {
 	Bytecode               []*felt.Felt
 	PythonicHints          json.RawMessage

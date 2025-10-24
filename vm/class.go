@@ -34,7 +34,7 @@ func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
 
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
 		classInfo.CairoVersion = 1
-		classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
+		classInfo.Class = core2sn.AdaptCasmClass(c.Compiled)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
 		classInfo.SierraVersion = c.SierraVersion()

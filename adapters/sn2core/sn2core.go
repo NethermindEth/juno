@@ -310,25 +310,25 @@ func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CasmClass,
 		return nil, nil
 	}
 
-	var compiled core.CasmClass
-	compiled.Bytecode = compiledClass.Bytecode
-	compiled.PythonicHints = compiledClass.PythonicHints
-	compiled.CompilerVersion = compiledClass.CompilerVersion
-	compiled.Hints = compiledClass.Hints
-	compiled.BytecodeSegmentLengths = AdaptSegmentLengths(compiledClass.BytecodeSegmentLengths)
+	var casm core.CasmClass
+	casm.Bytecode = compiledClass.Bytecode
+	casm.PythonicHints = compiledClass.PythonicHints
+	casm.CompilerVersion = compiledClass.CompilerVersion
+	casm.Hints = compiledClass.Hints
+	casm.BytecodeSegmentLengths = AdaptSegmentLengths(compiledClass.BytecodeSegmentLengths)
 
 	var ok bool
-	compiled.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
+	casm.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
 	if !ok {
-		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
+		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", casm.Prime)
 	}
 
 	entryPoints := compiledClass.EntryPoints
-	compiled.External = utils.Map(entryPoints.External, adaptCompiledEntryPoint)
-	compiled.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
-	compiled.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
+	casm.External = utils.Map(entryPoints.External, adaptCompiledEntryPoint)
+	casm.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
+	casm.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
 
-	return &compiled, nil
+	return &casm, nil
 }
 
 func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {

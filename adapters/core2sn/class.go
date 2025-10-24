@@ -13,14 +13,14 @@ func AdaptSegmentLengths(l core.SegmentLengths) starknet.SegmentLengths {
 	}
 }
 
-func AdaptCompiledClass(coreCompiledClass *core.CasmClass) starknet.CompiledClass {
+func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CompiledClass {
 	var feederCompiledClass starknet.CompiledClass
-	feederCompiledClass.Bytecode = coreCompiledClass.Bytecode
-	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
-	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
-	feederCompiledClass.Hints = coreCompiledClass.Hints
-	feederCompiledClass.Prime = utils.ToHex(coreCompiledClass.Prime)
-	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCompiledClass.BytecodeSegmentLengths)
+	feederCompiledClass.Bytecode = coreCasmClass.Bytecode
+	feederCompiledClass.PythonicHints = coreCasmClass.PythonicHints
+	feederCompiledClass.CompilerVersion = coreCasmClass.CompilerVersion
+	feederCompiledClass.Hints = coreCasmClass.Hints
+	feederCompiledClass.Prime = utils.ToHex(coreCasmClass.Prime)
+	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCasmClass.BytecodeSegmentLengths)
 
 	adapt := func(ep core.CasmEntryPoint) starknet.CompiledEntryPoint {
 		return starknet.CompiledEntryPoint{
@@ -29,9 +29,9 @@ func AdaptCompiledClass(coreCompiledClass *core.CasmClass) starknet.CompiledClas
 			Offset:   ep.Offset,
 		}
 	}
-	feederCompiledClass.EntryPoints.External = utils.Map(utils.NonNilSlice(coreCompiledClass.External), adapt)
-	feederCompiledClass.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(coreCompiledClass.L1Handler), adapt)
-	feederCompiledClass.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(coreCompiledClass.Constructor), adapt)
+	feederCompiledClass.EntryPoints.External = utils.Map(utils.NonNilSlice(coreCasmClass.External), adapt)
+	feederCompiledClass.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(coreCasmClass.L1Handler), adapt)
+	feederCompiledClass.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(coreCasmClass.Constructor), adapt)
 
 	return feederCompiledClass
 }
