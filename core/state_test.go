@@ -19,8 +19,10 @@ import (
 
 // Address of first deployed contract in mainnet block 1's state update.
 var (
-	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
-	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
+	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString(
+		"0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80",
+	)
+	su1FirstDeployedAddress = *_su1FirstDeployedAddress
 )
 
 func TestUpdate(t *testing.T) {
@@ -47,14 +49,19 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, su0.NewRoot, &gotNewRoot)
 	})
 
-	t.Run("error when state current root doesn't match state update's old root", func(t *testing.T) {
-		oldRoot := new(felt.Felt).SetBytes([]byte("some old root"))
-		su := &core.StateUpdate{
-			OldRoot: oldRoot,
-		}
-		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, oldRoot)
-		require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
-	})
+	t.Run("error when state current root doesn't match state update's old root",
+		func(t *testing.T) {
+			oldRoot := new(felt.Felt).SetBytes([]byte("some old root"))
+			su := &core.StateUpdate{
+				OldRoot: oldRoot,
+			}
+			expectedErr := fmt.Sprintf(
+				"state's current root: %s does not match the expected root: %s",
+				su0.NewRoot,
+				oldRoot,
+			)
+			require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
+		})
 
 	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
 		newRoot := new(felt.Felt).SetBytes([]byte("some new root"))
@@ -63,7 +70,8 @@ func TestUpdate(t *testing.T) {
 			OldRoot:   su0.NewRoot,
 			StateDiff: new(core.StateDiff),
 		}
-		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, newRoot)
+		expectedErr := fmt.Sprintf(
+			"state's current root: %s does not match the expected root: %s", su0.NewRoot, newRoot)
 		require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
 	})
 
@@ -81,7 +89,9 @@ func TestUpdate(t *testing.T) {
 
 	su3 := &core.StateUpdate{
 		OldRoot: su2.NewRoot,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a",
+		),
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 				*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): felt.NewUnsafeFromString[felt.Felt]("0xBEEFDEAD"),
@@ -102,12 +112,16 @@ func TestUpdate(t *testing.T) {
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
 	scKey := felt.NewUnsafeFromString[felt.Felt]("0x492e8")
-	scValue := felt.NewUnsafeFromString[felt.Felt]("0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+	scValue := felt.NewUnsafeFromString[felt.Felt](
+		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
+	)
 	scAddr := new(felt.Felt).SetUint64(1)
 
 	su4 := &core.StateUpdate{
 		OldRoot: su3.NewRoot,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e",
+		),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr: {*scKey: scValue}},
 		},
@@ -136,7 +150,9 @@ func TestUpdate(t *testing.T) {
 		scAddr2 := felt.NewUnsafeFromString[felt.Felt]("0x10")
 		su5 := &core.StateUpdate{
 			OldRoot: su4.NewRoot,
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e",
+			),
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr2: {*scKey: scValue}},
 			},
@@ -179,7 +195,9 @@ func TestContractClassHash(t *testing.T) {
 		replaceUpdate := &core.StateUpdate{
 			OldRoot:   su1.NewRoot,
 			BlockHash: felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"),
-			NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b",
+			),
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{
 					su1FirstDeployedAddress: felt.NewUnsafeFromString[felt.Felt]("0x1337"),
@@ -201,15 +219,21 @@ func TestNonce(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 	state := core.NewState(txn)
 
-	addr := felt.NewUnsafeFromString[felt.Felt]("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
-	root := felt.NewUnsafeFromString[felt.Felt]("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
+	addr := felt.NewUnsafeFromString[felt.Felt](
+		"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+	)
+	root := felt.NewUnsafeFromString[felt.Felt](
+		"0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368",
+	)
 
 	su := &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
-				*addr: felt.NewUnsafeFromString[felt.Felt]("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+				*addr: felt.NewUnsafeFromString[felt.Felt](
+					"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+				),
 			},
 		},
 	}
@@ -225,7 +249,9 @@ func TestNonce(t *testing.T) {
 	t.Run("update contract nonce", func(t *testing.T) {
 		expectedNonce := new(felt.Felt).SetUint64(1)
 		su = &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1",
+			),
 			OldRoot: root,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{*addr: expectedNonce},
@@ -251,7 +277,9 @@ func TestStateHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil, false))
 
-	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+	contractAddr := felt.NewUnsafeFromString[felt.Felt](
+		"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+	)
 	changedLoc := felt.NewUnsafeFromString[felt.Felt]("0x5")
 	t.Run("should return an error for a location that changed on the given height", func(t *testing.T) {
 		val, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
@@ -271,7 +299,9 @@ func TestStateHistory(t *testing.T) {
 
 	// update the same location again
 	su := &core.StateUpdate{
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c",
+		),
 		OldRoot: su0.NewRoot,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -283,11 +313,12 @@ func TestStateHistory(t *testing.T) {
 	}
 	require.NoError(t, state.Update(1, su, nil, false))
 
-	t.Run("should give old value for a location that changed after the given height", func(t *testing.T) {
-		oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
-		require.NoError(t, err)
-		require.Equal(t, &oldValue, felt.NewUnsafeFromString[felt.Felt]("0x22b"))
-	})
+	t.Run("should give old value for a location that changed after the given height",
+		func(t *testing.T) {
+			oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
+			require.NoError(t, err)
+			require.Equal(t, &oldValue, felt.NewUnsafeFromString[felt.Felt]("0x22b"))
+		})
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
@@ -309,7 +340,9 @@ func TestContractIsDeployedAt(t *testing.T) {
 	require.NoError(t, state.Update(1, su1, nil, false))
 
 	t.Run("deployed on genesis", func(t *testing.T) {
-		deployedOn0 := felt.NewUnsafeFromString[felt.Felt]("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+		deployedOn0 := felt.NewUnsafeFromString[felt.Felt](
+			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+		)
 		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn0, 0)
 		require.NoError(t, err)
 		assert.True(t, deployed)
@@ -320,7 +353,9 @@ func TestContractIsDeployedAt(t *testing.T) {
 	})
 
 	t.Run("deployed after genesis", func(t *testing.T) {
-		deployedOn1 := felt.NewUnsafeFromString[felt.Felt]("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
+		deployedOn1 := felt.NewUnsafeFromString[felt.Felt](
+			"0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80",
+		)
 		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn1, 0)
 		require.NoError(t, err)
 		assert.False(t, deployed)
@@ -344,10 +379,14 @@ func TestClass(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	deprecatedCairoHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	deprecatedCairoHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
 	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
-	cairo1Hash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1Hash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
 	sierraClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
 
@@ -386,7 +425,9 @@ func TestRevert(t *testing.T) {
 
 	t.Run("revert a replaced class", func(t *testing.T) {
 		replaceStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{
@@ -404,7 +445,9 @@ func TestRevert(t *testing.T) {
 
 	t.Run("revert a nonce update", func(t *testing.T) {
 		nonceStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{

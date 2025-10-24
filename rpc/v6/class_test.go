@@ -45,7 +45,9 @@ func TestClass(t *testing.T) {
 	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+		hash := felt.NewUnsafeFromString[felt.Felt](
+			"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+		)
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -57,7 +59,9 @@ func TestClass(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+		hash := felt.NewUnsafeFromString[felt.Felt](
+			"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+		)
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -111,7 +115,9 @@ func TestClassAt(t *testing.T) {
 	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
-	mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
+	mockState.EXPECT().
+		ContractClassHash(deprecatedCairoContractAddress).
+		Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
 	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](

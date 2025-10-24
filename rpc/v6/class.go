@@ -60,7 +60,9 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, er
 		return sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
 	case feederClass.DeprecatedCairo != nil:
 		// strip the quotes
-		base64Program := string(feederClass.DeprecatedCairo.Program[1 : len(feederClass.DeprecatedCairo.Program)-1])
+		base64Program := string(
+			feederClass.DeprecatedCairo.Program[1 : len(feederClass.DeprecatedCairo.Program)-1],
+		)
 		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
 		if err != nil {
 			return nil, err

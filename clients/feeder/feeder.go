@@ -256,7 +256,10 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 	return class, nil
 }
 
-func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error) {
+func (c *Client) CompiledClassDefinition(
+	ctx context.Context,
+	classHash *felt.Felt,
+) (*starknet.CasmClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
 		"classHash":   classHash.String(),
 		"blockNumber": "pending",

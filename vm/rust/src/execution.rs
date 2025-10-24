@@ -325,9 +325,9 @@ where
 
             Ok((tx_info, tx_state))
         }
-        Err(error) => { 
+        Err(error) => {
             if is_out_of_gas_error(&error) {
-                return Err(SimulationError::OutOfGas)
+                return Err(SimulationError::OutOfGas);
             }
             Err(SimulationError::ExecutionError(ExecutionError::new(error)))
         }
@@ -468,8 +468,6 @@ fn is_out_of_gas(execution_info: &TransactionExecutionInfo) -> bool {
     }
 }
 
-fn is_out_of_gas_error(
-    error: &TransactionExecutionError,
-) -> bool {
+fn is_out_of_gas_error(error: &TransactionExecutionError) -> bool {
     error.to_string().contains(OUT_OF_GAS_CAIRO_STRING)
 }

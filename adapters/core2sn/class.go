@@ -20,7 +20,9 @@ func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
 	feederCompiledClass.CompilerVersion = coreCasmClass.CompilerVersion
 	feederCompiledClass.Hints = coreCasmClass.Hints
 	feederCompiledClass.Prime = utils.ToHex(coreCasmClass.Prime)
-	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCasmClass.BytecodeSegmentLengths)
+	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(
+		coreCasmClass.BytecodeSegmentLengths,
+	)
 
 	adapt := func(ep core.CasmEntryPoint) starknet.CompiledEntryPoint {
 		return starknet.CompiledEntryPoint{
@@ -29,9 +31,18 @@ func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
 			Offset:   ep.Offset,
 		}
 	}
-	feederCompiledClass.EntryPoints.External = utils.Map(utils.NonNilSlice(coreCasmClass.External), adapt)
-	feederCompiledClass.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(coreCasmClass.L1Handler), adapt)
-	feederCompiledClass.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(coreCasmClass.Constructor), adapt)
+	feederCompiledClass.EntryPoints.External = utils.Map(
+		utils.NonNilSlice(coreCasmClass.External),
+		adapt,
+	)
+	feederCompiledClass.EntryPoints.L1Handler = utils.Map(
+		utils.NonNilSlice(coreCasmClass.L1Handler),
+		adapt,
+	)
+	feederCompiledClass.EntryPoints.Constructor = utils.Map(
+		utils.NonNilSlice(coreCasmClass.Constructor),
+		adapt,
+	)
 
 	return feederCompiledClass
 }
@@ -59,7 +70,9 @@ func AdaptSierraClass(class *core.SierraClass) *starknet.SierraClass {
 	}
 }
 
-func AdaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (*starknet.DeprecatedCairoClass, error) {
+func AdaptDeprecatedCairoClass(
+	class *core.DeprecatedCairoClass,
+) (*starknet.DeprecatedCairoClass, error) {
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err

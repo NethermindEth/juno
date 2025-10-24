@@ -45,7 +45,9 @@ func TestClass(t *testing.T) {
 	latest := blockIDLatest(t)
 
 	t.Run("sierra class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+		hash := felt.NewUnsafeFromString[felt.Felt](
+			"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+		)
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -57,7 +59,9 @@ func TestClass(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+		hash := felt.NewUnsafeFromString[felt.Felt](
+			"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+		)
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -108,11 +112,17 @@ func TestClassAt(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	deprecatedCairoContractAddress := felt.NewRandom[felt.Felt]()
-	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
+	mockState.EXPECT().
+		ContractClassHash(deprecatedCairoContractAddress).
+		Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
-	sierraClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
@@ -279,22 +289,46 @@ func assertEqualDeprecatedCairoClass(
 	require.Equal(t, len(deprecatedCairoClass.L1Handlers), len(class.EntryPoints.L1Handler))
 	for idx := range deprecatedCairoClass.L1Handlers {
 		assert.Nil(t, class.EntryPoints.L1Handler[idx].Index)
-		assert.Equal(t, deprecatedCairoClass.L1Handlers[idx].Offset, class.EntryPoints.L1Handler[idx].Offset)
-		assert.Equal(t, deprecatedCairoClass.L1Handlers[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.L1Handlers[idx].Offset,
+			class.EntryPoints.L1Handler[idx].Offset,
+		)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.L1Handlers[idx].Selector,
+			class.EntryPoints.L1Handler[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(deprecatedCairoClass.Constructors), len(class.EntryPoints.Constructor))
 	for idx := range deprecatedCairoClass.Constructors {
 		assert.Nil(t, class.EntryPoints.Constructor[idx].Index)
-		assert.Equal(t, deprecatedCairoClass.Constructors[idx].Offset, class.EntryPoints.Constructor[idx].Offset)
-		assert.Equal(t, deprecatedCairoClass.Constructors[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Constructors[idx].Offset,
+			class.EntryPoints.Constructor[idx].Offset,
+		)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Constructors[idx].Selector,
+			class.EntryPoints.Constructor[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(deprecatedCairoClass.Externals), len(class.EntryPoints.External))
 	for idx := range deprecatedCairoClass.Externals {
 		assert.Nil(t, class.EntryPoints.External[idx].Index)
-		assert.Equal(t, deprecatedCairoClass.Externals[idx].Offset, class.EntryPoints.External[idx].Offset)
-		assert.Equal(t, deprecatedCairoClass.Externals[idx].Selector, class.EntryPoints.External[idx].Selector)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Externals[idx].Offset,
+			class.EntryPoints.External[idx].Offset,
+		)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Externals[idx].Selector,
+			class.EntryPoints.External[idx].Selector,
+		)
 	}
 }
 
@@ -306,21 +340,45 @@ func assertEqualSierraClass(t *testing.T, sierraClass *core.SierraClass, class *
 	require.Equal(t, len(sierraClass.EntryPoints.L1Handler), len(class.EntryPoints.L1Handler))
 	for idx := range sierraClass.EntryPoints.L1Handler {
 		assert.Nil(t, class.EntryPoints.L1Handler[idx].Offset)
-		assert.Equal(t, sierraClass.EntryPoints.L1Handler[idx].Index, *class.EntryPoints.L1Handler[idx].Index)
-		assert.Equal(t, sierraClass.EntryPoints.L1Handler[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.L1Handler[idx].Index,
+			*class.EntryPoints.L1Handler[idx].Index,
+		)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.L1Handler[idx].Selector,
+			class.EntryPoints.L1Handler[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(sierraClass.EntryPoints.Constructor), len(class.EntryPoints.Constructor))
 	for idx := range sierraClass.EntryPoints.Constructor {
 		assert.Nil(t, class.EntryPoints.Constructor[idx].Offset)
-		assert.Equal(t, sierraClass.EntryPoints.Constructor[idx].Index, *class.EntryPoints.Constructor[idx].Index)
-		assert.Equal(t, sierraClass.EntryPoints.Constructor[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.Constructor[idx].Index,
+			*class.EntryPoints.Constructor[idx].Index,
+		)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.Constructor[idx].Selector,
+			class.EntryPoints.Constructor[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(sierraClass.EntryPoints.External), len(class.EntryPoints.External))
 	for idx := range sierraClass.EntryPoints.External {
 		assert.Nil(t, class.EntryPoints.External[idx].Offset)
-		assert.Equal(t, sierraClass.EntryPoints.External[idx].Index, *class.EntryPoints.External[idx].Index)
-		assert.Equal(t, sierraClass.EntryPoints.External[idx].Selector, class.EntryPoints.External[idx].Selector)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.External[idx].Index,
+			*class.EntryPoints.External[idx].Index,
+		)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.External[idx].Selector,
+			class.EntryPoints.External[idx].Selector,
+		)
 	}
 }

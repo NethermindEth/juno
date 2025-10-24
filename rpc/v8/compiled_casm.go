@@ -38,7 +38,9 @@ type CasmCompiledContractClass struct {
 	BytecodeSegmentLengths []int           `json:"bytecode_segment_lengths,omitempty"`
 }
 
-func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass, *jsonrpc.Error) {
+func (h *Handler) CompiledCasm(
+	classHash *felt.Felt,
+) (*CasmCompiledContractClass, *jsonrpc.Error) {
 	state, stateCloser, err := h.bcReader.HeadState()
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -67,7 +69,9 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass
 	return nil, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
 }
 
-func adaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (*CasmCompiledContractClass, error) {
+func adaptDeprecatedCairoClass(
+	class *core.DeprecatedCairoClass,
+) (*CasmCompiledContractClass, error) {
 	program, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err

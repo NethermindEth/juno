@@ -75,9 +75,12 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 		Events:             utils.Map(utils.NonNilSlice(response.Events), AdaptEvent),
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
-		L2ToL1Message:      utils.Map(utils.NonNilSlice(response.L2ToL1Message), AdaptL2ToL1Message),
-		Reverted:           response.ExecutionStatus == starknet.Reverted,
-		RevertReason:       response.RevertError,
+		L2ToL1Message: utils.Map(
+			utils.NonNilSlice(response.L2ToL1Message),
+			AdaptL2ToL1Message,
+		),
+		Reverted:     response.ExecutionStatus == starknet.Reverted,
+		RevertReason: response.RevertError,
 	}
 }
 
@@ -205,7 +208,12 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
-		t.ContractAddress = core.ContractAddress(&felt.Zero, t.ClassHash, t.ContractAddressSalt, *t.ConstructorCallData)
+		t.ContractAddress = core.ContractAddress(
+			&felt.Zero,
+			t.ClassHash,
+			t.ContractAddressSalt,
+			*t.ConstructorCallData,
+		)
 	}
 	return &core.DeployTransaction{
 		TransactionHash:     t.Hash,
@@ -270,7 +278,8 @@ func AdaptSierraClass(
 
 	// TODO: what's the absolute minimum size of a Sierra Definition?
 	// A Sierra program size should be at least 3 to contain the version or 1 if it's version is 0.1.0
-	if len(response.Program) < 3 && (len(response.Program) == 0 || !response.Program[0].Equal(&core.SierraVersion010)) {
+	if len(response.Program) < 3 && (len(response.Program) == 0 ||
+		!response.Program[0].Equal(&core.SierraVersion010)) {
 		return nil, errors.New("sierra program size is too small")
 	}
 
@@ -298,9 +307,18 @@ func AdaptSierraClass(
 			External    []core.SierraEntryPoint
 			L1Handler   []core.SierraEntryPoint
 		}{
-			Constructor: utils.MapByRef(utils.NonNilSlice(response.EntryPoints.Constructor), adapt),
-			External:    utils.MapByRef(utils.NonNilSlice(response.EntryPoints.External), adapt),
-			L1Handler:   utils.MapByRef(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt),
+			Constructor: utils.MapByRef(
+				utils.NonNilSlice(response.EntryPoints.Constructor),
+				adapt,
+			),
+			External: utils.MapByRef(
+				utils.NonNilSlice(response.EntryPoints.External),
+				adapt,
+			),
+			L1Handler: utils.MapByRef(
+				utils.NonNilSlice(response.EntryPoints.L1Handler),
+				adapt,
+			),
 		},
 	}, nil
 }
@@ -338,7 +356,9 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 	}
 }
 
-func AdaptDeprecatedCairoClass(response *starknet.DeprecatedCairoClass) (core.ClassDefinition, error) {
+func AdaptDeprecatedCairoClass(
+	response *starknet.DeprecatedCairoClass,
+) (core.ClassDefinition, error) {
 	class := new(core.DeprecatedCairoClass)
 	class.Abi = response.Abi
 
@@ -401,7 +421,10 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StorageDiffs))
+	stateDiff.StorageDiffs = make(
+		map[felt.Felt]map[felt.Felt]*felt.Felt,
+		len(response.StorageDiffs),
+	)
 	for addrStr, diffs := range response.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
@@ -417,7 +440,10 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64) (core.PreConfirmed, error) {
+func AdaptPreConfirmedBlock(
+	response *starknet.PreConfirmedBlock,
+	number uint64,
+) (core.PreConfirmed, error) {
 	if response == nil {
 		return core.PreConfirmed{}, errors.New("nil preconfirmed block")
 	}

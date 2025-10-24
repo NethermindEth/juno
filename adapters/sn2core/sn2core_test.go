@@ -582,13 +582,21 @@ func TestClassV1(t *testing.T) {
 				assert.Equal(t, v.Index, v1Class.EntryPoints.External[i].Index)
 			}
 
-			assert.Equal(t, len(feederClass.Sierra.EntryPoints.Constructor), len(v1Class.EntryPoints.Constructor))
+			assert.Equal(
+				t,
+				len(feederClass.Sierra.EntryPoints.Constructor),
+				len(v1Class.EntryPoints.Constructor),
+			)
 			for i, v := range feederClass.Sierra.EntryPoints.Constructor {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.Constructor[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.Constructor[i].Index)
 			}
 
-			assert.Equal(t, len(feederClass.Sierra.EntryPoints.L1Handler), len(v1Class.EntryPoints.L1Handler))
+			assert.Equal(
+				t,
+				len(feederClass.Sierra.EntryPoints.L1Handler),
+				len(v1Class.EntryPoints.L1Handler),
+			)
 			for i, v := range feederClass.Sierra.EntryPoints.L1Handler {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.L1Handler[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
