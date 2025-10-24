@@ -13,8 +13,8 @@ func AdaptSegmentLengths(l core.SegmentLengths) starknet.SegmentLengths {
 	}
 }
 
-func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CompiledClass {
-	var feederCompiledClass starknet.CompiledClass
+func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
+	var feederCompiledClass starknet.CasmClass
 	feederCompiledClass.Bytecode = coreCasmClass.Bytecode
 	feederCompiledClass.PythonicHints = coreCasmClass.PythonicHints
 	feederCompiledClass.CompilerVersion = coreCasmClass.CompilerVersion

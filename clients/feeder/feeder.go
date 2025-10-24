@@ -256,7 +256,7 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 	return class, nil
 }
 
-func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CompiledClass, error) {
+func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
 		"classHash":   classHash.String(),
 		"blockNumber": "pending",
@@ -277,7 +277,7 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 		return nil, ErrDeprecatedCompiledClass
 	}
 
-	class := new(starknet.CompiledClass)
+	class := new(starknet.CasmClass)
 	if err = json.Unmarshal(definition, class); err != nil {
 		return nil, err
 	}

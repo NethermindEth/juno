@@ -82,7 +82,7 @@ func (n SegmentLengths) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.Length)
 }
 
-type CompiledClass struct {
+type CasmClass struct {
 	Prime                  string          `json:"prime"`
 	Bytecode               []*felt.Felt    `json:"bytecode"`
 	Hints                  json.RawMessage `json:"hints"`

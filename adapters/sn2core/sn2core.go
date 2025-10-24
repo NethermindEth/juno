@@ -264,7 +264,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 
 func AdaptSierraClass(
 	response *starknet.SierraClass,
-	compiledClass *starknet.CompiledClass,
+	compiledClass *starknet.CasmClass,
 ) (*core.SierraClass, error) {
 	var err error
 
@@ -305,7 +305,7 @@ func AdaptSierraClass(
 	}, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CasmClass, error) {
+func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, error) {
 	if compiledClass == nil {
 		return nil, nil
 	}

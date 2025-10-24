@@ -391,7 +391,7 @@ func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
 				return nil, err
 			}
 		} else {
-			var compiledClass *starknet.CompiledClass
+			var compiledClass *starknet.CasmClass
 			if compiledClass, err = compiler.Compile(response.Sierra); err != nil {
 				return nil, err
 			}
