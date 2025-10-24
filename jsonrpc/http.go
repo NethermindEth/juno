@@ -48,14 +48,6 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if req.Header.Get("Content-Encoding") == "gzip" {
-		gz, err := gzip.NewReader(req.Body)
-		if err != nil {
-			http.Error(writer, "invalid gzip", http.StatusBadRequest)
-			return
-		}
-		req.Body = gz
-	}
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	h.listener.OnNewRequest("any")
 	resp, header, err := h.rpc.HandleReader(req.Context(), req.Body)

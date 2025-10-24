@@ -3,6 +3,7 @@ package jsonrpc_test
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"net/http"
@@ -105,7 +106,7 @@ func TestGzipResponse(t *testing.T) {
 	t.Cleanup(srv.Close)
 	client := new(http.Client)
 
-	payload := "rand.Text"
+	payload := rand.Text()
 	msg := fmt.Sprintf(`{"jsonrpc":"2.0", "method":"echo", "params":[%q], "id":1}`, payload)
 	expected := fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)
 	commonHeaders := map[string]string{
@@ -114,28 +115,9 @@ func TestGzipResponse(t *testing.T) {
 	}
 	t.Run("success: gzip encoded response", func(t *testing.T) {
 		resp := setHeaderAndProcessRequest(client, commonHeaders, bytes.NewReader([]byte(msg)), t, srv)
+		defer resp.Body.Close()
 		verifyResponse(resp, t, expected)
 	})
-
-	t.Run("success: gzip encoded request & response", func(t *testing.T) {
-		var buf bytes.Buffer
-		gz := gzip.NewWriter(&buf)
-		_, err := gz.Write([]byte(msg))
-		require.NoError(t, err)
-		require.NoError(t, gz.Close())
-		headers := cloneMap(commonHeaders)
-		headers["Content-Encoding"] = "gzip"
-		resp := setHeaderAndProcessRequest(client, headers, &buf, t, srv)
-		verifyResponse(resp, t, expected)
-	})
-
-	t.Run("failed: request is not gzip encoded but set header as gzip encoded", func(t *testing.T) {
-		headers := cloneMap(commonHeaders)
-		headers["Content-Encoding"] = "gzip"
-		resp := setHeaderAndProcessRequest(client, headers, bytes.NewReader([]byte(msg)), t, srv)
-		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	},
-	)
 }
 
 func setHeaderAndProcessRequest(
@@ -158,7 +140,6 @@ func setHeaderAndProcessRequest(
 	}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	t.Cleanup(func() { resp.Body.Close() })
 	return resp
 }
 
@@ -173,12 +154,4 @@ func verifyResponse(resp *http.Response, t *testing.T, expected string) {
 	decompressedBody, err := io.ReadAll(gzr)
 	require.NoError(t, err)
 	assert.Equal(t, string(decompressedBody), expected)
-}
-
-func cloneMap(original map[string]string) map[string]string {
-	clone := make(map[string]string)
-	for key, value := range original {
-		clone[key] = value
-	}
-	return clone
 }
