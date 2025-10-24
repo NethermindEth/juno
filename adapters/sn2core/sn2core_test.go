@@ -258,28 +258,28 @@ func TestClassV0(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt](hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
-			classGeneric, err := sn2core.AdaptDeprecatedCairoClass(response.V0)
+			classGeneric, err := sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo)
 			require.NoError(t, err)
 			class, ok := classGeneric.(*core.DeprecatedCairoClass)
 			require.True(t, ok)
 
-			for i, v := range response.V0.EntryPoints.External {
+			for i, v := range response.DeprecatedCairo.EntryPoints.External {
 				assert.Equal(t, v.Selector, class.Externals[i].Selector)
 				assert.Equal(t, v.Offset, class.Externals[i].Offset)
 			}
-			assert.Equal(t, len(response.V0.EntryPoints.External), len(class.Externals))
+			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.External), len(class.Externals))
 
-			for i, v := range response.V0.EntryPoints.L1Handler {
+			for i, v := range response.DeprecatedCairo.EntryPoints.L1Handler {
 				assert.Equal(t, v.Selector, class.L1Handlers[i].Selector)
 				assert.Equal(t, v.Offset, class.L1Handlers[i].Offset)
 			}
-			assert.Equal(t, len(response.V0.EntryPoints.L1Handler), len(class.L1Handlers))
+			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.L1Handler), len(class.L1Handlers))
 
-			for i, v := range response.V0.EntryPoints.Constructor {
+			for i, v := range response.DeprecatedCairo.EntryPoints.Constructor {
 				assert.Equal(t, v.Selector, class.Constructors[i].Selector)
 				assert.Equal(t, v.Offset, class.Constructors[i].Offset)
 			}
-			assert.Equal(t, len(response.V0.EntryPoints.Constructor), len(class.Constructors))
+			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.Constructor), len(class.Constructors))
 
 			assert.NotEmpty(t, class.Program)
 		})
@@ -562,12 +562,12 @@ func TestClassV1(t *testing.T) {
 			compiled, err := client.CompiledClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
 
-			v1Class, err := sn2core.AdaptSierraClass(feederClass.V1, compiled)
+			v1Class, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiled)
 			require.NoError(t, err)
 
-			assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
-			assert.Equal(t, feederClass.V1.Program, v1Class.Program)
-			assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
+			assert.Equal(t, feederClass.Sierra.Abi, v1Class.Abi)
+			assert.Equal(t, feederClass.Sierra.Program, v1Class.Program)
+			assert.Equal(t, feederClass.Sierra.Version, v1Class.SemanticVersion)
 			assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
 			assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
 			assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
@@ -576,20 +576,20 @@ func TestClassV1(t *testing.T) {
 			assert.Equal(t, len(compiled.EntryPoints.Constructor), len(v1Class.Compiled.Constructor))
 			assert.Equal(t, len(compiled.EntryPoints.L1Handler), len(v1Class.Compiled.L1Handler))
 
-			assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
-			for i, v := range feederClass.V1.EntryPoints.External {
+			assert.Equal(t, len(feederClass.Sierra.EntryPoints.External), len(v1Class.EntryPoints.External))
+			for i, v := range feederClass.Sierra.EntryPoints.External {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.External[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.External[i].Index)
 			}
 
-			assert.Equal(t, len(feederClass.V1.EntryPoints.Constructor), len(v1Class.EntryPoints.Constructor))
-			for i, v := range feederClass.V1.EntryPoints.Constructor {
+			assert.Equal(t, len(feederClass.Sierra.EntryPoints.Constructor), len(v1Class.EntryPoints.Constructor))
+			for i, v := range feederClass.Sierra.EntryPoints.Constructor {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.Constructor[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.Constructor[i].Index)
 			}
 
-			assert.Equal(t, len(feederClass.V1.EntryPoints.L1Handler), len(v1Class.EntryPoints.L1Handler))
-			for i, v := range feederClass.V1.EntryPoints.L1Handler {
+			assert.Equal(t, len(feederClass.Sierra.EntryPoints.L1Handler), len(v1Class.EntryPoints.L1Handler))
+			for i, v := range feederClass.Sierra.EntryPoints.L1Handler {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.L1Handler[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
 			}

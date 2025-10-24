@@ -52,21 +52,21 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, er
 	}
 
 	switch {
-	case feederClass.V1 != nil:
-		compiledClass, cErr := compiler.Compile(feederClass.V1)
+	case feederClass.Sierra != nil:
+		compiledClass, cErr := compiler.Compile(feederClass.Sierra)
 		if cErr != nil {
 			return nil, cErr
 		}
-		return sn2core.AdaptSierraClass(feederClass.V1, compiledClass)
-	case feederClass.V0 != nil:
+		return sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
+	case feederClass.DeprecatedCairo != nil:
 		// strip the quotes
-		base64Program := string(feederClass.V0.Program[1 : len(feederClass.V0.Program)-1])
-		feederClass.V0.Program, err = utils.Gzip64Decode(base64Program)
+		base64Program := string(feederClass.DeprecatedCairo.Program[1 : len(feederClass.DeprecatedCairo.Program)-1])
+		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
 		if err != nil {
 			return nil, err
 		}
 
-		return sn2core.AdaptDeprecatedCairoClass(feederClass.V0)
+		return sn2core.AdaptDeprecatedCairoClass(feederClass.DeprecatedCairo)
 	default:
 		return nil, errors.New("empty class")
 	}

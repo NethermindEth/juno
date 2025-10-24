@@ -368,15 +368,15 @@ func TestClassV0Unmarshal(t *testing.T) {
 	class, err := client.ClassDefinition(t.Context(), hash)
 	require.NoError(t, err)
 
-	assert.NotNil(t, class.V0)
-	assert.Nil(t, class.V1)
+	assert.NotNil(t, class.DeprecatedCairo)
+	assert.Nil(t, class.Sierra)
 
-	assert.Equal(t, 1, len(class.V0.EntryPoints.Constructor))
-	assert.Equal(t, "0xa1", class.V0.EntryPoints.Constructor[0].Offset.String())
-	assert.Equal(t, "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", class.V0.EntryPoints.Constructor[0].Selector.String())
-	assert.Equal(t, 1, len(class.V0.EntryPoints.L1Handler))
-	assert.Equal(t, 1, len(class.V0.EntryPoints.External))
-	assert.NotEmpty(t, class.V0.Program)
+	assert.Equal(t, 1, len(class.DeprecatedCairo.EntryPoints.Constructor))
+	assert.Equal(t, "0xa1", class.DeprecatedCairo.EntryPoints.Constructor[0].Offset.String())
+	assert.Equal(t, "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", class.DeprecatedCairo.EntryPoints.Constructor[0].Selector.String())
+	assert.Equal(t, 1, len(class.DeprecatedCairo.EntryPoints.L1Handler))
+	assert.Equal(t, 1, len(class.DeprecatedCairo.EntryPoints.External))
+	assert.NotEmpty(t, class.DeprecatedCairo.Program)
 }
 
 func TestClassV1Unmarshal(t *testing.T) {
@@ -386,25 +386,25 @@ func TestClassV1Unmarshal(t *testing.T) {
 	class, err := client.ClassDefinition(t.Context(), hash)
 	require.NoError(t, err)
 
-	assert.NotNil(t, class.V1)
-	assert.Nil(t, class.V0)
+	assert.NotNil(t, class.Sierra)
+	assert.Nil(t, class.DeprecatedCairo)
 
-	assert.Equal(t, 6626, len(class.V1.Program))
-	assert.Equal(t, 704, len(class.V1.Abi))
-	assert.Equal(t, "0.1.0", class.V1.Version)
-	assert.Equal(t, 0, len(class.V1.EntryPoints.Constructor))
-	assert.Equal(t, 0, len(class.V1.EntryPoints.L1Handler))
+	assert.Equal(t, 6626, len(class.Sierra.Program))
+	assert.Equal(t, 704, len(class.Sierra.Abi))
+	assert.Equal(t, "0.1.0", class.Sierra.Version)
+	assert.Equal(t, 0, len(class.Sierra.EntryPoints.Constructor))
+	assert.Equal(t, 0, len(class.Sierra.EntryPoints.L1Handler))
 
 	selectors := []string{
 		"0x22ff5f21f0b81b113e63f7db6da94fedef11b2119b4088b89664fb9a3cb658",
 		"0x1fc3f77ebc090777f567969ad9823cf6334ab888acb385ca72668ec5adbde80",
 		"0x3d778356014c91effae9863ee4a8c2663d8fa2e9f0c4145c1e01f5435ced0be",
 	}
-	assert.Equal(t, len(selectors), len(class.V1.EntryPoints.External))
+	assert.Equal(t, len(selectors), len(class.Sierra.EntryPoints.External))
 
 	for idx, selector := range selectors {
-		assert.Equal(t, uint64(idx), class.V1.EntryPoints.External[idx].Index)
-		assert.Equal(t, selector, class.V1.EntryPoints.External[idx].Selector.String())
+		assert.Equal(t, uint64(idx), class.Sierra.EntryPoints.External[idx].Index)
+		assert.Equal(t, selector, class.Sierra.EntryPoints.External[idx].Selector.String())
 	}
 }
 

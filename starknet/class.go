@@ -43,8 +43,8 @@ type DeprecatedCairoClass struct {
 }
 
 type ClassDefinition struct {
-	V0 *DeprecatedCairoClass
-	V1 *SierraClass
+	DeprecatedCairo *DeprecatedCairoClass
+	Sierra          *SierraClass
 }
 
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
@@ -54,11 +54,11 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	}
 
 	if _, found := jsonMap["sierra_program"]; found {
-		c.V1 = new(SierraClass)
-		return json.Unmarshal(data, c.V1)
+		c.Sierra = new(SierraClass)
+		return json.Unmarshal(data, c.Sierra)
 	}
-	c.V0 = new(DeprecatedCairoClass)
-	return json.Unmarshal(data, c.V0)
+	c.DeprecatedCairo = new(DeprecatedCairoClass)
+	return json.Unmarshal(data, c.DeprecatedCairo)
 }
 
 type SegmentLengths struct {

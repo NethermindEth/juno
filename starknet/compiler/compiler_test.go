@@ -34,7 +34,7 @@ func TestCompile(t *testing.T) {
 		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)
 		require.NoError(t, err)
 
-		res, err := compiler.Compile(classDef.V1)
+		res, err := compiler.Compile(classDef.Sierra)
 		require.NoError(t, err)
 
 		gotCompiled, err := sn2core.AdaptCompiledClass(res)

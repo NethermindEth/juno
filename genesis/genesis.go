@@ -386,16 +386,16 @@ func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
 		}
 
 		var coreClass core.ClassDefinition
-		if response.V0 != nil {
-			if coreClass, err = sn2core.AdaptDeprecatedCairoClass(response.V0); err != nil {
+		if response.DeprecatedCairo != nil {
+			if coreClass, err = sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo); err != nil {
 				return nil, err
 			}
 		} else {
 			var compiledClass *starknet.CompiledClass
-			if compiledClass, err = compiler.Compile(response.V1); err != nil {
+			if compiledClass, err = compiler.Compile(response.Sierra); err != nil {
 				return nil, err
 			}
-			if coreClass, err = sn2core.AdaptSierraClass(response.V1, compiledClass); err != nil {
+			if coreClass, err = sn2core.AdaptSierraClass(response.Sierra, compiledClass); err != nil {
 				return nil, err
 			}
 		}
