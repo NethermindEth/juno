@@ -96,6 +96,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 	}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+	mockReader.EXPECT().Network().Return(n).AnyTimes()
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
@@ -126,7 +127,8 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		mockReader := mocks.NewMockReader(mockCtrl)
 
-		client := feeder.NewTestClient(t, &utils.Sepolia)
+		network := utils.Sepolia
+		client := feeder.NewTestClient(t, &network)
 		gateway := adaptfeeder.New(client)
 
 		blockNumber := uint64(40000)
@@ -138,6 +140,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 			return mockReader.BlockByNumber(blockNumber)
 		})
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+		mockReader.EXPECT().Network().Return(&network)
 
 		// No feeder client is set
 		handler := rpc.New(mockReader, nil, nil, nil)
@@ -279,7 +282,7 @@ func TestTraceTransaction(t *testing.T) {
 				nil,
 			)
 
-			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -290,7 +293,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns some other error
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
 
-			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -374,7 +377,7 @@ func TestTraceTransaction(t *testing.T) {
 			NumSteps:    stepsUsed,
 		}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 
@@ -401,7 +404,7 @@ func TestTraceTransaction(t *testing.T) {
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		}
-		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
+		require.Nil(t, header.Hash, "hash must be nil for pending block")
 
 		block := &core.Block{
 			Header:       header,
@@ -412,7 +415,7 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.SierraClass{},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 		pendingStateDiff := core.EmptyStateDiff()
 		pending := core.Pending{
 			Block: block,
@@ -475,7 +478,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:    stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -510,7 +513,7 @@ func TestTraceTransaction(t *testing.T) {
 			Transactions: []core.Transaction{tx},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 		preConfirmedStateDiff := core.EmptyStateDiff()
 		preConfirmed := core.PreConfirmed{
 			Block: block,
@@ -573,7 +576,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:    stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -701,7 +704,7 @@ func TestTraceTransaction(t *testing.T) {
 			},
 		}
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *revertedTxHash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), revertedTxHash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")

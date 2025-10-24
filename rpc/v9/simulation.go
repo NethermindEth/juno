@@ -81,8 +81,18 @@ func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTr
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, skipFeeCharge, skipValidate, errOnRevert, true, true)
+	executionResults, err := h.vm.Execute(
+		txns,
+		classes,
+		paidFeesOnL1,
+		&blockInfo,
+		state,
+		skipFeeCharge,
+		skipValidate,
+		errOnRevert,
+		true,
+		true,
+	)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}
