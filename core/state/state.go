@@ -19,13 +19,16 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
+const systemContract1Addr = 1
+const systemContract2Addr = 2
+
 var (
 	stateVersion0             = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 	leafVersion0              = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	noClassContractsClassHash = felt.Zero
 	noClassContracts          = map[felt.Felt]struct{}{
-		*new(felt.Felt).SetUint64(1): {},
-		*new(felt.Felt).SetUint64(2): {},
+		*felt.NewFromUint64[felt.Felt](systemContract1Addr): {},
+		*felt.NewFromUint64[felt.Felt](systemContract2Addr): {},
 	}
 )
 

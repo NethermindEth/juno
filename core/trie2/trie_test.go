@@ -333,7 +333,10 @@ func runRandTest(rt randTest) error {
 					rt[i].err = fmt.Errorf("verify proof failed for key %s: %w", step.key.String(), err)
 				}
 			case opHash:
-				tr.Hash()
+				_, err := tr.Hash()
+				if err != nil {
+					rt[i].err = fmt.Errorf("hash failed: %w", err)
+				}
 			case opCommit:
 				root, nodes := tr.Commit()
 				if nodes != nil {
