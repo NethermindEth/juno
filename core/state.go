@@ -106,7 +106,7 @@ func (s *State) Commitment() (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	if storageRoot, err = sStorage.Root(); err != nil {
+	if storageRoot, err = sStorage.Hash(); err != nil {
 		return felt.Felt{}, err
 	}
 
@@ -119,7 +119,7 @@ func (s *State) Commitment() (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	if classesRoot, err = classes.Root(); err != nil {
+	if classesRoot, err = classes.Hash(); err != nil {
 		return felt.Felt{}, err
 	}
 
@@ -551,7 +551,7 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 	return classesCloser()
 }
 
-// ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber
+// ContractDeployedAt returns if contract at given addr was deployed at blockNumber
 func (s *State) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
 

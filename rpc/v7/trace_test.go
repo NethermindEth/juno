@@ -404,15 +404,21 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		pending := core.NewPending(block, nil, nil)
+		pendingStateDiff := core.EmptyStateDiff()
+		pending := core.Pending{
+			Block: block,
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &pendingStateDiff,
+			},
+			NewClasses: map[felt.Felt]core.Class{*tx.ClassHash: declaredClass.Class},
+		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
 		).Times(2)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
+			Return(headState, nopCloser, nil).Times(2)
 
 		innerExecutionResources := `{
 			"pedersen": 0,
@@ -654,7 +660,6 @@ func TestTraceBlockTransactions(t *testing.T) {
 	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, n, log)
 
 	t.Run("pending block", func(t *testing.T) {
-		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x0001")
 		header := &core.Header{
 			// hash is not set because it's pending block
 			ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
@@ -678,14 +683,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Transactions: []core.Transaction{l1Tx, declareTx},
 		}
 
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
-		state := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
+		pendingStateDiff := core.EmptyStateDiff()
+		pending := core.Pending{
+			Block: block,
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &pendingStateDiff,
+			},
+			NewClasses: map[felt.Felt]core.Class{*declareTx.ClassHash: declaredClass.Class},
+		}
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil).Times(2)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		pending := core.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
+			Return(headState, nopCloser, nil).Times(2)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
 		vmTraceJSON := json.RawMessage(`{
@@ -717,7 +726,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
+		result, httpHeader, err := handler.TraceBlockTransactions(
+			t.Context(),
+			rpcv7.BlockID{Pending: true},
+		)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)

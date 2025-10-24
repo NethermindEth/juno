@@ -157,7 +157,8 @@ func (z *Felt) Unmarshal(e []byte) {
 	(*fp.Element)(z).Unmarshal(e)
 }
 
-// Bytes forwards the call to underlying field element implementation
+// Bytes forwards the call to underlying field element implementation.
+// Returns the value of z as a big-endian byte array
 func (z *Felt) Bytes() [32]byte {
 	return (*fp.Element)(z).Bytes()
 }
@@ -193,7 +194,8 @@ func (z *Felt) UnmarshalCBOR(data []byte) error {
 	return cbor.Unmarshal(data, (*fp.Element)(z))
 }
 
-// Bits forwards the call to underlying field element implementation
+// Bits forwards the call to underlying field element implementation.
+// Provides access to z by returning its value as a little-endian [4]uint64 array.
 func (z *Felt) Bits() [4]uint64 {
 	return (*fp.Element)(z).Bits()
 }
@@ -244,7 +246,12 @@ func (z *Felt) Div(x, y *Felt) *Felt {
 	return z
 }
 
-// Cmp forwards the call to underlying field element implementation
+// Cmp forwards the call to underlying field element implementation.
+// Returns:
+//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *Felt) Cmp(x *Felt) int {
 	return (*fp.Element)(z).Cmp((*fp.Element)(x))
 }
