@@ -110,7 +110,8 @@ func BuildTestFixture(
 	executor.RegisterBuildResult(&buildResult)
 
 	builder := builder.New(
-		blockchain.New(database, testCase.Network, statetestutils.UseNewState()), executor,
+		blockchain.New(database, testCase.Network, statetestutils.UseNewState()),
+		executor,
 	)
 
 	return TestFixture{
