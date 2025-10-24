@@ -102,7 +102,7 @@ func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
 		}
 	}
 	ep := cairo1.EntryPoints
-	def := &starknet.SierraDefinition{
+	def := &starknet.SierraClass{
 		Abi: cairo1.Abi,
 		EntryPoints: starknet.SierraEntryPoints{
 			// WARNING: usage of utils.NonNilSlice is essential, otherwise compilation will finish with errors

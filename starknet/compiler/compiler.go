@@ -23,8 +23,8 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 )
 
-func Compile(sierra *starknet.SierraDefinition) (*starknet.CompiledClass, error) {
-	sierraJSON, err := json.Marshal(starknet.SierraDefinition{
+func Compile(sierra *starknet.SierraClass) (*starknet.CompiledClass, error) {
+	sierraJSON, err := json.Marshal(starknet.SierraClass{
 		EntryPoints: sierra.EntryPoints,
 		Program:     sierra.Program,
 		Version:     sierra.Version,

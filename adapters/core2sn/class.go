@@ -36,7 +36,7 @@ func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CompiledClass {
 	return feederCompiledClass
 }
 
-func AdaptSierraClass(class *core.SierraClass) *starknet.SierraDefinition {
+func AdaptSierraClass(class *core.SierraClass) *starknet.SierraClass {
 	adapt := func(ep core.SierraEntryPoint) starknet.SierraEntryPoint {
 		return starknet.SierraEntryPoint{
 			Selector: ep.Selector,
@@ -47,7 +47,7 @@ func AdaptSierraClass(class *core.SierraClass) *starknet.SierraDefinition {
 	external := utils.Map(utils.NonNilSlice(class.EntryPoints.External), adapt)
 	handlers := utils.Map(utils.NonNilSlice(class.EntryPoints.L1Handler), adapt)
 
-	return &starknet.SierraDefinition{
+	return &starknet.SierraClass{
 		Abi:     class.Abi,
 		Version: class.SemanticVersion,
 		Program: class.Program,

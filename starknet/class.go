@@ -18,7 +18,7 @@ type SierraEntryPoints struct {
 	L1Handler   []SierraEntryPoint `json:"L1_HANDLER"`
 }
 
-type SierraDefinition struct {
+type SierraClass struct {
 	Abi         string            `json:"abi,omitempty"`
 	EntryPoints SierraEntryPoints `json:"entry_points_by_type"`
 	Program     []*felt.Felt      `json:"sierra_program"`
@@ -44,7 +44,7 @@ type DeprecatedCairoClass struct {
 
 type ClassDefinition struct {
 	V0 *DeprecatedCairoClass
-	V1 *SierraDefinition
+	V1 *SierraClass
 }
 
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
@@ -54,7 +54,7 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	}
 
 	if _, found := jsonMap["sierra_program"]; found {
-		c.V1 = new(SierraDefinition)
+		c.V1 = new(SierraClass)
 		return json.Unmarshal(data, c.V1)
 	}
 	c.V0 = new(DeprecatedCairoClass)

@@ -263,7 +263,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 }
 
 func AdaptSierraClass(
-	response *starknet.SierraDefinition,
+	response *starknet.SierraClass,
 	compiledClass *starknet.CompiledClass,
 ) (*core.SierraClass, error) {
 	var err error

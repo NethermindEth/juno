@@ -599,14 +599,14 @@ func TestClassV1(t *testing.T) {
 	}
 
 	t.Run("sierra class is empty", func(t *testing.T) {
-		snClass := starknet.SierraDefinition{}
+		snClass := starknet.SierraClass{}
 		class, err := sn2core.AdaptSierraClass(&snClass, nil)
 		require.Nil(t, class)
 		require.Contains(t, "sierra program size is too small", err.Error())
 	})
 
 	t.Run("sierra class doesn't have the minimum size", func(t *testing.T) {
-		snClass := starknet.SierraDefinition{
+		snClass := starknet.SierraClass{
 			Program: []*felt.Felt{
 				new(felt.Felt), // this value doesn't matter as long as their different from `SierraVersion010`
 				new(felt.Felt),
