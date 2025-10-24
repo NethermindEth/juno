@@ -154,8 +154,8 @@ func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
 
 // Returns the state commitment
 func (s *State) Commitment() (felt.Felt, error) {
-	contractRoot := s.contractTrie.Hash()
-	classRoot := s.classTrie.Hash()
+	contractRoot, _ := s.contractTrie.Hash()
+	classRoot, _ := s.classTrie.Hash()
 	return stateCommitment(&contractRoot, &classRoot), nil
 }
 

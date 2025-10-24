@@ -97,7 +97,7 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 }
 
 // Root returns the state commitment.
-func (s *State) Root() (felt.Felt, error) {
+func (s *State) Commitment() (felt.Felt, error) {
 	var storageRoot, classesRoot felt.Felt
 
 	sStorage, closer, err := s.storage()
@@ -105,7 +105,7 @@ func (s *State) Root() (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	if storageRoot, err = sStorage.Root(); err != nil {
+	if storageRoot, err = sStorage.Hash(); err != nil {
 		return felt.Felt{}, err
 	}
 
@@ -118,7 +118,7 @@ func (s *State) Root() (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	if classesRoot, err = classes.Root(); err != nil {
+	if classesRoot, err = classes.Hash(); err != nil {
 		return felt.Felt{}, err
 	}
 
@@ -215,7 +215,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 }
 
 func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
-	currentRoot, err := s.Root()
+	currentRoot, err := s.Commitment()
 	if err != nil {
 		return err
 	}
