@@ -99,6 +99,11 @@ linters:
         - "1"
         - "2"
         - "3"
+        - "4"
+        - "8"
+        - "16"
+        - "24"
+        - "32"
       ignored-functions:
         - strings.SplitN
     nolintlint:
