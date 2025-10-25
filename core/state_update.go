@@ -16,12 +16,23 @@ type StateUpdate struct {
 }
 
 type StateDiff struct {
-	StorageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
-	Nonces            map[felt.Felt]*felt.Felt               // addr -> nonce
-	DeployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
-	DeclaredV0Classes []*felt.Felt                           // class hashes
-	DeclaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
-	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
+	// todo(rdr): replace felt.Felt for the right types (felt.Address to felt.What? to felt.What?)
+	//            felt.What? means I'm not sure which type, but if it doesn't exist, create it.
+	StorageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
+	// todo(rdr): felt.Address to felt.Nonce (`Nonce` is a new type that should be created?)
+	Nonces map[felt.Felt]*felt.Felt
+	// todo(rdr): felt.Addr to felt.ClassHash (do we know if it will be `SierraClassHash or
+	//            `CasmClassHash`)
+	DeployedContracts map[felt.Felt]*felt.Felt
+	// todo(rdr): an array of felt.ClassHash, or perhaps, felt.DeprecatedCairoClassHash
+	//            Also, change the name from `DeclaredV0Classes` to `DeprecatedDeclaredClasses`
+	DeclaredV0Classes []*felt.Felt
+	// todo(rdr): felt.SierraClassHash to felt.CasmClassHash
+	DeclaredV1Classes map[felt.Felt]*felt.Felt // class hash -> compiled class hash
+	// todo(rdr): felt.Address to (felt.SierraClassHash or felt.CasmClassHash, I'm unsure)
+	ReplacedClasses map[felt.Felt]*felt.Felt // addr -> class hash
+	// Sierra Class definitions which had their compiled class hash definition (CASM)
+	// migrated from poseidon hash to blake2s hash (Starknet 0.14.1)
 	MigratedClasses map[felt.SierraClassHash]felt.CasmClassHash
 }
 
@@ -238,7 +249,10 @@ func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *cry
 	digest.Update(declaredV0Classes...)
 }
 
-func storageDiffDigest(storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
+func storageDiffDigest(
+	storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfStorageDiffs := uint64(len(storageDiffs))
 	digest.Update(new(felt.Felt).SetUint64(numOfStorageDiffs))
 

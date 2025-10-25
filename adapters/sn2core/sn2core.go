@@ -393,6 +393,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 	}, nil
 }
 
+// todo(rdr): return `core.StateDiff` by value
 func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
