@@ -393,6 +393,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 	}, nil
 }
 
+// todo(rdr): return `core.StateDiff` by value
 func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
@@ -400,6 +401,13 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.DeclaredClasses))
 	for _, declaredV1Class := range response.DeclaredClasses {
 		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
+	}
+
+	stateDiff.MigratedClasses = make(
+		map[felt.SierraClassHash]felt.CasmClassHash, len(response.MigratedClasses),
+	)
+	for _, migratedClass := range response.MigratedClasses {
+		stateDiff.MigratedClasses[migratedClass.ClassHash] = migratedClass.CompiledClassHash
 	}
 
 	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.ReplacedClasses))

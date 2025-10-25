@@ -409,6 +409,7 @@ func (b *Blockchain) RevertHead() error {
 	return b.database.Update(b.revertHead)
 }
 
+// todo(rdr): return `core.StateDiff` by value
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 

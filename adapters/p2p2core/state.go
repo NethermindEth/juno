@@ -87,6 +87,7 @@ func AdaptStateDiff(
 		DeclaredV0Classes: declaredV0Classes,
 		DeclaredV1Classes: declaredV1Classes,
 		ReplacedClasses:   utils.ToMap(replacedClasses, adaptAddrToClassHash),
+		MigratedClasses:   nil, // todo(rdr): unsure of p2p relationship
 	}, nil
 }
 

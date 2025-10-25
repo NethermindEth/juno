@@ -87,7 +87,10 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		l1Heads:       feed.New[*core.L1Head](),
 		preLatestFeed: feed.New[*core.PreLatest](),
 
-		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
+		blockTraceCache: lru.NewCache[
+			rpccore.TraceCacheKey,
+			[]TracedBlockTransaction,
+		](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
