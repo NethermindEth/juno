@@ -402,6 +402,13 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
 	}
 
+	stateDiff.MigratedClasses = make(
+		map[felt.SierraClassHash]felt.CasmClassHash, len(response.MigratedClasses),
+	)
+	for _, migratedClass := range response.MigratedClasses {
+		stateDiff.MigratedClasses[migratedClass.ClassHash] = migratedClass.CompiledClassHash
+	}
+
 	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.ReplacedClasses))
 	for _, replacedClass := range response.ReplacedClasses {
 		stateDiff.ReplacedClasses[*replacedClass.Address] = replacedClass.ClassHash

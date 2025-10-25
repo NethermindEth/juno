@@ -32,6 +32,10 @@ type StateDiff struct {
 		Address   *felt.Felt `json:"address"`
 		ClassHash *felt.Felt `json:"class_hash"`
 	} `json:"replaced_classes"`
+	MigratedClasses []struct {
+		ClassHash         felt.SierraClassHash `json:"class_hash"`
+		CompiledClassHash felt.CasmClassHash   `json:"compiled_class_hash"`
+	} `json:"migrated_classes"`
 }
 
 // StateUpdateWithBlock object returned by the feeder in JSON format for "get_state_update" endpoint with includingBlock arg
