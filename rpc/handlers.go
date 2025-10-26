@@ -338,9 +338,9 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			},
 			Handler: h.rpcv9Handler.StorageProof,
 		},
-		{
-			Name: ,
-		}
+		// {
+		// 	Name: ,
+		// }
 	}, "/v0_10"
 }
 

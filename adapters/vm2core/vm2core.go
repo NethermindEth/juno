@@ -19,11 +19,17 @@ func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
 	}
 }
 
+// todo(rdr): this is function definition is twice wrong:
+//   - the parameters should be received by reference
+//   - the output param should be return by value
 func AdaptOrderedMessageToL1(message vm.OrderedL2toL1Message) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
 		From:    message.From,
 		Payload: message.Payload,
-		To:      common.HexToAddress(message.To),
+		// todo(rdr): this is not correct because it implies the L1 is always Ethereum
+		// 			  and from Starknet 0.14.1 that is no longer a strong assumption.
+		//            we should have a `felt.L1Address` (or similar)
+		To: common.HexToAddress(message.To.String()),
 	}
 }
 

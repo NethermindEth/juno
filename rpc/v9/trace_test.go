@@ -844,14 +844,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
 	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
-		fromAddr, _ := felt.NewFromString[felt.Felt]("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
-		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
+		fromAddr := felt.NewUnsafeFromString[felt.Felt](
+			"0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f",
+		)
+		toAddr := felt.NewUnsafeFromString[felt.Address](
+			"0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5",
+		)
 
-		payload0, _ := felt.NewFromString[felt.Felt]("0x0")
-		payload1, _ := felt.NewFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
-		payload2, _ := felt.NewFromString[felt.Felt]("0x455448")
-		payload3, _ := felt.NewFromString[felt.Felt]("0x31da07977d000")
-		payload4, _ := felt.NewFromString[felt.Felt]("0x0")
+		payload0 := &felt.Zero
+		payload1 := felt.NewUnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
+		payload2 := felt.NewFromUint64[felt.Felt](0x455448)
+		payload3 := felt.NewFromUint64[felt.Felt](0x31da07977d000)
+		payload4 := &felt.Zero
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -860,7 +864,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					{
 						Order: 0,
 						From:  fromAddr,
-						To:    toAddrStr,
+						To:    toAddr,
 						Payload: []*felt.Felt{
 							payload0,
 							payload1,
@@ -945,8 +949,6 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 		}
 
-		toAddr, _ := felt.NewFromString[felt.Felt](toAddrStr)
-
 		expectedAdaptedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
@@ -956,7 +958,9 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					{
 						Order: 0,
 						From:  fromAddr,
-						To:    toAddr,
+						// todo(rdr): we shouldn't need this conversion but the right fix is
+						//            refactor which is a whole stream of work on itself
+						To: (*felt.Felt)(toAddr),
 						Payload: []*felt.Felt{
 							payload0,
 							payload1,
