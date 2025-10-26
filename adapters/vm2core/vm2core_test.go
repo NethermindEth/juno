@@ -42,13 +42,13 @@ func TestAdaptOrderedEvents(t *testing.T) {
 
 func TestAdaptOrderedMessageToL1(t *testing.T) {
 	require.Equal(t, &core.L2ToL1Message{
-		From:    new(felt.Felt).SetUint64(2),
+		From:    felt.NewFromUint64[felt.Felt](2),
 		To:      common.HexToAddress("0x3"),
 		Payload: []*felt.Felt{new(felt.Felt).SetUint64(4)},
 	}, vm2core.AdaptOrderedMessageToL1(vm.OrderedL2toL1Message{
 		Order:   1,
-		From:    new(felt.Felt).SetUint64(2),
-		To:      "0x3",
+		From:    felt.NewFromUint64[felt.Felt](2),
+		To:      felt.NewFromUint64[felt.Address](0x3),
 		Payload: []*felt.Felt{new(felt.Felt).SetUint64(4)},
 	}))
 }

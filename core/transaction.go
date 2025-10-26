@@ -85,6 +85,8 @@ type Event struct {
 }
 
 type L1ToL2Message struct {
+	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
+	//            here. We should change this to felt.Address
 	From     common.Address
 	Nonce    *felt.Felt
 	Payload  []*felt.Felt
@@ -95,7 +97,9 @@ type L1ToL2Message struct {
 type L2ToL1Message struct {
 	From    *felt.Felt
 	Payload []*felt.Felt
-	To      common.Address
+	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
+	//            here. We should change this to felt.Address
+	To common.Address
 }
 
 type ExecutionResources struct {

@@ -273,10 +273,10 @@ type OrderedEvent struct {
 }
 
 type OrderedL2toL1Message struct {
-	Order   uint64       `json:"order"`
-	From    *felt.Felt   `json:"from_address,omitempty"`
-	To      string       `json:"to_address"` // todo: make common.Address after fixing starknet-api EthAddress serialisation
-	Payload []*felt.Felt `json:"payload"`
+	Order   uint64        `json:"order"`
+	From    *felt.Felt    `json:"from_address,omitempty"`
+	To      *felt.Address `json:"to_address"`
+	Payload []*felt.Felt  `json:"payload"`
 }
 
 type ComputationResources struct {
