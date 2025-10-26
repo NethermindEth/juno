@@ -583,9 +583,9 @@ func TestTraceTransaction(t *testing.T) {
 			Transactions: []core.Transaction{tx},
 		}
 
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 		preLatestStateDiff := core.EmptyStateDiff()
 		preLatest := core.PreLatest{
@@ -593,7 +593,7 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &preLatestStateDiff,
 			},
-			NewClasses: map[felt.Felt]core.Class{*tx.ClassHash: declaredClass.Class},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
 		}
 
 		preConfirmed := core.PreConfirmed{
@@ -623,7 +623,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockVM.EXPECT().Execute(
 			[]core.Transaction{tx},
-			[]core.Class{declaredClass.Class},
+			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
