@@ -296,10 +296,10 @@ func TestSubscribeEvents(t *testing.T) {
 
 	// Create PreLatest block for testing
 	preLatestTxCount := len(b2.Transactions)
-	preLatest := core.PreLatest(createTestPending(t, b2, preLatestTxCount))
-	_, preLatestEmitted := createTestEvents(
+	b2PreLatest := core.PreLatest(createTestPending(t, b2, preLatestTxCount))
+	b2PrelatestFiltered, b2PreLatestEmitted := createTestEvents(
 		t,
-		preLatest.Block,
+		b2PreLatest.Block,
 		nil,
 		nil,
 		TxnAcceptedOnL2,
@@ -308,7 +308,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	b3PreConfirmedPartial := createTestPreConfirmed(t, b3, len(b3.Transactions)-1)
 	b3PreConfirmedFull := createTestPreConfirmed(t, b3, len(b3.Transactions))
-	_, b3PreConfirmedPartialEmitted := createTestEvents(
+	b3PreConfirmedPartialFiltered, b3PreConfirmedPartialEmitted := createTestEvents(
 		t,
 		b3PreConfirmedPartial.Block,
 		nil,
@@ -497,6 +497,7 @@ func TestSubscribeEvents(t *testing.T) {
 			},
 		},
 	}
+
 	basicSubscription := testCase{
 		description: "Events from new blocks - default status",
 		blockID:     nil,
@@ -604,9 +605,9 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on PreLatest block",
 				notify: func() {
-					handler.preLatestFeed.Send(&preLatest)
+					handler.preLatestFeed.Send(&b2PreLatest)
 				},
-				expect: [][]SubscriptionEmittedEvent{preLatestEmitted},
+				expect: [][]SubscriptionEmittedEvent{b2PreLatestEmitted},
 			},
 			{
 				description: "on new head after PreLatest, without duplicates",
@@ -817,9 +818,9 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "pre_confirmed becomes pre_latest",
 				notify: func() {
-					handler.preLatestFeed.Send(&preLatest)
+					handler.preLatestFeed.Send(&b2PreLatest)
 				},
-				expect: [][]SubscriptionEmittedEvent{preLatestEmitted},
+				expect: [][]SubscriptionEmittedEvent{b2PreLatestEmitted},
 			},
 			{
 				description: "new pre_confirmed block",
@@ -847,6 +848,46 @@ func TestSubscribeEvents(t *testing.T) {
 		},
 	}
 
+	deduplicationWithPreLatestOnStart := testCase{
+		description:    "deduplicate events with prelatest on start",
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		setupMocks: func() {
+			setupMockEventFiltererWithMultiple(
+				mockChain,
+				mockEventFilterer,
+				b1.Header,
+				uint64(max(0, int(b1.Header.Number)-1)),
+				b1Filtered,
+				b2PrelatestFiltered,
+				b3PreConfirmedPartialFiltered,
+			)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from latest, pre_latest and pre_confirmed",
+				expect: [][]SubscriptionEmittedEvent{
+					b1Emitted, b2PreLatestEmitted, b3PreConfirmedPartialEmitted,
+				},
+			},
+			{
+				description: "prelatest becomes head - without duplicates",
+				notify: func() {
+					handler.newHeads.Send(b2)
+				},
+				expect: [][]SubscriptionEmittedEvent{},
+			},
+			{
+				description: "on pre_confirmed block update, without duplicates",
+				notify: func() {
+					handler.pendingData.Send(&b3PreConfirmedFull)
+				},
+				expect: [][]SubscriptionEmittedEvent{
+					b3PreConfirmedFullEmitted[len(b3PreConfirmedPartialEmitted):],
+				},
+			},
+		},
+	}
+
 	testCases := []testCase{
 		preStarknet0_14_0basicSubscription,
 		preStarknet0_14_0basicSubscriptionWithPending,
@@ -858,6 +899,7 @@ func TestSubscribeEvents(t *testing.T) {
 		eventsWithFromAddressAndPreConfirmed,
 		eventsWithAllFilterAndPreConfirmed,
 		deduplication,
+		deduplicationWithPreLatestOnStart,
 	}
 
 	for _, tc := range testCases {
@@ -2883,6 +2925,7 @@ func createTestEvents(
 				Event:           event,
 				BlockNumber:     blockNumber,
 				BlockHash:       b.Hash,
+				BlockParentHash: b.ParentHash,
 				TransactionHash: receipt.TransactionHash,
 				EventIndex:      i,
 			})
