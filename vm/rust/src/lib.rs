@@ -781,6 +781,8 @@ fn build_block_context(
             eth_fee_token_address: ContractAddress::try_from(eth_fee_token_felt).unwrap(),
             strk_fee_token_address: ContractAddress::try_from(strk_fee_token_felt).unwrap(),
         },
+        // todo(rdr): this should become configuratble
+        is_l3: false,
     };
 
     pre_process_block(
