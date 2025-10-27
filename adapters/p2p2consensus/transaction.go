@@ -18,7 +18,7 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 
 	var (
 		tx          core.Transaction
-		class       core.Class
+		class       core.ClassDefinition
 		paidFeeOnL1 *felt.Felt
 		err         error
 	)

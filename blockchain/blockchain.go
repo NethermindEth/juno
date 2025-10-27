@@ -232,7 +232,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
-	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
+	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	err := b.database.Update(func(txn db.IndexedBatch) error {
 		if err := verifyBlock(txn, block); err != nil {
@@ -315,7 +315,7 @@ func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCo
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
 func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) (*core.BlockCommitments, error) {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
 		return nil, errors.New("block hashes do not match")
@@ -500,7 +500,7 @@ type SimulateResult struct {
 func (b *Blockchain) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
 	// Simulate without commit
@@ -537,7 +537,7 @@ func (b *Blockchain) Simulate(
 func (b *Blockchain) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 	sign utils.BlockSignFunc,
 ) error {
 	err := b.database.Update(func(txn db.IndexedBatch) error {
@@ -568,7 +568,7 @@ func (b *Blockchain) updateStateRoots(
 	txn db.IndexedBatch,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	state := core.NewState(txn)
 
@@ -670,7 +670,7 @@ func (b *Blockchain) storeBlockData(
 
 func (b *Blockchain) StoreGenesis(
 	diff *core.StateDiff,
-	classes map[felt.Felt]core.Class,
+	classes map[felt.Felt]core.ClassDefinition,
 ) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 

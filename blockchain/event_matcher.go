@@ -180,6 +180,7 @@ func (e *EventMatcher) AppendBlockEvents(
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
 					BlockNumber:     blockNumber,
 					BlockHash:       header.Hash,
+					BlockParentHash: header.ParentHash,
 					TransactionHash: receipt.TransactionHash,
 					EventIndex:      i,
 					Event:           event,

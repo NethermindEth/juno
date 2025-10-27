@@ -265,9 +265,9 @@ func TestTraceTransaction(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
@@ -294,13 +294,22 @@ func TestTraceTransaction(t *testing.T) {
 	}`)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
-				Traces:           []vm.TransactionTrace{*vmTrace},
-				NumSteps:         0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false,
+		).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
+			Traces:           []vm.TransactionTrace{*vmTrace},
+			NumSteps:         0,
+		}, nil)
 
 		trace, err := handler.TraceTransaction(t.Context(), *hash)
 
@@ -326,9 +335,9 @@ func TestTraceTransaction(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
@@ -339,7 +348,7 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,
 			},
-			NewClasses: map[felt.Felt]core.Class{*tx.ClassHash: declaredClass.Class},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
 		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
@@ -366,12 +375,21 @@ func TestTraceTransaction(t *testing.T) {
 	}`)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				Traces:   []vm.TransactionTrace{*vmTrace},
-				NumSteps: 0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false,
+		).Return(vm.ExecutionResults{
+			Traces:   []vm.TransactionTrace{*vmTrace},
+			NumSteps: 0,
+		}, nil)
 
 		trace, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
@@ -545,9 +563,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 		declareTx := &core.DeclareTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
@@ -564,7 +582,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,
 			},
-			NewClasses: map[felt.Felt]core.Class{*declareTx.ClassHash: declaredClass.Class},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*declareTx.ClassHash: declaredClass.Class},
 		}
 
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -592,13 +610,22 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}`)
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{},
-				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
-				NumSteps:         0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			block.Transactions,
+			[]core.ClassDefinition{declaredClass.Class},
+			paidL1Fees,
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false,
+		).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{},
+			Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
+			NumSteps:         0,
+		}, nil)
 
 		result, err := handler.TraceBlockTransactions(
 			t.Context(),
@@ -639,9 +666,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
@@ -667,13 +694,21 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}`)
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{},
-				Traces:           []vm.TransactionTrace{vmTrace},
-				NumSteps:         0,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{},
+			Traces:           []vm.TransactionTrace{vmTrace},
+			NumSteps:         0,
+		}, nil)
 
 		expectedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
 		expectedResult := []rpc.TracedBlockTransaction{

@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	_ Class = (*Cairo0Class)(nil)
-	_ Class = (*Cairo1Class)(nil)
+	_ ClassDefinition = (*DeprecatedCairoClass)(nil)
+	_ ClassDefinition = (*SierraClass)(nil)
 )
 
 const minDeclaredClassSize = 8
@@ -29,53 +29,45 @@ var SierraVersion010 felt.Felt = felt.Felt(
 		576348180530977296,
 	})
 
-// todo(rdr): this Class name is not a really good name, what could be a more descriptive one
-// Class unambiguously defines a [Contract]'s semantics.
-type Class interface {
+type ClassDefinition interface {
 	Version() uint64
 	SierraVersion() string
 	Hash() (*felt.Felt, error)
 }
 
-// todo(rdr): rename this to DeprecatedCairoClass
-// Cairo0Class unambiguously defines a [Contract]'s semantics.
-type Cairo0Class struct {
+type DeprecatedCairoClass struct {
 	Abi json.RawMessage
 	// External functions defined in the class.
-	Externals []EntryPoint
+	Externals []DeprecatedEntryPoint
 	// Functions that receive L1 messages. See
 	// https://www.cairo-lang.org/docs/hello_starknet/l1l2.html#receiving-a-message-from-l1
-	L1Handlers []EntryPoint
+	L1Handlers []DeprecatedEntryPoint
 	// Constructors for the class. Currently, only one is allowed.
-	Constructors []EntryPoint
+	Constructors []DeprecatedEntryPoint
 	// Base64 encoding of compressed Program
 	Program string
 }
 
-// todo(rdr): rename this to DeprecatedEntryPoint
-// EntryPoint uniquely identifies a Cairo function to execute.
-type EntryPoint struct {
+type DeprecatedEntryPoint struct {
 	// starknet_keccak hash of the function signature.
 	Selector *felt.Felt
 	// The offset of the instruction in the class's bytecode.
 	Offset *felt.Felt
 }
 
-func (c *Cairo0Class) Version() uint64 {
+func (c *DeprecatedCairoClass) Version() uint64 {
 	return 0
 }
 
-func (c *Cairo0Class) Hash() (*felt.Felt, error) {
-	return cairo0ClassHash(c)
+func (c *DeprecatedCairoClass) Hash() (*felt.Felt, error) {
+	return deprecatedCairoClassHash(c)
 }
 
-func (c *Cairo0Class) SierraVersion() string {
+func (c *DeprecatedCairoClass) SierraVersion() string {
 	return "0.0.0"
 }
 
-// todo(rdr): rename this to CairoClass
-// Cairo1Class unambiguously defines a [Contract]'s semantics.
-type Cairo1Class struct {
+type SierraClass struct {
 	Abi     string
 	AbiHash *felt.Felt
 	// TODO: will implement this on a follow up PR commit to avoid the migration
@@ -89,7 +81,7 @@ type Cairo1Class struct {
 	ProgramHash *felt.Felt
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
-	Compiled        *CompiledClass
+	Compiled        *CasmClass
 }
 
 type SegmentLengths struct {
@@ -97,21 +89,19 @@ type SegmentLengths struct {
 	Length   uint64
 }
 
-// todo(rdr): rename CompiledClass to CasmClass
-type CompiledClass struct {
+type CasmClass struct {
 	Bytecode               []*felt.Felt
 	PythonicHints          json.RawMessage
 	CompilerVersion        string
 	Hints                  json.RawMessage
 	Prime                  *big.Int
-	External               []CompiledEntryPoint
-	L1Handler              []CompiledEntryPoint
-	Constructor            []CompiledEntryPoint
+	External               []CasmEntryPoint
+	L1Handler              []CasmEntryPoint
+	Constructor            []CasmEntryPoint
 	BytecodeSegmentLengths SegmentLengths
 }
 
-// todo(rdr): rename this to CasmEntryPoint
-type CompiledEntryPoint struct {
+type CasmEntryPoint struct {
 	Offset   uint64
 	Builtins []string
 	Selector *felt.Felt
@@ -129,11 +119,11 @@ type SierraEntryPoint struct {
 	Selector *felt.Felt
 }
 
-func (c *Cairo1Class) Version() uint64 {
+func (c *SierraClass) Version() uint64 {
 	return 1
 }
 
-func (c *Cairo1Class) Hash() (*felt.Felt, error) {
+func (c *SierraClass) Hash() (*felt.Felt, error) {
 	return crypto.PoseidonArray(
 		new(felt.Felt).SetBytes([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
 		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.External)...),
@@ -152,7 +142,7 @@ func (c *Cairo1Class) Hash() (*felt.Felt, error) {
 // "0.1.0" as a shortstring in its first Felt (0x302e312e30 = "0.1.0").
 // For all subsequent versions the version number is the first three felts
 // representing the three parts of a semantic version number.
-func (c *Cairo1Class) SierraVersion() string {
+func (c *SierraClass) SierraVersion() string {
 	if c.Program[0].Equal(&SierraVersion010) {
 		return "0.1.0"
 	}
@@ -171,7 +161,7 @@ func (c *Cairo1Class) SierraVersion() string {
 // todo(rdr): this is only used in one place, why is it a global var :(.Fix it
 var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
 
-func (c *CompiledClass) Hash() *felt.Felt {
+func (c *CasmClass) Hash() *felt.Felt {
 	var bytecodeHash *felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
 		bytecodeHash = crypto.PoseidonArray(c.Bytecode...)
@@ -231,7 +221,7 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 	return result
 }
 
-func flattenCompiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
+func flattenCompiledEntryPoints(entryPoints []CasmEntryPoint) []*felt.Felt {
 	result := make([]*felt.Felt, len(entryPoints)*3)
 	for i, entryPoint := range entryPoints {
 		// It is important that Selector is first, then Offset is second because the order
@@ -248,9 +238,9 @@ func flattenCompiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
 	return result
 }
 
-func VerifyClassHashes(classes map[felt.Felt]Class) error {
+func VerifyClassHashes(classes map[felt.Felt]ClassDefinition) error {
 	for hash, class := range classes {
-		if _, ok := class.(*Cairo0Class); ok {
+		if _, ok := class.(*DeprecatedCairoClass); ok {
 			// skip validation of cairo0 class hash
 			continue
 		}
@@ -268,13 +258,13 @@ func VerifyClassHashes(classes map[felt.Felt]Class) error {
 	return nil
 }
 
-// todo(rdr): We can find a better naming for this as well
-type DeclaredClass struct {
+// DeclaredClassDefinition represents a class definition and the block number where it was declared
+type DeclaredClassDefinition struct {
 	At    uint64 // block number at which the class was declared
-	Class Class
+	Class ClassDefinition
 }
 
-func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
+func (d *DeclaredClassDefinition) MarshalBinary() ([]byte, error) {
 	classEnc, err := encoder.Marshal(d.Class)
 	if err != nil {
 		return nil, err
@@ -288,7 +278,7 @@ func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
 	return buf, nil
 }
 
-func (d *DeclaredClass) UnmarshalBinary(data []byte) error {
+func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 	if len(data) < minDeclaredClassSize {
 		return errors.New("data too short to unmarshal DeclaredClass")
 	}

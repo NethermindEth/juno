@@ -75,7 +75,7 @@ func (s *StateHistory) checkDeployed(addr *felt.Felt) error {
 	return nil
 }
 
-func (s *StateHistory) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (s *StateHistory) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
 		return nil, err

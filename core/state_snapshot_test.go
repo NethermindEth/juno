@@ -124,7 +124,10 @@ func TestStateSnapshot(t *testing.T) {
 	})
 
 	declareHeight := deployedHeight
-	mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClass{At: declareHeight}, nil).AnyTimes()
+	mockState.EXPECT().Class(gomock.Any()).Return(
+		&core.DeclaredClassDefinition{At: declareHeight},
+		nil,
+	).AnyTimes()
 
 	t.Run("before class is declared", func(t *testing.T) {
 		_, err := snapshotBeforeDeployment.Class(addr)

@@ -13,13 +13,13 @@ var feltOne = new(felt.Felt).SetUint64(1)
 
 type PendingState struct {
 	stateDiff  *StateDiff
-	newClasses map[felt.Felt]Class
+	newClasses map[felt.Felt]ClassDefinition
 	head       StateReader
 }
 
 func NewPendingState(
 	stateDiff *StateDiff,
-	newClasses map[felt.Felt]Class,
+	newClasses map[felt.Felt]ClassDefinition,
 	head StateReader,
 ) *PendingState {
 	return &PendingState{
@@ -67,9 +67,9 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return p.head.ContractStorage(addr, key)
 }
 
-func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	if class, found := p.newClasses[*classHash]; found {
-		return &DeclaredClass{
+		return &DeclaredClassDefinition{
 			At:    0,
 			Class: class,
 		}, nil
@@ -96,7 +96,7 @@ type PendingStateWriter struct {
 
 func NewPendingStateWriter(
 	stateDiff *StateDiff,
-	newClasses map[felt.Felt]Class,
+	newClasses map[felt.Felt]ClassDefinition,
 	head StateReader,
 ) PendingStateWriter {
 	return PendingStateWriter{
@@ -139,7 +139,7 @@ func (p *PendingStateWriter) SetClassHash(contractAddress, classHash *felt.Felt)
 
 // SetContractClass writes a new CairoV0 class to the PendingState
 // Assumption: SetCompiledClassHash should be called for CairoV1 contracts
-func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class Class) error {
+func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class ClassDefinition) error {
 	// Only declare the class if it has not already been declared, and return
 	// and unexepcted errors (ie any error that isn't db.ErrKeyNotFound)
 	_, err := p.Class(classHash)
@@ -165,7 +165,7 @@ func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *
 
 // StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
 // read and modified by the pending state.
-func (p *PendingStateWriter) StateDiffAndClasses() (StateDiff, map[felt.Felt]Class) {
+func (p *PendingStateWriter) StateDiffAndClasses() (StateDiff, map[felt.Felt]ClassDefinition) {
 	return *p.stateDiff, p.newClasses
 }
 

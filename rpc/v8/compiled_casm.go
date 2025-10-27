@@ -38,7 +38,9 @@ type CasmCompiledContractClass struct {
 	BytecodeSegmentLengths []int           `json:"bytecode_segment_lengths,omitempty"`
 }
 
-func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass, *jsonrpc.Error) {
+func (h *Handler) CompiledCasm(
+	classHash *felt.Felt,
+) (*CasmCompiledContractClass, *jsonrpc.Error) {
 	state, stateCloser, err := h.bcReader.HeadState()
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -54,33 +56,35 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass
 	}
 
 	switch class := declaredClass.Class.(type) {
-	case *core.Cairo0Class:
-		resp, err := adaptCairo0Class(class)
+	case *core.DeprecatedCairoClass:
+		resp, err := adaptDeprecatedCairoClass(class)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		return resp, nil
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		return adaptCompiledClass(class.Compiled), nil
 	}
 
 	return nil, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
 }
 
-func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, error) {
+func adaptDeprecatedCairoClass(
+	class *core.DeprecatedCairoClass,
+) (*CasmCompiledContractClass, error) {
 	program, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err
 	}
 
-	var cairo0 zero.ZeroProgram
-	err = json.Unmarshal(program, &cairo0)
+	var deprecatedCairo zero.ZeroProgram
+	err = json.Unmarshal(program, &deprecatedCairo)
 	if err != nil {
 		return nil, err
 	}
 
-	bytecode := make([]*felt.Felt, len(cairo0.Data))
-	for i, str := range cairo0.Data {
+	bytecode := make([]*felt.Felt, len(deprecatedCairo.Data))
+	for i, str := range deprecatedCairo.Data {
 		f, err := new(felt.Felt).SetString(str)
 		if err != nil {
 			return nil, err
@@ -88,7 +92,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		bytecode[i] = f
 	}
 
-	classHints, err := hintRunnerZero.GetZeroHints(&cairo0)
+	classHints, err := hintRunnerZero.GetZeroHints(&deprecatedCairo)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +107,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		return nil, err
 	}
 
-	adaptEntryPoint := func(ep core.EntryPoint) CasmEntryPoint {
+	adaptEntryPoint := func(ep core.DeprecatedEntryPoint) CasmEntryPoint {
 		return CasmEntryPoint{
 			Offset:   ep.Offset.Uint64(),
 			Selector: ep.Selector,
@@ -117,17 +121,17 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 			External:    utils.Map(class.Externals, adaptEntryPoint),
 			L1Handler:   utils.Map(class.L1Handlers, adaptEntryPoint),
 		},
-		Prime:                  cairo0.Prime,
+		Prime:                  deprecatedCairo.Prime,
 		Bytecode:               bytecode,
-		CompilerVersion:        cairo0.CompilerVersion,
+		CompilerVersion:        deprecatedCairo.CompilerVersion,
 		Hints:                  json.RawMessage(rawHints),
 		BytecodeSegmentLengths: nil, // Cairo 0 classes don't have this field (it was introduced since Sierra 1.5.0)
 	}
 	return result, nil
 }
 
-func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
-	adaptEntryPoint := func(ep core.CompiledEntryPoint) CasmEntryPoint {
+func adaptCompiledClass(class *core.CasmClass) *CasmCompiledContractClass {
+	adaptEntryPoint := func(ep core.CasmEntryPoint) CasmEntryPoint {
 		return CasmEntryPoint{
 			Offset:   ep.Offset,
 			Selector: ep.Selector,

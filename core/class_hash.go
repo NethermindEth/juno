@@ -19,7 +19,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func cairo0ClassHash(class *Cairo0Class) (*felt.Felt, error) {
+func deprecatedCairoClassHash(class *DeprecatedCairoClass) (*felt.Felt, error) {
 	definition, err := makeDeprecatedVMClass(class)
 	if err != nil {
 		return nil, err
@@ -43,8 +43,8 @@ func cairo0ClassHash(class *Cairo0Class) (*felt.Felt, error) {
 	return &hash, nil
 }
 
-func makeDeprecatedVMClass(class *Cairo0Class) (*starknet.Cairo0Definition, error) {
-	adaptEntryPoint := func(ep EntryPoint) starknet.EntryPoint {
+func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.DeprecatedCairoClass, error) {
+	adaptEntryPoint := func(ep DeprecatedEntryPoint) starknet.EntryPoint {
 		return starknet.EntryPoint{
 			Selector: ep.Selector,
 			Offset:   ep.Offset,
@@ -60,7 +60,7 @@ func makeDeprecatedVMClass(class *Cairo0Class) (*starknet.Cairo0Definition, erro
 		return nil, err
 	}
 
-	return &starknet.Cairo0Definition{
+	return &starknet.DeprecatedCairoClass{
 		Program: decompressedProgram,
 		Abi:     class.Abi,
 		EntryPoints: starknet.EntryPoints{

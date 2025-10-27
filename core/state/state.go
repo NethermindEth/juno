@@ -51,7 +51,7 @@ type ContractReader interface {
 }
 
 type ClassReader interface {
-	Class(classHash *felt.Felt) (*core.DeclaredClass, error)
+	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
 }
 
 type TrieProvider interface {
@@ -143,7 +143,7 @@ func (s *State) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, erro
 	return contract.DeployedHeight <= blockNum, nil
 }
 
-func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	return GetClass(s.db.disk, classHash)
 }
 
@@ -161,8 +161,14 @@ func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 
 // Returns the state commitment
 func (s *State) Commitment() (felt.Felt, error) {
-	contractRoot, _ := s.contractTrie.Hash()
-	classRoot, _ := s.classTrie.Hash()
+	contractRoot, err := s.contractTrie.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	classRoot, err := s.classTrie.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
 	return stateCommitment(&contractRoot, &classRoot), nil
 }
 
@@ -172,14 +178,14 @@ func (s *State) Commitment() (felt.Felt, error) {
 func (s *State) Update(
 	blockNum uint64,
 	update *core.StateUpdate,
-	declaredClasses map[felt.Felt]core.Class,
-	skipVerifyNewRoot bool,
+	declaredClasses map[felt.Felt]core.ClassDefinition,
+  skipVerifyNewRoot bool,
 ) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
 	}
 
-	dirtyClasses := make(map[felt.Felt]core.Class)
+	dirtyClasses := make(map[felt.Felt]core.ClassDefinition)
 
 	// Register the declared classes
 	for hash, class := range declaredClasses {
@@ -273,7 +279,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	}
 
 	// Revert the classes
-	dirtyClasses := make(map[felt.Felt]core.Class)
+	dirtyClasses := make(map[felt.Felt]core.ClassDefinition)
 	for _, hash := range classHashes {
 		dc, err := s.Class(hash)
 		if err != nil {
@@ -284,7 +290,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 			continue
 		}
 
-		if _, ok := dc.Class.(*core.Cairo1Class); ok {
+		if _, ok := dc.Class.(*core.SierraClass); ok {
 			if err := s.classTrie.Update(hash, &felt.Zero); err != nil {
 				return err
 			}
@@ -492,7 +498,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 func (s *State) flush(
 	blockNum uint64,
 	update *stateUpdate,
-	classes map[felt.Felt]core.Class,
+	classes map[felt.Felt]core.ClassDefinition,
 	storeHistory bool,
 ) error {
 	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
@@ -558,7 +564,10 @@ func (s *State) flush(
 	return batch.Write()
 }
 
-func (s *State) updateClassTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefs map[felt.Felt]core.Class) error {
+func (s *State) updateClassTrie(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	classDefs map[felt.Felt]core.ClassDefinition,
+) error {
 	for classHash, compiledClassHash := range declaredClasses {
 		if _, found := classDefs[classHash]; !found {
 			continue

@@ -43,7 +43,7 @@ type StateReader interface {
 	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-	Class(classHash *felt.Felt) (*DeclaredClass, error)
+	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
 
 	ClassTrie() (commontrie.Trie, error)
 	ContractTrie() (commontrie.Trie, error)
@@ -236,7 +236,7 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 func (s *State) Update(
 	blockNumber uint64,
 	update *StateUpdate,
-	declaredClasses map[felt.Felt]Class,
+	declaredClasses map[felt.Felt]ClassDefinition,
 	skipVerifyNewRoot bool,
 ) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
@@ -336,12 +336,12 @@ func (s *State) replaceContract(
 	})
 }
 
-func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
+func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
 
 	err := s.txn.Get(classKey, func(data []byte) error { return nil })
 	if errors.Is(err, db.ErrKeyNotFound) {
-		classEncoded, encErr := encoder.Marshal(DeclaredClass{
+		classEncoded, encErr := encoder.Marshal(DeclaredClassDefinition{
 			At:    declaredAt,
 			Class: class,
 		})
@@ -355,8 +355,8 @@ func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) e
 }
 
 // Class returns the class object corresponding to the given classHash
-func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
-	var class *DeclaredClass
+func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+	var class *DeclaredClassDefinition
 	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
 		return encoder.Unmarshal(data, &class)
 	})
@@ -531,7 +531,10 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }
 
-func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefinitions map[felt.Felt]Class) error {
+func (s *State) updateDeclaredClassesTrie(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	classDefinitions map[felt.Felt]ClassDefinition,
+) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err

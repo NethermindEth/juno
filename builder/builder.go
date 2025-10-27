@@ -95,7 +95,7 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 		Transactions: []core.Transaction{},
 		Receipts:     []*core.TransactionReceipt{},
 	}
-	newClasses := make(map[felt.Felt]core.Class)
+	newClasses := make(map[felt.Felt]core.ClassDefinition)
 	emptyStateDiff := core.EmptyStateDiff()
 	su := core.StateUpdate{
 		OldRoot:   header.GlobalStateRoot,
