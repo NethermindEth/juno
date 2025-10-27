@@ -195,7 +195,7 @@ type SubscriptionEmittedEvent struct {
 // Therefore, the emitted events are deterministic and we can use the transaction hash and event index to identify.
 type SentEvent struct {
 	TransactionHash felt.Felt
-	EventIndex      int
+	EventIndex      uint
 }
 
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
@@ -418,7 +418,7 @@ func processBlockEvents(
 				BlockNumber:     blockNumber,
 				BlockHash:       block.Hash,
 				TransactionHash: receipt.TransactionHash,
-				EventIndex:      i,
+				EventIndex:      uint(i),
 				Event:           event,
 			}
 
