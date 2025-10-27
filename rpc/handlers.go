@@ -35,7 +35,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, network, logger)
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
 	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)
-	handlerv10 := rpcv10.New()
+	handlerv10 := rpcv10.New(bcReader, syncReader, virtualMachine, logger)
 
 	return &Handler{
 		rpcv6Handler:  handlerv6,
@@ -220,11 +220,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
 			Handler: h.rpcv9Handler.AddTransaction,
 		},
-		{
-			Name:    "starknet_getEvents",
-			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: h.rpcv9Handler.Events,
-		},
+		//{
+		//	Name:    "starknet_getEvents",
+		//	Params:  []jsonrpc.Parameter{{Name: "filter"}},
+		//	Handler: h.rpcv10Handler.Events,
+		//},
 		{
 			Name:    "juno_version",
 			Handler: h.Version,
@@ -251,68 +251,68 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
 			Handler: h.rpcv9Handler.EstimateMessageFee,
 		},
-		{
-			Name:    "starknet_traceTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv9Handler.TraceTransaction,
-		},
-		{
-			Name: "starknet_simulateTransactions",
-			Params: []jsonrpc.Parameter{
-				{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"},
-			},
-			Handler: h.rpcv9Handler.SimulateTransactions,
-		},
-		{
-			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv9Handler.TraceBlockTransactions,
-		},
+		//{
+		//	Name:    "starknet_traceTransaction",
+		//	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+		//	Handler: h.rpcv10Handler.TraceTransaction,
+		//},
+		//{
+		//	Name: "starknet_simulateTransactions",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"},
+		//	},
+		//	Handler: h.rpcv10Handler.SimulateTransactions,
+		//},
+		//{
+		//	Name:    "starknet_traceBlockTransactions",
+		//	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+		//	Handler: h.rpcv10Handler.TraceBlockTransactions,
+		//},
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.rpcv10Handler.SpecVersion,
 		},
-		{
-			Name: "starknet_subscribeEvents",
-			Params: []jsonrpc.Parameter{
-				{Name: "from_address", Optional: true},
-				{Name: "keys", Optional: true},
-				{Name: "block_id", Optional: true},
-				{Name: "finality_status", Optional: true},
-			},
-			Handler: h.rpcv9Handler.SubscribeEvents,
-		},
-		{
-			Name: "starknet_subscribeNewTransactionReceipts",
-			Params: []jsonrpc.Parameter{
-				{Name: "sender_address", Optional: true},
-				{Name: "finality_status", Optional: true},
-			},
-			Handler: h.rpcv9Handler.SubscribeNewTransactionReceipts,
-		},
-		{
-			Name:    "starknet_subscribeNewHeads",
-			Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
-			Handler: h.rpcv9Handler.SubscribeNewHeads,
-		},
-		{
-			Name:    "starknet_subscribeTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv9Handler.SubscribeTransactionStatus,
-		},
-		{
-			Name: "starknet_subscribeNewTransactions",
-			Params: []jsonrpc.Parameter{
-				{Name: "finality_status", Optional: true},
-				{Name: "sender_address", Optional: true},
-			},
-			Handler: h.rpcv9Handler.SubscribeNewTransactions,
-		},
-		{
-			Name:    "starknet_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
-			Handler: h.rpcv9Handler.Unsubscribe,
-		},
+		//{
+		//	Name: "starknet_subscribeEvents",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "from_address", Optional: true},
+		//		{Name: "keys", Optional: true},
+		//		{Name: "block_id", Optional: true},
+		//		{Name: "finality_status", Optional: true},
+		//	},
+		//	Handler: h.rpcv10Handler.SubscribeEvents,
+		//},
+		//{
+		//	Name: "starknet_subscribeNewTransactionReceipts",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "sender_address", Optional: true},
+		//		{Name: "finality_status", Optional: true},
+		//	},
+		//	Handler: h.rpcv10Handler.SubscribeNewTransactionReceipts,
+		//},
+		//{
+		//	Name:    "starknet_subscribeNewHeads",
+		//	Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
+		//	Handler: h.rpcv10Handler.SubscribeNewHeads,
+		//},
+		//{
+		//	Name:    "starknet_subscribeTransactionStatus",
+		//	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+		//	Handler: h.rpcv10Handler.SubscribeTransactionStatus,
+		//},
+		//{
+		//	Name: "starknet_subscribeNewTransactions",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "finality_status", Optional: true},
+		//		{Name: "sender_address", Optional: true},
+		//	},
+		//	Handler: h.rpcv10Handler.SubscribeNewTransactions,
+		//},
+		//{
+		//	Name:    "starknet_unsubscribe",
+		//	Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
+		//	Handler: h.rpcv10Handler.Unsubscribe,
+		//},
 		{
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
@@ -338,13 +338,10 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			},
 			Handler: h.rpcv9Handler.StorageProof,
 		},
-		// {
-		// 	Name: ,
-		// }
 	}, "/v0_10"
 }
 
-//nolint:funlen
+//nolint:funlen // just registering methods for rpc v9
 func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
 		{

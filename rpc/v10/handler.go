@@ -1,11 +1,254 @@
 package rpcv10
 
-type Handler struct{}
+import (
+	"context"
+	"crypto/rand"
+	"encoding/binary"
+	"fmt"
+	"math"
+	"strings"
+	stdsync "sync"
 
-func New() *Handler {
-	return &Handler{}
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/sourcegraph/conc"
+)
+
+type Handler struct {
+	bcReader      blockchain.Reader
+	syncReader    sync.Reader
+	gatewayClient rpccore.Gateway
+	feederClient  *feeder.Client
+	vm            vm.VM
+	log           utils.Logger
+	memPool       mempool.Pool
+
+	newHeads      *feed.Feed[*core.Block]
+	reorgs        *feed.Feed[*sync.ReorgBlockRange]
+	pendingData   *feed.Feed[core.PendingData]
+	l1Heads       *feed.Feed[*core.L1Head]
+	preLatestFeed *feed.Feed[*core.PreLatest]
+
+	idgen         func() string
+	subscriptions stdsync.Map // map[string]*subscription
+
+	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
+	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
+	// TODO(Ege):  replace rpcv9.TracedBlockTransaction with rpc10, state diff is different
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []rpcv9.TracedBlockTransaction]
+
+	filterLimit  uint
+	callMaxSteps uint64
+	callMaxGas   uint64
+
+	l1Client        rpccore.L1Client
+	coreContractABI abi.ABI
 }
 
-func (h *Handler) SpecVersion() (string, error) {
-	return "0.10.0-rc.1", nil
+type subscription struct {
+	cancel func()
+	wg     conc.WaitGroup
+	conn   jsonrpc.Conn
+}
+
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
+	logger utils.Logger,
+) *Handler {
+	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
+	if err != nil {
+		logger.Fatalf("Failed to parse ABI: %v", err)
+	}
+	return &Handler{
+		bcReader:   bcReader,
+		syncReader: syncReader,
+		log:        logger,
+		vm:         virtualMachine,
+		idgen: func() string {
+			var n uint64
+			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
+			}
+			return fmt.Sprintf("%d", n)
+		},
+		newHeads:      feed.New[*core.Block](),
+		reorgs:        feed.New[*sync.ReorgBlockRange](),
+		pendingData:   feed.New[core.PendingData](),
+		l1Heads:       feed.New[*core.L1Head](),
+		preLatestFeed: feed.New[*core.PreLatest](),
+
+		blockTraceCache: lru.NewCache[
+			rpccore.TraceCacheKey,
+			[]rpcv9.TracedBlockTransaction,
+		](rpccore.TraceCacheSize),
+		filterLimit:     math.MaxUint,
+		coreContractABI: contractABI,
+	}
+}
+
+func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
+	h.memPool = memPool
+	return h
+}
+
+// WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
+func (h *Handler) WithFilterLimit(limit uint) *Handler {
+	h.filterLimit = limit
+	return h
+}
+
+func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
+	h.l1Client = l1Client
+	return h
+}
+
+func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
+	h.callMaxSteps = maxSteps
+	return h
+}
+
+func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
+	h.callMaxGas = maxGas
+	return h
+}
+
+func (h *Handler) WithIDGen(idgen func() string) *Handler {
+	h.idgen = idgen
+	return h
+}
+
+func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
+	h.feederClient = feederClient
+	return h
+}
+
+func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
+	h.gatewayClient = gatewayClient
+	return h
+}
+
+// Currently only used for testing
+func (h *Handler) Run(ctx context.Context) error {
+	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
+	reorgsSub := h.syncReader.SubscribeReorg().Subscription
+	pendingData := h.syncReader.SubscribePendingData().Subscription
+	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
+	preLatestSub := h.syncReader.SubscribePreLatest().Subscription
+	defer newHeadsSub.Unsubscribe()
+	defer reorgsSub.Unsubscribe()
+	defer pendingData.Unsubscribe()
+	defer l1HeadsSub.Unsubscribe()
+	defer preLatestSub.Unsubscribe()
+	feed.Tee(newHeadsSub, h.newHeads)
+	feed.Tee(reorgsSub, h.reorgs)
+	feed.Tee(pendingData, h.pendingData)
+	feed.Tee(l1HeadsSub, h.l1Heads)
+	feed.Tee(preLatestSub, h.preLatestFeed)
+
+	<-ctx.Done()
+	h.subscriptions.Range(func(key, value any) bool {
+		sub := value.(*subscription)
+		sub.wg.Wait()
+		return true
+	})
+	return nil
+}
+
+func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
+	return "0.10.0-rc1", nil
+}
+
+// Currently only used for testing
+//
+//nolint:funlen // just registering methods for rpc v10
+func (h *Handler) methods() ([]jsonrpc.Method, string) {
+	return []jsonrpc.Method{
+		//{
+		//	Name:    "starknet_getStateUpdate",
+		//	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+		//	Handler: h.StateUpdate,
+		//},
+		//{
+		//	Name:    "starknet_getEvents",
+		//	Params:  []jsonrpc.Parameter{{Name: "filter"}},
+		//	Handler: h.Events,
+		//},
+		//{
+		//	Name:    "starknet_traceTransaction",
+		//	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+		//	Handler: h.TraceTransaction,
+		//},
+		//{
+		//	Name: "starknet_simulateTransactions",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "block_id"},
+		//		{Name: "transactions"},
+		//		{Name: "simulation_flags"},
+		//	},
+		//	Handler: h.SimulateTransactions,
+		//},
+		//{
+		//	Name:    "starknet_traceBlockTransactions",
+		//	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+		//	Handler: h.TraceBlockTransactions,
+		//},
+		{
+			Name:    "starknet_specVersion",
+			Handler: h.SpecVersion,
+		},
+		//{
+		//	Name: "starknet_subscribeEvents",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "from_address", Optional: true},
+		//		{Name: "keys", Optional: true},
+		//		{Name: "block_id", Optional: true},
+		//		{Name: "finality_status", Optional: true},
+		//	},
+		//	Handler: h.SubscribeEvents,
+		//},
+		//{
+		//	Name: "starknet_subscribeNewTransactionReceipts",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "sender_address", Optional: true},
+		//		{Name: "finality_status", Optional: true},
+		//	},
+		//	Handler: h.SubscribeNewTransactionReceipts,
+		//},
+		//{
+		//	Name:    "starknet_subscribeNewHeads",
+		//	Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
+		//	Handler: h.SubscribeNewHeads,
+		//},
+		//{
+		//	Name:    "starknet_subscribeTransactionStatus",
+		//	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+		//	Handler: h.SubscribeTransactionStatus,
+		//},
+		//{
+		//	Name: "starknet_subscribeNewTransactions",
+		//	Params: []jsonrpc.Parameter{
+		//		{Name: "finality_status", Optional: true},
+		//		{Name: "sender_address", Optional: true},
+		//	},
+		//	Handler: h.SubscribeNewTransactions,
+		//},
+		//{
+		//	Name:    "starknet_unsubscribe",
+		//	Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
+		//	Handler: h.Unsubscribe,
+		//},
+	}, "/v0_10"
 }
