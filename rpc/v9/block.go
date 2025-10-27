@@ -90,6 +90,18 @@ func BlockIDPreConfirmed() BlockID {
 	}
 }
 
+func BlockIDLatest() BlockID {
+	return BlockID{
+		typeID: latest,
+	}
+}
+
+func BlockIDL1Accepted() BlockID {
+	return BlockID{
+		typeID: l1Accepted,
+	}
+}
+
 func (b *BlockID) Type() blockIDType {
 	return b.typeID
 }

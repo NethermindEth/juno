@@ -88,6 +88,13 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type SubscriptionID string
+
+func (h *Handler) unsubscribe(sub *subscription, id string) {
+	sub.cancel()
+	h.subscriptions.Delete(id)
+}
+
 type on[T any] func(ctx context.Context, id string, sub *subscription, event T) error
 
 type subscriber struct {
