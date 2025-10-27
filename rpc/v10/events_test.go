@@ -12,8 +12,9 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpc "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpc "github.com/NethermindEth/juno/rpc/v9"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ import (
 
 // createEventPendingFromBlock creates a pending block from the given block and
 // returns the pending data and emitted events
-func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpcv6.EmittedEvent) {
+func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpc.EmittedEvent) {
 	newHeader := &core.Header{
 		ParentHash: block.Header.ParentHash,
 		Number:     block.Header.Number,
@@ -37,18 +38,20 @@ func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpcv6.Emitt
 	pending := core.NewPending(pendingBlock, nil, nil)
 
 	// Extract events from the block and convert to emitted events
-	var events []rpcv6.EmittedEvent
-	for _, receipt := range pendingBlock.Receipts {
-		for _, event := range receipt.Events {
-			events = append(events, rpcv6.EmittedEvent{
+	var events []rpc.EmittedEvent
+	for txIndex, receipt := range pendingBlock.Receipts {
+		for eventIndex, event := range receipt.Events {
+			events = append(events, rpc.EmittedEvent{
 				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
 				},
-				BlockNumber:     nil, // Pending events have no block number
-				BlockHash:       nil, // Pending events have no block hash
-				TransactionHash: receipt.TransactionHash,
+				BlockNumber:      nil, // Pending events have no block number
+				BlockHash:        nil, // Pending events have no block hash
+				TransactionHash:  receipt.TransactionHash,
+				TransactionIndex: uint(txIndex),
+				EventIndex:       uint(eventIndex),
 			})
 		}
 	}
@@ -59,7 +62,7 @@ func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpcv6.Emitt
 // createEventPreConfirmedFromBlock creates a pre_confirmed block from the given block and
 // returns the pre_confirmed data and emitted events
 func createEventPreConfirmedFromBlock(block *core.Block) (
-	core.PreConfirmed, []rpcv6.EmittedEvent,
+	core.PreConfirmed, []rpc.EmittedEvent,
 ) {
 	newHeader := &core.Header{
 		Number:           block.Header.Number,
@@ -76,18 +79,20 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 	preConfirmed := core.NewPreConfirmed(preConfirmedBlock, nil, nil, nil)
 
 	// Extract events from the block and convert to emitted events
-	var events []rpcv6.EmittedEvent
-	for _, receipt := range preConfirmedBlock.Receipts {
-		for _, event := range receipt.Events {
-			events = append(events, rpcv6.EmittedEvent{
+	var events []rpc.EmittedEvent
+	for txIndex, receipt := range preConfirmedBlock.Receipts {
+		for eventIndex, event := range receipt.Events {
+			events = append(events, rpc.EmittedEvent{
 				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
 				},
-				BlockNumber:     &preConfirmedBlock.Number, // Pre-confirmed events have block number
-				BlockHash:       nil,                       // Pre-confirmed events have no block hash
-				TransactionHash: receipt.TransactionHash,
+				BlockNumber:      &preConfirmedBlock.Number, // Pre-confirmed events have block number
+				BlockHash:        nil,                       // Pre-confirmed events have no block hash
+				TransactionHash:  receipt.TransactionHash,
+				TransactionIndex: uint(txIndex),
+				EventIndex:       uint(eventIndex),
 			})
 		}
 	}
@@ -97,7 +102,7 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 
 // createEventPreLatestFromBlock creates a pre_latest block from the given block and
 // returns the pre_latest data and emitted events
-func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []rpcv6.EmittedEvent) {
+func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []rpc.EmittedEvent) {
 	newHeader := &core.Header{
 		ParentHash: block.Header.ParentHash,
 		Number:     block.Header.Number,
@@ -112,18 +117,20 @@ func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []rpcv6.E
 	preLatest := core.PreLatest{Block: preLatestBlock}
 
 	// Extract events from the block and convert to emitted events
-	var events []rpcv6.EmittedEvent
-	for _, receipt := range preLatestBlock.Receipts {
-		for _, event := range receipt.Events {
-			events = append(events, rpcv6.EmittedEvent{
+	var events []rpc.EmittedEvent
+	for txIndex, receipt := range preLatestBlock.Receipts {
+		for eventIndex, event := range receipt.Events {
+			events = append(events, rpc.EmittedEvent{
 				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
 				},
-				BlockNumber:     &preLatestBlock.Number, // Pre-latest events have block number
-				BlockHash:       nil,                    // Pre-latest events have no block hash
-				TransactionHash: receipt.TransactionHash,
+				BlockNumber:      &preLatestBlock.Number, // Pre-latest events have block number
+				BlockHash:        nil,                    // Pre-latest events have no block hash
+				TransactionHash:  receipt.TransactionHash,
+				TransactionIndex: uint(txIndex),
+				EventIndex:       uint(eventIndex),
 			})
 		}
 	}
@@ -137,24 +144,26 @@ func extractCanonicalEvents(
 	chain *blockchain.Blockchain,
 	fromBlock uint64,
 	toBlock uint64,
-) []rpcv6.EmittedEvent {
+) []rpc.EmittedEvent {
 	t.Helper()
-	var events []rpcv6.EmittedEvent
+	var events []rpc.EmittedEvent
 
 	for i := fromBlock; i <= toBlock; i++ {
 		block, err := chain.BlockByNumber(i)
 		require.NoError(t, err)
-		for _, receipt := range block.Receipts {
-			for _, event := range receipt.Events {
-				events = append(events, rpcv6.EmittedEvent{
+		for txIndex, receipt := range block.Receipts {
+			for eventIndex, event := range receipt.Events {
+				events = append(events, rpc.EmittedEvent{
 					Event: &rpcv6.Event{
 						From: event.From,
 						Keys: event.Keys,
 						Data: event.Data,
 					},
-					BlockNumber:     &block.Number,
-					BlockHash:       block.Hash,
-					TransactionHash: receipt.TransactionHash,
+					BlockNumber:      &block.Number,
+					BlockHash:        block.Hash,
+					TransactionHash:  receipt.TransactionHash,
+					TransactionIndex: uint(txIndex),
+					EventIndex:       uint(eventIndex),
 				})
 			}
 		}
@@ -165,9 +174,9 @@ func extractCanonicalEvents(
 
 // collectAllEvents collects all events from the given handler and returns them
 // asserts that the number of events in each chunk is less than or equal to the chunk size
-func collectAllEvents(t *testing.T, h *rpc.Handler, args rpc.EventArgs) []rpcv6.EmittedEvent {
+func collectAllEvents(t *testing.T, h *rpc.Handler, args rpc.EventArgs) []rpc.EmittedEvent {
 	t.Helper()
-	all := []rpcv6.EmittedEvent{}
+	all := []rpc.EmittedEvent{}
 	cur := args
 	for {
 		chunk, err := h.Events(cur)
@@ -240,7 +249,7 @@ func TestEvents(t *testing.T) {
 
 	// Precalculate combined events to avoid repeated allocations
 	canonicalPending := make(
-		[]rpcv6.EmittedEvent,
+		[]rpc.EmittedEvent,
 		0,
 		len(canonicalEvents)+len(pendingEvents),
 	)
@@ -248,7 +257,7 @@ func TestEvents(t *testing.T) {
 	canonicalPending = append(canonicalPending, pendingEvents...)
 
 	canonicalPreConfirmed := make(
-		[]rpcv6.EmittedEvent,
+		[]rpc.EmittedEvent,
 		0,
 		len(canonicalEvents)+len(preConfirmedEvents),
 	)
@@ -256,7 +265,7 @@ func TestEvents(t *testing.T) {
 	canonicalPreConfirmed = append(canonicalPreConfirmed, preConfirmedEvents...)
 
 	canonicalPreLatestPreConfirmed := make(
-		[]rpcv6.EmittedEvent,
+		[]rpc.EmittedEvent,
 		0,
 		len(canonicalEvents)+len(preLatestEvents)+len(preConfirmedWithPreLatestEvents),
 	)
@@ -283,7 +292,7 @@ func TestEvents(t *testing.T) {
 		description    string
 		args           rpc.EventArgs
 		pendingData    core.PendingData
-		expectedEvents []rpcv6.EmittedEvent
+		expectedEvents []rpc.EmittedEvent
 		expectError    *jsonrpc.Error
 	}
 
@@ -295,19 +304,19 @@ func TestEvents(t *testing.T) {
 		"0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e",
 	)
 
-	futureBlockNumber := blockIDNumber(t, ^uint64(0))
-	nonExistingBlockHash := blockIDHash(t, felt.NewUnsafeFromString[felt.Felt]("0x1BadB10c3"))
+	futureBlockNumber := rpcv9.BlockIDFromNumber(^uint64(0))
+	nonExistingBlockHash := rpcv9.BlockIDFromHash(felt.NewUnsafeFromString[felt.Felt]("0x1BadB10c3"))
 	defaultPageRequest := rpcv6.ResultPageRequest{
 		ChunkSize:         100,
 		ContinuationToken: "",
 	}
 
-	latestID := blockIDLatest(t)
-	preConfirmedID := blockIDPreConfirmed(t)
-	l1AcceptedID := blockIDL1Accepted(t)
-	blockIDZero := blockIDNumber(t, 0)
-	blockID3 := blockIDNumber(t, 3)
-	blockID4 := blockIDNumber(t, 4)
+	latestID := rpcv9.BlockIDLatest()
+	preConfirmedID := rpcv9.BlockIDPreConfirmed()
+	l1AcceptedID := rpcv9.BlockIDL1Accepted()
+	blockIDZero := rpcv9.BlockIDFromNumber(0)
+	blockID3 := rpcv9.BlockIDFromNumber(3)
+	blockID4 := rpcv9.BlockIDFromNumber(4)
 
 	// Common filter patterns
 	// Common event args patterns
@@ -392,7 +401,7 @@ func TestEvents(t *testing.T) {
 				},
 				ResultPageRequest: defaultPageRequest,
 			},
-			expectedEvents: []rpcv6.EmittedEvent{},
+			expectedEvents: []rpc.EmittedEvent{},
 		},
 		{
 			description: "filter with no from_block",
@@ -462,8 +471,8 @@ func TestEvents(t *testing.T) {
 				},
 				ResultPageRequest: defaultPageRequest,
 			},
-			expectedEvents: func() []rpcv6.EmittedEvent {
-				var filtered []rpcv6.EmittedEvent
+			expectedEvents: func() []rpc.EmittedEvent {
+				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
 					if event.From.Equal(testAddress) {
 						filtered = append(filtered, event)
@@ -483,8 +492,8 @@ func TestEvents(t *testing.T) {
 				},
 				ResultPageRequest: defaultPageRequest,
 			},
-			expectedEvents: func() []rpcv6.EmittedEvent {
-				var filtered []rpcv6.EmittedEvent
+			expectedEvents: func() []rpc.EmittedEvent {
+				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
 					if event.From.Equal(testAddress) &&
 						len(event.Keys) > 0 && event.Keys[0].Equal(testKey) {
@@ -633,8 +642,8 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	from := felt.NewUnsafeFromString[felt.Felt](
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 	)
-	blockNumber := blockIDNumber(t, 0)
-	latest := blockIDLatest(t)
+	blockNumber := rpcv9.BlockIDFromNumber(0)
+	latest := rpcv9.BlockIDLatest()
 
 	args := rpc.EventArgs{
 		EventFilter: rpc.EventFilter{
@@ -689,7 +698,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
 
-	preConfirmedID := blockIDPreConfirmed(t)
+	preConfirmedID := rpcv9.BlockIDPreConfirmed()
 	// Test pagination with small chunk size to trigger multiple calls
 	args := rpc.EventArgs{
 		EventFilter: rpc.EventFilter{
@@ -702,7 +711,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	}
 
 	// Collect events through pagination until we reach pending blocks
-	var allEvents []rpcv6.EmittedEvent
+	var allEvents []rpc.EmittedEvent
 	curArgs := args
 
 	// Collect canonical events
