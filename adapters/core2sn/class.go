@@ -13,30 +13,41 @@ func AdaptSegmentLengths(l core.SegmentLengths) starknet.SegmentLengths {
 	}
 }
 
-func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.CompiledClass {
-	var feederCompiledClass starknet.CompiledClass
-	feederCompiledClass.Bytecode = coreCompiledClass.Bytecode
-	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
-	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
-	feederCompiledClass.Hints = coreCompiledClass.Hints
-	feederCompiledClass.Prime = utils.ToHex(coreCompiledClass.Prime)
-	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCompiledClass.BytecodeSegmentLengths)
+func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
+	var feederCompiledClass starknet.CasmClass
+	feederCompiledClass.Bytecode = coreCasmClass.Bytecode
+	feederCompiledClass.PythonicHints = coreCasmClass.PythonicHints
+	feederCompiledClass.CompilerVersion = coreCasmClass.CompilerVersion
+	feederCompiledClass.Hints = coreCasmClass.Hints
+	feederCompiledClass.Prime = utils.ToHex(coreCasmClass.Prime)
+	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(
+		coreCasmClass.BytecodeSegmentLengths,
+	)
 
-	adapt := func(ep core.CompiledEntryPoint) starknet.CompiledEntryPoint {
+	adapt := func(ep core.CasmEntryPoint) starknet.CompiledEntryPoint {
 		return starknet.CompiledEntryPoint{
 			Selector: ep.Selector,
 			Builtins: ep.Builtins,
 			Offset:   ep.Offset,
 		}
 	}
-	feederCompiledClass.EntryPoints.External = utils.Map(utils.NonNilSlice(coreCompiledClass.External), adapt)
-	feederCompiledClass.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(coreCompiledClass.L1Handler), adapt)
-	feederCompiledClass.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(coreCompiledClass.Constructor), adapt)
+	feederCompiledClass.EntryPoints.External = utils.Map(
+		utils.NonNilSlice(coreCasmClass.External),
+		adapt,
+	)
+	feederCompiledClass.EntryPoints.L1Handler = utils.Map(
+		utils.NonNilSlice(coreCasmClass.L1Handler),
+		adapt,
+	)
+	feederCompiledClass.EntryPoints.Constructor = utils.Map(
+		utils.NonNilSlice(coreCasmClass.Constructor),
+		adapt,
+	)
 
 	return feederCompiledClass
 }
 
-func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
+func AdaptSierraClass(class *core.SierraClass) *starknet.SierraClass {
 	adapt := func(ep core.SierraEntryPoint) starknet.SierraEntryPoint {
 		return starknet.SierraEntryPoint{
 			Selector: ep.Selector,
@@ -47,7 +58,7 @@ func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
 	external := utils.Map(utils.NonNilSlice(class.EntryPoints.External), adapt)
 	handlers := utils.Map(utils.NonNilSlice(class.EntryPoints.L1Handler), adapt)
 
-	return &starknet.SierraDefinition{
+	return &starknet.SierraClass{
 		Abi:     class.Abi,
 		Version: class.SemanticVersion,
 		Program: class.Program,
@@ -59,13 +70,15 @@ func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
 	}
 }
 
-func AdaptCairo0Class(class *core.Cairo0Class) (*starknet.Cairo0Definition, error) {
+func AdaptDeprecatedCairoClass(
+	class *core.DeprecatedCairoClass,
+) (*starknet.DeprecatedCairoClass, error) {
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err
 	}
 
-	adapt := func(ep core.EntryPoint) starknet.EntryPoint {
+	adapt := func(ep core.DeprecatedEntryPoint) starknet.EntryPoint {
 		return starknet.EntryPoint{
 			Selector: ep.Selector,
 			Offset:   ep.Offset,
@@ -75,7 +88,7 @@ func AdaptCairo0Class(class *core.Cairo0Class) (*starknet.Cairo0Definition, erro
 	external := utils.Map(utils.NonNilSlice(class.Externals), adapt)
 	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), adapt)
 
-	return &starknet.Cairo0Definition{
+	return &starknet.DeprecatedCairoClass{
 		Program: decompressedProgram,
 		Abi:     class.Abi,
 		EntryPoints: starknet.EntryPoints{

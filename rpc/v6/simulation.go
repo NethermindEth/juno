@@ -148,10 +148,10 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 }
 
 func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
-	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
+	[]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error,
 ) {
 	txns := make([]core.Transaction, len(transactions))
-	var classes []core.Class
+	var classes []core.ClassDefinition
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {

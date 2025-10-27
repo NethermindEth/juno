@@ -329,7 +329,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 
 		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &utils.Mainnet))
 
-		var actualDeclared core.DeclaredClass
+		var actualDeclared core.DeclaredClassDefinition
 		err = txn.Get(key, func(data []byte) error {
 			return encoder.Unmarshal(data, &actualDeclared)
 		})
@@ -337,7 +337,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 
 		assert.Equal(t, actualDeclared.At, expectedDeclared.At)
 
-		actualClass := actualDeclared.Class.(*core.Cairo1Class)
+		actualClass := actualDeclared.Class.(*core.SierraClass)
 		expectedClass := expectedDeclared.Class
 		assert.Equal(t, expectedClass.Abi, actualClass.Abi)
 		assert.Equal(t, expectedClass.AbiHash, actualClass.AbiHash)

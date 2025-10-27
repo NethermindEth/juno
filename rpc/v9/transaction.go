@@ -338,7 +338,7 @@ type BroadcastedTransaction struct {
 
 func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
-) (core.Transaction, core.Class, *felt.Felt, error) {
+) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
 	txn, err := sn2core.AdaptTransaction(feederTxn)
@@ -346,7 +346,7 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 		return nil, nil, nil, err
 	}
 
-	var declaredClass core.Class
+	var declaredClass core.ClassDefinition
 	if len(broadcastedTxn.ContractClass) != 0 {
 		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
 		if err != nil {

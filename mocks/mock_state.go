@@ -58,10 +58,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ChainHeight() *gomock.Call {
 }
 
 // Class mocks base method.
-func (m *MockStateHistoryReader) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (m *MockStateHistoryReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Class", classHash)
-	ret0, _ := ret[0].(*core.DeclaredClass)
+	ret0, _ := ret[0].(*core.DeclaredClassDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

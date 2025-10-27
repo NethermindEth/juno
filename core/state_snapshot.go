@@ -83,7 +83,7 @@ func (s *stateSnapshot) checkDeployed(addr *felt.Felt) error {
 	return nil
 }
 
-func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
 		return nil, err
