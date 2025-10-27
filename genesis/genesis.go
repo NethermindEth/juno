@@ -101,12 +101,12 @@ func GenesisStateDiff(
 	network *utils.Network,
 	maxSteps uint64,
 	maxGas uint64,
-) (core.StateDiff, map[felt.Felt]core.Class, error) {
+) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
 	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
-		make(map[felt.Felt]core.Class, len(config.Classes)),
+		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
 		core.NewState(memDB.NewIndexedBatch()),
 	)
 
@@ -148,13 +148,17 @@ func declareClasses(
 	return nil
 }
 
-func setClass(genesisState *core.PendingStateWriter, classHash *felt.Felt, class core.Class) error {
+func setClass(
+	genesisState *core.PendingStateWriter,
+	classHash *felt.Felt,
+	class core.ClassDefinition,
+) error {
 	if err := genesisState.SetContractClass(classHash, class); err != nil {
 		return fmt.Errorf("declare v0 class: %v", err)
 	}
 
-	if cairo1Class, isCairo1 := class.(*core.Cairo1Class); isCairo1 {
-		if err := genesisState.SetCompiledClassHash(classHash, cairo1Class.Compiled.Hash()); err != nil {
+	if sierraClass, isCairo1 := class.(*core.SierraClass); isCairo1 {
+		if err := genesisState.SetCompiledClassHash(classHash, sierraClass.Compiled.Hash()); err != nil {
 			return fmt.Errorf("set compiled class hash: %v", err)
 		}
 	}
@@ -368,8 +372,8 @@ func adaptResourceBounds(rb *rpc.ResourceBoundsMap) map[core.Resource]core.Resou
 	}
 }
 
-func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
-	classMap := make(map[felt.Felt]core.Class, len(classes))
+func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
+	classMap := make(map[felt.Felt]core.ClassDefinition, len(classes))
 	for _, classPath := range classes {
 		bytes, err := os.ReadFile(classPath)
 		if err != nil {
@@ -381,26 +385,26 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 			return nil, fmt.Errorf("unmarshal class: %v", err)
 		}
 
-		var coreClass core.Class
-		if response.V0 != nil {
-			if coreClass, err = sn2core.AdaptCairo0Class(response.V0); err != nil {
+		var class core.ClassDefinition
+		if response.DeprecatedCairo != nil {
+			if class, err = sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo); err != nil {
 				return nil, err
 			}
 		} else {
-			var compiledClass *starknet.CompiledClass
-			if compiledClass, err = compiler.Compile(response.V1); err != nil {
+			var casmClass *starknet.CasmClass
+			if casmClass, err = compiler.Compile(response.Sierra); err != nil {
 				return nil, err
 			}
-			if coreClass, err = sn2core.AdaptCairo1Class(response.V1, compiledClass); err != nil {
+			if class, err = sn2core.AdaptSierraClass(response.Sierra, casmClass); err != nil {
 				return nil, err
 			}
 		}
 
-		classhash, err := coreClass.Hash()
+		classhash, err := class.Hash()
 		if err != nil {
 			return nil, fmt.Errorf("calculate class hash: %v", err)
 		}
-		classMap[*classhash] = coreClass
+		classMap[*classhash] = class
 	}
 	return classMap, nil
 }

@@ -87,22 +87,22 @@ func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (c
 
 // Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
-func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
+func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {
 	response, err := f.client.ClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err
 	}
 
 	switch {
-	case response.V1 != nil:
-		compiledClass, cErr := f.client.CompiledClassDefinition(ctx, classHash)
+	case response.Sierra != nil:
+		casmClass, cErr := f.client.CasmClassDefinition(ctx, classHash)
 		if cErr != nil && !errors.Is(cErr, feeder.ErrDeprecatedCompiledClass) {
 			return nil, cErr
 		}
 
-		return sn2core.AdaptCairo1Class(response.V1, compiledClass)
-	case response.V0 != nil:
-		return sn2core.AdaptCairo0Class(response.V0)
+		return sn2core.AdaptSierraClass(response.Sierra, casmClass)
+	case response.DeprecatedCairo != nil:
+		return sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo)
 	default:
 		return nil, errors.New("empty class")
 	}

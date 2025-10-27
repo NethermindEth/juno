@@ -457,8 +457,12 @@ func sendEvents(
 			switch {
 			case event.BlockNumber == nil: // pending block
 				finalityStatus = TxnAcceptedOnL2
-			case *event.BlockNumber > height: // pre_confirmed block
-				finalityStatus = TxnPreConfirmed
+			case *event.BlockNumber > height: // pre_confirmed or pre_latest block
+				if event.BlockParentHash == nil {
+					finalityStatus = TxnPreConfirmed
+				} else {
+					finalityStatus = TxnAcceptedOnL2
+				}
 			case *event.BlockNumber <= l1Head:
 				finalityStatus = TxnAcceptedOnL1
 			default: // Canonical block not finalised on L1

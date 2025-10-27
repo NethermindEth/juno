@@ -15,7 +15,7 @@ import (
 type CommittedBlock struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.Class
+	NewClasses  map[felt.Felt]core.ClassDefinition
 	Persisted   chan struct{} // This is used to signal that the block has been persisted
 }
 
@@ -82,7 +82,7 @@ func (f *feederGatewayDataSource) BlockPending(ctx context.Context) (core.Pendin
 func (f *feederGatewayDataSource) fetchUnknownClasses(
 	ctx context.Context,
 	stateUpdate *core.StateUpdate,
-) (map[felt.Felt]core.Class, error) {
+) (map[felt.Felt]core.ClassDefinition, error) {
 	state, closer, err := f.blockchain.HeadState()
 	if err != nil {
 		// if err is db.ErrKeyNotFound we are on an empty DB
@@ -94,7 +94,7 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 		}
 	}
 
-	newClasses := make(map[felt.Felt]core.Class)
+	newClasses := make(map[felt.Felt]core.ClassDefinition)
 	fetchIfNotFound := func(classHash *felt.Felt) error {
 		if _, ok := newClasses[*classHash]; ok {
 			return nil
