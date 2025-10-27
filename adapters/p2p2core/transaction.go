@@ -14,8 +14,8 @@ import (
 func AdaptDeclareV3WithClass(
 	tx *transaction.DeclareV3WithClass,
 	txnHash *common.Hash,
-) (*core.DeclareTransaction, *core.Cairo1Class, error) {
-	class, err := AdaptCairo1Class(tx.Class)
+) (*core.DeclareTransaction, *core.SierraClass, error) {
+	class, err := AdaptSierraClass(tx.Class)
 	if err != nil {
 		return nil, nil, err
 	}

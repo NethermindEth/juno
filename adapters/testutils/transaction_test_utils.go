@@ -18,7 +18,7 @@ import (
 
 const maxTransactionSize = 10
 
-type toCoreType[C any] func(core.Transaction, core.Class, *felt.Felt) C
+type toCoreType[C any] func(core.Transaction, core.ClassDefinition, *felt.Felt) C
 
 type toP2PType[P, I any] func(I, *common.Hash) P
 
@@ -117,7 +117,7 @@ func getRandomResourceBounds(t *testing.T) (map[core.Resource]core.ResourceBound
 	return consensusResourceBounds, &p2pResourceBounds
 }
 
-func getSampleClass(t *testing.T) (felt.Felt, *core.Cairo1Class) {
+func getSampleClass(t *testing.T) (felt.Felt, *core.SierraClass) {
 	t.Helper()
 	var classHash felt.Felt
 	_, err := classHash.SetString("0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b")
@@ -129,10 +129,10 @@ func getSampleClass(t *testing.T) (felt.Felt, *core.Cairo1Class) {
 	class, err := gw.Class(t.Context(), &classHash)
 	require.NoError(t, err)
 
-	cairo1Class, ok := class.(*core.Cairo1Class)
+	sierraClass, ok := class.(*core.SierraClass)
 	require.True(t, ok)
 
-	return classHash, cairo1Class
+	return classHash, sierraClass
 }
 
 func getTransactionHash(t *testing.T, tx core.Transaction, network *utils.Network) (*felt.Felt, *common.Hash) {
@@ -144,7 +144,7 @@ func getTransactionHash(t *testing.T, tx core.Transaction, network *utils.Networ
 
 func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, network *utils.Network) (C, P) {
 	t.Helper()
-	classHash, cairo1Class := getSampleClass(t)
+	classHash, sierraClass := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
@@ -162,7 +162,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     cairo1Class.Compiled.Hash(),
+		CompiledClassHash:     sierraClass.Compiled.Hash(),
 		ResourceBounds:        resourceBounds,
 		Tip:                   tip,
 		PaymasterData:         paymasterData,
@@ -176,7 +176,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 			Sender:                    &common.Address{Elements: senderAddressBytes},
 			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
-			CompiledClassHash:         core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
+			CompiledClassHash:         core2p2p.AdaptHash(sierraClass.Compiled.Hash()),
 			ResourceBounds:            p2pResourceBounds,
 			Tip:                       tip,
 			PaymasterData:             toFelt252Slice(paymasterDataBytes),
@@ -184,13 +184,13 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 			NonceDataAvailabilityMode: common.VolitionDomain_L2,
 			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
 		},
-		Class: core2p2p.AdaptCairo1Class(cairo1Class),
+		Class: core2p2p.AdaptSierraClass(sierraClass),
 	}
 
 	var p2pHash *common.Hash
 	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeclareTransaction, network)
 
-	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil),
+	return b.ToCore(&consensusDeclareTransaction, sierraClass, nil),
 		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
 }
 
@@ -326,10 +326,10 @@ func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, net
 
 // StripCompilerFields strips the some fields related to compiler in the compiled class.
 // It's due to the difference between the expected compiler version and the actual compiler version.
-func StripCompilerFields(t *testing.T, class core.Class) {
+func StripCompilerFields(t *testing.T, class core.ClassDefinition) {
 	t.Helper()
 	switch class := class.(type) {
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		if class == nil {
 			return
 		}

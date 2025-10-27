@@ -140,7 +140,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &stateDiff,
 			},
-			NewClasses: map[felt.Felt]core.Class{},
+			NewClasses: map[felt.Felt]core.ClassDefinition{},
 		}
 		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
 		mockReader.EXPECT().StateAtBlockHash(

@@ -95,7 +95,7 @@ func TestClassV0(t *testing.T) {
 			classGeneric, err := adapter.Class(ctx, hash)
 			require.NoError(t, err)
 
-			adaptedResponse, err := sn2core.AdaptCairo0Class(response.V0)
+			adaptedResponse, err := sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo)
 			require.NoError(t, err)
 			require.Equal(t, adaptedResponse, classGeneric)
 		})
@@ -201,14 +201,14 @@ func TestClassV1(t *testing.T) {
 
 		feederClass, err := client.ClassDefinition(t.Context(), test.classHash)
 		require.NoError(t, err)
-		compiled, err := client.CompiledClassDefinition(t.Context(), test.classHash)
+		casmClass, err := client.CasmClassDefinition(t.Context(), test.classHash)
 		if test.hasCompiledClass {
 			require.NoError(t, err)
 		} else {
 			require.EqualError(t, err, "deprecated compiled class")
 		}
 
-		adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.Sierra, casmClass)
 		require.NoError(t, err)
 		assert.Equal(t, adaptedResponse, class)
 

@@ -260,8 +260,8 @@ func traceTransactionsWithState(
 // Returns the list of declared classes, L1 handler fees, and an error if any.
 func fetchDeclaredClassesAndL1Fees(
 	transactions []core.Transaction, state core.StateReader,
-) ([]core.Class, []*felt.Felt, *jsonrpc.Error) {
-	var declaredClasses []core.Class
+) ([]core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
+	var declaredClasses []core.ClassDefinition
 	l1HandlerFees := []*felt.Felt{}
 
 	for _, transaction := range transactions {

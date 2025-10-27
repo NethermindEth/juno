@@ -8,7 +8,7 @@ import (
 
 type Transaction struct {
 	Transaction core.Transaction
-	Class       core.Class
+	Class       core.ClassDefinition
 	PaidFeeOnL1 *felt.Felt
 }
 

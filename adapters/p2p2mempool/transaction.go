@@ -32,7 +32,7 @@ func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.N
 
 	var (
 		tx    core.Transaction
-		class core.Class
+		class core.ClassDefinition
 		err   error
 	)
 

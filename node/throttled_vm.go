@@ -45,7 +45,7 @@ func (tvm *ThrottledVM) Call(
 
 func (tvm *ThrottledVM) Execute(
 	txns []core.Transaction,
-	declaredClasses []core.Class,
+	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *vm.BlockInfo,
 	state core.StateReader,

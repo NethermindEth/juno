@@ -127,7 +127,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	network *utils.Network,
 ) (C, P) {
 	t.Helper()
-	classHash, cairo1Class := getSampleClass(t)
+	classHash, sierraClass := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
@@ -142,7 +142,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 		},
 		ClassHash:         core2p2p.AdaptHash(&classHash),
 		Nonce:             &common.Felt252{Elements: nonceBytes},
-		CompiledClassHash: core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
+		CompiledClassHash: core2p2p.AdaptHash(sierraClass.Compiled.Hash()),
 	}
 
 	consensusDeclareTransaction := core.DeclareTransaction{
@@ -153,7 +153,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     cairo1Class.Compiled.Hash(),
+		CompiledClassHash:     sierraClass.Compiled.Hash(),
 		ResourceBounds:        nil, // this field is not available on v2
 		PaymasterData:         nil, // this field is not available on v2
 		AccountDeploymentData: nil, // this field is not available on v2
@@ -177,7 +177,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	network *utils.Network,
 ) (C, P) {
 	t.Helper()
-	classHash, cairo1Class := getSampleClass(t)
+	classHash, sierraClass := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
@@ -194,7 +194,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 				Parts: toFelt252Slice(transactionSignatureBytes),
 			},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
-			CompiledClassHash:         core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
+			CompiledClassHash:         core2p2p.AdaptHash(sierraClass.Compiled.Hash()),
 			ResourceBounds:            p2pResourceBounds,
 			Tip:                       tip,
 			PaymasterData:             toFelt252Slice(paymasterDataBytes),
@@ -213,7 +213,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     cairo1Class.Compiled.Hash(),
+		CompiledClassHash:     sierraClass.Compiled.Hash(),
 		ResourceBounds:        resourceBounds,
 		Tip:                   tip,
 		PaymasterData:         paymasterData,

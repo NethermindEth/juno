@@ -64,7 +64,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	)
 
 	// Prepare declared classes, if any
-	var declaredClasses []core.Class
+	var declaredClasses []core.ClassDefinition
 	paidFeesOnL1 := []*felt.Felt{}
 	coreTxns := make([]core.Transaction, len(txns))
 	for i, txn := range txns {

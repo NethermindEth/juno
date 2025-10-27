@@ -44,7 +44,7 @@ func TestCompiledCasm(t *testing.T) {
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrClassHashNotFound, err)
 	})
-	t.Run("cairo0", func(t *testing.T) {
+	t.Run("deprecatedCairo", func(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
 
 		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
@@ -53,20 +53,20 @@ func TestCompiledCasm(t *testing.T) {
 		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
-		cairo0, ok := class.(*core.Cairo0Class)
+		deprecatedCairo, ok := class.(*core.DeprecatedCairoClass)
 		require.True(t, ok)
-		program, err := utils.Gzip64Decode(cairo0.Program)
+		program, err := utils.Gzip64Decode(deprecatedCairo.Program)
 		require.NoError(t, err)
 
 		// only fields that need to be unmarshaled specified
-		var cairo0Definition struct {
+		var deprecatedCairoDefinition struct {
 			Data []*felt.Felt `json:"data"`
 		}
-		err = json.Unmarshal(program, &cairo0Definition)
+		err = json.Unmarshal(program, &deprecatedCairoDefinition)
 		require.NoError(t, err)
 
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: class}, nil)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: class}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)
@@ -75,17 +75,17 @@ func TestCompiledCasm(t *testing.T) {
 			Prime:           "0x800000000000011000000000000000000000000000000000000000000000001",
 			CompilerVersion: "0.10.3",
 			EntryPointsByType: rpc.EntryPointsByType{
-				Constructor: utils.Map(cairo0.Constructors, adaptEntryPoint),
-				External:    utils.Map(cairo0.Externals, adaptEntryPoint),
-				L1Handler:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
+				Constructor: utils.Map(deprecatedCairo.Constructors, adaptEntryPoint),
+				External:    utils.Map(deprecatedCairo.Externals, adaptEntryPoint),
+				L1Handler:   utils.Map(deprecatedCairo.L1Handlers, adaptEntryPoint),
 			},
 			Hints:    json.RawMessage(`[[2,[{"Dst":0}]]]`),
-			Bytecode: cairo0Definition.Data,
+			Bytecode: deprecatedCairoDefinition.Data,
 		}, resp)
 	})
 }
 
-func adaptEntryPoint(point core.EntryPoint) rpc.CasmEntryPoint {
+func adaptEntryPoint(point core.DeprecatedEntryPoint) rpc.CasmEntryPoint {
 	return rpc.CasmEntryPoint{
 		Offset:   point.Offset,
 		Selector: point.Selector,
