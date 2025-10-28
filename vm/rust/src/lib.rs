@@ -19,7 +19,6 @@ use std::{
 };
 
 use anyhow::Result;
-use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
 use blockifier::{
     abi::constants::STORED_BLOCK_HASH_BUFFER,
@@ -40,6 +39,7 @@ use blockifier::{
         transaction_execution::Transaction,
     },
 };
+use blockifier::{bouncer::BouncerConfig, transaction::objects::TransactionExecutionInfo};
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 use starknet_api::{
@@ -387,18 +387,6 @@ pub extern "C" fn cairoVMExecute(
         let mut txn = txn.unwrap();
         let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
 
-        let (minimal_gas_vector, fee_type) = match &txn {
-            Transaction::Account(t) => (
-                Some(gas_usage::estimate_minimal_gas_vector(
-                    &block_context,
-                    t,
-                    &gas_vector_computation_mode,
-                )),
-                t.fee_type(),
-            ),
-            Transaction::L1Handler(t) => (None, t.fee_type()),
-        };
-
         match process_transaction(
             &mut txn,
             &mut txn_state,
@@ -429,89 +417,17 @@ pub extern "C" fn cairoVMExecute(
             Ok(mut tx_execution_info) => {
                 // we are estimating fee, override actual fee calculation
                 if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
-                    let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
-                    let mut adjusted_l1_gas_consumed = tx_execution_info
-                        .receipt
-                        .gas
-                        .l1_gas
-                        .max(minimal_gas_vector.l1_gas);
-
-                    let mut adjusted_l1_data_gas_consumed = tx_execution_info
-                        .receipt
-                        .gas
-                        .l1_data_gas
-                        .max(minimal_gas_vector.l1_data_gas);
-
-                    let mut adjusted_l2_gas_consumed = tx_execution_info
-                        .receipt
-                        .gas
-                        .l2_gas
-                        .max(minimal_gas_vector.l2_gas);
-
-                    match gas_vector_computation_mode {
-                        GasVectorComputationMode::NoL2Gas => {
-                            let adjusted_l1_gas_consumed_wrapped = adjusted_l1_gas_consumed
-                                .checked_add(
-                                    block_context
-                                        .versioned_constants()
-                                        .sierra_gas_to_l1_gas_amount_round_up(
-                                            adjusted_l2_gas_consumed,
-                                        ),
-                                );
-
-                            if adjusted_l1_gas_consumed_wrapped.is_none() {
-                                report_error(
-                                    reader_handle,
-                                    format!("addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.", adjusted_l2_gas_consumed, adjusted_l1_gas_consumed).as_str(),
-                                    txn_index as i64,
-                                    0,
-                                );
-                                return;
-                            }
-                            adjusted_l1_gas_consumed = adjusted_l1_gas_consumed_wrapped.unwrap();
-                            adjusted_l1_data_gas_consumed = adjusted_l1_data_gas_consumed;
-                            adjusted_l2_gas_consumed = GasAmount(0);
-                        }
-                        _ => {}
-                    };
-
-                    let tip = if block_context.versioned_constants().enable_tip {
-                        match txn {
-                            Transaction::Account(txn) => txn.tip(),
-                            Transaction::L1Handler(_) => Tip(0),
-                        }
-                    } else {
-                        starknet_api::transaction::fields::Tip(0)
-                    };
-                    tx_execution_info.receipt.gas.l1_gas = adjusted_l1_gas_consumed;
-                    tx_execution_info.receipt.gas.l1_data_gas = adjusted_l1_data_gas_consumed;
-                    tx_execution_info.receipt.gas.l2_gas = adjusted_l2_gas_consumed;
-                    tx_execution_info.receipt.fee = fee_utils::get_fee_by_gas_vector(
-                        block_context.block_info(),
-                        GasVector {
-                            l1_data_gas: adjusted_l1_data_gas_consumed,
-                            l1_gas: adjusted_l1_gas_consumed,
-                            l2_gas: adjusted_l2_gas_consumed,
-                        },
-                        &fee_type,
-                        tip,
+                    adjust_fee_calculation_result(
+                        &mut tx_execution_info,
+                        &txn,
+                        &gas_vector_computation_mode,
+                        &block_context,
+                        reader_handle,
+                        txn_index,
                     )
                 }
 
-                let actual_fee: Felt = tx_execution_info.receipt.fee.0.into();
-                let da_gas_l1_gas = tx_execution_info.receipt.da_gas.l1_gas.into();
-                let da_gas_l1_data_gas = tx_execution_info.receipt.da_gas.l1_data_gas.into();
-                let execution_steps = tx_execution_info
-                    .receipt
-                    .resources
-                    .computation
-                    .total_vm_resources()
-                    .n_steps
-                    .try_into()
-                    .unwrap_or(u64::MAX);
-                let l1_gas_consumed = tx_execution_info.receipt.gas.l1_gas.into();
-                let l1_data_gas_consumed = tx_execution_info.receipt.gas.l1_data_gas.into();
-                let l2_gas_consumed = tx_execution_info.receipt.gas.l2_gas.into();
+                append_gas_and_fee(&tx_execution_info, reader_handle);
 
                 let transaction_receipt = jsonrpc::TransactionReceipt {
                     gas: tx_execution_info.receipt.gas,
@@ -519,6 +435,7 @@ pub extern "C" fn cairoVMExecute(
                     fee: tx_execution_info.receipt.fee,
                 };
                 append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer);
+
                 let trace = jsonrpc::new_transaction_trace(
                     &txn_and_query_bit.txn,
                     tx_execution_info,
@@ -536,26 +453,101 @@ pub extern "C" fn cairoVMExecute(
                     return;
                 }
 
-                unsafe {
-                    JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-                    JunoAppendDAGas(
-                        reader_handle,
-                        felt_to_byte_array(&da_gas_l1_gas).as_ptr(),
-                        felt_to_byte_array(&da_gas_l1_data_gas).as_ptr(),
-                    );
-                    JunoAppendGasConsumed(
-                        reader_handle,
-                        felt_to_byte_array(&l1_gas_consumed).as_ptr(),
-                        felt_to_byte_array(&l1_data_gas_consumed).as_ptr(),
-                        felt_to_byte_array(&l2_gas_consumed).as_ptr(),
-                    );
-                    JunoAddExecutionSteps(reader_handle, execution_steps)
-                }
                 append_trace(reader_handle, trace.as_ref().unwrap(), &mut writer_buffer);
             }
         }
         txn_state.commit();
     }
+}
+
+fn adjust_fee_calculation_result(
+    tx_execution_info: &mut TransactionExecutionInfo,
+    txn: &Transaction,
+    gas_vector_computation_mode: &GasVectorComputationMode,
+    block_context: &BlockContext,
+    reader_handle: usize,
+    txn_index: usize,
+) {
+    let (minimal_gas_vector, fee_type) = match &txn {
+        Transaction::Account(t) => (
+            Some(gas_usage::estimate_minimal_gas_vector(
+                &block_context,
+                t,
+                &gas_vector_computation_mode,
+            )),
+            t.fee_type(),
+        ),
+        Transaction::L1Handler(t) => (None, t.fee_type()),
+    };
+
+    let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
+    let mut adjusted_l1_gas_consumed = tx_execution_info
+        .receipt
+        .gas
+        .l1_gas
+        .max(minimal_gas_vector.l1_gas);
+
+    let mut adjusted_l1_data_gas_consumed = tx_execution_info
+        .receipt
+        .gas
+        .l1_data_gas
+        .max(minimal_gas_vector.l1_data_gas);
+
+    let mut adjusted_l2_gas_consumed = tx_execution_info
+        .receipt
+        .gas
+        .l2_gas
+        .max(minimal_gas_vector.l2_gas);
+
+    match gas_vector_computation_mode {
+        GasVectorComputationMode::NoL2Gas => {
+            let adjusted_l1_gas_consumed_wrapped = adjusted_l1_gas_consumed.checked_add(
+                block_context
+                    .versioned_constants()
+                    .sierra_gas_to_l1_gas_amount_round_up(adjusted_l2_gas_consumed),
+            );
+
+            if adjusted_l1_gas_consumed_wrapped.is_none() {
+                report_error(
+                    reader_handle,
+                    format!(
+                        "addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.",
+                        adjusted_l2_gas_consumed, adjusted_l1_gas_consumed
+                    )
+                    .as_str(),
+                    txn_index as i64,
+                    0,
+                );
+                return;
+            }
+            adjusted_l1_gas_consumed = adjusted_l1_gas_consumed_wrapped.unwrap();
+            adjusted_l1_data_gas_consumed = adjusted_l1_data_gas_consumed;
+            adjusted_l2_gas_consumed = GasAmount(0);
+        }
+        _ => {}
+    };
+
+    let tip = if block_context.versioned_constants().enable_tip {
+        match txn {
+            Transaction::Account(txn) => txn.tip(),
+            Transaction::L1Handler(_) => Tip(0),
+        }
+    } else {
+        starknet_api::transaction::fields::Tip(0)
+    };
+    tx_execution_info.receipt.gas.l1_gas = adjusted_l1_gas_consumed;
+    tx_execution_info.receipt.gas.l1_data_gas = adjusted_l1_data_gas_consumed;
+    tx_execution_info.receipt.gas.l2_gas = adjusted_l2_gas_consumed;
+    tx_execution_info.receipt.fee = fee_utils::get_fee_by_gas_vector(
+        block_context.block_info(),
+        GasVector {
+            l1_data_gas: adjusted_l1_data_gas_consumed,
+            l1_gas: adjusted_l1_gas_consumed,
+            l2_gas: adjusted_l2_gas_consumed,
+        },
+        &fee_type,
+        tip,
+    )
 }
 
 fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
@@ -622,6 +614,39 @@ fn transaction_from_api(
         execution_flags,
     )
     .map_err(|err| format!("failed to create transaction from api: {:?}", err))
+}
+
+fn append_gas_and_fee(tx_execution_info: &TransactionExecutionInfo, reader_handle: usize) {
+    let actual_fee: Felt = tx_execution_info.receipt.fee.0.into();
+    let da_gas_l1_gas = tx_execution_info.receipt.da_gas.l1_gas.into();
+    let da_gas_l1_data_gas = tx_execution_info.receipt.da_gas.l1_data_gas.into();
+    let execution_steps = tx_execution_info
+        .receipt
+        .resources
+        .computation
+        .total_vm_resources()
+        .n_steps
+        .try_into()
+        .unwrap_or(u64::MAX);
+    let l1_gas_consumed = tx_execution_info.receipt.gas.l1_gas.into();
+    let l1_data_gas_consumed = tx_execution_info.receipt.gas.l1_data_gas.into();
+    let l2_gas_consumed = tx_execution_info.receipt.gas.l2_gas.into();
+
+    unsafe {
+        JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
+        JunoAppendDAGas(
+            reader_handle,
+            felt_to_byte_array(&da_gas_l1_gas).as_ptr(),
+            felt_to_byte_array(&da_gas_l1_data_gas).as_ptr(),
+        );
+        JunoAppendGasConsumed(
+            reader_handle,
+            felt_to_byte_array(&l1_gas_consumed).as_ptr(),
+            felt_to_byte_array(&l1_data_gas_consumed).as_ptr(),
+            felt_to_byte_array(&l2_gas_consumed).as_ptr(),
+        );
+        JunoAddExecutionSteps(reader_handle, execution_steps)
+    }
 }
 
 fn append_trace(
