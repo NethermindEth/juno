@@ -17,6 +17,7 @@ type StateDiff struct {
 	DeprecatedDeclaredClasses []*felt.Felt       `json:"deprecated_declared_classes"`
 	DeclaredClasses           []DeclaredClass    `json:"declared_classes"`
 	ReplacedClasses           []ReplacedClass    `json:"replaced_classes"`
+	MigratedClasses           []MigratedClass    `json:"migrated_classes"`
 }
 
 type Nonce struct {
@@ -40,6 +41,11 @@ type DeployedContract struct {
 }
 
 type ReplacedClass struct {
+	ContractAddress felt.Felt `json:"contract_address"`
+	ClassHash       felt.Felt `json:"class_hash"`
+}
+
+type MigratedClass struct {
 	ContractAddress felt.Felt `json:"contract_address"`
 	ClassHash       felt.Felt `json:"class_hash"`
 }

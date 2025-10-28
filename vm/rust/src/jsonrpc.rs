@@ -5,6 +5,7 @@ use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
 use blockifier::state::cached_state::{CachedState, StateMaps};
 use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
+use blockifier::state::compiled_class_hash_migration::CompiledClassHashMigrationUpdater;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
 use cairo_vm::types::builtin_name::BuiltinName;
@@ -65,6 +66,7 @@ pub struct StateDiff {
     deprecated_declared_classes: Vec<StarkFelt>,
     declared_classes: Vec<DeclaredClass>,
     replaced_classes: Vec<ReplacedClass>,
+    migrated_classes: Vec<MigratedClass>,
 }
 
 impl From<StateMaps> for StateDiff {
@@ -136,6 +138,11 @@ impl From<StateMaps> for StateDiff {
         // Only the genesis pkg ever uses this logic.
         let replaced_classes = Default::default();
 
+        // todo(rdr): I've no idea how to write this adaption, there is no counterpart in
+        //            the blockifier. I'm not sure if the blockifier will return the migrated
+        //            classes
+        let migrated_classes = Default::default();
+
         Self {
             storage_diffs,
             nonces,
@@ -143,6 +150,7 @@ impl From<StateMaps> for StateDiff {
             deprecated_declared_classes,
             declared_classes,
             replaced_classes,
+            migrated_classes,
         }
     }
 }
@@ -173,6 +181,12 @@ struct DeployedContract {
 
 #[derive(Serialize)]
 struct ReplacedClass {
+    contract_address: StarkFelt,
+    class_hash: StarkFelt,
+}
+
+#[derive(Serialize)]
+struct MigratedClass {
     contract_address: StarkFelt,
     class_hash: StarkFelt,
 }
@@ -519,6 +533,10 @@ fn make_state_diff(
         }
     }
 
+    let mut declared_classes = Vec::new();
+    let mut migrated_classes = Vec::new();
+    for (class_hash, compiled_class_hash) in diff.class_hash_to_compiled_class_hash {}
+
     let mut deprecated_declared_class_hashes = Vec::default();
     if let Some(v) = deprecated_declared_class_hash {
         deprecated_declared_class_hashes.push(v.0)
@@ -545,5 +563,6 @@ fn make_state_diff(
           nonce: v.1.0,
         }).collect(),
         replaced_classes,
+        migrated_classes,
     })
 }
