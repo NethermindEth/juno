@@ -257,50 +257,48 @@ fn cairo_vm_call(
     let call_info = entry_point
         .execute(&mut state, &mut context, &mut remaining_gas)
         .map_err(|e| {
-            CallError::from_entry_point_execution_error(
+            let e = CallError::from_entry_point_execution_error(
                 e,
                 contract_address,
                 class_hash.unwrap_or(ClassHash::default()),
                 entry_point_selector,
-            )
-        });
+            );
+            match e {
+                CallError::ContractError(revert_error, error_stack) => {
+                    let err_string = if structured_err_stack {
+                        error_stack_frames_to_json(error_stack).to_string()
+                    } else {
+                        json!(revert_error).to_string()
+                    };
+                    VMError::block_error(err_string)
+                }
+                CallError::Internal(e) | CallError::Custom(e) => VMError::block_error(e),
+            }
+        })?;
 
-    match call_info {
-        Err(CallError::ContractError(revert_error, error_stack)) => {
-            let err_string = if structured_err_stack {
-                error_stack_frames_to_json(error_stack).to_string()
-            } else {
-                json!(revert_error).to_string()
-            };
-            Err(VMError::block_error(err_string))
+    for data in call_info.execution.retdata.0 {
+        unsafe {
+            JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
         }
-        Err(CallError::Internal(e)) | Err(CallError::Custom(e)) => Err(VMError::block_error(e)),
-        Ok(call_info) => {
-            for data in call_info.execution.retdata.0 {
-                unsafe {
-                    JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
-                }
-            }
-            if call_info.execution.failed {
-                Err(VMError {
-                    msg: "execution failed".to_string(),
-                    txn_index: -1,
-                    execution_failed: true,
-                })
-            } else {
-                // We only need to return the state_diff when creating the genesis state_diff.
-                // Calling this for all other RPC requests is a waste of resources.
-                if return_state_diff == 1 {
-                    let state_diff = state
-                        .to_state_diff()
-                        .map_err(|_| VMError::block_error("failed to convert state diff"))?;
-                    let json_state_diff = jsonrpc::StateDiff::from(state_diff.state_maps);
-                    append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer)
-                        .map_err(|err| VMError::block_error(err.to_string()))?;
-                }
-                Ok(())
-            }
+    }
+    if call_info.execution.failed {
+        Err(VMError {
+            msg: "execution failed".to_string(),
+            txn_index: -1,
+            execution_failed: true,
+        })
+    } else {
+        // We only need to return the state_diff when creating the genesis state_diff.
+        // Calling this for all other RPC requests is a waste of resources.
+        if return_state_diff == 1 {
+            let state_diff = state
+                .to_state_diff()
+                .map_err(|_| VMError::block_error("failed to convert state diff"))?;
+            let json_state_diff = jsonrpc::StateDiff::from(state_diff.state_maps);
+            append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer)
+                .map_err(|err| VMError::block_error(err.to_string()))?;
         }
+        Ok(())
     }
 }
 
@@ -434,66 +432,64 @@ fn cairo_vm_execute(
         let mut txn_state = CachedState::create_transactional(&mut state);
         let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
 
-        match process_transaction(
+        let mut tx_execution_info = process_transaction(
             &mut txn,
             &mut txn_state,
             &block_context,
             err_on_revert,
             allow_binary_search,
-        ) {
-            Err(e) => match e {
-                ExecutionError::ExecutionError { error, error_stack } => {
-                    let err_string = if err_stack {
-                        error_stack_frames_to_json(error_stack).to_string()
-                    } else {
-                        json!(error).to_string()
-                    };
-                    return Err(VMError::tx_non_execution_error(err_string, txn_index));
-                }
-                ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
-                    return Err(VMError::tx_non_execution_error(json!(e), txn_index));
-                }
-            },
-            Ok(mut tx_execution_info) => {
-                // we are estimating fee, override actual fee calculation
-                if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
-                    adjust_fee_calculation_result(
-                        &mut tx_execution_info,
-                        &txn,
-                        &gas_vector_computation_mode,
-                        &block_context,
-                        txn_index,
-                    )?
-                }
-
-                append_gas_and_fee(&tx_execution_info, reader_handle);
-
-                let transaction_receipt = jsonrpc::TransactionReceipt {
-                    gas: tx_execution_info.receipt.gas,
-                    da_gas: tx_execution_info.receipt.da_gas,
-                    fee: tx_execution_info.receipt.fee,
+        )
+        .map_err(|e| match e {
+            ExecutionError::ExecutionError { error, error_stack } => {
+                let err_string = if err_stack {
+                    error_stack_frames_to_json(error_stack).to_string()
+                } else {
+                    json!(error).to_string()
                 };
-                append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer)
-                    .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
-
-                let trace = jsonrpc::new_transaction_trace(
-                    &txn_and_query_bit.txn,
-                    tx_execution_info,
-                    &mut txn_state,
-                    block_context.versioned_constants(),
-                    &gas_vector_computation_mode,
-                )
-                .map_err(|err| {
-                    VMError::tx_non_execution_error(
-                        format!("failed building txn state diff reason: {:?}", err),
-                        txn_index,
-                    )
-                })?;
-
-                append_trace(reader_handle, &trace, &mut writer_buffer)
-                    .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+                VMError::tx_non_execution_error(err_string, txn_index)
             }
+            ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
+                VMError::tx_non_execution_error(json!(e), txn_index)
+            }
+        })?;
+
+        // we are estimating fee, override actual fee calculation
+        if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
+            adjust_fee_calculation_result(
+                &mut tx_execution_info,
+                &txn,
+                &gas_vector_computation_mode,
+                &block_context,
+                txn_index,
+            )?
         }
+
+        append_gas_and_fee(&tx_execution_info, reader_handle);
+
+        let transaction_receipt = jsonrpc::TransactionReceipt {
+            gas: tx_execution_info.receipt.gas,
+            da_gas: tx_execution_info.receipt.da_gas,
+            fee: tx_execution_info.receipt.fee,
+        };
+        append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer)
+            .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+
+        let trace = jsonrpc::new_transaction_trace(
+            &txn_and_query_bit.txn,
+            tx_execution_info,
+            &mut txn_state,
+            block_context.versioned_constants(),
+            &gas_vector_computation_mode,
+        )
+        .map_err(|err| {
+            VMError::tx_non_execution_error(
+                format!("failed building txn state diff reason: {:?}", err),
+                txn_index,
+            )
+        })?;
+
+        append_trace(reader_handle, &trace, &mut writer_buffer)
+            .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
         txn_state.commit();
     }
     Ok(())
