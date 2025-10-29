@@ -112,6 +112,12 @@ pub struct ChainInfo {
 }
 
 #[repr(C)]
+pub struct JunoBytes {
+    pub data: *mut core::ffi::c_void,
+    pub len: usize,
+}
+
+#[repr(C)]
 #[derive(Clone, Copy)]
 pub struct BlockInfo {
     pub block_number: c_ulonglong,

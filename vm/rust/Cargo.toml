@@ -21,6 +21,9 @@ once_cell = "1.19.0"
 lazy_static = "1.4.0"
 semver = "1.0.22"
 anyhow = "1.0.81"
+prost = "0.13"
+prost-types = "0.13"
+bytes = "1"
 
 [lib]
 crate-type = ["staticlib"]
