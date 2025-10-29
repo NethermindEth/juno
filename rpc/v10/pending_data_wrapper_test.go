@@ -1,4 +1,4 @@
-package rpcv9_test
+package rpcv10_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
-	rpc "github.com/NethermindEth/juno/rpc/v9"
+	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
