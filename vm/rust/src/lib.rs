@@ -71,6 +71,29 @@ pub static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<StarkFelt> = Lazy::new(|| {
         .expect("Invalid hex string")
 });
 
+struct VMError {
+    msg: String,
+    txn_index: i64,
+    execution_failed: bool,
+}
+impl VMError {
+    fn block_error<E: ToString>(err: E) -> Self {
+        Self {
+            msg: err.to_string(),
+            txn_index: -1,
+            execution_failed: false,
+        }
+    }
+
+    fn tx_non_execution_error<E: ToString>(err: E, txn_index: usize) -> Self {
+        Self {
+            msg: err.to_string(),
+            txn_index: txn_index as i64,
+            execution_failed: false,
+        }
+    }
+}
+
 extern "C" {
     fn JunoReportError(
         reader_handle: usize,
@@ -223,14 +246,21 @@ pub extern "C" fn cairoVMCall(
             } else {
                 json!(revert_error).to_string()
             };
-            report_error(reader_handle, err_string.as_str(), -1, 0);
+            report_error(reader_handle, VMError::block_error(err_string));
         }
         Err(CallError::Internal(e)) | Err(CallError::Custom(e)) => {
-            report_error(reader_handle, &e, -1, 0);
+            report_error(reader_handle, VMError::block_error(e));
         }
         Ok(call_info) => {
             if call_info.execution.failed {
-                report_error(reader_handle, "execution failed", -1, 1);
+                report_error(
+                    reader_handle,
+                    VMError {
+                        msg: "execution failed".to_string(),
+                        txn_index: -1,
+                        execution_failed: true,
+                    },
+                );
             }
             for data in call_info.execution.retdata.0 {
                 unsafe {
@@ -246,7 +276,10 @@ pub extern "C" fn cairoVMCall(
                         append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer);
                     }
                     Err(_) => {
-                        report_error(reader_handle, "failed to convert state diff", -1, 0);
+                        report_error(
+                            reader_handle,
+                            VMError::block_error("failed to convert state diff"),
+                        );
                     }
                 }
             }
@@ -284,7 +317,7 @@ pub extern "C" fn cairoVMExecute(
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
     if let Err(e) = txns_and_query_bits {
-        report_error(reader_handle, e.to_string().as_str(), -1, 0);
+        report_error(reader_handle, VMError::block_error(e));
         return;
     }
 
@@ -294,7 +327,7 @@ pub extern "C" fn cairoVMExecute(
         classes = serde_json::from_str(classes_json_str);
     }
     if let Err(e) = classes {
-        report_error(reader_handle, e.to_string().as_str(), -1, 0);
+        report_error(reader_handle, VMError::block_error(e));
         return;
     }
 
@@ -304,7 +337,7 @@ pub extern "C" fn cairoVMExecute(
     let mut paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
         Ok(f) => f,
         Err(e) => {
-            report_error(reader_handle, e.to_string().as_str(), -1, 0);
+            report_error(reader_handle, VMError::block_error(e));
             return;
         }
     };
@@ -327,14 +360,17 @@ pub extern "C" fn cairoVMExecute(
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
-                    report_error(reader_handle, "missing declared class", txn_index as i64, 0);
+                    report_error(
+                        reader_handle,
+                        VMError::tx_non_execution_error("missing declared class", txn_index),
+                    );
                     return;
                 }
                 let class_json_str = classes.remove(0);
 
                 let maybe_cc = class_info_from_json_str(class_json_str.get());
                 if let Err(e) = maybe_cc {
-                    report_error(reader_handle, e.to_string().as_str(), txn_index as i64, 0);
+                    report_error(reader_handle, VMError::tx_non_execution_error(e, txn_index));
                     return;
                 }
                 Some(maybe_cc.unwrap())
@@ -347,9 +383,7 @@ pub extern "C" fn cairoVMExecute(
                 if paid_fees_on_l1.is_empty() {
                     report_error(
                         reader_handle,
-                        "missing fee paid on l1b",
-                        txn_index as i64,
-                        0,
+                        VMError::tx_non_execution_error("missing fee paid on l1", txn_index),
                     );
                     return;
                 }
@@ -378,7 +412,7 @@ pub extern "C" fn cairoVMExecute(
             account_execution_flags,
         );
         if let Err(e) = txn {
-            report_error(reader_handle, e.to_string().as_str(), txn_index as i64, 0);
+            report_error(reader_handle, VMError::tx_non_execution_error(e, txn_index));
             return;
         }
 
@@ -401,15 +435,16 @@ pub extern "C" fn cairoVMExecute(
                     } else {
                         json!(error).to_string()
                     };
-                    report_error(reader_handle, err_string.as_str(), txn_index as i64, 0);
+                    report_error(
+                        reader_handle,
+                        VMError::tx_non_execution_error(err_string, txn_index),
+                    );
                     return;
                 }
                 ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
                     report_error(
                         reader_handle,
-                        json!(e).to_string().as_str(),
-                        txn_index as i64,
-                        0,
+                        VMError::tx_non_execution_error(json!(e), txn_index),
                     );
                     return;
                 }
@@ -446,9 +481,10 @@ pub extern "C" fn cairoVMExecute(
                 if let Err(e) = trace {
                     report_error(
                         reader_handle,
-                        format!("failed building txn state diff reason: {:?}", e).as_str(),
-                        txn_index as i64,
-                        0,
+                        VMError::tx_non_execution_error(
+                            format!("failed building txn state diff reason: {:?}", e),
+                            txn_index,
+                        ),
                     );
                     return;
                 }
@@ -510,13 +546,13 @@ fn adjust_fee_calculation_result(
             if adjusted_l1_gas_consumed_wrapped.is_none() {
                 report_error(
                     reader_handle,
-                    format!(
-                        "addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.",
-                        adjusted_l2_gas_consumed, adjusted_l1_gas_consumed
-                    )
-                    .as_str(),
-                    txn_index as i64,
-                    0,
+                    VMError::tx_non_execution_error(
+                        format!(
+                            "addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.",
+                            adjusted_l2_gas_consumed, adjusted_l1_gas_consumed,
+                        ),
+                        txn_index,
+                    ),
                 );
                 return;
             }
@@ -727,10 +763,16 @@ fn error_stack_frames_to_json(err_stack: ErrorStack) -> serde_json::Value {
         })
 }
 
-fn report_error(reader_handle: usize, msg: &str, txn_index: i64, execution_failed: usize) {
-    let err_msg = CString::new(msg).unwrap();
+fn report_error(reader_handle: usize, err: VMError) {
+    let err_msg = CString::new(err.msg).unwrap();
+    let execution_failed = if err.execution_failed { 1 } else { 0 };
     unsafe {
-        JunoReportError(reader_handle, txn_index, err_msg.as_ptr(), execution_failed);
+        JunoReportError(
+            reader_handle,
+            err.txn_index,
+            err_msg.as_ptr(),
+            execution_failed,
+        );
     };
 }
 
