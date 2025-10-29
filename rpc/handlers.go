@@ -53,12 +53,14 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	h.rpcv7Handler.WithFilterLimit(limit)
 	h.rpcv8Handler.WithFilterLimit(limit)
 	h.rpcv9Handler.WithFilterLimit(limit)
+	h.rpcv10Handler.WithFilterLimit(limit)
 	return h
 }
 
 func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
 	h.rpcv8Handler.WithL1Client(l1Client)
 	h.rpcv9Handler.WithL1Client(l1Client)
+	h.rpcv10Handler.WithL1Client(l1Client)
 	return h
 }
 
@@ -67,6 +69,7 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	h.rpcv7Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv8Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv9Handler.WithCallMaxSteps(maxSteps)
+	h.rpcv10Handler.WithCallMaxSteps(maxSteps)
 	return h
 }
 
@@ -75,6 +78,7 @@ func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
 	h.rpcv7Handler.WithCallMaxGas(maxGas)
 	h.rpcv8Handler.WithCallMaxGas(maxGas)
 	h.rpcv9Handler.WithCallMaxGas(maxGas)
+	h.rpcv10Handler.WithCallMaxGas(maxGas)
 	return h
 }
 
@@ -83,6 +87,7 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	h.rpcv7Handler.WithFeeder(feederClient)
 	h.rpcv8Handler.WithFeeder(feederClient)
 	h.rpcv9Handler.WithFeeder(feederClient)
+	h.rpcv10Handler.WithFeeder(feederClient)
 	return h
 }
 
@@ -91,6 +96,7 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	h.rpcv7Handler.WithGateway(gatewayClient)
 	h.rpcv8Handler.WithGateway(gatewayClient)
 	h.rpcv9Handler.WithGateway(gatewayClient)
+	h.rpcv10Handler.WithGateway(gatewayClient)
 	return h
 }
 
@@ -98,6 +104,7 @@ func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
 	h.rpcv6Handler.WithMempool(memPool)
 	h.rpcv8Handler.WithMempool(memPool)
 	h.rpcv9Handler.WithMempool(memPool)
+	h.rpcv10Handler.WithMempool(memPool)
 	return h
 }
 
@@ -106,6 +113,7 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache
 	h.rpcv7Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv8Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv9Handler.WithSubmittedTransactionsCache(cache)
+	h.rpcv10Handler.WithSubmittedTransactionsCache(cache)
 	return h
 }
 
@@ -120,6 +128,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	g.Go(func() error { return h.rpcv7Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv8Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv9Handler.Run(ctx) })
+	g.Go(func() error { return h.rpcv10Handler.Run(ctx) })
 
 	return g.Wait()
 }
