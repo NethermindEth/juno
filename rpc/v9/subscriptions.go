@@ -1241,7 +1241,7 @@ func sendEvent(w jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error
 
 // sendHeader creates a request and sends it to the client
 func sendHeader(w jsonrpc.Conn, header *core.Header, id string) error {
-	return sendResponse("starknet_subscriptionNewHeads", w, id, adaptBlockHeader(header))
+	return sendResponse("starknet_subscriptionNewHeads", w, id, AdaptBlockHeader(header))
 }
 
 func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {

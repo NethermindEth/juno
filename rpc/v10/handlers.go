@@ -46,8 +46,9 @@ type Handler struct {
 
 	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
 	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
-	// TODO(Ege):  replace rpcv9.TracedBlockTransaction with rpc10, state diff is different
 	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []rpcv9.TracedBlockTransaction]
+	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
+	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
 	callMaxSteps uint64
@@ -140,6 +141,11 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	return h
 }
 
+func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache) *Handler {
+	h.submittedTransactionsCache = cache
+	return h
+}
+
 // Currently only used for testing
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
@@ -172,83 +178,81 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 }
 
 // Currently only used for testing
-//
-//nolint:funlen // just registering methods for rpc v10
 func (h *Handler) methods() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
-		//{
-		//	Name:    "starknet_getStateUpdate",
-		//	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-		//	Handler: h.StateUpdate,
-		//},
-		//{
-		//	Name:    "starknet_getEvents",
-		//	Params:  []jsonrpc.Parameter{{Name: "filter"}},
-		//	Handler: h.Events,
-		//},
-		//{
-		//	Name:    "starknet_traceTransaction",
-		//	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-		//	Handler: h.TraceTransaction,
-		//},
-		//{
-		//	Name: "starknet_simulateTransactions",
-		//	Params: []jsonrpc.Parameter{
-		//		{Name: "block_id"},
-		//		{Name: "transactions"},
-		//		{Name: "simulation_flags"},
-		//	},
-		//	Handler: h.SimulateTransactions,
-		//},
-		//{
-		//	Name:    "starknet_traceBlockTransactions",
-		//	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-		//	Handler: h.TraceBlockTransactions,
-		//},
+		// {
+		// 	Name:    "starknet_getStateUpdate",
+		// 	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+		// 	Handler: h.StateUpdate,
+		// },
+		{
+			Name:    "starknet_getEvents",
+			Params:  []jsonrpc.Parameter{{Name: "filter"}},
+			Handler: h.Events,
+		},
+		// {
+		// 	Name:    "starknet_traceTransaction",
+		// 	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+		// 	Handler: h.TraceTransaction,
+		// },
+		// {
+		// 	Name: "starknet_simulateTransactions",
+		// 	Params: []jsonrpc.Parameter{
+		// 		{Name: "block_id"},
+		// 		{Name: "transactions"},
+		// 		{Name: "simulation_flags"},
+		// 	},
+		// 	Handler: h.SimulateTransactions,
+		// },
+		// {
+		// 	Name:    "starknet_traceBlockTransactions",
+		// 	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+		// 	Handler: h.TraceBlockTransactions,
+		// },
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.SpecVersion,
 		},
-		//{
-		//	Name: "starknet_subscribeEvents",
-		//	Params: []jsonrpc.Parameter{
-		//		{Name: "from_address", Optional: true},
-		//		{Name: "keys", Optional: true},
-		//		{Name: "block_id", Optional: true},
-		//		{Name: "finality_status", Optional: true},
-		//	},
-		//	Handler: h.SubscribeEvents,
-		//},
-		//{
-		//	Name: "starknet_subscribeNewTransactionReceipts",
-		//	Params: []jsonrpc.Parameter{
-		//		{Name: "sender_address", Optional: true},
-		//		{Name: "finality_status", Optional: true},
-		//	},
-		//	Handler: h.SubscribeNewTransactionReceipts,
-		//},
-		//{
-		//	Name:    "starknet_subscribeNewHeads",
-		//	Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
-		//	Handler: h.SubscribeNewHeads,
-		//},
-		//{
-		//	Name:    "starknet_subscribeTransactionStatus",
-		//	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-		//	Handler: h.SubscribeTransactionStatus,
-		//},
-		//{
-		//	Name: "starknet_subscribeNewTransactions",
-		//	Params: []jsonrpc.Parameter{
-		//		{Name: "finality_status", Optional: true},
-		//		{Name: "sender_address", Optional: true},
-		//	},
-		//	Handler: h.SubscribeNewTransactions,
-		//},
-		//{
-		//	Name:    "starknet_unsubscribe",
-		//	Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
-		//	Handler: h.Unsubscribe,
-		//},
+		{
+			Name: "starknet_subscribeEvents",
+			Params: []jsonrpc.Parameter{
+				{Name: "from_address", Optional: true},
+				{Name: "keys", Optional: true},
+				{Name: "block_id", Optional: true},
+				{Name: "finality_status", Optional: true},
+			},
+			Handler: h.SubscribeEvents,
+		},
+		{
+			Name: "starknet_subscribeNewTransactionReceipts",
+			Params: []jsonrpc.Parameter{
+				{Name: "sender_address", Optional: true},
+				{Name: "finality_status", Optional: true},
+			},
+			Handler: h.SubscribeNewTransactionReceipts,
+		},
+		{
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
+			Handler: h.SubscribeNewHeads,
+		},
+		{
+			Name:    "starknet_subscribeTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.SubscribeTransactionStatus,
+		},
+		{
+			Name: "starknet_subscribeNewTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: "finality_status", Optional: true},
+				{Name: "sender_address", Optional: true},
+			},
+			Handler: h.SubscribeNewTransactions,
+		},
+		{
+			Name:    "starknet_unsubscribe",
+			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
+			Handler: h.Unsubscribe,
+		},
 	}, "/v0_10"
 }
