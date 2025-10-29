@@ -21,7 +21,7 @@ var SyncTransactionBuilder = transactiontestutils.SyncTransactionBuilder[
 ]{
 	ToCore: func(
 		transaction core.Transaction,
-		class core.Class,
+		class core.ClassDefinition,
 		paidFeeOnL1 *felt.Felt,
 	) core.Transaction {
 		return transaction

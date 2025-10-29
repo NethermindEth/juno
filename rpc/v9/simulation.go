@@ -81,8 +81,18 @@ func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTr
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, skipFeeCharge, skipValidate, errOnRevert, true, true)
+	executionResults, err := h.vm.Execute(
+		txns,
+		classes,
+		paidFeesOnL1,
+		&blockInfo,
+		state,
+		skipFeeCharge,
+		skipValidate,
+		errOnRevert,
+		true,
+		true,
+	)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}
@@ -117,10 +127,10 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 }
 
 func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
-	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
+	[]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error,
 ) {
 	txns := make([]core.Transaction, len(transactions))
-	var classes []core.Class
+	var classes []core.ClassDefinition
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {

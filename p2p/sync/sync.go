@@ -198,7 +198,7 @@ func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEven
 type BlockBody struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.Class
+	NewClasses  map[felt.Felt]core.ClassDefinition
 	Commitments *core.BlockCommitments
 	Err         error
 }
@@ -371,7 +371,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 				return
 			}
 
-			newClasses := make(map[felt.Felt]core.Class)
+			newClasses := make(map[felt.Felt]core.ClassDefinition)
 			for _, cls := range classes {
 				coreC, err := p2p2core.AdaptClass(cls)
 				if err != nil {

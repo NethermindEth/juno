@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 )
@@ -96,7 +95,7 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 		Transactions: []core.Transaction{},
 		Receipts:     []*core.TransactionReceipt{},
 	}
-	newClasses := make(map[felt.Felt]core.Class)
+	newClasses := make(map[felt.Felt]core.ClassDefinition)
 	emptyStateDiff := core.EmptyStateDiff()
 	su := core.StateUpdate{
 		OldRoot:   header.GlobalStateRoot,
@@ -140,7 +139,12 @@ func (b *Builder) PendingState(buildState *BuildState) (core.StateReader, func()
 	}
 
 	// TODO: remove the state closer once we refactor the state
-	return sync.NewPendingState(buildState.Preconfirmed.StateUpdate.StateDiff, buildState.Preconfirmed.NewClasses, headState), headCloser, nil
+	return core.NewPendingState(
+			buildState.Preconfirmed.StateUpdate.StateDiff,
+			buildState.Preconfirmed.NewClasses,
+			headState,
+		),
+		headCloser, nil
 }
 
 func (b *Builder) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) error {

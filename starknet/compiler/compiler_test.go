@@ -18,7 +18,7 @@ import (
 
 func TestCompile(t *testing.T) {
 	t.Run("zero sierra", func(t *testing.T) {
-		_, err := compiler.Compile(&starknet.SierraDefinition{})
+		_, err := compiler.Compile(&starknet.SierraClass{})
 		require.Error(t, err)
 	})
 
@@ -28,13 +28,13 @@ func TestCompile(t *testing.T) {
 
 		classDef, err := cl.ClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
-		compiledDef, err := cl.CompiledClassDefinition(t.Context(), classHash)
+		compiledDef, err := cl.CasmClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
 
 		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)
 		require.NoError(t, err)
 
-		res, err := compiler.Compile(classDef.V1)
+		res, err := compiler.Compile(classDef.Sierra)
 		require.NoError(t, err)
 
 		gotCompiled, err := sn2core.AdaptCompiledClass(res)
@@ -44,7 +44,7 @@ func TestCompile(t *testing.T) {
 
 	t.Run("declare cairo2 class", func(t *testing.T) {
 		// tests https://github.com/NethermindEth/juno/issues/1748
-		definition := loadTestData[starknet.SierraDefinition](t, "declare_cairo2_definition.json")
+		definition := loadTestData[starknet.SierraClass](t, "declare_cairo2_definition.json")
 
 		_, err := compiler.Compile(&definition)
 		require.NoError(t, err)

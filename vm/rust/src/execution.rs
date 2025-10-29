@@ -325,7 +325,12 @@ where
 
             Ok((tx_info, tx_state))
         }
-        Err(error) => Err(SimulationError::ExecutionError(ExecutionError::new(error))),
+        Err(error) => {
+            if is_out_of_gas_error(&error) {
+                return Err(SimulationError::OutOfGas);
+            }
+            Err(SimulationError::ExecutionError(ExecutionError::new(error)))
+        }
     }
 }
 
@@ -417,12 +422,6 @@ where
 
     match tx {
         Transaction::Account(account_transaction) => {
-            // DEPLOY_ACCOUNT: Normal logic calculates max gas based on account balance, but account doesn't exist yet (balance = 0).
-            // This would set gas limit to zero, causing immediate "out of gas". Use max gas limit from versioned constants instead.
-            if is_deploy_account_transaction(tx) {
-                return Ok(get_default_max_sierra_gas_limit(block_context));
-            }
-
             // Retrieve the fee token address.
             let fee_token_address = block_context
                 .chain_info()
@@ -459,10 +458,16 @@ where
     }
 }
 
+const OUT_OF_GAS_CAIRO_STRING: &str = "0x4f7574206f6620676173 ('Out of gas')";
+
 fn is_out_of_gas(execution_info: &TransactionExecutionInfo) -> bool {
     if let Some(revert_error) = &execution_info.revert_error {
-        revert_error.to_string().contains("Out of gas")
+        revert_error.to_string().contains(OUT_OF_GAS_CAIRO_STRING)
     } else {
         false
     }
+}
+
+fn is_out_of_gas_error(error: &TransactionExecutionError) -> bool {
+    error.to_string().contains(OUT_OF_GAS_CAIRO_STRING)
 }

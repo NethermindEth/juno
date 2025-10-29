@@ -88,10 +88,10 @@ func (mr *MockStarknetDataMockRecorder) BlockPending(ctx any) *gomock.Call {
 }
 
 // Class mocks base method.
-func (m *MockStarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
+func (m *MockStarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Class", ctx, classHash)
-	ret0, _ := ret[0].(core.Class)
+	ret0, _ := ret[0].(core.ClassDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

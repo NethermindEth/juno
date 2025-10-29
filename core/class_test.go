@@ -108,7 +108,7 @@ func TestCompiledClassHash(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
-			got := class.(*core.Cairo1Class).Compiled.Hash()
+			got := class.(*core.SierraClass).Compiled.Hash()
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCompiledClassHash, got.String())
 		})
@@ -118,22 +118,22 @@ func TestCompiledClassHash(t *testing.T) {
 func TestClassEncoding(t *testing.T) {
 	tests := []struct {
 		name  string
-		class core.Class
+		class core.ClassDefinition
 	}{
 		{
 			name: "V0",
-			class: &core.Cairo0Class{
+			class: &core.DeprecatedCairoClass{
 				Abi: json.RawMessage("abi"),
-				Externals: []core.EntryPoint{
+				Externals: []core.DeprecatedEntryPoint{
 					{Selector: felt.NewUnsafeFromString[felt.Felt]("0x44"), Offset: felt.NewUnsafeFromString[felt.Felt]("0x37")},
 				},
-				L1Handlers:   []core.EntryPoint{},
-				Constructors: []core.EntryPoint{},
+				L1Handlers:   []core.DeprecatedEntryPoint{},
+				Constructors: []core.DeprecatedEntryPoint{},
 			},
 		},
 		{
 			name: "V1",
-			class: &core.Cairo1Class{
+			class: &core.SierraClass{
 				Abi:     "abi",
 				AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"),
 				EntryPoints: struct {
@@ -164,19 +164,19 @@ func TestClassEncoding(t *testing.T) {
 	}
 }
 
-func checkClassSymmetry(t *testing.T, input core.Class) {
+func checkClassSymmetry(t *testing.T, input core.ClassDefinition) {
 	t.Helper()
 
 	data, err := encoder.Marshal(input)
 	require.NoError(t, err)
 
-	var class core.Class
+	var class core.ClassDefinition
 	require.NoError(t, encoder.Unmarshal(data, &class))
 
 	switch v := class.(type) {
-	case *core.Cairo0Class:
+	case *core.DeprecatedCairoClass:
 		assert.Equal(t, input, v)
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		assert.Equal(t, input, v)
 	default:
 		assert.Fail(t, "not a class")
@@ -187,15 +187,17 @@ func TestVerifyClassHash(t *testing.T) {
 	type Tests struct {
 		name      string
 		classHash *felt.Felt
-		class     core.Class
+		class     core.ClassDefinition
 		wantErr   error
 	}
 
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	cairo1Class, err := gw.Class(t.Context(), cairo1ClassHash)
+	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
+	sierraClass, err := gw.Class(t.Context(), sierraClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with error", func(t *testing.T) {
@@ -203,21 +205,24 @@ func TestVerifyClassHash(t *testing.T) {
 			{
 				name:      "error if expected hash is not equal to gotten hash",
 				classHash: felt.NewUnsafeFromString[felt.Felt]("0xab"),
-				class:     cairo1Class,
-				wantErr: fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cairo1ClassHash.String(),
-					felt.NewUnsafeFromString[felt.Felt]("0xab").String()),
+				class:     sierraClass,
+				wantErr: fmt.Errorf(
+					"cannot verify class hash: calculated hash %v, received hash %v",
+					sierraClassHash.String(),
+					felt.NewUnsafeFromString[felt.Felt]("0xab").String(),
+				),
 			},
 			{
 				name:      "no error if expected hash is equal to gotten hash",
-				classHash: cairo1ClassHash,
-				class:     cairo1Class,
+				classHash: sierraClassHash,
+				class:     sierraClass,
 				wantErr:   nil,
 			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				err = core.VerifyClassHashes(map[felt.Felt]core.Class{
+				err = core.VerifyClassHashes(map[felt.Felt]core.ClassDefinition{
 					*tt.classHash: tt.class,
 				})
 				require.Equal(t, tt.wantErr, err)
@@ -225,14 +230,16 @@ func TestVerifyClassHash(t *testing.T) {
 		}
 	})
 
-	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	cairo0Class, err := gw.Class(t.Context(), cairo0ClassHash)
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
+	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with no error", func(t *testing.T) {
-		classMap := map[felt.Felt]core.Class{
-			*cairo1ClassHash: cairo1Class,
-			*cairo0ClassHash: cairo0Class,
+		classMap := map[felt.Felt]core.ClassDefinition{
+			*sierraClassHash:          sierraClass,
+			*deprecatedCairoClassHash: deprecatedCairoClass,
 		}
 
 		assert.NoError(t, core.VerifyClassHashes(classMap))
@@ -265,7 +272,7 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 
 func TestSierraVersion(t *testing.T) {
 	t.Run("cairo zero should return 0.0.0 by default", func(t *testing.T) {
-		class := core.Cairo0Class{}
+		class := core.DeprecatedCairoClass{}
 		sierraVersion := class.SierraVersion()
 		require.Equal(t, "0.0.0", sierraVersion)
 	})
@@ -278,7 +285,7 @@ func TestSierraVersion(t *testing.T) {
 				18446744073709551615,
 				576348180530977296,
 			})
-		class := core.Cairo1Class{
+		class := core.SierraClass{
 			Program: []*felt.Felt{
 				&sierraVersion010,
 			},
@@ -288,7 +295,7 @@ func TestSierraVersion(t *testing.T) {
 	})
 
 	t.Run("cairo one should return based on the program data", func(t *testing.T) {
-		class := core.Cairo1Class{
+		class := core.SierraClass{
 			Program: []*felt.Felt{
 				new(felt.Felt).SetUint64(7),
 				new(felt.Felt).SetUint64(3),
