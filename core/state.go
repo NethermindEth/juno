@@ -653,7 +653,7 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 		classHashes = append(classHashes, classHash.Clone())
 	}
 
-	classesTrie, classesCloser, err := s.classesTrie()
+	_, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
 	}
@@ -668,13 +668,6 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 
 		if err = s.txn.Delete(db.ClassKey(cHash)); err != nil {
 			return fmt.Errorf("delete class: %v", err)
-		}
-
-		// cairo1 class, update the class commitment trie as well
-		if declaredClass.Class.Version() == 1 {
-			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
-				return err
-			}
 		}
 	}
 	return classesCloser()
