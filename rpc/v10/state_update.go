@@ -1,14 +1,41 @@
-package rpcv9
+package rpcv10
 
 import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 )
+
+// https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909 //nolint:lll
+//
+//nolint:lll // URL exceeds line limit but should remain intact for reference
+type StateUpdate struct {
+	BlockHash *felt.Felt `json:"block_hash,omitempty"`
+	NewRoot   *felt.Felt `json:"new_root,omitempty"`
+	OldRoot   *felt.Felt `json:"old_root"`
+	StateDiff *StateDiff `json:"state_diff"`
+}
+
+type StateDiff struct {
+	StorageDiffs              []rpcv6.StorageDiff      `json:"storage_diffs"`
+	Nonces                    []rpcv6.Nonce            `json:"nonces"`
+	DeployedContracts         []rpcv6.DeployedContract `json:"deployed_contracts"`
+	DeprecatedDeclaredClasses []*felt.Felt             `json:"deprecated_declared_classes"`
+	DeclaredClasses           []rpcv6.DeclaredClass    `json:"declared_classes"`
+	ReplacedClasses           []rpcv6.ReplacedClass    `json:"replaced_classes"`
+	MigratedCompiledClasses   []MigratedCompiledClass  `json:"migrated_compiled_classes"`
+}
+
+type MigratedCompiledClass struct {
+	ClassHash         felt.SierraClassHash `json:"class_hash"`
+	CompiledClassHash felt.CasmClassHash   `json:"compiled_class_hash"`
+}
 
 /****************************************************
 		StateUpdate Handlers
@@ -17,14 +44,16 @@ import (
 // StateUpdate returns the state update identified by the given BlockID.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136
-func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136 //nolint:lll
+//
+//nolint:lll // URL exceeds line limit but should remain intact for reference
+func (h *Handler) StateUpdate(id *rpcv9.BlockID) (StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
-			return rpcv6.StateUpdate{}, rpccore.ErrBlockNotFound
+			return StateUpdate{}, rpccore.ErrBlockNotFound
 		}
-		return rpcv6.StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)
+		return StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	index := 0
@@ -84,41 +113,52 @@ func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
 		index++
 	}
 
-	return rpcv6.StateUpdate{
+	index = 0
+	migratedCompiledClasses := make([]MigratedCompiledClass, len(update.StateDiff.MigratedClasses))
+	for classHash, casmClassHash := range update.StateDiff.MigratedClasses {
+		migratedCompiledClasses[index] = MigratedCompiledClass{
+			ClassHash:         classHash,
+			CompiledClassHash: casmClassHash,
+		}
+		index++
+	}
+
+	return StateUpdate{
 		BlockHash: update.BlockHash,
 		OldRoot:   update.OldRoot,
 		NewRoot:   update.NewRoot,
-		StateDiff: &rpcv6.StateDiff{
+		StateDiff: &StateDiff{
 			DeprecatedDeclaredClasses: update.StateDiff.DeclaredV0Classes,
 			DeclaredClasses:           declaredClasses,
 			ReplacedClasses:           replacedClasses,
 			Nonces:                    nonces,
 			StorageDiffs:              storageDiffs,
 			DeployedContracts:         deployedContracts,
+			MigratedCompiledClasses:   migratedCompiledClasses,
 		},
 	}, nil
 }
 
-func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
-	switch id.Type() {
-	case latest:
+func (h *Handler) stateUpdateByID(id *rpcv9.BlockID) (*core.StateUpdate, error) {
+	switch {
+	case id.IsLatest():
 		if height, heightErr := h.bcReader.Height(); heightErr != nil {
 			return nil, heightErr
 		} else {
 			return h.bcReader.StateUpdateByNumber(height)
 		}
-	case preConfirmed:
+	case id.IsPreConfirmed():
 		var pending core.PendingData
 		pending, err := h.PendingData()
 		if err != nil {
 			return nil, err
 		}
 		return pending.GetStateUpdate(), nil
-	case hash:
+	case id.IsHash():
 		return h.bcReader.StateUpdateByHash(id.Hash())
-	case number:
+	case id.IsNumber():
 		return h.bcReader.StateUpdateByNumber(id.Number())
-	case l1Accepted:
+	case id.IsL1Accepted():
 		l1Head, err := h.bcReader.L1Head()
 		if err != nil {
 			return nil, err

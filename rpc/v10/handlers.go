@@ -180,11 +180,11 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 // Currently only used for testing
 func (h *Handler) methods() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
-		// {
-		// 	Name:    "starknet_getStateUpdate",
-		// 	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-		// 	Handler: h.StateUpdate,
-		// },
+		{
+			Name:    "starknet_getStateUpdate",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.StateUpdate,
+		},
 		{
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},

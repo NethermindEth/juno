@@ -157,7 +157,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv9Handler.TransactionReceiptByHash,
+			Handler: h.rpcv10Handler.TransactionReceiptByHash,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -172,7 +172,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getStateUpdate",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv9Handler.StateUpdate,
+			Handler: h.rpcv10Handler.StateUpdate,
 		},
 		{
 			Name:    "starknet_syncing",
@@ -232,7 +232,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getTransactionStatus",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv9Handler.TransactionStatus,
+			Handler: h.rpcv10Handler.TransactionStatus,
 		},
 		{
 			Name:    "starknet_call",
