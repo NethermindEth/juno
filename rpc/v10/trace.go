@@ -1,4 +1,4 @@
-package rpcv9
+package rpcv10
 
 import (
 	"context"
@@ -14,50 +14,21 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
 type TransactionTrace struct {
-	Type                  TransactionType     `json:"type"`
-	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
-	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
-	FunctionInvocation    *ExecuteInvocation  `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
-	StateDiff             *rpcv6.StateDiff    `json:"state_diff,omitempty"`
-	ExecutionResources    *ExecutionResources `json:"execution_resources"`
-}
-
-type ExecuteInvocation struct {
-	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
-}
-
-func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
-	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
-	}
-	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
-}
-
-type FunctionInvocation struct {
-	ContractAddress    felt.Felt                    `json:"contract_address"`
-	EntryPointSelector *felt.Felt                   `json:"entry_point_selector"`
-	Calldata           []felt.Felt                  `json:"calldata"`
-	CallerAddress      felt.Felt                    `json:"caller_address"`
-	ClassHash          *felt.Felt                   `json:"class_hash"`
-	EntryPointType     string                       `json:"entry_point_type"` // todo(rdr): use an enum here
-	CallType           string                       `json:"call_type"`        // todo(rdr): use an enum here
-	Result             []felt.Felt                  `json:"result"`
-	Calls              []FunctionInvocation         `json:"calls"`
-	Events             []rpcv6.OrderedEvent         `json:"events"`
-	Messages           []rpcv6.OrderedL2toL1Message `json:"messages"`
-	ExecutionResources *InnerExecutionResources     `json:"execution_resources"`
-	IsReverted         bool                         `json:"is_reverted"`
+	Type                  rpcv9.TransactionType     `json:"type"`
+	ValidateInvocation    *rpcv9.FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *rpcv9.ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"` //nolint:lll // struct tag exceeds line limit
+	FeeTransferInvocation *rpcv9.FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ConstructorInvocation *rpcv9.FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"` //nolint:lll // struct tag exceeds line limit
+	FunctionInvocation    *rpcv9.ExecuteInvocation  `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`        //nolint:lll // struct tag exceeds line limit
+	StateDiff             *StateDiff                `json:"state_diff,omitempty"`
+	ExecutionResources    *rpcv9.ExecutionResources `json:"execution_resources"`
 }
 
 /****************************************************
@@ -67,17 +38,22 @@ type FunctionInvocation struct {
 // TraceTransaction returns the trace for a given executed transaction, including internal calls
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L11
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L11 //nolint:lll
+//
+//nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) TraceTransaction(
 	ctx context.Context, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
+	// Try to find and trace transaction in finalised blocks
 	if trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash); err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
 	}
+
+	// Try to find and trace transaction in pending data
 	trace, header, err := h.findAndTraceInPendingData(hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
@@ -92,7 +68,7 @@ func (h *Handler) TraceTransaction(
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) TraceBlockTransactions(
-	ctx context.Context, id *BlockID,
+	ctx context.Context, id *rpcv9.BlockID,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	if id.IsPreConfirmed() {
 		return nil, defaultExecutionHeader(), rpccore.ErrCallOnPreConfirmed
@@ -109,7 +85,7 @@ func (h *Handler) TraceBlockTransactions(
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579 //nolint:lll
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
-func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) Call(funcCall *rpcv9.FunctionCall, id *rpcv9.BlockID) ([]*felt.Felt, *jsonrpc.Error) {
 	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -149,7 +125,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
-		return nil, MakeContractError(json.RawMessage(err.Error()))
+		return nil, rpcv9.MakeContractError(json.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
 		// the blockifier 0.13.4 update requires us to check if the execution failed,
@@ -163,7 +139,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
 		}
 		// Todo: There is currently no standardised way to format these error messages
-		return nil, MakeContractError(json.RawMessage(strErr))
+		return nil, rpcv9.MakeContractError(json.RawMessage(strErr))
 	}
 	return res.Result, nil
 }
@@ -217,7 +193,7 @@ func traceTransactionsWithState(
 		false, // allowNoSignature
 	)
 
-	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
+	httpHeader.Set(rpcv9.ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if vmErr != nil {
 		if errors.Is(vmErr, utils.ErrResourceBusy) {
@@ -232,8 +208,8 @@ func traceTransactionsWithState(
 		// Adapt vm transaction trace to rpc v9 trace and add root level execution resources
 		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
 
-		trace.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
+		trace.ExecutionResources = &rpcv9.ExecutionResources{
+			InnerExecutionResources: rpcv9.InnerExecutionResources{
 				L1Gas: executionResult.GasConsumed[index].L1Gas,
 				L2Gas: executionResult.GasConsumed[index].L2Gas,
 			},
@@ -312,11 +288,11 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
 }
 
+// TODO: Add support for prelatest block tracing.
 // findAndTraceInPendingData searches for a transaction across all pending data sources.
 //
 // This function searches in the following order:
 // 1. Main pending block (can be pending or preconfirmed based on protocol version)
-// 2. Prelatest block (if available when protocol version is >= 0.14.0)
 //
 // Returns ErrTxnHashNotFound if the transaction is not found in any pending data source.
 func (h *Handler) findAndTraceInPendingData(
@@ -327,12 +303,7 @@ func (h *Handler) findAndTraceInPendingData(
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	if trace, header, err := h.findAndTraceInPendingBlock(pendingData, hash); err == nil {
-		return trace, header, nil
-	} else if err != rpccore.ErrTxnHashNotFound {
-		return TransactionTrace{}, nil, err
-	}
-	return h.findAndTraceInPrelatestBlock(pendingData, hash)
+	return h.findAndTraceInPendingBlock(pendingData, hash)
 }
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pending/pre_confirmed block.
@@ -359,58 +330,6 @@ func (h *Handler) findAndTraceInPendingBlock(
 		// Unknown variant - this should not happen in normal operation
 		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 	}
-}
-
-// findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
-func (h *Handler) findAndTraceInPrelatestBlock(
-	pendingData core.PendingData, hash *felt.Felt,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	preLatest := pendingData.GetPreLatest()
-	if preLatest == nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-	}
-
-	txIndex, err := findTransactionInBlock(preLatest.Block, hash)
-	if err != nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-	}
-
-	return h.traceInPrelatestBlock(preLatest, txIndex)
-}
-
-// traceInPrelatestBlock traces a transaction in the prelatest block.
-func (h *Handler) traceInPrelatestBlock(
-	preLatest *core.PreLatest, txIndex uint,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	state, closer, err := h.bcReader.StateAtBlockHash(preLatest.Block.ParentHash)
-	if err != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrBlockNotFound
-	}
-	defer h.callAndLogErr(closer, "Failed to close state in tracePreLatestTransaction")
-
-	preLatestState := core.NewPendingState(
-		preLatest.StateUpdate.StateDiff,
-		preLatest.NewClasses,
-		state,
-	)
-
-	blockInfo, rpcErr := h.buildBlockInfo(preLatest.Block.Header)
-	if rpcErr != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
-	}
-
-	traces, httpHeader, rpcErr := traceTransactionsWithState(
-		h.vm,
-		preLatest.Block.Transactions,
-		state,
-		preLatestState,
-		&blockInfo,
-	)
-	if rpcErr != nil {
-		return TransactionTrace{}, httpHeader, rpcErr
-	}
-
-	return *traces[txIndex].TraceRoot, httpHeader, nil
 }
 
 // traceInPreConfirmedBlock traces a transaction in a preconfirmed block.
@@ -534,14 +453,6 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 func (h *Handler) fetchTracesFromFeederGateway(
 	ctx context.Context, block *core.Block,
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	// todo(rdr): this feels unnatural, why if I have the `core.Block` should I still
-	// try to go for the rpcBlock? Ideally we extract all the info directly from `core.Block`
-	blockID := BlockIDFromHash(block.Hash)
-	rpcBlock, rpcErr := h.BlockWithTxs(&blockID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
 	if h.feederClient == nil {
 		return nil, rpccore.ErrInternal.CloneWithData("no feeder client configured")
 	}
@@ -551,7 +462,7 @@ func (h *Handler) fetchTracesFromFeederGateway(
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces, err := AdaptFeederBlockTrace(rpcBlock, blockTrace)
+	traces, err := AdaptFeederBlockTrace(block, blockTrace)
 	if err != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
@@ -620,8 +531,8 @@ func fillFeederGatewayData(
 	for index, trace := range traces {
 		tgs := totalGasConsumed[*trace.TransactionHash]
 
-		traces[index].TraceRoot.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
+		traces[index].TraceRoot.ExecutionResources = &rpcv9.ExecutionResources{
+			InnerExecutionResources: rpcv9.InnerExecutionResources{
 				L1Gas: tgs.L1Gas,
 				L2Gas: tgs.L2Gas,
 			},
@@ -636,7 +547,7 @@ func fillFeederGatewayData(
 // with the execution steps header set to "0".
 func defaultExecutionHeader() http.Header {
 	header := http.Header{}
-	header.Set(ExecutionStepsHeader, "0")
+	header.Set(rpcv9.ExecutionStepsHeader, "0")
 	return header
 }
 

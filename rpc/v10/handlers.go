@@ -17,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -46,7 +45,7 @@ type Handler struct {
 
 	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
 	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
-	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []rpcv9.TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
 	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 
@@ -93,7 +92,7 @@ func New(
 
 		blockTraceCache: lru.NewCache[
 			rpccore.TraceCacheKey,
-			[]rpcv9.TracedBlockTransaction,
+			[]TracedBlockTransaction,
 		](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
@@ -181,6 +180,16 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 func (h *Handler) methods() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
 		{
+			Name:    "starknet_getTransactionReceipt",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.TransactionReceiptByHash,
+		},
+		{
+			Name:    "starknet_getTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.TransactionStatus,
+		},
+		{
 			Name:    "starknet_getStateUpdate",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.StateUpdate,
@@ -190,25 +199,25 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) {
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: h.Events,
 		},
-		// {
-		// 	Name:    "starknet_traceTransaction",
-		// 	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-		// 	Handler: h.TraceTransaction,
-		// },
-		// {
-		// 	Name: "starknet_simulateTransactions",
-		// 	Params: []jsonrpc.Parameter{
-		// 		{Name: "block_id"},
-		// 		{Name: "transactions"},
-		// 		{Name: "simulation_flags"},
-		// 	},
-		// 	Handler: h.SimulateTransactions,
-		// },
-		// {
-		// 	Name:    "starknet_traceBlockTransactions",
-		// 	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-		// 	Handler: h.TraceBlockTransactions,
-		// },
+		{
+			Name:    "starknet_traceTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.TraceTransaction,
+		},
+		{
+			Name: "starknet_simulateTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "transactions"},
+				{Name: "simulation_flags"},
+			},
+			Handler: h.SimulateTransactions,
+		},
+		{
+			Name:    "starknet_traceBlockTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.TraceBlockTransactions,
+		},
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.SpecVersion,

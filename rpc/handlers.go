@@ -251,23 +251,23 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
 			Handler: h.rpcv9Handler.EstimateMessageFee,
 		},
-		// {
-		// 	Name:    "starknet_traceTransaction",
-		// 	Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-		// 	Handler: h.rpcv10Handler.TraceTransaction,
-		// },
-		// {
-		// 	Name: "starknet_simulateTransactions",
-		// 	Params: []jsonrpc.Parameter{
-		// 		{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"},
-		// 	},
-		// 	Handler: h.rpcv10Handler.SimulateTransactions,
-		// },
-		// {
-		// 	Name:    "starknet_traceBlockTransactions",
-		// 	Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-		// 	Handler: h.rpcv10Handler.TraceBlockTransactions,
-		// },
+		{
+			Name:    "starknet_traceTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.rpcv10Handler.TraceTransaction,
+		},
+		{
+			Name: "starknet_simulateTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"},
+			},
+			Handler: h.rpcv10Handler.SimulateTransactions,
+		},
+		{
+			Name:    "starknet_traceBlockTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.rpcv10Handler.TraceBlockTransactions,
+		},
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.rpcv10Handler.SpecVersion,
