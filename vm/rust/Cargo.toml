@@ -2,6 +2,7 @@
 name = "juno-starknet-rs"
 version = "0.0.0"
 edition = "2021"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,6 +12,7 @@ serde_json = { version = "1.0.125", features = ["raw_value"] }
 blockifier = { version = "0.15.0-rc.4", features = ["node_api"] }
 cairo-lang-casm = "=2.12.0-dev.1"
 cairo-lang-starknet-classes = "=2.12.0-dev.1"
+cairo-lang-utils = "=2.12.0-dev.1"
 cairo-lang-runner = { version =  "=2.12.0-dev.1" }
 starknet_api = "0.15.0-rc.4"
 cairo-vm = "=2.3.1"
@@ -24,6 +26,11 @@ anyhow = "1.0.81"
 prost = "0.13"
 prost-types = "0.13"
 bytes = "1"
+num-bigint = "0.4"
+num-traits = "0.2"
 
 [lib]
 crate-type = ["staticlib"]
+
+[build-dependencies]
+prost-build = "0.11"

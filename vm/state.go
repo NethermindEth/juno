@@ -73,7 +73,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 }
 
 //export JunoStateGetCompiledClass
-func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointer) C.struct_JunoBytes {
+func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointer, out_len *C.size_t) unsafe.Pointer {
 	context := unwrapContext(readerHandle)
 
 	classHashFelt := makeFeltFromPtr(classHash)
@@ -82,24 +82,17 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Errorw("JunoStateGetCompiledClass failed to read class", "err", err)
 		}
-		return C.struct_JunoBytes{data: nil, len: 0}
+		return nil
 	}
 
-	buf, err := marshalClassInfoProtoBytes(val.Class)
+	compiledClass, err := marshalClassInfoProtoBytes(val.Class)
 	if err != nil {
 		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class (proto)", "err", err)
-		return C.struct_JunoBytes{data: nil, len: 0}
+		return nil
 	}
+	*out_len = C.size_t(len(compiledClass))
+	return unsafe.Pointer(cstring(compiledClass))
 
-	cptr := C.malloc(C.size_t(len(buf)))
-	if cptr == nil {
-		context.log.Errorw("JunoStateGetCompiledClass malloc failed", "size", len(buf))
-		return C.struct_JunoBytes{data: nil, len: 0}
-	}
-	dst := unsafe.Slice((*byte)(cptr), len(buf))
-	copy(dst, buf)
-
-	return C.struct_JunoBytes{data: cptr, len: C.size_t(len(buf))}
 }
 
 func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) C.int {

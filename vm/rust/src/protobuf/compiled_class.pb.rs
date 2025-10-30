@@ -1,0 +1,93 @@
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Felt {
+    #[prost(bytes = "vec", tag = "1")]
+    pub be32: ::prost::alloc::vec::Vec<u8>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SierraEntryPoint {
+    #[prost(uint64, tag = "1")]
+    pub index: u64,
+    #[prost(message, optional, tag = "2")]
+    pub selector: ::core::option::Option<Felt>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompiledEntryPoint {
+    #[prost(message, optional, tag = "1")]
+    pub selector: ::core::option::Option<Felt>,
+    #[prost(uint64, tag = "2")]
+    pub offset: u64,
+    #[prost(string, repeated, tag = "3")]
+    pub builtins: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CasmClass {
+    #[prost(string, tag = "1")]
+    pub prime: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub bytecode: ::prost::alloc::vec::Vec<Felt>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub hints_json: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub pythonic_hints_json: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "5")]
+    pub compiler_version: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "6")]
+    pub bytecode_segment_lengths: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, repeated, tag = "10")]
+    pub external: ::prost::alloc::vec::Vec<CompiledEntryPoint>,
+    #[prost(message, repeated, tag = "11")]
+    pub l1_handler: ::prost::alloc::vec::Vec<CompiledEntryPoint>,
+    #[prost(message, repeated, tag = "12")]
+    pub constructor: ::prost::alloc::vec::Vec<CompiledEntryPoint>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeprecatedEntryPoint {
+    #[prost(message, optional, tag = "1")]
+    pub selector: ::core::option::Option<Felt>,
+    #[prost(message, optional, tag = "2")]
+    pub offset: ::core::option::Option<Felt>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeprecatedCairoClass {
+    #[prost(bytes = "vec", tag = "1")]
+    pub abi_json: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, repeated, tag = "2")]
+    pub externals: ::prost::alloc::vec::Vec<DeprecatedEntryPoint>,
+    #[prost(message, repeated, tag = "3")]
+    pub l1_handlers: ::prost::alloc::vec::Vec<DeprecatedEntryPoint>,
+    #[prost(message, repeated, tag = "4")]
+    pub constructors: ::prost::alloc::vec::Vec<DeprecatedEntryPoint>,
+    #[prost(bytes = "vec", tag = "5")]
+    pub program_b64: ::prost::alloc::vec::Vec<u8>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CompiledClass {
+    #[prost(uint32, tag = "1")]
+    pub cairo_version: u32,
+    #[prost(uint32, tag = "2")]
+    pub abi_length: u32,
+    #[prost(uint32, tag = "3")]
+    pub sierra_program_length: u32,
+    #[prost(string, tag = "4")]
+    pub sierra_version: ::prost::alloc::string::String,
+    #[prost(oneof = "compiled_class::Class", tags = "10, 11")]
+    pub class: ::core::option::Option<compiled_class::Class>,
+}
+/// Nested message and enum types in `CompiledClass`.
+pub mod compiled_class {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Class {
+        #[prost(message, tag = "10")]
+        Deprecated(super::DeprecatedCairoClass),
+        #[prost(message, tag = "11")]
+        Casm(super::CasmClass),
+    }
+}

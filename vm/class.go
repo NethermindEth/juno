@@ -8,8 +8,9 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	junopb "github.com/NethermindEth/juno/vm/proto"
-	"github.com/gogo/protobuf/proto"
+	"github.com/NethermindEth/juno/utils"
+	junopb "github.com/NethermindEth/juno/vm/protobuf"
+	"google.golang.org/protobuf/proto"
 )
 
 func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
@@ -35,7 +36,6 @@ func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
 
-		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
 		classInfo.CairoVersion = 1
 		classInfo.Class = core2sn.AdaptCasmClass(c.Compiled)
 		classInfo.AbiLength = uint32(len(c.Abi))
@@ -47,7 +47,6 @@ func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
 	return json.Marshal(classInfo)
 }
 
-// NEW: helper to convert *felt.Felt into protobuf Felt
 func toPBFelt(f *felt.Felt) *junopb.Felt {
 	if f == nil {
 		return &junopb.Felt{Be32: make([]byte, felt.Bytes)}
@@ -58,33 +57,19 @@ func toPBFelt(f *felt.Felt) *junopb.Felt {
 	return &junopb.Felt{Be32: out}
 }
 
-// NEW: convert SegmentLengths (core) to protobuf
-func segToPB(in core.SegmentLengths) *junopb.SegmentLengths {
-	if len(in.Children) == 0 {
-		return &junopb.SegmentLengths{
-			Node: &junopb.SegmentLengths_Length{Length: in.Length},
-		}
-	}
-	children := make([]*junopb.SegmentLengths, 0, len(in.Children))
-	for _, c := range in.Children {
-		children = append(children, segToPB(c))
-	}
-	return &junopb.SegmentLengths{
-		Node: &junopb.SegmentLengths_Children_{
-			Children: &junopb.SegmentLengths_Children{Items: children},
-		},
-	}
-}
-
 func marshalClassInfoProtoBytes(class core.ClassDefinition) ([]byte, error) {
 	env := &junopb.CompiledClass{}
 
 	switch c := class.(type) {
 	case *core.DeprecatedCairoClass:
 		env.CairoVersion = 0
+		decompressedProgram, err := utils.Gzip64Decode(c.Program)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decompress program: %w", err)
+		}
 		dep := &junopb.DeprecatedCairoClass{
-			AbiJson:      []byte(c.Abi), // keep as bytes
-			ProgramB64:   []byte(c.Program),
+			AbiJson:      []byte(c.Abi),
+			ProgramB64:   decompressedProgram,
 			Externals:    make([]*junopb.DeprecatedEntryPoint, len(c.Externals)),
 			L1Handlers:   make([]*junopb.DeprecatedEntryPoint, len(c.L1Handlers)),
 			Constructors: make([]*junopb.DeprecatedEntryPoint, len(c.Constructors)),
@@ -114,12 +99,17 @@ func marshalClassInfoProtoBytes(class core.ClassDefinition) ([]byte, error) {
 		env.SierraVersion = c.SierraVersion()
 
 		cc := c.Compiled
+		bytecodeSegmentLengths, err := json.Marshal(cc.BytecodeSegmentLengths)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal bytecode segment lengths: %w", err)
+		}
 		pb := &junopb.CasmClass{
+			Prime:                  utils.ToHex(cc.Prime),
 			Bytecode:               make([]*junopb.Felt, len(cc.Bytecode)),
 			HintsJson:              []byte(cc.Hints),
 			PythonicHintsJson:      []byte(cc.PythonicHints),
 			CompilerVersion:        cc.CompilerVersion,
-			BytecodeSegmentLengths: segToPB(cc.BytecodeSegmentLengths),
+			BytecodeSegmentLengths: bytecodeSegmentLengths,
 			External:               make([]*junopb.CompiledEntryPoint, len(cc.External)),
 			L1Handler:              make([]*junopb.CompiledEntryPoint, len(cc.L1Handler)),
 			Constructor:            make([]*junopb.CompiledEntryPoint, len(cc.Constructor)),

@@ -66,14 +66,6 @@ extern void cairoVMExecute(
 
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);
-typedef struct JunoBytes {
-	void*  data;
-	size_t len;
-  } JunoBytes;
-  
-  extern struct JunoBytes JunoStateGetCompiledClass(uintptr_t readerHandle, void* class_hash_be32);
-  
-  extern void JunoFree(void* ptr);
 
 #endif // VM_FFI_H
 

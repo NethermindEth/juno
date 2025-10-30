@@ -3,7 +3,6 @@ pub mod error_stack;
 pub mod execution;
 pub mod jsonrpc;
 mod juno_state_reader;
-
 use crate::juno_state_reader::{ptr_to_felt, BlockHeight, JunoStateReader};
 use error::{CallError, ExecutionError};
 use error_stack::{ErrorStack, Frame};
@@ -109,12 +108,6 @@ pub struct ChainInfo {
     pub chain_id: *const c_char,
     pub eth_fee_token_address: [c_uchar; 32],
     pub strk_fee_token_address: [c_uchar; 32],
-}
-
-#[repr(C)]
-pub struct JunoBytes {
-    pub data: *mut core::ffi::c_void,
-    pub len: usize,
 }
 
 #[repr(C)]

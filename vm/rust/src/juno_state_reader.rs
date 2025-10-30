@@ -1,5 +1,6 @@
 use std::{
-    ffi::{c_char, c_int, c_uchar, c_void, CStr},
+    collections::HashMap,
+    ffi::{c_int, c_uchar, c_void},
     slice,
     str::FromStr,
     sync::Mutex,
@@ -13,19 +14,22 @@ use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use starknet_api::contract_class::{
-    ClassInfo as BlockifierClassInfo, ContractClass, SierraVersion,
+    ClassInfo as BlockifierClassInfo, ContractClass, SierraVersion, EntryPointType
 };
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
-
 use crate::BlockInfo;
+use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedClassDefinition, EntryPointV0};
+mod compiled_class_pb {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/protobuf/compiled_class.pb.rs"));
+}
+use prost::Message;
+use num_traits::Num;
 
 type StarkFelt = Felt;
 
 extern "C" {
-    fn JunoFree(ptr: *const c_void);
-
     fn JunoStateGetStorageAt(
         reader_handle: usize,
         contract_address: *const c_uchar,
@@ -44,9 +48,11 @@ extern "C" {
     ) -> c_int;
     fn JunoStateGetCompiledClass(
         reader_handle: usize,
-        class_hash_be32: *const core::ffi::c_void,
-    ) -> JunoBytes;
-    fn JunoFree(ptr: *mut core::ffi::c_void);
+        class_hash: *const c_uchar,
+        out_len: *mut usize,
+    )
+        -> *const c_uchar;
+    fn JunoFree(p: *const c_void) -> ();
 }
 
 struct CachedRunnableCompiledClass {
@@ -175,14 +181,14 @@ impl StateReader for JunoStateReader {
         }
 
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
-        let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
-        if ptr.is_null() {
+        let mut out_len: usize = 0;
+        let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr(), &mut out_len) };
+        if ptr.is_null() || out_len == 0 {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
-            let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
-            let class_info_res = class_info_from_json_str(json_str);
-
+            let bytes = unsafe { std::slice::from_raw_parts(ptr, out_len) };
             unsafe { JunoFree(ptr as *const c_void) };
+            let class_info_res = class_info_from_pb(bytes);
 
             match class_info_res {
                 Ok(class) => {
@@ -233,56 +239,149 @@ pub struct ClassInfo {
     sierra_version: String,
 }
 
-pub fn class_info_from_pb(mut bytes: &[u8]) -> anyhow::Result<starknet_api::contract_class::ClassInfo> {
-    let env = pb::ClassEnvelope::decode(&mut bytes)?;
-    match env.class {
-        Some(pb::class_envelope::Class::Casm(c)) if env.cairo_version == 1 => {
-            // build CasmContractClass (cairo-lang) then ClassInfo::V1
-            let casm = casm_from_pb(&c);                      // same helper as before, now felt_from_pb32
-            Ok(starknet_api::contract_class::ClassInfo {
-                cairo_version: starknet_api::contract_class::CairoVersion::V1(
-                    SierraVersion::from(env.sierra_version),
-                ),
-                contract_class: starknet_api::contract_class::RunnableClass::Casm(casm),
-                abi_length: env.abi_length as usize,
-                sierra_program_length: env.sierra_program_length as usize,
-            })
+pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
+    let class_info: ClassInfo = serde_json::from_str(raw_json)
+        .map_err(|err| format!("failed parsing class info: {:?}", err))?;
+
+    let class_def = class_info.contract_class.get();
+    let sierra_version: SierraVersion;
+    let sierra_len;
+    let abi_len;
+    let class: ContractClass = match class_info.cairo_version {
+        0 => {
+            sierra_version = SierraVersion::DEPRECATED;
+            sierra_len = 0;
+            abi_len = 0;
+            match parse_deprecated_class_definition(class_def.to_string()) {
+                Ok(class) => class,
+                Err(err) => return Err(format!("failed parsing deprecated class: {:?}", err)),
+            }
         }
-        Some(pb::class_envelope::Class::Deprecated(d)) if env.cairo_version == 0 => {
-            let dep = deprecated_from_pb(&d);                 // maps to starknet_api::deprecated_contract_class::ContractClass
-            Ok(starknet_api::contract_class::ClassInfo {
-                cairo_version: starknet_api::contract_class::CairoVersion::V0,
-                contract_class: starknet_api::contract_class::RunnableClass::Deprecated(ContractClass::from(dep)),
-                abi_length: env.abi_length as usize,
-                sierra_program_length: env.sierra_program_length as usize,
-            })
+        1 => {
+            sierra_version = SierraVersion::from_str(&class_info.sierra_version)
+                .map_err(|err| format!("failed parsing sierra version: {:?}", err))?;
+            sierra_len = class_info.sierra_program_length;
+            abi_len = class_info.abi_length;
+            match parse_casm_definition(class_def.to_string(), sierra_version.clone()) {
+                Ok(class) => class,
+                Err(err) => return Err(format!("failed parsing casm class: {:?}", err)),
+            }
         }
-        _ => anyhow::bail!("unsupported or missing class variant cairo_version={}", env.cairo_version),
-    }
+        _ => {
+            return Err(format!(
+                "unsupported class version: {}",
+                class_info.cairo_version
+            ))
+        }
+    };
+
+    BlockifierClassInfo::new(&class, sierra_len, abi_len, sierra_version)
+        .map_err(|err| format!("failed creating BlockifierClassInfo: {:?}", err))
 }
 
-fn felt_from_pb(f: &pb::Felt) -> starknet_api::hash::StarkFelt {
-    use starknet_api::hash::StarkFelt;
-    // expects 32-be big-endian. Prost gives Vec<u8>
-    let mut be = [0u8; 32];
-    let src = f.be32.as_slice();
-    let n = src.len().min(32);
-    be[32 - n..].copy_from_slice(&src[src.len() - n..]);
-    StarkFelt::new(be).unwrap()
+pub fn class_info_from_pb(mut bytes: &[u8]) -> Result<BlockifierClassInfo, String> {
+    let class_info = compiled_class_pb::CompiledClass::decode(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    let sierra_version: SierraVersion;
+    let sierra_len: usize;
+    let abi_len: usize;
+
+    let class: ContractClass = match class_info.class {
+        Some(compiled_class_pb::compiled_class::Class::Deprecated(dep)) => {
+            sierra_version = SierraVersion::DEPRECATED;
+            sierra_len = 0;
+            abi_len = 0;
+            match deprecated_class_from_pb(&dep) {
+                Ok(class) => class,
+                Err(err) => return Err(format!("failed parsing deprecated class: {:?}", err)),
+            }
+        }
+        Some(compiled_class_pb::compiled_class::Class::Casm(casm)) => {
+            sierra_version = SierraVersion::from_str(&class_info.sierra_version)
+                .map_err(|err| format!("failed parsing sierra version: {:?}", err))?;
+            sierra_len = class_info.sierra_program_length as usize;
+            abi_len = class_info.abi_length as usize;
+            match casm_definition_from_pb(&casm, sierra_version.clone()) {
+                Ok(class) => class,
+                Err(err) => return Err(format!("failed parsing casm class: {:?}", err)),
+            }
+        }
+        _ => {
+            return Err(format!(
+                "unsupported class version: {}",
+                class_info.cairo_version
+            ))
+        }
+    };
+    BlockifierClassInfo::new(&class, sierra_len, abi_len, sierra_version)
+    .map_err(|err| format!("failed creating BlockifierClassInfo: {:?}", err))
 }
 
-// Casm conversion into cairo-lang-starknet-classes::CasmContractClass
-fn casm_from_pb(c: &pb::CasmClass) -> cairo_lang_starknet_classes::casm_contract_class::CasmContractClass {
-    use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, EntryPoint, CasmContractEntryPoints};
-    use num_bigint::BigUint;
+fn parse_deprecated_class_definition(
+    definition: String,
+) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
+    let class: DeprecatedClassDefinition =
+        serde_json::from_str(&definition)?;
 
-    let bytecode = c.bytecode.iter().map(felt_from_pb).collect::<Vec<_>>();
+    Ok(starknet_api::contract_class::ContractClass::V0(class))
+}
 
-    let to_entries = |src: &Vec<pb::CompiledEntryPoint>| -> Vec<EntryPoint> {
-        src.iter().map(|e| EntryPoint {
-            selector: felt_from_pb(&e.selector),
+fn deprecated_class_from_pb(d: &compiled_class_pb::DeprecatedCairoClass) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
+    let to_ep = |v: &Vec<compiled_class_pb::DeprecatedEntryPoint>| -> Vec<EntryPointV0> {
+        v.iter().map(|e| EntryPointV0 {
+            selector: starknet_api::core::EntryPointSelector(
+                felt_from_pb(e.selector.as_ref().unwrap()),
+            ),
+            offset: starknet_api::deprecated_contract_class::EntryPointOffset(
+                pb_felt_to_usize(e.offset.as_ref().unwrap()),
+            ),
+        }).collect()
+    };
+
+    let abi: Option<Vec<starknet_api::deprecated_contract_class::ContractClassAbiEntry>> = serde_json::from_slice(&d.abi_json).ok();
+    let mut entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV0>> = HashMap::new();
+    entry_points_by_type.insert(EntryPointType::External, to_ep(&d.externals));
+    entry_points_by_type.insert(EntryPointType::L1Handler, to_ep(&d.l1_handlers));
+    entry_points_by_type.insert(EntryPointType::Constructor, to_ep(&d.constructors));
+    let program: starknet_api::deprecated_contract_class::Program = serde_json::from_slice(&d.program_b64)?; // TODO: HMMMMMM
+    Ok(starknet_api::contract_class::ContractClass::V0(
+        DeprecatedClassDefinition {
+            abi: abi,
+            entry_points_by_type: entry_points_by_type,
+            program: program,
+        }
+    ))
+}
+
+fn parse_casm_definition(
+    casm_definition: String,
+    sierra_version: starknet_api::contract_class::SierraVersion,
+) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
+    let class: CasmContractClass = serde_json::from_str(&casm_definition)?;
+
+    Ok(starknet_api::contract_class::ContractClass::V1((
+        class,
+        sierra_version,
+    )))
+}
+
+fn casm_definition_from_pb(
+    c: &compiled_class_pb::CasmClass,
+    sierra_version: starknet_api::contract_class::SierraVersion,
+) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
+    use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, CasmContractEntryPoint, CasmContractEntryPoints};
+
+    let bytecode = c
+        .bytecode
+        .iter()
+        .map(|f| cairo_lang_utils::bigint::BigUintAsHex::from(biguint_from_pb(f)))
+        .collect::<Vec<_>>();
+
+    let to_entries = |src: &Vec<compiled_class_pb::CompiledEntryPoint>| -> Vec<CasmContractEntryPoint> {
+        src.iter().map(|e| CasmContractEntryPoint {
+            selector: biguint_from_pb(e.selector.as_ref().unwrap()),
             offset: e.offset as usize,
-            builtin: e.builtins.clone(),
+            builtins: e.builtins.clone(),
         }).collect()
     };
 
@@ -292,50 +391,44 @@ fn casm_from_pb(c: &pb::CasmClass) -> cairo_lang_starknet_classes::casm_contract
         constructor: to_entries(&c.constructor),
     };
 
-    // Segment tree conversion
-    fn seg_from_pb(n: &pb::SegmentLengths) -> cairo_lang_starknet_classes::casm_contract_class::SegmentLengths {
-        use cairo_lang_starknet_classes::casm_contract_class::SegmentLengths as S;
-        match &n.node {
-            Some(pb::segment_lengths::Node::Length(len)) => S { length: *len as usize, children: vec![] },
-            Some(pb::segment_lengths::Node::Children(ch)) => S {
-                length: 0,
-                children: ch.items.iter().map(seg_from_pb).collect(),
-            },
-            None => S { length: 0, children: vec![] },
-        }
-    }
+    let hints: Vec<(usize, Vec<cairo_lang_casm::hints::Hint>)> = serde_json::from_slice(&c.hints_json).unwrap_or_default();
+    let pythonic_hints: Vec<(usize, Vec<String>)> = serde_json::from_slice(&c.pythonic_hints_json).unwrap_or_default();
+    let bytecode_segment_lengths = serde_json::from_slice(&c.bytecode_segment_lengths).ok();
 
-    CasmContractClass {
-        bytecode,
-        hints: String::from_utf8_lossy(&c.hints_json).to_string(),
-        pythonic_hints: String::from_utf8_lossy(&c.pythonic_hints_json).to_string(),
-        compiler_version: c.compiler_version.clone(),
-        bytecode_segment_lengths: seg_from_pb(&c.bytecode_segment_lengths),
-        entry_points_by_type: entry_points,
-    }
+    let prime = num_bigint::BigUint::from_str_radix(&c.prime.strip_prefix("0x").unwrap_or(&c.prime), 16)
+        .map_err(|e| anyhow::anyhow!("failed to parse prime: {}", e))?;
+    
+    Ok(starknet_api::contract_class::ContractClass::V1((
+        CasmContractClass {
+            prime: prime,
+            bytecode: bytecode,
+            hints: hints,
+            pythonic_hints: Some(pythonic_hints),
+            compiler_version: c.compiler_version.clone(),
+            bytecode_segment_lengths: bytecode_segment_lengths,
+            entry_points_by_type: entry_points,
+        },
+        sierra_version,
+    )))
 }
 
-// Deprecated conversion into starknet_api::deprecated_contract_class::ContractClass
-fn deprecated_from_pb(d: &pb::DeprecatedCairoClass) -> starknet_api::deprecated_contract_class::ContractClass {
-    use starknet_api::deprecated_contract_class::{ContractClass, EntryPointType, EntryPoint, ContractEntryPoints};
-    use serde_json::Value;
+fn felt_from_pb(f: &compiled_class_pb::Felt) -> StarkFelt {
+    use StarkFelt;
+    let mut be = [0u8; 32];
+    let src = f.be32.as_slice();
+    let n = src.len().min(32);
+    be[32 - n..].copy_from_slice(&src[src.len() - n..]);
+    StarkFelt::from_bytes_be(&be)
+}
 
-    let to_ep = |v: &Vec<pb::DeprecatedEntryPoint>| -> Vec<EntryPoint> {
-        v.iter().map(|e| EntryPoint {
-            selector: felt_from_pb(&e.selector),
-            offset: felt_from_pb(&e.offset), // matches your Go shape (offset as felt)
-        }).collect()
-    };
+fn biguint_from_pb(f: &compiled_class_pb::Felt) -> num_bigint::BigUint {
+    num_bigint::BigUint::from_bytes_be(f.be32.as_slice())
+}
 
-    let abi: Value = serde_json::from_slice(&d.abi_json).unwrap_or(serde_json::Value::Null);
-
-    ContractClass {
-        abi: Some(abi),
-        entry_points_by_type: ContractEntryPoints {
-            external: to_ep(&d.externals),
-            l1_handler: to_ep(&d.l1_handlers),
-            constructor: to_ep(&d.constructors),
-        },
-        program: String::from_utf8_lossy(&d.program_b64).to_string(),
-    }
+fn pb_felt_to_usize(f: &compiled_class_pb::Felt) -> usize {
+    let src = f.be32.as_slice();
+    let mut arr = [0u8; 8];
+    let n = src.len().min(8);
+    arr[8 - n..].copy_from_slice(&src[src.len() - n..]);
+    u64::from_be_bytes(arr) as usize
 }

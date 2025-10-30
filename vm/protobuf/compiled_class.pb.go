@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        v5.29.3
-// source: proto/compiled_class.proto
+// source: protobuf/compiled_class.proto
 
 package junopb
 
@@ -30,7 +30,7 @@ type Felt struct {
 
 func (x *Felt) Reset() {
 	*x = Felt{}
-	mi := &file_proto_compiled_class_proto_msgTypes[0]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +42,7 @@ func (x *Felt) String() string {
 func (*Felt) ProtoMessage() {}
 
 func (x *Felt) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[0]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +55,7 @@ func (x *Felt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Felt.ProtoReflect.Descriptor instead.
 func (*Felt) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{0}
+	return file_protobuf_compiled_class_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Felt) GetBe32() []byte {
@@ -64,88 +64,6 @@ func (x *Felt) GetBe32() []byte {
 	}
 	return nil
 }
-
-type SegmentLengths struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Node:
-	//
-	//	*SegmentLengths_Length
-	//	*SegmentLengths_Children_
-	Node          isSegmentLengths_Node `protobuf_oneof:"node"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SegmentLengths) Reset() {
-	*x = SegmentLengths{}
-	mi := &file_proto_compiled_class_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SegmentLengths) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SegmentLengths) ProtoMessage() {}
-
-func (x *SegmentLengths) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SegmentLengths.ProtoReflect.Descriptor instead.
-func (*SegmentLengths) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *SegmentLengths) GetNode() isSegmentLengths_Node {
-	if x != nil {
-		return x.Node
-	}
-	return nil
-}
-
-func (x *SegmentLengths) GetLength() uint64 {
-	if x != nil {
-		if x, ok := x.Node.(*SegmentLengths_Length); ok {
-			return x.Length
-		}
-	}
-	return 0
-}
-
-func (x *SegmentLengths) GetChildren() *SegmentLengths_Children {
-	if x != nil {
-		if x, ok := x.Node.(*SegmentLengths_Children_); ok {
-			return x.Children
-		}
-	}
-	return nil
-}
-
-type isSegmentLengths_Node interface {
-	isSegmentLengths_Node()
-}
-
-type SegmentLengths_Length struct {
-	Length uint64 `protobuf:"varint,1,opt,name=length,proto3,oneof"`
-}
-
-type SegmentLengths_Children_ struct {
-	Children *SegmentLengths_Children `protobuf:"bytes,2,opt,name=children,proto3,oneof"`
-}
-
-func (*SegmentLengths_Length) isSegmentLengths_Node() {}
-
-func (*SegmentLengths_Children_) isSegmentLengths_Node() {}
 
 type SierraEntryPoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -157,7 +75,7 @@ type SierraEntryPoint struct {
 
 func (x *SierraEntryPoint) Reset() {
 	*x = SierraEntryPoint{}
-	mi := &file_proto_compiled_class_proto_msgTypes[2]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -169,7 +87,7 @@ func (x *SierraEntryPoint) String() string {
 func (*SierraEntryPoint) ProtoMessage() {}
 
 func (x *SierraEntryPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[2]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -182,7 +100,7 @@ func (x *SierraEntryPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SierraEntryPoint.ProtoReflect.Descriptor instead.
 func (*SierraEntryPoint) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{2}
+	return file_protobuf_compiled_class_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SierraEntryPoint) GetIndex() uint64 {
@@ -210,7 +128,7 @@ type CompiledEntryPoint struct {
 
 func (x *CompiledEntryPoint) Reset() {
 	*x = CompiledEntryPoint{}
-	mi := &file_proto_compiled_class_proto_msgTypes[3]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +140,7 @@ func (x *CompiledEntryPoint) String() string {
 func (*CompiledEntryPoint) ProtoMessage() {}
 
 func (x *CompiledEntryPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[3]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +153,7 @@ func (x *CompiledEntryPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompiledEntryPoint.ProtoReflect.Descriptor instead.
 func (*CompiledEntryPoint) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{3}
+	return file_protobuf_compiled_class_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CompiledEntryPoint) GetSelector() *Felt {
@@ -261,11 +179,12 @@ func (x *CompiledEntryPoint) GetBuiltins() []string {
 
 type CasmClass struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Prime                  string                 `protobuf:"bytes,1,opt,name=prime,proto3" json:"prime,omitempty"`
 	Bytecode               []*Felt                `protobuf:"bytes,2,rep,name=bytecode,proto3" json:"bytecode,omitempty"`
-	HintsJson              []byte                 `protobuf:"bytes,3,opt,name=hints_json,json=hintsJson,proto3" json:"hints_json,omitempty"`                           // original JSON blob (unchanged semantics)
-	PythonicHintsJson      []byte                 `protobuf:"bytes,4,opt,name=pythonic_hints_json,json=pythonicHintsJson,proto3" json:"pythonic_hints_json,omitempty"` // original JSON blob (unchanged semantics)
+	HintsJson              []byte                 `protobuf:"bytes,3,opt,name=hints_json,json=hintsJson,proto3" json:"hints_json,omitempty"`
+	PythonicHintsJson      []byte                 `protobuf:"bytes,4,opt,name=pythonic_hints_json,json=pythonicHintsJson,proto3" json:"pythonic_hints_json,omitempty"`
 	CompilerVersion        string                 `protobuf:"bytes,5,opt,name=compiler_version,json=compilerVersion,proto3" json:"compiler_version,omitempty"`
-	BytecodeSegmentLengths *SegmentLengths        `protobuf:"bytes,6,opt,name=bytecode_segment_lengths,json=bytecodeSegmentLengths,proto3" json:"bytecode_segment_lengths,omitempty"`
+	BytecodeSegmentLengths []byte                 `protobuf:"bytes,6,opt,name=bytecode_segment_lengths,json=bytecodeSegmentLengths,proto3" json:"bytecode_segment_lengths,omitempty"`
 	External               []*CompiledEntryPoint  `protobuf:"bytes,10,rep,name=external,proto3" json:"external,omitempty"`
 	L1Handler              []*CompiledEntryPoint  `protobuf:"bytes,11,rep,name=l1_handler,json=l1Handler,proto3" json:"l1_handler,omitempty"`
 	Constructor            []*CompiledEntryPoint  `protobuf:"bytes,12,rep,name=constructor,proto3" json:"constructor,omitempty"`
@@ -275,7 +194,7 @@ type CasmClass struct {
 
 func (x *CasmClass) Reset() {
 	*x = CasmClass{}
-	mi := &file_proto_compiled_class_proto_msgTypes[4]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -287,7 +206,7 @@ func (x *CasmClass) String() string {
 func (*CasmClass) ProtoMessage() {}
 
 func (x *CasmClass) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[4]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -300,7 +219,14 @@ func (x *CasmClass) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CasmClass.ProtoReflect.Descriptor instead.
 func (*CasmClass) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{4}
+	return file_protobuf_compiled_class_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CasmClass) GetPrime() string {
+	if x != nil {
+		return x.Prime
+	}
+	return ""
 }
 
 func (x *CasmClass) GetBytecode() []*Felt {
@@ -331,7 +257,7 @@ func (x *CasmClass) GetCompilerVersion() string {
 	return ""
 }
 
-func (x *CasmClass) GetBytecodeSegmentLengths() *SegmentLengths {
+func (x *CasmClass) GetBytecodeSegmentLengths() []byte {
 	if x != nil {
 		return x.BytecodeSegmentLengths
 	}
@@ -359,7 +285,6 @@ func (x *CasmClass) GetConstructor() []*CompiledEntryPoint {
 	return nil
 }
 
-// Cairo 0 (deprecated) class — minimal shape that your Rust parser needs
 type DeprecatedEntryPoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Selector      *Felt                  `protobuf:"bytes,1,opt,name=selector,proto3" json:"selector,omitempty"`
@@ -370,7 +295,7 @@ type DeprecatedEntryPoint struct {
 
 func (x *DeprecatedEntryPoint) Reset() {
 	*x = DeprecatedEntryPoint{}
-	mi := &file_proto_compiled_class_proto_msgTypes[5]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +307,7 @@ func (x *DeprecatedEntryPoint) String() string {
 func (*DeprecatedEntryPoint) ProtoMessage() {}
 
 func (x *DeprecatedEntryPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[5]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +320,7 @@ func (x *DeprecatedEntryPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeprecatedEntryPoint.ProtoReflect.Descriptor instead.
 func (*DeprecatedEntryPoint) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{5}
+	return file_protobuf_compiled_class_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DeprecatedEntryPoint) GetSelector() *Felt {
@@ -414,18 +339,18 @@ func (x *DeprecatedEntryPoint) GetOffset() *Felt {
 
 type DeprecatedCairoClass struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
-	AbiJson       []byte                  `protobuf:"bytes,1,opt,name=abi_json,json=abiJson,proto3" json:"abi_json,omitempty"` // keep original ABI JSON blob intact
+	AbiJson       []byte                  `protobuf:"bytes,1,opt,name=abi_json,json=abiJson,proto3" json:"abi_json,omitempty"`
 	Externals     []*DeprecatedEntryPoint `protobuf:"bytes,2,rep,name=externals,proto3" json:"externals,omitempty"`
 	L1Handlers    []*DeprecatedEntryPoint `protobuf:"bytes,3,rep,name=l1_handlers,json=l1Handlers,proto3" json:"l1_handlers,omitempty"`
 	Constructors  []*DeprecatedEntryPoint `protobuf:"bytes,4,rep,name=constructors,proto3" json:"constructors,omitempty"`
-	ProgramB64    []byte                  `protobuf:"bytes,5,opt,name=program_b64,json=programB64,proto3" json:"program_b64,omitempty"` // original base64 program (unchanged)
+	ProgramB64    []byte                  `protobuf:"bytes,5,opt,name=program_b64,json=programB64,proto3" json:"program_b64,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeprecatedCairoClass) Reset() {
 	*x = DeprecatedCairoClass{}
-	mi := &file_proto_compiled_class_proto_msgTypes[6]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +362,7 @@ func (x *DeprecatedCairoClass) String() string {
 func (*DeprecatedCairoClass) ProtoMessage() {}
 
 func (x *DeprecatedCairoClass) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[6]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +375,7 @@ func (x *DeprecatedCairoClass) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeprecatedCairoClass.ProtoReflect.Descriptor instead.
 func (*DeprecatedCairoClass) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{6}
+	return file_protobuf_compiled_class_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeprecatedCairoClass) GetAbiJson() []byte {
@@ -490,10 +415,10 @@ func (x *DeprecatedCairoClass) GetProgramB64() []byte {
 
 type CompiledClass struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
-	CairoVersion        uint32                 `protobuf:"varint,1,opt,name=cairo_version,json=cairoVersion,proto3" json:"cairo_version,omitempty"`                        // 0 = deprecated, 1 = sierra/casm
-	AbiLength           uint32                 `protobuf:"varint,2,opt,name=abi_length,json=abiLength,proto3" json:"abi_length,omitempty"`                                 // passthrough metrics (unchanged)
-	SierraProgramLength uint32                 `protobuf:"varint,3,opt,name=sierra_program_length,json=sierraProgramLength,proto3" json:"sierra_program_length,omitempty"` // passthrough metrics (unchanged)
-	SierraVersion       string                 `protobuf:"bytes,4,opt,name=sierra_version,json=sierraVersion,proto3" json:"sierra_version,omitempty"`                      // “0.1.0”, “x.y.z”, etc.
+	CairoVersion        uint32                 `protobuf:"varint,1,opt,name=cairo_version,json=cairoVersion,proto3" json:"cairo_version,omitempty"`
+	AbiLength           uint32                 `protobuf:"varint,2,opt,name=abi_length,json=abiLength,proto3" json:"abi_length,omitempty"`
+	SierraProgramLength uint32                 `protobuf:"varint,3,opt,name=sierra_program_length,json=sierraProgramLength,proto3" json:"sierra_program_length,omitempty"`
+	SierraVersion       string                 `protobuf:"bytes,4,opt,name=sierra_version,json=sierraVersion,proto3" json:"sierra_version,omitempty"`
 	// Types that are valid to be assigned to Class:
 	//
 	//	*CompiledClass_Deprecated
@@ -505,7 +430,7 @@ type CompiledClass struct {
 
 func (x *CompiledClass) Reset() {
 	*x = CompiledClass{}
-	mi := &file_proto_compiled_class_proto_msgTypes[7]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -517,7 +442,7 @@ func (x *CompiledClass) String() string {
 func (*CompiledClass) ProtoMessage() {}
 
 func (x *CompiledClass) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[7]
+	mi := &file_protobuf_compiled_class_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -530,7 +455,7 @@ func (x *CompiledClass) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompiledClass.ProtoReflect.Descriptor instead.
 func (*CompiledClass) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{7}
+	return file_protobuf_compiled_class_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CompiledClass) GetCairoVersion() uint32 {
@@ -602,77 +527,28 @@ func (*CompiledClass_Deprecated) isCompiledClass_Class() {}
 
 func (*CompiledClass_Casm) isCompiledClass_Class() {}
 
-type SegmentLengths_Children struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*SegmentLengths      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
+var File_protobuf_compiled_class_proto protoreflect.FileDescriptor
 
-func (x *SegmentLengths_Children) Reset() {
-	*x = SegmentLengths_Children{}
-	mi := &file_proto_compiled_class_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SegmentLengths_Children) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SegmentLengths_Children) ProtoMessage() {}
-
-func (x *SegmentLengths_Children) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_compiled_class_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SegmentLengths_Children.ProtoReflect.Descriptor instead.
-func (*SegmentLengths_Children) Descriptor() ([]byte, []int) {
-	return file_proto_compiled_class_proto_rawDescGZIP(), []int{1, 0}
-}
-
-func (x *SegmentLengths_Children) GetItems() []*SegmentLengths {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
-var File_proto_compiled_class_proto protoreflect.FileDescriptor
-
-const file_proto_compiled_class_proto_rawDesc = "" +
+const file_protobuf_compiled_class_proto_rawDesc = "" +
 	"\n" +
-	"\x1aproto/compiled_class.proto\x12\ajuno.vm\"\x1a\n" +
+	"\x1dprotobuf/compiled_class.proto\x12\ajuno.vm\"\x1a\n" +
 	"\x04Felt\x12\x12\n" +
-	"\x04be32\x18\x01 \x01(\fR\x04be32\"\xad\x01\n" +
-	"\x0eSegmentLengths\x12\x18\n" +
-	"\x06length\x18\x01 \x01(\x04H\x00R\x06length\x12>\n" +
-	"\bchildren\x18\x02 \x01(\v2 .juno.vm.SegmentLengths.ChildrenH\x00R\bchildren\x1a9\n" +
-	"\bChildren\x12-\n" +
-	"\x05items\x18\x01 \x03(\v2\x17.juno.vm.SegmentLengthsR\x05itemsB\x06\n" +
-	"\x04node\"S\n" +
+	"\x04be32\x18\x01 \x01(\fR\x04be32\"S\n" +
 	"\x10SierraEntryPoint\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x04R\x05index\x12)\n" +
 	"\bselector\x18\x02 \x01(\v2\r.juno.vm.FeltR\bselector\"s\n" +
 	"\x12CompiledEntryPoint\x12)\n" +
 	"\bselector\x18\x01 \x01(\v2\r.juno.vm.FeltR\bselector\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x04R\x06offset\x12\x1a\n" +
-	"\bbuiltins\x18\x03 \x03(\tR\bbuiltins\"\xb7\x03\n" +
-	"\tCasmClass\x12)\n" +
+	"\bbuiltins\x18\x03 \x03(\tR\bbuiltins\"\xb4\x03\n" +
+	"\tCasmClass\x12\x14\n" +
+	"\x05prime\x18\x01 \x01(\tR\x05prime\x12)\n" +
 	"\bbytecode\x18\x02 \x03(\v2\r.juno.vm.FeltR\bbytecode\x12\x1d\n" +
 	"\n" +
 	"hints_json\x18\x03 \x01(\fR\thintsJson\x12.\n" +
 	"\x13pythonic_hints_json\x18\x04 \x01(\fR\x11pythonicHintsJson\x12)\n" +
-	"\x10compiler_version\x18\x05 \x01(\tR\x0fcompilerVersion\x12Q\n" +
-	"\x18bytecode_segment_lengths\x18\x06 \x01(\v2\x17.juno.vm.SegmentLengthsR\x16bytecodeSegmentLengths\x127\n" +
+	"\x10compiler_version\x18\x05 \x01(\tR\x0fcompilerVersion\x128\n" +
+	"\x18bytecode_segment_lengths\x18\x06 \x01(\fR\x16bytecodeSegmentLengths\x127\n" +
 	"\bexternal\x18\n" +
 	" \x03(\v2\x1b.juno.vm.CompiledEntryPointR\bexternal\x12:\n" +
 	"\n" +
@@ -703,63 +579,54 @@ const file_proto_compiled_class_proto_rawDesc = "" +
 	"\x05classB,Z*github.com/NethermindEth/juno/vm/pb;junopbb\x06proto3"
 
 var (
-	file_proto_compiled_class_proto_rawDescOnce sync.Once
-	file_proto_compiled_class_proto_rawDescData []byte
+	file_protobuf_compiled_class_proto_rawDescOnce sync.Once
+	file_protobuf_compiled_class_proto_rawDescData []byte
 )
 
-func file_proto_compiled_class_proto_rawDescGZIP() []byte {
-	file_proto_compiled_class_proto_rawDescOnce.Do(func() {
-		file_proto_compiled_class_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_compiled_class_proto_rawDesc), len(file_proto_compiled_class_proto_rawDesc)))
+func file_protobuf_compiled_class_proto_rawDescGZIP() []byte {
+	file_protobuf_compiled_class_proto_rawDescOnce.Do(func() {
+		file_protobuf_compiled_class_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_protobuf_compiled_class_proto_rawDesc), len(file_protobuf_compiled_class_proto_rawDesc)))
 	})
-	return file_proto_compiled_class_proto_rawDescData
+	return file_protobuf_compiled_class_proto_rawDescData
 }
 
-var file_proto_compiled_class_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
-var file_proto_compiled_class_proto_goTypes = []any{
-	(*Felt)(nil),                    // 0: juno.vm.Felt
-	(*SegmentLengths)(nil),          // 1: juno.vm.SegmentLengths
-	(*SierraEntryPoint)(nil),        // 2: juno.vm.SierraEntryPoint
-	(*CompiledEntryPoint)(nil),      // 3: juno.vm.CompiledEntryPoint
-	(*CasmClass)(nil),               // 4: juno.vm.CasmClass
-	(*DeprecatedEntryPoint)(nil),    // 5: juno.vm.DeprecatedEntryPoint
-	(*DeprecatedCairoClass)(nil),    // 6: juno.vm.DeprecatedCairoClass
-	(*CompiledClass)(nil),           // 7: juno.vm.CompiledClass
-	(*SegmentLengths_Children)(nil), // 8: juno.vm.SegmentLengths.Children
+var file_protobuf_compiled_class_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_protobuf_compiled_class_proto_goTypes = []any{
+	(*Felt)(nil),                 // 0: juno.vm.Felt
+	(*SierraEntryPoint)(nil),     // 1: juno.vm.SierraEntryPoint
+	(*CompiledEntryPoint)(nil),   // 2: juno.vm.CompiledEntryPoint
+	(*CasmClass)(nil),            // 3: juno.vm.CasmClass
+	(*DeprecatedEntryPoint)(nil), // 4: juno.vm.DeprecatedEntryPoint
+	(*DeprecatedCairoClass)(nil), // 5: juno.vm.DeprecatedCairoClass
+	(*CompiledClass)(nil),        // 6: juno.vm.CompiledClass
 }
-var file_proto_compiled_class_proto_depIdxs = []int32{
-	8,  // 0: juno.vm.SegmentLengths.children:type_name -> juno.vm.SegmentLengths.Children
-	0,  // 1: juno.vm.SierraEntryPoint.selector:type_name -> juno.vm.Felt
-	0,  // 2: juno.vm.CompiledEntryPoint.selector:type_name -> juno.vm.Felt
-	0,  // 3: juno.vm.CasmClass.bytecode:type_name -> juno.vm.Felt
-	1,  // 4: juno.vm.CasmClass.bytecode_segment_lengths:type_name -> juno.vm.SegmentLengths
-	3,  // 5: juno.vm.CasmClass.external:type_name -> juno.vm.CompiledEntryPoint
-	3,  // 6: juno.vm.CasmClass.l1_handler:type_name -> juno.vm.CompiledEntryPoint
-	3,  // 7: juno.vm.CasmClass.constructor:type_name -> juno.vm.CompiledEntryPoint
-	0,  // 8: juno.vm.DeprecatedEntryPoint.selector:type_name -> juno.vm.Felt
-	0,  // 9: juno.vm.DeprecatedEntryPoint.offset:type_name -> juno.vm.Felt
-	5,  // 10: juno.vm.DeprecatedCairoClass.externals:type_name -> juno.vm.DeprecatedEntryPoint
-	5,  // 11: juno.vm.DeprecatedCairoClass.l1_handlers:type_name -> juno.vm.DeprecatedEntryPoint
-	5,  // 12: juno.vm.DeprecatedCairoClass.constructors:type_name -> juno.vm.DeprecatedEntryPoint
-	6,  // 13: juno.vm.CompiledClass.deprecated:type_name -> juno.vm.DeprecatedCairoClass
-	4,  // 14: juno.vm.CompiledClass.casm:type_name -> juno.vm.CasmClass
-	1,  // 15: juno.vm.SegmentLengths.Children.items:type_name -> juno.vm.SegmentLengths
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+var file_protobuf_compiled_class_proto_depIdxs = []int32{
+	0,  // 0: juno.vm.SierraEntryPoint.selector:type_name -> juno.vm.Felt
+	0,  // 1: juno.vm.CompiledEntryPoint.selector:type_name -> juno.vm.Felt
+	0,  // 2: juno.vm.CasmClass.bytecode:type_name -> juno.vm.Felt
+	2,  // 3: juno.vm.CasmClass.external:type_name -> juno.vm.CompiledEntryPoint
+	2,  // 4: juno.vm.CasmClass.l1_handler:type_name -> juno.vm.CompiledEntryPoint
+	2,  // 5: juno.vm.CasmClass.constructor:type_name -> juno.vm.CompiledEntryPoint
+	0,  // 6: juno.vm.DeprecatedEntryPoint.selector:type_name -> juno.vm.Felt
+	0,  // 7: juno.vm.DeprecatedEntryPoint.offset:type_name -> juno.vm.Felt
+	4,  // 8: juno.vm.DeprecatedCairoClass.externals:type_name -> juno.vm.DeprecatedEntryPoint
+	4,  // 9: juno.vm.DeprecatedCairoClass.l1_handlers:type_name -> juno.vm.DeprecatedEntryPoint
+	4,  // 10: juno.vm.DeprecatedCairoClass.constructors:type_name -> juno.vm.DeprecatedEntryPoint
+	5,  // 11: juno.vm.CompiledClass.deprecated:type_name -> juno.vm.DeprecatedCairoClass
+	3,  // 12: juno.vm.CompiledClass.casm:type_name -> juno.vm.CasmClass
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_proto_compiled_class_proto_init() }
-func file_proto_compiled_class_proto_init() {
-	if File_proto_compiled_class_proto != nil {
+func init() { file_protobuf_compiled_class_proto_init() }
+func file_protobuf_compiled_class_proto_init() {
+	if File_protobuf_compiled_class_proto != nil {
 		return
 	}
-	file_proto_compiled_class_proto_msgTypes[1].OneofWrappers = []any{
-		(*SegmentLengths_Length)(nil),
-		(*SegmentLengths_Children_)(nil),
-	}
-	file_proto_compiled_class_proto_msgTypes[7].OneofWrappers = []any{
+	file_protobuf_compiled_class_proto_msgTypes[6].OneofWrappers = []any{
 		(*CompiledClass_Deprecated)(nil),
 		(*CompiledClass_Casm)(nil),
 	}
@@ -767,17 +634,17 @@ func file_proto_compiled_class_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_compiled_class_proto_rawDesc), len(file_proto_compiled_class_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_protobuf_compiled_class_proto_rawDesc), len(file_protobuf_compiled_class_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_proto_compiled_class_proto_goTypes,
-		DependencyIndexes: file_proto_compiled_class_proto_depIdxs,
-		MessageInfos:      file_proto_compiled_class_proto_msgTypes,
+		GoTypes:           file_protobuf_compiled_class_proto_goTypes,
+		DependencyIndexes: file_protobuf_compiled_class_proto_depIdxs,
+		MessageInfos:      file_protobuf_compiled_class_proto_msgTypes,
 	}.Build()
-	File_proto_compiled_class_proto = out.File
-	file_proto_compiled_class_proto_goTypes = nil
-	file_proto_compiled_class_proto_depIdxs = nil
+	File_protobuf_compiled_class_proto = out.File
+	file_protobuf_compiled_class_proto_goTypes = nil
+	file_protobuf_compiled_class_proto_depIdxs = nil
 }
