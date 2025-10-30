@@ -670,8 +670,7 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 			return fmt.Errorf("delete class: %v", err)
 		}
 
-		// cairo1 class, update the class commitment trie as well
-		if declaredClass.Class.Version() == 1 {
+		if _, ok := declaredClass.Class.(*SierraClass); ok {
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}

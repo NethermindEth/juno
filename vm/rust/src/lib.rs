@@ -10,7 +10,7 @@ use execution::process_transaction;
 use serde::Deserialize;
 use serde_json::json;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
     path::Path,
     slice,
@@ -69,6 +69,29 @@ pub static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<StarkFelt> = Lazy::new(|| {
     StarkFelt::from_hex("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
         .expect("Invalid hex string")
 });
+
+struct VMError {
+    msg: String,
+    txn_index: i64,
+    execution_failed: bool,
+}
+impl VMError {
+    fn block_error<E: ToString>(err: E) -> Self {
+        Self {
+            msg: err.to_string(),
+            txn_index: -1,
+            execution_failed: false,
+        }
+    }
+
+    fn tx_non_execution_error<E: ToString>(err: E, txn_index: usize) -> Self {
+        Self {
+            msg: err.to_string(),
+            txn_index: txn_index as i64,
+            execution_failed: false,
+        }
+    }
+}
 
 extern "C" {
     fn JunoReportError(
@@ -141,6 +164,31 @@ pub extern "C" fn cairoVMCall(
     err_stack: c_uchar,
     return_state_diff: c_uchar,
 ) {
+    cairo_vm_call(
+        call_info_ptr,
+        block_info_ptr,
+        chain_info_ptr,
+        reader_handle,
+        max_steps,
+        initial_gas,
+        concurrency_mode,
+        err_stack,
+        return_state_diff,
+    )
+    .unwrap_or_else(|err| report_error(reader_handle, err));
+}
+
+fn cairo_vm_call(
+    call_info_ptr: *const CallInfo,
+    block_info_ptr: *const BlockInfo,
+    chain_info_ptr: *const ChainInfo,
+    reader_handle: usize,
+    max_steps: c_ulonglong,
+    initial_gas: c_ulonglong,
+    concurrency_mode: c_uchar,
+    err_stack: c_uchar,
+    return_state_diff: c_uchar,
+) -> Result<(), VMError> {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
     let chain_info = unsafe { *chain_info_ptr };
@@ -165,7 +213,8 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
-    let contract_address = ContractAddress::try_from(contract_addr_felt).unwrap();
+    let contract_address =
+        ContractAddress::try_from(contract_addr_felt).map_err(VMError::block_error)?;
     let entry_point_selector = starknet_api::core::EntryPointSelector(entry_point_selector_felt);
 
     let mut entry_point = CallEntryPoint {
@@ -196,7 +245,7 @@ pub extern "C" fn cairoVMCall(
                     Some(max_steps),
                     concurrency_mode,
                 )
-                .unwrap(),
+                .map_err(VMError::block_error)?,
             ),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
@@ -207,50 +256,49 @@ pub extern "C" fn cairoVMCall(
     let call_info = entry_point
         .execute(&mut state, &mut context, &mut remaining_gas)
         .map_err(|e| {
-            CallError::from_entry_point_execution_error(
+            let e = CallError::from_entry_point_execution_error(
                 e,
                 contract_address,
                 class_hash.unwrap_or(ClassHash::default()),
                 entry_point_selector,
-            )
-        });
+            );
+            match e {
+                CallError::ContractError(revert_error, error_stack) => {
+                    let err_string = if structured_err_stack {
+                        error_stack_frames_to_json(error_stack).to_string()
+                    } else {
+                        json!(revert_error).to_string()
+                    };
+                    VMError::block_error(err_string)
+                }
+                CallError::Internal(e) | CallError::Custom(e) => VMError::block_error(e),
+            }
+        })?;
 
-    match call_info {
-        Err(CallError::ContractError(revert_error, error_stack)) => {
-            let err_string = if structured_err_stack {
-                error_stack_frames_to_json(error_stack).to_string()
-            } else {
-                json!(revert_error).to_string()
-            };
-            report_error(reader_handle, err_string.as_str(), -1, 0);
+    for data in call_info.execution.retdata.0 {
+        unsafe {
+            JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
         }
-        Err(CallError::Internal(e)) | Err(CallError::Custom(e)) => {
-            report_error(reader_handle, &e, -1, 0);
+    }
+    if call_info.execution.failed {
+        Err(VMError {
+            msg: "execution failed".to_string(),
+            txn_index: -1,
+            execution_failed: true,
+        })
+    } else {
+        // We only need to return the state_diff when creating the genesis state_diff.
+        // Calling this for all other RPC requests is a waste of resources.
+        if return_state_diff == 1 {
+            let state_diff = state
+                .to_state_diff()
+                .map_err(|_| VMError::block_error("failed to convert state diff"))?;
+            let json_state_diff = jsonrpc::StateDiff::from(state_diff.state_maps);
+            append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer)
+                .map_err(|err| VMError::block_error(err.to_string()))?;
         }
-        Ok(call_info) => {
-            if call_info.execution.failed {
-                report_error(reader_handle, "execution failed", -1, 1);
-            }
-            for data in call_info.execution.retdata.0 {
-                unsafe {
-                    JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
-                }
-            }
-            // We only need to return the state_diff when creating the genesis state_diff.
-            // Calling this for all other RPC requests is a waste of resources.
-            if return_state_diff == 1 {
-                match state.to_state_diff() {
-                    Ok(state_diff) => {
-                        let json_state_diff = jsonrpc::StateDiff::from(state_diff.state_maps);
-                        append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer);
-                    }
-                    Err(_) => {
-                        report_error(reader_handle, "failed to convert state diff", -1, 0);
-                    }
-                }
-            }
-        }
-    };
+        Ok(())
+    }
 }
 
 #[derive(Deserialize)]
@@ -276,44 +324,55 @@ pub extern "C" fn cairoVMExecute(
     err_stack: c_uchar,
     allow_binary_search: c_uchar,
 ) {
+    cairo_vm_execute(
+        txns_json,
+        classes_json,
+        paid_fees_on_l1_json,
+        block_info_ptr,
+        chain_info_ptr,
+        reader_handle,
+        skip_charge_fee,
+        skip_validate,
+        err_on_revert,
+        concurrency_mode,
+        err_stack,
+        allow_binary_search,
+    )
+    .unwrap_or_else(|err| report_error(reader_handle, err));
+}
+
+fn cairo_vm_execute(
+    txns_json: *const c_char,
+    classes_json: *const c_char,
+    paid_fees_on_l1_json: *const c_char,
+    block_info_ptr: *const BlockInfo,
+    chain_info_ptr: *const ChainInfo,
+    reader_handle: usize,
+    skip_charge_fee: c_uchar,
+    skip_validate: c_uchar,
+    err_on_revert: c_uchar,
+    concurrency_mode: c_uchar,
+    err_stack: c_uchar,
+    allow_binary_search: c_uchar,
+) -> Result<(), VMError> {
     let block_info = unsafe { *block_info_ptr };
     let chain_info = unsafe { *chain_info_ptr };
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
-    let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
-    let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
-        serde_json::from_str(txn_json_str);
-    if let Err(e) = txns_and_query_bits {
-        report_error(reader_handle, e.to_string().as_str(), -1, 0);
-        return;
-    }
+    let txns_and_query_bits: Vec<TxnAndQueryBit> = parse_json(txns_json)?;
 
-    let mut classes: Result<Vec<Box<serde_json::value::RawValue>>, serde_json::Error> = Ok(vec![]);
-    if !classes_json.is_null() {
-        let classes_json_str = unsafe { CStr::from_ptr(classes_json) }.to_str().unwrap();
-        classes = serde_json::from_str(classes_json_str);
-    }
-    if let Err(e) = classes {
-        report_error(reader_handle, e.to_string().as_str(), -1, 0);
-        return;
-    }
-
-    let paid_fees_on_l1_json_str = unsafe { CStr::from_ptr(paid_fees_on_l1_json) }
-        .to_str()
-        .unwrap();
-    let mut paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
-        Ok(f) => f,
-        Err(e) => {
-            report_error(reader_handle, e.to_string().as_str(), -1, 0);
-            return;
-        }
+    let mut classes: VecDeque<Box<serde_json::value::RawValue>> = if !classes_json.is_null() {
+        parse_json(classes_json)?
+    } else {
+        VecDeque::new()
     };
 
+    let mut paid_fees_on_l1: VecDeque<Box<Fee>> = parse_json(paid_fees_on_l1_json)?;
+
     let mut state = CachedState::new(reader);
-    let txns_and_query_bits = txns_and_query_bits.unwrap();
-    let mut classes = classes.unwrap();
     let concurrency_mode = concurrency_mode == 1;
-    let block_context: BlockContext =
-        build_block_context(&mut state, &block_info, &chain_info, None, concurrency_mode).unwrap();
+    let block_context =
+        build_block_context(&mut state, &block_info, &chain_info, None, concurrency_mode)
+            .map_err(VMError::block_error)?;
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
     let err_stack = err_stack == 1;
@@ -325,34 +384,24 @@ pub extern "C" fn cairoVMExecute(
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
-                if classes.is_empty() {
-                    report_error(reader_handle, "missing declared class", txn_index as i64, 0);
-                    return;
-                }
-                let class_json_str = classes.remove(0);
+                let class_json_str = classes.pop_front().ok_or_else(|| {
+                    VMError::tx_non_execution_error("missing declared class", txn_index)
+                })?;
 
-                let maybe_cc = class_info_from_json_str(class_json_str.get());
-                if let Err(e) = maybe_cc {
-                    report_error(reader_handle, e.to_string().as_str(), txn_index as i64, 0);
-                    return;
-                }
-                Some(maybe_cc.unwrap())
+                let class_info = class_info_from_json_str(class_json_str.get())
+                    .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+
+                Some(class_info)
             }
             _ => None,
         };
 
         let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
-                if paid_fees_on_l1.is_empty() {
-                    report_error(
-                        reader_handle,
-                        "missing fee paid on l1b",
-                        txn_index as i64,
-                        0,
-                    );
-                    return;
-                }
-                Some(*paid_fees_on_l1.remove(0))
+                let paid_fee_on_l1 = paid_fees_on_l1.pop_front().ok_or_else(|| {
+                    VMError::tx_non_execution_error("missing fee paid on l1", txn_index)
+                })?;
+                Some(*paid_fee_on_l1)
             }
             _ => None,
         };
@@ -369,94 +418,86 @@ pub extern "C" fn cairoVMExecute(
             strict_nonce_check: validate,
         };
 
-        let txn = transaction_from_api(
+        let mut txn = transaction_from_api(
             txn_and_query_bit.txn.clone(),
             txn_and_query_bit.txn_hash,
             class_info,
             paid_fee_on_l1,
             account_execution_flags,
-        );
-        if let Err(e) = txn {
-            report_error(reader_handle, e.to_string().as_str(), txn_index as i64, 0);
-            return;
-        }
+        )
+        .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
 
         let is_l1_handler_txn = false;
         let mut txn_state = CachedState::create_transactional(&mut state);
-        let mut txn = txn.unwrap();
         let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
 
-        match process_transaction(
+        let mut tx_execution_info = process_transaction(
             &mut txn,
             &mut txn_state,
             &block_context,
             err_on_revert,
             allow_binary_search,
-        ) {
-            Err(e) => match e {
-                ExecutionError::ExecutionError { error, error_stack } => {
-                    let err_string = if err_stack {
-                        error_stack_frames_to_json(error_stack).to_string()
-                    } else {
-                        json!(error).to_string()
-                    };
-                    report_error(reader_handle, err_string.as_str(), txn_index as i64, 0);
-                    return;
-                }
-                ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
-                    report_error(
-                        reader_handle,
-                        json!(e).to_string().as_str(),
-                        txn_index as i64,
-                        0,
-                    );
-                    return;
-                }
-            },
-            Ok(mut tx_execution_info) => {
-                // we are estimating fee, override actual fee calculation
-                if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
-                    adjust_fee_calculation_result(
-                        &mut tx_execution_info,
-                        &txn,
-                        &gas_vector_computation_mode,
-                        &block_context,
-                        reader_handle,
-                        txn_index,
-                    )
-                }
-
-                append_gas_and_fee(&tx_execution_info, reader_handle);
-
-                let transaction_receipt = jsonrpc::TransactionReceipt {
-                    gas: tx_execution_info.receipt.gas,
-                    da_gas: tx_execution_info.receipt.da_gas,
-                    fee: tx_execution_info.receipt.fee,
+        )
+        .map_err(|e| match e {
+            ExecutionError::ExecutionError { error, error_stack } => {
+                let err_string = if err_stack {
+                    error_stack_frames_to_json(error_stack).to_string()
+                } else {
+                    json!(error).to_string()
                 };
-                append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer);
-
-                let trace = jsonrpc::new_transaction_trace(
-                    &txn_and_query_bit.txn,
-                    tx_execution_info,
-                    &mut txn_state,
-                    block_context.versioned_constants(),
-                    &gas_vector_computation_mode,
-                );
-                if let Err(e) = trace {
-                    report_error(
-                        reader_handle,
-                        format!("failed building txn state diff reason: {:?}", e).as_str(),
-                        txn_index as i64,
-                        0,
-                    );
-                    return;
-                }
-
-                append_trace(reader_handle, trace.as_ref().unwrap(), &mut writer_buffer);
+                VMError::tx_non_execution_error(err_string, txn_index)
             }
+            ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
+                VMError::tx_non_execution_error(json!(e), txn_index)
+            }
+        })?;
+
+        // we are estimating fee, override actual fee calculation
+        if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
+            adjust_fee_calculation_result(
+                &mut tx_execution_info,
+                &txn,
+                &gas_vector_computation_mode,
+                &block_context,
+                txn_index,
+            )?
         }
+
+        append_gas_and_fee(&tx_execution_info, reader_handle);
+
+        let transaction_receipt = jsonrpc::TransactionReceipt {
+            gas: tx_execution_info.receipt.gas,
+            da_gas: tx_execution_info.receipt.da_gas,
+            fee: tx_execution_info.receipt.fee,
+        };
+        append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer)
+            .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+
+        let trace = jsonrpc::new_transaction_trace(
+            &txn_and_query_bit.txn,
+            tx_execution_info,
+            &mut txn_state,
+            block_context.versioned_constants(),
+            &gas_vector_computation_mode,
+        )
+        .map_err(|err| {
+            VMError::tx_non_execution_error(
+                format!("failed building txn state diff reason: {:?}", err),
+                txn_index,
+            )
+        })?;
+
+        append_trace(reader_handle, &trace, &mut writer_buffer)
+            .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
         txn_state.commit();
     }
+    Ok(())
+}
+
+fn parse_json<'de, T: Deserialize<'de>>(json_ptr: *const c_char) -> Result<T, VMError> {
+    let json_c_str = unsafe { CStr::from_ptr(json_ptr) };
+    let json_str = json_c_str.to_str().map_err(VMError::block_error)?;
+    serde_json::from_str(json_str).map_err(VMError::block_error)
 }
 
 fn adjust_fee_calculation_result(
@@ -464,9 +505,8 @@ fn adjust_fee_calculation_result(
     txn: &Transaction,
     gas_vector_computation_mode: &GasVectorComputationMode,
     block_context: &BlockContext,
-    reader_handle: usize,
     txn_index: usize,
-) {
+) -> Result<(), VMError> {
     let (minimal_gas_vector, fee_type) = match &txn {
         Transaction::Account(t) => (
             Some(gas_usage::estimate_minimal_gas_vector(
@@ -500,26 +540,22 @@ fn adjust_fee_calculation_result(
 
     match gas_vector_computation_mode {
         GasVectorComputationMode::NoL2Gas => {
-            let adjusted_l1_gas_consumed_wrapped = adjusted_l1_gas_consumed.checked_add(
-                block_context
-                    .versioned_constants()
-                    .sierra_gas_to_l1_gas_amount_round_up(adjusted_l2_gas_consumed),
-            );
-
-            if adjusted_l1_gas_consumed_wrapped.is_none() {
-                report_error(
-                    reader_handle,
-                    format!(
-                        "addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.",
-                        adjusted_l2_gas_consumed, adjusted_l1_gas_consumed
+            adjusted_l1_gas_consumed = adjusted_l1_gas_consumed
+                .checked_add(
+                    block_context
+                        .versioned_constants()
+                        .sierra_gas_to_l1_gas_amount_round_up(adjusted_l2_gas_consumed),
+                )
+                .ok_or_else(|| {
+                    VMError::tx_non_execution_error(
+                        format!(
+                            "addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.",
+                            adjusted_l2_gas_consumed, adjusted_l1_gas_consumed,
+                        ),
+                        txn_index,
                     )
-                    .as_str(),
-                    txn_index as i64,
-                    0,
-                );
-                return;
-            }
-            adjusted_l1_gas_consumed = adjusted_l1_gas_consumed_wrapped.unwrap();
+                })?;
+
             adjusted_l1_data_gas_consumed = adjusted_l1_data_gas_consumed;
             adjusted_l2_gas_consumed = GasAmount(0);
         }
@@ -546,7 +582,8 @@ fn adjust_fee_calculation_result(
         },
         &fee_type,
         tip,
-    )
+    );
+    Ok(())
 }
 
 fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
@@ -652,9 +689,9 @@ fn append_trace(
     reader_handle: usize,
     trace: &jsonrpc::TransactionTrace,
     writer_buffer: &mut Vec<u8>,
-) {
+) -> Result<(), serde_json::Error> {
     writer_buffer.clear();
-    serde_json::to_writer(&mut *writer_buffer, trace).unwrap();
+    serde_json::to_writer(&mut *writer_buffer, trace)?;
 
     let ptr = writer_buffer.as_ptr();
     let len = writer_buffer.len();
@@ -662,14 +699,16 @@ fn append_trace(
     unsafe {
         JunoAppendTrace(reader_handle, ptr as *const c_void, len);
     };
+    Ok(())
 }
+
 fn append_state_diff(
     reader_handle: usize,
     state_diff: &jsonrpc::StateDiff,
     writer_buffer: &mut Vec<u8>,
-) {
+) -> Result<(), serde_json::Error> {
     writer_buffer.clear();
-    serde_json::to_writer(&mut *writer_buffer, state_diff).unwrap();
+    serde_json::to_writer(&mut *writer_buffer, state_diff)?;
 
     let ptr = writer_buffer.as_ptr();
     let len = writer_buffer.len();
@@ -677,14 +716,16 @@ fn append_state_diff(
     unsafe {
         JunoAppendStateDiff(reader_handle, ptr as *const c_void, len);
     };
+    Ok(())
 }
+
 fn append_receipt(
     reader_handle: usize,
     trace: &jsonrpc::TransactionReceipt,
     writer_buffer: &mut Vec<u8>,
-) {
+) -> Result<(), serde_json::Error> {
     writer_buffer.clear();
-    serde_json::to_writer(&mut *writer_buffer, trace).unwrap();
+    serde_json::to_writer(&mut *writer_buffer, trace)?;
 
     let ptr = writer_buffer.as_ptr();
     let len = writer_buffer.len();
@@ -692,6 +733,7 @@ fn append_receipt(
     unsafe {
         JunoAppendReceipt(reader_handle, ptr as *const c_void, len);
     };
+    Ok(())
 }
 
 fn error_stack_frames_to_json(err_stack: ErrorStack) -> serde_json::Value {
@@ -726,10 +768,16 @@ fn error_stack_frames_to_json(err_stack: ErrorStack) -> serde_json::Value {
         })
 }
 
-fn report_error(reader_handle: usize, msg: &str, txn_index: i64, execution_failed: usize) {
-    let err_msg = CString::new(msg).unwrap();
+fn report_error(reader_handle: usize, err: VMError) {
+    let err_msg = CString::new(err.msg).unwrap();
+    let execution_failed = if err.execution_failed { 1 } else { 0 };
     unsafe {
-        JunoReportError(reader_handle, txn_index, err_msg.as_ptr(), execution_failed);
+        JunoReportError(
+            reader_handle,
+            err.txn_index,
+            err_msg.as_ptr(),
+            execution_failed,
+        );
     };
 }
 
@@ -778,7 +826,7 @@ fn build_block_context(
     let block_info = BlockifierBlockInfo {
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
-        sequencer_address: ContractAddress::try_from(sequencer_addr).unwrap(),
+        sequencer_address: ContractAddress::try_from(sequencer_addr)?,
         gas_prices: GasPrices {
             eth_gas_prices: GasPriceVector {
                 l1_gas_price: l1_gas_price_eth,
@@ -793,17 +841,15 @@ fn build_block_context(
         },
         use_kzg_da: block_info.use_blob_data == 1,
     };
-    let chain_id_str = unsafe { CStr::from_ptr(chain_info.chain_id) }
-        .to_str()
-        .unwrap();
+    let chain_id_str = unsafe { CStr::from_ptr(chain_info.chain_id) }.to_str()?;
     let eth_fee_token_felt = StarkFelt::from_bytes_be(&chain_info.eth_fee_token_address);
     let strk_fee_token_felt = StarkFelt::from_bytes_be(&chain_info.strk_fee_token_address);
 
     let chain_info = BlockifierChainInfo {
         chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
-            eth_fee_token_address: ContractAddress::try_from(eth_fee_token_felt).unwrap(),
-            strk_fee_token_address: ContractAddress::try_from(strk_fee_token_felt).unwrap(),
+            eth_fee_token_address: ContractAddress::try_from(eth_fee_token_felt)?,
+            strk_fee_token_address: ContractAddress::try_from(strk_fee_token_felt)?,
         },
     };
 
@@ -812,8 +858,7 @@ fn build_block_context(
         old_block_number_and_hash,
         block_info.block_number,
         constants.os_constants.as_ref(),
-    )
-    .unwrap();
+    )?;
 
     Ok(BlockContext::new(
         block_info,
