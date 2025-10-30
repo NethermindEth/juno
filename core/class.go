@@ -30,7 +30,6 @@ var SierraVersion010 felt.Felt = felt.Felt(
 	})
 
 type ClassDefinition interface {
-	Version() uint64
 	SierraVersion() string
 	Hash() (*felt.Felt, error)
 }
