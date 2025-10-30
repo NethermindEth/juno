@@ -24,7 +24,7 @@ func AdaptStateDiff(
 	)
 
 	for _, cls := range classes {
-		class, err := AdaptClass(cls)
+		class, err := AdaptClassDefinition(cls)
 		if err != nil {
 			return nil, fmt.Errorf("unsupported class: %w", err)
 		}

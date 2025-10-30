@@ -373,7 +373,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 
 			newClasses := make(map[felt.Felt]core.ClassDefinition)
 			for _, cls := range classes {
-				coreC, err := p2p2core.AdaptClass(cls)
+				coreC, err := p2p2core.AdaptClassDefinition(cls)
 				if err != nil {
 					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt class: %w", err)}
 					return

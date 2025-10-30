@@ -27,10 +27,16 @@ func AdaptDeclareV3WithClass(
 
 	declareCommon, err := AdaptDeclareV3TxnCommon(tx.Common, classHash, txnHash)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to adapt declare v3 transaction common: %w", err)
+		return nil,
+			nil,
+			fmt.Errorf("failed to adapt declare v3 transaction common: %w", err)
 	}
 	if *class.Compiled.Hash() != *declareCommon.CompiledClassHash {
-		err := fmt.Errorf("compiled class hash mismatch: expected %s, got %s", class.Compiled.Hash(), declareCommon.CompiledClassHash)
+		err := fmt.Errorf(
+			"compiled class hash mismatch: expected %s, got %s",
+			class.Compiled.Hash(),
+			declareCommon.CompiledClassHash,
+		)
 		return nil, nil, err
 	}
 
