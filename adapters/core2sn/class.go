@@ -36,22 +36,30 @@ func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
 		[]starknet.CompiledEntryPoint,
 		len(coreCasmClass.External),
 	)
-	for index, ep := range coreCasmClass.External {
-		feederCompiledClass.EntryPoints.External[index] = AdaptCasmEntryPoint(&ep)
+	for index := range coreCasmClass.External {
+		feederCompiledClass.EntryPoints.External[index] = AdaptCasmEntryPoint(
+			&coreCasmClass.External[index],
+		)
 	}
+
 	feederCompiledClass.EntryPoints.L1Handler = make(
 		[]starknet.CompiledEntryPoint,
 		len(coreCasmClass.L1Handler),
 	)
-	for index, ep := range coreCasmClass.L1Handler {
-		feederCompiledClass.EntryPoints.L1Handler[index] = AdaptCasmEntryPoint(&ep)
+	for index := range coreCasmClass.L1Handler {
+		feederCompiledClass.EntryPoints.L1Handler[index] = AdaptCasmEntryPoint(
+			&coreCasmClass.L1Handler[index],
+		)
 	}
+
 	feederCompiledClass.EntryPoints.Constructor = make(
 		[]starknet.CompiledEntryPoint,
 		len(coreCasmClass.Constructor),
 	)
-	for index, ep := range coreCasmClass.Constructor {
-		feederCompiledClass.EntryPoints.Constructor[index] = AdaptCasmEntryPoint(&ep)
+	for index := range coreCasmClass.Constructor {
+		feederCompiledClass.EntryPoints.Constructor[index] = AdaptCasmEntryPoint(
+			&coreCasmClass.Constructor[index],
+		)
 	}
 
 	return feederCompiledClass
@@ -66,16 +74,18 @@ func AdaptSierraEntryPoint(ep *core.SierraEntryPoint) starknet.SierraEntryPoint 
 
 func AdaptSierraClass(class *core.SierraClass) starknet.SierraClass {
 	constructors := make([]starknet.SierraEntryPoint, len(class.EntryPoints.Constructor))
-	for index, ep := range class.EntryPoints.Constructor {
-		constructors[index] = AdaptSierraEntryPoint(&ep)
+	for index := range class.EntryPoints.Constructor {
+		constructors[index] = AdaptSierraEntryPoint(&class.EntryPoints.Constructor[index])
 	}
+
 	external := make([]starknet.SierraEntryPoint, len(class.EntryPoints.External))
-	for index, ep := range class.EntryPoints.External {
-		external[index] = AdaptSierraEntryPoint(&ep)
+	for index := range class.EntryPoints.External {
+		external[index] = AdaptSierraEntryPoint(&class.EntryPoints.External[index])
 	}
+
 	handlers := make([]starknet.SierraEntryPoint, len(class.EntryPoints.L1Handler))
-	for index, ep := range class.EntryPoints.L1Handler {
-		handlers[index] = AdaptSierraEntryPoint(&ep)
+	for index := range class.EntryPoints.L1Handler {
+		handlers[index] = AdaptSierraEntryPoint(&class.EntryPoints.L1Handler[index])
 	}
 
 	return starknet.SierraClass{
@@ -104,17 +114,20 @@ func AdaptDeprecatedCairoClass(
 	if err != nil {
 		return starknet.DeprecatedCairoClass{}, err
 	}
+
 	constructors := make([]starknet.EntryPoint, len(class.Constructors))
-	for index, ep := range class.Constructors {
-		constructors[index] = AdaptDeprecatedEntryPoint(&ep)
+	for index := range class.Constructors {
+		constructors[index] = AdaptDeprecatedEntryPoint(&class.Constructors[index])
 	}
+
 	external := make([]starknet.EntryPoint, len(class.Externals))
-	for index, ep := range class.Externals {
-		external[index] = AdaptDeprecatedEntryPoint(&ep)
+	for index := range class.Externals {
+		external[index] = AdaptDeprecatedEntryPoint(&class.Externals[index])
 	}
+
 	handlers := make([]starknet.EntryPoint, len(class.L1Handlers))
-	for index, ep := range class.L1Handlers {
-		handlers[index] = AdaptDeprecatedEntryPoint(&ep)
+	for index := range class.L1Handlers {
+		handlers[index] = AdaptDeprecatedEntryPoint(&class.L1Handlers[index])
 	}
 
 	return starknet.DeprecatedCairoClass{
