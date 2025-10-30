@@ -56,8 +56,11 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 		DeployedContracts: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts)),
 		DeclaredV0Classes: make([]*felt.Felt, len(fromStateDiff.DeprecatedDeclaredClasses)),
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeclaredClasses)),
-		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash, 0),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses)),
+		MigratedClasses: make(
+			map[felt.SierraClassHash]felt.CasmClassHash,
+			len(fromStateDiff.MigratedCompiledClasses),
+		),
+		ReplacedClasses: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses)),
 	}
 
 	for _, sd := range fromStateDiff.StorageDiffs {
@@ -88,6 +91,11 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 		ch := rc.ClassHash
 		toStateDiff.ReplacedClasses[rc.ContractAddress] = &ch
 	}
+
+	for _, mc := range fromStateDiff.MigratedCompiledClasses {
+		toStateDiff.MigratedClasses[mc.ClassHash] = mc.CompiledClassHash
+	}
+
 	return toStateDiff
 }
 
