@@ -190,9 +190,7 @@ func TestCallCairo(t *testing.T) {
 		ChainID:           utils.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	println("a0")
 	vm := New(&chainInfo, false, log)
-	println("a1")
 
 	callInfo := CallInfo{
 		ContractAddress: contractAddr,
@@ -201,7 +199,7 @@ func TestCallCairo(t *testing.T) {
 			*storageLocation,
 		},
 	}
-	println("a2")
+
 	ret, err := vm.Call(
 		&callInfo,
 		&BlockInfo{Header: &core.Header{}},
@@ -211,7 +209,7 @@ func TestCallCairo(t *testing.T) {
 		false,
 		false,
 	)
-	println("a3")
+
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
