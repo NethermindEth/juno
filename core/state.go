@@ -653,7 +653,7 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 		classHashes = append(classHashes, classHash.Clone())
 	}
 
-	_, classesCloser, err := s.classesTrie()
+	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
 	}
@@ -668,6 +668,12 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 
 		if err = s.txn.Delete(db.ClassKey(cHash)); err != nil {
 			return fmt.Errorf("delete class: %v", err)
+		}
+
+		if _, ok := declaredClass.Class.(*SierraClass); ok {
+			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
+				return err
+			}
 		}
 	}
 	return classesCloser()

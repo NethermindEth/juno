@@ -150,6 +150,9 @@ func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class ClassD
 	}
 
 	p.newClasses[*classHash] = class
+	if _, ok := class.(*DeprecatedCairoClass); ok {
+		p.stateDiff.DeclaredV0Classes = append(p.stateDiff.DeclaredV0Classes, classHash.Clone())
+	}
 	return nil
 }
 
