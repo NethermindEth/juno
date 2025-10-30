@@ -73,7 +73,11 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 }
 
 //export JunoStateGetCompiledClass
-func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointer, out_len *C.size_t) unsafe.Pointer {
+func JunoStateGetCompiledClass(
+	readerHandle C.uintptr_t,
+	classHash unsafe.Pointer,
+	out_len *C.size_t,
+) unsafe.Pointer {
 	context := unwrapContext(readerHandle)
 
 	classHashFelt := makeFeltFromPtr(classHash)
@@ -87,7 +91,7 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 
 	compiledClass, err := marshalClassInfoProtoBytes(val.Class)
 	if err != nil {
-		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class (proto)", "err", err)
+		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class", "err", err)
 		return nil
 	}
 	*out_len = C.size_t(len(compiledClass))
