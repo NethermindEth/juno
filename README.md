@@ -50,7 +50,7 @@ To become a **Starknet Validator** follow this [guide](https://nethermindeth.git
 
 - Golang 1.25 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
-- [Rust](https://www.rust-lang.org/tools/install) 1.86.0 or higher.
+- [Rust](https://www.rust-lang.org/tools/install) 1.88.0 or higher.
 - A C compiler: `gcc`.
 - Install some dependencies on your system:
   

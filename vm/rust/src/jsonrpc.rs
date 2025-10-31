@@ -11,7 +11,7 @@ use cairo_vm::types::builtin_name::BuiltinName;
 use indexmap::IndexMap;
 use serde::Serialize;
 use starknet_api::contract_class::EntryPointType;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, L1Address, PatriciaKey};
 use starknet_api::execution_resources::GasVector;
 use starknet_api::transaction::fields::GasVectorComputationMode;
 use starknet_api::transaction::fields::{Calldata, Fee};
@@ -476,7 +476,7 @@ pub struct FunctionCall {
 pub struct OrderedMessage {
     pub order: usize,
     pub from_address: ContractAddress,
-    pub to_address: EthAddress,
+    pub to_address: L1Address,
     pub payload: L2ToL1Payload,
 }
 
