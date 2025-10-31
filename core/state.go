@@ -250,11 +250,12 @@ func (s *State) Update(
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(
+	err = s.updateDeclaredClassesTrie(
 		update.StateDiff.DeclaredV1Classes,
 		declaredClasses,
 		update.StateDiff.MigratedClasses,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
