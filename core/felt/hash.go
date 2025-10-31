@@ -22,10 +22,26 @@ func (h *SierraClassHash) String() string {
 	return (*ClassHash)(h).String()
 }
 
+func (h *SierraClassHash) UnmarshalJSON(data []byte) error {
+	return (*Felt)(h).UnmarshalJSON(data)
+}
+
+func (h *SierraClassHash) MarshalJSON() ([]byte, error) {
+	return (*Felt)(h).MarshalJSON()
+}
+
 type CasmClassHash ClassHash
 
 func (h *CasmClassHash) String() string {
 	return (*ClassHash)(h).String()
+}
+
+func (h *CasmClassHash) UnmarshalJSON(data []byte) error {
+	return (*Felt)(h).UnmarshalJSON(data)
+}
+
+func (h *CasmClassHash) MarshalJSON() ([]byte, error) {
+	return (*Felt)(h).MarshalJSON()
 }
 
 type TransactionHash Hash
