@@ -727,14 +727,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
 	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
-		fromAddr, _ := new(felt.Felt).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
-		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
+		fromAddress := felt.NewUnsafeFromString[felt.Felt](
+			"0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f",
+		)
+		toL1Address := felt.NewUnsafeFromString[felt.Address](
+			"0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5",
+		)
 
-		payload0, _ := new(felt.Felt).SetString("0x0")
-		payload1, _ := new(felt.Felt).SetString("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
-		payload2, _ := new(felt.Felt).SetString("0x455448")
-		payload3, _ := new(felt.Felt).SetString("0x31da07977d000")
-		payload4, _ := new(felt.Felt).SetString("0x0")
+		payload0 := &felt.Zero
+		payload1 := felt.NewUnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
+		payload2 := felt.NewFromUint64[felt.Felt](0x455448)
+		payload3 := felt.NewFromUint64[felt.Felt](0x31da07977d000)
+		payload4 := &felt.Zero
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -742,8 +746,8 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				Messages: []vm.OrderedL2toL1Message{
 					{
 						Order: 0,
-						From:  fromAddr,
-						To:    toAddrStr,
+						From:  fromAddress,
+						To:    toL1Address,
 						Payload: []*felt.Felt{
 							payload0,
 							payload1,
@@ -828,8 +832,6 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 		}
 
-		toAddr, _ := new(felt.Felt).SetString(toAddrStr)
-
 		expectedAdaptedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
@@ -838,8 +840,10 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				Messages: []rpc.OrderedL2toL1Message{
 					{
 						Order: 0,
-						From:  fromAddr,
-						To:    toAddr,
+						From:  fromAddress,
+						// todo(rdr): we shoudln't need do this conversion but it would be a very
+						//            big refactor
+						To: (*felt.Felt)(toL1Address),
 						Payload: []*felt.Felt{
 							payload0,
 							payload1,
