@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/starknet"
 	junopb "github.com/NethermindEth/juno/vm/protobuf"
 	"google.golang.org/protobuf/proto"
 )
@@ -58,23 +58,23 @@ func toPBFelt(f *felt.Felt) *junopb.Felt {
 }
 
 func marshalClassInfoProtoBytes(class core.ClassDefinition) ([]byte, error) {
-	env := &junopb.CompiledClass{}
+	compiledClass := &junopb.CompiledClass{}
 
 	switch c := class.(type) {
 	case *core.DeprecatedCairoClass:
-		env.CairoVersion = 0
-		decompressedProgram, err := utils.Gzip64Decode(c.Program)
+		compiledClass.CairoVersion = 0
+		adaptedClass, err := core2sn.AdaptDeprecatedCairoClass(c)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decompress program: %w", err)
+			return nil, fmt.Errorf("failed to adapt deprecated cairo class: %w", err)
 		}
 		dep := &junopb.DeprecatedCairoClass{
-			AbiJson:      []byte(c.Abi),
-			ProgramB64:   decompressedProgram,
-			Externals:    make([]*junopb.DeprecatedEntryPoint, len(c.Externals)),
-			L1Handlers:   make([]*junopb.DeprecatedEntryPoint, len(c.L1Handlers)),
-			Constructors: make([]*junopb.DeprecatedEntryPoint, len(c.Constructors)),
+			AbiJson:      []byte(adaptedClass.Abi),
+			ProgramB64:   adaptedClass.Program,
+			Externals:    make([]*junopb.DeprecatedEntryPoint, len(adaptedClass.EntryPoints.External)),
+			L1Handlers:   make([]*junopb.DeprecatedEntryPoint, len(adaptedClass.EntryPoints.L1Handler)),
+			Constructors: make([]*junopb.DeprecatedEntryPoint, len(adaptedClass.EntryPoints.Constructor)),
 		}
-		fill := func(dst []*junopb.DeprecatedEntryPoint, src []core.DeprecatedEntryPoint) {
+		fill := func(dst []*junopb.DeprecatedEntryPoint, src []starknet.EntryPoint) {
 			for i := range src {
 				dst[i] = &junopb.DeprecatedEntryPoint{
 					Selector: toPBFelt(src[i].Selector),
@@ -82,42 +82,43 @@ func marshalClassInfoProtoBytes(class core.ClassDefinition) ([]byte, error) {
 				}
 			}
 		}
-		fill(dep.Externals, c.Externals)
-		fill(dep.L1Handlers, c.L1Handlers)
-		fill(dep.Constructors, c.Constructors)
+		fill(dep.Externals, adaptedClass.EntryPoints.External)
+		fill(dep.L1Handlers, adaptedClass.EntryPoints.L1Handler)
+		fill(dep.Constructors, adaptedClass.EntryPoints.Constructor)
 
-		env.Class = &junopb.CompiledClass_Deprecated{Deprecated: dep}
-		env.AbiLength = uint32(len(c.Abi))
+		compiledClass.Class = &junopb.CompiledClass_Deprecated{Deprecated: dep}
+		compiledClass.AbiLength = uint32(len(c.Abi))
 
 	case *core.SierraClass:
 		if c.Compiled == nil {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
-		env.CairoVersion = 1
-		env.AbiLength = uint32(len(c.Abi))
-		env.SierraProgramLength = uint32(len(c.Program))
-		env.SierraVersion = c.SierraVersion()
+		compiledClass.CairoVersion = 1
+		compiledClass.AbiLength = uint32(len(c.Abi))
+		compiledClass.SierraProgramLength = uint32(len(c.Program))
+		compiledClass.SierraVersion = c.SierraVersion()
 
-		cc := c.Compiled
-		bytecodeSegmentLengths, err := json.Marshal(cc.BytecodeSegmentLengths)
+		adaptedClass := core2sn.AdaptCasmClass(c.Compiled)
+		bytecodeSegmentLengths, err := json.Marshal(adaptedClass.BytecodeSegmentLengths)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal bytecode segment lengths: %w", err)
 		}
+
 		pb := &junopb.CasmClass{
-			Prime:                  utils.ToHex(cc.Prime),
-			Bytecode:               make([]*junopb.Felt, len(cc.Bytecode)),
-			HintsJson:              []byte(cc.Hints),
-			PythonicHintsJson:      []byte(cc.PythonicHints),
-			CompilerVersion:        cc.CompilerVersion,
+			Prime:                  adaptedClass.Prime,
+			Bytecode:               make([]*junopb.Felt, len(adaptedClass.Bytecode)),
+			HintsJson:              []byte(adaptedClass.Hints),
+			PythonicHintsJson:      []byte(adaptedClass.PythonicHints),
+			CompilerVersion:        adaptedClass.CompilerVersion,
 			BytecodeSegmentLengths: bytecodeSegmentLengths,
-			External:               make([]*junopb.CompiledEntryPoint, len(cc.External)),
-			L1Handler:              make([]*junopb.CompiledEntryPoint, len(cc.L1Handler)),
-			Constructor:            make([]*junopb.CompiledEntryPoint, len(cc.Constructor)),
+			External:               make([]*junopb.CompiledEntryPoint, len(adaptedClass.EntryPoints.External)),
+			L1Handler:              make([]*junopb.CompiledEntryPoint, len(adaptedClass.EntryPoints.L1Handler)),
+			Constructor:            make([]*junopb.CompiledEntryPoint, len(adaptedClass.EntryPoints.Constructor)),
 		}
-		for i := range cc.Bytecode {
-			pb.Bytecode[i] = toPBFelt(cc.Bytecode[i])
+		for i := range adaptedClass.Bytecode {
+			pb.Bytecode[i] = toPBFelt(adaptedClass.Bytecode[i])
 		}
-		fillEP := func(dst []*junopb.CompiledEntryPoint, src []core.CasmEntryPoint) {
+		fillEP := func(dst []*junopb.CompiledEntryPoint, src []starknet.CompiledEntryPoint) {
 			for i := range src {
 				dst[i] = &junopb.CompiledEntryPoint{
 					Selector: toPBFelt(src[i].Selector),
@@ -126,15 +127,15 @@ func marshalClassInfoProtoBytes(class core.ClassDefinition) ([]byte, error) {
 				}
 			}
 		}
-		fillEP(pb.External, cc.External)
-		fillEP(pb.L1Handler, cc.L1Handler)
-		fillEP(pb.Constructor, cc.Constructor)
+		fillEP(pb.External, adaptedClass.EntryPoints.External)
+		fillEP(pb.L1Handler, adaptedClass.EntryPoints.L1Handler)
+		fillEP(pb.Constructor, adaptedClass.EntryPoints.Constructor)
 
-		env.Class = &junopb.CompiledClass_Casm{Casm: pb}
+		compiledClass.Class = &junopb.CompiledClass_Casm{Casm: pb}
 
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
 
-	return proto.Marshal(env)
+	return proto.Marshal(compiledClass)
 }

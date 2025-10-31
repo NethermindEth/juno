@@ -33,4 +33,4 @@ num-traits = "0.2"
 crate-type = ["staticlib"]
 
 [build-dependencies]
-prost-build = "0.11"
+prost-build = "0.13"

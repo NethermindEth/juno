@@ -22,7 +22,7 @@ use starknet_types_core::felt::Felt;
 use crate::BlockInfo;
 use starknet_api::deprecated_contract_class::{ContractClass as DeprecatedClassDefinition, EntryPointV0};
 mod compiled_class_pb {
-    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/protobuf/compiled_class.pb.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/protobuf/juno.vm.rs"));
 }
 use prost::Message;
 use num_traits::Num;
