@@ -36,6 +36,7 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 		DeclaredV0Classes: make([]*felt.Felt, 0),
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, 0),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, 0),
+		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash, 0),
 	}
 
 	if blockNumber < BlockHashLag {

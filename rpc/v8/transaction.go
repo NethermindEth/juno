@@ -627,16 +627,24 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
+
+	err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		PaidFeeOnL1:   paidFeeOnL1,
-	}); err != nil {
+	})
+	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
+
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
-		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+		res.ContractAddress = core.ContractAddress(
+			&felt.Zero,
+			tx.ClassHash,
+			tx.ContractAddressSalt,
+			*tx.ConstructorCallData,
+		)
 	} else if tx.Type == TxnDeclare {
 		res.ClassHash, err = userClass.Hash()
 		if err != nil {
