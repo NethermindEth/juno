@@ -1,12 +1,12 @@
 pub mod error;
 pub mod error_stack;
 pub mod execution;
-pub mod ffi_types;
+pub mod ffi_type;
 
 mod juno_state_reader;
 
 use crate::{
-    ffi_types::{
+    ffi_type::{
         state_diff::StateDiff,
         transaction_receipt::TransactionReceipt,
         transaction_trace::{new_transaction_trace, TransactionTrace},
