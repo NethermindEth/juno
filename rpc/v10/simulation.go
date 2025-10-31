@@ -1,7 +1,6 @@
 package rpcv10
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -186,7 +185,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 	}
 	var txnExecutionError vm.TransactionExecutionError
 	if errors.As(err, &txnExecutionError) {
-		return makeTransactionExecutionError(&txnExecutionError)
+		return rpcv9.MakeTransactionExecutionError(&txnExecutionError)
 	}
 	return rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 }
@@ -202,7 +201,7 @@ func createSimulatedTransactions(
 	if len(overallFees) != len(traces) || len(overallFees) != len(gasConsumed) ||
 		len(overallFees) != len(daGas) || len(overallFees) != len(txns) {
 		return nil, fmt.Errorf(
-			"inconsistent lengths: overallfees=%d, traces=%d, gas consumed=%d, da=%d, txns=%d",
+			"inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns", //nolint:lll // error message exceeds line limit
 			len(overallFees),
 			len(traces),
 			len(gasConsumed),
@@ -284,16 +283,4 @@ func createSimulatedTransactions(
 		}
 	}
 	return simulatedTransactions, nil
-}
-
-type TransactionExecutionErrorData struct {
-	TransactionIndex uint64          `json:"transaction_index"`
-	ExecutionError   json.RawMessage `json:"execution_error"`
-}
-
-func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
-	return rpccore.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
-		TransactionIndex: err.Index,
-		ExecutionError:   err.Cause,
-	})
 }
