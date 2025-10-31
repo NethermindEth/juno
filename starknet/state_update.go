@@ -51,7 +51,7 @@ type StateDiff struct {
 	MigratedClasses []struct {
 		ClassHash         felt.SierraClassHash `json:"class_hash"`
 		CompiledClassHash felt.CasmClassHash   `json:"compiled_class_hash"`
-	} `json:"migrated_classes"`
+	} `json:"migrated_compiled_classes"`
 }
 
 // StateUpdateWithBlock object returned by the feeder in JSON format for "get_state_update" endpoint with includingBlock arg
