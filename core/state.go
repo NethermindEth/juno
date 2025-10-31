@@ -645,11 +645,15 @@ func (s *State) purgesystemContracts() error {
 	return nil
 }
 
-func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt, v1Classes map[felt.Felt]*felt.Felt) error {
-	totalCapacity := len(v0Classes) + len(v1Classes)
+func (s *State) removeDeclaredClasses(
+	blockNumber uint64,
+	deprecatedClasses []*felt.Felt,
+	sierraClasses map[felt.Felt]*felt.Felt,
+) error {
+	totalCapacity := len(deprecatedClasses) + len(sierraClasses)
 	classHashes := make([]*felt.Felt, 0, totalCapacity)
-	classHashes = append(classHashes, v0Classes...)
-	for classHash := range v1Classes {
+	classHashes = append(classHashes, deprecatedClasses...)
+	for classHash := range sierraClasses {
 		classHashes = append(classHashes, classHash.Clone())
 	}
 
@@ -670,8 +674,7 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 			return fmt.Errorf("delete class: %v", err)
 		}
 
-		// cairo1 class, update the class commitment trie as well
-		if declaredClass.Class.Version() == 1 {
+		if _, ok := declaredClass.Class.(*SierraClass); ok {
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}
@@ -706,10 +709,10 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 	return storageCloser()
 }
 
+// todo(rdr): return `StateDiff` by value
 func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
 	reversed := *diff
 
-	// storage diffs
 	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
 	for addr, storageDiffs := range diff.StorageDiffs {
 		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
@@ -727,7 +730,6 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 		reversed.StorageDiffs[addr] = reversedDiffs
 	}
 
-	// nonces
 	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
 	for addr := range diff.Nonces {
 		oldNonce := felt.Zero
@@ -741,7 +743,6 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 		reversed.Nonces[addr] = &oldNonce
 	}
 
-	// replaced
 	reversed.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
 	for addr := range diff.ReplacedClasses {
 		classHash := felt.Zero

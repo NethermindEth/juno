@@ -1,8 +1,11 @@
 package jsonrpc
 
 import (
+	"compress/gzip"
+	"io"
 	"maps"
 	"net/http"
+	"strings"
 
 	"github.com/NethermindEth/juno/utils"
 )
@@ -57,7 +60,18 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {
-		_, err = writer.Write(resp)
+		var ioWriter io.Writer = writer
+		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+			writer.Header().Set("Content-Encoding", "gzip")
+			gw := gzip.NewWriter(writer)
+			defer func() {
+				if err := gw.Close(); err != nil {
+					http.Error(writer, "gzip close error", http.StatusInternalServerError)
+				}
+			}()
+			ioWriter = gw
+		}
+		_, err = ioWriter.Write(resp)
 		if err != nil {
 			h.log.Warnw("Failed writing response", "err", err)
 		}
