@@ -1,5 +1,4 @@
 pub mod error;
-pub mod error_stack;
 pub mod execution;
 pub mod ffi_type;
 
@@ -13,8 +12,12 @@ use crate::{
     },
     juno_state_reader::{ptr_to_felt, BlockHeight, JunoStateReader},
 };
-use error::{CallError, ExecutionError};
-use error_stack::{ErrorStack, Frame};
+use error::{
+    call::CallError,
+    execution::ExecutionError,
+    juno::VMError,
+    stack::{ErrorStack, Frame},
+};
 use execution::process_transaction;
 use serde::Deserialize;
 use serde_json::json;
@@ -78,29 +81,6 @@ pub static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<StarkFelt> = Lazy::new(|| {
     StarkFelt::from_hex("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
         .expect("Invalid hex string")
 });
-
-struct VMError {
-    msg: String,
-    txn_index: i64,
-    execution_failed: bool,
-}
-impl VMError {
-    fn block_error<E: ToString>(err: E) -> Self {
-        Self {
-            msg: err.to_string(),
-            txn_index: -1,
-            execution_failed: false,
-        }
-    }
-
-    fn tx_non_execution_error<E: ToString>(err: E, txn_index: usize) -> Self {
-        Self {
-            msg: err.to_string(),
-            txn_index: txn_index as i64,
-            execution_failed: false,
-        }
-    }
-}
 
 extern "C" {
     fn JunoReportError(
@@ -570,7 +550,6 @@ fn adjust_fee_calculation_result(
         }
         _ => {}
     };
-
     let tip = if block_context.versioned_constants().enable_tip {
         match txn {
             Transaction::Account(txn) => txn.tip(),
