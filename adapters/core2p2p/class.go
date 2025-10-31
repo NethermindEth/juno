@@ -42,7 +42,7 @@ func AdaptClass(cls core.ClassDefinition) *class.Class {
 			ClassHash: AdaptHash(hash),
 		}
 	default:
-		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, cls.Version()))
+		panic(fmt.Errorf("unsupported cairo class %T", v))
 	}
 }
 

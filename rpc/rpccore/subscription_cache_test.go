@@ -1,9 +1,9 @@
-package rpcv9_test
+package rpccore_test
 
 import (
 	"testing"
 
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestSubscriptionCache_BasicOperations(t *testing.T) {
 	val3 := 3
 	t.Run("block zero", func(t *testing.T) {
 		t.Run("should handle basic operations with block zero", func(t *testing.T) {
-			cache := rpcv9.NewSubscriptionCache[string, int]()
+			cache := rpccore.NewSubscriptionCache[string, int]()
 
 			// Test with block 0
 			cache.Put(0, &key1, &val1)
@@ -25,7 +25,7 @@ func TestSubscriptionCache_BasicOperations(t *testing.T) {
 		})
 
 		t.Run("should prefer empty slots over eviction", func(t *testing.T) {
-			cache := rpcv9.NewSubscriptionCache[string, int]()
+			cache := rpccore.NewSubscriptionCache[string, int]()
 
 			cache.Put(0, &key1, &val1)
 			cache.Put(1, &key1, &val2) // Should use empty slot, not evict block 0
@@ -34,7 +34,7 @@ func TestSubscriptionCache_BasicOperations(t *testing.T) {
 	})
 
 	t.Run("block non-zero", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionCache[string, int]()
+		cache := rpccore.NewSubscriptionCache[string, int]()
 
 		require.True(t, cache.ShouldSend(100, &key1, &val1))
 
@@ -48,7 +48,7 @@ func TestSubscriptionCache_BasicOperations(t *testing.T) {
 	})
 
 	t.Run("should update existing value", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionCache[string, int]()
+		cache := rpccore.NewSubscriptionCache[string, int]()
 
 		cache.Put(100, &key1, &val1)
 		cache.Put(100, &key1, &val2)
@@ -68,7 +68,7 @@ func TestSubscriptionCache_Eviction(t *testing.T) {
 	val3 := 3
 	val4 := 4
 	t.Run("should evict lowest block number", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionCache[string, int]()
+		cache := rpccore.NewSubscriptionCache[string, int]()
 
 		// Fill cache to capacity
 		cache.Put(100, &key1, &val1)
@@ -89,7 +89,7 @@ func TestSubscriptionCache_Eviction(t *testing.T) {
 	})
 
 	t.Run("should not leak keys across eviction", func(t *testing.T) {
-		cache := rpcv9.NewSubscriptionCache[string, int]()
+		cache := rpccore.NewSubscriptionCache[string, int]()
 
 		keyLeak := "leak"
 		val42 := 42
@@ -105,7 +105,7 @@ func TestSubscriptionCache_Eviction(t *testing.T) {
 }
 
 func TestSubscriptionCache_ClearResetsAllData(t *testing.T) {
-	cache := rpcv9.NewSubscriptionCache[string, int]()
+	cache := rpccore.NewSubscriptionCache[string, int]()
 	key := "k"
 	val := 1
 
@@ -118,7 +118,7 @@ func TestSubscriptionCache_ClearResetsAllData(t *testing.T) {
 }
 
 func BenchmarkSubscriptionCache_Put(b *testing.B) {
-	cache := rpcv9.NewSubscriptionCache[string, int]()
+	cache := rpccore.NewSubscriptionCache[string, int]()
 
 	key := "key"
 	b.ResetTimer()
@@ -128,7 +128,7 @@ func BenchmarkSubscriptionCache_Put(b *testing.B) {
 }
 
 func BenchmarkSubscriptionCache_ShouldSend(b *testing.B) {
-	cache := rpcv9.NewSubscriptionCache[string, int]()
+	cache := rpccore.NewSubscriptionCache[string, int]()
 
 	key := "key"
 	// Pre-populate cache
@@ -143,7 +143,7 @@ func BenchmarkSubscriptionCache_ShouldSend(b *testing.B) {
 }
 
 func BenchmarkSubscriptionCache_MixedOperations(b *testing.B) {
-	cache := rpcv9.NewSubscriptionCache[string, int]()
+	cache := rpccore.NewSubscriptionCache[string, int]()
 	key := "k"
 	for i := range 3 {
 		cache.Put(uint64(i), &key, &i)

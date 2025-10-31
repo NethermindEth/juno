@@ -236,7 +236,7 @@ func (h *Handler) SubscribeEvents(
 	}
 
 	l1HeadNumber := l1Head.BlockNumber
-	sentCache := NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
+	sentCache := rpccore.NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
 	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
@@ -334,7 +334,7 @@ func (h *Handler) processHistoricalEvents(
 	from, to *BlockID,
 	fromAddr *felt.Felt,
 	keys [][]felt.Felt,
-	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
+	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	height uint64,
 	l1Head uint64,
 ) error {
@@ -382,7 +382,7 @@ func processBlockEvents(
 	block *core.Block,
 	fromAddr *felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
-	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
+	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	finalityStatus TxnFinalityStatus,
 	isPreLatest bool,
 ) error {
@@ -443,7 +443,7 @@ func sendEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
 	events []blockchain.FilteredEvent,
-	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
+	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	id string,
 	height uint64,
 	l1Head uint64,
@@ -488,7 +488,7 @@ func sendEvents(
 func sendEventWithoutDuplicate(
 	w jsonrpc.Conn,
 	event *blockchain.FilteredEvent,
-	sentCache *SubscriptionCache[SentEvent, TxnFinalityStatus],
+	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	id string,
 	finalityStatus TxnFinalityStatus,
 	blockNum *uint64,
@@ -854,7 +854,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 		finalityStatuses = utils.Set(finalityStatuses)
 	}
 
-	sentCache := NewSubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1]()
+	sentCache := rpccore.NewSubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1]()
 
 	subscriber := subscriber{
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
@@ -941,7 +941,7 @@ func processBlockReceipts(
 	w jsonrpc.Conn,
 	senderAddress []felt.Felt,
 	block *core.Block,
-	sentCache *SubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1],
+	sentCache *rpccore.SubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1],
 	finalityStatus TxnFinalityStatusWithoutL1,
 	isPreLatest bool,
 ) error {
@@ -1047,7 +1047,7 @@ func (h *Handler) SubscribeNewTransactions(
 		finalityStatus = utils.Set(finalityStatus)
 	}
 
-	sentCache := NewSubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1]()
+	sentCache := rpccore.NewSubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1]()
 	subscriber := subscriber{
 		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			sentCache.Clear()
@@ -1133,7 +1133,7 @@ func processBlockTransactions(
 	w jsonrpc.Conn,
 	senderAddr []felt.Felt,
 	b *core.Block,
-	sentCache *SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
+	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
 	status TxnStatusWithoutL1,
 ) error {
 	for _, txn := range b.Transactions {
@@ -1161,7 +1161,7 @@ func processCandidateTransactions(
 	w jsonrpc.Conn,
 	senderAddr []felt.Felt,
 	preConfirmed core.PendingData,
-	sentCache *SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
+	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
 ) error {
 	for _, txn := range preConfirmed.GetCandidateTransaction() {
 		if !filterTxBySender(txn, senderAddr) {
@@ -1186,7 +1186,7 @@ func processCandidateTransactions(
 // and sends the transaction if it hasn't been sent before with the same finality status
 func sendTransactionWithoutDuplicate(
 	w jsonrpc.Conn,
-	sentCache *SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
+	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1],
 	blockNumber uint64,
 	txn core.Transaction,
 	finalityStatus TxnStatusWithoutL1,

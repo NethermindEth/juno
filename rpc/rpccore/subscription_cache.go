@@ -1,4 +1,4 @@
-package rpcv9
+package rpccore
 
 import "sync"
 
