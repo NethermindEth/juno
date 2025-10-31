@@ -1,4 +1,4 @@
-package rpcv9
+package rpcv10
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,10 @@ import (
 
 func TestCreateSimulatedTransactions(t *testing.T) {
 	executionResults := vm.ExecutionResults{
-		OverallFees: []*felt.Felt{felt.NewFromUint64[felt.Felt](10), felt.NewFromUint64[felt.Felt](20)},
+		OverallFees: []*felt.Felt{
+			felt.NewFromUint64[felt.Felt](10),
+			felt.NewFromUint64[felt.Felt](20),
+		},
 		DataAvailability: []core.DataAvailability{
 			{L1Gas: 5, L1DataGas: 2},
 			{L1Gas: 6, L1DataGas: 3},
@@ -58,16 +62,16 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	expected := []SimulatedTransaction{
 		{
 			TransactionTrace: &TransactionTrace{
-				Type: TransactionType(vm.TxnL1Handler),
-				ExecutionResources: &ExecutionResources{
-					InnerExecutionResources: InnerExecutionResources{
+				Type: rpcv9.TransactionType(vm.TxnL1Handler),
+				ExecutionResources: &rpcv9.ExecutionResources{
+					InnerExecutionResources: rpcv9.InnerExecutionResources{
 						L1Gas: 100,
 						L2Gas: 200,
 					},
 					L1DataGas: 50,
 				},
 			},
-			FeeEstimation: FeeEstimate{
+			FeeEstimation: rpcv9.FeeEstimate{
 				L1GasConsumed:     felt.NewFromUint64[felt.Felt](100),
 				L1GasPrice:        felt.NewFromUint64[felt.Felt](1),
 				L2GasConsumed:     felt.NewFromUint64[felt.Felt](200),
@@ -75,20 +79,20 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](50),
 				L1DataGasPrice:    felt.NewFromUint64[felt.Felt](5),
 				OverallFee:        felt.NewFromUint64[felt.Felt](10),
-				Unit:              utils.HeapPtr(WEI),
+				Unit:              utils.HeapPtr(rpcv9.WEI),
 			},
 		},
 		{
 			TransactionTrace: &TransactionTrace{
-				ExecutionResources: &ExecutionResources{
-					InnerExecutionResources: InnerExecutionResources{
+				ExecutionResources: &rpcv9.ExecutionResources{
+					InnerExecutionResources: rpcv9.InnerExecutionResources{
 						L1Gas: 150,
 						L2Gas: 250,
 					},
 					L1DataGas: 70,
 				},
 			},
-			FeeEstimation: FeeEstimate{
+			FeeEstimation: rpcv9.FeeEstimate{
 				L1GasConsumed:     felt.NewFromUint64[felt.Felt](150),
 				L1GasPrice:        felt.NewFromUint64[felt.Felt](2),
 				L2GasConsumed:     felt.NewFromUint64[felt.Felt](250),
@@ -96,7 +100,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](70),
 				L1DataGasPrice:    felt.NewFromUint64[felt.Felt](6),
 				OverallFee:        felt.NewFromUint64[felt.Felt](20),
-				Unit:              utils.HeapPtr(FRI),
+				Unit:              utils.HeapPtr(rpcv9.FRI),
 			},
 		},
 	}
@@ -110,7 +114,11 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	require.Empty(t, simTxs)
 
 	// Edge case: Empty input
-	simTxs, err = createSimulatedTransactions(&vm.ExecutionResults{}, []core.Transaction{}, header)
+	simTxs, err = createSimulatedTransactions(
+		&vm.ExecutionResults{},
+		[]core.Transaction{},
+		header,
+	)
 	require.NoError(t, err)
 	require.Empty(t, simTxs)
 }

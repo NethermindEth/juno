@@ -1,4 +1,4 @@
-package rpcv9_test
+package rpcv10_test
 
 import (
 	"encoding/json"
@@ -11,8 +11,9 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpc "github.com/NethermindEth/juno/rpc/v9"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -36,7 +37,11 @@ func TestSimulateTransactions(t *testing.T) {
 			PriceInFri: &felt.Zero,
 		},
 	}
-	defaultMockBehavior := func(mockReader *mocks.MockReader, _ *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+	defaultMockBehavior := func(
+		mockReader *mocks.MockReader,
+		_ *mocks.MockVM,
+		mockState *mocks.MockStateHistoryReader,
+	) {
 		mockReader.EXPECT().Network().Return(n)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
@@ -47,12 +52,16 @@ func TestSimulateTransactions(t *testing.T) {
 		err             *jsonrpc.Error
 		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockStateHistoryReader)
 		simulationFlags []rpcv6.SimulationFlag
-		simulatedTxs    []rpc.SimulatedTransaction
+		simulatedTxs    []rpcv10.SimulatedTransaction
 	}{
-		{ //nolint:dupl
+		{ //nolint:dupl // test data
 			name:      "ok with zero values, skip fee",
 			stepsUsed: 123,
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(
+				mockReader *mocks.MockReader,
+				mockVM *mocks.MockVM,
+				mockState *mocks.MockStateHistoryReader,
+			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -66,12 +75,16 @@ func TestSimulateTransactions(t *testing.T) {
 					}, nil)
 			},
 			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
-			simulatedTxs:    []rpc.SimulatedTransaction{},
+			simulatedTxs:    []rpcv10.SimulatedTransaction{},
 		},
-		{ //nolint:dupl
+		{ //nolint:dupl // test data
 			name:      "ok with zero values, skip validate",
 			stepsUsed: 123,
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(
+				mockReader *mocks.MockReader,
+				mockVM *mocks.MockVM,
+				mockState *mocks.MockStateHistoryReader,
+			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -85,11 +98,15 @@ func TestSimulateTransactions(t *testing.T) {
 					}, nil)
 			},
 			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
-			simulatedTxs:    []rpc.SimulatedTransaction{},
+			simulatedTxs:    []rpcv10.SimulatedTransaction{},
 		},
 		{
 			name: "transaction execution error",
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(
+				mockReader *mocks.MockReader,
+				mockVM *mocks.MockVM,
+				mockState *mocks.MockStateHistoryReader,
+			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -100,14 +117,18 @@ func TestSimulateTransactions(t *testing.T) {
 					})
 			},
 			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
-			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpcv9.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
 			}),
 		},
 		{
 			name: "inconsistent lengths error",
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(
+				mockReader *mocks.MockReader,
+				mockVM *mocks.MockVM,
+				mockState *mocks.MockStateHistoryReader,
+			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -122,7 +143,7 @@ func TestSimulateTransactions(t *testing.T) {
 			},
 			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 			err: rpccore.ErrInternal.CloneWithData(errors.New(
-				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
+				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns", //nolint:lll // test data
 			)),
 		},
 	}
@@ -138,12 +159,12 @@ func TestSimulateTransactions(t *testing.T) {
 			mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 			test.mockBehavior(mockReader, mockVM, mockState)
-			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
-			blockID := blockIDLatest(t)
+			blockID := rpcv9.BlockIDLatest()
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
 				&blockID,
-				rpc.BroadcastedTransactionInputs{},
+				rpcv9.BroadcastedTransactionInputs{},
 				test.simulationFlags,
 			)
 			if test.err != nil {
@@ -154,7 +175,7 @@ func TestSimulateTransactions(t *testing.T) {
 			require.Nil(t, err)
 			require.Equal(
 				t,
-				httpHeader.Get(rpc.ExecutionStepsHeader),
+				httpHeader.Get(rpcv9.ExecutionStepsHeader),
 				strconv.FormatUint(test.stepsUsed, 10),
 			)
 			require.Equal(t, test.simulatedTxs, simulatedTxs)
@@ -184,70 +205,85 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 	tests := []struct {
 		name         string
-		transactions []rpc.BroadcastedTransaction
+		transactions []rpcv9.BroadcastedTransaction
 		err          *jsonrpc.Error
 	}{
 		{
 			name: "declare transaction without sender address",
-			transactions: []rpc.BroadcastedTransaction{
+			transactions: []rpcv9.BroadcastedTransaction{
 				{
-					Transaction: rpc.Transaction{
+					Transaction: rpcv9.Transaction{
 						Version: &version3,
-						Type:    rpc.TxnDeclare,
+						Type:    rpcv9.TxnDeclare,
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			),
 		},
 		{
 			name: "declare transaction without resource bounds",
-			transactions: []rpc.BroadcastedTransaction{
+			transactions: []rpcv9.BroadcastedTransaction{
 				{
-					Transaction: rpc.Transaction{
+					Transaction: rpcv9.Transaction{
 						Version:       &version3,
-						Type:          rpc.TxnDeclare,
+						Type:          rpcv9.TxnDeclare,
 						SenderAddress: &felt.Zero,
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 		{
 			name: "invoke transaction without sender address",
-			transactions: []rpc.BroadcastedTransaction{
+			transactions: []rpcv9.BroadcastedTransaction{
 				{
-					Transaction: rpc.Transaction{
+					Transaction: rpcv9.Transaction{
 						Version: &version3,
-						Type:    rpc.TxnInvoke,
+						Type:    rpcv9.TxnInvoke,
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			),
 		},
 		{
 			name: "invoke transaction without resource bounds",
-			transactions: []rpc.BroadcastedTransaction{
+			transactions: []rpcv9.BroadcastedTransaction{
 				{
-					Transaction: rpc.Transaction{
+					Transaction: rpcv9.Transaction{
 						Version:       &version3,
-						Type:          rpc.TxnInvoke,
+						Type:          rpcv9.TxnInvoke,
 						SenderAddress: &felt.Zero,
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 		{
 			name: "deploy account transaction without resource bounds",
-			transactions: []rpc.BroadcastedTransaction{
+			transactions: []rpcv9.BroadcastedTransaction{
 				{
-					Transaction: rpc.Transaction{
+					Transaction: rpcv9.Transaction{
 						Version: &version3,
-						Type:    rpc.TxnDeployAccount,
+						Type:    rpcv9.TxnDeployAccount,
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 	}
 
@@ -265,12 +301,12 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
-			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
-			blockID := blockIDLatest(t)
+			blockID := rpcv9.BlockIDLatest()
 			_, _, err := handler.SimulateTransactions(
 				&blockID,
-				rpc.BroadcastedTransactionInputs{Data: test.transactions},
+				rpcv9.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpcv6.SimulationFlag{},
 			)
 			if test.err != nil {
