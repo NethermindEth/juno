@@ -315,6 +315,14 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 
+	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, log).
+		WithValidator(validator.Validator()).
+		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
+	methodsV10, pathV10 := rpcHandler.MethodsV0_10()
+	if err = jsonrpcServerV10.RegisterMethods(methodsV10...); err != nil {
+		return nil, err
+	}
+
 	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).
 		WithValidator(validator.Validator()).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
@@ -347,11 +355,13 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	rpcServers := map[string]*jsonrpc.Server{
 		"/":              jsonrpcServerV08,
+		pathV10:          jsonrpcServerV10,
 		pathV09:          jsonrpcServerV09,
 		pathV08:          jsonrpcServerV08,
 		pathV07:          jsonrpcServerV07,
 		pathV06:          jsonrpcServerV06,
 		"/rpc":           jsonrpcServerV08,
+		"/rpc" + pathV10: jsonrpcServerV10,
 		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
 		"/rpc" + pathV07: jsonrpcServerV07,
@@ -383,11 +393,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetricsV09, rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV09, pathV08, pathV07, pathV06)
-		jsonrpcServerV09.WithListener(rpcMetricsV09)
-		jsonrpcServerV08.WithListener(rpcMetricsV08)
-		jsonrpcServerV07.WithListener(rpcMetricsV07)
-		jsonrpcServerV06.WithListener(rpcMetricsV06)
+		rpcMetrics := makeRPCMetrics(pathV10, pathV09, pathV08, pathV07, pathV06)
+		jsonrpcServerV10.WithListener(rpcMetrics[0])
+		jsonrpcServerV09.WithListener(rpcMetrics[1])
+		jsonrpcServerV08.WithListener(rpcMetrics[2])
+		jsonrpcServerV07.WithListener(rpcMetrics[3])
+		jsonrpcServerV06.WithListener(rpcMetrics[4])
 		if !cfg.Sequencer {
 			client.WithListener(makeFeederMetrics())
 			gatewayClient.WithListener(makeGatewayMetrics())
