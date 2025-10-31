@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::{
-    ffi_types::{
+    ffi_type::{
         function_invocation::FunctionInvocation,
         state_diff::{make_state_diff, StateDiff},
     },
