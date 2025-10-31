@@ -18,14 +18,9 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 	program := utils.Map(cairo1.Program, AdaptFelt)
-	compiled, err := createCompiledClass(cairo1)
+	compiled, err := compileToCasm(cairo1)
 	if err != nil {
 		return core.SierraClass{}, fmt.Errorf("invalid compiled class: %w", err)
-	}
-
-	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
-		// usage of NonNilSlice is essential because relevant core class fields are non nil
-		return utils.Map(utils.NonNilSlice(points), adaptSierra)
 	}
 
 	entryPoints := cairo1.EntryPoints
@@ -37,35 +32,31 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 			External    []core.SierraEntryPoint
 			L1Handler   []core.SierraEntryPoint
 		}{
-			Constructor: adaptEP(entryPoints.Constructors),
-			External:    adaptEP(entryPoints.Externals),
-			L1Handler:   adaptEP(entryPoints.L1Handlers),
+			Constructor: adaptSierraEntryPoints(entryPoints.Constructors),
+			External:    adaptSierraEntryPoints(entryPoints.Externals),
+			L1Handler:   adaptSierraEntryPoints(entryPoints.L1Handlers),
 		},
 		Program:         program,
 		ProgramHash:     crypto.PoseidonArray(program...),
 		SemanticVersion: cairo1.ContractClassVersion,
-		Compiled:        compiled,
+		Compiled:        &compiled,
 	}, nil
 }
 
-func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
+func AdaptClassDefinition(cls *class.Class) (core.ClassDefinition, error) {
 	if cls == nil {
 		return nil, nil
 	}
 
 	switch cls := cls.Class.(type) {
 	case *class.Class_Cairo0:
-		adaptEP := func(points []*class.EntryPoint) []core.DeprecatedEntryPoint {
-			// usage of NonNilSlice is essential because relevant core class fields are non nil
-			return utils.Map(utils.NonNilSlice(points), adaptEntryPoint)
-		}
 
 		deprecatedCairo := cls.Cairo0
 		return &core.DeprecatedCairoClass{
 			Abi:          json.RawMessage(deprecatedCairo.Abi),
-			Externals:    adaptEP(deprecatedCairo.Externals),
-			L1Handlers:   adaptEP(deprecatedCairo.L1Handlers),
-			Constructors: adaptEP(deprecatedCairo.Constructors),
+			Externals:    adaptEntryPoints(deprecatedCairo.Externals),
+			L1Handlers:   adaptEntryPoints(deprecatedCairo.L1Handlers),
+			Constructors: adaptEntryPoints(deprecatedCairo.Constructors),
 			Program:      deprecatedCairo.Program,
 		}, nil
 	case *class.Class_Cairo1:
@@ -76,11 +67,27 @@ func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
 	}
 }
 
+func adaptSierraEntryPoints(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
+	sierraEntryPoints := make([]core.SierraEntryPoint, len(points))
+	for index := range points {
+		sierraEntryPoints[index] = adaptSierra(points[index])
+	}
+	return sierraEntryPoints
+}
+
 func adaptSierra(e *class.SierraEntryPoint) core.SierraEntryPoint {
 	return core.SierraEntryPoint{
 		Index:    e.Index,
 		Selector: AdaptFelt(e.Selector),
 	}
+}
+
+func adaptEntryPoints(points []*class.EntryPoint) []core.DeprecatedEntryPoint {
+	deprecatedEntryPoints := make([]core.DeprecatedEntryPoint, len(points))
+	for index := range points {
+		deprecatedEntryPoints[index] = adaptEntryPoint(points[index])
+	}
+	return deprecatedEntryPoints
 }
 
 func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
@@ -90,9 +97,12 @@ func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
 	}
 }
 
-func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
+// todo should this be a method of class.Cairo1Class
+
+func compileToCasm(cairo1 *class.Cairo1Class) (core.CasmClass, error) {
 	if cairo1 == nil {
-		return nil, nil
+		//nolint:exhaustruct // intentionally returning an empty CasmClass
+		return core.CasmClass{}, nil
 	}
 
 	adapt := func(ep *class.SierraEntryPoint) starknet.SierraEntryPoint {
@@ -117,7 +127,7 @@ func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
 
 	compiledClass, err := compiler.Compile(def)
 	if err != nil {
-		return nil, err
+		return core.CasmClass{}, err
 	}
 
 	return sn2core.AdaptCompiledClass(compiledClass)

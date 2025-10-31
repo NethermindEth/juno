@@ -629,7 +629,7 @@ func TestClassV1(t *testing.T) {
 func TestAdaptCompiledClass(t *testing.T) {
 	result, err := sn2core.AdaptCompiledClass(nil)
 	require.NoError(t, err)
-	assert.Nil(t, result)
+	assert.Empty(t, result)
 }
 
 func TestAdaptPreConfirmed(t *testing.T) {

@@ -300,7 +300,7 @@ func AdaptSierraClass(
 		Abi:     response.Abi,
 		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
 
-		Compiled: coreCompiledClass,
+		Compiled: &coreCompiledClass,
 
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint
@@ -323,9 +323,10 @@ func AdaptSierraClass(
 	}, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, error) {
+func AdaptCompiledClass(compiledClass *starknet.CasmClass) (core.CasmClass, error) {
 	if compiledClass == nil {
-		return nil, nil
+		//nolint:exhaustruct // intentionally returning an empty CasmClass
+		return core.CasmClass{}, nil
 	}
 
 	var casm core.CasmClass
@@ -338,7 +339,8 @@ func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, err
 	var ok bool
 	casm.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
 	if !ok {
-		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", casm.Prime)
+		return core.CasmClass{},
+			fmt.Errorf("couldn't convert prime value to big.Int: %d", casm.Prime)
 	}
 
 	entryPoints := compiledClass.EntryPoints
@@ -346,7 +348,7 @@ func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, err
 	casm.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
 	casm.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
 
-	return &casm, nil
+	return casm, nil
 }
 
 func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
