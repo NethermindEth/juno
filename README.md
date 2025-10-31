@@ -32,15 +32,13 @@
   </a>
 </p>
 
-
 <p align="center">
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
-
 ## 📚 Documentation
 
-To know everything there is to know on how to interact with Juno, please check out the [documentation](https://juno.nethermind.io/). 
+To know everything there is to know on how to interact with Juno, please check out the [documentation](https://juno.nethermind.io/).
 
 To become a **Starknet Validator** follow this [guide](https://nethermindeth.github.io/starknet-staking-v2/).
 
@@ -53,19 +51,17 @@ To become a **Starknet Validator** follow this [guide](https://nethermindeth.git
 - [Rust](https://www.rust-lang.org/tools/install) 1.86.0 or higher.
 - A C compiler: `gcc`.
 - Install some dependencies on your system:
-  
   - macOS
 
     ```bash
-    brew install jemalloc
-    brew install pkg-config
+    brew install jemalloc pkg-config
     make install-deps
     ```
 
   - Ubuntu
 
     ```bash
-    sudo apt-get install -y libjemalloc-dev libjemalloc2 pkg-config libbz2-dev
+    sudo apt-get install -y build-essential make libjemalloc-dev libjemalloc2 pkg-config libbz2-dev
     make install-deps
     ```
 
@@ -77,6 +73,7 @@ To become a **Starknet Validator** follow this [guide](https://nethermindeth.git
 make juno
 ./build/juno
 ```
+
 Use the `--help` flag for configuration information.
 Flags and their values can also be placed in a `.yaml` file that is passed in through `--config`.
 
@@ -97,7 +94,7 @@ docker run -d \
   --eth-node <YOUR-ETH-NODE>
 ```
 
-You should replace `<YOUR-ETH-NODE> `with your actual Ethereum node address.
+You should replace `<YOUR-ETH-NODE>` with your actual Ethereum node address.
 If you're using Infura, your Ethereum node address might look something like: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`.
 Make sure you are using the websocket URL `ws`/`wss` and not the http URL `http`/`https`.
 
@@ -115,7 +112,6 @@ To sync your node as fast as possible, use the provided snapshots service. Fresh
 
 Juno works as gateway into Starknet and can be queried using JSON-RPC requests. Also, it allows to subscribe to real time events happening on the network and get constant updates. Read the [Interacting with Juno](https://juno.nethermind.io/json-rpc) section for more details.
 
-
 ## 👍 Contribute
 
 We welcome PRs from external contributors and would love to help you get up to speed.
@@ -125,10 +121,10 @@ For more details on how to get started, check out our [contributing guidelines](
 
 There are also many other ways to contribute. Here are some ideas:
 
-* Run a node.
-* Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
-* [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
-* Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
+- Run a node.
+- Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
+- [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
+- Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
 
 ## 📞 Contact us
 
@@ -137,8 +133,6 @@ For questions or feedback, please don't hesitate to reach out to us:
 - [Telegram](https://t.me/StarknetJuno)
 - [Discord](https://discord.com/invite/TcHbSZ9ATd)
 - [X(Formerly Twitter)](https://x.com/NethermindStark)
-
-
 
 ## 🤝 Partnerships
 
