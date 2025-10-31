@@ -1,10 +1,10 @@
-pub struct VMError {
+pub struct JunoError {
     pub msg: String,
     pub txn_index: i64,
     pub execution_failed: bool,
 }
 
-impl VMError {
+impl JunoError {
     pub fn block_error<E: ToString>(err: E) -> Self {
         Self {
             msg: err.to_string(),
