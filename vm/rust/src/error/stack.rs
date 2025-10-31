@@ -6,6 +6,31 @@ use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::objects::RevertError;
 use starknet_types_core::felt::Felt;
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct CallFrame {
+    pub storage_address: Felt,
+    pub class_hash: Felt,
+    pub selector: Option<Felt>,
+}
+
+impl From<Cairo1RevertFrame> for Frame {
+    fn from(value: Cairo1RevertFrame) -> Self {
+        Self::CallFrame(CallFrame {
+            storage_address: *value.contract_address.0,
+            class_hash: value.class_hash.unwrap_or_default().0,
+            selector: Some(value.selector.0),
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Frame {
+    CallFrame(CallFrame),
+    StringFrame(String),
+}
+
+struct Frames(pub Vec<Frame>);
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ErrorStack(pub Vec<Frame>);
 
@@ -43,31 +68,6 @@ impl From<Cairo1RevertSummary> for ErrorStack {
         Self(Frames::from(value).0)
     }
 }
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Frame {
-    CallFrame(CallFrame),
-    StringFrame(String),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CallFrame {
-    pub storage_address: Felt,
-    pub class_hash: Felt,
-    pub selector: Option<Felt>,
-}
-
-impl From<Cairo1RevertFrame> for Frame {
-    fn from(value: Cairo1RevertFrame) -> Self {
-        Self::CallFrame(CallFrame {
-            storage_address: *value.contract_address.0,
-            class_hash: value.class_hash.unwrap_or_default().0,
-            selector: Some(value.selector.0),
-        })
-    }
-}
-
-struct Frames(pub Vec<Frame>);
 
 impl From<ErrorStackSegment> for Frames {
     fn from(value: ErrorStackSegment) -> Self {
