@@ -15,7 +15,7 @@ use crate::{
 use error::{
     call::CallError,
     execution::ExecutionError,
-    juno::VMError,
+    juno::JunoError,
     stack::{ErrorStack, Frame},
 };
 use execution::process_transaction;
@@ -177,7 +177,7 @@ fn cairo_vm_call(
     concurrency_mode: c_uchar,
     err_stack: c_uchar,
     return_state_diff: c_uchar,
-) -> Result<(), VMError> {
+) -> Result<(), JunoError> {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
     let chain_info = unsafe { *chain_info_ptr };
@@ -203,7 +203,7 @@ fn cairo_vm_call(
     }
 
     let contract_address =
-        ContractAddress::try_from(contract_addr_felt).map_err(VMError::block_error)?;
+        ContractAddress::try_from(contract_addr_felt).map_err(JunoError::block_error)?;
     let entry_point_selector = starknet_api::core::EntryPointSelector(entry_point_selector_felt);
 
     let mut entry_point = CallEntryPoint {
@@ -234,7 +234,7 @@ fn cairo_vm_call(
                     Some(max_steps),
                     concurrency_mode,
                 )
-                .map_err(VMError::block_error)?,
+                .map_err(JunoError::block_error)?,
             ),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
@@ -258,9 +258,9 @@ fn cairo_vm_call(
                     } else {
                         json!(revert_error).to_string()
                     };
-                    VMError::block_error(err_string)
+                    JunoError::block_error(err_string)
                 }
-                CallError::Internal(e) | CallError::Custom(e) => VMError::block_error(e),
+                CallError::Internal(e) | CallError::Custom(e) => JunoError::block_error(e),
             }
         })?;
 
@@ -270,7 +270,7 @@ fn cairo_vm_call(
         }
     }
     if call_info.execution.failed {
-        Err(VMError {
+        Err(JunoError {
             msg: "execution failed".to_string(),
             txn_index: -1,
             execution_failed: true,
@@ -281,10 +281,10 @@ fn cairo_vm_call(
         if return_state_diff == 1 {
             let state_diff = state
                 .to_state_diff()
-                .map_err(|_| VMError::block_error("failed to convert state diff"))?;
+                .map_err(|_| JunoError::block_error("failed to convert state diff"))?;
             let json_state_diff = StateDiff::from(state_diff.state_maps);
             append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer)
-                .map_err(|err| VMError::block_error(err.to_string()))?;
+                .map_err(|err| JunoError::block_error(err.to_string()))?;
         }
         Ok(())
     }
@@ -343,7 +343,7 @@ fn cairo_vm_execute(
     concurrency_mode: c_uchar,
     err_stack: c_uchar,
     allow_binary_search: c_uchar,
-) -> Result<(), VMError> {
+) -> Result<(), JunoError> {
     let block_info = unsafe { *block_info_ptr };
     let chain_info = unsafe { *chain_info_ptr };
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
@@ -361,7 +361,7 @@ fn cairo_vm_execute(
     let concurrency_mode = concurrency_mode == 1;
     let block_context =
         build_block_context(&mut state, &block_info, &chain_info, None, concurrency_mode)
-            .map_err(VMError::block_error)?;
+            .map_err(JunoError::block_error)?;
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
     let err_stack = err_stack == 1;
@@ -374,11 +374,11 @@ fn cairo_vm_execute(
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 let class_json_str = classes.pop_front().ok_or_else(|| {
-                    VMError::tx_non_execution_error("missing declared class", txn_index)
+                    JunoError::tx_non_execution_error("missing declared class", txn_index)
                 })?;
 
                 let class_info = class_info_from_json_str(class_json_str.get())
-                    .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+                    .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
 
                 Some(class_info)
             }
@@ -388,7 +388,7 @@ fn cairo_vm_execute(
         let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 let paid_fee_on_l1 = paid_fees_on_l1.pop_front().ok_or_else(|| {
-                    VMError::tx_non_execution_error("missing fee paid on l1", txn_index)
+                    JunoError::tx_non_execution_error("missing fee paid on l1", txn_index)
                 })?;
                 Some(*paid_fee_on_l1)
             }
@@ -414,7 +414,7 @@ fn cairo_vm_execute(
             paid_fee_on_l1,
             account_execution_flags,
         )
-        .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+        .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
 
         let is_l1_handler_txn = false;
         let mut txn_state = CachedState::create_transactional(&mut state);
@@ -434,10 +434,10 @@ fn cairo_vm_execute(
                 } else {
                     json!(error).to_string()
                 };
-                VMError::tx_non_execution_error(err_string, txn_index)
+                JunoError::tx_non_execution_error(err_string, txn_index)
             }
             ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
-                VMError::tx_non_execution_error(json!(e), txn_index)
+                JunoError::tx_non_execution_error(json!(e), txn_index)
             }
         })?;
 
@@ -460,7 +460,7 @@ fn cairo_vm_execute(
             fee: tx_execution_info.receipt.fee,
         };
         append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer)
-            .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+            .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
 
         let trace = new_transaction_trace(
             &txn_and_query_bit.txn,
@@ -470,23 +470,23 @@ fn cairo_vm_execute(
             &gas_vector_computation_mode,
         )
         .map_err(|err| {
-            VMError::tx_non_execution_error(
+            JunoError::tx_non_execution_error(
                 format!("failed building txn state diff reason: {:?}", err),
                 txn_index,
             )
         })?;
 
         append_trace(reader_handle, &trace, &mut writer_buffer)
-            .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
+            .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
         txn_state.commit();
     }
     Ok(())
 }
 
-fn parse_json<'de, T: Deserialize<'de>>(json_ptr: *const c_char) -> Result<T, VMError> {
+fn parse_json<'de, T: Deserialize<'de>>(json_ptr: *const c_char) -> Result<T, JunoError> {
     let json_c_str = unsafe { CStr::from_ptr(json_ptr) };
-    let json_str = json_c_str.to_str().map_err(VMError::block_error)?;
-    serde_json::from_str(json_str).map_err(VMError::block_error)
+    let json_str = json_c_str.to_str().map_err(JunoError::block_error)?;
+    serde_json::from_str(json_str).map_err(JunoError::block_error)
 }
 
 fn adjust_fee_calculation_result(
@@ -495,7 +495,7 @@ fn adjust_fee_calculation_result(
     gas_vector_computation_mode: &GasVectorComputationMode,
     block_context: &BlockContext,
     txn_index: usize,
-) -> Result<(), VMError> {
+) -> Result<(), JunoError> {
     let (minimal_gas_vector, fee_type) = match &txn {
         Transaction::Account(t) => (
             Some(gas_usage::estimate_minimal_gas_vector(
@@ -536,7 +536,7 @@ fn adjust_fee_calculation_result(
                         .sierra_gas_to_l1_gas_amount_round_up(adjusted_l2_gas_consumed),
                 )
                 .ok_or_else(|| {
-                    VMError::tx_non_execution_error(
+                    JunoError::tx_non_execution_error(
                         format!(
                             "addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.",
                             adjusted_l2_gas_consumed, adjusted_l1_gas_consumed,
@@ -756,7 +756,7 @@ fn error_stack_frames_to_json(err_stack: ErrorStack) -> serde_json::Value {
         })
 }
 
-fn report_error(reader_handle: usize, err: VMError) {
+fn report_error(reader_handle: usize, err: JunoError) {
     let err_msg = CString::new(err.msg).unwrap();
     let execution_failed = if err.execution_failed { 1 } else { 0 };
     unsafe {
