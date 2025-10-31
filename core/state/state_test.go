@@ -88,7 +88,7 @@ func TestUpdate(t *testing.T) {
 		stateDB := setupState(t, stateUpdates, 0)
 		state, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
-		err = state.Update(block0, su, nil)
+		err = state.Update(block0, su, nil, false)
 		require.Error(t, err)
 	})
 
@@ -102,7 +102,7 @@ func TestUpdate(t *testing.T) {
 		stateDB := setupState(t, stateUpdates, 0)
 		state, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
-		err = state.Update(block0, su, nil)
+		err = state.Update(block0, su, nil, false)
 		require.Error(t, err)
 	})
 
@@ -111,13 +111,13 @@ func TestUpdate(t *testing.T) {
 			stateDB := setupState(t, stateUpdates, 3)
 			state, err := New(stateUpdates[3].OldRoot, stateDB)
 			require.NoError(t, err)
-			require.Error(t, state.Update(block3, stateUpdates[3], nil))
+			require.Error(t, state.Update(block3, stateUpdates[3], nil, false))
 		})
 		t.Run("with class definition", func(t *testing.T) {
 			stateDB := setupState(t, stateUpdates, 3)
 			state, err := New(stateUpdates[3].OldRoot, stateDB)
 			require.NoError(t, err)
-			require.NoError(t, state.Update(block3, su3, su3DeclaredClasses()))
+			require.NoError(t, state.Update(block3, su3, su3DeclaredClasses(), false))
 		})
 	})
 
@@ -153,7 +153,7 @@ func TestUpdate(t *testing.T) {
 		stateDB := setupState(t, stateUpdates, 5)
 		state, err := New(stateUpdates[4].NewRoot, stateDB)
 		require.NoError(t, err)
-		require.ErrorIs(t, state.Update(block5, su5, nil), ErrContractNotDeployed)
+		require.ErrorIs(t, state.Update(block5, su5, nil, false), ErrContractNotDeployed)
 	})
 }
 
@@ -203,7 +203,7 @@ func TestNonce(t *testing.T) {
 		stateDB := setupState(t, nil, 0)
 		state, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block0, su0, nil))
+		require.NoError(t, state.Update(block0, su0, nil, false))
 
 		gotNonce, err := state.ContractNonce(addr)
 		require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestNonce(t *testing.T) {
 		stateDB := setupState(t, nil, 0)
 		state, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block0, su0, nil))
+		require.NoError(t, state.Update(block0, su0, nil, false))
 
 		expectedNonce := new(felt.Felt).SetUint64(1)
 		su1 := &core.StateUpdate{
@@ -229,7 +229,7 @@ func TestNonce(t *testing.T) {
 
 		state1, err := New(su1.OldRoot, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state1.Update(block1, su1, nil))
+		require.NoError(t, state1.Update(block1, su1, nil, false))
 
 		gotNonce, err := state1.ContractNonce(addr)
 		require.NoError(t, err)
@@ -262,7 +262,7 @@ func TestClass(t *testing.T) {
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,
-	}))
+	}, false))
 
 	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)
@@ -348,7 +348,7 @@ func TestRevert(t *testing.T) {
 
 		state, err := New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block2, replaceStateUpdate, nil))
+		require.NoError(t, state.Update(block2, replaceStateUpdate, nil, false))
 
 		gotClassHash, err := state.ContractClassHash(&su1FirstDeployedAddress)
 		require.NoError(t, err)
@@ -381,7 +381,7 @@ func TestRevert(t *testing.T) {
 
 		state, err := New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block2, nonceStateUpdate, nil))
+		require.NoError(t, state.Update(block2, nonceStateUpdate, nil, false))
 
 		gotNonce, err := state.ContractNonce(&su1FirstDeployedAddress)
 		require.NoError(t, err)
@@ -417,7 +417,7 @@ func TestRevert(t *testing.T) {
 		state, err := New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
 
-		require.NoError(t, state.Update(block2, storageStateUpdate, nil))
+		require.NoError(t, state.Update(block2, storageStateUpdate, nil, false))
 		gotStorage, err := state.ContractStorage(&su1FirstDeployedAddress, replacedVal)
 		require.NoError(t, err)
 		assert.Equal(t, *replacedVal, gotStorage)
@@ -500,7 +500,7 @@ func TestRevert(t *testing.T) {
 
 		state, err := New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block2, declaredClassesStateUpdate, classesM))
+		require.NoError(t, state.Update(block2, declaredClassesStateUpdate, classesM, false))
 
 		state, err = New(declaredClassesStateUpdate.NewRoot, stateDB)
 		require.NoError(t, err)
@@ -521,7 +521,7 @@ func TestRevert(t *testing.T) {
 
 		state, err := New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block2, su2, nil))
+		require.NoError(t, state.Update(block2, su2, nil, false))
 
 		state, err = New(su2.NewRoot, stateDB)
 		require.NoError(t, err)
@@ -529,7 +529,7 @@ func TestRevert(t *testing.T) {
 
 		state, err = New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block2, su2, nil))
+		require.NoError(t, state.Update(block2, su2, nil, false))
 	})
 
 	t.Run("should be able to revert all the updates", func(t *testing.T) {
@@ -569,7 +569,7 @@ func TestRevert(t *testing.T) {
 
 		state, err := New(su1.OldRoot, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block1, &su1, nil))
+		require.NoError(t, state.Update(block1, &su1, nil, false))
 
 		state, err = New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
@@ -601,7 +601,7 @@ func TestRevert(t *testing.T) {
 
 		state, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block0, declareDiff, newClasses))
+		require.NoError(t, state.Update(block0, declareDiff, newClasses, false))
 
 		declaredClass, err := state.Class(classHash)
 		require.NoError(t, err)
@@ -613,7 +613,7 @@ func TestRevert(t *testing.T) {
 		state, err = New(declareDiff.NewRoot, stateDB)
 		require.NoError(t, err)
 		declareDiff.OldRoot = declareDiff.NewRoot
-		require.NoError(t, state.Update(block1, declareDiff, newClasses))
+		require.NoError(t, state.Update(block1, declareDiff, newClasses, false))
 
 		// Redeclaring should not change the declared at block number
 		declaredClass, err = state.Class(classHash)
@@ -671,7 +671,7 @@ func TestRevert(t *testing.T) {
 
 		state, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
-		require.NoError(t, state.Update(block0, su, nil))
+		require.NoError(t, state.Update(block0, su, nil, false))
 
 		state, err = New(su.NewRoot, stateDB)
 		require.NoError(t, err)
@@ -759,7 +759,7 @@ func TestContractHistory(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(block0, su0, nil))
+		require.NoError(t, state.Update(block0, su0, nil, false))
 
 		gotNonce, err := state.ContractNonceAt(addr, block0)
 		require.NoError(t, err)
@@ -779,12 +779,12 @@ func TestContractHistory(t *testing.T) {
 		state0, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
 		su0 := emptyStateUpdate
-		require.NoError(t, state0.Update(block0, su0, nil))
+		require.NoError(t, state0.Update(block0, su0, nil, false))
 
 		state1, err := New(su0.NewRoot, stateDB)
 		require.NoError(t, err)
 		su1 := su
-		require.NoError(t, state1.Update(block1, su1, nil))
+		require.NoError(t, state1.Update(block1, su1, nil, false))
 
 		gotNonce, err := state1.ContractNonceAt(addr, block0)
 		require.NoError(t, err)
@@ -804,7 +804,7 @@ func TestContractHistory(t *testing.T) {
 		state0, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
 		su0 := su
-		require.NoError(t, state0.Update(block0, su0, nil))
+		require.NoError(t, state0.Update(block0, su0, nil, false))
 
 		state1, err := New(su0.NewRoot, stateDB)
 		require.NoError(t, err)
@@ -813,7 +813,7 @@ func TestContractHistory(t *testing.T) {
 			NewRoot:   su0.NewRoot,
 			StateDiff: &core.StateDiff{},
 		}
-		require.NoError(t, state1.Update(block1, su1, nil))
+		require.NoError(t, state1.Update(block1, su1, nil, false))
 
 		state2, err := New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
@@ -832,7 +832,7 @@ func TestContractHistory(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, state2.Update(block2, su2, nil))
+		require.NoError(t, state2.Update(block2, su2, nil, false))
 
 		gotNonce, err := state2.ContractNonceAt(addr, block1)
 		require.NoError(t, err)
@@ -868,7 +868,7 @@ func BenchmarkStateUpdate(b *testing.B) {
 		for i, su := range stateUpdates {
 			state, err := New(su.OldRoot, stateDB)
 			require.NoError(b, err)
-			err = state.Update(uint64(i), su, nil)
+			err = state.Update(uint64(i), su, nil, false)
 			if err != nil {
 				b.Fatalf("Error updating state: %v", err)
 			}
@@ -908,8 +908,9 @@ func setupState(t *testing.T, stateUpdates []*core.StateUpdate, blocks uint64) *
 		}
 		require.NoError(
 			t,
-			state.Update(uint64(i), su, declaredClasses),
-			"failed to update state for block %d", i,
+			state.Update(uint64(i), su, declaredClasses, false),
+			"failed to update state for block %d",
+			i,
 		)
 		newComm, err := state.Commitment()
 		require.NoError(t, err)
