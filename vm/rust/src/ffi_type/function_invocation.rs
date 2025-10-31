@@ -1,4 +1,4 @@
-use crate::ffi_types::execution_resources::ExecutionResources;
+use crate::ffi_type::execution_resources::ExecutionResources;
 use blockifier::{
     blockifier_versioned_constants::VersionedConstants,
     execution::{
