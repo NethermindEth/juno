@@ -179,7 +179,7 @@ func (s *State) Update(
 	blockNum uint64,
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
-  skipVerifyNewRoot bool,
+	skipVerifyNewRoot bool,
 ) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err

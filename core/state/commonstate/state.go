@@ -22,7 +22,7 @@ type State interface {
 	Update(
 		blockNum uint64,
 		update *core.StateUpdate,
-		declaredClasses map[felt.Felt]core.Class,
+		declaredClasses map[felt.Felt]core.ClassDefinition,
 		skipVerifyNewRoot bool,
 	) error
 	Revert(blockNum uint64, update *core.StateUpdate) error
@@ -33,7 +33,7 @@ type StateReader interface {
 	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-	Class(classHash *felt.Felt) (*core.DeclaredClass, error)
+	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
 
 	ClassTrie() (commontrie.Trie, error)
 	ContractTrie() (commontrie.Trie, error)
