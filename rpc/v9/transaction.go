@@ -118,6 +118,18 @@ func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 	}
 }
 
+func (es *TxnExecutionStatus) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "SUCCEEDED":
+		*es = TxnSuccess
+	case "REVERTED":
+		*es = TxnFailure
+	default:
+		return fmt.Errorf("unknown ExecutionStatus %s", string(text))
+	}
+	return nil
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L3134
 type TxnFinalityStatus uint8
 
@@ -139,6 +151,20 @@ func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
+}
+
+func (fs *TxnFinalityStatus) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "PRE_CONFIRMED":
+		*fs = TxnPreConfirmed
+	case "ACCEPTED_ON_L1":
+		*fs = TxnAcceptedOnL1
+	case "ACCEPTED_ON_L2":
+		*fs = TxnAcceptedOnL2
+	default:
+		return fmt.Errorf("unknown FinalityStatus %s", string(text))
+	}
+	return nil
 }
 
 type DataAvailabilityMode uint32
