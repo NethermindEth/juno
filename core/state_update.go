@@ -287,5 +287,6 @@ func EmptyStateDiff() StateDiff {
 		DeclaredV0Classes: []*felt.Felt{},
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash),
 	}
 }
