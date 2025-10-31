@@ -250,7 +250,11 @@ func (s *State) Update(
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
+	if err = s.updateDeclaredClassesTrie(
+		update.StateDiff.DeclaredV1Classes,
+		declaredClasses,
+		update.StateDiff.MigratedClasses,
+	); err != nil {
 		return err
 	}
 
@@ -533,6 +537,7 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 func (s *State) updateDeclaredClassesTrie(
 	declaredClasses map[felt.Felt]*felt.Felt,
 	classDefinitions map[felt.Felt]ClassDefinition,
+	migrateCompiledClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
@@ -546,6 +551,13 @@ func (s *State) updateDeclaredClassesTrie(
 
 		leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
 		if _, err = classesTrie.Put(&classHash, leafValue); err != nil {
+			return err
+		}
+	}
+
+	for classHash, compiledClassHash := range migrateCompiledClasses {
+		leafValue := crypto.Poseidon(leafVersion, (*felt.Felt)(&compiledClassHash))
+		if _, err = classesTrie.Put((*felt.Felt)(&classHash), leafValue); err != nil {
 			return err
 		}
 	}
