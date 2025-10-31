@@ -44,7 +44,7 @@ juno-cached: ## Cached Juno compilation
 	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
 
-MINIMUM_RUST_VERSION = 1.86.0
+MINIMUM_RUST_VERSION = 1.88.0
 CURR_RUST_VERSION = $(shell rustc --version | grep -o '[0-9.]\+' | head -n1)
 check-rust: ## Ensure rust version is greater than minimum
 	@echo "Checking if current rust version >= $(MINIMUM_RUST_VERSION)"
