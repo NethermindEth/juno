@@ -2,7 +2,6 @@ package rpcv10
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -46,7 +45,6 @@ func (h *Handler) TraceTransaction(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	// Try to find and trace transaction in finalised blocks
 	if trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash); err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {
@@ -80,68 +78,6 @@ func (h *Handler) TraceBlockTransactions(
 	}
 
 	return h.traceBlockTransactions(ctx, block)
-}
-
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
-func (h *Handler) Call(funcCall *rpcv9.FunctionCall, id *rpcv9.BlockID) ([]*felt.Felt, *jsonrpc.Error) {
-	state, closer, rpcErr := h.stateByBlockID(id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
-
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	classHash, err := state.ContractClassHash(&funcCall.ContractAddress)
-	if err != nil {
-		return nil, rpccore.ErrContractNotFound
-	}
-
-	blockInfo, rpcErr := h.buildBlockInfo(header)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	res, err := h.vm.Call(
-		&vm.CallInfo{
-			ContractAddress: &funcCall.ContractAddress,
-			Selector:        &funcCall.EntryPointSelector,
-			Calldata:        funcCall.Calldata.Data,
-			ClassHash:       &classHash,
-		},
-		&blockInfo,
-		state,
-		h.callMaxSteps,
-		h.callMaxGas,
-		true,
-		false,
-	)
-	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
-		}
-		return nil, rpcv9.MakeContractError(json.RawMessage(err.Error()))
-	}
-	if res.ExecutionFailed {
-		// the blockifier 0.13.4 update requires us to check if the execution failed,
-		// and if so, return ErrEntrypointNotFound if res.Result[0]==EntrypointNotFoundFelt,
-		// otherwise we should wrap the result in ErrContractError
-		var strErr string
-		if len(res.Result) != 0 {
-			if res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
-				return nil, rpccore.ErrEntrypointNotFound
-			}
-			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
-		}
-		// Todo: There is currently no standardised way to format these error messages
-		return nil, rpcv9.MakeContractError(json.RawMessage(strErr))
-	}
-	return res.Result, nil
 }
 
 /****************************************************
@@ -288,11 +224,11 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
 }
 
-// TODO: Add support for prelatest block tracing.
 // findAndTraceInPendingData searches for a transaction across all pending data sources.
 //
 // This function searches in the following order:
 // 1. Main pending block (can be pending or preconfirmed based on protocol version)
+// 2. Prelatest block (if available when protocol version is >= 0.14.0)
 //
 // Returns ErrTxnHashNotFound if the transaction is not found in any pending data source.
 func (h *Handler) findAndTraceInPendingData(
@@ -303,7 +239,12 @@ func (h *Handler) findAndTraceInPendingData(
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	return h.findAndTraceInPendingBlock(pendingData, hash)
+	if trace, header, err := h.findAndTraceInPendingBlock(pendingData, hash); err == nil {
+		return trace, header, nil
+	} else if err != rpccore.ErrTxnHashNotFound {
+		return TransactionTrace{}, nil, err
+	}
+	return h.findAndTraceInPrelatestBlock(pendingData, hash)
 }
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pending/pre_confirmed block.
@@ -330,6 +271,58 @@ func (h *Handler) findAndTraceInPendingBlock(
 		// Unknown variant - this should not happen in normal operation
 		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 	}
+}
+
+// findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
+func (h *Handler) findAndTraceInPrelatestBlock(
+	pendingData core.PendingData, hash *felt.Felt,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	preLatest := pendingData.GetPreLatest()
+	if preLatest == nil {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+	}
+
+	txIndex, err := findTransactionInBlock(preLatest.Block, hash)
+	if err != nil {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+	}
+
+	return h.traceInPrelatestBlock(preLatest, txIndex)
+}
+
+// traceInPrelatestBlock traces a transaction in the prelatest block.
+func (h *Handler) traceInPrelatestBlock(
+	preLatest *core.PreLatest, txIndex uint,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	state, closer, err := h.bcReader.StateAtBlockHash(preLatest.Block.ParentHash)
+	if err != nil {
+		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in tracePreLatestTransaction")
+
+	preLatestState := core.NewPendingState(
+		preLatest.StateUpdate.StateDiff,
+		preLatest.NewClasses,
+		state,
+	)
+
+	blockInfo, rpcErr := h.buildBlockInfo(preLatest.Block.Header)
+	if rpcErr != nil {
+		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
+	}
+
+	traces, httpHeader, rpcErr := traceTransactionsWithState(
+		h.vm,
+		preLatest.Block.Transactions,
+		state,
+		preLatestState,
+		&blockInfo,
+	)
+	if rpcErr != nil {
+		return TransactionTrace{}, httpHeader, rpcErr
+	}
+
+	return *traces[txIndex].TraceRoot, httpHeader, nil
 }
 
 // traceInPreConfirmedBlock traces a transaction in a preconfirmed block.
