@@ -40,13 +40,9 @@ func encodeFeltsToUint32s(felts ...*felt.Felt) []uint32 {
 		} else {
 			start := len(encoding)
 
-			encoding = append(
-				encoding,
-				uint32(fb[3]>>32), uint32(fb[3]),
-				uint32(fb[2]>>32), uint32(fb[2]),
-				uint32(fb[1]>>32), uint32(fb[1]),
-				uint32(fb[0]>>32), uint32(fb[0]),
-			)
+			for i := range len(fb) {
+				encoding = append(encoding, uint32(fb[i]>>32), uint32(fb[i]))
+			}
 
 			encoding[start] |= largeFeltMarker
 		}
