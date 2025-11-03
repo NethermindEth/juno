@@ -334,8 +334,7 @@ func StripCompilerFields(t *testing.T, class core.ClassDefinition) {
 			return
 		}
 
-		compilerVersion, hints, pythonicHints :=
-			class.Casm.CompilerVersion,
+		compilerVersion, hints, pythonicHints := class.Casm.CompilerVersion,
 			class.Casm.Hints,
 			class.Casm.PythonicHints
 		class.Casm.CompilerVersion = ""
