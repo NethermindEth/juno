@@ -35,7 +35,7 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 		}
 	}
 
-	return semver.New(versionVals[0], versionVals[1], versionVals[2], "", ""), nil // #nosec G602 // False positive.
+	return semver.New(versionVals[0], versionVals[1], versionVals[2], "", ""), nil // #nosec G602
 }
 
 // CheckBlockVersion checks if the block protocol version is supported by Juno
