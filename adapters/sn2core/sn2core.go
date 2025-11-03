@@ -448,7 +448,7 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-func isCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
+func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
 	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
 }
 
@@ -470,7 +470,7 @@ func AdaptPreConfirmedBlock(
 
 	preConfirmedTxCount := 0
 	for i := range len(response.Transactions) {
-		if !isCandidateTx(response, i) {
+		if !IsCandidateTx(response, i) {
 			preConfirmedTxCount += 1
 		}
 	}
@@ -487,7 +487,7 @@ func AdaptPreConfirmedBlock(
 	candIdx := 0
 
 	for i := range len(response.Transactions) {
-		if !isCandidateTx(response, i) {
+		if !IsCandidateTx(response, i) {
 			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
 			if err != nil {
 				return core.PreConfirmed{}, err
