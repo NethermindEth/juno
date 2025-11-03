@@ -464,14 +464,14 @@ func AdaptPreConfirmedBlock(
 		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
-	if len(response.Transactions) != len(response.TransactionStateDiffs) && len(response.Transactions) != len(response.Receipts) {
+	if len(response.Transactions) != len(response.TransactionStateDiffs) || len(response.Transactions) != len(response.Receipts) {
 		return core.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
 	}
 
 	preConfirmedTxCount := 0
 	for i := range len(response.Transactions) {
 		if !IsCandidateTx(response, i) {
-			preConfirmedTxCount += 1
+			preConfirmedTxCount++
 		}
 	}
 	candidateCount := len(response.Transactions) - preConfirmedTxCount
