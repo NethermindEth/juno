@@ -122,12 +122,12 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	contractTreeRoot, err := contractTrie.Root()
+	contractTreeRoot, err := contractTrie.Hash()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	classTreeRoot, err := classTrie.Root()
+	classTreeRoot, err := classTrie.Hash()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -225,7 +225,7 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 			return nil, err
 		}
 
-		root, err := tr.Root()
+		root, err := tr.Hash()
 		if err != nil {
 			return nil, err
 		}
