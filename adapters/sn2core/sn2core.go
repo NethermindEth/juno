@@ -19,9 +19,9 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 	}
 
 	txns := make([]core.Transaction, len(response.Transactions))
-	for i, txn := range response.Transactions {
+	for i := range response.Transactions {
 		var err error
-		txns[i], err = AdaptTransaction(txn)
+		txns[i], err = AdaptTransaction(response.Transactions[i])
 		if err != nil {
 			return nil, err
 		}
@@ -29,9 +29,9 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 
 	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
 	eventCount := uint64(0)
-	for i, receipt := range response.Receipts {
-		receipts[i] = AdaptTransactionReceipt(receipt)
-		eventCount += uint64(len(receipt.Events))
+	for i := range response.Receipts {
+		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
+		eventCount += uint64(len(response.Receipts[i].Events))
 	}
 
 	sigs := [][]*felt.Felt{}
@@ -270,6 +270,32 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
+func adaptSierraEntrypoint(ep *starknet.SierraEntryPoint) core.SierraEntryPoint {
+	return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
+}
+
+func adaptSierraEntrypoints(ep *starknet.SierraEntryPoints) core.SierraEntryPointsByType {
+	entryPoints := core.SierraEntryPointsByType{
+		Constructor: make([]core.SierraEntryPoint, len(ep.Constructor)),
+		External:    make([]core.SierraEntryPoint, len(ep.External)),
+		L1Handler:   make([]core.SierraEntryPoint, len(ep.L1Handler)),
+	}
+
+	for i := range ep.Constructor {
+		entryPoints.Constructor[i] = adaptSierraEntrypoint(&ep.Constructor[i])
+	}
+
+	for i := range ep.External {
+		entryPoints.External[i] = adaptSierraEntrypoint(&ep.External[i])
+	}
+
+	for i := range ep.L1Handler {
+		entryPoints.L1Handler[i] = adaptSierraEntrypoint(&ep.L1Handler[i])
+	}
+
+	return entryPoints
+}
+
 func AdaptSierraClass(
 	response *starknet.SierraClass,
 	compiledClass *starknet.CasmClass,
@@ -288,10 +314,6 @@ func AdaptSierraClass(
 		return nil, err
 	}
 
-	adapt := func(ep *starknet.SierraEntryPoint) core.SierraEntryPoint {
-		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
-	}
-
 	return &core.SierraClass{
 		SemanticVersion: response.Version,
 		Program:         response.Program,
@@ -302,24 +324,7 @@ func AdaptSierraClass(
 
 		Compiled: coreCompiledClass,
 
-		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
-		}{
-			Constructor: utils.MapByRef(
-				utils.NonNilSlice(response.EntryPoints.Constructor),
-				adapt,
-			),
-			External: utils.MapByRef(
-				utils.NonNilSlice(response.EntryPoints.External),
-				adapt,
-			),
-			L1Handler: utils.MapByRef(
-				utils.NonNilSlice(response.EntryPoints.L1Handler),
-				adapt,
-			),
-		},
+		EntryPoints: adaptSierraEntrypoints(&response.EntryPoints),
 	}, nil
 }
 
@@ -356,19 +361,30 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 	}
 }
 
+func adaptStarknetEntrypoint(ep *starknet.EntryPoint) core.DeprecatedEntryPoint {
+	return core.DeprecatedEntryPoint{Selector: ep.Selector, Offset: ep.Offset}
+}
+
 func AdaptDeprecatedCairoClass(
 	response *starknet.DeprecatedCairoClass,
 ) (core.ClassDefinition, error) {
 	class := new(core.DeprecatedCairoClass)
 	class.Abi = response.Abi
 
-	adapt := func(ep starknet.EntryPoint) core.DeprecatedEntryPoint {
-		return core.DeprecatedEntryPoint{Selector: ep.Selector, Offset: ep.Offset}
+	class.Externals = make([]core.DeprecatedEntryPoint, len(response.EntryPoints.External))
+	for i := range response.EntryPoints.External {
+		class.Externals[i] = adaptStarknetEntrypoint(&response.EntryPoints.External[i])
 	}
 
-	class.Externals = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
-	class.L1Handlers = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
-	class.Constructors = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)
+	class.L1Handlers = make([]core.DeprecatedEntryPoint, len(response.EntryPoints.L1Handler))
+	for i := range response.EntryPoints.L1Handler {
+		class.L1Handlers[i] = adaptStarknetEntrypoint(&response.EntryPoints.L1Handler[i])
+	}
+
+	class.Constructors = make([]core.DeprecatedEntryPoint, len(response.EntryPoints.Constructor))
+	for i := range response.EntryPoints.Constructor {
+		class.Constructors[i] = adaptStarknetEntrypoint(&response.EntryPoints.Constructor[i])
+	}
 
 	var err error
 	class.Program, err = utils.Gzip64Encode(response.Program)
@@ -389,13 +405,12 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		BlockHash: response.BlockHash,
 		NewRoot:   response.NewRoot,
 		OldRoot:   response.OldRoot,
-		StateDiff: stateDiff,
+		StateDiff: &stateDiff,
 	}, nil
 }
 
-// todo(rdr): return `core.StateDiff` by value
-func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
-	stateDiff := new(core.StateDiff)
+func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
+	stateDiff := core.StateDiff{} //nolint:exhaustruct // Fields are initiated later
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
 
 	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.DeclaredClasses))
@@ -424,7 +439,7 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	for addrStr, nonce := range response.Nonces {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
-			return nil, err
+			return core.StateDiff{}, err
 		}
 		stateDiff.Nonces[*addr] = nonce
 	}
@@ -436,7 +451,7 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	for addrStr, diffs := range response.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
-			return nil, err
+			return core.StateDiff{}, err
 		}
 
 		stateDiff.StorageDiffs[*addr] = make(map[felt.Felt]*felt.Felt)
@@ -460,7 +475,7 @@ func AdaptPreConfirmedBlock(
 		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
-	var adaptedStateDiff *core.StateDiff
+	var adaptedStateDiff core.StateDiff
 	var err error
 
 	txStateDiffs := make([]*core.StateDiff, 0, len(response.TransactionStateDiffs))
@@ -472,7 +487,7 @@ func AdaptPreConfirmedBlock(
 		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
 			return core.PreConfirmed{}, err
 		}
-		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
+		txStateDiffs = append(txStateDiffs, &adaptedStateDiff)
 	}
 
 	preConfirmedTxCount := len(txStateDiffs)
@@ -497,9 +512,9 @@ func AdaptPreConfirmedBlock(
 
 	receipts := make([]*core.TransactionReceipt, preConfirmedTxCount)
 	eventCount := uint64(0)
-	for i, receipt := range response.Receipts[:preConfirmedTxCount] {
-		receipts[i] = AdaptTransactionReceipt(receipt)
-		eventCount += uint64(len(receipt.Events))
+	for i := range preConfirmedTxCount {
+		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
+		eventCount += uint64(len(response.Receipts[i].Events))
 	}
 
 	// Squash per-tx state updates

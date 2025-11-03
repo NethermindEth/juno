@@ -71,11 +71,7 @@ type SierraClass struct {
 	AbiHash *felt.Felt
 	// TODO: will implement this on a follow up PR commit to avoid the migration
 	// EntryPoints     SierraEntryPointsByType
-	EntryPoints struct {
-		Constructor []SierraEntryPoint
-		External    []SierraEntryPoint
-		L1Handler   []SierraEntryPoint
-	}
+	EntryPoints SierraEntryPointsByType
 	Program     []*felt.Felt
 	ProgramHash *felt.Felt
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
@@ -106,12 +102,11 @@ type CasmEntryPoint struct {
 	Selector *felt.Felt
 }
 
-// TODO: will implement this on a follow up PR commit to avoid the migration
-// type SierraEntryPointsByType struct {
-// 	Constructor []SierraEntryPoint
-// 	External    []SierraEntryPoint
-// 	L1Handler   []SierraEntryPoint
-// }
+type SierraEntryPointsByType struct {
+	Constructor []SierraEntryPoint
+	External    []SierraEntryPoint
+	L1Handler   []SierraEntryPoint
+}
 
 type SierraEntryPoint struct {
 	Index    uint64

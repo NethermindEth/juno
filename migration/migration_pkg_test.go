@@ -272,11 +272,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 	class := oldCairo1Class{
 		Abi:     "some cairo abi",
 		AbiHash: felt.NewRandom[felt.Felt](),
-		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
-		}{
+		EntryPoints: core.SierraEntryPointsByType{
 			Constructor: []core.SierraEntryPoint{
 				{
 					Index:    0,
