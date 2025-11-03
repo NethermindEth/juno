@@ -108,7 +108,7 @@ func TestCompiledClassHash(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
-			got := class.(*core.SierraClass).Compiled.Hash()
+			got := class.(*core.SierraClass).Casm.Hash()
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCompiledClassHash, got.String())
 		})

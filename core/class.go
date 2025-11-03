@@ -80,7 +80,7 @@ type SierraClass struct {
 	ProgramHash *felt.Felt
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
-	Compiled        *CasmClass
+	Casm            *CasmClass
 }
 
 type SegmentLengths struct {

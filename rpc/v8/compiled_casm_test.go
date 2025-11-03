@@ -105,7 +105,7 @@ func TestCompiledCasm(t *testing.T) {
 		}
 
 		sierraClass := &core.SierraClass{
-			Compiled: casmClass,
+			Casm: casmClass,
 		}
 
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)

@@ -213,9 +213,9 @@ func TestClassV1(t *testing.T) {
 		assert.Equal(t, adaptedResponse, class)
 
 		if test.hasCompiledClass {
-			assert.NotNil(t, adaptedResponse.Compiled)
+			assert.NotNil(t, adaptedResponse.Casm)
 		} else {
-			assert.Nil(t, adaptedResponse.Compiled)
+			assert.Nil(t, adaptedResponse.Casm)
 		}
 	}
 }

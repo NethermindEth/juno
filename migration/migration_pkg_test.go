@@ -347,9 +347,9 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		assert.Equal(t, expectedClass.SemanticVersion, actualClass.SemanticVersion)
 
 		if test.checkCompiledExists {
-			assert.NotNil(t, actualClass.Compiled)
+			assert.NotNil(t, actualClass.Casm)
 		} else {
-			assert.Nil(t, actualClass.Compiled)
+			assert.Nil(t, actualClass.Casm)
 		}
 	}
 }

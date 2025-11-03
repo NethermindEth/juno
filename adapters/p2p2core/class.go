@@ -44,7 +44,7 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 		Program:         program,
 		ProgramHash:     crypto.PoseidonArray(program...),
 		SemanticVersion: cairo1.ContractClassVersion,
-		Compiled:        compiled,
+		Casm:            compiled,
 	}, nil
 }
 

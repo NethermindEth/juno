@@ -162,7 +162,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     sierraClass.Compiled.Hash(),
+		CompiledClassHash:     sierraClass.Casm.Hash(),
 		ResourceBounds:        resourceBounds,
 		Tip:                   tip,
 		PaymasterData:         paymasterData,
@@ -176,7 +176,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 			Sender:                    &common.Address{Elements: senderAddressBytes},
 			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
-			CompiledClassHash:         core2p2p.AdaptHash(sierraClass.Compiled.Hash()),
+			CompiledClassHash:         core2p2p.AdaptHash(sierraClass.Casm.Hash()),
 			ResourceBounds:            p2pResourceBounds,
 			Tip:                       tip,
 			PaymasterData:             toFelt252Slice(paymasterDataBytes),
@@ -334,14 +334,17 @@ func StripCompilerFields(t *testing.T, class core.ClassDefinition) {
 			return
 		}
 
-		compilerVersion, hints, pythonicHints := class.Compiled.CompilerVersion, class.Compiled.Hints, class.Compiled.PythonicHints
-		class.Compiled.CompilerVersion = ""
-		class.Compiled.Hints = nil
-		class.Compiled.PythonicHints = nil
+		compilerVersion, hints, pythonicHints :=
+			class.Casm.CompilerVersion,
+			class.Casm.Hints,
+			class.Casm.PythonicHints
+		class.Casm.CompilerVersion = ""
+		class.Casm.Hints = nil
+		class.Casm.PythonicHints = nil
 		t.Cleanup(func() {
-			class.Compiled.CompilerVersion = compilerVersion
-			class.Compiled.Hints = hints
-			class.Compiled.PythonicHints = pythonicHints
+			class.Casm.CompilerVersion = compilerVersion
+			class.Casm.Hints = hints
+			class.Casm.PythonicHints = pythonicHints
 		})
 	default:
 		return

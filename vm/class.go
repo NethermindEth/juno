@@ -28,13 +28,13 @@ func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
 		}
 		classInfo.AbiLength = uint32(len(c.Abi))
 	case *core.SierraClass:
-		if c.Compiled == nil {
+		if c.Casm == nil {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
 
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
 		classInfo.CairoVersion = 1
-		classInfo.Class = core2sn.AdaptCasmClass(c.Compiled)
+		classInfo.Class = core2sn.AdaptCasmClass(c.Casm)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
 		classInfo.SierraVersion = c.SierraVersion()

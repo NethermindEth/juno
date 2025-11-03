@@ -158,7 +158,7 @@ func setClass(
 	}
 
 	if sierraClass, isCairo1 := class.(*core.SierraClass); isCairo1 {
-		if err := genesisState.SetCompiledClassHash(classHash, sierraClass.Compiled.Hash()); err != nil {
+		if err := genesisState.SetCompiledClassHash(classHash, sierraClass.Casm.Hash()); err != nil {
 			return fmt.Errorf("set compiled class hash: %v", err)
 		}
 	}

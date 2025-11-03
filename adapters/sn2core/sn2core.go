@@ -300,7 +300,7 @@ func AdaptSierraClass(
 		Abi:     response.Abi,
 		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
 
-		Compiled: coreCompiledClass,
+		Casm: coreCompiledClass,
 
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint

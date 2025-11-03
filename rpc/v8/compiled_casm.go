@@ -63,7 +63,7 @@ func (h *Handler) CompiledCasm(
 		}
 		return resp, nil
 	case *core.SierraClass:
-		return adaptCompiledClass(class.Compiled), nil
+		return adaptCompiledClass(class.Casm), nil
 	}
 
 	return nil, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")

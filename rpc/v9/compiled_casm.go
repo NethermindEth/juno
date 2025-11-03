@@ -62,7 +62,7 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (CompiledCasmResponse, *jso
 		}
 		return resp, nil
 	case *core.SierraClass:
-		return adaptCasmClass(class.Compiled), nil
+		return adaptCasmClass(class.Casm), nil
 	}
 
 	return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
