@@ -194,7 +194,7 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 
 // todo(rdr): get rid of this gocritic
 func adaptResourceBounds(
-	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint: gocritic
+	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint: gocritic // someone was lazy
 ) map[core.Resource]core.ResourceBounds {
 	if rb == nil {
 		return nil
