@@ -755,6 +755,7 @@ func assertCandidateTxs(
 			candID++
 		}
 	}
+	assert.Equal(t, len(candidateTxs), candID)
 }
 
 func assertStateDiffs(
@@ -762,7 +763,7 @@ func assertStateDiffs(
 	response *starknet.PreConfirmedBlock,
 	stateDiffs []*core.StateDiff,
 ) {
-    t.Helper()
+	t.Helper()
 
 	preID := 0
 	for i := range response.Transactions {
@@ -773,6 +774,7 @@ func assertStateDiffs(
 			preID++
 		}
 	}
+	assert.Equal(t, len(stateDiffs), preID)
 }
 
 func assertPreConfirmedBlockGasPrices(t *testing.T, response *starknet.PreConfirmedBlock, block *core.Block) {
