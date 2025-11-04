@@ -271,7 +271,10 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 }
 
 func adaptSierraEntrypoint(ep *starknet.SierraEntryPoint) core.SierraEntryPoint {
-	return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
+	return core.SierraEntryPoint{
+		Index:    ep.Index,
+		Selector: ep.Selector,
+	}
 }
 
 func adaptSierraEntrypoints(ep *starknet.SierraEntryPoints) core.SierraEntryPointsByType {
