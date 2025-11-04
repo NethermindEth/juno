@@ -53,7 +53,7 @@ func TestStateUpdate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := &utils.Mainnet
+	n := &utils.SepoliaIntegration
 
 	log := utils.NewNopZapLogger()
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -62,33 +62,33 @@ func TestStateUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	// TODO(Ege): Update test data with 0.14.1 state update
-	update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
+	targetBlockNumber := uint64(3077642)
+	update3077642, err := mainnetGw.StateUpdate(t.Context(), targetBlockNumber)
 	require.NoError(t, err)
 
 	t.Run("latest", func(t *testing.T) {
-		mockReader.EXPECT().Height().Return(uint64(21656), nil)
-		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
+		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
+		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
 		latest := rpcv9.BlockIDLatest()
 		update, rpcErr := handler.StateUpdate(&latest)
 		require.Nil(t, rpcErr)
-		assertStateUpdateEq(t, update21656, &update)
+		assertStateUpdateEq(t, update3077642, &update)
 	})
 
 	t.Run("by height", func(t *testing.T) {
-		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
-		number := rpcv9.BlockIDFromNumber(21656)
+		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
+		number := rpcv9.BlockIDFromNumber(targetBlockNumber)
 		update, rpcErr := handler.StateUpdate(&number)
 		require.Nil(t, rpcErr)
-		assertStateUpdateEq(t, update21656, &update)
+		assertStateUpdateEq(t, update3077642, &update)
 	})
 
 	t.Run("by hash", func(t *testing.T) {
-		mockReader.EXPECT().StateUpdateByHash(update21656.BlockHash).Return(update21656, nil)
-		hash := rpcv9.BlockIDFromHash(update21656.BlockHash)
+		mockReader.EXPECT().StateUpdateByHash(update3077642.BlockHash).Return(update3077642, nil)
+		hash := rpcv9.BlockIDFromHash(update3077642.BlockHash)
 		update, rpcErr := handler.StateUpdate(&hash)
 		require.Nil(t, rpcErr)
-		assertStateUpdateEq(t, update21656, &update)
+		assertStateUpdateEq(t, update3077642, &update)
 	})
 
 	t.Run("post v0.11.0", func(t *testing.T) {
@@ -116,23 +116,23 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("l1_accepted", func(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(
 			core.L1Head{
-				BlockNumber: uint64(21656),
-				BlockHash:   update21656.BlockHash,
-				StateRoot:   update21656.NewRoot,
+				BlockNumber: targetBlockNumber,
+				BlockHash:   update3077642.BlockHash,
+				StateRoot:   update3077642.NewRoot,
 			},
 			nil,
 		)
-		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
+		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
 		l1AcceptedID := rpcv9.BlockIDL1Accepted()
 		update, rpcErr := handler.StateUpdate(&l1AcceptedID)
 		require.Nil(t, rpcErr)
-		assertStateUpdateEq(t, update21656, &update)
+		assertStateUpdateEq(t, update3077642, &update)
 	})
 
 	t.Run("pre_confirmed", func(t *testing.T) {
-		update21656.BlockHash = nil
-		update21656.NewRoot = nil
-		preConfirmed := core.NewPreConfirmed(nil, update21656, nil, nil)
+		update3077642.BlockHash = nil
+		update3077642.NewRoot = nil
+		preConfirmed := core.NewPreConfirmed(nil, update3077642, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
@@ -140,7 +140,7 @@ func TestStateUpdate(t *testing.T) {
 		preConfirmedID := rpcv9.BlockIDPreConfirmed()
 		update, rpcErr := handler.StateUpdate(&preConfirmedID)
 		require.Nil(t, rpcErr)
-		assertStateUpdateEq(t, update21656, &update)
+		assertStateUpdateEq(t, update3077642, &update)
 	})
 }
 
