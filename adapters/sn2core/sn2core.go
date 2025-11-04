@@ -453,6 +453,13 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
+// Comparing to preconfirmed, candidate txns don't include state diffs and receipts.
+// `||` is used to cover any possible descrepancies
+// https://community.starknet.io/t/sn-0-14-0-pre-release-notes
+func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
+	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
+}
+
 func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
@@ -465,46 +472,51 @@ func AdaptPreConfirmedBlock(
 		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
-	var adaptedStateDiff *core.StateDiff
-	var err error
-
-	txStateDiffs := make([]*core.StateDiff, 0, len(response.TransactionStateDiffs))
-	for _, stateDiff := range response.TransactionStateDiffs {
-		if stateDiff == nil {
-			break
-		}
-
-		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
-			return core.PreConfirmed{}, err
-		}
-		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
+	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
+		len(response.Transactions) != len(response.Receipts)
+	if isInvalidPayloadSizes {
+		return core.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
 	}
 
-	preConfirmedTxCount := len(txStateDiffs)
+	preConfirmedTxCount := 0
+	for i := range len(response.Transactions) {
+		if !IsCandidateTx(response, i) {
+			preConfirmedTxCount++
+		}
+	}
+	candidateCount := len(response.Transactions) - preConfirmedTxCount
 
 	txns := make([]core.Transaction, preConfirmedTxCount)
-	for i := range preConfirmedTxCount {
-		txns[i], err = AdaptTransaction(&response.Transactions[i])
-		if err != nil {
-			return core.PreConfirmed{}, err
-		}
-	}
-
-	rawTxCount := len(response.Transactions)
-	candidateTxs := make([]core.Transaction, rawTxCount-preConfirmedTxCount)
-
-	for i := range rawTxCount - preConfirmedTxCount {
-		candidateTxs[i], err = AdaptTransaction(&response.Transactions[preConfirmedTxCount+i])
-		if err != nil {
-			return core.PreConfirmed{}, err
-		}
-	}
-
+	txStateDiffs := make([]*core.StateDiff, preConfirmedTxCount)
 	receipts := make([]*core.TransactionReceipt, preConfirmedTxCount)
 	eventCount := uint64(0)
-	for i, receipt := range response.Receipts[:preConfirmedTxCount] {
-		receipts[i] = AdaptTransactionReceipt(receipt)
-		eventCount += uint64(len(receipt.Events))
+	candidateTxs := make([]core.Transaction, candidateCount)
+
+	var err error
+	preIdx := 0
+	candIdx := 0
+	for i := range len(response.Transactions) {
+		if !IsCandidateTx(response, i) {
+			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+
+			txStateDiffs[preIdx], err = AdaptStateDiff(response.TransactionStateDiffs[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+
+			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+			eventCount += uint64(len(response.Receipts[i].Events))
+			preIdx++
+		} else {
+			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+			candIdx++
+		}
 	}
 
 	// Squash per-tx state updates
