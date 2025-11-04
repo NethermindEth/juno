@@ -448,6 +448,9 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
+// Comparing to preconfirmed, candidate txns don't include state diffs and receipts.
+// `||` is used to cover any possible descrepancies
+// https://community.starknet.io/t/sn-0-14-0-pre-release-notes
 func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
 	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
 }
