@@ -700,7 +700,9 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	}
 }
 
-func getPreconfirmedReceipts(receipts []*starknet.TransactionReceipt) []*starknet.TransactionReceipt {
+func getPreconfirmedReceipts(
+	receipts []*starknet.TransactionReceipt,
+) []*starknet.TransactionReceipt {
 	var filtered []*starknet.TransactionReceipt
 	for _, r := range receipts {
 		if r != nil {
@@ -755,7 +757,11 @@ func assertCandidateTxs(
 	}
 }
 
-func assertStateDiffs(t *testing.T, response *starknet.PreConfirmedBlock, stateDiffs []*core.StateDiff) {
+func assertStateDiffs(
+	t *testing.T,
+	response *starknet.PreConfirmedBlock,
+	stateDiffs []*core.StateDiff,
+) {
 	preID := 0
 	for i := range response.Transactions {
 		if !sn2core.IsCandidateTx(response, i) {
