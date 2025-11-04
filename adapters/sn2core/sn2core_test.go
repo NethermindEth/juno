@@ -762,6 +762,8 @@ func assertStateDiffs(
 	response *starknet.PreConfirmedBlock,
 	stateDiffs []*core.StateDiff,
 ) {
+    t.Helper()
+
 	preID := 0
 	for i := range response.Transactions {
 		if !sn2core.IsCandidateTx(response, i) {
