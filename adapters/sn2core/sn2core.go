@@ -272,7 +272,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 
 func AdaptSierraClass(
 	response *starknet.SierraClass,
-	compiledClass *starknet.CasmClass,
+	casmClass *starknet.CasmClass,
 ) (*core.SierraClass, error) {
 	var err error
 
@@ -283,7 +283,7 @@ func AdaptSierraClass(
 		return nil, errors.New("sierra program size is too small")
 	}
 
-	coreCompiledClass, err := AdaptCompiledClass(compiledClass)
+	coreCasmClass, err := AdaptCompiledClass(casmClass)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func AdaptSierraClass(
 		Abi:     response.Abi,
 		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
 
-		Casm: coreCompiledClass,
+		Casm: coreCasmClass,
 
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint
