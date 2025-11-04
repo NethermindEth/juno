@@ -29,7 +29,7 @@ use crate::entrypoint::execute::ffi::{
 use crate::error::juno::JunoError;
 use crate::ffi_type::transaction_receipt::TransactionReceipt;
 use crate::ffi_type::transaction_trace::TransactionTrace;
-use crate::juno_state_reader::felt_to_byte_array;
+use crate::state_reader::state_reader::felt_to_byte_array;
 
 pub fn parse_json<'de, T: Deserialize<'de>>(json_ptr: *const c_char) -> Result<T, JunoError> {
     let json_c_str = unsafe { CStr::from_ptr(json_ptr) };

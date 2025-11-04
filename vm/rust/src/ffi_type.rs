@@ -1,3 +1,4 @@
+pub mod class_info;
 pub mod execution_resources;
 pub mod function_invocation;
 pub mod state_diff;

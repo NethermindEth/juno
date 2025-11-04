@@ -30,7 +30,10 @@ use crate::{
     error::{call::CallError, juno::JunoError, stack::error_stack_frames_to_json},
     ffi_entrypoint::{BlockInfo, CallInfo, ChainInfo},
     ffi_type::state_diff::StateDiff,
-    juno_state_reader::{felt_to_byte_array, ptr_to_felt, BlockHeight, JunoStateReader},
+    state_reader::{
+        state_reader::{felt_to_byte_array, ptr_to_felt, BlockHeight},
+        JunoStateReader,
+    },
 };
 
 // Allow users to call CONSTRUCTOR entry point type which has fixed entry_point_felt

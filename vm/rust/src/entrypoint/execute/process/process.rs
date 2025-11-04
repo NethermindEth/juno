@@ -4,7 +4,8 @@ use crate::entrypoint::execute::process::utils::{
     determine_gas_vector_mode, is_l2_gas_accounting_enabled,
 };
 use crate::error::execution::ExecutionError;
-use crate::juno_state_reader::JunoStateReader;
+use crate::state_reader::JunoStateReader;
+
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::{
     context::BlockContext,

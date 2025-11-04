@@ -1,7 +1,6 @@
 use std::{
-    ffi::{c_char, c_int, c_uchar, c_void, CStr},
+    ffi::{c_uchar, c_void, CStr},
     slice,
-    str::FromStr,
     sync::Mutex,
 };
 
@@ -9,17 +8,19 @@ use blockifier::execution::contract_class::RunnableCompiledClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use cached::{Cached, SizedCache};
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use once_cell::sync::Lazy;
-use serde::Deserialize;
-use starknet_api::contract_class::{
-    ClassInfo as BlockifierClassInfo, ContractClass, SierraVersion,
-};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 
-use crate::{ffi_entrypoint::BlockInfo, state_reader::ffi::JunoStateGetStorageAt};
+use crate::{
+    ffi_entrypoint::BlockInfo,
+    ffi_type::class_info::class_info_from_json_str,
+    state_reader::ffi::{
+        JunoFree, JunoStateGetClassHashAt, JunoStateGetCompiledClass, JunoStateGetNonceAt,
+        JunoStateGetStorageAt,
+    },
+};
 
 struct CachedRunnableCompiledClass {
     pub definition: RunnableCompiledClass,
@@ -185,4 +186,13 @@ impl StateReader for JunoStateReader {
     fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         unimplemented!()
     }
+}
+
+pub fn felt_to_byte_array(felt: &Felt) -> [u8; 32] {
+    felt.to_bytes_be()
+}
+
+pub fn ptr_to_felt(bytes: *const c_uchar) -> Felt {
+    let slice = unsafe { slice::from_raw_parts(bytes, 32) };
+    Felt::from_bytes_be_slice(slice)
 }

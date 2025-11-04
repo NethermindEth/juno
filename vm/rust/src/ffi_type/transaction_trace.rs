@@ -5,7 +5,7 @@ use crate::{
         function_invocation::FunctionInvocation,
         state_diff::{make_state_diff, StateDiff},
     },
-    juno_state_reader::JunoStateReader,
+    state_reader::JunoStateReader,
 };
 use blockifier::{
     blockifier_versioned_constants::VersionedConstants,
