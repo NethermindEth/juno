@@ -13,6 +13,12 @@ pub struct CallFrame {
     pub selector: Option<Felt>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Frame {
+    CallFrame(CallFrame),
+    StringFrame(String),
+}
+
 impl From<Cairo1RevertFrame> for Frame {
     fn from(value: Cairo1RevertFrame) -> Self {
         Self::CallFrame(CallFrame {
@@ -23,13 +29,41 @@ impl From<Cairo1RevertFrame> for Frame {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum Frame {
-    CallFrame(CallFrame),
-    StringFrame(String),
+struct Frames(pub Vec<Frame>);
+
+impl From<ErrorStackSegment> for Frames {
+    fn from(value: ErrorStackSegment) -> Self {
+        match value {
+            ErrorStackSegment::EntryPoint(entry_point) => Self(vec![Frame::CallFrame(CallFrame {
+                storage_address: *entry_point.storage_address.0,
+                class_hash: entry_point.class_hash.0,
+                selector: entry_point.selector.map(|s| s.0),
+            })]),
+            ErrorStackSegment::Cairo1RevertSummary(revert_summary) => revert_summary.into(),
+            ErrorStackSegment::Vm(vm_exception) => {
+                Self(vec![Frame::StringFrame(String::from(&vm_exception))])
+            }
+            ErrorStackSegment::StringFrame(string_frame) => {
+                Self(vec![Frame::StringFrame(string_frame)])
+            }
+        }
+    }
 }
 
-struct Frames(pub Vec<Frame>);
+impl From<Cairo1RevertSummary> for Frames {
+    fn from(value: Cairo1RevertSummary) -> Self {
+        let failure_reason =
+            starknet_api::execution_utils::format_panic_data(&value.last_retdata.0);
+        Self(
+            value
+                .stack
+                .into_iter()
+                .map(Into::into)
+                .chain(std::iter::once(Frame::StringFrame(failure_reason)))
+                .collect(),
+        )
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ErrorStack(pub Vec<Frame>);
@@ -66,39 +100,5 @@ impl From<RevertError> for ErrorStack {
 impl From<Cairo1RevertSummary> for ErrorStack {
     fn from(value: Cairo1RevertSummary) -> Self {
         Self(Frames::from(value).0)
-    }
-}
-
-impl From<ErrorStackSegment> for Frames {
-    fn from(value: ErrorStackSegment) -> Self {
-        match value {
-            ErrorStackSegment::EntryPoint(entry_point) => Self(vec![Frame::CallFrame(CallFrame {
-                storage_address: *entry_point.storage_address.0,
-                class_hash: entry_point.class_hash.0,
-                selector: entry_point.selector.map(|s| s.0),
-            })]),
-            ErrorStackSegment::Cairo1RevertSummary(revert_summary) => revert_summary.into(),
-            ErrorStackSegment::Vm(vm_exception) => {
-                Self(vec![Frame::StringFrame(String::from(&vm_exception))])
-            }
-            ErrorStackSegment::StringFrame(string_frame) => {
-                Self(vec![Frame::StringFrame(string_frame)])
-            }
-        }
-    }
-}
-
-impl From<Cairo1RevertSummary> for Frames {
-    fn from(value: Cairo1RevertSummary) -> Self {
-        let failure_reason =
-            starknet_api::execution_utils::format_panic_data(&value.last_retdata.0);
-        Self(
-            value
-                .stack
-                .into_iter()
-                .map(Into::into)
-                .chain(std::iter::once(Frame::StringFrame(failure_reason)))
-                .collect(),
-        )
     }
 }
