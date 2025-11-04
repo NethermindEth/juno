@@ -1,6 +1,13 @@
-use std::ffi::{c_char, c_longlong, c_uchar, c_ulonglong, CString};
+use std::{
+    collections::BTreeMap,
+    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, CStr, CString},
+};
 
-use crate::error::juno::JunoError;
+use crate::{
+    entrypoint::{cairo_vm_call, cairo_vm_execute},
+    error::juno::JunoError,
+    versioned_constants::{VersionedConstantsMap, CUSTOM_VERSIONED_CONSTANTS},
+};
 
 extern "C" {
     fn JunoReportError(
@@ -118,4 +125,51 @@ pub extern "C" fn cairoVMExecute(
         allow_binary_search,
     )
     .unwrap_or_else(|err| report_error(reader_handle, err));
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_char {
+    let json_str = unsafe {
+        match CStr::from_ptr(json_bytes).to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                return CString::new("Failed to convert JSON bytes to string")
+                    .unwrap()
+                    .into_raw()
+            }
+        }
+    };
+
+    let versioned_constants_files_paths: Result<BTreeMap<String, String>, _> =
+        serde_json::from_str(json_str);
+    if let Ok(paths) = versioned_constants_files_paths {
+        match VersionedConstantsMap::from_file(paths) {
+            Ok(custom_constants) => unsafe {
+                CUSTOM_VERSIONED_CONSTANTS = Some(custom_constants);
+                CString::new("").unwrap().into_raw()
+            },
+            Err(e) => CString::new(format!(
+                "Failed to load versioned constants from paths: {}",
+                e
+            ))
+            .unwrap()
+            .into_raw(),
+        }
+    } else {
+        CString::new("Failed to parse JSON").unwrap().into_raw()
+    }
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn freeString(s: *mut c_char) {
+    if !s.is_null() {
+        unsafe {
+            // Convert the raw C string pointer back to a CString. This operation
+            // takes ownership of the memory again and ensures it gets deallocated
+            // when drop function returns.
+            drop(CString::from_raw(s));
+        }
+    }
 }

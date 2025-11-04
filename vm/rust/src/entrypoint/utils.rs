@@ -1,3 +1,5 @@
+// todo(rdr): This module exist because refactoring it is still not perfect, the preliminary steps of cairo_vm_call and cairo_vm_execute are mostly the same. They should be abstracted away into their own function for "adapting" from the ffi types to the blockifier types
+
 use std::ffi::{c_char, c_uchar, c_ulonglong, CStr};
 
 use anyhow::Result;
@@ -19,9 +21,28 @@ use starknet_api::{
 use starknet_types_core::felt::Felt;
 
 use crate::{
-    entrypoint::constants::CUSTOM_VERSIONED_CONSTANTS,
     ffi_entrypoint::{BlockInfo, ChainInfo},
+    versioned_constants::CUSTOM_VERSIONED_CONSTANTS,
 };
+
+fn felt_to_u128(felt: Felt) -> u128 {
+    // todo find Into<u128> trait or similar
+    let bytes = felt.to_bytes_be();
+    let mut arr = [0u8; 16];
+    arr.copy_from_slice(&bytes[16..32]);
+
+    // felts are encoded in big-endian order
+    u128::from_be_bytes(arr)
+}
+
+fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice, anyhow::Error> {
+    let u128_val = felt_to_u128(Felt::from_bytes_be(bytes));
+    Ok(NonzeroGasPrice::new(GasPrice(if u128_val == 0 {
+        1
+    } else {
+        u128_val
+    }))?)
+}
 
 #[allow(static_mut_refs)]
 pub fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
@@ -42,25 +63,6 @@ pub fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
         .and_then(|version| VersionedConstants::get(&version).ok())
         .unwrap_or(VersionedConstants::latest_constants())
         .to_owned()
-}
-
-fn felt_to_u128(felt: Felt) -> u128 {
-    // todo find Into<u128> trait or similar
-    let bytes = felt.to_bytes_be();
-    let mut arr = [0u8; 16];
-    arr.copy_from_slice(&bytes[16..32]);
-
-    // felts are encoded in big-endian order
-    u128::from_be_bytes(arr)
-}
-
-fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice, anyhow::Error> {
-    let u128_val = felt_to_u128(Felt::from_bytes_be(bytes));
-    Ok(NonzeroGasPrice::new(GasPrice(if u128_val == 0 {
-        1
-    } else {
-        u128_val
-    }))?)
 }
 
 pub fn build_block_context(
