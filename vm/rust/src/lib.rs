@@ -1,10 +1,18 @@
 pub mod error;
 pub mod error_stack;
 pub mod execution;
-pub mod jsonrpc;
+pub mod ffi_type;
+
 mod juno_state_reader;
 
-use crate::juno_state_reader::{ptr_to_felt, BlockHeight, JunoStateReader};
+use crate::{
+    ffi_type::{
+        state_diff::StateDiff,
+        transaction_receipt::TransactionReceipt,
+        transaction_trace::{new_transaction_trace, TransactionTrace},
+    },
+    juno_state_reader::{ptr_to_felt, BlockHeight, JunoStateReader},
+};
 use error::{CallError, ExecutionError};
 use error_stack::{ErrorStack, Frame};
 use execution::process_transaction;
@@ -294,7 +302,7 @@ fn cairo_vm_call(
             let state_diff = state
                 .to_state_diff()
                 .map_err(|_| VMError::block_error("failed to convert state diff"))?;
-            let json_state_diff = jsonrpc::StateDiff::from(state_diff.state_maps);
+            let json_state_diff = StateDiff::from(state_diff.state_maps);
             append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer)
                 .map_err(|err| VMError::block_error(err.to_string()))?;
         }
@@ -466,7 +474,7 @@ fn cairo_vm_execute(
 
         append_gas_and_fee(&tx_execution_info, reader_handle);
 
-        let transaction_receipt = jsonrpc::TransactionReceipt {
+        let transaction_receipt = TransactionReceipt {
             gas: tx_execution_info.receipt.gas,
             da_gas: tx_execution_info.receipt.da_gas,
             fee: tx_execution_info.receipt.fee,
@@ -474,7 +482,7 @@ fn cairo_vm_execute(
         append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer)
             .map_err(|err| VMError::tx_non_execution_error(err, txn_index))?;
 
-        let trace = jsonrpc::new_transaction_trace(
+        let trace = new_transaction_trace(
             &txn_and_query_bit.txn,
             tx_execution_info,
             &mut txn_state,
@@ -688,7 +696,7 @@ fn append_gas_and_fee(tx_execution_info: &TransactionExecutionInfo, reader_handl
 
 fn append_trace(
     reader_handle: usize,
-    trace: &jsonrpc::TransactionTrace,
+    trace: &TransactionTrace,
     writer_buffer: &mut Vec<u8>,
 ) -> Result<(), serde_json::Error> {
     writer_buffer.clear();
@@ -705,7 +713,7 @@ fn append_trace(
 
 fn append_state_diff(
     reader_handle: usize,
-    state_diff: &jsonrpc::StateDiff,
+    state_diff: &StateDiff,
     writer_buffer: &mut Vec<u8>,
 ) -> Result<(), serde_json::Error> {
     writer_buffer.clear();
@@ -722,7 +730,7 @@ fn append_state_diff(
 
 fn append_receipt(
     reader_handle: usize,
-    trace: &jsonrpc::TransactionReceipt,
+    trace: &TransactionReceipt,
     writer_buffer: &mut Vec<u8>,
 ) -> Result<(), serde_json::Error> {
     writer_buffer.clear();

@@ -192,7 +192,10 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 	return core.DataAvailabilityMode(*mode)
 }
 
-func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds { //nolint:gocritic
+// todo(rdr): get rid of this gocritic
+func adaptResourceBounds(
+	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint: gocritic // someone was lazy
+) map[core.Resource]core.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
@@ -206,6 +209,7 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 	return coreBounds
 }
 
+// todo(rdr): return by value
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
 		t.ContractAddress = core.ContractAddress(
@@ -356,6 +360,7 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 	}
 }
 
+// todo(rdr): We know the right type here which is a deprecated cairo class, why use polymorphism.
 func AdaptDeprecatedCairoClass(
 	response *starknet.DeprecatedCairoClass,
 ) (core.ClassDefinition, error) {
