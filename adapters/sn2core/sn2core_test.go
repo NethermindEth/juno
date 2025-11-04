@@ -680,11 +680,23 @@ func TestAdaptPreConfirmed(t *testing.T) {
 		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
 		require.NoError(t, err)
 
-		assertPreConfirmedBlockBasics(t, &adapted, test.blockNumber, response, expectedPreConfirmedTxCount, expectedCandidateCount, expectedEventCount)
-		assertPreConfirmedBlockReceipts(t, expectedReceipts, adapted.Block.Receipts, expectedPreConfirmedTxCount)
+		assertPreConfirmedBlockBasics(t,
+			&adapted,
+			test.blockNumber,
+			response,
+			expectedPreConfirmedTxCount,
+			expectedCandidateCount,
+			expectedEventCount,
+		)
+		assertPreConfirmedBlockReceipts(
+			t,
+			expectedReceipts,
+			adapted.Block.Receipts,
+			expectedPreConfirmedTxCount,
+		)
 		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
 		assertCandidateTxs(t, response, adapted.CandidateTxs)
-		assert.Equal(t, len(adapted.TransactionStateDiffs), expectedPreConfirmedTxCount)
+		assertStateDiffs(t, response, adapted.TransactionStateDiffs)
 	}
 }
 
@@ -739,6 +751,18 @@ func assertCandidateTxs(
 			require.NoError(t, err)
 			assert.Equal(t, adaptedTx, candidateTxs[candID])
 			candID++
+		}
+	}
+}
+
+func assertStateDiffs(t *testing.T, response *starknet.PreConfirmedBlock, stateDiffs []*core.StateDiff) {
+	preID := 0
+	for i := range response.Transactions {
+		if !sn2core.IsCandidateTx(response, i) {
+			adaptedStateDiff, err := sn2core.AdaptStateDiff(response.TransactionStateDiffs[i])
+			require.NoError(t, err)
+			assert.Equal(t, adaptedStateDiff, stateDiffs[preID])
+			preID++
 		}
 	}
 }
