@@ -191,10 +191,10 @@ func (t *Trie) Delete(key *felt.Felt) error {
 }
 
 // Returns the root hash of the trie. Calling this method will also cache the hash of each node in the trie.
-func (t *Trie) Hash() felt.Felt {
+func (t *Trie) Hash() (felt.Felt, error) {
 	hash, cached := t.hashRoot()
 	t.root = cached
-	return felt.Felt(*hash.(*trienode.HashNode))
+	return felt.Felt(*hash.(*trienode.HashNode)), nil
 }
 
 // Collapses the trie into a single hash node and flush the node changes to the database.
@@ -220,7 +220,7 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 	}
 
 	// If the root node is not dirty, that means we don't actually need to commit
-	rootHash := t.Hash()
+	rootHash, _ := t.Hash()
 	if hashedNode, dirty := t.root.Cache(); !dirty {
 		t.root = hashedNode
 		return rootHash, nil
