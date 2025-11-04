@@ -410,7 +410,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 }
 
 func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
-	stateDiff := core.StateDiff{} //nolint:exhaustruct // Fields are initiated later
+	var stateDiff core.StateDiff
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
 
 	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.DeclaredClasses))
