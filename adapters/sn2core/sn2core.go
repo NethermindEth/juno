@@ -464,7 +464,10 @@ func AdaptPreConfirmedBlock(
 		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
-	if len(response.Transactions) != len(response.TransactionStateDiffs) || len(response.Transactions) != len(response.Receipts) {
+	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
+		len(response.Transactions) != len(response.Receipts)
+
+	if isInvalidPayloadSizes {
 		return core.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
 	}
 
@@ -485,7 +488,6 @@ func AdaptPreConfirmedBlock(
 	var err error
 	preIdx := 0
 	candIdx := 0
-
 	for i := range len(response.Transactions) {
 		if !IsCandidateTx(response, i) {
 			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
@@ -493,7 +495,8 @@ func AdaptPreConfirmedBlock(
 				return core.PreConfirmed{}, err
 			}
 
-			if txStateDiffs[preIdx], err = AdaptStateDiff(response.TransactionStateDiffs[i]); err != nil {
+			txStateDiffs[preIdx], err = AdaptStateDiff(response.TransactionStateDiffs[i])
+			if err != nil {
 				return core.PreConfirmed{}, err
 			}
 
