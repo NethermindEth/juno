@@ -469,7 +469,6 @@ func AdaptPreConfirmedBlock(
 
 	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
 		len(response.Transactions) != len(response.Receipts)
-
 	if isInvalidPayloadSizes {
 		return core.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
 	}
