@@ -67,10 +67,8 @@ func (c *DeprecatedCairoClass) SierraVersion() string {
 }
 
 type SierraClass struct {
-	Abi     string
-	AbiHash *felt.Felt
-	// TODO: will implement this on a follow up PR commit to avoid the migration
-	// EntryPoints     SierraEntryPointsByType
+	Abi         string
+	AbiHash     *felt.Felt
 	EntryPoints SierraEntryPointsByType
 	Program     []*felt.Felt
 	ProgramHash *felt.Felt
