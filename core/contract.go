@@ -131,7 +131,7 @@ func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	return cStorage.Root()
+	return cStorage.Hash()
 }
 
 type OnValueChanged = func(location, oldValue *felt.Felt) error
