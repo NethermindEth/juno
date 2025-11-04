@@ -48,13 +48,23 @@ func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLog
 	}
 
 	return newPebble(path, &pebble.Options{
-		Logger:       dbLog,
-		Cache:        pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
-		MaxOpenFiles: maxOpenFiles,
+		Logger:             dbLog,
+		Cache:              pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
+		MaxOpenFiles:       maxOpenFiles,
+		FormatMajorVersion: pebble.FormatColumnarBlocks,
 	})
 }
 
 func newPebble(path string, options *pebble.Options) (*DB, error) {
+	var levelOptions pebble.LevelOptions
+	levelOptions.EnsureDefaults()
+	levelOptions.Compression = func() pebble.Compression { return pebble.ZstdCompression }
+
+	if options == nil {
+		options = options.EnsureDefaults()
+	}
+	options.Levels = []pebble.LevelOptions{levelOptions}
+
 	pDB, err := pebble.Open(path, options)
 	if err != nil {
 		return nil, err
