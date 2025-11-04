@@ -478,7 +478,6 @@ func AdaptPreConfirmedBlock(
 		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
-	var adaptedStateDiff core.StateDiff
 	var err error
 
 	txStateDiffs := make([]*core.StateDiff, 0, len(response.TransactionStateDiffs))
@@ -486,7 +485,7 @@ func AdaptPreConfirmedBlock(
 		if stateDiff == nil {
 			break
 		}
-
+		var adaptedStateDiff core.StateDiff
 		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
 			return core.PreConfirmed{}, err
 		}
