@@ -1,9 +1,8 @@
-package rpcv9_test
+package rpcv10_test
 
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,8 +16,9 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpc "github.com/NethermindEth/juno/rpc/v9"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -32,33 +32,51 @@ import (
 type expectedBlockTrace struct {
 	blockHash   string
 	blockNumber uint64
-	wantTrace   string
+	wantTrace   []rpcv10.TracedBlockTransaction
 }
 
 // readTestData reads a JSON file from the testdata directory
 // Returns the content as the specified type T
-func readTestData[T any](path string) (T, error) {
+func readTestData[T any](t *testing.T, path string) T {
 	var result T
 
 	// Get the current test file directory using runtime.Caller
 	_, testFile, _, ok := runtime.Caller(1)
-	if !ok {
-		return result, fmt.Errorf("failed to get caller info")
-	}
-	testDir := filepath.Dir(testFile)
+	require.True(t, ok, "failed to get caller info")
 
+	testDir := filepath.Dir(testFile)
 	dataPath := filepath.Join(testDir, "testdata", path)
 
 	content, err := os.ReadFile(dataPath)
-	if err != nil {
-		return result, err
-	}
+	require.NoError(t, err)
 
-	if err := json.Unmarshal(content, &result); err != nil {
-		return result, fmt.Errorf("invalid JSON in %s: %w", dataPath, err)
-	}
+	require.NoError(
+		t,
+		json.Unmarshal(content, &result),
+	)
 
-	return result, nil
+	return result
+}
+
+// readTestDataAsString reads a JSON file from the testdata directory
+// and returns it as a string. Used for JSON format comparison.
+func readTestDataAsString(t *testing.T, path string) string {
+	t.Helper()
+
+	_, testFile, _, ok := runtime.Caller(1)
+	require.True(t, ok, "failed to get caller info")
+
+	testDir := filepath.Dir(testFile)
+	dataPath := filepath.Join(testDir, "testdata", path)
+
+	content, err := os.ReadFile(dataPath)
+	require.NoError(t, err)
+
+	// Verify it's valid JSON before returning
+	var data interface{}
+	require.NoError(t, json.Unmarshal(content, &data), "Expected JSON file to contain valid JSON")
+
+	return string(content)
 }
 
 func TestTraceFallback(t *testing.T) {
@@ -67,13 +85,19 @@ func TestTraceFallback(t *testing.T) {
 			"old block": {
 				blockHash:   "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
 				blockNumber: 0,
-				wantTrace:   `[ { "trace_root": { "type": "DEPLOY", "constructor_invocation": { "contract_address": "0x7b196a359045d4d0c10f73bdf244a9e1205a615dbb754b8df40173364288534", "entry_point_selector": null, "calldata": [ "0x187d50a5cf3ebd6d4d6fa8e29e4cad0a237759c6416304a25c4ea792ed4bba4", "0x42f5af30d6693674296ad87301935d0c159036c3b24af4042ff0270913bf6c6" ], "caller_address": "0x0", "class_hash": null, "entry_point_type": "", "call_type": "", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x3fa1bff0c86f34b2eb32c26d12208b6bdb4a5f6a434ac1d4f0e2d1db71bd711" }, { "trace_root": { "type": "DEPLOY", "constructor_invocation": { "contract_address": "0x64ed79a8ebe97485d3357bbfdf5f6bea0d9db3b5f1feb6e80d564a179122dc6", "entry_point_selector": null, "calldata": [ "0x5cedec15acd969b0fba39fec9e7d9bd4d0b33f100969ad3a4543039a6f696d4", "0xce9801d27b02543f4d88b60aa456860f94ee9f612fc56464abfbdeedc1ab72" ], "caller_address": "0x0", "class_hash": null, "entry_point_type": "", "call_type": "", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x154c02cc3165cceadaa32e7238a67061b3a1eac414138c4ebe1408f37fd93eb" }, { "trace_root": { "type": "INVOKE", "execute_invocation": { "contract_address": "0x64ed79a8ebe97485d3357bbfdf5f6bea0d9db3b5f1feb6e80d564a179122dc6", "entry_point_selector": null, "calldata": [ "0x17d9c35a8b9a0d4512fa05eafec01c2758a7a5b7ec7b47408a24a4b33124d9b", "0x2", "0x7f800b5bf79637f8f83f47a8fc4d368b43695c781b22a899f11b5f2faba874a", "0x3a7a40d383612b0ad167aec8d90fb07e576e017d07948f63ac318b52511ae93" ], "caller_address": "0x0", "class_hash": null, "entry_point_type": "", "call_type": "", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x7893675c16da857b7c4229cda449e08a4fe13b07ca817e79d1db02e8a046047" }, { "trace_root": { "type": "INVOKE", "execute_invocation": { "contract_address": "0x64ed79a8ebe97485d3357bbfdf5f6bea0d9db3b5f1feb6e80d564a179122dc6", "entry_point_selector": null, "calldata": [ "0x17d9c35a8b9a0d4512fa05eafec01c2758a7a5b7ec7b47408a24a4b33124d9b", "0x2", "0x7f800b5bf79637f8f83f47a8fc4d368b43695c781b22a899f11b5f2faba874a", "0xf140b304e9266c72f1054116dd06d9c1c8e981db7bf34e3c6da99640e9a7c8" ], "caller_address": "0x0", "class_hash": null, "entry_point_type": "", "call_type": "", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x4a277d67e3f42c4a343854081d1e2e9e425f1323255e4486d2badb37a1d8630" } ]`,
+				wantTrace: readTestData[[]rpcv10.TracedBlockTransaction](
+					t,
+					"traces/goerli_block_0.json",
+				),
 			},
 			// The newer block still needs to have starknet_version <= 0.13.1 to be fetched from the feeder
 			"newer block": {
 				blockHash:   "0xe3828bd9154ab385e2cbb95b3b650365fb3c6a4321660d98ce8b0a9194f9a3",
 				blockNumber: 300000,
-				wantTrace:   `[ { "trace_root": { "type": "INVOKE", "validate_invocation": { "contract_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775", "calldata": [ "0x1", "0x332299dc083f3778122e5b7762bc9d399da18fefe93769aee67bb49f51c8d2", "0x2d7cf5d5a324a320f9f37804b1615a533fde487400b41af80f13f7ac5581325", "0x0", "0x4", "0x4", "0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9", "0x2", "0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228", "0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e" ], "caller_address": "0x0", "class_hash": "0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execute_invocation": { "contract_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad", "calldata": [ "0x1", "0x332299dc083f3778122e5b7762bc9d399da18fefe93769aee67bb49f51c8d2", "0x2d7cf5d5a324a320f9f37804b1615a533fde487400b41af80f13f7ac5581325", "0x0", "0x4", "0x4", "0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9", "0x2", "0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228", "0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e" ], "caller_address": "0x0", "class_hash": "0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [ { "contract_address": "0x332299dc083f3778122e5b7762bc9d399da18fefe93769aee67bb49f51c8d2", "entry_point_selector": "0x2d7cf5d5a324a320f9f37804b1615a533fde487400b41af80f13f7ac5581325", "calldata": [ "0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9", "0x2", "0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228", "0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e" ], "caller_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "class_hash": "0x165e7db96ab97a63c621229617a6d49633737238673477a54720e4c952f2c7e", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [ { "order": 0, "from_address": "0x332299dc083f3778122e5b7762bc9d399da18fefe93769aee67bb49f51c8d2", "to_address": "0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9", "payload": [ "0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228", "0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e" ] } ], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "fee_transfer_invocation": { "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": [ "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x127089df3a1984", "0x0" ], "caller_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "class_hash": "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x1" ], "calls": [ { "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": [ "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x127089df3a1984", "0x0" ], "caller_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "class_hash": "0x28d7d394810ad8c52741ad8f7564717fd02c10ced68657a81d0b6710ce22079", "entry_point_type": "EXTERNAL", "call_type": "DELEGATE", "result": [ "0x1" ], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x2a648ab1aa6847eb38507fc842e050f256562bf87b26083c332f3f21318c2c3" }, { "trace_root": { "type": "INVOKE", "validate_invocation": { "contract_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775", "calldata": [ "0x1", "0x5f9211b05c9609d54a8bf5f9cfa4e2cd5a3cab3b5d79682c585575495a15dd1", "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f", "0x0", "0x4", "0x4", "0x447379c077035ef4f442411d0407ce9aa66c558f0060137f6455f4f230eabeb", "0x2", "0x6811b7755a7dd0ec1fb6f51a883e3f255368e2dfd497b5f6480c00cf9cd5a2e", "0x23b9e26720dd7aaf98c7cea56499f48f75dc1d4123f7e2d6c23bfc4d5f4a336" ], "caller_address": "0x0", "class_hash": "0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execute_invocation": { "contract_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad", "calldata": [ "0x1", "0x5f9211b05c9609d54a8bf5f9cfa4e2cd5a3cab3b5d79682c585575495a15dd1", "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f", "0x0", "0x4", "0x4", "0x447379c077035ef4f442411d0407ce9aa66c558f0060137f6455f4f230eabeb", "0x2", "0x6811b7755a7dd0ec1fb6f51a883e3f255368e2dfd497b5f6480c00cf9cd5a2e", "0x23b9e26720dd7aaf98c7cea56499f48f75dc1d4123f7e2d6c23bfc4d5f4a336" ], "caller_address": "0x0", "class_hash": "0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [ { "contract_address": "0x5f9211b05c9609d54a8bf5f9cfa4e2cd5a3cab3b5d79682c585575495a15dd1", "entry_point_selector": "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f", "calldata": [ "0x447379c077035ef4f442411d0407ce9aa66c558f0060137f6455f4f230eabeb", "0x2", "0x6811b7755a7dd0ec1fb6f51a883e3f255368e2dfd497b5f6480c00cf9cd5a2e", "0x23b9e26720dd7aaf98c7cea56499f48f75dc1d4123f7e2d6c23bfc4d5f4a336" ], "caller_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "class_hash": "0x13abfd2f333f9c69f690f1569140cdae25f6f66e3f371c9cbb998b65f664a85", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "fee_transfer_invocation": { "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": [ "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x3b2d25cd7bccc", "0x0" ], "caller_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "class_hash": "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x1" ], "calls": [ { "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": [ "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x3b2d25cd7bccc", "0x0" ], "caller_address": "0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7", "class_hash": "0x28d7d394810ad8c52741ad8f7564717fd02c10ced68657a81d0b6710ce22079", "entry_point_type": "EXTERNAL", "call_type": "DELEGATE", "result": [ "0x1" ], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0xbc984e8e1fe594dd518a3a51db4f338437a5d2fbdda772d4426b532a67ffff" } ]`,
+				wantTrace: readTestData[[]rpcv10.TracedBlockTransaction](
+					t,
+					"traces/goerli_block_300_000.json",
+				),
 			},
 		}
 
@@ -85,13 +109,19 @@ func TestTraceFallback(t *testing.T) {
 			"old block": {
 				blockHash:   "0x37644818236ee05b7e3b180bed64ea70ee3dd1553ca334a5c2a290ee276f380",
 				blockNumber: 3,
-				wantTrace:   `[ { "trace_root": { "type": "INVOKE", "validate_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execute_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5" ], "calls": [ { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "calldata": [ "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "0x0", "0x0", "0x1" ], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5" ], "calls": [ { "contract_address": "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5", "entry_point_selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", "calldata": [], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1", "entry_point_type": "CONSTRUCTOR", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x3f786ecc4955a2602c91a291328518ef866cb7f3d50e4b16fd42282952623aa" }, { "trace_root": { "type": "INVOKE", "validate_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execute_invocation": { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad", "calldata": [ "0x1", "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "0x0", "0x4", "0x4", "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "0x0", "0x0", "0x1" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379" ], "calls": [ { "contract_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "entry_point_selector": "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8", "calldata": [ "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "0x0", "0x0", "0x1" ], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379" ], "calls": [ { "contract_address": "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379", "entry_point_selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", "calldata": [], "caller_address": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8", "class_hash": "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1", "entry_point_type": "CONSTRUCTOR", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x4010bd7b00e591c163729aa501691e89784c2afe77d71f7b27613e377738843" } ]`,
+				wantTrace: readTestData[[]rpcv10.TracedBlockTransaction](
+					t,
+					"traces/sepolia_block_3.json",
+				),
 			},
 			// The newer block still needs to have starknet_version <= 0.13.1 to be fetched from the feeder
 			"newer block": {
 				blockHash:   "0x733495d0744edd9785b400408fa87c8ad599f81859df544897f80a3fceab422",
 				blockNumber: 40000,
-				wantTrace:   `[ { "trace_root": { "type": "INVOKE", "validate_invocation": { "contract_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3", "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775", "calldata": [ "0x2", "0x4d0b88ace5705bb7825f91ee95557d906600b7e7762f5615e6a4f407185a43a", "0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3", "0x2", "0x4e946d49fca553930846e35533342f88e59a841c24d9cf507ef28dd6b67cb9b", "0x3ea9c575cfdaa875f3fecaf7db4acdb536ee6b38b8d8a4c769c63d044f942dc", "0x6359ed638df79b82f2f9dbf92abbcb41b57f9dd91ead86b1c85d2dee192c", "0x1a8e87e9d2008fcd3ce423ae5219c21e49be18d05d72825feb7e2bb687ba35c", "0x2", "0x44cd44ad7abf35b9dbe1e17de3610d21", "0x9f806c191aa2a3d47f2b8efc4c412d2f" ], "caller_address": "0x0", "class_hash": "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x56414c4944" ], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execute_invocation": { "contract_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3", "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad", "calldata": [ "0x2", "0x4d0b88ace5705bb7825f91ee95557d906600b7e7762f5615e6a4f407185a43a", "0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3", "0x2", "0x4e946d49fca553930846e35533342f88e59a841c24d9cf507ef28dd6b67cb9b", "0x3ea9c575cfdaa875f3fecaf7db4acdb536ee6b38b8d8a4c769c63d044f942dc", "0x6359ed638df79b82f2f9dbf92abbcb41b57f9dd91ead86b1c85d2dee192c", "0x1a8e87e9d2008fcd3ce423ae5219c21e49be18d05d72825feb7e2bb687ba35c", "0x2", "0x44cd44ad7abf35b9dbe1e17de3610d21", "0x9f806c191aa2a3d47f2b8efc4c412d2f" ], "caller_address": "0x0", "class_hash": "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x2", "0x0", "0x0" ], "calls": [ { "contract_address": "0x4d0b88ace5705bb7825f91ee95557d906600b7e7762f5615e6a4f407185a43a", "entry_point_selector": "0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3", "calldata": [ "0x4e946d49fca553930846e35533342f88e59a841c24d9cf507ef28dd6b67cb9b", "0x3ea9c575cfdaa875f3fecaf7db4acdb536ee6b38b8d8a4c769c63d044f942dc" ], "caller_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3", "class_hash": "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, { "contract_address": "0x6359ed638df79b82f2f9dbf92abbcb41b57f9dd91ead86b1c85d2dee192c", "entry_point_selector": "0x1a8e87e9d2008fcd3ce423ae5219c21e49be18d05d72825feb7e2bb687ba35c", "calldata": [ "0x44cd44ad7abf35b9dbe1e17de3610d21", "0x9f806c191aa2a3d47f2b8efc4c412d2f" ], "caller_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3", "class_hash": "0x5a1a156fd2af56bb992ce31fd2a4765e9b65b84efce45f3063974decaa339a2", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false } ], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "fee_transfer_invocation": { "contract_address": "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": [ "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x11ecef7f251258", "0x0" ], "caller_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3", "class_hash": "0x5327164fa21dca89a92e8eae8a5b7ab90f58373e71f0a16d285e5a4abe5a3cf", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x1" ], "calls": [], "events": [ { "order": 0, "keys": [ "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9" ], "data": [ "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3", "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x11ecef7f251258", "0x0" ] } ], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x6aa7ec89f36e918c9a168ebc9818e9dd19515a2a4bef87d73e1decbd8a7d131" }, { "trace_root": { "type": "DEPLOY_ACCOUNT", "validate_invocation": { "contract_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a", "entry_point_selector": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895", "calldata": [ "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "0x13e91b7ca4192672", "0x1a3bd006d99712e91bd3fd2eb5fafb0f379d9d594125bb527ec7fc5e133122a" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "constructor_invocation": { "contract_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a", "entry_point_selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", "calldata": [ "0x1a3bd006d99712e91bd3fd2eb5fafb0f379d9d594125bb527ec7fc5e133122a" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "CONSTRUCTOR", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "fee_transfer_invocation": { "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": [ "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0xe5e432c83b4f", "0x0" ], "caller_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a", "class_hash": "0x5ffbcfeb50d200a0677c48a129a11245a3fc519d1d98d76882d1c9a1b19c6ed", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x1" ], "calls": [], "events": [ { "order": 0, "keys": [ "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9" ], "data": [ "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a", "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0xe5e432c83b4f", "0x0" ] } ], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x97468f6928d72808b23fe775e7c71893087600792fb36e0d62ec191363bd34" }, { "trace_root": { "type": "DECLARE", "validate_invocation": { "contract_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a", "entry_point_selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3", "calldata": [ "0x1e7c85ba9d58309d1f257ba201523e1a7b695bfeb6523759da24effd8dc6c0f" ], "caller_address": "0x0", "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [], "calls": [], "events": [], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "fee_transfer_invocation": { "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": [ "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0xbf730c7e8f2b", "0x0" ], "caller_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a", "class_hash": "0x5ffbcfeb50d200a0677c48a129a11245a3fc519d1d98d76882d1c9a1b19c6ed", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": [ "0x1" ], "calls": [], "events": [ { "order": 0, "keys": [ "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9" ], "data": [ "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a", "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0xbf730c7e8f2b", "0x0" ] } ], "messages": [], "execution_resources": { "l1_gas": 0, "l2_gas": 0 }, "is_reverted": false }, "execution_resources": { "l1_gas": 5, "l2_gas": 10, "l1_data_gas": 15 } }, "transaction_hash": "0x6a2df1337b09691711a66fca7e93e9f9fbc04c70dc6a17b9284b7af39c1a6a1" } ]`,
+				wantTrace: readTestData[[]rpcv10.TracedBlockTransaction](
+					t,
+					"traces/sepolia_block_40_000.json",
+				),
 			},
 		}
 
@@ -99,7 +129,11 @@ func TestTraceFallback(t *testing.T) {
 	})
 }
 
-func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[string]expectedBlockTrace) {
+func AssertTracedBlockTransactions(
+	t *testing.T,
+	n *utils.Network,
+	tests map[string]expectedBlockTrace,
+) {
 	t.Helper()
 
 	mockCtrl := gomock.NewController(t)
@@ -110,43 +144,37 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-		block, err = gateway.BlockByNumber(t.Context(), number)
+	mockReader.EXPECT().BlockByNumber(gomock.Any()).
+		DoAndReturn(func(number uint64) (block *core.Block, err error) {
+			block, err = gateway.BlockByNumber(t.Context(), number)
 
-		// Simulate gas consumption in block receipts
-		for _, receipt := range block.Receipts {
-			receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
-				L1Gas:     5,
-				L2Gas:     10,
-				L1DataGas: 15,
+			// Simulate gas consumption in block receipts
+			for _, receipt := range block.Receipts {
+				receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
+					L1Gas:     5,
+					L2Gas:     10,
+					L1DataGas: 15,
+				}
 			}
-		}
-		return block, err
-	}).AnyTimes()
+			return block, err
+		}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			mockReader.EXPECT().BlockByHash(felt.NewUnsafeFromString[felt.Felt](test.blockHash)).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-				return mockReader.BlockByNumber(test.blockNumber)
-			})
-
-			handler := rpc.New(mockReader, nil, nil, nil)
+			handler := rpcv10.New(mockReader, nil, nil, nil)
 			handler = handler.WithFeeder(client)
-			blockID := blockIDNumber(t, test.blockNumber)
+			blockID := rpcv9.BlockIDFromNumber(test.blockNumber)
 			traces, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
 			if n == &utils.Sepolia && description == "newer block" {
 				// For the newer block test, we test 3 of the block traces (INVOKE, DEPLOY_ACCOUNT, DECLARE)
-				traces = []rpc.TracedBlockTransaction{traces[0], traces[7], traces[11]}
+				traces = []rpcv10.TracedBlockTransaction{traces[0], traces[7], traces[11]}
 			}
 			require.Nil(t, err)
-			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-
-			jsonStr, jErr := json.Marshal(traces)
-			require.NoError(t, jErr)
-			assert.JSONEq(t, test.wantTrace, string(jsonStr))
+			require.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
+			require.Equal(t, test.wantTrace, traces)
 		})
 	}
 }
@@ -162,111 +190,109 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 
 		blockNumber := uint64(40000)
 
-		mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-			return gateway.BlockByNumber(t.Context(), number)
-		}).Times(2)
-		mockReader.EXPECT().BlockByHash(gomock.Any()).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-			return mockReader.BlockByNumber(blockNumber)
-		})
+		mockReader.EXPECT().BlockByNumber(gomock.Any()).
+			DoAndReturn(func(number uint64) (block *core.Block, err error) {
+				return gateway.BlockByNumber(t.Context(), number)
+			})
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 		mockReader.EXPECT().Network().Return(&network)
 
 		// No feeder client is set
-		handler := rpc.New(mockReader, nil, nil, nil)
+		handler := rpcv10.New(mockReader, nil, nil, nil)
 
-		blockID := blockIDNumber(t, blockNumber)
+		blockID := rpcv9.BlockIDFromNumber(blockNumber)
 		tracedBlocks, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
 
 		require.Nil(t, tracedBlocks)
 		require.Equal(t, rpccore.ErrInternal.Code, err.Code)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
 	})
 }
 
 func TestTransactionTraceValidation(t *testing.T) {
-	validInvokeTransactionTrace := rpc.TransactionTrace{
-		Type:              rpc.TxnInvoke,
-		ExecuteInvocation: &rpc.ExecuteInvocation{},
+	validInvokeTransactionTrace := rpcv10.TransactionTrace{
+		Type:              rpcv9.TxnInvoke,
+		ExecuteInvocation: &rpcv9.ExecuteInvocation{},
 	}
 
-	invalidInvokeTransactionTrace := rpc.TransactionTrace{
-		Type: rpc.TxnInvoke,
+	invalidInvokeTransactionTrace := rpcv10.TransactionTrace{
+		Type: rpcv9.TxnInvoke,
 	}
 
-	validDeployAccountTransactionTrace := rpc.TransactionTrace{
-		Type:                  rpc.TxnDeployAccount,
-		ConstructorInvocation: &rpc.FunctionInvocation{},
+	validDeployAccountTransactionTrace := rpcv10.TransactionTrace{
+		Type:                  rpcv9.TxnDeployAccount,
+		ConstructorInvocation: &rpcv9.FunctionInvocation{},
 	}
 
-	invalidDeployAccountTransactionTrace := rpc.TransactionTrace{
-		Type: rpc.TxnDeployAccount,
+	invalidDeployAccountTransactionTrace := rpcv10.TransactionTrace{
+		Type: rpcv9.TxnDeployAccount,
 	}
 
-	validL1HandlerTransactionTrace := rpc.TransactionTrace{
-		Type: rpc.TxnL1Handler,
-		FunctionInvocation: &rpc.ExecuteInvocation{
-			FunctionInvocation: &rpc.FunctionInvocation{},
+	validL1HandlerTransactionTrace := rpcv10.TransactionTrace{
+		Type: rpcv9.TxnL1Handler,
+		FunctionInvocation: &rpcv9.ExecuteInvocation{
+			FunctionInvocation: &rpcv9.FunctionInvocation{},
 		},
 	}
 
-	validRevertedL1HandlerTransactionTrace := rpc.TransactionTrace{
-		Type: rpc.TxnL1Handler,
-		FunctionInvocation: &rpc.ExecuteInvocation{
+	validRevertedL1HandlerTransactionTrace := rpcv10.TransactionTrace{
+		Type: rpcv9.TxnL1Handler,
+		FunctionInvocation: &rpcv9.ExecuteInvocation{
 			RevertReason: "Reverted",
 		},
 	}
 
-	invalidL1HandlerTransactionTrace := rpc.TransactionTrace{
-		Type: rpc.TxnL1Handler,
+	invalidL1HandlerTransactionTrace := rpcv10.TransactionTrace{
+		Type: rpcv9.TxnL1Handler,
 	}
 
 	tests := []struct {
-		name     string
-		trace    rpc.TransactionTrace
-		wantErr  bool
-		expected string
+		name         string
+		trace        rpcv10.TransactionTrace
+		wantErr      bool
+		expectedJSON string // Expected JSON output (empty if validation should fail)
 	}{
 		{
-			name:     "valid INVOKE tx",
-			trace:    validInvokeTransactionTrace,
-			wantErr:  false,
-			expected: `{"type":"INVOKE","execute_invocation":{"revert_reason":""},"execution_resources":null}`,
+			name:         "valid INVOKE tx",
+			trace:        validInvokeTransactionTrace,
+			wantErr:      false,
+			expectedJSON: readTestDataAsString(t, "traces/validation/valid_invoke_trace.json"),
 		},
 		{
-			name:     "invalid INVOKE tx",
-			trace:    invalidInvokeTransactionTrace,
-			wantErr:  true,
-			expected: ``,
+			name:         "invalid INVOKE tx",
+			trace:        invalidInvokeTransactionTrace,
+			wantErr:      true,
+			expectedJSON: "",
 		},
 		{
-			name:     "valid DEPLOY_ACCOUNT tx",
-			trace:    validDeployAccountTransactionTrace,
-			wantErr:  false,
-			expected: `{"type":"DEPLOY_ACCOUNT","constructor_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null,"is_reverted":false},"execution_resources":null}`,
+			name:         "valid DEPLOY_ACCOUNT tx",
+			trace:        validDeployAccountTransactionTrace,
+			wantErr:      false,
+			expectedJSON: readTestDataAsString(t, "traces/validation/valid_deploy_account_trace.json"),
 		},
 		{
-			name:     "invalid DEPLOY_ACCOUNT tx",
-			trace:    invalidDeployAccountTransactionTrace,
-			wantErr:  true,
-			expected: ``,
+			name:         "invalid DEPLOY_ACCOUNT tx",
+			trace:        invalidDeployAccountTransactionTrace,
+			wantErr:      true,
+			expectedJSON: "",
 		},
 		{
-			name:     "valid L1_HANDLER tx",
-			trace:    validL1HandlerTransactionTrace,
-			wantErr:  false,
-			expected: `{"type":"L1_HANDLER","function_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null,"is_reverted":false},"execution_resources":null}`,
+			name:         "valid L1_HANDLER tx",
+			trace:        validL1HandlerTransactionTrace,
+			wantErr:      false,
+			expectedJSON: readTestDataAsString(t, "traces/validation/valid_l1_handler_trace.json"),
 		},
 		{
-			name:     "valid L1_HANDLER tx reverted",
-			trace:    validRevertedL1HandlerTransactionTrace,
-			wantErr:  false,
-			expected: `{"type":"L1_HANDLER","function_invocation":{"revert_reason":"Reverted"},"execution_resources":null}`,
+			name:         "valid L1_HANDLER tx reverted",
+			trace:        validRevertedL1HandlerTransactionTrace,
+			wantErr:      false,
+			expectedJSON: readTestDataAsString(t, "traces/validation/valid_l1_handler_reverted_trace.json"),
 		},
 		{
-			name:     "invalid L1_HANDLER tx",
-			trace:    invalidL1HandlerTransactionTrace,
-			wantErr:  true,
-			expected: ``,
+			name:         "invalid L1_HANDLER tx",
+			trace:        invalidL1HandlerTransactionTrace,
+			wantErr:      true,
+			expectedJSON: "",
 		},
 	}
 
@@ -276,15 +302,14 @@ func TestTransactionTraceValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			err := validate.Struct(test.trace)
 
-			// Check validation
 			if test.wantErr {
 				assert.Error(t, err, "Expected validation to fail, but it passed")
 			} else {
 				assert.NoError(t, err, "Expected validation to pass, but it failed")
 
-				// Check marshalling (check required fields)
-				j, _ := json.Marshal(test.trace)
-				assert.Equal(t, test.expected, string(j))
+				jsonBytes, marshalErr := json.Marshal(test.trace)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, test.expectedJSON, string(jsonBytes))
 			}
 		})
 	}
@@ -298,7 +323,7 @@ func TestTraceTransaction(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
+	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		t.Run("key not found", func(t *testing.T) {
@@ -314,22 +339,29 @@ func TestTraceTransaction(t *testing.T) {
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
-			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+			assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
 		})
 
 		t.Run("other error", func(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
 			// Receipt() returns some other error
-			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
+			mockReader.EXPECT().Receipt(hash).Return(
+				nil,
+				nil,
+				uint64(0),
+				errors.New("database error"),
+			)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
-			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+			assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
 		})
 	})
 	t.Run("ok", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		hash := felt.NewUnsafeFromString[felt.Felt](
+			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
+		)
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
 			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
@@ -361,8 +393,7 @@ func TestTraceTransaction(t *testing.T) {
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
-		vmTrace, err := readTestData[vm.TransactionTrace]("traces/vm_transaction_trace.json")
-		require.NoError(t, err)
+		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
 
 		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
 		overallFee := []*felt.Felt{felt.NewFromUint64[felt.Felt](1)}
@@ -389,14 +420,14 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
 			L1DataGas: 3,
 			L2Gas:     4,
 		}
-		assert.Equal(t, rpc.AdaptVMTransactionTrace(&vmTrace), trace)
+		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 
 	t.Run("pending block - starknet version < 0.14.0", func(t *testing.T) {
@@ -442,8 +473,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
 			Return(headState, nopCloser, nil).Times(2)
 
-		vmTrace, err := readTestData[vm.TransactionTrace]("traces/vm_transaction_trace.json")
-		require.NoError(t, err)
+		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
 
 		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
 		overallFee := []*felt.Felt{felt.NewFromUint64[felt.Felt](1)}
@@ -471,14 +501,14 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
 			L1DataGas: 3,
 			L2Gas:     4,
 		}
-		assert.Equal(t, rpc.AdaptVMTransactionTrace(&vmTrace), trace)
+		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 
 	t.Run("pre_confirmed block", func(t *testing.T) {
@@ -519,8 +549,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
 			Return(headState, nopCloser, nil)
 
-		vmTrace, err := readTestData[vm.TransactionTrace]("traces/vm_transaction_trace.json")
-		require.NoError(t, err)
+		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
 
 		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
 		overallFee := []*felt.Felt{felt.NewFromUint64[felt.Felt](1)}
@@ -549,14 +578,14 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
 			L1DataGas: 3,
 			L2Gas:     4,
 		}
-		assert.Equal(t, rpc.AdaptVMTransactionTrace(&vmTrace), trace)
+		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 
 	t.Run("pre_latest block", func(t *testing.T) {
@@ -612,8 +641,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(preLatest.Block.ParentHash).
 			Return(headState, nopCloser, nil)
 
-		vmTrace, err := readTestData[vm.TransactionTrace]("traces/vm_transaction_trace.json")
-		require.NoError(t, err)
+		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
 
 		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
 		overallFee := []*felt.Felt{felt.NewFromUint64[felt.Felt](1)}
@@ -641,148 +669,62 @@ func TestTraceTransaction(t *testing.T) {
 			}, nil)
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
-
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
 			L1DataGas: 3,
 			L2Gas:     4,
 		}
-		assert.Equal(t, rpc.AdaptVMTransactionTrace(&vmTrace), trace)
+		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
 		n := &utils.Sepolia
 
-		handler := rpc.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
+		handler := rpcv10.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
 		gateway := adaptfeeder.New(client)
 
 		// Tx at index 3 in the block
-		revertedTxHash := felt.NewUnsafeFromString[felt.Felt]("0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1")
+		revertedTxHash := felt.NewUnsafeFromString[felt.Felt](
+			"0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1",
+		)
 
 		blockNumber := uint64(18)
-		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af")
+		blockHash := felt.NewUnsafeFromString[felt.Felt](
+			"0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af",
+		)
 
 		mockReader.EXPECT().Receipt(revertedTxHash).Return(nil, blockHash, blockNumber, nil)
-		mockReader.EXPECT().BlockByHash(blockHash).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-			return gateway.BlockByNumber(t.Context(), blockNumber)
-		}).Times(2)
+		mockReader.EXPECT().BlockByHash(blockHash).
+			DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+				return gateway.BlockByNumber(t.Context(), blockNumber)
+			})
 
-		mockReader.EXPECT().L1Head().Return(core.L1Head{
-			BlockNumber: 19, // Doesn't really matter for this test
-		}, nil)
-
-		expectedRevertedTrace := rpc.TransactionTrace{
-			Type: rpc.TxnInvoke,
-			ValidateInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"),
-				Calldata: []felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x7c687d151607710a7ec82ca5ab0ff2c48f52abd3b4a2773938a0cfef723fe6a"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x10b7e63d3ca05c9baffd985d3e1c3858d4dbf0759f066be0eaddc5d71c2cab5"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"),
-					*felt.NewUnsafeFromString[felt.Felt]("0xa"),
-				},
-				CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x0"),
-				ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844"),
-				EntryPointType: "EXTERNAL",
-				CallType:       "CALL",
-				Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x56414c4944")},
-				Calls:          []rpc.FunctionInvocation{},
-				Events:         []rpcv6.OrderedEvent{},
-				Messages:       []rpcv6.OrderedL2toL1Message{},
-				ExecutionResources: &rpc.InnerExecutionResources{
-					L1Gas: 0,
-					L2Gas: 0,
-				},
-			},
-			FeeTransferInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-				Calldata: []felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x0"),
-				},
-				CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-				ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3"),
-				EntryPointType: "EXTERNAL",
-				CallType:       "CALL",
-				Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x1")},
-				Calls: []rpc.FunctionInvocation{
-					{
-						ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-						EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-						Calldata: []felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-							*felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
-							*felt.NewUnsafeFromString[felt.Felt]("0x0"),
-						},
-						CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-						ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"),
-						EntryPointType: "EXTERNAL",
-						CallType:       "DELEGATE",
-						Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x1")},
-						Calls:          []rpc.FunctionInvocation{},
-						Events: []rpcv6.OrderedEvent{
-							{
-								Order: 0,
-								Keys:  []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
-								Data: []*felt.Felt{
-									felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-									felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-									felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
-									felt.NewUnsafeFromString[felt.Felt]("0x0"),
-								},
-							},
-						},
-						Messages: []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{
-							L1Gas: 0,
-							L2Gas: 0,
-						},
-					},
-				},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
-				ExecutionResources: &rpc.InnerExecutionResources{
-					L1Gas: 0,
-					L2Gas: 0,
-				},
-			},
-			ExecuteInvocation: &rpc.ExecuteInvocation{
-				RevertReason: "Error in the called contract (0x070503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84):\nError at pc=0:4288:\nGot an exception while executing a hint: Custom Hint Error: Execution failed. Failure reason: 'Fatal'.\nCairo traceback (most recent call last):\nUnknown location (pc=0:67)\nUnknown location (pc=0:1997)\nUnknown location (pc=0:2729)\nUnknown location (pc=0:3577)\n",
-			},
-			ExecutionResources: &rpc.ExecutionResources{
-				InnerExecutionResources: rpc.InnerExecutionResources{
-					L1Gas: 0,
-					L2Gas: 0,
-				},
-				L1DataGas: 0,
-			},
-		}
+		expectedRevertedTrace := readTestData[rpcv10.TransactionTrace](
+			t,
+			"traces/reverted_invoke_trace.json",
+		)
 
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), revertedTxHash)
 
 		require.Nil(t, err)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
 		assert.Equal(t, expectedRevertedTrace, trace)
 	})
 }
 
 func TestTraceBlockTransactions(t *testing.T) {
-	errTests := map[string]rpc.BlockID{
-		"latest":        blockIDLatest(t),
-		"hash":          blockIDHash(t, felt.NewFromUint64[felt.Felt](1)),
-		"number":        blockIDNumber(t, 2),
-		"pre_confirmed": blockIDPreConfirmed(t),
-		"l1_accepted":   blockIDL1Accepted(t),
+	errTests := map[string]rpcv9.BlockID{
+		"latest":        rpcv9.BlockIDLatest(),
+		"hash":          rpcv9.BlockIDFromHash(felt.NewFromUint64[felt.Felt](1)),
+		"number":        rpcv9.BlockIDFromNumber(2),
+		"pre_confirmed": rpcv9.BlockIDPreConfirmed(),
+		"l1_accepted":   rpcv9.BlockIDL1Accepted(),
 	}
 
 	for description, blockID := range errTests {
@@ -790,7 +732,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
-			handler := rpc.New(chain, nil, nil, log)
+			handler := rpcv10.New(chain, nil, nil, log)
 
 			if description == "pre_confirmed" {
 				mockCtrl := gomock.NewController(t)
@@ -798,12 +740,12 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 				assert.Nil(t, update)
-				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
 			} else {
 				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 				assert.Nil(t, update)
-				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 			}
 		})
@@ -819,10 +761,12 @@ func TestTraceBlockTransactions(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
-	handler := rpc.New(mockReader, mockSyncReader, mockVM, log)
+	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, log)
 
 	t.Run("regular block", func(t *testing.T) {
-		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		blockHash := felt.NewUnsafeFromString[felt.Felt](
+			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
+		)
 		tx := &core.DeclareTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
 			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
@@ -852,22 +796,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
-		vmTraceJSON := json.RawMessage(`{
-			"validate_invocation":{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":[],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[], "execution_resources":{}},
-			"execute_invocation":{"entry_point_selector":"0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194","calldata":["0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"CONSTRUCTOR","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","calldata":["0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":[],"calls":[],"events":[{"keys":["0x10c19bef19acd19b2c9f4caa40fd47c9fbe1d9f91324d44dcd36be2dae96784"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"]}],"messages":[]}],"events":[],"messages":[], "execution_resources": {}},
-			"fee_transfer_invocation":{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":["0x1"],"calls":[],"events":[{"keys":["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"]}],"messages":[]}],"events":[],"messages":[], "execution_resources": {}},
-			"execution_resources": {"data_availability": {}},
-			"state_diff": {
-				"storage_diffs": [],
-				"nonces": [],
-				"deployed_contracts": [],
-				"deprecated_declared_classes": [],
-				"declared_classes": [],
-				"replaced_classes": []
-			}
-		}`)
-		vmTrace := vm.TransactionTrace{}
-		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
+		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_block_trace.json")
 
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
@@ -890,18 +819,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 			NumSteps:         stepsUsed,
 		}, nil)
 
-		expectedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
-		expectedResult := []rpc.TracedBlockTransaction{
+		expectedTrace := rpcv10.AdaptVMTransactionTrace(&vmTrace)
+		expectedResult := []rpcv10.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
 				TraceRoot:       &expectedTrace,
 			},
 		}
 
-		blockID := blockIDHash(t, blockHash)
-		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
-		require.Nil(t, err)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
+		blockID := rpcv9.BlockIDFromHash(blockHash)
+		result, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result)
 	})
 }
@@ -971,7 +900,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
 			FunctionInvocation:    &vm.ExecuteInvocation{},
-			StateDiff: &vm.StateDiff{ //nolint:dupl
+			StateDiff: &vm.StateDiff{ //nolint:dupl // false positive with rpcv10.StateDiff
 				StorageDiffs: []vm.StorageDiff{
 					{
 						Address: felt.Zero,
@@ -1010,13 +939,19 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						ClassHash:       felt.Zero,
 					},
 				},
+				MigratedCompiledClasses: []vm.MigratedCompiledClass{
+					{
+						ClassHash:         felt.SierraClassHash(felt.Zero),
+						CompiledClassHash: felt.CasmClassHash(felt.Zero),
+					},
+				},
 			},
 		}
 
-		expectedAdaptedTrace := rpc.TransactionTrace{
-			Type: rpc.TxnInvoke,
-			ValidateInvocation: &rpc.FunctionInvocation{
-				Calls:  []rpc.FunctionInvocation{},
+		expectedAdaptedTrace := rpcv10.TransactionTrace{
+			Type: rpcv9.TxnInvoke,
+			ValidateInvocation: &rpcv9.FunctionInvocation{
+				Calls:  []rpcv9.FunctionInvocation{},
 				Events: []rpcv6.OrderedEvent{},
 				Messages: []rpcv6.OrderedL2toL1Message{
 					{
@@ -1034,28 +969,28 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						},
 					},
 				},
-				ExecutionResources: &rpc.InnerExecutionResources{
+				ExecutionResources: &rpcv9.InnerExecutionResources{
 					L1Gas: 1,
 					L2Gas: 3,
 				},
 				IsReverted: false,
 			},
-			FeeTransferInvocation: &rpc.FunctionInvocation{
-				Calls:      []rpc.FunctionInvocation{},
+			FeeTransferInvocation: &rpcv9.FunctionInvocation{
+				Calls:      []rpcv9.FunctionInvocation{},
 				Events:     []rpcv6.OrderedEvent{},
 				Messages:   []rpcv6.OrderedL2toL1Message{},
 				IsReverted: false,
 			},
-			ExecuteInvocation: &rpc.ExecuteInvocation{
+			ExecuteInvocation: &rpcv9.ExecuteInvocation{
 				RevertReason: "",
-				FunctionInvocation: &rpc.FunctionInvocation{
-					Calls:      []rpc.FunctionInvocation{},
+				FunctionInvocation: &rpcv9.FunctionInvocation{
+					Calls:      []rpcv9.FunctionInvocation{},
 					Events:     []rpcv6.OrderedEvent{},
 					Messages:   []rpcv6.OrderedL2toL1Message{},
 					IsReverted: false,
 				},
 			},
-			StateDiff: &rpcv6.StateDiff{ //nolint:dupl
+			StateDiff: &rpcv10.StateDiff{ //nolint:dupl // false positive with vm.StateDiff
 				StorageDiffs: []rpcv6.StorageDiff{
 					{
 						Address: felt.Zero,
@@ -1094,10 +1029,16 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						ClassHash:       felt.Zero,
 					},
 				},
+				MigratedCompiledClasses: []rpcv10.MigratedCompiledClass{
+					{
+						ClassHash:         felt.SierraClassHash(felt.Zero),
+						CompiledClassHash: felt.CasmClassHash(felt.Zero),
+					},
+				},
 			},
 		}
 
-		assert.Equal(t, expectedAdaptedTrace, rpc.AdaptVMTransactionTrace(&vmTrace))
+		assert.Equal(t, expectedAdaptedTrace, rpcv10.AdaptVMTransactionTrace(&vmTrace))
 	})
 
 	t.Run("successfully adapt DEPLOY_ACCOUNT tx from vm", func(t *testing.T) {
@@ -1113,26 +1054,26 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			FunctionInvocation:    &vm.ExecuteInvocation{},
 		}
 
-		expectedAdaptedTrace := rpc.TransactionTrace{
-			Type: rpc.TxnDeployAccount,
-			ValidateInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
+		expectedAdaptedTrace := rpcv10.TransactionTrace{
+			Type: rpcv9.TxnDeployAccount,
+			ValidateInvocation: &rpcv9.FunctionInvocation{
+				Calls:    []rpcv9.FunctionInvocation{},
 				Events:   []rpcv6.OrderedEvent{},
 				Messages: []rpcv6.OrderedL2toL1Message{},
 			},
-			FeeTransferInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
+			FeeTransferInvocation: &rpcv9.FunctionInvocation{
+				Calls:    []rpcv9.FunctionInvocation{},
 				Events:   []rpcv6.OrderedEvent{},
 				Messages: []rpcv6.OrderedL2toL1Message{},
 			},
-			ConstructorInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
+			ConstructorInvocation: &rpcv9.FunctionInvocation{
+				Calls:    []rpcv9.FunctionInvocation{},
 				Events:   []rpcv6.OrderedEvent{},
 				Messages: []rpcv6.OrderedL2toL1Message{},
 			},
 		}
 
-		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+		adaptedTrace := rpcv10.AdaptVMTransactionTrace(&vmTrace)
 
 		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
 	})
@@ -1152,12 +1093,12 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 		}
 
-		expectedAdaptedTrace := rpc.TransactionTrace{
-			Type: rpc.TxnL1Handler,
-			FunctionInvocation: &rpc.ExecuteInvocation{
+		expectedAdaptedTrace := rpcv10.TransactionTrace{
+			Type: rpcv9.TxnL1Handler,
+			FunctionInvocation: &rpcv9.ExecuteInvocation{
 				RevertReason: "",
-				FunctionInvocation: &rpc.FunctionInvocation{
-					Calls:      []rpc.FunctionInvocation{},
+				FunctionInvocation: &rpcv9.FunctionInvocation{
+					Calls:      []rpcv9.FunctionInvocation{},
 					Events:     []rpcv6.OrderedEvent{},
 					Messages:   []rpcv6.OrderedL2toL1Message{},
 					IsReverted: false,
@@ -1165,7 +1106,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 		}
 
-		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+		adaptedTrace := rpcv10.AdaptVMTransactionTrace(&vmTrace)
 
 		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
 	})
@@ -1173,33 +1114,27 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 func TestAdaptFeederBlockTrace(t *testing.T) {
 	t.Run("nil block trace", func(t *testing.T) {
-		block := &rpc.BlockWithTxs{}
+		block := &core.Block{}
 
-		res, err := rpc.AdaptFeederBlockTrace(block, nil)
+		res, err := rpcv10.AdaptFeederBlockTrace(block, nil)
 		require.Nil(t, res)
 		require.Nil(t, err)
 	})
 
-	t.Run("inconsistent blockWithTxs and blockTrace", func(t *testing.T) {
-		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
-				{},
-			},
+	t.Run("inconsistent block and blockTrace", func(t *testing.T) {
+		block := &core.Block{
+			Transactions: []core.Transaction{&core.InvokeTransaction{}},
 		}
 		blockTrace := &starknet.BlockTrace{}
 
-		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		res, err := rpcv10.AdaptFeederBlockTrace(block, blockTrace)
 		require.Nil(t, res)
 		require.Equal(t, errors.New("mismatched number of txs and traces"), err)
 	})
 
 	t.Run("L1_HANDLER tx gets successfully adapted", func(t *testing.T) {
-		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
-				{
-					Type: rpc.TxnL1Handler,
-				},
-			},
+		block := &core.Block{
+			Transactions: []core.Transaction{&core.L1HandlerTransaction{}},
 		}
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
@@ -1225,22 +1160,22 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			},
 		}
 
-		expectedAdaptedTrace := []rpc.TracedBlockTransaction{
+		expectedAdaptedTrace := []rpcv10.TracedBlockTransaction{
 			{
 				TransactionHash: felt.NewFromUint64[felt.Felt](1),
-				TraceRoot: &rpc.TransactionTrace{
-					Type: rpc.TxnL1Handler,
-					FunctionInvocation: &rpc.ExecuteInvocation{
+				TraceRoot: &rpcv10.TransactionTrace{
+					Type: rpcv9.TxnL1Handler,
+					FunctionInvocation: &rpcv9.ExecuteInvocation{
 						RevertReason: "",
-						FunctionInvocation: &rpc.FunctionInvocation{
-							Calls: []rpc.FunctionInvocation{},
+						FunctionInvocation: &rpcv9.FunctionInvocation{
+							Calls: []rpcv9.FunctionInvocation{},
 							Events: []rpcv6.OrderedEvent{{
 								Order: 1,
 								Keys:  []*felt.Felt{felt.NewFromUint64[felt.Felt](2)},
 								Data:  []*felt.Felt{felt.NewFromUint64[felt.Felt](3)},
 							}},
 							Messages: []rpcv6.OrderedL2toL1Message{},
-							ExecutionResources: &rpc.InnerExecutionResources{
+							ExecutionResources: &rpcv9.InnerExecutionResources{
 								L1Gas: 10,
 								L2Gas: 11,
 							},
@@ -1250,18 +1185,14 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			},
 		}
 
-		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		res, err := rpcv10.AdaptFeederBlockTrace(block, blockTrace)
 		require.Nil(t, err)
 		require.Equal(t, expectedAdaptedTrace, res)
 	})
 
 	t.Run("INVOKE tx gets successfully adapted (with revert error)", func(t *testing.T) {
-		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
-				{
-					Type: rpc.TxnInvoke,
-				},
-			},
+		block := &core.Block{
+			Transactions: []core.Transaction{&core.InvokeTransaction{}},
 		}
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
@@ -1275,227 +1206,32 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			},
 		}
 
-		expectedAdaptedTrace := []rpc.TracedBlockTransaction{
+		expectedAdaptedTrace := []rpcv10.TracedBlockTransaction{
 			{
 				TransactionHash: felt.NewFromUint64[felt.Felt](1),
-				TraceRoot: &rpc.TransactionTrace{
-					Type: rpc.TxnInvoke,
-					FeeTransferInvocation: &rpc.FunctionInvocation{
-						Calls:              []rpc.FunctionInvocation{},
+				TraceRoot: &rpcv10.TransactionTrace{
+					Type: rpcv9.TxnInvoke,
+					FeeTransferInvocation: &rpcv9.FunctionInvocation{
+						Calls:              []rpcv9.FunctionInvocation{},
 						Events:             []rpcv6.OrderedEvent{},
 						Messages:           []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{},
+						ExecutionResources: &rpcv9.InnerExecutionResources{},
 					},
-					ValidateInvocation: &rpc.FunctionInvocation{
-						Calls:              []rpc.FunctionInvocation{},
+					ValidateInvocation: &rpcv9.FunctionInvocation{
+						Calls:              []rpcv9.FunctionInvocation{},
 						Events:             []rpcv6.OrderedEvent{},
 						Messages:           []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{},
+						ExecutionResources: &rpcv9.InnerExecutionResources{},
 					},
-					ExecuteInvocation: &rpc.ExecuteInvocation{
+					ExecuteInvocation: &rpcv9.ExecuteInvocation{
 						RevertReason: "some error",
 					},
 				},
 			},
 		}
 
-		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		res, err := rpcv10.AdaptFeederBlockTrace(block, blockTrace)
 		require.Nil(t, err)
 		require.Equal(t, expectedAdaptedTrace, res)
-	})
-}
-
-func TestCall(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
-
-		blockID := blockIDHash(t, &felt.Zero)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
-
-		blockID := blockIDNumber(t, 0)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-	t.Run("call - unknown contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
-		require.Nil(t, res)
-		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
-	})
-
-	t.Run("ok", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
-
-		contractAddr := felt.NewFromUint64[felt.Felt](1)
-		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{
-			*felt.NewFromUint64[felt.Felt](4),
-			*felt.NewFromUint64[felt.Felt](5),
-		}
-		expectedRes := vm.CallResult{Result: []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](6),
-			felt.NewFromUint64[felt.Felt](7),
-		}}
-
-		headsHeader := &core.Header{
-			Number:    9,
-			Timestamp: 101,
-		}
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
-		mockVM.EXPECT().Call(
-			&vm.CallInfo{
-				ContractAddress: contractAddr,
-				ClassHash:       classHash,
-				Selector:        selector,
-				Calldata:        calldata,
-			},
-			&vm.BlockInfo{
-				Header: headsHeader,
-			},
-			gomock.Any(),
-			uint64(1337),
-			uint64(1338),
-			true,
-			false,
-		).Return(expectedRes, nil)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(
-			&rpc.FunctionCall{
-				ContractAddress:    *contractAddr,
-				EntryPointSelector: *selector,
-				Calldata:           rpc.CalldataInputs{Data: calldata},
-			},
-			&blockID,
-		)
-		require.Nil(t, rpcErr)
-		require.Equal(t, expectedRes.Result, res)
-	})
-
-	t.Run("entrypoint not found error", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
-
-		contractAddr := felt.NewFromUint64[felt.Felt](1)
-		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
-		expectedRes := vm.CallResult{
-			Result:          []*felt.Felt{felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt)},
-			ExecutionFailed: true,
-		}
-		expectedErr := rpccore.ErrEntrypointNotFound
-
-		headsHeader := &core.Header{
-			Number:    9,
-			Timestamp: 101,
-		}
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
-		mockVM.EXPECT().Call(
-			&vm.CallInfo{
-				ContractAddress: contractAddr,
-				ClassHash:       classHash,
-				Selector:        selector,
-				Calldata:        calldata,
-			},
-			&vm.BlockInfo{
-				Header: headsHeader,
-			},
-			gomock.Any(),
-			uint64(1337),
-			uint64(1338),
-			true,
-			false,
-		).Return(expectedRes, nil)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(&rpc.FunctionCall{
-			ContractAddress:    *contractAddr,
-			EntryPointSelector: *selector,
-			Calldata:           rpc.CalldataInputs{Data: calldata},
-		},
-			&blockID,
-		)
-		require.Nil(t, res)
-		require.Equal(t, rpcErr, expectedErr)
-	})
-
-	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
-
-		contractAddr := felt.NewFromUint64[felt.Felt](1)
-		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
-		expectedRes := vm.CallResult{
-			ExecutionFailed: true,
-		}
-		expectedErr := rpc.MakeContractError(json.RawMessage(""))
-
-		headsHeader := &core.Header{
-			Number:    9,
-			Timestamp: 101,
-		}
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
-		mockVM.EXPECT().Call(
-			gomock.Any(),
-			gomock.Any(),
-			gomock.Any(),
-			gomock.Any(),
-			gomock.Any(),
-			gomock.Any(),
-			gomock.Any(),
-		).Return(expectedRes, nil)
-
-		blockID := blockIDLatest(t)
-		res, rpcErr := handler.Call(
-			&rpc.FunctionCall{
-				ContractAddress:    *contractAddr,
-				EntryPointSelector: *selector,
-				Calldata:           rpc.CalldataInputs{Data: calldata},
-			},
-			&blockID,
-		)
-		require.Nil(t, res)
-		require.Equal(t, expectedErr, rpcErr)
 	})
 }

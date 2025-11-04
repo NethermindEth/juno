@@ -140,7 +140,6 @@ func makeRPCMetrics(versions ...string) []jsonrpc.EventListener {
 
 	listeners := make([]jsonrpc.EventListener, len(versions))
 	for i, version := range versions {
-		version := version
 		listeners[i] = &jsonrpc.SelectiveListener{
 			OnNewRequestCb: func(method string) {
 				requests.WithLabelValues(method, version).Inc()

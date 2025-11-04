@@ -807,16 +807,16 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 type TxnFinalityStatusWithoutL1 TxnFinalityStatus
 
 func (s *TxnFinalityStatusWithoutL1) UnmarshalText(text []byte) error {
-	switch string(text) {
-	case "PRE_CONFIRMED":
-		*s = TxnFinalityStatusWithoutL1(TxnPreConfirmed)
-		return nil
-	case "ACCEPTED_ON_L2":
-		*s = TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
-		return nil
-	default:
+	var base TxnFinalityStatus
+	if err := base.UnmarshalText(text); err != nil {
+		return err
+	}
+	// Validate that only non-L1 statuses are allowed
+	if base == TxnAcceptedOnL1 {
 		return fmt.Errorf("invalid TxnStatus: %s;", text)
 	}
+	*s = TxnFinalityStatusWithoutL1(base)
+	return nil
 }
 
 func (s TxnFinalityStatusWithoutL1) MarshalText() ([]byte, error) {

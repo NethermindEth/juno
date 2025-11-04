@@ -172,7 +172,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 	}
 	var txnExecutionError vm.TransactionExecutionError
 	if errors.As(err, &txnExecutionError) {
-		return makeTransactionExecutionError(&txnExecutionError)
+		return MakeTransactionExecutionError(&txnExecutionError)
 	}
 	return rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 }
@@ -267,7 +267,7 @@ type TransactionExecutionErrorData struct {
 	ExecutionError   json.RawMessage `json:"execution_error"`
 }
 
-func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
+func MakeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
 	return rpccore.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
 		TransactionIndex: err.Index,
 		ExecutionError:   err.Cause,
