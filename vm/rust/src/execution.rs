@@ -1,4 +1,4 @@
-use crate::error::ExecutionError;
+use crate::error::execution::ExecutionError;
 use crate::juno_state_reader::JunoStateReader;
 use anyhow::{anyhow, Error};
 use blockifier::execution::contract_class::TrackedResource;
