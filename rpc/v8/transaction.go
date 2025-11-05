@@ -636,7 +636,12 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	}
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
-		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+		res.ContractAddress = core.ContractAddress(
+			&felt.Zero,
+			tx.ClassHash,
+			tx.ContractAddressSalt,
+			*tx.ConstructorCallData,
+		)
 	} else if tx.Type == TxnDeclare {
 		res.ClassHash, err = userClass.Hash()
 		if err != nil {

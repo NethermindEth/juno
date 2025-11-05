@@ -69,7 +69,8 @@ func (d *StateDiff) Hash() *felt.Felt {
 	updatedContractsDigest(d.DeployedContracts, d.ReplacedClasses, digest)
 
 	// declared classes
-	// Digest: [number_of_declared_classes, class_hash_0, compiled_class_hash_0, class_hash_1, compiled_class_hash_1,
+	// Digest: [number_of_declared_classes, class_hash_0, compiled_class_hash_0, class_hash_1,
+	// compiled_class_hash_1,
 	// ...].
 	declaredClassesDigest(d.DeclaredV1Classes, digest)
 
@@ -89,11 +90,13 @@ func (d *StateDiff) Hash() *felt.Felt {
 	storageDiffDigest(d.StorageDiffs, digest)
 
 	// nonces
-	// Digest: [number_of_updated_contracts nonces, contract_address_0, nonce_0, contract_address_1, nonce_1, ...]
+	// Digest: [number_of_updated_contracts nonces, contract_address_0,
+	// nonce_0, contract_address_1, nonce_1, ...]
 	noncesDigest(d.Nonces, digest)
 
 	/*Poseidon(
-	    "STARKNET_STATE_DIFF0", deployed_contracts_and_replaced_classes, declared_classes, deprecated_declared_classes,
+	    "STARKNET_STATE_DIFF0", deployed_contracts_and_replaced_classes,
+		declared_classes, deprecated_declared_classes,
 	    1, 0, storage_diffs, nonces
 	)*/
 	return digest.Finish()
@@ -173,7 +176,10 @@ func updatedContractsDigest(deployedContracts, replacedClasses map[felt.Felt]*fe
 	}
 }
 
-func declaredClassesDigest(declaredV1Classes map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
+func declaredClassesDigest(
+	declaredV1Classes map[felt.Felt]*felt.Felt,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfDeclaredClasses := uint64(len(declaredV1Classes))
 	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredClasses))
 
@@ -183,7 +189,10 @@ func declaredClassesDigest(declaredV1Classes map[felt.Felt]*felt.Felt, digest *c
 	}
 }
 
-func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *crypto.PoseidonDigest) {
+func deprecatedDeclaredClassesDigest(
+	declaredV0Classes []*felt.Felt,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfDeclaredV0Classes := uint64(len(declaredV0Classes))
 	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredV0Classes))
 
@@ -191,7 +200,10 @@ func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *cry
 	digest.Update(declaredV0Classes...)
 }
 
-func storageDiffDigest(storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
+func storageDiffDigest(
+	storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfStorageDiffs := uint64(len(storageDiffs))
 	digest.Update(new(felt.Felt).SetUint64(numOfStorageDiffs))
 

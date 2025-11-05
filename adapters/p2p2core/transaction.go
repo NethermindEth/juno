@@ -31,10 +31,11 @@ func AdaptDeclareV3WithClass(
 			nil,
 			fmt.Errorf("failed to adapt declare v3 transaction common: %w", err)
 	}
-	if *class.Compiled.Hash() != *declareCommon.CompiledClassHash {
+	compiledClassHash := class.Compiled.Hash()
+	if !compiledClassHash.Equal(declareCommon.CompiledClassHash) {
 		err := fmt.Errorf(
 			"compiled class hash mismatch: expected %s, got %s",
-			class.Compiled.Hash(),
+			compiledClassHash,
 			declareCommon.CompiledClassHash,
 		)
 		return nil, nil, err

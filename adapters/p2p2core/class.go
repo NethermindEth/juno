@@ -70,12 +70,12 @@ func AdaptClassDefinition(cls *class.Class) (core.ClassDefinition, error) {
 func adaptSierraEntryPoints(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
 	sierraEntryPoints := make([]core.SierraEntryPoint, len(points))
 	for index := range points {
-		sierraEntryPoints[index] = adaptSierra(points[index])
+		sierraEntryPoints[index] = adaptSierraEntryPoint(points[index])
 	}
 	return sierraEntryPoints
 }
 
-func adaptSierra(e *class.SierraEntryPoint) core.SierraEntryPoint {
+func adaptSierraEntryPoint(e *class.SierraEntryPoint) core.SierraEntryPoint {
 	return core.SierraEntryPoint{
 		Index:    e.Index,
 		Selector: AdaptFelt(e.Selector),

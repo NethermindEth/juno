@@ -645,7 +645,11 @@ func (s *State) purgesystemContracts() error {
 	return nil
 }
 
-func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt, v1Classes map[felt.Felt]*felt.Felt) error {
+func (s *State) removeDeclaredClasses(
+	blockNumber uint64,
+	v0Classes []*felt.Felt,
+	v1Classes map[felt.Felt]*felt.Felt,
+) error {
 	totalCapacity := len(v0Classes) + len(v1Classes)
 	classHashes := make([]*felt.Felt, 0, totalCapacity)
 	classHashes = append(classHashes, v0Classes...)

@@ -151,14 +151,18 @@ func TestCallCairo(t *testing.T) {
 
 	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	// https://goerli.voyager.online/class/0x01338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292
-	classHash := felt.NewUnsafeFromString[felt.Felt]("0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
+	classHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292",
+	)
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
+		),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -173,7 +177,9 @@ func TestCallCairo(t *testing.T) {
 	require.NoError(t, err)
 
 	// test_storage_read
-	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
+	entryPoint := felt.NewUnsafeFromString[felt.Felt](
+		"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
+	)
 	storageLocation := felt.NewUnsafeFromString[felt.Felt]("0x44")
 
 	feeTokens := utils.DefaultFeeTokenAddresses
@@ -200,8 +206,12 @@ func TestCallCairo(t *testing.T) {
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
-		OldRoot: felt.NewUnsafeFromString[felt.Felt]("0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552"),
+		OldRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
+		),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552",
+		),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {

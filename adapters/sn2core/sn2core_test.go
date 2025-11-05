@@ -573,10 +573,21 @@ func TestClassV1(t *testing.T) {
 			assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
 			assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
 			assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
-			assert.Equal(t, len(compiled.EntryPoints.Constructor), len(v1Class.Compiled.Constructor))
-			assert.Equal(t, len(compiled.EntryPoints.L1Handler), len(v1Class.Compiled.L1Handler))
+			assert.Equal(
+				t,
+				len(compiled.EntryPoints.Constructor),
+				len(v1Class.Compiled.Constructor),
+			)
+			assert.Equal(t,
+				len(compiled.EntryPoints.L1Handler),
+				len(v1Class.Compiled.L1Handler),
+			)
 
-			assert.Equal(t, len(feederClass.Sierra.EntryPoints.External), len(v1Class.EntryPoints.External))
+			assert.Equal(
+				t,
+				len(feederClass.Sierra.EntryPoints.External),
+				len(v1Class.EntryPoints.External),
+			)
 			for i, v := range feederClass.Sierra.EntryPoints.External {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.External[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.External[i].Index)
@@ -665,7 +676,10 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		response, err := client.PreConfirmedBlock(t.Context(), strconv.FormatUint(test.blockNumber, 10))
+		response, err := client.PreConfirmedBlock(
+			t.Context(),
+			strconv.FormatUint(test.blockNumber, 10),
+		)
 		require.NoError(t, err)
 
 		expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
@@ -674,10 +688,28 @@ func TestAdaptPreConfirmed(t *testing.T) {
 		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
 		require.NoError(t, err)
 
-		assertPreConfirmedBlockBasics(t, &adapted, test.blockNumber, response, expectedPreConfirmedTxCount, expectedCandidateCount, expectedEventCount)
-		assertPreConfirmedBlockReceipts(t, response.Receipts, adapted.Block.Receipts, expectedPreConfirmedTxCount)
+		assertPreConfirmedBlockBasics(
+			t,
+			&adapted,
+			test.blockNumber,
+			response,
+			expectedPreConfirmedTxCount,
+			expectedCandidateCount,
+			expectedEventCount,
+		)
+		assertPreConfirmedBlockReceipts(
+			t,
+			response.Receipts,
+			adapted.Block.Receipts,
+			expectedPreConfirmedTxCount,
+		)
 		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
-		assertCandidateTxs(t, response.Transactions, adapted.CandidateTxs, expectedPreConfirmedTxCount)
+		assertCandidateTxs(
+			t,
+			response.Transactions,
+			adapted.CandidateTxs,
+			expectedPreConfirmedTxCount,
+		)
 		assert.Equal(t, len(adapted.TransactionStateDiffs), expectedPreConfirmedTxCount)
 	}
 }
