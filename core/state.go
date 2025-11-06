@@ -592,11 +592,12 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return fmt.Errorf("verify state update root: %v", err)
 	}
 
-	if err = s.removeDeclaredClasses(
+	err = s.removeDeclaredClasses(
 		blockNumber,
 		update.StateDiff.DeclaredV0Classes,
 		update.StateDiff.DeclaredV1Classes,
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("remove declared classes: %v", err)
 	}
 
