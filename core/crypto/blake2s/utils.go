@@ -34,6 +34,7 @@ func encodeFeltsToUint32s(felts ...*felt.Felt) []uint32 {
 	for _, f := range felts {
 		fb := f.Bits()
 
+		// #nosec G602 // False positive. fb is always [4]uint64
 		if f.Cmp(&smallFeltThreshold) < 0 {
 			val := fb[0]
 			encoding = append(encoding, uint32(val>>32), uint32(val))

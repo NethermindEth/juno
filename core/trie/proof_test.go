@@ -23,7 +23,7 @@ func TestProve(t *testing.T) {
 		err := tempTrie.Prove(record.key, proofSet)
 		require.NoError(t, err)
 
-		root, err := tempTrie.Root()
+		root, err := tempTrie.Hash()
 		require.NoError(t, err)
 
 		val, err := trie.VerifyProof(&root, record.key, proofSet, crypto.Pedersen)
@@ -47,7 +47,7 @@ func TestProveNonExistent(t *testing.T) {
 		err := tempTrie.Prove(keyFelt, proofSet)
 		require.NoError(t, err)
 
-		root, err := tempTrie.Root()
+		root, err := tempTrie.Hash()
 		require.NoError(t, err)
 
 		val, err := trie.VerifyProof(&root, keyFelt, proofSet, crypto.Pedersen)
@@ -67,7 +67,7 @@ func TestProveRandom(t *testing.T) {
 		err := tempTrie.Prove(record.key, proofSet)
 		require.NoError(t, err)
 
-		root, err := tempTrie.Root()
+		root, err := tempTrie.Hash()
 		require.NoError(t, err)
 
 		val, err := trie.VerifyProof(&root, record.key, proofSet, crypto.Pedersen)
@@ -181,7 +181,7 @@ func TestProveCustom(t *testing.T) {
 					err := tr.Prove(tc.key, proofSet)
 					require.NoError(t, err)
 
-					root, err := tr.Root()
+					root, err := tr.Hash()
 					require.NoError(t, err)
 
 					val, err := trie.VerifyProof(&root, tc.key, proofSet, crypto.Pedersen)
@@ -199,7 +199,7 @@ func TestRangeProof(t *testing.T) {
 
 	n := 500
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	for range 100 {
@@ -228,7 +228,7 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 
 	n := 500
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	for range 100 {
@@ -263,7 +263,7 @@ func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 
 	n := 500
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	start, end := 100, 200
@@ -290,7 +290,7 @@ func TestOneElementRangeProof(t *testing.T) {
 
 	n := 1000
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	t.Run("both edge proofs with the same key", func(t *testing.T) {
@@ -370,7 +370,7 @@ func TestOneElementRangeProof(t *testing.T) {
 		t.Parallel()
 
 		tr, records := build1KeyTrie(t)
-		root, err := tr.Root()
+		root, err := tr.Hash()
 		require.NoError(t, err)
 
 		proof := trie.NewProofNodeSet()
@@ -394,7 +394,7 @@ func TestAllElementsRangeProof(t *testing.T) {
 
 	n := 1000
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	keys := make([]*felt.Felt, n)
@@ -421,7 +421,7 @@ func TestSingleSideRangeProof(t *testing.T) {
 	t.Parallel()
 
 	tr, records := randomTrie(t, 1000)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	for i := 0; i < len(records); i += 100 {
@@ -446,7 +446,7 @@ func TestGappedRangeProof(t *testing.T) {
 	t.Skip("gapped keys will sometimes succeed, the current proof format is not able to handle this")
 
 	tr, records := nonRandomTrie(t, 5)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	first, last := 1, 4
@@ -473,7 +473,7 @@ func TestEmptyRangeProof(t *testing.T) {
 	t.Parallel()
 
 	tr, records := randomTrie(t, 1000)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	cases := []struct {
@@ -503,7 +503,7 @@ func TestHasRightElement(t *testing.T) {
 	t.Parallel()
 
 	tr, records := randomTrie(t, 500)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	cases := []struct {
@@ -556,7 +556,7 @@ func TestBadRangeProof(t *testing.T) {
 	t.Parallel()
 
 	tr, records := randomTrie(t, 1000)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(t, err)
 
 	for range 100 {
@@ -623,7 +623,7 @@ func BenchmarkProve(b *testing.B) {
 
 func BenchmarkVerifyProof(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(b, err)
 
 	proofs := make([]*trie.ProofNodeSet, 0, len(records))
@@ -651,7 +651,7 @@ func BenchmarkVerifyProof(b *testing.B) {
 
 func BenchmarkVerifyRangeProof(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
-	root, err := tr.Root()
+	root, err := tr.Hash()
 	require.NoError(b, err)
 
 	start := 2

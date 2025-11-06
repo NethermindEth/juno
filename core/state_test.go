@@ -44,7 +44,7 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
 		require.NoError(t, state.Update(0, su0, nil, false))
-		gotNewRoot, rerr := state.Root()
+		gotNewRoot, rerr := state.Commitment()
 		require.NoError(t, rerr)
 		assert.Equal(t, su0.NewRoot, &gotNewRoot)
 	})
@@ -77,12 +77,12 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("non-empty state updated multiple times", func(t *testing.T) {
 		require.NoError(t, state.Update(1, su1, nil, false))
-		gotNewRoot, rerr := state.Root()
+		gotNewRoot, rerr := state.Commitment()
 		require.NoError(t, rerr)
 		assert.Equal(t, su1.NewRoot, &gotNewRoot)
 
 		require.NoError(t, state.Update(2, su2, nil, false))
-		gotNewRoot, err = state.Root()
+		gotNewRoot, err = state.Commitment()
 		require.NoError(t, err)
 		assert.Equal(t, su2.NewRoot, &gotNewRoot)
 	})
@@ -343,11 +343,11 @@ func TestContractIsDeployedAt(t *testing.T) {
 		deployedOn0 := felt.NewUnsafeFromString[felt.Felt](
 			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 		)
-		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn0, 0)
+		deployed, err := state.ContractDeployedAt(deployedOn0, 0)
 		require.NoError(t, err)
 		assert.True(t, deployed)
 
-		deployed, err = state.ContractIsAlreadyDeployedAt(deployedOn0, 1)
+		deployed, err = state.ContractDeployedAt(deployedOn0, 1)
 		require.NoError(t, err)
 		assert.True(t, deployed)
 	})
@@ -356,18 +356,18 @@ func TestContractIsDeployedAt(t *testing.T) {
 		deployedOn1 := felt.NewUnsafeFromString[felt.Felt](
 			"0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80",
 		)
-		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn1, 0)
+		deployed, err := state.ContractDeployedAt(deployedOn1, 0)
 		require.NoError(t, err)
 		assert.False(t, deployed)
 
-		deployed, err = state.ContractIsAlreadyDeployedAt(deployedOn1, 1)
+		deployed, err = state.ContractDeployedAt(deployedOn1, 1)
 		require.NoError(t, err)
 		assert.True(t, deployed)
 	})
 
 	t.Run("not deployed", func(t *testing.T) {
 		notDeployed := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
-		deployed, err := state.ContractIsAlreadyDeployedAt(notDeployed, 1)
+		deployed, err := state.ContractDeployedAt(notDeployed, 1)
 		require.NoError(t, err)
 		assert.False(t, deployed)
 	})
@@ -550,15 +550,15 @@ func TestRevert(t *testing.T) {
 
 	t.Run("should be able to revert all the state", func(t *testing.T) {
 		require.NoError(t, state.Revert(2, su2))
-		root, err := state.Root()
+		root, err := state.Commitment()
 		require.NoError(t, err)
 		require.Equal(t, su2.OldRoot, &root)
 		require.NoError(t, state.Revert(1, su1))
-		root, err = state.Root()
+		root, err = state.Commitment()
 		require.NoError(t, err)
 		require.Equal(t, su1.OldRoot, &root)
 		require.NoError(t, state.Revert(0, su0))
-		root, err = state.Root()
+		root, err = state.Commitment()
 		require.NoError(t, err)
 		require.Equal(t, su0.OldRoot, &root)
 	})
@@ -634,7 +634,7 @@ func TestRevertSystemContracts(t *testing.T) {
 
 	require.NoError(t, state.Revert(1, su1))
 
-	gotRoot, err := state.Root()
+	gotRoot, err := state.Commitment()
 	require.NoError(t, err)
 
 	assert.Equal(t, su0.NewRoot, &gotRoot)

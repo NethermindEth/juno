@@ -229,7 +229,7 @@ func TestStorageProof(t *testing.T) {
 	_, _ = tempTrie.Put(key, value)
 	_, _ = tempTrie.Put(key2, value2)
 	_ = tempTrie.Commit()
-	trieRoot, _ := tempTrie.Root()
+	trieRoot, _ := tempTrie.Hash()
 
 	headBlock := &core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}
 
@@ -704,10 +704,10 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		contractTrie, err := reader.ContractTrie()
 		assert.NoError(t, err)
 
-		clsRoot, err := classTrie.Root()
+		clsRoot, err := classTrie.Hash()
 		assert.NoError(t, err)
 
-		stgRoot, err := contractTrie.Root()
+		stgRoot, err := contractTrie.Hash()
 		assert.NoError(t, err)
 
 		assert.Equal(t, expectedClsRoot, &clsRoot, clsRoot.String())
