@@ -6,55 +6,17 @@ use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::objects::RevertError;
 use starknet_types_core::felt::Felt;
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ErrorStack(pub Vec<Frame>);
-
-impl From<BlockifierErrorStack> for ErrorStack {
-    fn from(value: BlockifierErrorStack) -> Self {
-        Self(
-            value
-                .stack
-                .into_iter()
-                .flat_map(|v| Frames::from(v).0)
-                .collect(),
-        )
-    }
-}
-
-impl From<TransactionExecutionError> for ErrorStack {
-    fn from(value: TransactionExecutionError) -> Self {
-        gen_tx_execution_error_trace(&value).into()
-    }
-}
-
-impl From<RevertError> for ErrorStack {
-    fn from(value: RevertError) -> Self {
-        match value {
-            RevertError::Execution(error_stack) => error_stack.into(),
-            RevertError::PostExecution(fee_check_error) => {
-                Self(vec![Frame::StringFrame(fee_check_error.to_string())])
-            }
-        }
-    }
-}
-
-impl From<Cairo1RevertSummary> for ErrorStack {
-    fn from(value: Cairo1RevertSummary) -> Self {
-        Self(Frames::from(value).0)
-    }
+#[derive(Clone, Debug, PartialEq)]
+pub struct CallFrame {
+    pub storage_address: Felt,
+    pub class_hash: Felt,
+    pub selector: Option<Felt>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Frame {
     CallFrame(CallFrame),
     StringFrame(String),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CallFrame {
-    pub storage_address: Felt,
-    pub class_hash: Felt,
-    pub selector: Option<Felt>,
 }
 
 impl From<Cairo1RevertFrame> for Frame {
@@ -100,5 +62,43 @@ impl From<Cairo1RevertSummary> for Frames {
                 .chain(std::iter::once(Frame::StringFrame(failure_reason)))
                 .collect(),
         )
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ErrorStack(pub Vec<Frame>);
+
+impl From<BlockifierErrorStack> for ErrorStack {
+    fn from(value: BlockifierErrorStack) -> Self {
+        Self(
+            value
+                .stack
+                .into_iter()
+                .flat_map(|v| Frames::from(v).0)
+                .collect(),
+        )
+    }
+}
+
+impl From<TransactionExecutionError> for ErrorStack {
+    fn from(value: TransactionExecutionError) -> Self {
+        gen_tx_execution_error_trace(&value).into()
+    }
+}
+
+impl From<RevertError> for ErrorStack {
+    fn from(value: RevertError) -> Self {
+        match value {
+            RevertError::Execution(error_stack) => error_stack.into(),
+            RevertError::PostExecution(fee_check_error) => {
+                Self(vec![Frame::StringFrame(fee_check_error.to_string())])
+            }
+        }
+    }
+}
+
+impl From<Cairo1RevertSummary> for ErrorStack {
+    fn from(value: Cairo1RevertSummary) -> Self {
+        Self(Frames::from(value).0)
     }
 }
