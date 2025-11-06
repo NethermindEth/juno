@@ -192,8 +192,9 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 	return core.DataAvailabilityMode(*mode)
 }
 
+// todo(rdr): get rid of this gocritic
 func adaptResourceBounds(
-	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint:gocritic // using pointers
+	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint: gocritic // someone was lazy
 ) map[core.Resource]core.ResourceBounds {
 	if rb == nil {
 		return nil
@@ -208,6 +209,7 @@ func adaptResourceBounds(
 	return coreBounds
 }
 
+// todo(rdr): return by value
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
 		t.ContractAddress = core.ContractAddress(
@@ -360,6 +362,7 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 	}
 }
 
+// todo(rdr): We know the right type here which is a deprecated cairo class, why use polymorphism.
 func AdaptDeprecatedCairoClass(
 	response *starknet.DeprecatedCairoClass,
 ) (core.ClassDefinition, error) {
@@ -397,6 +400,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 	}, nil
 }
 
+// todo(rdr): return `core.StateDiff` by value
 func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
@@ -404,6 +408,13 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.DeclaredClasses))
 	for _, declaredV1Class := range response.DeclaredClasses {
 		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
+	}
+
+	stateDiff.MigratedClasses = make(
+		map[felt.SierraClassHash]felt.CasmClassHash, len(response.MigratedClasses),
+	)
+	for _, migratedClass := range response.MigratedClasses {
+		stateDiff.MigratedClasses[migratedClass.ClassHash] = migratedClass.CompiledClassHash
 	}
 
 	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.ReplacedClasses))
@@ -444,6 +455,13 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
+// Comparing to preconfirmed, candidate txns don't include state diffs and receipts.
+// `||` is used to cover any possible descrepancies
+// https://community.starknet.io/t/sn-0-14-0-pre-release-notes
+func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
+	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
+}
+
 func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
@@ -456,46 +474,51 @@ func AdaptPreConfirmedBlock(
 		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
-	var adaptedStateDiff *core.StateDiff
-	var err error
-
-	txStateDiffs := make([]*core.StateDiff, 0, len(response.TransactionStateDiffs))
-	for _, stateDiff := range response.TransactionStateDiffs {
-		if stateDiff == nil {
-			break
-		}
-
-		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
-			return core.PreConfirmed{}, err
-		}
-		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
+	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
+		len(response.Transactions) != len(response.Receipts)
+	if isInvalidPayloadSizes {
+		return core.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
 	}
 
-	preConfirmedTxCount := len(txStateDiffs)
+	preConfirmedTxCount := 0
+	for i := range len(response.Transactions) {
+		if !IsCandidateTx(response, i) {
+			preConfirmedTxCount++
+		}
+	}
+	candidateCount := len(response.Transactions) - preConfirmedTxCount
 
 	txns := make([]core.Transaction, preConfirmedTxCount)
-	for i := range preConfirmedTxCount {
-		txns[i], err = AdaptTransaction(&response.Transactions[i])
-		if err != nil {
-			return core.PreConfirmed{}, err
-		}
-	}
-
-	rawTxCount := len(response.Transactions)
-	candidateTxs := make([]core.Transaction, rawTxCount-preConfirmedTxCount)
-
-	for i := range rawTxCount - preConfirmedTxCount {
-		candidateTxs[i], err = AdaptTransaction(&response.Transactions[preConfirmedTxCount+i])
-		if err != nil {
-			return core.PreConfirmed{}, err
-		}
-	}
-
+	txStateDiffs := make([]*core.StateDiff, preConfirmedTxCount)
 	receipts := make([]*core.TransactionReceipt, preConfirmedTxCount)
 	eventCount := uint64(0)
-	for i, receipt := range response.Receipts[:preConfirmedTxCount] {
-		receipts[i] = AdaptTransactionReceipt(receipt)
-		eventCount += uint64(len(receipt.Events))
+	candidateTxs := make([]core.Transaction, candidateCount)
+
+	var err error
+	preIdx := 0
+	candIdx := 0
+	for i := range len(response.Transactions) {
+		if !IsCandidateTx(response, i) {
+			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+
+			txStateDiffs[preIdx], err = AdaptStateDiff(response.TransactionStateDiffs[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+
+			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+			eventCount += uint64(len(response.Receipts[i].Events))
+			preIdx++
+		} else {
+			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+			candIdx++
+		}
 	}
 
 	// Squash per-tx state updates

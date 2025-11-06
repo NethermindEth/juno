@@ -650,6 +650,7 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	blockWithCandidates := uint64(1204672)
 	blockWithNoCandidates := uint64(1204673)
 	blockFullOfCandidates := uint64(1204674)
+	blocksWithRandomCandidateOrder := uint64(1204675)
 
 	type preConfirmedTest struct {
 		description string
@@ -673,6 +674,10 @@ func TestAdaptPreConfirmed(t *testing.T) {
 			description: "PreConfirmedBlock when empty",
 			blockNumber: emptyPreConfirmedBlock,
 		},
+		{
+			description: "PreConfirmedBlock with candidate in between preconfirmed txns",
+			blockNumber: blocksWithRandomCandidateOrder,
+		},
 	}
 
 	for _, test := range tests {
@@ -684,6 +689,7 @@ func TestAdaptPreConfirmed(t *testing.T) {
 
 		expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
 		expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
+		expectedReceipts := getPreconfirmedReceipts(response.Receipts)
 
 		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
 		require.NoError(t, err)
@@ -699,19 +705,26 @@ func TestAdaptPreConfirmed(t *testing.T) {
 		)
 		assertPreConfirmedBlockReceipts(
 			t,
-			response.Receipts,
+			expectedReceipts,
 			adapted.Block.Receipts,
 			expectedPreConfirmedTxCount,
 		)
 		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
-		assertCandidateTxs(
-			t,
-			response.Transactions,
-			adapted.CandidateTxs,
-			expectedPreConfirmedTxCount,
-		)
-		assert.Equal(t, len(adapted.TransactionStateDiffs), expectedPreConfirmedTxCount)
+		assertCandidateTxs(t, response, adapted.CandidateTxs)
+		assertStateDiffs(t, response, adapted.TransactionStateDiffs)
 	}
+}
+
+func getPreconfirmedReceipts(
+	receipts []*starknet.TransactionReceipt,
+) []*starknet.TransactionReceipt {
+	var filtered []*starknet.TransactionReceipt
+	for _, r := range receipts {
+		if r != nil {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
 }
 
 func assertPreConfirmedBlockBasics(
@@ -743,17 +756,40 @@ func assertPreConfirmedBlockBasics(
 
 func assertCandidateTxs(
 	t *testing.T,
-	transactions []starknet.Transaction,
+	response *starknet.PreConfirmedBlock,
 	candidateTxs []core.Transaction,
-	offset int,
 ) {
 	t.Helper()
 
-	for i, txn := range candidateTxs {
-		adaptedTx, err := sn2core.AdaptTransaction(&transactions[offset+i])
-		require.NoError(t, err)
-		assert.Equal(t, adaptedTx, txn)
+	candID := 0
+	for i := range response.Transactions {
+		if sn2core.IsCandidateTx(response, i) {
+			adaptedTx, err := sn2core.AdaptTransaction(&response.Transactions[i])
+			require.NoError(t, err)
+			assert.Equal(t, adaptedTx, candidateTxs[candID])
+			candID++
+		}
 	}
+	assert.Equal(t, len(candidateTxs), candID)
+}
+
+func assertStateDiffs(
+	t *testing.T,
+	response *starknet.PreConfirmedBlock,
+	stateDiffs []*core.StateDiff,
+) {
+	t.Helper()
+
+	preID := 0
+	for i := range response.Transactions {
+		if !sn2core.IsCandidateTx(response, i) {
+			adaptedStateDiff, err := sn2core.AdaptStateDiff(response.TransactionStateDiffs[i])
+			require.NoError(t, err)
+			assert.Equal(t, adaptedStateDiff, stateDiffs[preID])
+			preID++
+		}
+	}
+	assert.Equal(t, len(stateDiffs), preID)
 }
 
 func assertPreConfirmedBlockGasPrices(t *testing.T, response *starknet.PreConfirmedBlock, block *core.Block) {
@@ -769,7 +805,7 @@ func countEventsAndTxs(receipts []*starknet.TransactionReceipt) (uint64, int) {
 	txCount := 0
 	for _, r := range receipts {
 		if r == nil {
-			break
+			continue
 		}
 		evCount += uint64(len(r.Events))
 		txCount++

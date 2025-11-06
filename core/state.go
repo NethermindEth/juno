@@ -34,7 +34,7 @@ type StateHistoryReader interface {
 	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
+	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
 }
 
 type StateReader interface {
@@ -97,7 +97,7 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 }
 
 // Root returns the state commitment.
-func (s *State) Root() (felt.Felt, error) {
+func (s *State) Commitment() (felt.Felt, error) {
 	var storageRoot, classesRoot felt.Felt
 
 	sStorage, closer, err := s.storage()
@@ -105,7 +105,7 @@ func (s *State) Root() (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	if storageRoot, err = sStorage.Root(); err != nil {
+	if storageRoot, err = sStorage.Hash(); err != nil {
 		return felt.Felt{}, err
 	}
 
@@ -118,7 +118,7 @@ func (s *State) Root() (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	if classesRoot, err = classes.Root(); err != nil {
+	if classesRoot, err = classes.Hash(); err != nil {
 		return felt.Felt{}, err
 	}
 
@@ -215,7 +215,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 }
 
 func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
-	currentRoot, err := s.Root()
+	currentRoot, err := s.Commitment()
 	if err != nil {
 		return err
 	}
@@ -553,8 +553,8 @@ func (s *State) updateDeclaredClassesTrie(
 	return classesCloser()
 }
 
-// ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber
-func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+// ContractDeployedAt returns if contract at given addr was deployed at blockNumber
+func (s *State) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
 
 	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
@@ -647,13 +647,13 @@ func (s *State) purgesystemContracts() error {
 
 func (s *State) removeDeclaredClasses(
 	blockNumber uint64,
-	v0Classes []*felt.Felt,
-	v1Classes map[felt.Felt]*felt.Felt,
+	deprecatedClasses []*felt.Felt,
+	sierraClasses map[felt.Felt]*felt.Felt,
 ) error {
-	totalCapacity := len(v0Classes) + len(v1Classes)
+	totalCapacity := len(deprecatedClasses) + len(sierraClasses)
 	classHashes := make([]*felt.Felt, 0, totalCapacity)
-	classHashes = append(classHashes, v0Classes...)
-	for classHash := range v1Classes {
+	classHashes = append(classHashes, deprecatedClasses...)
+	for classHash := range sierraClasses {
 		classHashes = append(classHashes, classHash.Clone())
 	}
 
@@ -674,8 +674,7 @@ func (s *State) removeDeclaredClasses(
 			return fmt.Errorf("delete class: %v", err)
 		}
 
-		// cairo1 class, update the class commitment trie as well
-		if declaredClass.Class.Version() == 1 {
+		if _, ok := declaredClass.Class.(*SierraClass); ok {
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}
@@ -710,10 +709,10 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 	return storageCloser()
 }
 
+// todo(rdr): return `StateDiff` by value
 func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
 	reversed := *diff
 
-	// storage diffs
 	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
 	for addr, storageDiffs := range diff.StorageDiffs {
 		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
@@ -731,7 +730,6 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 		reversed.StorageDiffs[addr] = reversedDiffs
 	}
 
-	// nonces
 	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
 	for addr := range diff.Nonces {
 		oldNonce := felt.Zero
@@ -745,7 +743,6 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 		reversed.Nonces[addr] = &oldNonce
 	}
 
-	// replaced
 	reversed.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
 	for addr := range diff.ReplacedClasses {
 		classHash := felt.Zero

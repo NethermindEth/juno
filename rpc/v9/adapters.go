@@ -102,12 +102,12 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	for index := range vmFnInvocation.Messages {
 		vmMessage := &vmFnInvocation.Messages[index]
 
-		toAddr, _ := felt.FromString[felt.Felt](vmMessage.To)
-
 		adaptedMessages[index] = rpcv6.OrderedL2toL1Message{
-			Order:   vmMessage.Order,
-			From:    vmMessage.From,
-			To:      &toAddr,
+			Order: vmMessage.Order,
+			From:  vmMessage.From,
+			// todo(rdr): we shouldn't need to do this casting but it affects a lot of code to
+			//            do it right
+			To:      (*felt.Felt)(vmMessage.To),
 			Payload: vmMessage.Payload,
 		}
 	}
