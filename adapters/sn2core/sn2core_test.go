@@ -770,7 +770,7 @@ func assertStateDiffs(
 		if !sn2core.IsCandidateTx(response, i) {
 			adaptedStateDiff, err := sn2core.AdaptStateDiff(response.TransactionStateDiffs[i])
 			require.NoError(t, err)
-			assert.Equal(t, adaptedStateDiff, stateDiffs[preID])
+			assert.Equal(t, &adaptedStateDiff, stateDiffs[preID])
 			preID++
 		}
 	}
