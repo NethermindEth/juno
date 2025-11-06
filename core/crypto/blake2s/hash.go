@@ -11,11 +11,11 @@ import (
 // Following the same implementation behind
 // https://github.com/starknet-io/types-rs/blob/main/crates/starknet-types-core/src/hash/blake2s.rs
 
-func Blake2s[F felt.FeltLike](x, y *F) (felt.Hash, error) {
+func Blake2s[F felt.FeltLike](x, y *F) felt.Hash {
 	return Blake2sArray(x, y)
 }
 
-func Blake2sArray[F felt.FeltLike](feltLikes ...*F) (felt.Hash, error) {
+func Blake2sArray[F felt.FeltLike](feltLikes ...*F) felt.Hash {
 	var felts []*felt.Felt
 	if len(feltLikes) > 0 {
 		// It is assumed that type F follows the exact same memory layout as felt.Felt
@@ -26,14 +26,16 @@ func Blake2sArray[F felt.FeltLike](feltLikes ...*F) (felt.Hash, error) {
 
 	encoding := encodeFeltsToBytes(felts...)
 
+	// errors if initialized with more than 32 bytes
 	hasher, err := blake2s.New256(nil)
 	if err != nil {
-		return felt.Hash{}, err
+		panic(err)
 	}
 
+	// implementation does not errors, here it complies with `io.Writer`
 	_, err = hasher.Write(encoding)
 	if err != nil {
-		return felt.Hash{}, err
+		panic(err)
 	}
 
 	result := make([]byte, 0, 32)
@@ -41,5 +43,5 @@ func Blake2sArray[F felt.FeltLike](feltLikes ...*F) (felt.Hash, error) {
 	// Result is in big endian, turning into little endian
 	slices.Reverse(result)
 
-	return felt.FromBytes[felt.Hash](result), nil
+	return felt.FromBytes[felt.Hash](result)
 }
