@@ -4,6 +4,7 @@ use blockifier::execution::stack_trace::{
 };
 use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::objects::RevertError;
+use serde_json::json;
 use starknet_types_core::felt::Felt;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -101,4 +102,37 @@ impl From<Cairo1RevertSummary> for ErrorStack {
     fn from(value: Cairo1RevertSummary) -> Self {
         Self(Frames::from(value).0)
     }
+}
+
+// todo(rdr): Probably is better to implement the From trait
+pub fn error_stack_frames_to_json(err_stack: ErrorStack) -> serde_json::Value {
+    let frames = err_stack.0;
+
+    // We are assuming they will be only one of these
+    let string_frame = frames
+        .iter()
+        .rev()
+        .find_map(|frame| match frame {
+            Frame::StringFrame(string) => Some(string.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| "Unknown error, no string frame available.".to_string());
+
+    // Start building the error from the ground up, starting from the string frame
+    // into the parent call frame and so on ...
+    frames
+        .into_iter()
+        .filter_map(|frame| match frame {
+            Frame::CallFrame(call_frame) => Some(call_frame),
+            _ => None,
+        })
+        .rev()
+        .fold(json!(string_frame), |prev_err, frame| {
+            json!({
+                "contract_address": frame.storage_address,
+                "class_hash": frame.class_hash,
+                "selector": frame.selector,
+                "error": prev_err,
+            })
+        })
 }

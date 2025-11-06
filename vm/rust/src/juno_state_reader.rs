@@ -19,7 +19,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 
-use crate::BlockInfo;
+use crate::ffi_entrypoint::BlockInfo;
 
 type StarkFelt = Felt;
 
