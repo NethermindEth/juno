@@ -14,10 +14,8 @@ use starknet_api::execution_resources::{GasAmount, GasVector};
 use starknet_api::transaction::fields::Tip;
 use starknet_api::{
     contract_class::ClassInfo,
-    executable_transaction::AccountTransaction,
     transaction::{
         fields::{Fee, GasVectorComputationMode},
-        DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
         Transaction as StarknetApiTransaction, TransactionHash,
     },
 };
@@ -71,28 +69,6 @@ pub fn transaction_from_api(
         execution_flags,
     )
     .map_err(|err| format!("failed to create transaction from api: {:?}", err))
-}
-
-pub fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
-    match &transaction {
-        Transaction::Account(account_tx) => match &account_tx.tx {
-            AccountTransaction::Declare(tx) => match &tx.tx {
-                DeclareTransaction::V3(tx) => tx.resource_bounds.get_gas_vector_computation_mode(),
-                _ => GasVectorComputationMode::NoL2Gas,
-            },
-            AccountTransaction::DeployAccount(tx) => match &tx.tx {
-                DeployAccountTransaction::V3(tx) => {
-                    tx.resource_bounds.get_gas_vector_computation_mode()
-                }
-                _ => GasVectorComputationMode::NoL2Gas,
-            },
-            AccountTransaction::Invoke(tx) => match &tx.tx {
-                InvokeTransaction::V3(tx) => tx.resource_bounds.get_gas_vector_computation_mode(),
-                _ => GasVectorComputationMode::NoL2Gas,
-            },
-        },
-        Transaction::L1Handler(_) => GasVectorComputationMode::NoL2Gas,
-    }
 }
 
 pub fn adjust_fee_calculation_result(

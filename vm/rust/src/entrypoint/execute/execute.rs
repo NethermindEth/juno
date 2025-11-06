@@ -1,10 +1,10 @@
 use crate::{
     entrypoint::{
         execute::{
-            process::process_transaction,
+            process::{determine_gas_vector_mode, process_transaction},
             utils::{
                 adjust_fee_calculation_result, append_gas_and_fee, append_receipt, append_trace,
-                determine_gas_vector_mode, parse_json, transaction_from_api,
+                parse_json, transaction_from_api,
             },
         },
         utils::build_block_context,

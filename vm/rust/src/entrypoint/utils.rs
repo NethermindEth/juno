@@ -45,7 +45,7 @@ fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice,
 }
 
 #[allow(static_mut_refs)]
-pub fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
+fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
     let starknet_version = unsafe { CStr::from_ptr(version) }
         .to_str()
         .ok()
