@@ -1,4 +1,3 @@
-use crate::juno_state_reader::JunoStateReader;
 use blockifier;
 use blockifier::state::cached_state::{CachedState, StateMaps};
 use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
@@ -8,6 +7,8 @@ use indexmap::IndexMap;
 use serde::Serialize;
 use starknet_api::core::ClassHash;
 use starknet_types_core::felt::Felt;
+
+use crate::state_reader::JunoStateReader;
 
 #[derive(Serialize)]
 struct Entry {

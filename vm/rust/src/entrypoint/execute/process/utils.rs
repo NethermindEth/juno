@@ -1,4 +1,4 @@
-use crate::juno_state_reader::JunoStateReader;
+use crate::state_reader::JunoStateReader;
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::state::state_api::{StateReader, StateResult};
 use blockifier::transaction::transaction_execution::Transaction;

@@ -11,8 +11,11 @@ use crate::{
     },
     error::{execution::ExecutionError, juno::JunoError, stack::error_stack_frames_to_json},
     ffi_entrypoint::{BlockInfo, ChainInfo},
-    ffi_type::{transaction_receipt::TransactionReceipt, transaction_trace::new_transaction_trace},
-    juno_state_reader::{class_info_from_json_str, BlockHeight, JunoStateReader},
+    ffi_type::{
+        class_info::class_info_from_json_str, transaction_receipt::TransactionReceipt,
+        transaction_trace::new_transaction_trace,
+    },
+    state_reader::{state_reader::BlockHeight, JunoStateReader},
 };
 use serde::Deserialize;
 use serde_json::json;
