@@ -26,7 +26,7 @@ func Blake2sArray[F felt.FeltLike](feltLikes ...*F) felt.Hash {
 
 	encoding := encodeFeltsToBytes(felts...)
 
-	// errors if initialized with more than 32 bytes
+	// errors if initialised with more than 32 bytes
 	hasher, err := blake2s.New256(nil)
 	if err != nil {
 		panic(err)
