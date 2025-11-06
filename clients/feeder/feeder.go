@@ -99,7 +99,7 @@ func NewClient(clientURL string) *Client {
 		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
-		maxRetries: 10, // ~40 secs with default backoff and maxWait (block time on mainnet is 20 seconds on average)
+		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
 		maxWait:    2 * time.Second,
 		minWait:    500 * time.Millisecond,
 		log:        utils.NewNopZapLogger(),
@@ -156,8 +156,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 
 			if wait < c.minWait {
 				wait = c.minWait
+			} else {
+				wait = min(c.backoff(wait), c.maxWait)
 			}
-			wait = min(c.backoff(wait), c.maxWait)
 
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {
