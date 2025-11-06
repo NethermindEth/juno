@@ -44,65 +44,13 @@ To become a **Starknet Validator** follow this [guide](https://nethermindeth.git
 
 ## ⚙️ Installation
 
-### Prerequisites
+There are multiple ways of running Juno:
 
-- Golang 1.25 or higher is required to build and run the project. You can find the installer on
-  the official Golang [download](https://go.dev/doc/install) page.
-- [Rust](https://www.rust-lang.org/tools/install) 1.86.0 or higher.
-- A C compiler: `gcc`.
-- Install some dependencies on your system:
-  - macOS
+- Docker container
+- Standalone binary
+- From source
 
-    ```bash
-    brew install jemalloc pkg-config
-    make install-deps
-    ```
-
-  - Ubuntu
-
-    ```bash
-    sudo apt-get install -y build-essential make libjemalloc-dev libjemalloc2 pkg-config libbz2-dev
-    make install-deps
-    ```
-
-- To ensure a successful build, you either need to synchronize the tags from the upstream repository or create a new tag.
-
-### Build and Run
-
-```shell
-make juno
-./build/juno
-```
-
-Use the `--help` flag for configuration information.
-Flags and their values can also be placed in a `.yaml` file that is passed in through `--config`.
-
-### Run with Docker
-
-To run Juno with Docker, use the following command. Make sure to create the `$HOME/juno` directory on your local machine before running the command.
-
-```shell
-docker run -d \
-  --name juno \
-  -p 6060:6060 \
-  -v $HOME/juno:/var/lib/juno \
-  nethermind/juno \
-  --http \
-  --http-port 6060 \
-  --http-host 0.0.0.0 \
-  --db-path /var/lib/juno \
-  --eth-node <YOUR-ETH-NODE>
-```
-
-You should replace `<YOUR-ETH-NODE>` with your actual Ethereum node address.
-If you're using Infura, your Ethereum node address might look something like: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`.
-Make sure you are using the websocket URL `ws`/`wss` and not the http URL `http`/`https`.
-
-To view logs from the Docker container, use the following command:
-
-```shell
-docker logs -f juno
-```
+See [Running Juno](https://juno.nethermind.io/running-juno) for the detailed instructions on how to install and run Juno on your machine.
 
 ## 📸 Starknet Snapshots
 
