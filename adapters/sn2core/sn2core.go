@@ -413,11 +413,11 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		BlockHash: response.BlockHash,
 		NewRoot:   response.NewRoot,
 		OldRoot:   response.OldRoot,
-		StateDiff: stateDiff,
+		StateDiff: &stateDiff,
 	}, nil
 }
 
-func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
+func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
 	var stateDiff core.StateDiff
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
 
@@ -447,7 +447,7 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	for addrStr, nonce := range response.Nonces {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
-			return nil, err
+			return core.StateDiff{}, err
 		}
 		stateDiff.Nonces[*addr] = nonce
 	}
@@ -459,7 +459,7 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	for addrStr, diffs := range response.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
-			return nil, err
+			return core.StateDiff{}, err
 		}
 
 		stateDiff.StorageDiffs[*addr] = make(map[felt.Felt]*felt.Felt)
@@ -468,7 +468,7 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 		}
 	}
 
-	return &stateDiff, nil
+	return stateDiff, nil
 }
 
 // Comparing to preconfirmed, candidate txns don't include state diffs and receipts.
@@ -519,11 +519,12 @@ func AdaptPreConfirmedBlock(
 			if err != nil {
 				return core.PreConfirmed{}, err
 			}
-			txStateDiffs[preIdx], err = AdaptStateDiff(response.TransactionStateDiffs[i])
+			var stateDiff core.StateDiff
+			stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
 			if err != nil {
 				return core.PreConfirmed{}, err
 			}
-
+			txStateDiffs[preIdx] = &stateDiff
 			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
 			eventCount += uint64(len(response.Receipts[i].Events))
 			preIdx++
