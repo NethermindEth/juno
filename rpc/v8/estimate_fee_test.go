@@ -38,14 +38,25 @@ func TestEstimateFee(t *testing.T) {
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, true, false, true, true, true, true).
-			Return(vm.ExecutionResults{
-				OverallFees:      []*felt.Felt{},
-				DataAvailability: []core.DataAvailability{},
-				GasConsumed:      []core.GasConsumed{},
-				Traces:           []vm.TransactionTrace{},
-				NumSteps:         uint64(123),
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{},
+			nil,
+			[]*felt.Felt{},
+			&blockInfo,
+			mockState,
+			true,
+			false,
+			true, true, true, true).
+			Return(
+				vm.ExecutionResults{
+					OverallFees:      []*felt.Felt{},
+					DataAvailability: []core.DataAvailability{},
+					GasConsumed:      []core.GasConsumed{},
+					Traces:           []vm.TransactionTrace{},
+					NumSteps:         uint64(123),
+				},
+				nil,
+			)
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpc.BroadcastedTransactionInputs{},
@@ -57,7 +68,15 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, true, true, true, true, true, true).
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{},
+			nil,
+			[]*felt.Felt{},
+			&blockInfo,
+			mockState,
+			true,
+			true,
+			true, true, true, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -76,11 +95,22 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, true, true, true, true, true, true).
-			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
-				Index: 44,
-				Cause: json.RawMessage("oops"),
-			})
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{},
+			nil,
+			[]*felt.Felt{},
+			&blockInfo,
+			mockState,
+			true,
+			true,
+			true, true, true, true).
+			Return(
+				vm.ExecutionResults{},
+				vm.TransactionExecutionError{
+					Index: 44,
+					Cause: json.RawMessage("oops"),
+				},
+			)
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpc.BroadcastedTransactionInputs{},
