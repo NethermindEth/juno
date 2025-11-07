@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/sstable/block"
 )
 
 const (
@@ -38,6 +39,15 @@ func WithLogger(colouredLogger bool) Option {
 			return fmt.Errorf("create DB logger: %w", err)
 		}
 		opts.Logger = dbLog
+		return nil
+	}
+}
+
+func WithCompression(compression *block.CompressionProfile) Option {
+	return func(opts *pebble.Options) error {
+		opts.ApplyCompressionSettings(func() pebble.DBCompressionSettings {
+			return pebble.UniformDBCompressionSettings(compression)
+		})
 		return nil
 	}
 }
