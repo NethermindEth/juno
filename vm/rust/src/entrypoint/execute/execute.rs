@@ -43,6 +43,7 @@ pub fn cairo_vm_execute(
     concurrency_mode: c_uchar,
     err_stack: c_uchar,
     allow_binary_search: c_uchar,
+    is_estimate_fee: c_uchar,
 ) -> Result<(), JunoError> {
     let block_info = unsafe { *block_info_ptr };
     let chain_info = unsafe { *chain_info_ptr };
@@ -74,6 +75,7 @@ pub fn cairo_vm_execute(
     let err_stack = err_stack == 1;
     let err_on_revert = err_on_revert == 1;
     let allow_binary_search = allow_binary_search == 1;
+    let is_estimate_fee = is_estimate_fee == 1;
 
     let mut writer_buffer = Vec::with_capacity(10_000);
 
@@ -149,7 +151,7 @@ pub fn cairo_vm_execute(
         })?;
 
         // we are estimating fee, override actual fee calculation
-        if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
+        if is_estimate_fee && !is_l1_handler_txn {
             adjust_fee_calculation_result(
                 &mut tx_execution_info,
                 &txn,

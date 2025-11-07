@@ -210,6 +210,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		false,
 		false,
 		false,
+		false,
 	)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {

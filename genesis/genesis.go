@@ -340,7 +340,7 @@ func executeTransactions(
 
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 	executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-		&blockInfo, genesisState, true, true, true, true, false)
+		&blockInfo, genesisState, true, true, true, true, false, false)
 	if err != nil {
 		return fmt.Errorf("execute transactions: %v", err)
 	}
