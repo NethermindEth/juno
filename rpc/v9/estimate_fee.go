@@ -280,6 +280,7 @@ func (h *Handler) EstimateFee(
 		broadcastedTxns.Data,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
 		true,
+		true,
 	)
 	if err != nil {
 		return nil, httpHeader, err
