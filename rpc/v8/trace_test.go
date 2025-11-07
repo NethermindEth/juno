@@ -352,6 +352,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			true,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
@@ -451,6 +452,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			true,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
@@ -708,6 +710,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			false,
 			false,
 			true,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
@@ -832,6 +835,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			false,
 			false,
 			true,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
