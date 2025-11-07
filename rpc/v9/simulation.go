@@ -92,6 +92,7 @@ func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTr
 		errOnRevert,
 		true,
 		true,
+		isEstimateFee,
 	)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
