@@ -1,0 +1,7 @@
+{
+    "type": "INVOKE",
+    "execute_invocation": {
+        "revert_reason": ""
+    },
+    "execution_resources": null
+}

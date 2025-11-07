@@ -118,6 +118,18 @@ func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 	}
 }
 
+func (es *TxnExecutionStatus) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "SUCCEEDED":
+		*es = TxnSuccess
+	case "REVERTED":
+		*es = TxnFailure
+	default:
+		return fmt.Errorf("unknown ExecutionStatus %s", string(text))
+	}
+	return nil
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L3134
 type TxnFinalityStatus uint8
 
@@ -139,6 +151,20 @@ func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
+}
+
+func (fs *TxnFinalityStatus) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "PRE_CONFIRMED":
+		*fs = TxnPreConfirmed
+	case "ACCEPTED_ON_L1":
+		*fs = TxnAcceptedOnL1
+	case "ACCEPTED_ON_L2":
+		*fs = TxnAcceptedOnL2
+	default:
+		return fmt.Errorf("unknown FinalityStatus %s", string(text))
+	}
+	return nil
 }
 
 type DataAvailabilityMode uint32
@@ -718,7 +744,7 @@ func (h *Handler) pushToFeederGateway(
 	}, nil
 }
 
-var errTransactionNotFound = errors.New("transaction not found")
+var ErrTransactionNotFound = errors.New("transaction not found")
 
 func (h *Handler) TransactionStatus(
 	ctx context.Context,
@@ -764,9 +790,9 @@ func (h *Handler) TransactionStatus(
 			}
 		}
 
-		status, err := adaptTransactionStatus(txStatus)
+		status, err := AdaptTransactionStatus(txStatus)
 		if err != nil {
-			if !errors.Is(err, errTransactionNotFound) {
+			if !errors.Is(err, ErrTransactionNotFound) {
 				h.log.Errorw("Failed to adapt transaction status", "err", err)
 			}
 			return TransactionStatus{}, rpccore.ErrTxnHashNotFound
@@ -938,7 +964,7 @@ func AdaptReceipt(
 	}
 }
 
-func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionStatus, error) {
+func AdaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionStatus, error) {
 	var status TransactionStatus
 
 	switch finalityStatus := txStatus.FinalityStatus; finalityStatus {
@@ -955,7 +981,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionSt
 		// Candidate transaction does not have execution_status yet
 		return status, nil
 	case starknet.NotReceived:
-		return TransactionStatus{}, errTransactionNotFound
+		return TransactionStatus{}, ErrTransactionNotFound
 	default:
 		return TransactionStatus{}, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
@@ -970,7 +996,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionSt
 		// Upon querying historical transaction, gateway returns `RECEIVED` finality status,
 		// along with `REJECTED` execution status. Rejected status is not supported by spec 0.9.0,
 		// `REJECTED` status is mapped to `errTransactionNotFound`.
-		return TransactionStatus{}, errTransactionNotFound
+		return TransactionStatus{}, ErrTransactionNotFound
 	default: // Omit the field on error. It's optional in the spec.
 	}
 

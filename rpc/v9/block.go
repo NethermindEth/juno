@@ -90,6 +90,18 @@ func BlockIDPreConfirmed() BlockID {
 	}
 }
 
+func BlockIDLatest() BlockID {
+	return BlockID{
+		typeID: latest,
+	}
+}
+
+func BlockIDL1Accepted() BlockID {
+	return BlockID{
+		typeID: l1Accepted,
+	}
+}
+
 func (b *BlockID) Type() blockIDType {
 	return b.typeID
 }
@@ -246,7 +258,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: AdaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -297,7 +309,7 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 
 	return &BlockWithReceipts{
 		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txsWithReceipts,
 	}, nil
 }
@@ -324,7 +336,7 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
@@ -345,7 +357,7 @@ func (h *Handler) blockStatus(id *BlockID, block *core.Block) (BlockStatus, *jso
 	return status, nil
 }
 
-func adaptBlockHeader(header *core.Header) BlockHeader {
+func AdaptBlockHeader(header *core.Header) BlockHeader {
 	blockNumber := &header.Number
 
 	sequencerAddress := header.SequencerAddress

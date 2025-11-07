@@ -1,7 +1,6 @@
-package rpcv9
+package rpcv10
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -21,7 +21,7 @@ const ExecutionStepsHeader string = "X-Cairo-Steps"
 
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitzero"`
+	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`
 }
 
 type TracedBlockTransaction struct {
@@ -30,7 +30,7 @@ type TracedBlockTransaction struct {
 }
 
 type BroadcastedTransactionInputs = rpccore.LimitSlice[
-	BroadcastedTransaction,
+	rpcv9.BroadcastedTransaction,
 	rpccore.SimulationLimit,
 ]
 
@@ -39,15 +39,18 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 *****************************************************/
 
 func (h *Handler) SimulateTransactions(
-	id *BlockID,
+	id *rpcv9.BlockID,
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions.Data, simulationFlags, false)
 }
 
-func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool,
+func (h *Handler) simulateTransactions(
+	id *rpcv9.BlockID,
+	transactions []rpcv9.BroadcastedTransaction,
+	simulationFlags []rpcv6.SimulationFlag,
+	errOnRevert bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
@@ -111,24 +114,25 @@ func isVersion3(version *felt.Felt) bool {
 	return version != nil && version.Equal(&rpcv6.RPCVersion3Value)
 }
 
-func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {
-	return (tx.Transaction.Type == TxnDeclare ||
-		tx.Transaction.Type == TxnInvoke) &&
+func checkTxHasSenderAddress(tx *rpcv9.BroadcastedTransaction) bool {
+	return (tx.Transaction.Type == rpcv9.TxnDeclare ||
+		tx.Transaction.Type == rpcv9.TxnInvoke) &&
 		isVersion3(tx.Transaction.Version) &&
 		tx.Transaction.SenderAddress == nil
 }
 
-func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
-	return (tx.Transaction.Type == TxnInvoke ||
-		tx.Transaction.Type == TxnDeployAccount ||
-		tx.Transaction.Type == TxnDeclare) &&
+func checkTxHasResourceBounds(tx *rpcv9.BroadcastedTransaction) bool {
+	return (tx.Transaction.Type == rpcv9.TxnInvoke ||
+		tx.Transaction.Type == rpcv9.TxnDeployAccount ||
+		tx.Transaction.Type == rpcv9.TxnDeclare) &&
 		isVersion3(tx.Transaction.Version) &&
 		tx.Transaction.ResourceBounds == nil
 }
 
-func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
-	[]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error,
-) {
+func prepareTransactions(
+	transactions []rpcv9.BroadcastedTransaction,
+	network *utils.Network,
+) ([]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
 	txns := make([]core.Transaction, len(transactions))
 	var classes []core.ClassDefinition
 	paidFeesOnL1 := make([]*felt.Felt, 0)
@@ -141,14 +145,23 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 		// it might be a good idea to implement a custom validator and unmarshal handler
 		// to solve this problem in a more elegant way
 		if checkTxHasSenderAddress(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
+			return nil, nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			)
 		}
 
 		if checkTxHasResourceBounds(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
+			return nil, nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			)
 		}
 
-		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
+		txn, declaredClass, paidFeeOnL1, aErr := rpcv9.AdaptBroadcastedTransaction(
+			&transactions[idx],
+			network,
+		)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -172,7 +185,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 	}
 	var txnExecutionError vm.TransactionExecutionError
 	if errors.As(err, &txnExecutionError) {
-		return MakeTransactionExecutionError(&txnExecutionError)
+		return rpcv9.MakeTransactionExecutionError(&txnExecutionError)
 	}
 	return rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 }
@@ -187,8 +200,14 @@ func createSimulatedTransactions(
 
 	if len(overallFees) != len(traces) || len(overallFees) != len(gasConsumed) ||
 		len(overallFees) != len(daGas) || len(overallFees) != len(txns) {
-		return nil, fmt.Errorf("inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns",
-			len(overallFees), len(traces), len(gasConsumed), len(daGas), len(txns))
+		return nil, fmt.Errorf(
+			"inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns", //nolint:lll // error message exceeds line limit
+			len(overallFees),
+			len(traces),
+			len(gasConsumed),
+			len(daGas),
+			len(txns),
+		)
 	}
 
 	l1GasPriceWei := header.L1GasPriceETH
@@ -213,8 +232,8 @@ func createSimulatedTransactions(
 		trace := utils.HeapPtr(AdaptVMTransactionTrace(&traces[i]))
 
 		// Add root level execution resources
-		trace.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
+		trace.ExecutionResources = &rpcv9.ExecutionResources{
+			InnerExecutionResources: rpcv9.InnerExecutionResources{
 				L1Gas: gasConsumed[i].L1Gas,
 				L2Gas: gasConsumed[i].L2Gas,
 			},
@@ -225,20 +244,24 @@ func createSimulatedTransactions(
 		var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
 
 		// estimateFee only allows FRI as unit
-		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3586
-		feeUnit := FRI
+		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3586 //nolint:lll
+		//
+		//nolint:lll // URL exceeds line limit but should remain intact for reference
+		feeUnit := rpcv9.FRI
 		// estimateMessageFee only allow WEI as unit
-		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3605
+		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3605 //nolint:lll
+		//
+		//nolint:lll // URL exceeds line limit but should remain intact for reference
 		if traces[i].Type == vm.TxnL1Handler {
-			feeUnit = WEI
+			feeUnit = rpcv9.WEI
 		}
 
 		switch feeUnit {
-		case WEI:
+		case rpcv9.WEI:
 			l1GasPrice = l1GasPriceWei
 			l2GasPrice = l2GasPriceWei
 			l1DataGasPrice = l1DataGasPriceWei
-		case FRI:
+		case rpcv9.FRI:
 			l1GasPrice = l1GasPriceStrk
 			l2GasPrice = l2GasPriceStrk
 			l1DataGasPrice = l1DataGasPriceStrk
@@ -247,7 +270,7 @@ func createSimulatedTransactions(
 		// Append simulated transaction (trace + fee estimate)
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
-			FeeEstimation: FeeEstimate{
+			FeeEstimation: rpcv9.FeeEstimate{
 				L1GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L1Gas),
 				L1GasPrice:        l1GasPrice,
 				L2GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L2Gas),
@@ -260,16 +283,4 @@ func createSimulatedTransactions(
 		}
 	}
 	return simulatedTransactions, nil
-}
-
-type TransactionExecutionErrorData struct {
-	TransactionIndex uint64          `json:"transaction_index"`
-	ExecutionError   json.RawMessage `json:"execution_error"`
-}
-
-func MakeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
-	return rpccore.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
-		TransactionIndex: err.Index,
-		ExecutionError:   err.Cause,
-	})
 }
