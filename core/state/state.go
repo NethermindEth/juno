@@ -30,8 +30,8 @@ var (
 	leafVersion0              = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	noClassContractsClassHash = felt.Zero
 	noClassContracts          = map[felt.Felt]struct{}{
-		*felt.NewFromUint64[felt.Felt](systemContract1Addr): {},
-		*felt.NewFromUint64[felt.Felt](systemContract2Addr): {},
+		felt.FromUint64[felt.Felt](systemContract1Addr): {},
+		felt.FromUint64[felt.Felt](systemContract2Addr): {},
 	}
 )
 

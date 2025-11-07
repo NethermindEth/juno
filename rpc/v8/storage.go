@@ -208,6 +208,8 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 }
 
 func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
+	// care about which trie implementation is being used and the output format should be the same
 	t, ok := tr.(*trie.Trie)
 	if !ok {
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
@@ -228,6 +230,8 @@ func getContractProof(
 	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
+	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
+	// care about which trie implementation is being used and the output format should be the same
 	t, ok := tr.(*trie.Trie)
 	if !ok {
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
