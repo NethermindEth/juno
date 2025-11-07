@@ -95,6 +95,7 @@ func (h *Handler) simulateTransactions(
 		errOnRevert,
 		true,
 		true,
+		false,
 	)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
