@@ -66,6 +66,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			errOnRevert,
 			errStack,
 			allowBinarySearch bool,
+			isEstimateFee bool,
 		) (vm.ExecutionResults, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))

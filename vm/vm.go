@@ -379,8 +379,8 @@ func (v *vm) Execute(
 		toUchar(errOnRevert),
 		toUchar(v.concurrencyMode),
 		toUchar(errorStack),
-		toUchar(allowBinarySearch), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
-		toUchar(isEstimateFee),
+		toUchar(allowBinarySearch),
+		toUchar(isEstimateFee), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
