@@ -146,7 +146,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
+		database, err = pebble.New(
+			cfg.DatabasePath,
+			pebble.WithCacheSize(cfg.DBCacheSize),
+			pebble.WithMaxOpenFiles(cfg.DBMaxHandles),
+			pebble.WithLogger(cfg.Colour),
+		)
 	}
 
 	if err != nil {
