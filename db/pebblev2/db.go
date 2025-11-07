@@ -3,6 +3,7 @@ package pebblev2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
@@ -28,10 +29,14 @@ type DB struct {
 
 // New opens a new database at the given path with default options
 func New(path string, options ...Option) (db.KeyValueStore, error) {
-	upgradeFormatIfNeeded(path)
+	version, err := upgradeFormatIfNeeded(path)
+	if err != nil {
+		return nil, err
+	}
 
+	fmt.Println("Opening database with version:", version)
 	opts := pebble.Options{
-		FormatMajorVersion: pebble.FormatFlushableIngest,
+		FormatMajorVersion: version,
 	}
 	for _, option := range options {
 		if err := option(&opts); err != nil {

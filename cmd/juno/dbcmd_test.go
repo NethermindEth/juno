@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
@@ -49,7 +49,7 @@ func TestDBCmd(t *testing.T) {
 		// unfortunately we cannot use blockchain from prepareDB because
 		// inside revert cmd another pebble instance is used which will panic if there are other instances
 		// that use the same db path
-		db, err := pebble.New(dbPath)
+		db, err := pebblev2.New(dbPath)
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			require.NoError(t, db.Close())
@@ -76,7 +76,7 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 	gw := adaptfeeder.New(client)
 
 	dbPath := t.TempDir()
-	testDB, err := pebble.New(dbPath)
+	testDB, err := pebblev2.New(dbPath)
 	require.NoError(t, err)
 
 	chain := blockchain.New(testDB, network)

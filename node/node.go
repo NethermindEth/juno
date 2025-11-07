@@ -20,7 +20,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
@@ -146,11 +146,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(
+		database, err = pebblev2.New(
 			cfg.DatabasePath,
-			pebble.WithCacheSize(cfg.DBCacheSize),
-			pebble.WithMaxOpenFiles(cfg.DBMaxHandles),
-			pebble.WithLogger(cfg.Colour),
+			pebblev2.WithCacheSize(cfg.DBCacheSize),
+			pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
+			pebblev2.WithLogger(cfg.Colour),
 		)
 	}
 
