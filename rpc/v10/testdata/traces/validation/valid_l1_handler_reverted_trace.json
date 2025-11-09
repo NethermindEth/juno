@@ -1,0 +1,7 @@
+{
+    "type": "L1_HANDLER",
+    "function_invocation": {
+        "revert_reason": "Reverted"
+    },
+    "execution_resources": null
+}

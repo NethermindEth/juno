@@ -92,6 +92,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 		false,
 		true,
 		false,
+		false,
 	)
 	if err != nil {
 		return err

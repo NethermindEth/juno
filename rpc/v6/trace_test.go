@@ -305,6 +305,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			false,
+			false,
 		).Return(vm.ExecutionResults{
 			DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
 			Traces:           []vm.TransactionTrace{*vmTrace},
@@ -381,6 +382,7 @@ func TestTraceTransaction(t *testing.T) {
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
+			false,
 			false,
 			false,
 			false,
@@ -621,6 +623,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			false,
 			false,
 			false,
+			false,
 		).Return(vm.ExecutionResults{
 			DataAvailability: []core.DataAvailability{},
 			Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
@@ -700,6 +703,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
+			false,
 			false,
 			false,
 			false,

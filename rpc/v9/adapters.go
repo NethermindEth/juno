@@ -17,12 +17,12 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
 	if trace.ValidateInvocation != nil && trace.Type != vm.TxnL1Handler {
-		validateInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ValidateInvocation))
+		validateInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
@@ -32,21 +32,21 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
 		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
+			constructorInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
 		}
 	case vm.TxnInvoke:
 		if trace.ExecuteInvocation != nil {
-			executeInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
+			executeInvocation = utils.HeapPtr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.FunctionInvocation))
+			functionInvocation = utils.HeapPtr(AdaptVMExecuteInvocation(trace.FunctionInvocation))
 		}
 	}
 
 	var resources *ExecutionResources
 	if trace.ExecutionResources != nil {
-		resources = utils.HeapPtr(adaptVMExecutionResources(trace.ExecutionResources))
+		resources = utils.HeapPtr(AdaptVMExecutionResources(trace.ExecutionResources))
 	}
 
 	var stateDiff *rpcv6.StateDiff
@@ -66,10 +66,10 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	}
 }
 
-func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
+func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
 	}
 
 	return ExecuteInvocation{
@@ -78,11 +78,11 @@ func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvoc
 	}
 }
 
-func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
+func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		adaptedCalls[index] = adaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
+		adaptedCalls[index] = AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
 	// Adapt events
@@ -138,7 +138,7 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 }
 
-func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
+func AdaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
 	return ExecutionResources{
 		InnerExecutionResources: InnerExecutionResources{
 			L1Gas: r.L1Gas,
@@ -171,16 +171,20 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
+			trace.FeeTransferInvocation = utils.HeapPtr(
+				AdaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
+			)
 		}
 
 		if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
+			trace.ValidateInvocation = utils.HeapPtr(
+				AdaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
+			)
 		}
 
 		var fnInvocation *FunctionInvocation
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(fct))
+			fnInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fct))
 		}
 
 		switch trace.Type {
@@ -211,11 +215,11 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	return adaptedTraces, nil
 }
 
-func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
+func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls[index] = adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
+		adaptedCalls[index] = AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
 	}
 
 	// Adapt events

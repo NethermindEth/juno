@@ -71,6 +71,10 @@ func TestStateDiffHash(t *testing.T) {
 			blockNum: 38748,
 			expected: "0x2bb5df3dccd80b8eb8ad3f759b0ba045d467a79f032605d35380c87f8e730be",
 		},
+		{
+			blockNum: 3077642,
+			expected: "0x31dc9b20993d7256c0b407c7f36d9cb77b7d44788b40f40c770785b1ba421c9",
+		},
 	} {
 		t.Run(fmt.Sprintf("blockNum_%d", test.blockNum), func(t *testing.T) {
 			su, err := gw.StateUpdate(t.Context(), test.blockNum)

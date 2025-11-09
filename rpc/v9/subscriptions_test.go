@@ -2927,7 +2927,7 @@ func createTestEvents(
 				BlockHash:       b.Hash,
 				BlockParentHash: b.ParentHash,
 				TransactionHash: receipt.TransactionHash,
-				EventIndex:      i,
+				EventIndex:      uint(i),
 			})
 			responses = append(responses, SubscriptionEmittedEvent{
 				EmittedEvent: rpcv6.EmittedEvent{

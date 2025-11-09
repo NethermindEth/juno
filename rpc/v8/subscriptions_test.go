@@ -1133,7 +1133,7 @@ func createTestEvents(
 				BlockNumber:     &b.Number,
 				BlockHash:       b.Hash,
 				TransactionHash: receipt.TransactionHash,
-				EventIndex:      i,
+				EventIndex:      uint(i),
 			})
 			emitted = append(emitted, EmittedEvent{
 				Event: &Event{
