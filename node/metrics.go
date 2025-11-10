@@ -117,9 +117,7 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 	}
 }
 
-func makeRPCMetrics(
-	version1, version2, version3, version4 string,
-) (jsonrpc.EventListener, jsonrpc.EventListener, jsonrpc.EventListener, jsonrpc.EventListener) {
+func makeRPCMetrics(versions ...string) []jsonrpc.EventListener {
 	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
@@ -140,49 +138,21 @@ func makeRPCMetrics(
 	}, []string{"method", "version"})
 	prometheus.MustRegister(requests, failedRequests, requestLatencies)
 
-	return &jsonrpc.SelectiveListener{
+	listeners := make([]jsonrpc.EventListener, len(versions))
+	for i, version := range versions {
+		listeners[i] = &jsonrpc.SelectiveListener{
 			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, version1).Inc()
+				requests.WithLabelValues(method, version).Inc()
 			},
 			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, version1).Observe(took.Seconds())
+				requestLatencies.WithLabelValues(method, version).Observe(took.Seconds())
 			},
 			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, version1).Inc()
-			},
-		}, &jsonrpc.SelectiveListener{
-			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, version2).Inc()
-			},
-			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, version2).Observe(took.Seconds())
-			},
-			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, version2).Inc()
-			},
-		},
-		&jsonrpc.SelectiveListener{
-			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, version3).Inc()
-			},
-			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, version3).Observe(took.Seconds())
-			},
-			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, version3).Inc()
-			},
-		},
-		&jsonrpc.SelectiveListener{
-			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, version4).Inc()
-			},
-			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, version4).Observe(took.Seconds())
-			},
-			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, version4).Inc()
+				failedRequests.WithLabelValues(method, version).Inc()
 			},
 		}
+	}
+	return listeners
 }
 
 func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {

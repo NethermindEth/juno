@@ -138,9 +138,10 @@ type FilteredEvent struct {
 	// If BlockNumber > latest_canonical_block_number or block hash is nil:
 	//   - BlockParentHash == nil indicates pre_confirmed block
 	//   - BlockParentHash != nil indicates pre_latest block
-	BlockParentHash *felt.Felt
-	TransactionHash *felt.Felt
-	EventIndex      int
+	BlockParentHash  *felt.Felt
+	TransactionHash  *felt.Felt
+	TransactionIndex uint
+	EventIndex       uint
 }
 
 func (e *EventFilter) Events(

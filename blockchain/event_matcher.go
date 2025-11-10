@@ -149,7 +149,7 @@ func (e *EventMatcher) AppendBlockEvents(
 	isPreLatest bool,
 ) ([]FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
-	for _, receipt := range receipts {
+	for txIndex, receipt := range receipts {
 		for i, event := range receipt.Events {
 			var blockNumber *uint64
 			// if header.Hash == nil it's a pending block
@@ -178,12 +178,13 @@ func (e *EventMatcher) AppendBlockEvents(
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
-					BlockNumber:     blockNumber,
-					BlockHash:       header.Hash,
-					BlockParentHash: header.ParentHash,
-					TransactionHash: receipt.TransactionHash,
-					EventIndex:      i,
-					Event:           event,
+					BlockNumber:      blockNumber,
+					BlockHash:        header.Hash,
+					BlockParentHash:  header.ParentHash,
+					TransactionHash:  receipt.TransactionHash,
+					TransactionIndex: uint(txIndex),
+					EventIndex:       uint(i),
+					Event:            event,
 				})
 			} else {
 				// we are at the capacity, return what we have accumulated so far and a continuation token

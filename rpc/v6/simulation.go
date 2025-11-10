@@ -69,11 +69,11 @@ func (h *Handler) SimulateTransactions(
 	broadcastedTxns BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, broadcastedTxns.Data, simulationFlags, false)
+	return h.simulateTransactions(id, broadcastedTxns.Data, simulationFlags, false, false)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, errOnRevert bool,
+	simulationFlags []SimulationFlag, errOnRevert bool, isEstimateFee bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -115,6 +115,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		errOnRevert,
 		false,
 		true,
+		isEstimateFee,
 	)
 	if err != nil {
 		return nil, handleExecutionError(err)

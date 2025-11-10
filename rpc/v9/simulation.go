@@ -43,11 +43,11 @@ func (h *Handler) SimulateTransactions(
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions.Data, simulationFlags, false)
+	return h.simulateTransactions(id, transactions.Data, simulationFlags, false, false)
 }
 
 func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool,
+	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool, isEstimateFee bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
@@ -92,6 +92,7 @@ func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTr
 		errOnRevert,
 		true,
 		true,
+		isEstimateFee,
 	)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
@@ -172,7 +173,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 	}
 	var txnExecutionError vm.TransactionExecutionError
 	if errors.As(err, &txnExecutionError) {
-		return makeTransactionExecutionError(&txnExecutionError)
+		return MakeTransactionExecutionError(&txnExecutionError)
 	}
 	return rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 }
@@ -267,7 +268,7 @@ type TransactionExecutionErrorData struct {
 	ExecutionError   json.RawMessage `json:"execution_error"`
 }
 
-func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
+func MakeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
 	return rpccore.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
 		TransactionIndex: err.Index,
 		ExecutionError:   err.Cause,
