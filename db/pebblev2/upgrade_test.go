@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	pebblev2lib "github.com/cockroachdb/pebble/v2"
-	"github.com/cockroachdb/pebble/v2/sstable/block"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -95,7 +94,7 @@ func runScenario(t *testing.T, scenario scenario) {
 	if scenario.v2 {
 		name += "v2 -> "
 	}
-	name += "v2zstd"
+	name += "v2good"
 
 	t.Run(name, func(t *testing.T) {
 		t.Helper()
@@ -130,7 +129,7 @@ func runScenario(t *testing.T, scenario scenario) {
 
 		for range 2 {
 			t.Run("open in v2 with compression", func(t *testing.T) {
-				database, err := pebblev2.New(path, pebblev2.WithCompression(block.ZstdCompression))
+				database, err := pebblev2.New(path, pebblev2.WithCompression(&pebblev2.Zstd1))
 				require.NoError(t, err)
 				defer database.Close()
 
