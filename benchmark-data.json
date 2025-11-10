@@ -982,5 +982,11 @@
     "block_target": 800000,
     "duration_seconds": 75663.442996,
     "timestamp": "2025-11-09T16:14:18.219936+00:00"
+  },
+  {
+    "version": "v0.15.10",
+    "block_target": 800000,
+    "duration_seconds": 75183.767569,
+    "timestamp": "2025-11-10T14:19:27.149798+00:00"
   }
 ]
