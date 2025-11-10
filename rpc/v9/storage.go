@@ -67,7 +67,7 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	chainHeight, err := state.ChainHeight()
+	chainHeight, err := h.bcReader.Height()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
