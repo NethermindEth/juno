@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mocks"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
@@ -58,11 +59,12 @@ func TestRun(t *testing.T) {
 	).AnyTimes()
 
 	handler := &Handler{
-		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil),
-		rpcv7Handler: rpcv7.New(mockBcReader, mockSyncReader, nil, nil, nil),
-		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, nil),
-		rpcv9Handler: rpcv9.New(mockBcReader, mockSyncReader, nil, nil),
-		version:      "",
+		rpcv6Handler:  rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil),
+		rpcv7Handler:  rpcv7.New(mockBcReader, mockSyncReader, nil, nil, nil),
+		rpcv8Handler:  rpcv8.New(mockBcReader, mockSyncReader, nil, nil),
+		rpcv9Handler:  rpcv9.New(mockBcReader, mockSyncReader, nil, nil),
+		rpcv10Handler: rpcv10.New(mockBcReader, mockSyncReader, nil, nil),
+		version:       "",
 	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)

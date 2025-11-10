@@ -243,7 +243,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		paidFeesOnL1,
 		&blockInfo,
 		state,
-		false, false, false, false, false)
+		false, false, false, false, false, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 

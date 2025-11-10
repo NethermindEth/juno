@@ -109,6 +109,7 @@ pub extern "C" fn cairoVMExecute(
     concurrency_mode: c_uchar,
     err_stack: c_uchar,
     allow_binary_search: c_uchar,
+    is_estimate_fee: c_uchar,
 ) {
     cairo_vm_execute(
         txns_json,
@@ -123,6 +124,7 @@ pub extern "C" fn cairoVMExecute(
         concurrency_mode,
         err_stack,
         allow_binary_search,
+        is_estimate_fee,
     )
     .unwrap_or_else(|err| report_error(reader_handle, err));
 }
