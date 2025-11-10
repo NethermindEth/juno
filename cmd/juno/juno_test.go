@@ -63,6 +63,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
 	defaultDBMemtableSize := uint(4)
+	defaultDBCompression := "snappy"
 	defaultCallMaxSteps := uint64(4_000_000)
 	defaultCallMaxGas := uint64(100_000_000)
 	defaultSeqBlockTime := uint(60)
@@ -98,6 +99,7 @@ func TestConfigPrecedence(t *testing.T) {
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
 		DBMemtableSize:                     defaultDBMemtableSize,
+		DBCompression:                      defaultDBCompression,
 		RPCCallMaxSteps:                    defaultCallMaxSteps,
 		RPCCallMaxGas:                      defaultCallMaxGas,
 		GatewayTimeouts:                    defaultGwTimeout,
@@ -137,6 +139,7 @@ func TestConfigPrecedence(t *testing.T) {
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
 		DBMemtableSize:                     defaultDBMemtableSize,
+		DBCompression:                      defaultDBCompression,
 		RPCCallMaxSteps:                    defaultCallMaxSteps,
 		RPCCallMaxGas:                      defaultCallMaxGas,
 		GatewayTimeouts:                    defaultGwTimeout,
@@ -237,6 +240,7 @@ pprof: true
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -282,6 +286,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -324,6 +329,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -370,6 +376,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -439,6 +446,7 @@ db-cache-size: 1024
 				DBCacheSize:                        9,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -486,6 +494,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -529,6 +538,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -570,6 +580,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -612,6 +623,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
@@ -655,6 +667,7 @@ network: sepolia
 				GatewayAPIKey:                      "apikey",
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,

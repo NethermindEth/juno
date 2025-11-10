@@ -26,6 +26,7 @@ func TestNewNode(t *testing.T) {
 		GRPC:                               true,
 		GRPCPort:                           0,
 		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
 		Network:                            utils.Sepolia, // P2P will only work with Sepolia (for the time being)
 		EthNode:                            "",
 		DisableL1Verification:              true,
@@ -90,6 +91,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			logLevel := utils.NewLogLevel(utils.INFO)
 			_, err = node.New(&node.Config{
 				DatabasePath:                       dbPath,
+				DBCompression:                      "zstd",
 				Network:                            test.network,
 				DisableL1Verification:              true,
 				SubmittedTransactionsCacheEntryTTL: time.Second,

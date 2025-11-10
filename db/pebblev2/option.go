@@ -46,10 +46,29 @@ func WithLogger(colouredLogger bool) Option {
 	}
 }
 
-func WithCompression(compression *block.CompressionProfile) Option {
+// WithCompression sets the compression profile by name.
+// Valid options: snappy (default), zstd (recommended for low storage), minlz.
+func WithCompression(name string) Option {
 	return func(opts *pebble.Options) error {
+		var profile *block.CompressionProfile
+		if strings.EqualFold(name, "zstd1") {
+			zstd1 := block.BalancedCompression.ValueBlocks
+			profile = &block.CompressionProfile{
+				Name:                "ZSTD",
+				DataBlocks:          zstd1,
+				ValueBlocks:         zstd1,
+				OtherBlocks:         zstd1,
+				MinReductionPercent: 12,
+			}
+		} else {
+			profile = block.CompressionProfileByName(name)
+			if profile == nil {
+				return fmt.Errorf("unknown compression profile: %q (valid options: snappy, zstd, minlz)", name)
+			}
+		}
+
 		opts.ApplyCompressionSettings(func() pebble.DBCompressionSettings {
-			return pebble.UniformDBCompressionSettings(compression)
+			return pebble.UniformDBCompressionSettings(profile)
 		})
 		return nil
 	}
