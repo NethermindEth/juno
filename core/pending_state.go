@@ -29,10 +29,6 @@ func NewPendingState(
 	}
 }
 
-func (p *PendingState) ChainHeight() (uint64, error) {
-	return p.head.ChainHeight()
-}
-
 func (p *PendingState) StateDiff() *StateDiff {
 	return p.stateDiff
 }
