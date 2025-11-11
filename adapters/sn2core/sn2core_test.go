@@ -638,7 +638,7 @@ func TestClassV1(t *testing.T) {
 }
 
 func TestAdaptCompiledClass(t *testing.T) {
-	result, err := sn2core.AdaptCompiledClass(nil)
+	result, err := sn2core.AdaptCasmClass(nil)
 	require.NoError(t, err)
 	assert.Empty(t, result)
 }

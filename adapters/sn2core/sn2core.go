@@ -13,25 +13,28 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block, error) {
-	if response == nil {
+// todo(rdr): this monoscript sn2core module is a bit messy. Refactor it into several files
+
+// todo(rdr): this should return `core.Block` by value
+func AdaptBlock(snBlock *starknet.Block, sig *starknet.Signature) (*core.Block, error) {
+	if snBlock == nil {
 		return nil, errors.New("nil client block")
 	}
 
-	txns := make([]core.Transaction, len(response.Transactions))
-	for i := range response.Transactions {
+	txns := make([]core.Transaction, len(snBlock.Transactions))
+	for i := range snBlock.Transactions {
 		var err error
-		txns[i], err = AdaptTransaction(response.Transactions[i])
+		txns[i], err = AdaptTransaction(snBlock.Transactions[i])
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
+	receipts := make([]*core.TransactionReceipt, len(snBlock.Receipts))
 	eventCount := uint64(0)
-	for i := range response.Receipts {
-		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
-		eventCount += uint64(len(response.Receipts[i].Events))
+	for i := range snBlock.Receipts {
+		receipts[i] = AdaptTransactionReceipt(snBlock.Receipts[i])
+		eventCount += uint64(len(snBlock.Receipts[i].Events))
 	}
 
 	sigs := [][]*felt.Felt{}
@@ -40,22 +43,23 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 	}
 
 	return &core.Block{
+		// todo(rdr): core.Header should probably mostly be a value and not a reference
 		Header: &core.Header{
-			Hash:             response.Hash,
-			ParentHash:       response.ParentHash,
-			Number:           response.Number,
-			GlobalStateRoot:  response.StateRoot,
-			Timestamp:        response.Timestamp,
-			ProtocolVersion:  response.Version,
-			SequencerAddress: response.SequencerAddress,
-			TransactionCount: uint64(len(response.Transactions)),
+			Hash:             snBlock.Hash,
+			ParentHash:       snBlock.ParentHash,
+			Number:           snBlock.Number,
+			GlobalStateRoot:  snBlock.StateRoot,
+			Timestamp:        snBlock.Timestamp,
+			ProtocolVersion:  snBlock.Version,
+			SequencerAddress: snBlock.SequencerAddress,
+			TransactionCount: uint64(len(snBlock.Transactions)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    response.L1GasPriceETH(),
-			L1GasPriceSTRK:   response.L1GasPriceSTRK(),
-			L1DAMode:         core.L1DAMode(response.L1DAMode),
-			L1DataGasPrice:   (*core.GasPrice)(response.L1DataGasPrice),
-			L2GasPrice:       (*core.GasPrice)(response.L2GasPrice),
+			L1GasPriceETH:    snBlock.L1GasPriceETH(),
+			L1GasPriceSTRK:   snBlock.L1GasPriceSTRK(),
+			L1DAMode:         core.L1DAMode(snBlock.L1DAMode),
+			L1DataGasPrice:   (*core.GasPrice)(snBlock.L1DataGasPrice),
+			L2GasPrice:       (*core.GasPrice)(snBlock.L2GasPrice),
 			Signatures:       sigs,
 		},
 		Transactions: txns,
@@ -63,7 +67,9 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 	}, nil
 }
 
+// todo(rdr): this should return `core.TransactionReceipt` by value
 func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.TransactionReceipt {
+	// todo(rdr): Does it makes sense to check for nil here?
 	if response == nil {
 		return nil
 	}
@@ -84,6 +90,7 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 	}
 }
 
+// todo(rdr): this should return `core.GasConsumed` by value
 func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
 	if response == nil {
 		return nil
@@ -96,6 +103,7 @@ func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
 	}
 }
 
+// todo(rdr): this should return `core.Event` by value
 func AdaptEvent(response *starknet.Event) *core.Event {
 	if response == nil {
 		return nil
@@ -108,6 +116,7 @@ func AdaptEvent(response *starknet.Event) *core.Event {
 	}
 }
 
+// todo(rdr): this should return `core.Event` by value
 func AdaptExecutionResources(response *starknet.ExecutionResources) *core.ExecutionResources {
 	if response == nil {
 		return nil
@@ -122,6 +131,7 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 	}
 }
 
+// todo(rdr): this should return `core.L1toL2Message` by value
 func AdaptL1ToL2Message(response *starknet.L1ToL2Message) *core.L1ToL2Message {
 	if response == nil {
 		return nil
@@ -136,6 +146,7 @@ func AdaptL1ToL2Message(response *starknet.L1ToL2Message) *core.L1ToL2Message {
 	}
 }
 
+// todo(rdr): this should return `core.L2toL1Message` by value
 func AdaptL2ToL1Message(response *starknet.L2ToL1Message) *core.L2ToL1Message {
 	if response == nil {
 		return nil
@@ -316,7 +327,7 @@ func AdaptSierraClass(
 		return nil, errors.New("sierra program size is too small")
 	}
 
-	coreCompiledClass, err := AdaptCompiledClass(compiledClass)
+	casmClass, err := AdaptCasmClass(compiledClass)
 	if err != nil {
 		return nil, err
 	}
@@ -329,32 +340,36 @@ func AdaptSierraClass(
 		Abi:     response.Abi,
 		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
 
-		Compiled: &coreCompiledClass,
+		Compiled: &casmClass,
 
 		EntryPoints: adaptSierraEntrypoints(&response.EntryPoints),
 	}, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CasmClass) (core.CasmClass, error) {
-	if compiledClass == nil {
+func AdaptCasmClass(starknetCasm *starknet.CasmClass) (core.CasmClass, error) {
+	if starknetCasm == nil {
 		return core.CasmClass{}, nil
 	}
 
 	var casm core.CasmClass
-	casm.Bytecode = compiledClass.Bytecode
-	casm.PythonicHints = compiledClass.PythonicHints
-	casm.CompilerVersion = compiledClass.CompilerVersion
-	casm.Hints = compiledClass.Hints
-	casm.BytecodeSegmentLengths = AdaptSegmentLengths(compiledClass.BytecodeSegmentLengths)
+	casm.Bytecode = starknetCasm.Bytecode
+	casm.PythonicHints = starknetCasm.PythonicHints
+	casm.CompilerVersion = starknetCasm.CompilerVersion
+	casm.Hints = starknetCasm.Hints
+	casm.BytecodeSegmentLengths = AdaptSegmentLengths(starknetCasm.BytecodeSegmentLengths)
 
 	var ok bool
-	casm.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
+
+	// todo(rdr): the Prime in `starknetCasm` should be an felt.Felt I believe
+	// todo(rdr): the Prime in `casm` should be a felt as well
+	casm.Prime, ok = new(big.Int).SetString(starknetCasm.Prime, 0)
 	if !ok {
 		return core.CasmClass{},
 			fmt.Errorf("couldn't convert prime value to big.Int: %d", casm.Prime)
 	}
 
-	entryPoints := compiledClass.EntryPoints
+	entryPoints := starknetCasm.EntryPoints
+	// todo(rdr): get rid of this utils.Map
 	casm.External = utils.Map(entryPoints.External, adaptCompiledEntryPoint)
 	casm.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
 	casm.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
@@ -582,6 +597,10 @@ func AdaptPreConfirmedBlock(
 	return core.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs), nil
 }
 
+// todo(rdr): First remove this function or find a better name. Second: make sure the operation
+//	is safe. If it is always going to be something that fits in a uint64 why are we
+//	storing a felt.Felt in the first place
+
 func safeFeltToUint64(f *felt.Felt) uint64 {
 	if f != nil {
 		return f.Uint64()
@@ -589,6 +608,7 @@ func safeFeltToUint64(f *felt.Felt) uint64 {
 	return 0
 }
 
+// todo(rdr): rename this to `adaptCasmEntryPoint`
 func adaptCompiledEntryPoint(entryPoint starknet.CompiledEntryPoint) core.CasmEntryPoint {
 	return core.CasmEntryPoint{
 		Offset:   entryPoint.Offset,
