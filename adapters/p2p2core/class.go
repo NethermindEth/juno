@@ -54,9 +54,9 @@ func AdaptClassDefinition(cls *class.Class) (core.ClassDefinition, error) {
 		deprecatedCairo := cls.Cairo0
 		return &core.DeprecatedCairoClass{
 			Abi:          json.RawMessage(deprecatedCairo.Abi),
-			Externals:    adaptEntryPoints(deprecatedCairo.Externals),
-			L1Handlers:   adaptEntryPoints(deprecatedCairo.L1Handlers),
-			Constructors: adaptEntryPoints(deprecatedCairo.Constructors),
+			Externals:    adaptDeprecatedEntryPoints(deprecatedCairo.Externals),
+			L1Handlers:   adaptDeprecatedEntryPoints(deprecatedCairo.L1Handlers),
+			Constructors: adaptDeprecatedEntryPoints(deprecatedCairo.Constructors),
 			Program:      deprecatedCairo.Program,
 		}, nil
 	case *class.Class_Cairo1:
