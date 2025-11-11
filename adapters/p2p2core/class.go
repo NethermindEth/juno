@@ -14,18 +14,19 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
-	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
+func AdaptSierraClass(sierraClass *class.Cairo1Class) (core.SierraClass, error) {
+	abiHash := crypto.StarknetKeccak([]byte(sierraClass.Abi))
 
-	program := utils.Map(cairo1.Program, AdaptFelt)
-	compiled, err := compileToCasm(cairo1)
+	program := utils.Map(sierraClass.Program, AdaptFelt)
+
+	casmClass, err := compileToCasm(sierraClass)
 	if err != nil {
 		return core.SierraClass{}, fmt.Errorf("invalid compiled class: %w", err)
 	}
 
-	entryPoints := cairo1.EntryPoints
+	entryPoints := sierraClass.EntryPoints
 	return core.SierraClass{
-		Abi:     cairo1.Abi,
+		Abi:     sierraClass.Abi,
 		AbiHash: abiHash,
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint
@@ -38,8 +39,8 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 		},
 		Program:         program,
 		ProgramHash:     crypto.PoseidonArray(program...),
-		SemanticVersion: cairo1.ContractClassVersion,
-		Compiled:        &compiled,
+		SemanticVersion: sierraClass.ContractClassVersion,
+		Compiled:        &casmClass,
 	}, nil
 }
 
@@ -69,42 +70,35 @@ func AdaptClassDefinition(cls *class.Class) (core.ClassDefinition, error) {
 
 func adaptSierraEntryPoints(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
 	sierraEntryPoints := make([]core.SierraEntryPoint, len(points))
-	for index := range points {
-		sierraEntryPoints[index] = adaptSierraEntryPoint(points[index])
+	for i := range points {
+		sierraEntryPoints[i] = core.SierraEntryPoint{
+			Index: points[i].Index,
+			// todo(rdr): look for a way to get rid of this AdaptFelt or change it
+			Selector: AdaptFelt(points[i].Selector),
+		}
 	}
 	return sierraEntryPoints
 }
 
-func adaptSierraEntryPoint(e *class.SierraEntryPoint) core.SierraEntryPoint {
-	return core.SierraEntryPoint{
-		Index:    e.Index,
-		Selector: AdaptFelt(e.Selector),
-	}
-}
-
 func adaptDeprecatedEntryPoints(points []*class.EntryPoint) []core.DeprecatedEntryPoint {
 	deprecatedEntryPoints := make([]core.DeprecatedEntryPoint, len(points))
-	for index := range points {
-		deprecatedEntryPoints[index] = adaptEntryPoint(points[index])
+	for i := range points {
+		deprecatedEntryPoints[i] = core.DeprecatedEntryPoint{
+			// todo(rdr): look for a way to get rid of this AdaptFelt or change it
+			Selector: AdaptFelt(points[i].Selector),
+			// todo(rdr): wHy do we store this as a felt instead of as a uint64
+			Offset: felt.NewFromUint64[felt.Felt](points[i].Offset),
+		}
 	}
 	return deprecatedEntryPoints
 }
 
-func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
-	return core.DeprecatedEntryPoint{
-		Selector: AdaptFelt(e.Selector),
-		Offset:   new(felt.Felt).SetUint64(e.Offset),
-	}
-}
-
-// todo should this be a method of class.Cairo1Class
+// todo(rdr): There is a p2p to starknet conversion here
+//            Can this whole code be differnet, Like adapting from p2p to core and from core to sn
+//            Or write a dedicated adapter. I think this option might be the best one
 
 func compileToCasm(cairo1 *class.Cairo1Class) (core.CasmClass, error) {
-	if cairo1 == nil {
-		//nolint:exhaustruct // intentionally returning an empty CasmClass
-		return core.CasmClass{}, nil
-	}
-
+	// todo(rdr): write a dedicatd function for this
 	adapt := func(ep *class.SierraEntryPoint) starknet.SierraEntryPoint {
 		return starknet.SierraEntryPoint{
 			Index:    ep.Index,
@@ -112,11 +106,12 @@ func compileToCasm(cairo1 *class.Cairo1Class) (core.CasmClass, error) {
 		}
 	}
 	ep := cairo1.EntryPoints
+
 	def := &starknet.SierraClass{
 		Abi: cairo1.Abi,
 		EntryPoints: starknet.SierraEntryPoints{
-			// WARNING: usage of utils.NonNilSlice is essential, otherwise compilation will finish with errors
-			// todo move NonNilSlice to Compile ?
+			// todo(rdr): remove the this functional programming which doesn't pair well
+			//            with go (both style and performance wise)
 			Constructor: utils.Map(utils.NonNilSlice(ep.Constructors), adapt),
 			External:    utils.Map(utils.NonNilSlice(ep.Externals), adapt),
 			L1Handler:   utils.Map(utils.NonNilSlice(ep.L1Handlers), adapt),

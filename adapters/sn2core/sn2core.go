@@ -337,7 +337,6 @@ func AdaptSierraClass(
 
 func AdaptCompiledClass(compiledClass *starknet.CasmClass) (core.CasmClass, error) {
 	if compiledClass == nil {
-		//nolint:exhaustruct // intentionally returning an empty CasmClass
 		return core.CasmClass{}, nil
 	}
 
