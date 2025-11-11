@@ -143,7 +143,7 @@ func TestSimulateTransactions(t *testing.T) {
 			},
 			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 			err: rpccore.ErrInternal.CloneWithData(errors.New(
-				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns", //nolint:lll // test data
+				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 			)),
 		},
 	}
