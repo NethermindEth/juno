@@ -116,10 +116,10 @@ func (c *SierraClass) Version() uint64 {
 }
 
 func (c *SierraClass) Hash() (felt.Felt, error) {
-	externalEndpointsHash := crypto.PoseidonArray(
+	externalEntryPointsHash := crypto.PoseidonArray(
 		flattenSierraEntryPoints(c.EntryPoints.External)...,
 	)
-	l1HandlerEndpointsHash := crypto.PoseidonArray(
+	l1HandlerEntryPointsHash := crypto.PoseidonArray(
 		flattenSierraEntryPoints(c.EntryPoints.L1Handler)...,
 	)
 	constructorHash := crypto.PoseidonArray(
@@ -127,8 +127,8 @@ func (c *SierraClass) Hash() (felt.Felt, error) {
 	)
 	return crypto.PoseidonArray(
 		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
-		&externalEndpointsHash,
-		&l1HandlerEndpointsHash,
+		&externalEntryPointsHash,
+		&l1HandlerEntryPointsHash,
 		&constructorHash,
 		c.AbiHash,
 		c.ProgramHash,
@@ -170,13 +170,13 @@ func (c *CasmClass) Hash() felt.Felt {
 		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children)
 	}
 
-	externalEndpointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...)
-	l1HandlerEndpointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...)
+	externalEntryPointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...)
+	l1HandlerEntryPointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...)
 	constructorHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...)
 	return crypto.PoseidonArray(
 		compiledClassV1Prefix,
-		&externalEndpointsHash,
-		&l1HandlerEndpointsHash,
+		&externalEntryPointsHash,
+		&l1HandlerEntryPointsHash,
 		&constructorHash,
 		&bytecodeHash,
 	)
