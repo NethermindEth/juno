@@ -51,13 +51,13 @@ func HadesPermutation(state []felt.Felt) {
 	}
 }
 
-var two = new(felt.Felt).SetUint64(2)
+var two = felt.FromUint64[felt.Felt](2)
 
 // Poseidon implements the [Poseidon hash].
 //
 // [Poseidon hash]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#poseidon_hash
 func Poseidon(x, y *felt.Felt) felt.Felt {
-	state := []felt.Felt{*x, *y, *two}
+	state := []felt.Felt{*x, *y, two}
 	HadesPermutation(state)
 	return state[0]
 }
