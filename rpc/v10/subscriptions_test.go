@@ -1385,12 +1385,12 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	id := "1"
 	handler.WithIDGen(func() string { return id })
 
-	subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}` //nolint:lll // test data
+	subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}`
 	got := sendWsMessage(t, ctx, conn, subMsg)
 	require.Equal(t, subResp(id), got)
 
 	// Check block 0 content
-	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":"%s"}}` //nolint:lll // test data
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":"%s"}}`
 	want = fmt.Sprintf(want, id)
 	_, block0Got, err := conn.Read(ctx)
 	require.NoError(t, err)
@@ -1568,7 +1568,7 @@ func TestSubscriptionReorg(t *testing.T) {
 			})
 
 			// Receive reorg event
-			expectedRes := `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":"%s"}}` //nolint:lll // test data
+			expectedRes := `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":"%s"}}`
 			want := fmt.Sprintf(expectedRes, id)
 			_, reorgGot, err := conn.Read(ctx)
 			require.NoError(t, err)
@@ -2860,7 +2860,7 @@ func testHeadBlock(t *testing.T) *core.Block {
 }
 
 func newHeadsResponse(id string) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce","parent_hash":"0x5d5e7c03c7ef4419c0847d7ae1d1079b6f91fa952ebdb20b74ca2e621017f02","block_number":56377,"new_root":"0x2a899e1200baa9b843cbfb65d63f4f746cec27f8edb42f8446ae349b532f8b3","timestamp":1712213818,"sequencer_address":"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","l1_gas_price":{"price_in_fri":"0x1d1a94a20000","price_in_wei":"0x4a817c800"},"l1_data_gas_price":{"price_in_fri":"0x2dfb78bf913d","price_in_wei":"0x6b85dda55"},"l1_da_mode":"BLOB","starknet_version":"0.13.1","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%q}}`, id) //nolint:lll // test data
+	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce","parent_hash":"0x5d5e7c03c7ef4419c0847d7ae1d1079b6f91fa952ebdb20b74ca2e621017f02","block_number":56377,"new_root":"0x2a899e1200baa9b843cbfb65d63f4f746cec27f8edb42f8446ae349b532f8b3","timestamp":1712213818,"sequencer_address":"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","l1_gas_price":{"price_in_fri":"0x1d1a94a20000","price_in_wei":"0x4a817c800"},"l1_data_gas_price":{"price_in_fri":"0x2dfb78bf913d","price_in_wei":"0x6b85dda55"},"l1_da_mode":"BLOB","starknet_version":"0.13.1","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%q}}`, id)
 }
 
 // setupRPC creates a RPC handler that runs in a goroutine and

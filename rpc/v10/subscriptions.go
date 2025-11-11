@@ -160,9 +160,9 @@ type SentEvent struct {
 // new Starknet events with applied filters
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L59 //nolint:lll
+// https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L59
 //
-//nolint:lll,funlen // URL exceeds line limit but should remain intact for reference
+//nolint:funlen // URL exceeds line limit but should remain intact for reference
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
 	fromAddr *felt.Felt,
@@ -511,8 +511,6 @@ func sendEventWithoutDuplicate(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L151
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) SubscribeTransactionStatus(
 	ctx context.Context,
 	txHash *felt.Felt,
@@ -683,9 +681,7 @@ func (h *Handler) checkTxStatus(
 // a new block header is added.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L10 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L10
 func (h *Handler) SubscribeNewHeads(
 	ctx context.Context,
 	blockID *rpcv9.SubscriptionBlockID,
@@ -848,9 +844,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 // or not at all.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/4e98e3684b50ee9e63b7eeea9412b6a2ed7494ec/api/starknet_ws_api.json#L186 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/4e98e3684b50ee9e63b7eeea9412b6a2ed7494ec/api/starknet_ws_api.json#L186
 func (h *Handler) SubscribeNewTransactionReceipts(
 	ctx context.Context,
 	senderAddress []felt.Felt,
@@ -1016,9 +1010,7 @@ func processBlockReceipts(
 // or not at all.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/4e98e3684b50ee9e63b7eeea9412b6a2ed7494ec/api/starknet_ws_api.json#L257 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/4e98e3684b50ee9e63b7eeea9412b6a2ed7494ec/api/starknet_ws_api.json#L257
 func (h *Handler) SubscribeNewTransactions(
 	ctx context.Context,
 	finalityStatus []rpcv9.TxnStatusWithoutL1,
