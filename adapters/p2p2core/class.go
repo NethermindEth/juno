@@ -125,5 +125,5 @@ func compileToCasm(cairo1 *class.Cairo1Class) (core.CasmClass, error) {
 		return core.CasmClass{}, err
 	}
 
-	return sn2core.AdaptCompiledClass(compiledClass)
+	return sn2core.AdaptCasmClass(compiledClass)
 }
