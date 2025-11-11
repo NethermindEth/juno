@@ -233,11 +233,13 @@ func declaredClassesDigest(
 	}
 	slices.SortFunc(keys, func(a felt.Felt, b felt.Felt) int { return a.Cmp(&b) })
 
-	// todo(rdr): Is it more performant to do multiple calls to `diget.Update`, or
-	// pre-store all the values and make a single call to `digest.Update`?
-	sortedDeclaredV1ClassHashes := sortedFeltKeys(declaredClasses)
-	for _, classHash := range sortedDeclaredV1ClassHashes {
-		digest.Update(&classHash, declaredClasses[classHash])
+	for _, classHash := range keys {
+		if casmHash, ok := declaredClasses[classHash]; ok {
+			digest.Update(&classHash, casmHash)
+		} else {
+			casmHash := migratedClasses[felt.SierraClassHash(classHash)]
+			digest.Update(&classHash, (*felt.Felt)(&casmHash))
+		}
 	}
 }
 

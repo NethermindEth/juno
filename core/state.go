@@ -250,7 +250,12 @@ func (s *State) Update(
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
+	err = s.updateDeclaredClassesTrie(
+		update.StateDiff.DeclaredV1Classes,
+		declaredClasses,
+		update.StateDiff.MigratedClasses,
+	)
+	if err != nil {
 		return err
 	}
 
@@ -533,19 +538,29 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 func (s *State) updateDeclaredClassesTrie(
 	declaredClasses map[felt.Felt]*felt.Felt,
 	classDefinitions map[felt.Felt]ClassDefinition,
+	migratedCasmClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
 	}
 
-	for classHash, compiledClassHash := range declaredClasses {
+	for classHash, casmClassHash := range declaredClasses {
 		if _, found := classDefinitions[classHash]; !found {
 			continue
 		}
 
-		leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
+		leafValue := crypto.Poseidon(leafVersion, casmClassHash)
 		if _, err = classesTrie.Put(&classHash, leafValue); err != nil {
+			return err
+		}
+	}
+
+	for classHash, casmClassHash := range migratedCasmClasses {
+		classHashFelt := (*felt.Felt)(&classHash)
+
+		leafValue := crypto.Poseidon(leafVersion, (*felt.Felt)(&casmClassHash))
+		if _, err = classesTrie.Put(classHashFelt, leafValue); err != nil {
 			return err
 		}
 	}
@@ -577,8 +592,18 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return fmt.Errorf("verify state update root: %v", err)
 	}
 
-	if err = s.removeDeclaredClasses(blockNumber, update.StateDiff.DeclaredV0Classes, update.StateDiff.DeclaredV1Classes); err != nil {
+	err = s.removeDeclaredClasses(
+		blockNumber,
+		update.StateDiff.DeclaredV0Classes,
+		update.StateDiff.DeclaredV1Classes,
+	)
+	if err != nil {
 		return fmt.Errorf("remove declared classes: %v", err)
+	}
+
+	err = s.revertMigratedCasmClasses(update.StateDiff.MigratedClasses)
+	if err != nil {
+		return fmt.Errorf("revert migrated casm classes: %v", err)
 	}
 
 	reversedDiff, err := s.GetReverseStateDiff(blockNumber, update.StateDiff)
@@ -784,4 +809,33 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error
 	}
 
 	return nil
+}
+
+func (s *State) revertMigratedCasmClasses(
+	migratedCasmClasses map[felt.SierraClassHash]felt.CasmClassHash,
+) error {
+	classesTrie, classesCloser, err := s.classesTrie()
+	if err != nil {
+		return err
+	}
+
+	for classHash := range migratedCasmClasses {
+		classHashFelt := (*felt.Felt)(&classHash)
+		classDefinition, err := s.Class(classHashFelt)
+		if err != nil {
+			return err
+		}
+
+		stateUpdate, err := GetStateUpdateByBlockNum(s.txn, classDefinition.At)
+		if err != nil {
+			return err
+		}
+		deprecatedCasmHash := stateUpdate.StateDiff.DeclaredV1Classes[*classHashFelt]
+
+		if _, err = classesTrie.Put(classHashFelt, deprecatedCasmHash); err != nil {
+			return fmt.Errorf("revert class %s in trie: %w", classHashFelt, err)
+		}
+	}
+
+	return classesCloser()
 }

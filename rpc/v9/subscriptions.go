@@ -88,6 +88,13 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type SubscriptionID string
+
+func (h *Handler) unsubscribe(sub *subscription, id string) {
+	sub.cancel()
+	h.subscriptions.Delete(id)
+}
+
 type on[T any] func(ctx context.Context, id string, sub *subscription, event T) error
 
 type subscriber struct {
@@ -195,7 +202,7 @@ type SubscriptionEmittedEvent struct {
 // Therefore, the emitted events are deterministic and we can use the transaction hash and event index to identify.
 type SentEvent struct {
 	TransactionHash felt.Felt
-	EventIndex      int
+	EventIndex      uint
 }
 
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
@@ -418,7 +425,7 @@ func processBlockEvents(
 				BlockNumber:     blockNumber,
 				BlockHash:       block.Hash,
 				TransactionHash: receipt.TransactionHash,
-				EventIndex:      i,
+				EventIndex:      uint(i),
 				Event:           event,
 			}
 
@@ -800,16 +807,16 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 type TxnFinalityStatusWithoutL1 TxnFinalityStatus
 
 func (s *TxnFinalityStatusWithoutL1) UnmarshalText(text []byte) error {
-	switch string(text) {
-	case "PRE_CONFIRMED":
-		*s = TxnFinalityStatusWithoutL1(TxnPreConfirmed)
-		return nil
-	case "ACCEPTED_ON_L2":
-		*s = TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
-		return nil
-	default:
+	var base TxnFinalityStatus
+	if err := base.UnmarshalText(text); err != nil {
+		return err
+	}
+	// Validate that only non-L1 statuses are allowed
+	if base == TxnAcceptedOnL1 {
 		return fmt.Errorf("invalid TxnStatus: %s;", text)
 	}
+	*s = TxnFinalityStatusWithoutL1(base)
+	return nil
 }
 
 func (s TxnFinalityStatusWithoutL1) MarshalText() ([]byte, error) {
@@ -1234,7 +1241,7 @@ func sendEvent(w jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error
 
 // sendHeader creates a request and sends it to the client
 func sendHeader(w jsonrpc.Conn, header *core.Header, id string) error {
-	return sendResponse("starknet_subscriptionNewHeads", w, id, adaptBlockHeader(header))
+	return sendResponse("starknet_subscriptionNewHeads", w, id, AdaptBlockHeader(header))
 }
 
 func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {

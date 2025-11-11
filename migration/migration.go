@@ -751,13 +751,9 @@ type declaredClass struct {
 }
 
 type oldCairo1Class struct {
-	Abi         string
-	AbiHash     *felt.Felt
-	EntryPoints struct {
-		Constructor []core.SierraEntryPoint
-		External    []core.SierraEntryPoint
-		L1Handler   []core.SierraEntryPoint
-	}
+	Abi             string
+	AbiHash         *felt.Felt
+	EntryPoints     core.SierraEntryPointsByType
 	Program         []*felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string

@@ -66,6 +66,7 @@ type VM interface {
 		errOnRevert,
 		errStack,
 		allowBinarySearch bool,
+		isEstimateFee bool,
 	) (ExecutionResults, error)
 }
 
@@ -342,6 +343,7 @@ func (v *vm) Execute(
 	errOnRevert,
 	errorStack,
 	allowBinarySearch bool,
+	isEstimateFee bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
@@ -377,7 +379,8 @@ func (v *vm) Execute(
 		toUchar(errOnRevert),
 		toUchar(v.concurrencyMode),
 		toUchar(errorStack),
-		toUchar(allowBinarySearch), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(allowBinarySearch),
+		toUchar(isEstimateFee), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
