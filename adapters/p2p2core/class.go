@@ -119,6 +119,6 @@ func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return sn2core.AdaptCompiledClass(compiledClass)
+	coreCasmClass, err := sn2core.AdaptCasmClass(compiledClass)
+	return &coreCasmClass, err
 }

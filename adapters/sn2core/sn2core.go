@@ -30,7 +30,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (core.Block, 
 	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
 	eventCount := uint64(0)
 	for i := range response.Receipts {
-		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
+		receipts[i] = utils.HeapPtr(AdaptTransactionReceipt(response.Receipts[i]))
 		eventCount += uint64(len(response.Receipts[i].Events))
 	}
 
@@ -63,71 +63,78 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (core.Block, 
 	}, nil
 }
 
-func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.TransactionReceipt {
+func AdaptTransactionReceipt(response *starknet.TransactionReceipt) core.TransactionReceipt {
 	if response == nil {
-		return nil
+		return core.TransactionReceipt{} //nolint:exhaustruct // returning empty object
 	}
 
-	return &core.TransactionReceipt{
+	events := make([]*core.Event, len(response.Events))
+	for i := range response.Events {
+		events[i] = utils.HeapPtr(AdaptEvent(response.Events[i]))
+	}
+
+	l2ToL1Messages := make([]*core.L2ToL1Message, len(response.L2ToL1Message))
+	for i := range response.L2ToL1Message {
+		l2ToL1Messages[i] = utils.HeapPtr(AdaptL2ToL1Message(response.L2ToL1Message[i]))
+	}
+
+	return core.TransactionReceipt{
 		FeeUnit:            0, // todo(kirill) recheck
 		Fee:                response.ActualFee,
 		TransactionHash:    response.TransactionHash,
-		Events:             utils.Map(utils.NonNilSlice(response.Events), AdaptEvent),
-		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
-		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
-		L2ToL1Message: utils.Map(
-			utils.NonNilSlice(response.L2ToL1Message),
-			AdaptL2ToL1Message,
-		),
-		Reverted:     response.ExecutionStatus == starknet.Reverted,
-		RevertReason: response.RevertError,
+		Events:             events,
+		ExecutionResources: utils.HeapPtr(AdaptExecutionResources(response.ExecutionResources)),
+		L1ToL2Message:      utils.HeapPtr(AdaptL1ToL2Message(response.L1ToL2Message)),
+		L2ToL1Message:      l2ToL1Messages,
+		Reverted:           response.ExecutionStatus == starknet.Reverted,
+		RevertReason:       response.RevertError,
 	}
 }
 
-func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
+func adaptGasConsumed(response *starknet.GasConsumed) core.GasConsumed {
 	if response == nil {
-		return nil
+		return core.GasConsumed{} //nolint:exhaustruct // returning empty object
 	}
 
-	return &core.GasConsumed{
+	return core.GasConsumed{
 		L1Gas:     response.L1Gas,
 		L1DataGas: response.L1DataGas,
 		L2Gas:     response.L2Gas,
 	}
 }
 
-func AdaptEvent(response *starknet.Event) *core.Event {
+func AdaptEvent(response *starknet.Event) core.Event {
 	if response == nil {
-		return nil
+		return core.Event{} //nolint:exhaustruct // returning empty object
 	}
 
-	return &core.Event{
+	return core.Event{
 		Data: response.Data,
 		From: response.From,
 		Keys: response.Keys,
 	}
 }
 
-func AdaptExecutionResources(response *starknet.ExecutionResources) *core.ExecutionResources {
+func AdaptExecutionResources(response *starknet.ExecutionResources) core.ExecutionResources {
 	if response == nil {
-		return nil
+		return core.ExecutionResources{} //nolint:exhaustruct // returning empty object
 	}
 
-	return &core.ExecutionResources{
+	return core.ExecutionResources{
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter(response.BuiltinInstanceCounter),
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
 		DataAvailability:       (*core.DataAvailability)(response.DataAvailability),
-		TotalGasConsumed:       adaptGasConsumed(response.TotalGasConsumed),
+		TotalGasConsumed:       utils.HeapPtr(adaptGasConsumed(response.TotalGasConsumed)),
 	}
 }
 
-func AdaptL1ToL2Message(response *starknet.L1ToL2Message) *core.L1ToL2Message {
+func AdaptL1ToL2Message(response *starknet.L1ToL2Message) core.L1ToL2Message {
 	if response == nil {
-		return nil
+		return core.L1ToL2Message{} //nolint:exhaustruct // returning empty object
 	}
 
-	return &core.L1ToL2Message{
+	return core.L1ToL2Message{
 		From:     common.HexToAddress(response.From),
 		Nonce:    response.Nonce,
 		Payload:  response.Payload,
@@ -136,12 +143,12 @@ func AdaptL1ToL2Message(response *starknet.L1ToL2Message) *core.L1ToL2Message {
 	}
 }
 
-func AdaptL2ToL1Message(response *starknet.L2ToL1Message) *core.L2ToL1Message {
+func AdaptL2ToL1Message(response *starknet.L2ToL1Message) core.L2ToL1Message {
 	if response == nil {
-		return nil
+		return core.L2ToL1Message{} //nolint:exhaustruct // returning empty object
 	}
 
-	return &core.L2ToL1Message{
+	return core.L2ToL1Message{
 		From:    response.From,
 		Payload: response.Payload,
 		To:      common.HexToAddress(response.To),
@@ -316,7 +323,7 @@ func AdaptSierraClass(
 		return nil, errors.New("sierra program size is too small")
 	}
 
-	coreCompiledClass, err := AdaptCompiledClass(compiledClass)
+	coreCompiledClass, err := AdaptCasmClass(compiledClass)
 	if err != nil {
 		return nil, err
 	}
@@ -329,15 +336,15 @@ func AdaptSierraClass(
 		Abi:     response.Abi,
 		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
 
-		Compiled: coreCompiledClass,
+		Compiled: &coreCompiledClass,
 
 		EntryPoints: adaptSierraEntrypoints(&response.EntryPoints),
 	}, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, error) {
+func AdaptCasmClass(compiledClass *starknet.CasmClass) (core.CasmClass, error) {
 	if compiledClass == nil {
-		return nil, nil
+		return core.CasmClass{}, nil //nolint:exhaustruct // returning empty object
 	}
 
 	var casm core.CasmClass
@@ -350,7 +357,7 @@ func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, err
 	var ok bool
 	casm.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
 	if !ok {
-		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", casm.Prime)
+		return core.CasmClass{}, fmt.Errorf("couldn't convert prime value to big.Int: %d", casm.Prime)
 	}
 
 	entryPoints := compiledClass.EntryPoints
@@ -358,7 +365,7 @@ func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, err
 	casm.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
 	casm.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
 
-	return &casm, nil
+	return casm, nil
 }
 
 func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
@@ -403,13 +410,13 @@ func AdaptDeprecatedCairoClass(
 	return class, nil
 }
 
-func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error) {
+func AdaptStateUpdate(response *starknet.StateUpdate) (core.StateUpdate, error) {
 	stateDiff, err := AdaptStateDiff(&response.StateDiff)
 	if err != nil {
-		return nil, err
+		return core.StateUpdate{}, err
 	}
 
-	return &core.StateUpdate{
+	return core.StateUpdate{
 		BlockHash: response.BlockHash,
 		NewRoot:   response.NewRoot,
 		OldRoot:   response.OldRoot,
@@ -525,7 +532,7 @@ func AdaptPreConfirmedBlock(
 				return core.PreConfirmed{}, err
 			}
 			txStateDiffs[preIdx] = &stateDiff
-			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+			receipts[preIdx] = utils.HeapPtr(AdaptTransactionReceipt(response.Receipts[i]))
 			eventCount += uint64(len(response.Receipts[i].Events))
 			preIdx++
 		} else {

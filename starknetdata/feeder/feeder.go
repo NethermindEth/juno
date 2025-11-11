@@ -113,8 +113,8 @@ func (f *Feeder) stateUpdate(ctx context.Context, blockID string) (*core.StateUp
 	if err != nil {
 		return nil, err
 	}
-
-	return sn2core.AdaptStateUpdate(response)
+	coreStateUpdate, err := sn2core.AdaptStateUpdate(response)
+	return &coreStateUpdate, err
 }
 
 // StateUpdate gets the state update for a given block number from the feeder,
@@ -147,7 +147,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		}
 	}
 
-	var adaptedState *core.StateUpdate
+	var adaptedState core.StateUpdate
 	var adaptedBlock core.Block
 
 	if adaptedState, err = sn2core.AdaptStateUpdate(response.StateUpdate); err != nil {
@@ -158,7 +158,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		return nil, nil, err
 	}
 
-	return adaptedState, &adaptedBlock, nil
+	return &adaptedState, &adaptedBlock, nil
 }
 
 // StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,
