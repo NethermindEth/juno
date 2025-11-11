@@ -31,7 +31,7 @@ var SierraVersion010 felt.Felt = felt.Felt(
 
 type ClassDefinition interface {
 	SierraVersion() string
-	Hash() (*felt.Felt, error)
+	Hash() (felt.Felt, error)
 }
 
 type DeprecatedCairoClass struct {
@@ -58,7 +58,7 @@ func (c *DeprecatedCairoClass) Version() uint64 {
 	return 0
 }
 
-func (c *DeprecatedCairoClass) Hash() (*felt.Felt, error) {
+func (c *DeprecatedCairoClass) Hash() (felt.Felt, error) {
 	return deprecatedCairoClassHash(c)
 }
 
@@ -115,12 +115,21 @@ func (c *SierraClass) Version() uint64 {
 	return 1
 }
 
-func (c *SierraClass) Hash() (*felt.Felt, error) {
+func (c *SierraClass) Hash() (felt.Felt, error) {
+	externalEndpointsHash := crypto.PoseidonArray(
+		flattenSierraEntryPoints(c.EntryPoints.External)...,
+	)
+	l1HandlerEndpointsHash := crypto.PoseidonArray(
+		flattenSierraEntryPoints(c.EntryPoints.L1Handler)...,
+	)
+	constructorHash := crypto.PoseidonArray(
+		flattenSierraEntryPoints(c.EntryPoints.Constructor)...,
+	)
 	return crypto.PoseidonArray(
-		new(felt.Felt).SetBytes([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
-		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.External)...),
-		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.L1Handler)...),
-		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.Constructor)...),
+		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
+		&externalEndpointsHash,
+		&l1HandlerEndpointsHash,
+		&constructorHash,
 		c.AbiHash,
 		c.ProgramHash,
 	), nil
@@ -153,32 +162,38 @@ func (c *SierraClass) SierraVersion() string {
 // todo(rdr): this is only used in one place, why is it a global var :(.Fix it
 var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
 
-func (c *CasmClass) Hash() *felt.Felt {
-	var bytecodeHash *felt.Felt
+func (c *CasmClass) Hash() felt.Felt {
+	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
 		bytecodeHash = crypto.PoseidonArray(c.Bytecode...)
 	} else {
 		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children)
 	}
 
+	externalEndpointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...)
+	l1HandlerEndpointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...)
+	constructorHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...)
 	return crypto.PoseidonArray(
 		compiledClassV1Prefix,
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...),
-		bytecodeHash,
+		&externalEndpointsHash,
+		&l1HandlerEndpointsHash,
+		&constructorHash,
+		&bytecodeHash,
 	)
 }
 
-func SegmentedBytecodeHash(bytecode []*felt.Felt, segmentLengths []SegmentLengths) *felt.Felt {
+func SegmentedBytecodeHash(
+	bytecode []*felt.Felt,
+	segmentLengths []SegmentLengths,
+) felt.Felt {
 	var startingOffset uint64
-	var digestSegment func(segments []SegmentLengths) (uint64, *felt.Felt)
-	digestSegment = func(segments []SegmentLengths) (uint64, *felt.Felt) {
+	var digestSegment func(segments []SegmentLengths) (uint64, felt.Felt)
+	digestSegment = func(segments []SegmentLengths) (uint64, felt.Felt) {
 		var totalLength uint64
 		var digest crypto.PoseidonDigest
 		for _, segment := range segments {
 			var curSegmentLength uint64
-			var curSegmentHash *felt.Felt
+			var curSegmentHash felt.Felt
 
 			if len(segment.Children) == 0 {
 				curSegmentLength = segment.Length
@@ -188,14 +203,16 @@ func SegmentedBytecodeHash(bytecode []*felt.Felt, segmentLengths []SegmentLength
 				curSegmentLength, curSegmentHash = digestSegment(segment.Children)
 			}
 
-			digest.Update(new(felt.Felt).SetUint64(curSegmentLength))
-			digest.Update(curSegmentHash)
+			curSegmentLengthFelt := felt.FromUint64[felt.Felt](curSegmentLength)
+			digest.Update(&curSegmentLengthFelt)
+			digest.Update(&curSegmentHash)
 
 			startingOffset += curSegmentLength
 			totalLength += curSegmentLength
 		}
 		digestRes := digest.Finish()
-		return totalLength, digestRes.Add(digestRes, new(felt.Felt).SetUint64(1))
+		digestRes.Add(&digestRes, &felt.One)
+		return totalLength, digestRes
 	}
 
 	_, hash := digestSegment(segmentLengths)
@@ -224,7 +241,8 @@ func flattenCompiledEntryPoints(entryPoints []CasmEntryPoint) []*felt.Felt {
 		for idx, buil := range entryPoint.Builtins {
 			builtins[idx] = new(felt.Felt).SetBytes([]byte(buil))
 		}
-		result[3*i+2] = crypto.PoseidonArray(builtins...)
+		builtinsHash := crypto.PoseidonArray(builtins...)
+		result[3*i+2] = &builtinsHash
 	}
 
 	return result

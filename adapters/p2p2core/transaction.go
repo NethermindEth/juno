@@ -25,12 +25,15 @@ func AdaptDeclareV3WithClass(
 		return nil, nil, err
 	}
 
-	declareCommon, err := AdaptDeclareV3TxnCommon(tx.Common, classHash, txnHash)
+	declareCommon, err := AdaptDeclareV3TxnCommon(tx.Common, &classHash, txnHash)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to adapt declare v3 transaction common: %w", err)
 	}
-	if *class.Compiled.Hash() != *declareCommon.CompiledClassHash {
-		err := fmt.Errorf("compiled class hash mismatch: expected %s, got %s", class.Compiled.Hash(), declareCommon.CompiledClassHash)
+	if casmHash := class.Compiled.Hash(); casmHash != *declareCommon.CompiledClassHash {
+		err := fmt.Errorf("compiled class hash mismatch: expected %s, got %s",
+			&casmHash,
+			declareCommon.CompiledClassHash,
+		)
 		return nil, nil, err
 	}
 
@@ -154,9 +157,10 @@ func AdaptDeployTxnCommon(
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
 	callData := utils.Map(tx.Calldata, AdaptFelt)
+	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
 	return &core.DeployTransaction{
 		TransactionHash:     AdaptHash(t.TransactionHash),
-		ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
+		ContractAddress:     &contractAddress,
 		ContractAddressSalt: addressSalt,
 		ClassHash:           classHash,
 		ConstructorCallData: callData,
@@ -171,11 +175,12 @@ func AdaptDeployAccountV1TxnCommon(
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
 	callData := utils.Map(tx.Calldata, AdaptFelt)
+	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     AdaptHash(t.TransactionHash),
 			ContractAddressSalt: addressSalt,
-			ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
+			ContractAddress:     &contractAddress,
 			ClassHash:           classHash,
 			ConstructorCallData: callData,
 			Version:             txVersion(1),
@@ -215,12 +220,12 @@ func AdaptDeployAccountV3TxnCommon(
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
 	callData := utils.Map(tx.Calldata, AdaptFelt)
-
+	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     AdaptHash(txnHash),
 			ContractAddressSalt: addressSalt,
-			ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
+			ContractAddress:     &contractAddress,
 			ClassHash:           classHash,
 			ConstructorCallData: callData,
 			Version:             txVersion(3),

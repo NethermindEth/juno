@@ -353,12 +353,30 @@ func TestDatabase(t *testing.T) {
 			err := memDB.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
 			require.NoError(t, err)
 
-			err = trieutils.WriteNodeByHash(memDB, db.ClassTrie, &felt.Zero, &rootPath, classRootHash, false, classRootBlob)
+			err = trieutils.WriteNodeByHash(
+				memDB,
+				db.ClassTrie,
+				&felt.Zero,
+				&rootPath,
+				&classRootHash,
+				false,
+				classRootBlob,
+			)
 			require.NoError(t, err)
-			err = trieutils.WriteNodeByHash(memDB, db.ContractTrieContract, &felt.Zero, &rootPath, contractRootHash, false, contractRootBlob)
+			err = trieutils.WriteNodeByHash(
+				memDB,
+				db.ContractTrieContract,
+				&felt.Zero,
+				&rootPath,
+				&contractRootHash,
+				false,
+				contractRootBlob,
+			)
 			require.NoError(t, err)
 
-			newClassRootNode, newContractRootNode, err := database.GetTrieRootNodes(classRootHash, contractRootHash)
+			newClassRootNode,
+				newContractRootNode,
+				err := database.GetTrieRootNodes(&classRootHash, &contractRootHash)
 			require.NoError(t, err)
 			assert.NotNil(t, newClassRootNode)
 			assert.NotNil(t, newContractRootNode)
