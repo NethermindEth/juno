@@ -82,7 +82,7 @@ func adaptSierraEntryPoint(e *class.SierraEntryPoint) core.SierraEntryPoint {
 	}
 }
 
-func adaptEntryPoints(points []*class.EntryPoint) []core.DeprecatedEntryPoint {
+func adaptDeprecatedEntryPoints(points []*class.EntryPoint) []core.DeprecatedEntryPoint {
 	deprecatedEntryPoints := make([]core.DeprecatedEntryPoint, len(points))
 	for index := range points {
 		deprecatedEntryPoints[index] = adaptEntryPoint(points[index])
