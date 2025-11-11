@@ -66,8 +66,8 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 			return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)
 		}
 	}
-
-	return sn2core.AdaptBlock(response, sig)
+	adaptedBlock, err := sn2core.AdaptBlock(response, sig)
+	return &adaptedBlock, err
 }
 
 // Transaction gets the transaction for a given transaction hash from the feeder,
@@ -148,7 +148,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 	}
 
 	var adaptedState *core.StateUpdate
-	var adaptedBlock *core.Block
+	var adaptedBlock core.Block
 
 	if adaptedState, err = sn2core.AdaptStateUpdate(response.StateUpdate); err != nil {
 		return nil, nil, err
@@ -158,7 +158,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		return nil, nil, err
 	}
 
-	return adaptedState, adaptedBlock, nil
+	return adaptedState, &adaptedBlock, nil
 }
 
 // StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,

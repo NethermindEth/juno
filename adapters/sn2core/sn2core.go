@@ -13,9 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block, error) {
+func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (core.Block, error) {
 	if response == nil {
-		return nil, errors.New("nil client block")
+		return core.Block{}, errors.New("nil client block")
 	}
 
 	txns := make([]core.Transaction, len(response.Transactions))
@@ -23,7 +23,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 		var err error
 		txns[i], err = AdaptTransaction(response.Transactions[i])
 		if err != nil {
-			return nil, err
+			return core.Block{}, err
 		}
 	}
 
@@ -39,7 +39,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 		sigs = append(sigs, sig.Signature)
 	}
 
-	return &core.Block{
+	return core.Block{
 		Header: &core.Header{
 			Hash:             response.Hash,
 			ParentHash:       response.ParentHash,

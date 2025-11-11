@@ -32,7 +32,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 			require.NoError(t, err)
-			assert.Equal(t, adaptedResponse, block)
+			assert.Equal(t, &adaptedResponse, block)
 		})
 	}
 }
@@ -50,7 +50,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 	require.NoError(t, err)
-	assert.Equal(t, adaptedResponse, block)
+	assert.Equal(t, &adaptedResponse, block)
 }
 
 func TestStateUpdate(t *testing.T) {
@@ -240,7 +240,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 			require.NoError(t, err)
 			adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
 			require.NoError(t, err)
-			assert.Equal(t, block, adaptedBlock)
+			assert.Equal(t, block, &adaptedBlock)
 			assert.Equal(t, stateUpdate, adaptedStateUpdate)
 		})
 	}
@@ -259,7 +259,7 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 	require.NoError(t, err)
 	stateUpdate, block, err := adapter.StateUpdatePendingWithBlock(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, block, adaptedBlock)
+	assert.Equal(t, block, &adaptedBlock)
 	assert.Equal(t, stateUpdate, adaptedStateUpdate)
 }
 
