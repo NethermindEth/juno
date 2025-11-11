@@ -1,7 +1,10 @@
 package pebble
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -116,4 +119,172 @@ func (b *batch) Write() error {
 func (b *batch) Reset() {
 	b.batch.Reset()
 	b.size = 0
+}
+
+type snapshotBatch struct {
+	batch    *batch
+	snapshot *snapshot
+}
+
+func NewSnapshotBatch(batch *batch, snapshot *snapshot) *snapshotBatch {
+	return &snapshotBatch{
+		batch:    batch,
+		snapshot: snapshot,
+	}
+}
+
+func (b *snapshotBatch) Put(key, value []byte) error {
+	return b.batch.Put(key, value)
+}
+
+func (b *snapshotBatch) Delete(key []byte) error {
+	return b.batch.Delete(key)
+}
+
+func (b *snapshotBatch) DeleteRange(start, end []byte) error {
+	return b.batch.DeleteRange(start, end)
+}
+
+func (b *snapshotBatch) Size() int {
+	return b.batch.Size()
+}
+
+func (b *snapshotBatch) Write() error {
+	return b.batch.Write()
+}
+
+func (b *snapshotBatch) Reset() {
+	b.batch.Reset()
+}
+
+func (b *snapshotBatch) Has(key []byte) (bool, error) {
+	return b.snapshot.Has(key)
+}
+
+func (b *snapshotBatch) Get(key []byte, cb func(value []byte) error) error {
+	return b.snapshot.Get(key, cb)
+}
+
+func (b *snapshotBatch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator, error) {
+	return b.snapshot.NewIterator(lowerBound, withUpperBound)
+}
+
+type snapshotBatchWithBuffer struct {
+	batch    *batch
+	snapshot *snapshot
+	buffer   map[string]*bufferEntry
+	size     int
+	ranges   []deleteRange
+}
+
+type bufferEntry struct {
+	value []byte
+	ok    bool
+}
+
+type deleteRange struct {
+	start []byte
+	end   []byte
+}
+
+func NewSnapshotBatchWithBuffer(batch *batch, snapshot *snapshot) *snapshotBatchWithBuffer {
+	return &snapshotBatchWithBuffer{
+		batch:    batch,
+		snapshot: snapshot,
+		buffer:   make(map[string]*bufferEntry),
+	}
+}
+
+func (b *snapshotBatchWithBuffer) Put(key, value []byte) error {
+	b.buffer[string(key)] = &bufferEntry{value: slices.Clone(value), ok: true}
+	b.size += len(key) + len(value)
+	return nil
+}
+
+func (b *snapshotBatchWithBuffer) Delete(key []byte) error {
+	b.buffer[string(key)] = &bufferEntry{ok: false}
+	b.size += len(key)
+	return nil
+}
+
+func (b *snapshotBatchWithBuffer) DeleteRange(start, end []byte) error {
+	b.ranges = append(b.ranges, deleteRange{
+		start: slices.Clone(start),
+		end:   slices.Clone(end),
+	})
+	return nil
+}
+
+func (b *snapshotBatchWithBuffer) Size() int {
+	return b.size
+}
+
+func (b *snapshotBatchWithBuffer) Write() error {
+	for _, r := range b.ranges {
+		if err := b.batch.DeleteRange(r.start, r.end); err != nil {
+			return err
+		}
+	}
+	for k, entry := range b.buffer {
+		key := []byte(k)
+		if entry.ok {
+			if err := b.batch.Put(key, entry.value); err != nil {
+				return err
+			}
+		} else {
+			if err := b.batch.Delete(key); err != nil {
+				return err
+			}
+		}
+	}
+	if err := b.batch.Write(); err != nil {
+		return err
+	}
+	b.buffer = make(map[string]*bufferEntry)
+	b.ranges = b.ranges[:0]
+	b.size = 0
+	return nil
+}
+
+func (b *snapshotBatchWithBuffer) Reset() {
+	b.buffer = make(map[string]*bufferEntry)
+	b.ranges = b.ranges[:0]
+	b.batch.Reset()
+	b.size = 0
+}
+
+func (b *snapshotBatchWithBuffer) Get(key []byte, cb func([]byte) error) error {
+	if entry, ok := b.buffer[string(key)]; ok {
+		if !entry.ok {
+			return db.ErrKeyNotFound
+		}
+		return cb(entry.value)
+	}
+	if inRange(b.ranges, key) {
+		return db.ErrKeyNotFound
+	}
+	return b.snapshot.Get(key, cb)
+}
+
+func (b *snapshotBatchWithBuffer) Has(key []byte) (bool, error) {
+	if entry, ok := b.buffer[string(key)]; ok {
+		return entry.ok, nil
+	}
+	if inRange(b.ranges, key) {
+		return false, nil
+	}
+	return b.snapshot.Has(key)
+}
+
+func inRange(ranges []deleteRange, key []byte) bool {
+	for _, r := range ranges {
+		if bytes.Compare(key, r.start) >= 0 && bytes.Compare(key, r.end) < 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *snapshotBatchWithBuffer) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	return nil, fmt.Errorf("not implemented")
 }

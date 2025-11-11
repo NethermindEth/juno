@@ -30,11 +30,11 @@ func getBuffer() *bytes.Buffer {
 
 // Storage is a database transaction on a trie.
 type Storage struct {
-	txn    db.IndexedBatch
+	txn    db.SnapshotBatch
 	prefix []byte
 }
 
-func NewStorage(txn db.IndexedBatch, prefix []byte) *Storage {
+func NewStorage(txn db.SnapshotBatch, prefix []byte) *Storage {
 	return &Storage{
 		txn:    txn,
 		prefix: prefix,
@@ -129,5 +129,5 @@ func (t *Storage) SyncedStorage() *Storage {
 
 func newMemStorage() *Storage {
 	memoryDB := memory.New()
-	return NewStorage(memoryDB.NewIndexedBatch(), nil)
+	return NewStorage(memoryDB.NewSnapshotBatch(), nil)
 }

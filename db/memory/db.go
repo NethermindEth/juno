@@ -110,6 +110,8 @@ func (d *Database) NewBatch() db.Batch                            { return newBa
 func (d *Database) NewBatchWithSize(_ int) db.Batch               { return newBatch(d) }
 func (d *Database) NewIndexedBatch() db.IndexedBatch              { return newBatch(d) }
 func (d *Database) NewIndexedBatchWithSize(_ int) db.IndexedBatch { return newBatch(d) }
+func (d *Database) NewSnapshotBatch() db.SnapshotBatch            { return newBatch(d) }
+func (d *Database) NewSnapshotBatchWithBuffer() db.SnapshotBatch  { return newBatch(d) }
 
 func (d *Database) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
 	d.lock.RLock()

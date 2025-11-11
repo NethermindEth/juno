@@ -13,7 +13,7 @@ import (
 
 func TestStorage(t *testing.T) {
 	memDB := memory.New()
-	txn := memDB.NewIndexedBatch()
+	txn := memDB.NewSnapshotBatch()
 	prefix := []byte{37, 44}
 	key := trie.NewBitArray(44, 0)
 

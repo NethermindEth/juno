@@ -51,10 +51,10 @@ type StateReader interface {
 
 type State struct {
 	*history
-	txn db.IndexedBatch
+	txn db.SnapshotBatch
 }
 
-func NewState(txn db.IndexedBatch) *State {
+func NewState(txn db.SnapshotBatch) *State {
 	return &State{
 		history: &history{txn: txn},
 		txn:     txn,
@@ -484,7 +484,7 @@ func (s *State) updateContractNonce(
 func (s *State) updateContract(
 	stateTrie *trie.Trie,
 	addr *felt.Felt,
-	getOldValue func(*felt.Felt, db.IndexedBatch) (felt.Felt, error),
+	getOldValue func(*felt.Felt, db.KeyValueReader) (felt.Felt, error),
 	updateValue func(*ContractUpdater) error,
 ) (felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)

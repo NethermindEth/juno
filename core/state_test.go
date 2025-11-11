@@ -30,7 +30,7 @@ func TestUpdate(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	state := core.NewState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
@@ -166,7 +166,7 @@ func TestContractClassHash(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 
 	state := core.NewState(txn)
 
@@ -216,7 +216,7 @@ func TestContractClassHash(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	state := core.NewState(txn)
 
 	addr := felt.NewUnsafeFromString[felt.Felt](
@@ -268,7 +268,7 @@ func TestNonce(t *testing.T) {
 
 func TestStateHistory(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -326,7 +326,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 
 	state := core.NewState(txn)
 
@@ -375,7 +375,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 
 func TestClass(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
@@ -411,7 +411,7 @@ func TestClass(t *testing.T) {
 
 func TestRevert(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -574,7 +574,7 @@ func TestRevert(t *testing.T) {
 // TestRevertGenesisStateDiff ensures the reverse diff for the genesis block sets all storage values to zero.
 func TestRevertGenesisStateDiff(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	state := core.NewState(txn)
 
 	addr := new(felt.Felt).SetUint64(1)
@@ -603,7 +603,7 @@ func TestRevertSystemContracts(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 
 	state := core.NewState(txn)
 
@@ -642,7 +642,7 @@ func TestRevertSystemContracts(t *testing.T) {
 
 func TestRevertDeclaredClasses(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	state := core.NewState(txn)
 
 	classHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")

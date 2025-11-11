@@ -11,7 +11,7 @@ import (
 
 func TestHistory(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 
 	history := &history{txn: txn}
 	contractAddress := new(felt.Felt).SetUint64(123)

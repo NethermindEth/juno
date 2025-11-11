@@ -377,7 +377,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 
 	// The database transaction we will use to create both tries.
 	memDB := memory.New()
-	txn := memDB.NewIndexedBatch()
+	txn := memDB.NewSnapshotBatch()
 	tTxn := trie.NewStorage(txn, []byte{1, 2, 3})
 
 	// Step 1: Create first trie

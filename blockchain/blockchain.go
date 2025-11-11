@@ -99,7 +99,7 @@ func (b *Blockchain) Network() *utils.Network {
 // If blockchain is empty zero felt is returned.
 func (b *Blockchain) StateCommitment() (felt.Felt, error) {
 	b.listener.OnRead("StateCommitment")
-	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
+	batch := b.database.NewSnapshotBatch() // this is a hack because we don't need to write to the db
 	return core.NewState(batch).Commitment()
 }
 
@@ -338,7 +338,7 @@ var noopStateCloser = func() error { return nil } // TODO: remove this once we r
 // HeadState returns a StateReader that provides a stable view to the latest state
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("HeadState")
-	txn := b.database.NewIndexedBatch()
+	txn := b.database.NewSnapshotBatch()
 
 	_, err := core.GetChainHeight(txn)
 	if err != nil {
@@ -351,7 +351,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
 func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
-	txn := b.database.NewIndexedBatch()
+	txn := b.database.NewSnapshotBatch()
 
 	_, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 	if err != nil {
@@ -366,12 +366,12 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		memDB := memory.New()
-		txn := memDB.NewIndexedBatch()
+		txn := memDB.NewSnapshotBatch()
 		emptyState := core.NewState(txn)
 		return emptyState, noopStateCloser, nil
 	}
 
-	txn := b.database.NewIndexedBatch()
+	txn := b.database.NewSnapshotBatch()
 	header, err := core.GetBlockHeaderByHash(txn, blockHash)
 	if err != nil {
 		return nil, nil, err
@@ -413,7 +413,7 @@ func (b *Blockchain) RevertHead() error {
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 
-	txn := b.database.NewIndexedBatch()
+	txn := b.database.NewSnapshotBatch()
 	blockNum, err := core.GetChainHeight(txn)
 	if err != nil {
 		return nil, err

@@ -13,7 +13,7 @@ import (
 var ErrCheckHeadState = errors.New("check head state")
 
 type history struct {
-	txn db.IndexedBatch
+	txn db.SnapshotBatch
 }
 
 func logDBKey(key []byte, height uint64) []byte {

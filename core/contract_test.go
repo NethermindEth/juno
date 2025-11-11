@@ -49,7 +49,7 @@ func TestContractAddress(t *testing.T) {
 
 func TestNewContractUpdater(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 
 	t.Run("contract not deployed returns ErrContractNotDeployed", func(t *testing.T) {
 		addr := felt.NewRandom[felt.Felt]()
@@ -74,7 +74,7 @@ func TestNewContractUpdater(t *testing.T) {
 
 func TestContractRoot(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	addr := felt.NewRandom[felt.Felt]()
 
 	classHash := felt.NewRandom[felt.Felt]()
@@ -105,7 +105,7 @@ func TestContractRoot(t *testing.T) {
 
 	require.NoError(t, txn.Write())
 
-	txn2 := testDB.NewIndexedBatch()
+	txn2 := testDB.NewSnapshotBatch()
 	addrBytes := addr.Marshal()
 	storagePrefix := db.ContractStorage.Key(addrBytes)
 	err = txn2.Put(storagePrefix, []byte{0xFF, 0xFF, 0xFF})
@@ -113,7 +113,7 @@ func TestContractRoot(t *testing.T) {
 	require.NoError(t, txn2.Write())
 
 	t.Run("returns error when Root() fails on corrupted trie data", func(t *testing.T) {
-		txn3 := testDB.NewIndexedBatch()
+		txn3 := testDB.NewSnapshotBatch()
 		_, err := ContractRoot(addr, txn3)
 		require.Error(t, err, "should fail on corrupted trie data")
 	})
@@ -121,7 +121,7 @@ func TestContractRoot(t *testing.T) {
 
 func TestContractStorage(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
+	txn := testDB.NewSnapshotBatch()
 	addr := felt.NewRandom[felt.Felt]()
 	key := felt.NewRandom[felt.Felt]()
 
@@ -152,7 +152,7 @@ func TestContractStorage(t *testing.T) {
 
 	require.NoError(t, txn.Write())
 
-	txn2 := testDB.NewIndexedBatch()
+	txn2 := testDB.NewSnapshotBatch()
 	addrBytes := addr.Marshal()
 	storagePrefix := db.ContractStorage.Key(addrBytes)
 	err = txn2.Put(storagePrefix, []byte{0xFF, 0xFF, 0xFF})
@@ -160,7 +160,7 @@ func TestContractStorage(t *testing.T) {
 	require.NoError(t, txn2.Write())
 
 	t.Run("returns error when Get() fails on corrupted trie data", func(t *testing.T) {
-		txn3 := testDB.NewIndexedBatch()
+		txn3 := testDB.NewSnapshotBatch()
 		_, err := ContractStorage(addr, key, txn3)
 		require.Error(t, err, "should fail on corrupted trie data")
 	})
