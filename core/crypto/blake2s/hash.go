@@ -1,9 +1,11 @@
 package blake2s
 
 import (
+	"hash"
 	"slices"
 	"unsafe"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"golang.org/x/crypto/blake2s"
 )
@@ -44,4 +46,35 @@ func Blake2sArray[F felt.FeltLike](feltLikes ...*F) felt.Hash {
 	slices.Reverse(result)
 
 	return felt.FromBytes[felt.Hash](result)
+}
+
+var _ crypto.Digest = (*Blake2sDigest)(nil)
+
+type Blake2sDigest struct {
+	hasher hash.Hash
+}
+
+func NewDigest() Blake2sDigest {
+	hasher, err := blake2s.New256(nil)
+	if err != nil {
+		panic(err)
+	}
+	return Blake2sDigest{hasher: hasher}
+}
+
+func (d *Blake2sDigest) Update(elems ...*felt.Felt) crypto.Digest {
+	encoding := encodeFeltsToBytes(elems...)
+	_, err := d.hasher.Write(encoding)
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
+
+func (d *Blake2sDigest) Finish() felt.Felt {
+	result := make([]byte, 0, 32)
+	result = d.hasher.Sum(result)
+	// Result is in big endian, turning into little endian
+	slices.Reverse(result)
+	return felt.FromBytes[felt.Felt](result)
 }
