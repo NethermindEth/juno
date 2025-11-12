@@ -80,35 +80,49 @@ func TestClassV1Hash(t *testing.T) {
 }
 
 func TestCompiledClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
-	gw := adaptfeeder.New(client)
 	tests := []struct {
+		network                   utils.Network
 		classHash                 string
 		expectedCompiledClassHash string
+		hashVersion               core.CasmHashVersion
 	}{
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc
 			classHash:                 "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
 			expectedCompiledClassHash: "0x18f95714044fd5408d3bf812bcd249ddec098ab3cd201b7916170cfbfa59e05",
+			hashVersion:               core.HashVersionV1,
+			network:                   utils.Integration,
 		},
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d
 			classHash:                 "0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d",
 			expectedCompiledClassHash: "0x603dd72504d8b0bc54df4f1102fdcf87fc3b2b94750a9083a5876913eec08e4",
+			hashVersion:               core.HashVersionV1,
+			network:                   utils.Integration,
 		},
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89
 			classHash:                 "0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89",
 			expectedCompiledClassHash: "0x260f0d9862f0dd76ac1f9c93e6ce0c2536f7c0275c87061e73abce321bfd4ad",
+			hashVersion:               core.HashVersionV1,
+			network:                   utils.Integration,
+		},
+		{
+			classHash:                 "0x941a2dc3ab607819fdc929bea95831a2e0c1aab2f2f34b3a23c55cebc8a040",
+			expectedCompiledClassHash: "0x6c1f99f23865abe822bd9690f8d6cd181d43b1ff5535842aa973363aa7c7bb3",
+			hashVersion:               core.HashVersionV2,
+			network:                   utils.SepoliaIntegration,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
+			client := feeder.NewTestClient(t, &tt.network)
+			gw := adaptfeeder.New(client)
 			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
-			got := class.(*core.SierraClass).Compiled.Hash(core.HashVersionV1)
+			got := class.(*core.SierraClass).Compiled.Hash(tt.hashVersion)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCompiledClassHash, got.String())
 		})
