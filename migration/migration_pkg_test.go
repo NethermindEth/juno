@@ -345,7 +345,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		if test.checkCompiledExists {
 			assert.NotNil(t, actualClass.Compiled)
 		} else {
-			assert.Nil(t, actualClass.Compiled)
+			assert.Empty(t, actualClass.Compiled)
 		}
 	}
 }

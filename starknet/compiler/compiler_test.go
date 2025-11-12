@@ -31,13 +31,13 @@ func TestCompile(t *testing.T) {
 		compiledDef, err := cl.CasmClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
 
-		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)
+		expectedCompiled, err := sn2core.AdaptCasmClass(compiledDef)
 		require.NoError(t, err)
 
 		res, err := compiler.Compile(classDef.Sierra)
 		require.NoError(t, err)
 
-		gotCompiled, err := sn2core.AdaptCompiledClass(res)
+		gotCompiled, err := sn2core.AdaptCasmClass(res)
 		require.NoError(t, err)
 		assert.Equal(t, expectedCompiled.Hash(), gotCompiled.Hash())
 	})

@@ -800,7 +800,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 	})
 
 	t.Run("regular block", func(t *testing.T) {
-		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		blockHash := felt.NewUnsafeFromString[felt.Felt](
+			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
+		)
 		tx := &core.DeclareTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
 			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),

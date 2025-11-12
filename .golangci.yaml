@@ -46,6 +46,8 @@ linters:
               desc: use github.com/NethermindEth/juno/utils for logging
     dupl:
       threshold: 100
+    exhaustruct:
+      allow-empty-returns: true
     funlen:
       lines: 120
       statements: 50

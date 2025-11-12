@@ -243,7 +243,10 @@ func declaredClassesDigest(
 	}
 }
 
-func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *crypto.PoseidonDigest) {
+func deprecatedDeclaredClassesDigest(
+	declaredV0Classes []*felt.Felt,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfDeclaredV0Classes := uint64(len(declaredV0Classes))
 	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredV0Classes))
 

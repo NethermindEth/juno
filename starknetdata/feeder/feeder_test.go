@@ -215,7 +215,7 @@ func TestClassV1(t *testing.T) {
 		if test.hasCompiledClass {
 			assert.NotNil(t, adaptedResponse.Compiled)
 		} else {
-			assert.Nil(t, adaptedResponse.Compiled)
+			assert.Empty(t, adaptedResponse.Compiled)
 		}
 	}
 }
