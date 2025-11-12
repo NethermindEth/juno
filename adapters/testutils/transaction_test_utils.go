@@ -158,7 +158,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
 	accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
-	casmHash := sierraClass.Compiled.Hash()
+	casmHash := sierraClass.Compiled.Hash(core.HashVersionV1)
 
 	consensusDeclareTransaction := core.DeclareTransaction{
 		TransactionHash:       nil,

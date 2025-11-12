@@ -108,7 +108,7 @@ func TestCompiledClassHash(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
-			got := class.(*core.SierraClass).Compiled.Hash()
+			got := class.(*core.SierraClass).Compiled.Hash(core.HashVersionV1)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCompiledClassHash, got.String())
 		})
@@ -267,8 +267,14 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 			},
 		},
 	}
+
+	hasher := core.NewCasmHasher(core.HashVersionV1)
 	// nested case that is not covered by class hash tests
-	segmentedByteCodeHash := core.SegmentedBytecodeHash(byteCode, segmentLengths)
+	segmentedByteCodeHash := core.SegmentedBytecodeHash(
+		byteCode,
+		segmentLengths,
+		hasher,
+	)
 	require.Equal(
 		t,
 		"0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
