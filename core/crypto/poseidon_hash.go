@@ -94,18 +94,17 @@ var (
 )
 
 func setRoundKeys() {
+	var err error
 	for _, keysStr := range roundKeysSpec {
 		curRound := make([]felt.Felt, len(keysStr))
 		for i, keyStr := range keysStr {
-			key, err := felt.FromString[felt.Felt](keyStr)
+			curRound[i], err = felt.FromString[felt.Felt](keyStr)
 			if err != nil {
-				panic(key)
+				panic(err)
 			}
-			if keyStr != key.Text(felt.Base10) {
+			if keyStr != curRound[i].Text(felt.Base10) {
 				panic("round key not in stark field " + keyStr)
 			}
-
-			curRound[i] = key
 		}
 		roundKeys = append(roundKeys, curRound)
 	}
