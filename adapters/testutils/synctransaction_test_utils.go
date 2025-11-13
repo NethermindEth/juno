@@ -135,7 +135,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	nonce, nonceBytes := getRandomFelt(t)
 	maxFee, maxFeeBytes := getRandomFelt(t)
 	version := new(core.TransactionVersion).SetUint64(2)
-	casmClassHash := sierraClass.Compiled.Hash()
+	casmClassHash := sierraClass.Compiled.Hash(core.HashVersionV1)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV2WithoutClass{
 		Sender: &common.Address{Elements: senderAddressBytes},
@@ -189,7 +189,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
 	accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
-	casmHash := sierraClass.Compiled.Hash()
+	casmHash := sierraClass.Compiled.Hash(core.HashVersionV1)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV3WithoutClass{
 		Common: &transaction.DeclareV3Common{
