@@ -47,11 +47,17 @@ func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLog
 		return nil, fmt.Errorf("create DB logger: %w", err)
 	}
 
-	return newPebble(path, &pebble.Options{
-		Logger:       dbLog,
-		Cache:        pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
-		MaxOpenFiles: maxOpenFiles,
-	})
+	opts := &pebble.Options{
+		Logger:                    dbLog,
+		Cache:                     pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
+		MaxOpenFiles:              maxOpenFiles,
+		L0CompactionFileThreshold: 8,
+		L0StopWritesThreshold:     24,
+		MemTableSize:              8 * utils.Megabyte,
+		MaxConcurrentCompactions:  func() int { return 2 },
+	}
+
+	return newPebble(path, opts)
 }
 
 func newPebble(path string, options *pebble.Options) (*DB, error) {
