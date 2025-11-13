@@ -68,7 +68,7 @@ func TestStateHistoryReads(t *testing.T) {
 	require.NoError(t, err)
 
 	for desc, test := range map[string]struct {
-		snapshot core.StateHistory
+		snapshot core.StateReader
 		checker  func(*testing.T, felt.Felt, error)
 	}{
 		"contract is not deployed": {

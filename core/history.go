@@ -10,23 +10,23 @@ import (
 
 var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
 
-type StateHistory struct {
+type stateHistory struct {
 	blockNumber uint64
 	state       StateHistoryReader
 }
 
-func NewStateHistory(state StateHistoryReader, blockNumber uint64) StateHistory {
-	return StateHistory{
+func NewStateHistory(state StateHistoryReader, blockNumber uint64) *stateHistory {
+	return &stateHistory{
 		blockNumber: blockNumber,
 		state:       state,
 	}
 }
 
-func (s *StateHistory) ChainHeight() (uint64, error) {
+func (s *stateHistory) ChainHeight() (uint64, error) {
 	return s.blockNumber, nil
 }
 
-func (s *StateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -41,7 +41,7 @@ func (s *StateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return val, nil
 }
 
-func (s *StateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -56,7 +56,7 @@ func (s *StateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return val, nil
 }
 
-func (s *StateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -71,7 +71,7 @@ func (s *StateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return val, nil
 }
 
-func (s *StateHistory) checkDeployed(addr *felt.Felt) error {
+func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNumber)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (s *StateHistory) checkDeployed(addr *felt.Felt) error {
 	return nil
 }
 
-func (s *StateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+func (s *stateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
 		return nil, err
@@ -95,14 +95,14 @@ func (s *StateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, er
 	return declaredClass, nil
 }
 
-func (s *StateHistory) ClassTrie() (*trie.Trie, error) {
+func (s *stateHistory) ClassTrie() (*trie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *StateHistory) ContractTrie() (*trie.Trie, error) {
+func (s *stateHistory) ContractTrie() (*trie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *StateHistory) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
