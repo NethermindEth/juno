@@ -29,7 +29,8 @@ func AdaptDeclareV3WithClass(
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to adapt declare v3 transaction common: %w", err)
 	}
-	if casmHash := class.Compiled.Hash(); casmHash != *declareCommon.CompiledClassHash {
+	casmHash := class.Compiled.Hash(core.HashVersionV1)
+	if casmHash != *declareCommon.CompiledClassHash {
 		err := fmt.Errorf("compiled class hash mismatch: expected %s, got %s",
 			&casmHash,
 			declareCommon.CompiledClassHash,

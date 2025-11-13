@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/crypto/blake2s"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
 )
@@ -159,21 +160,75 @@ func (c *SierraClass) SierraVersion() string {
 	return string(b)
 }
 
-// todo(rdr): this is only used in one place, why is it a global var :(.Fix it
-var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
+// CasmHashVersion represents the version of the hash function
+// used to compute the compiled class hash
+type CasmHashVersion int
 
-func (c *CasmClass) Hash() felt.Felt {
+const (
+	// HashVersionV1 uses Poseidon hash
+	HashVersionV1 CasmHashVersion = iota + 1
+	// HashVersionV2 uses Blake2s hash
+	HashVersionV2
+)
+
+// Hasher wraps hash algorithm operations
+type Hasher interface {
+	HashArray(felts ...*felt.Felt) felt.Felt
+	NewDigest() crypto.Digest
+}
+
+type poseidonHasher struct{}
+
+func (h poseidonHasher) HashArray(felts ...*felt.Felt) felt.Felt {
+	return crypto.PoseidonArray(felts...)
+}
+
+func (h poseidonHasher) NewDigest() crypto.Digest {
+	return &crypto.PoseidonDigest{}
+}
+
+type blake2sHasher struct{}
+
+func (h blake2sHasher) HashArray(felts ...*felt.Felt) felt.Felt {
+	hash := blake2s.Blake2sArray(felts...)
+	return felt.Felt(hash)
+}
+
+func (h blake2sHasher) NewDigest() crypto.Digest {
+	digest := blake2s.NewDigest()
+	return &digest
+}
+
+func NewCasmHasher(version CasmHashVersion) Hasher {
+	switch version {
+	case HashVersionV2:
+		return blake2sHasher{}
+	case HashVersionV1:
+		return poseidonHasher{}
+	default:
+		return blake2sHasher{}
+	}
+}
+
+// todo(rdr): this is only used in one place, why is it a global var :(.Fix it
+var compiledClassV1Prefix = felt.NewFromBytes[felt.Felt]([]byte("COMPILED_CLASS_V1"))
+
+// Hash computes the class hash using the specified hash version
+func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
+	h := NewCasmHasher(version)
+
 	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
-		bytecodeHash = crypto.PoseidonArray(c.Bytecode...)
+		bytecodeHash = h.HashArray(c.Bytecode...)
 	} else {
-		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children)
+		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children, h)
 	}
 
-	externalEntryPointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...)
-	l1HandlerEntryPointsHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...)
-	constructorHash := crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...)
-	return crypto.PoseidonArray(
+	externalEntryPointsHash := h.HashArray(flattenCompiledEntryPoints(c.External, h)...)
+	l1HandlerEntryPointsHash := h.HashArray(flattenCompiledEntryPoints(c.L1Handler, h)...)
+	constructorHash := h.HashArray(flattenCompiledEntryPoints(c.Constructor, h)...)
+
+	return h.HashArray(
 		compiledClassV1Prefix,
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
@@ -185,12 +240,14 @@ func (c *CasmClass) Hash() felt.Felt {
 func SegmentedBytecodeHash(
 	bytecode []*felt.Felt,
 	segmentLengths []SegmentLengths,
+	h Hasher,
 ) felt.Felt {
 	var startingOffset uint64
 	var digestSegment func(segments []SegmentLengths) (uint64, felt.Felt)
 	digestSegment = func(segments []SegmentLengths) (uint64, felt.Felt) {
 		var totalLength uint64
-		var digest crypto.PoseidonDigest
+		digest := h.NewDigest()
+
 		for _, segment := range segments {
 			var curSegmentLength uint64
 			var curSegmentHash felt.Felt
@@ -198,7 +255,7 @@ func SegmentedBytecodeHash(
 			if len(segment.Children) == 0 {
 				curSegmentLength = segment.Length
 				segmentBytecode := bytecode[startingOffset : startingOffset+segment.Length]
-				curSegmentHash = crypto.PoseidonArray(segmentBytecode...)
+				curSegmentHash = h.HashArray(segmentBytecode...)
 			} else {
 				curSegmentLength, curSegmentHash = digestSegment(segment.Children)
 			}
@@ -225,23 +282,23 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 		// It is important that Selector is first because the order
 		// influences the class hash.
 		result[2*i] = entryPoint.Selector
-		result[2*i+1] = new(felt.Felt).SetUint64(entryPoint.Index)
+		result[2*i+1] = felt.NewFromUint64[felt.Felt](entryPoint.Index)
 	}
 	return result
 }
 
-func flattenCompiledEntryPoints(entryPoints []CasmEntryPoint) []*felt.Felt {
+func flattenCompiledEntryPoints(entryPoints []CasmEntryPoint, h Hasher) []*felt.Felt {
 	result := make([]*felt.Felt, len(entryPoints)*3)
 	for i, entryPoint := range entryPoints {
 		// It is important that Selector is first, then Offset is second because the order
 		// influences the class hash.
 		result[3*i] = entryPoint.Selector
-		result[3*i+1] = new(felt.Felt).SetUint64(entryPoint.Offset)
+		result[3*i+1] = felt.NewFromUint64[felt.Felt](entryPoint.Offset)
 		builtins := make([]*felt.Felt, len(entryPoint.Builtins))
 		for idx, buil := range entryPoint.Builtins {
-			builtins[idx] = new(felt.Felt).SetBytes([]byte(buil))
+			builtins[idx] = felt.NewFromBytes[felt.Felt]([]byte(buil))
 		}
-		builtinsHash := crypto.PoseidonArray(builtins...)
+		builtinsHash := h.HashArray(builtins...)
 		result[3*i+2] = &builtinsHash
 	}
 
