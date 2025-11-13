@@ -517,7 +517,7 @@ func (s *State) updateContractNonce(
 func (s *State) updateContract(
 	stateTrie *trie.Trie,
 	addr *felt.Felt,
-	getOldValue func(*felt.Felt, db.IndexedBatch) (felt.Felt, error),
+	getOldValue func(*felt.Felt, db.KeyValueReader) (felt.Felt, error),
 	updateValue func(*ContractUpdater) error,
 ) (felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)
