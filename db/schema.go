@@ -119,17 +119,17 @@ func ContractKey(addr *felt.Felt) []byte {
 	return Contract.Key(addr.Marshal())
 }
 
-func ContractHistoryNonceKey(addr *felt.Felt, blockNum uint64) []byte {
+func ContractNonceHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractNonceHistory.Key(addr.Marshal(), b[:])
 }
 
-func ContractHistoryClassHashKey(addr *felt.Felt, blockNum uint64) []byte {
+func ContractClassHashHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractClassHashHistory.Key(addr.Marshal(), b[:])
 }
 
-func ContractHistoryStorageKey(addr, key *felt.Felt, blockNum uint64) []byte {
+func ContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }

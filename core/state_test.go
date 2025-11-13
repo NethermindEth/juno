@@ -326,7 +326,7 @@ func TestHistory(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
-	contractAddress := new(felt.Felt).SetUint64(123)
+	contractAddress := felt.NewFromUint64[felt.Felt](123)
 
 	for desc, test := range map[string]struct {
 		logger  func(txn db.KeyValueWriter, location, oldValue *felt.Felt, height uint64) error
@@ -355,7 +355,7 @@ func TestHistory(t *testing.T) {
 			deleter: core.DeleteContractClassHashHistory,
 		},
 	} {
-		location := new(felt.Felt).SetUint64(456)
+		location := felt.NewFromUint64[felt.Felt](456)
 
 		t.Run(desc, func(t *testing.T) {
 			t.Run("no history", func(t *testing.T) {
@@ -363,7 +363,7 @@ func TestHistory(t *testing.T) {
 				assert.ErrorIs(t, err, core.ErrCheckHeadState)
 			})
 
-			value := new(felt.Felt).SetUint64(789)
+			value := felt.NewFromUint64[felt.Felt](789)
 
 			t.Run("log value changed at height 5 and 10", func(t *testing.T) {
 				assert.NoError(t, test.logger(txn, location, &felt.Zero, 5))
@@ -397,7 +397,7 @@ func TestHistory(t *testing.T) {
 			})
 
 			t.Run("get a random location ", func(t *testing.T) {
-				_, err := test.getter(new(felt.Felt).SetUint64(37), 13)
+				_, err := test.getter(felt.NewFromUint64[felt.Felt](37), 13)
 				assert.ErrorIs(t, err, core.ErrCheckHeadState)
 			})
 
@@ -529,7 +529,7 @@ func TestRevert(t *testing.T) {
 
 		require.NoError(t, state.Update(2, replaceStateUpdate, nil, false))
 		require.NoError(t, state.Revert(2, replaceStateUpdate))
-		classHash, sErr := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
+		classHash, sErr := state.ContractClassHash(&su1FirstDeployedAddress)
 		require.NoError(t, sErr)
 		assert.Equal(t, su1.StateDiff.DeployedContracts[su1FirstDeployedAddress], &classHash)
 	})
@@ -559,16 +559,16 @@ func TestRevert(t *testing.T) {
 		deprecatedCairo := &core.DeprecatedCairoClass{
 			Abi: json.RawMessage("some cairo 0 class abi"),
 			Externals: []core.DeprecatedEntryPoint{{
-				new(felt.Felt).SetBytes([]byte("e1")),
-				new(felt.Felt).SetBytes([]byte("e2")),
+				felt.NewFromBytes[felt.Felt]([]byte("e1")),
+				felt.NewFromBytes[felt.Felt]([]byte("e2")),
 			}},
 			L1Handlers: []core.DeprecatedEntryPoint{{
-				new(felt.Felt).SetBytes([]byte("l1")),
-				new(felt.Felt).SetBytes([]byte("l2")),
+				felt.NewFromBytes[felt.Felt]([]byte("l1")),
+				felt.NewFromBytes[felt.Felt]([]byte("l2")),
 			}},
 			Constructors: []core.DeprecatedEntryPoint{{
-				new(felt.Felt).SetBytes([]byte("c1")),
-				new(felt.Felt).SetBytes([]byte("c2")),
+				felt.NewFromBytes[felt.Felt]([]byte("c1")),
+				felt.NewFromBytes[felt.Felt]([]byte("c2")),
 			}},
 			Program: "some cairo 0 program",
 		}
@@ -586,19 +586,19 @@ func TestRevert(t *testing.T) {
 			}{
 				Constructor: []core.SierraEntryPoint{{
 					1,
-					new(felt.Felt).SetBytes([]byte("c1")),
+					felt.NewFromBytes[felt.Felt]([]byte("c1")),
 				}},
 				External: []core.SierraEntryPoint{{
 					0,
-					new(felt.Felt).SetBytes([]byte("e1")),
+					felt.NewFromBytes[felt.Felt]([]byte("e1")),
 				}},
 				L1Handler: []core.SierraEntryPoint{{
 					2,
-					new(felt.Felt).SetBytes([]byte("l1")),
+					felt.NewFromBytes[felt.Felt]([]byte("l1")),
 				}},
 			},
-			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
-			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
+			Program:         []*felt.Felt{felt.NewFromBytes[felt.Felt]([]byte("random program"))},
+			ProgramHash:     felt.NewFromBytes[felt.Felt]([]byte("random program hash")),
 			SemanticVersion: "version 1",
 			Compiled:        &core.CasmClass{},
 		}
@@ -667,9 +667,9 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 	state := core.NewState(txn)
 
-	addr := new(felt.Felt).SetUint64(1)
-	key := new(felt.Felt).SetUint64(2)
-	value := new(felt.Felt).SetUint64(3)
+	addr := felt.NewFromUint64[felt.Felt](1)
+	key := felt.NewFromUint64[felt.Felt](2)
+	value := felt.NewFromUint64[felt.Felt](3)
 	su := &core.StateUpdate{
 		BlockHash: new(felt.Felt),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
@@ -711,7 +711,7 @@ func TestRevertSystemContracts(t *testing.T) {
 	scValue := felt.NewUnsafeFromString[felt.Felt](
 		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
 	)
-	scAddr := new(felt.Felt).SetUint64(1)
+	scAddr := felt.NewFromUint64[felt.Felt](1)
 
 	// update state root
 	su1.NewRoot = felt.NewUnsafeFromString[felt.Felt](
