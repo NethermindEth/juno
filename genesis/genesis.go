@@ -158,7 +158,8 @@ func setClass(
 	}
 
 	if sierraClass, isCairo1 := class.(*core.SierraClass); isCairo1 {
-		if err := genesisState.SetCompiledClassHash(classHash, sierraClass.Compiled.Hash()); err != nil {
+		casmHash := sierraClass.Compiled.Hash()
+		if err := genesisState.SetCompiledClassHash(classHash, &casmHash); err != nil {
 			return fmt.Errorf("set compiled class hash: %v", err)
 		}
 	}
@@ -404,7 +405,7 @@ func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
 		if err != nil {
 			return nil, fmt.Errorf("calculate class hash: %v", err)
 		}
-		classMap[*classhash] = class
+		classMap[classhash] = class
 	}
 	return classMap, nil
 }

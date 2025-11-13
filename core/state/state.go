@@ -559,7 +559,7 @@ func (s *State) updateClassTrie(
 		}
 
 		leafVal := crypto.Poseidon(leafVersion0, compiledClassHash)
-		if err := s.classTrie.Update(&classHash, leafVal); err != nil {
+		if err := s.classTrie.Update(&classHash, &leafVal); err != nil {
 			return err
 		}
 	}
@@ -793,6 +793,5 @@ func stateCommitment(contractRoot, classRoot *felt.Felt) felt.Felt {
 		return *contractRoot
 	}
 
-	commitment := crypto.PoseidonArray(stateVersion0, contractRoot, classRoot)
-	return *commitment
+	return crypto.PoseidonArray(stateVersion0, contractRoot, classRoot)
 }

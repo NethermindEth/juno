@@ -10,7 +10,7 @@ import (
 // StarknetKeccak implements [Starknet keccak]
 //
 // [Starknet keccak]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#starknet_keccak
-func StarknetKeccak(b []byte) *felt.Felt {
+func StarknetKeccak(b []byte) felt.Felt {
 	h := sha3.NewLegacyKeccak256()
 	_, err := h.Write(b)
 	if err != nil {
@@ -21,5 +21,5 @@ func StarknetKeccak(b []byte) *felt.Felt {
 	d := h.Sum(nil)
 	// Remove the first 6 bits from the first byte
 	d[0] &= 3
-	return new(felt.Felt).SetBytes(d)
+	return felt.FromBytes[felt.Felt](d)
 }

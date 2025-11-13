@@ -36,7 +36,7 @@ type Reader interface {
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
-	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash *felt.Felt, err error)
+	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
 
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
@@ -176,10 +176,9 @@ func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, erro
 	return core.GetStateUpdateByHash(b.database, hash)
 }
 
-func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
+func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 	b.listener.OnRead("L1HandlerTxnHash")
-	txnHash, err := core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
-	return &txnHash, err // TODO: return felt value
+	return core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
 }
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
@@ -608,8 +607,8 @@ func (b *Blockchain) updateBlockHash(block *core.Block, stateUpdate *core.StateU
 	if err != nil {
 		return nil, err
 	}
-	block.Hash = blockHash
-	stateUpdate.BlockHash = blockHash
+	block.Hash = &blockHash
+	stateUpdate.BlockHash = &blockHash
 	return commitments, nil
 }
 
@@ -622,7 +621,8 @@ func (b *Blockchain) signBlock(
 	if sign == nil {
 		return nil
 	}
-	sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
+	commitment := stateUpdate.StateDiff.Commitment()
+	sig, err := sign(block.Hash, &commitment)
 	if err != nil {
 		return err
 	}

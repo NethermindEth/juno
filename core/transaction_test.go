@@ -224,7 +224,7 @@ func TestTransactionV3Hash(t *testing.T) {
 
 	tests := map[string]struct {
 		tx   func(hash *felt.Felt) core.Transaction
-		want *felt.Felt
+		want felt.Felt
 	}{
 		"invoke": {
 			// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea
@@ -236,7 +236,9 @@ func TestTransactionV3Hash(t *testing.T) {
 				invoke.TransactionHash = nil
 				return invoke
 			},
-			want: felt.NewUnsafeFromString[felt.Felt]("0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea"),
+			want: felt.UnsafeFromString[felt.Felt](
+				"0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea",
+			),
 		},
 		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155
 		"declare": {
@@ -248,7 +250,9 @@ func TestTransactionV3Hash(t *testing.T) {
 				declare.TransactionHash = nil
 				return declare
 			},
-			want: felt.NewUnsafeFromString[felt.Felt]("0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155"),
+			want: felt.UnsafeFromString[felt.Felt](
+				"0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155",
+			),
 		},
 		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975
 		"deployAccount": {
@@ -260,13 +264,15 @@ func TestTransactionV3Hash(t *testing.T) {
 				deployAccount.TransactionHash = nil
 				return deployAccount
 			},
-			want: felt.NewUnsafeFromString[felt.Felt]("0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975"),
+			want: felt.UnsafeFromString[felt.Felt](
+				"0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975",
+			),
 		},
 	}
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			got, err := core.TransactionHash(test.tx(test.want), &network)
+			got, err := core.TransactionHash(test.tx(&test.want), &network)
 			require.NoError(t, err)
 			require.Equal(t, test.want, got)
 		})
@@ -344,5 +350,5 @@ func TestDeclareV0TransactionHash(t *testing.T) {
 
 	got, err := core.TransactionHash(decTx, &network)
 	require.NoError(t, err)
-	assert.Equal(t, expectedHash, got)
+	assert.Equal(t, *expectedHash, got)
 }

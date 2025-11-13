@@ -38,8 +38,8 @@ func TestClassV0Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
-			class, err := gw.Class(t.Context(), hash)
+			hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
+			class, err := gw.Class(t.Context(), &hash)
 			require.NoError(t, err)
 
 			got, err := class.Hash()
@@ -68,8 +68,8 @@ func TestClassV1Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
-			class, err := gw.Class(t.Context(), hash)
+			hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
+			class, err := gw.Class(t.Context(), &hash)
 			require.NoError(t, err)
 
 			got, err := class.Hash()
@@ -247,27 +247,33 @@ func TestVerifyClassHash(t *testing.T) {
 }
 
 func TestSegmentedBytecodeHash(t *testing.T) {
-	// nested case that is not covered by class hash tests
-	require.Equal(t, "0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
-		core.SegmentedBytecodeHash([]*felt.Felt{
-			new(felt.Felt).SetUint64(1),
-			new(felt.Felt).SetUint64(2),
-			new(felt.Felt).SetUint64(3),
-		}, []core.SegmentLengths{
-			{
-				Length: 1,
-			},
-			{
-				Children: []core.SegmentLengths{
-					{
-						Length: 1,
-					},
-					{
-						Length: 1,
-					},
+	byteCode := []*felt.Felt{
+		felt.NewFromUint64[felt.Felt](1),
+		felt.NewFromUint64[felt.Felt](2),
+		felt.NewFromUint64[felt.Felt](3),
+	}
+	segmentLengths := []core.SegmentLengths{
+		{
+			Length: 1,
+		},
+		{
+			Children: []core.SegmentLengths{
+				{
+					Length: 1,
+				},
+				{
+					Length: 1,
 				},
 			},
-		}).String())
+		},
+	}
+	// nested case that is not covered by class hash tests
+	segmentedByteCodeHash := core.SegmentedBytecodeHash(byteCode, segmentLengths)
+	require.Equal(
+		t,
+		"0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
+		segmentedByteCodeHash.String(),
+	)
 }
 
 func TestSierraVersion(t *testing.T) {
