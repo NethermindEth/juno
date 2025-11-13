@@ -46,6 +46,7 @@ type SnapshotBatch interface {
 	Batch
 	KeyValueReader
 	Iterable
+	Close() error
 }
 
 type SnapshotBatcher interface {

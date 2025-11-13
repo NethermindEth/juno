@@ -847,7 +847,7 @@ func verifyIf(
 
 func emptyTrie(t *testing.T) *trie.Trie {
 	memdb := memory.New()
-	txn := memdb.NewIndexedBatch()
+	txn := memdb.NewSnapshotBatch()
 
 	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)

@@ -154,6 +154,23 @@ func (d *DB) NewIndexedBatch() db.IndexedBatch {
 	return &transaction{client: txClient, log: d.log}
 }
 
+func (d *DB) NewSnapshotBatch() db.SnapshotBatch {
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	if err != nil {
+		panic(err)
+	}
+
+	d.listener.OnIO(true, time.Since(start))
+
+	return &transaction{client: txClient, log: d.log}
+}
+
+func (d *DB) NewSnapshotBatchWithBuffer() db.SnapshotBatch {
+	return d.NewSnapshotBatch()
+}
+
 func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
 	return d.NewIndexedBatch()
 }

@@ -169,6 +169,10 @@ func (b *snapshotBatch) NewIterator(lowerBound []byte, withUpperBound bool) (db.
 	return b.snapshot.NewIterator(lowerBound, withUpperBound)
 }
 
+func (b *snapshotBatch) Close() error {
+	return b.snapshot.Close()
+}
+
 type snapshotBatchWithBuffer struct {
 	batch    *batch
 	snapshot *snapshot
@@ -287,4 +291,8 @@ func inRange(ranges []deleteRange, key []byte) bool {
 
 func (b *snapshotBatchWithBuffer) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (b *snapshotBatchWithBuffer) Close() error {
+	return b.snapshot.Close()
 }

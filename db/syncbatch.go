@@ -9,10 +9,10 @@ import (
 // it's better to create a single batch for each goroutine and then merge them afterwards.
 type SyncBatch struct {
 	lock  sync.RWMutex
-	batch IndexedBatch
+	batch SnapshotBatch
 }
 
-func NewSyncBatch(batch IndexedBatch) *SyncBatch {
+func NewSyncBatch(batch SnapshotBatch) *SyncBatch {
 	return &SyncBatch{
 		batch: batch,
 	}
@@ -70,4 +70,10 @@ func (s *SyncBatch) Size() int {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.batch.Size()
+}
+
+func (s *SyncBatch) Close() error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.batch.Close()
 }

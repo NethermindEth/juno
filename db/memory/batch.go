@@ -155,3 +155,7 @@ func (b *batch) Reset() {
 	b.writes = b.writes[:0] // reuse the memory
 	b.writeMap = make(map[string]keyValue)
 }
+
+func (b *batch) Close() error {
+	return nil
+}

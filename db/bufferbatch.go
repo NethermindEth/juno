@@ -8,10 +8,10 @@ import (
 // After state refactor, we can remove this.
 type BufferBatch struct {
 	updates map[string][]byte
-	txn     IndexedBatch
+	txn     SnapshotBatch
 }
 
-func NewBufferBatch(txn IndexedBatch) *BufferBatch {
+func NewBufferBatch(txn SnapshotBatch) *BufferBatch {
 	return &BufferBatch{
 		txn:     txn,
 		updates: make(map[string][]byte),
@@ -80,4 +80,8 @@ func (b *BufferBatch) Size() int {
 
 func (b *BufferBatch) DeleteRange(start, end []byte) error {
 	panic("should not be called")
+}
+
+func (b *BufferBatch) Close() error {
+	return b.txn.Close()
 }

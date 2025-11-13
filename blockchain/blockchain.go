@@ -234,40 +234,44 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	err := b.database.Update(func(txn db.IndexedBatch) error {
-		if err := verifyBlock(txn, block); err != nil {
+	txn := b.database.NewSnapshotBatch()
+	defer txn.Close()
+
+	if err := verifyBlock(txn, block); err != nil {
+		return err
+	}
+
+	if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses, false); err != nil {
+		return err
+	}
+	if err := core.WriteBlockHeader(txn, block.Header); err != nil {
+		return err
+	}
+
+	for i, tx := range block.Transactions {
+		if err := core.WriteTxAndReceipt(txn, block.Number, uint64(i), tx,
+			block.Receipts[i]); err != nil {
 			return err
 		}
+	}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses, false); err != nil {
-			return err
-		}
-		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
-			return err
-		}
+	if err := core.WriteStateUpdateByBlockNum(txn, block.Number, stateUpdate); err != nil {
+		return err
+	}
 
-		for i, tx := range block.Transactions {
-			if err := core.WriteTxAndReceipt(txn, block.Number, uint64(i), tx,
-				block.Receipts[i]); err != nil {
-				return err
-			}
-		}
+	if err := core.WriteBlockCommitment(txn, block.Number, blockCommitments); err != nil {
+		return err
+	}
 
-		if err := core.WriteStateUpdateByBlockNum(txn, block.Number, stateUpdate); err != nil {
-			return err
-		}
+	if err := core.WriteL1HandlerMsgHashes(txn, block.Transactions); err != nil {
+		return err
+	}
 
-		if err := core.WriteBlockCommitment(txn, block.Number, blockCommitments); err != nil {
-			return err
-		}
+	if err := core.WriteChainHeight(txn, block.Number); err != nil {
+		return err
+	}
 
-		if err := core.WriteL1HandlerMsgHashes(txn, block.Transactions); err != nil {
-			return err
-		}
-
-		return core.WriteChainHeight(txn, block.Number)
-	})
-	if err != nil {
+	if err := txn.Write(); err != nil {
 		return err
 	}
 
@@ -406,7 +410,12 @@ func (b *Blockchain) EventFilter(
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	return b.database.Update(b.revertHead)
+	txn := b.database.NewSnapshotBatch()
+	defer txn.Close()
+	if err := b.revertHead(txn); err != nil {
+		return err
+	}
+	return txn.Write()
 }
 
 // todo(rdr): return `core.StateDiff` by value
@@ -433,7 +442,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	return reverseStateDiff, nil
 }
 
-func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
+func (b *Blockchain) revertHead(txn db.SnapshotBatch) error {
 	blockNumber, err := core.GetChainHeight(txn)
 	if err != nil {
 		return err
@@ -505,8 +514,8 @@ func (b *Blockchain) Simulate(
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
 	// Simulate without commit
-	txn := b.database.NewIndexedBatch()
-	defer txn.Reset()
+	txn := b.database.NewSnapshotBatchWithBuffer()
+	defer txn.Close()
 
 	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 		return SimulateResult{}, err
@@ -541,23 +550,26 @@ func (b *Blockchain) Finalise(
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign utils.BlockSignFunc,
 ) error {
-	err := b.database.Update(func(txn db.IndexedBatch) error {
-		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
-			return err
-		}
-		commitments, err := b.updateBlockHash(block, stateUpdate)
-		if err != nil {
-			return err
-		}
-		if err := b.signBlock(block, stateUpdate, sign); err != nil {
-			return err
-		}
-		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
-			return err
-		}
-		return core.WriteChainHeight(txn, block.Number)
-	})
+	txn := b.database.NewSnapshotBatch()
+	defer txn.Close()
+
+	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
+		return err
+	}
+	commitments, err := b.updateBlockHash(block, stateUpdate)
 	if err != nil {
+		return err
+	}
+	if err := b.signBlock(block, stateUpdate, sign); err != nil {
+		return err
+	}
+	if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
+		return err
+	}
+	if err := core.WriteChainHeight(txn, block.Number); err != nil {
+		return err
+	}
+	if err := txn.Write(); err != nil {
 		return err
 	}
 
@@ -566,7 +578,7 @@ func (b *Blockchain) Finalise(
 
 // updateStateRoots computes and updates state roots in the block and state update
 func (b *Blockchain) updateStateRoots(
-	txn db.IndexedBatch,
+	txn db.SnapshotBatch,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
