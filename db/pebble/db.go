@@ -35,7 +35,21 @@ func New(path string, options ...Option) (db.KeyValueStore, error) {
 		}
 	}
 
-	pDB, err := pebble.Open(path, &opts)
+	opts := &pebble.Options{
+		Logger:                    dbLog,
+		Cache:                     pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
+		MaxOpenFiles:              maxOpenFiles,
+		L0CompactionFileThreshold: 8,
+		L0StopWritesThreshold:     24,
+		MemTableSize:              8 * utils.Megabyte,
+		MaxConcurrentCompactions:  func() int { return 2 },
+	}
+
+	return newPebble(path, opts)
+}
+
+func newPebble(path string, options *pebble.Options) (*DB, error) {
+	pDB, err := pebble.Open(path, options)
 	if err != nil {
 		return nil, err
 	}
