@@ -282,18 +282,35 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 		},
 	}
 
-	hasher := core.NewCasmHasher(core.HashVersionV1)
-	// nested case that is not covered by class hash tests
-	segmentedByteCodeHash := core.SegmentedBytecodeHash(
-		byteCode,
-		segmentLengths,
-		hasher,
-	)
-	require.Equal(
-		t,
-		"0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
-		segmentedByteCodeHash.String(),
-	)
+	t.Run("hash version v1", func(t *testing.T) {
+		hasher := core.NewCasmHasher(core.HashVersionV1)
+		// nested case that is not covered by class hash tests
+		segmentedByteCodeHash := core.SegmentedBytecodeHash(
+			byteCode,
+			segmentLengths,
+			hasher,
+		)
+		require.Equal(
+			t,
+			"0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
+			segmentedByteCodeHash.String(),
+		)
+	})
+
+	t.Run("hash version v2", func(t *testing.T) {
+		hasher := core.NewCasmHasher(core.HashVersionV2)
+		// nested case that is not covered by class hash tests
+		segmentedByteCodeHash := core.SegmentedBytecodeHash(
+			byteCode,
+			segmentLengths,
+			hasher,
+		)
+		require.Equal(
+			t,
+			"0x6cbb48b353d958576794ae55e64046f150ebac350207c97bdfd3cd5cdfbe406",
+			segmentedByteCodeHash.String(),
+		)
+	})
 }
 
 func TestSierraVersion(t *testing.T) {
