@@ -31,7 +31,7 @@ func AdaptClass(cls core.ClassDefinition) *class.Class {
 				},
 			},
 			Domain:    0, // todo(kirill) recheck
-			ClassHash: AdaptHash(hash),
+			ClassHash: AdaptHash(&hash),
 		}
 	case *core.SierraClass:
 		return &class.Class{
@@ -39,7 +39,7 @@ func AdaptClass(cls core.ClassDefinition) *class.Class {
 				Cairo1: AdaptSierraClass(v),
 			},
 			Domain:    0, // todo(kirill) recheck
-			ClassHash: AdaptHash(hash),
+			ClassHash: AdaptHash(&hash),
 		}
 	default:
 		panic(fmt.Errorf("unsupported cairo class %T", v))

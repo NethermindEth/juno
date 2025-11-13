@@ -171,20 +171,19 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = utils.HeapPtr(
-				AdaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
-			)
+			fti := AdaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation)
+			trace.FeeTransferInvocation = &fti
 		}
 
 		if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = utils.HeapPtr(
-				AdaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
-			)
+			vi := AdaptFeederFunctionInvocation(feederTrace.ValidateInvocation)
+			trace.ValidateInvocation = &vi
 		}
 
 		var fnInvocation *FunctionInvocation
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fct))
+			fi := AdaptFeederFunctionInvocation(fct)
+			fnInvocation = &fi
 		}
 
 		switch trace.Type {

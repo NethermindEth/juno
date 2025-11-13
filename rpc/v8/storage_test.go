@@ -842,7 +842,7 @@ func verifyIf(
 	if value == nil {
 		value = felt.Zero.Clone()
 	}
-	require.Equal(t, leaf, value)
+	require.Equal(t, leaf, *value)
 }
 
 func emptyTrie(t *testing.T) *trie.Trie {

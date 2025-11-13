@@ -143,14 +143,17 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func BlockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
-	*BlockCommitments, error,
-) {
+func BlockHash(
+	b *Block,
+	stateDiff *StateDiff,
+	network *utils.Network,
+	overrideSeqAddr *felt.Felt,
+) (felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo
 
 	blockVer, err := ParseBlockVersion(b.ProtocolVersion)
 	if err != nil {
-		return nil, nil, err
+		return felt.Felt{}, nil, err
 	}
 
 	// if block.version >= 0.13.4
@@ -171,10 +174,10 @@ func BlockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
+func pre07Hash(b *Block, chain *felt.Felt) (felt.Felt, *BlockCommitments, error) {
 	txCommitment, err := transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
-		return nil, nil, err
+		return felt.Felt{}, nil, err
 	}
 	return crypto.PedersenArray(
 		new(felt.Felt).SetUint64(b.Number), // block number
@@ -182,18 +185,18 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 		&felt.Zero,                         // reserved: sequencer address
 		&felt.Zero,                         // reserved: block timestamp
 		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
-		txCommitment, // transaction commitment
-		&felt.Zero,   // reserved: number of events
-		&felt.Zero,   // reserved: event commitment
-		&felt.Zero,   // reserved: protocol version
-		&felt.Zero,   // reserved: extra data
-		chain,        // extra data: chain id
-		b.ParentHash, // parent hash
-	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
+		&txCommitment, // transaction commitment
+		&felt.Zero,    // reserved: number of events
+		&felt.Zero,    // reserved: event commitment
+		&felt.Zero,    // reserved: protocol version
+		&felt.Zero,    // reserved: extra data
+		chain,         // extra data: chain id
+		b.ParentHash,  // parent hash
+	), &BlockCommitments{TransactionCommitment: &txCommitment}, nil
 }
 
-func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
+func post0134Hash(b *Block, stateDiff *StateDiff) (felt.Felt, *BlockCommitments, error) {
+	var txCommitment, eCommitment, rCommitment, sdCommitment felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
@@ -216,13 +219,13 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	wg.Wait()
 
 	if tErr != nil {
-		return nil, nil, tErr
+		return felt.Felt{}, nil, tErr
 	}
 	if eErr != nil {
-		return nil, nil, eErr
+		return felt.Felt{}, nil, eErr
 	}
 	if rErr != nil {
-		return nil, nil, rErr
+		return felt.Felt{}, nil, rErr
 	}
 
 	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
@@ -243,24 +246,24 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			b.SequencerAddress,                    // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			&concatCounts,
-			sdCommitment,
-			txCommitment, // transaction commitment
-			eCommitment,  // event commitment
-			rCommitment,  // receipt commitment
-			pricesHash,   // gas prices hash
+			&sdCommitment,
+			&txCommitment, // transaction commitment
+			&eCommitment,  // event commitment
+			&rCommitment,  // receipt commitment
+			&pricesHash,   // gas prices hash
 			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
 		), &BlockCommitments{
-			TransactionCommitment: txCommitment,
-			EventCommitment:       eCommitment,
-			ReceiptCommitment:     rCommitment,
-			StateDiffCommitment:   sdCommitment,
+			TransactionCommitment: &txCommitment,
+			EventCommitment:       &eCommitment,
+			ReceiptCommitment:     &rCommitment,
+			StateDiffCommitment:   &sdCommitment,
 		}, nil
 }
 
-func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
+func Post0132Hash(b *Block, stateDiff *StateDiff) (felt.Felt, *BlockCommitments, error) {
+	var txCommitment, eCommitment, rCommitment, sdCommitment felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
@@ -283,13 +286,13 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	wg.Wait()
 
 	if tErr != nil {
-		return nil, nil, tErr
+		return felt.Felt{}, nil, tErr
 	}
 	if eErr != nil {
-		return nil, nil, eErr
+		return felt.Felt{}, nil, eErr
 	}
 	if rErr != nil {
-		return nil, nil, rErr
+		return felt.Felt{}, nil, rErr
 	}
 
 	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
@@ -323,10 +326,10 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			seqAddr,                               // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			&concatCounts,
-			sdCommitment,
-			txCommitment,    // transaction commitment
-			eCommitment,     // event commitment
-			rCommitment,     // receipt commitment
+			&sdCommitment,
+			&txCommitment,   // transaction commitment
+			&eCommitment,    // event commitment
+			&rCommitment,    // receipt commitment
 			b.L1GasPriceETH, // gas price in wei
 			gasPriceStrk,    // gas price in fri
 			l1DataGasPriceInWei,
@@ -335,22 +338,22 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
 		), &BlockCommitments{
-			TransactionCommitment: txCommitment,
-			EventCommitment:       eCommitment,
-			ReceiptCommitment:     rCommitment,
-			StateDiffCommitment:   sdCommitment,
+			TransactionCommitment: &txCommitment,
+			EventCommitment:       &eCommitment,
+			ReceiptCommitment:     &rCommitment,
+			StateDiffCommitment:   &sdCommitment,
 		}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
+func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
 	}
 
 	wg := conc.NewWaitGroup()
-	var txCommitment, eCommitment, rCommitment *felt.Felt
+	var txCommitment, eCommitment, rCommitment felt.Felt
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
@@ -367,13 +370,13 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 	wg.Wait()
 
 	if tErr != nil {
-		return nil, nil, tErr
+		return felt.Felt{}, nil, tErr
 	}
 	if eErr != nil {
-		return nil, nil, eErr
+		return felt.Felt{}, nil, eErr
 	}
 	if rErr != nil {
-		return nil, nil, rErr
+		return felt.Felt{}, nil, rErr
 	}
 
 	// Unlike the pre07Hash computation, we exclude the chain
@@ -383,18 +386,22 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 	// - number of events
 	// - event commitment
 	return crypto.PedersenArray(
-		new(felt.Felt).SetUint64(b.Number),           // block number
-		b.GlobalStateRoot,                            // global state root
-		seqAddr,                                      // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp),        // block timestamp
-		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
-		txCommitment,                                 // transaction commitment
-		new(felt.Felt).SetUint64(b.EventCount),       // number of events
-		eCommitment,                                  // event commitment
-		&felt.Zero,                                   // reserved: protocol version
-		&felt.Zero,                                   // reserved: extra data
-		b.ParentHash,                                 // parent block hash
-	), &BlockCommitments{TransactionCommitment: txCommitment, EventCommitment: eCommitment, ReceiptCommitment: rCommitment}, nil
+			felt.NewFromUint64[felt.Felt](b.Number), // block number
+			b.GlobalStateRoot,                       // global state root
+			seqAddr,                                 // sequencer address
+			felt.NewFromUint64[felt.Felt](b.Timestamp),        // block timestamp
+			felt.NewFromUint64[felt.Felt](b.TransactionCount), // number of transactions
+			&txCommitment, // transaction commitment
+			felt.NewFromUint64[felt.Felt](b.EventCount), // number of events
+			&eCommitment, // event commitment
+			&felt.Zero,   // reserved: protocol version
+			&felt.Zero,   // reserved: extra data
+			b.ParentHash, // parent block hash
+		), &BlockCommitments{
+			TransactionCommitment: &txCommitment,
+			EventCommitment:       &eCommitment,
+			ReceiptCommitment:     &rCommitment,
+		}, nil
 }
 
 func MarshalBlockNumber(blockNumber uint64) []byte {
@@ -433,7 +440,7 @@ func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) fel
 	return *new(felt.Felt).SetBytes(concatBytes)
 }
 
-func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) *felt.Felt {
+func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) felt.Felt {
 	return crypto.PoseidonArray(
 		starknetGasPrices0,
 		// gas prices
