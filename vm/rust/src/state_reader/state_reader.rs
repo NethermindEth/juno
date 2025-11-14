@@ -17,7 +17,8 @@ use crate::{
     ffi_entrypoint::BlockInfo,
     ffi_type::class_info::class_info_from_json_str,
     state_reader::ffi::{
-        JunoFree, JunoStateGetClassHashAt, JunoStateGetCompiledClass, JunoStateGetNonceAt,
+        JunoFree, JunoStateGetClassHashAt, JunoStateGetCompiledClass,
+        JunoStateGetCompiledClassHash, JunoStateGetCompiledClassHashV2, JunoStateGetNonceAt,
         JunoStateGetStorageAt,
     },
 };
@@ -183,8 +184,53 @@ impl StateReader for JunoStateReader {
     }
 
     /// Returns the compiled class hash of the given class hash.
-    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        unimplemented!()
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        let class_hash_bytes = felt_to_byte_array(&class_hash.0);
+        let mut buffer: [u8; 32] = [0; 32];
+        let wrote = unsafe {
+            JunoStateGetCompiledClassHash(
+                self.handle,
+                class_hash_bytes.as_ptr(),
+                buffer.as_mut_ptr(),
+            )
+        };
+        if wrote == 0 {
+            Err(StateError::StateReadError(format!(
+                "failed to read compiled class hash of {}",
+                class_hash.0
+            )))
+        } else {
+            assert!(wrote == 32, "Juno didn't write 32 bytes");
+            Ok(CompiledClassHash(Felt::from_bytes_be(&buffer)))
+        }
+    }
+
+    /// Returns the compiled class hash v2 of the given class hash.
+    fn get_compiled_class_hash_v2(
+        &self,
+        class_hash: ClassHash,
+        compiled_class: &RunnableCompiledClass,
+    ) -> StateResult<CompiledClassHash> {
+        let class_hash_bytes = felt_to_byte_array(&class_hash.0);
+        let mut buffer: [u8; 32] = [0; 32];
+        let wrote = unsafe {
+            JunoStateGetCompiledClassHashV2(
+                self.handle,
+                class_hash_bytes.as_ptr(),
+                buffer.as_mut_ptr(),
+            )
+        };
+        if wrote == 0 {
+            let casm_hash = blockifier::state::utils::get_compiled_class_hash_v2(
+                self,
+                class_hash,
+                compiled_class,
+            )?;
+            Ok(casm_hash)
+        } else {
+            assert!(wrote == 32, "Juno didn't write 32 bytes");
+            Ok(CompiledClassHash(Felt::from_bytes_be(&buffer)))
+        }
     }
 }
 

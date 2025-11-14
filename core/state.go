@@ -43,7 +43,8 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
-
+	CompiledClassHash(classHash *felt.Felt) (felt.Felt, error)
+	CompiledClassHashV2(classHash *felt.Felt) (felt.Felt, error)
 	ClassTrie() (*trie.Trie, error)
 	ContractTrie() (*trie.Trie, error)
 	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
@@ -365,6 +366,35 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 		return encoder.Unmarshal(data, &class)
 	})
 	return class, err
+}
+
+func (s *State) CompiledClassHash(classHash *felt.Felt) (felt.Felt, error) {
+	classTrie, closer, err := s.classesTrie()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	defer closer()
+
+	casmHash, err := classTrie.Get(classHash)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	if casmHash.IsZero() {
+		return felt.Felt{}, errors.New("casm hash not found")
+	}
+
+	return casmHash, nil
+}
+
+// TODO(Ege): should we fallback to computing here on rust side
+func (s *State) CompiledClassHashV2(classHash *felt.Felt) (felt.Felt, error) {
+	sierraClassHash := felt.SierraClassHash(*classHash)
+	casmHash, err := GetCasmClassHashV2(s.txn, &sierraClassHash)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return felt.Felt(casmHash), nil
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
