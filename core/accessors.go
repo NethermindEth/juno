@@ -572,3 +572,10 @@ func WriteCasmClassHashV2(
 ) error {
 	return w.Put(db.ClassHashToCasmHashV2Key(classHash), casmClassHash.Marshal())
 }
+
+func DeleteCasmClassHashV2(
+	w db.KeyValueWriter,
+	classHash *felt.SierraClassHash,
+) error {
+	return w.Delete(db.ClassHashToCasmHashV2Key(classHash))
+}
