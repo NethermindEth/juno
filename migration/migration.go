@@ -955,7 +955,9 @@ func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) err
 		sierraClassHash := felt.SierraClassHash(classHash)
 
 		// Check if already has CASM hash V2
+		writeMu.Lock()
 		_, err := core.GetCasmClassHashV2(txn, &sierraClassHash)
+		writeMu.Unlock()
 		if err == nil {
 			continue // Already exists, skip
 		}
@@ -982,6 +984,7 @@ func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) err
 
 		// Schedule hash computation in parallel
 		workerPool.Go(func() error {
+			// Compute and write hash
 			casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
 			writeMu.Lock()
 			err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2)
