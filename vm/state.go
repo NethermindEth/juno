@@ -95,3 +95,37 @@ func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) C.int {
 	feltBytes := val.Bytes()
 	return C.int(copy(unsafe.Slice((*byte)(buffer), felt.Bytes), feltBytes[:]))
 }
+
+//export JunoStateGetCompiledClassHash
+func JunoStateGetCompiledClassHash(
+	readerHandle C.uintptr_t,
+	classHash,
+	buffer unsafe.Pointer,
+) C.int {
+	context := unwrapContext(readerHandle)
+
+	classHashFelt := makeFeltFromPtr(classHash)
+	val, err := context.state.CompiledClassHash(classHashFelt)
+	if err != nil {
+		return 0
+	}
+
+	return fillBufferWithFelt(&val, buffer)
+}
+
+//export JunoStateGetCompiledClassHashV2
+func JunoStateGetCompiledClassHashV2(
+	readerHandle C.uintptr_t,
+	classHash,
+	buffer unsafe.Pointer,
+) C.int {
+	context := unwrapContext(readerHandle)
+
+	classHashFelt := makeFeltFromPtr(classHash)
+	val, err := context.state.CompiledClassHashV2(classHashFelt)
+	if err != nil {
+		return 0
+	}
+
+	return fillBufferWithFelt(&val, buffer)
+}

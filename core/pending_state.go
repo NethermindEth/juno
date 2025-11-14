@@ -78,6 +78,21 @@ func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, er
 	return p.head.Class(classHash)
 }
 
+func (p *PendingState) CompiledClassHash(classHash *felt.Felt) (felt.Felt, error) {
+	if casmHash, found := p.stateDiff.DeclaredV1Classes[*classHash]; found {
+		return *casmHash, nil
+	}
+	return p.head.CompiledClassHash(classHash)
+}
+
+func (p *PendingState) CompiledClassHashV2(classHash *felt.Felt) (felt.Felt, error) {
+	sierraClassHash := felt.SierraClassHash(*classHash)
+	if casmHash, found := p.stateDiff.MigratedClasses[sierraClassHash]; found {
+		return felt.Felt(casmHash), nil
+	}
+	return p.head.CompiledClassHashV2(classHash)
+}
+
 func (p *PendingState) ClassTrie() (*trie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
