@@ -17,7 +17,7 @@ pub struct ClassInfo {
 
 pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
     let class_info: ClassInfo = serde_json::from_str(raw_json)
-        .map_err(|err| format!("failed parsing class info: {:?}", err))?;
+        .map_err(|err| format!("failed parsing class info: {err:?}"))?;
 
     let class_def = class_info.contract_class.get();
     let sierra_version: SierraVersion;
@@ -30,17 +30,17 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
             abi_len = 0;
             match parse_deprecated_class_definition(class_def.to_string()) {
                 Ok(class) => class,
-                Err(err) => return Err(format!("failed parsing deprecated class: {:?}", err)),
+                Err(err) => return Err(format!("failed parsing deprecated class: {err:?}")),
             }
         }
         1 => {
             sierra_version = SierraVersion::from_str(&class_info.sierra_version)
-                .map_err(|err| format!("failed parsing sierra version: {:?}", err))?;
+                .map_err(|err| format!("failed parsing sierra version: {err:?}"))?;
             sierra_len = class_info.sierra_program_length;
             abi_len = class_info.abi_length;
             match parse_casm_definition(class_def.to_string(), sierra_version.clone()) {
                 Ok(class) => class,
-                Err(err) => return Err(format!("failed parsing casm class: {:?}", err)),
+                Err(err) => return Err(format!("failed parsing casm class: {err:?}")),
             }
         }
         _ => {
@@ -52,7 +52,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
     };
 
     BlockifierClassInfo::new(&class, sierra_len, abi_len, sierra_version)
-        .map_err(|err| format!("failed creating BlockifierClassInfo: {:?}", err))
+        .map_err(|err| format!("failed creating BlockifierClassInfo: {err:?}"))
 }
 
 fn parse_deprecated_class_definition(
