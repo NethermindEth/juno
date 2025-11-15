@@ -619,6 +619,12 @@ func (b *Blockchain) Finalise(
 		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
 			return err
 		}
+
+		err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		if err != nil {
+			return err
+		}
+
 		return core.WriteChainHeight(txn, block.Number)
 	})
 	if err != nil {
