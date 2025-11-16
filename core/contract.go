@@ -164,7 +164,7 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 	return cStorage.Commit()
 }
 
-func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+func ContractStorage(addr, key *felt.Felt, txn db.SnapshotBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
 		return felt.Felt{}, err

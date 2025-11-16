@@ -41,3 +41,13 @@ type IndexedBatcher interface {
 	NewIndexedBatch() IndexedBatch
 	NewIndexedBatchWithSize(size int) IndexedBatch
 }
+
+type SnapshotBatch interface {
+	Batch
+	KeyValueReader
+	Iterable
+}
+
+type SnapshotBatcher interface {
+	NewSnapshotBatch() (SnapshotBatch, func() error)
+}

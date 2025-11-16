@@ -158,6 +158,10 @@ func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
 	return d.NewIndexedBatch()
 }
 
+func (d *DB) NewSnapshotBatch() (db.SnapshotBatch, func() error) {
+	return d.NewIndexedBatch(), func() error { return nil }
+}
+
 func (d *DB) NewIterator(start []byte, withUpperBound bool) (db.Iterator, error) {
 	txn, err := d.NewTransaction(false)
 	if err != nil {

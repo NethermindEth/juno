@@ -178,6 +178,12 @@ func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
 	return NewBatch(d.db.NewIndexedBatchWithSize(size), d, d.listener)
 }
 
+func (d *DB) NewSnapshotBatch() (db.SnapshotBatch, func() error) {
+	snapshot := NewSnapshot(d.db, d.listener)
+	batch := NewBatch(d.db.NewBatch(), d, d.listener)
+	return NewSnapshotBatch(batch, snapshot), snapshot.Close
+}
+
 func (d *DB) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
 	d.closeLock.RLock()
 	defer d.closeLock.RUnlock()
