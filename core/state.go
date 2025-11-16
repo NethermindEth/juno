@@ -27,7 +27,7 @@ var (
 	ErrCheckHeadState = errors.New("check head state")
 )
 
-var _ StateHistoryReader = (*State)(nil)
+var _ StateHistoryReader = (*StateSnapshotReader)(nil)
 
 //go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
 type StateHistoryReader interface {
@@ -50,52 +50,202 @@ type StateReader interface {
 	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
 }
 
-type State struct {
+type StateSnapshotReader struct {
 	txn db.IndexedBatch
 }
 
-func NewState(txn db.IndexedBatch) *State {
-	return &State{
+func NewStateSnapshotReader(txn db.IndexedBatch) *StateSnapshotReader {
+	return &StateSnapshotReader{
 		txn: txn,
 	}
 }
 
-// putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
-// queried later with [GetContractClass].
-func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64) error {
-	contract, err := DeployContract(addr, classHash, s.txn)
+// ContractStorageAt returns the value of a storage location of the given contract at the height `height`
+func (s *StateSnapshotReader) ContractStorageAt(
+	contractAddress,
+	storageLocation *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
+	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
+	value, err := s.valueAt(key, height)
 	if err != nil {
-		return err
+		return felt.Felt{}, err
 	}
 
-	numBytes := MarshalBlockNumber(blockNumber)
-	if err = s.txn.Put(db.ContractDeploymentHeightKey(addr), numBytes); err != nil {
-		return err
+	return felt.FromBytes[felt.Felt](value), nil
+}
+
+func (s *StateSnapshotReader) ContractNonceAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
+	key := db.ContractNonceHistoryKey(contractAddress)
+	value, err := s.valueAt(key, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return felt.FromBytes[felt.Felt](value), nil
+}
+
+func (s *StateSnapshotReader) ContractClassHashAt(
+	contractAddress *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
+	key := db.ContractClassHashHistoryKey(contractAddress)
+	value, err := s.valueAt(key, height)
+	if err != nil {
+		return felt.Felt{}, err
 	}
 
-	return s.updateContractCommitment(stateTrie, contract)
+	return felt.FromBytes[felt.Felt](value), nil
+}
+
+// ContractDeployedAt returns if contract at given addr was deployed at blockNumber
+func (s *StateSnapshotReader) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+	var deployedAt uint64
+
+	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
+		deployedAt = binary.BigEndian.Uint64(data)
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return deployedAt <= blockNumber, nil
+}
+
+// Class returns the class object corresponding to the given classHash
+func (s *StateSnapshotReader) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+	var class *DeclaredClassDefinition
+	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
+		return encoder.Unmarshal(data, &class)
+	})
+	return class, err
 }
 
 // ContractClassHash returns class hash of a contract at a given address.
-func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (s *StateSnapshotReader) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return ContractClassHash(addr, s.txn)
 }
 
 // ContractNonce returns nonce of a contract at a given address.
-func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (s *StateSnapshotReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return ContractNonce(addr, s.txn)
 }
 
 // ContractStorage returns value of a key in the storage of the contract at the given address.
-func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (s *StateSnapshotReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	return ContractStorage(addr, key, s.txn)
 }
 
+func (s *StateSnapshotReader) ClassTrie() (*trie.Trie, error) {
+	// We don't need to call the closer function here because we are only reading the trie
+	tr, _, err := classesTrie(s.txn)
+	return tr, err
+}
+
+func (s *StateSnapshotReader) ContractTrie() (*trie.Trie, error) {
+	tr, _, err := contractTrie(s.txn)
+	return tr, err
+}
+
+func (s *StateSnapshotReader) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+	return storage(addr, s.txn)
+}
+
+func (s *StateSnapshotReader) valueAt(key []byte, height uint64) ([]byte, error) {
+	it, err := s.txn.NewIterator(nil, false)
+	if err != nil {
+		return nil, err
+	}
+
+	seekKey := binary.BigEndian.AppendUint64(key, height)
+	for it.Seek(seekKey); it.Valid(); it.Next() {
+		seekedKey := it.Key()
+		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
+		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
+			break
+		}
+
+		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
+		if seekedHeight < height {
+			// last change happened before the height we are looking for
+			// check head state
+			break
+		} else if seekedHeight == height {
+			// a log exists for the height we are looking for, so the old value in this
+			// log entry is not useful. Advance the iterator and see we can use the next entry.
+			// If not, ErrCheckHeadState will be returned.
+			continue
+		}
+
+		val, itErr := it.Value()
+		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
+			return nil, err
+		}
+		// seekedHeight > height
+		return val, nil
+	}
+
+	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
+}
+
+// todo(rdr): return `StateDiff` by value
+func (s *StateSnapshotReader) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
+	reversed := *diff
+
+	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
+	for addr, storageDiffs := range diff.StorageDiffs {
+		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
+		for key := range storageDiffs {
+			value := felt.Zero
+			if blockNumber > 0 {
+				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber-1)
+				if err != nil {
+					return nil, err
+				}
+				value = oldValue
+			}
+			reversedDiffs[key] = &value
+		}
+		reversed.StorageDiffs[addr] = reversedDiffs
+	}
+
+	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
+	for addr := range diff.Nonces {
+		oldNonce := felt.Zero
+		if blockNumber > 0 {
+			var err error
+			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		reversed.Nonces[addr] = &oldNonce
+	}
+
+	reversed.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
+	for addr := range diff.ReplacedClasses {
+		classHash := felt.Zero
+		if blockNumber > 0 {
+			var err error
+			classHash, err = s.ContractClassHashAt(&addr, blockNumber-1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		reversed.ReplacedClasses[addr] = &classHash
+	}
+
+	return &reversed, nil
+}
+
 // Root returns the state commitment.
-func (s *State) Commitment() (felt.Felt, error) {
+func (s *StateSnapshotReader) Commitment() (felt.Felt, error) {
 	var storageRoot, classesRoot felt.Felt
 
-	sStorage, closer, err := s.storage()
+	sStorage, closer, err := contractTrie(s.txn)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -108,7 +258,7 @@ func (s *State) Commitment() (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	classes, closer, err := s.classesTrie()
+	classes, closer, err := classesTrie(s.txn)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -129,84 +279,34 @@ func (s *State) Commitment() (felt.Felt, error) {
 	return root, nil
 }
 
-func (s *State) ClassTrie() (*trie.Trie, error) {
-	// We don't need to call the closer function here because we are only reading the trie
-	tr, _, err := s.classesTrie()
-	return tr, err
+type State struct {
+	txn db.IndexedBatch
+	*StateSnapshotReader
 }
 
-func (s *State) ContractTrie() (*trie.Trie, error) {
-	tr, _, err := s.storage()
-	return tr, err
-}
-
-func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
-	return storage(addr, s.txn)
-}
-
-// storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
-func (s *State) storage() (*trie.Trie, func() error, error) {
-	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
-}
-
-func (s *State) classesTrie() (*trie.Trie, func() error, error) {
-	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
-}
-
-func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
-	dbPrefix := bucket.Key()
-	tTxn := trie.NewStorage(s.txn, dbPrefix)
-
-	// fetch root key
-	rootKeyDBKey := dbPrefix
-	var val []byte
-	err := s.txn.Get(rootKeyDBKey, func(data []byte) error {
-		val = data
-		return nil
-	})
-	// if some error other than "not found"
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, nil, err
+func NewState(
+	txn db.IndexedBatch,
+) *State {
+	return &State{
+		txn:                 txn,
+		StateSnapshotReader: NewStateSnapshotReader(txn),
 	}
+}
 
-	rootKey := new(trie.BitArray)
-	if len(val) > 0 {
-		err = rootKey.UnmarshalBinary(val)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	gTrie, err := newTrie(tTxn, globalTrieHeight)
+// putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
+// queried later with [GetContractClass].
+func (s *State) putNewContract(contractTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64) error {
+	contract, err := DeployContract(addr, classHash, s.txn)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
-	// prep closer
-	closer := func() error {
-		if err = gTrie.Commit(); err != nil {
-			return err
-		}
-
-		resultingRootKey := gTrie.RootKey()
-		// no updates on the trie, short circuit and return
-		if resultingRootKey.Equal(rootKey) {
-			return nil
-		}
-
-		if resultingRootKey != nil {
-			var rootKeyBytes bytes.Buffer
-			_, marshalErr := resultingRootKey.Write(&rootKeyBytes)
-			if marshalErr != nil {
-				return marshalErr
-			}
-
-			return s.txn.Put(rootKeyDBKey, rootKeyBytes.Bytes())
-		}
-		return s.txn.Delete(rootKeyDBKey)
+	numBytes := MarshalBlockNumber(blockNumber)
+	if err = s.txn.Put(db.ContractDeploymentHeightKey(addr), numBytes); err != nil {
+		return err
 	}
 
-	return gTrie, closer, nil
+	return s.updateContractCommitment(contractTrie, contract)
 }
 
 func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
@@ -254,7 +354,7 @@ func (s *State) Update(
 		return err
 	}
 
-	stateTrie, storageCloser, err := s.storage()
+	stateTrie, storageCloser, err := contractTrie(s.txn)
 	if err != nil {
 		return err
 	}
@@ -351,15 +451,6 @@ func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt
 		return s.txn.Put(classKey, classEncoded)
 	}
 	return err
-}
-
-// Class returns the class object corresponding to the given classHash
-func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
-	var class *DeclaredClassDefinition
-	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
-	})
-	return class, err
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
@@ -543,7 +634,7 @@ func (s *State) updateDeclaredClassesTrie(
 	classDefinitions map[felt.Felt]ClassDefinition,
 	migratedCasmClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
-	classesTrie, classesCloser, err := s.classesTrie()
+	classesTrie, classesCloser, err := classesTrie(s.txn)
 	if err != nil {
 		return err
 	}
@@ -569,24 +660,6 @@ func (s *State) updateDeclaredClassesTrie(
 	}
 
 	return classesCloser()
-}
-
-// ContractDeployedAt returns if contract at given addr was deployed at blockNumber
-func (s *State) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
-	var deployedAt uint64
-
-	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
-		deployedAt = binary.BigEndian.Uint64(data)
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return deployedAt <= blockNumber, nil
 }
 
 func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
@@ -619,7 +692,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return fmt.Errorf("error performing state deletions: %v", err)
 	}
 
-	stateTrie, storageCloser, err := s.storage()
+	stateTrie, storageCloser, err := contractTrie(s.txn)
 	if err != nil {
 		return err
 	}
@@ -685,7 +758,7 @@ func (s *State) removeDeclaredClasses(
 		classHashes = append(classHashes, classHash.Clone())
 	}
 
-	classesTrie, classesCloser, err := s.classesTrie()
+	classesTrie, classesCloser, err := classesTrie(s.txn)
 	if err != nil {
 		return err
 	}
@@ -717,7 +790,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	state, storageCloser, err := s.storage()
+	state, storageCloser, err := contractTrie(s.txn)
 	if err != nil {
 		return err
 	}
@@ -735,56 +808,6 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 	}
 
 	return storageCloser()
-}
-
-// todo(rdr): return `StateDiff` by value
-func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
-	reversed := *diff
-
-	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
-	for addr, storageDiffs := range diff.StorageDiffs {
-		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
-		for key := range storageDiffs {
-			value := felt.Zero
-			if blockNumber > 0 {
-				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber-1)
-				if err != nil {
-					return nil, err
-				}
-				value = oldValue
-			}
-			reversedDiffs[key] = &value
-		}
-		reversed.StorageDiffs[addr] = reversedDiffs
-	}
-
-	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
-	for addr := range diff.Nonces {
-		oldNonce := felt.Zero
-		if blockNumber > 0 {
-			var err error
-			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		reversed.Nonces[addr] = &oldNonce
-	}
-
-	reversed.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
-	for addr := range diff.ReplacedClasses {
-		classHash := felt.Zero
-		if blockNumber > 0 {
-			var err error
-			classHash, err = s.ContractClassHashAt(&addr, blockNumber-1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		reversed.ReplacedClasses[addr] = &classHash
-	}
-
-	return &reversed, nil
 }
 
 func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error {
@@ -814,84 +837,10 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error
 	return nil
 }
 
-func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
-	it, err := s.txn.NewIterator(nil, false)
-	if err != nil {
-		return nil, err
-	}
-
-	seekKey := binary.BigEndian.AppendUint64(key, height)
-	for it.Seek(seekKey); it.Valid(); it.Next() {
-		seekedKey := it.Key()
-		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
-		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
-			break
-		}
-
-		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
-		if seekedHeight < height {
-			// last change happened before the height we are looking for
-			// check head state
-			break
-		} else if seekedHeight == height {
-			// a log exists for the height we are looking for, so the old value in this
-			// log entry is not useful. Advance the iterator and see we can use the next entry.
-			// If not, ErrCheckHeadState will be returned.
-			continue
-		}
-
-		val, itErr := it.Value()
-		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
-			return nil, err
-		}
-		// seekedHeight > height
-		return val, nil
-	}
-
-	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
-}
-
-// ContractStorageAt returns the value of a storage location of the given contract at the height `height`
-func (s *State) ContractStorageAt(
-	contractAddress,
-	storageLocation *felt.Felt,
-	height uint64,
-) (felt.Felt, error) {
-	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
-	value, err := s.valueAt(key, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	return felt.FromBytes[felt.Felt](value), nil
-}
-
-func (s *State) ContractNonceAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
-	key := db.ContractNonceHistoryKey(contractAddress)
-	value, err := s.valueAt(key, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return felt.FromBytes[felt.Felt](value), nil
-}
-
-func (s *State) ContractClassHashAt(
-	contractAddress *felt.Felt,
-	height uint64,
-) (felt.Felt, error) {
-	key := db.ContractClassHashHistoryKey(contractAddress)
-	value, err := s.valueAt(key, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	return felt.FromBytes[felt.Felt](value), nil
-}
-
 func (s *State) revertMigratedCasmClasses(
 	migratedCasmClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
-	classesTrie, classesCloser, err := s.classesTrie()
+	classesTrie, classesCloser, err := classesTrie(s.txn)
 	if err != nil {
 		return err
 	}
@@ -915,4 +864,69 @@ func (s *State) revertMigratedCasmClasses(
 	}
 
 	return classesCloser()
+}
+
+// storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
+func contractTrie(txn db.IndexedBatch) (*trie.Trie, func() error, error) {
+	return globalTrie(txn, db.StateTrie, trie.NewTriePedersen)
+}
+
+func classesTrie(txn db.IndexedBatch) (*trie.Trie, func() error, error) {
+	return globalTrie(txn, db.ClassesTrie, trie.NewTriePoseidon)
+}
+
+func globalTrie(txn db.IndexedBatch, bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
+	dbPrefix := bucket.Key()
+	tTxn := trie.NewStorage(txn, dbPrefix)
+
+	// fetch root key
+	rootKeyDBKey := dbPrefix
+	var val []byte
+	err := txn.Get(rootKeyDBKey, func(data []byte) error {
+		val = data
+		return nil
+	})
+	// if some error other than "not found"
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, nil, err
+	}
+
+	rootKey := new(trie.BitArray)
+	if len(val) > 0 {
+		err = rootKey.UnmarshalBinary(val)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	gTrie, err := newTrie(tTxn, globalTrieHeight)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// prep closer
+	closer := func() error {
+		if err = gTrie.Commit(); err != nil {
+			return err
+		}
+
+		resultingRootKey := gTrie.RootKey()
+		// no updates on the trie, short circuit and return
+		if resultingRootKey.Equal(rootKey) {
+			return nil
+		}
+
+		if resultingRootKey != nil {
+			var rootKeyBytes bytes.Buffer
+			_, marshalErr := resultingRootKey.Write(&rootKeyBytes)
+			if marshalErr != nil {
+				return marshalErr
+			}
+
+			return txn.Put(rootKeyDBKey, rootKeyBytes.Bytes())
+		}
+		return txn.Delete(rootKeyDBKey)
+	}
+
+	return gTrie, closer, nil
 }
