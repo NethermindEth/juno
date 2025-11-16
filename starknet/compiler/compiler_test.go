@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -39,7 +40,11 @@ func TestCompile(t *testing.T) {
 
 		gotCompiled, err := sn2core.AdaptCompiledClass(res)
 		require.NoError(t, err)
-		assert.Equal(t, expectedCompiled.Hash(), gotCompiled.Hash())
+		assert.Equal(
+			t,
+			expectedCompiled.Hash(core.HashVersionV1),
+			gotCompiled.Hash(core.HashVersionV1),
+		)
 	})
 
 	t.Run("declare cairo2 class", func(t *testing.T) {

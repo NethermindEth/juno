@@ -30,7 +30,7 @@ func TestProve(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed for key %s", record.key.String())
 		}
-		require.Equal(t, record.value, val)
+		require.Equal(t, *record.value, val)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestProveNonExistent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed for key %s", keyFelt.String())
 		}
-		require.Equal(t, &felt.Zero, val)
+		require.Equal(t, felt.Zero, val)
 	}
 }
 
@@ -72,7 +72,7 @@ func TestProveRandom(t *testing.T) {
 
 		val, err := trie.VerifyProof(&root, record.key, proofSet, crypto.Pedersen)
 		require.NoError(t, err)
-		require.Equal(t, record.value, val)
+		require.Equal(t, *record.value, val)
 	}
 }
 
@@ -186,7 +186,7 @@ func TestProveCustom(t *testing.T) {
 
 					val, err := trie.VerifyProof(&root, tc.key, proofSet, crypto.Pedersen)
 					require.NoError(t, err)
-					require.Equal(t, tc.expected, val)
+					require.Equal(t, *tc.expected, val)
 				})
 			}
 		})

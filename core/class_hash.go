@@ -19,15 +19,15 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func deprecatedCairoClassHash(class *DeprecatedCairoClass) (*felt.Felt, error) {
+func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 	definition, err := makeDeprecatedVMClass(class)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 
 	classJSON, err := json.Marshal(definition)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
 	classJSONCStr := cstring(classJSON)
 
@@ -38,9 +38,9 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (*felt.Felt, error) {
 	hash.SetBytes(hashBytes[:])
 	C.free(unsafe.Pointer(classJSONCStr))
 	if hash.IsZero() {
-		return nil, errors.New("failed to calculate class hash")
+		return felt.Felt{}, errors.New("failed to calculate class hash")
 	}
-	return &hash, nil
+	return hash, nil
 }
 
 func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.DeprecatedCairoClass, error) {

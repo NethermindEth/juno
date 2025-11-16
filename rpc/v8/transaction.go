@@ -347,10 +347,11 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
-		t.ClassHash, err = declaredClass.Hash()
+		classHash, err := declaredClass.Hash()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		t.ClassHash = &classHash
 	}
 
 	txnHash, err := core.TransactionHash(txn, network)
@@ -361,13 +362,13 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.InvokeTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.DeployAccountTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.L1HandlerTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
 		return nil, nil, nil, errors.New("unsupported transaction")
@@ -639,17 +640,19 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
-		res.ContractAddress = core.ContractAddress(
+		contractAddress := core.ContractAddress(
 			&felt.Zero,
 			tx.ClassHash,
 			tx.ContractAddressSalt,
 			*tx.ConstructorCallData,
 		)
+		res.ContractAddress = &contractAddress
 	} else if tx.Type == TxnDeclare {
-		res.ClassHash, err = userClass.Hash()
+		classHash, err := userClass.Hash()
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 		}
+		res.ClassHash = &classHash
 	}
 	return res, nil
 }

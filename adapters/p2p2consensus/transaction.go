@@ -50,8 +50,12 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 		return consensus.Transaction{}, err
 	}
 
-	if *computedTransactionHash != *tx.Hash() {
-		return consensus.Transaction{}, fmt.Errorf("transaction hash mismatch: computed %s, got %s", computedTransactionHash, tx.Hash())
+	if computedTransactionHash != *tx.Hash() {
+		return consensus.Transaction{},
+			fmt.Errorf("transaction hash mismatch: computed %s, got %s",
+				&computedTransactionHash,
+				tx.Hash(),
+			)
 	}
 
 	return consensus.Transaction{

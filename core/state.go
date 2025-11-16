@@ -132,7 +132,7 @@ func (s *State) Commitment() (felt.Felt, error) {
 	}
 
 	root := crypto.PoseidonArray(stateVersion, &storageRoot, &classesRoot)
-	return *root, nil
+	return root, nil
 }
 
 func (s *State) ClassTrie() (commontrie.Trie, error) {
@@ -528,12 +528,14 @@ func (s *State) updateContractCommitment(stateTrie *trie.Trie, contract *Contrac
 
 	commitment := calculateContractCommitment(&root, &cHash, &nonce)
 
-	_, err = stateTrie.Put(contract.Address, commitment)
+	_, err = stateTrie.Put(contract.Address, &commitment)
 	return err
 }
 
-func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
-	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
+func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) felt.Felt {
+	h1 := crypto.Pedersen(classHash, storageRoot)
+	h2 := crypto.Pedersen(&h1, nonce)
+	return crypto.Pedersen(&h2, &felt.Zero)
 }
 
 func (s *State) updateDeclaredClassesTrie(
@@ -552,7 +554,7 @@ func (s *State) updateDeclaredClassesTrie(
 		}
 
 		leafValue := crypto.Poseidon(leafVersion, casmClassHash)
-		if _, err = classesTrie.Put(&classHash, leafValue); err != nil {
+		if _, err = classesTrie.Put(&classHash, &leafValue); err != nil {
 			return err
 		}
 	}
@@ -561,7 +563,7 @@ func (s *State) updateDeclaredClassesTrie(
 		classHashFelt := (*felt.Felt)(&classHash)
 
 		leafValue := crypto.Poseidon(leafVersion, (*felt.Felt)(&casmClassHash))
-		if _, err = classesTrie.Put(classHashFelt, leafValue); err != nil {
+		if _, err = classesTrie.Put(classHashFelt, &leafValue); err != nil {
 			return err
 		}
 	}

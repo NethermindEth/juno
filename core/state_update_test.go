@@ -42,7 +42,7 @@ func TestStateDiffCommitment(t *testing.T) {
 			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 			commitment := su.StateDiff.Commitment()
-			assert.Equal(t, felt.NewUnsafeFromString[felt.Felt](test.expected), commitment)
+			assert.Equal(t, felt.UnsafeFromString[felt.Felt](test.expected), commitment)
 		})
 	}
 }
@@ -79,7 +79,7 @@ func TestStateDiffHash(t *testing.T) {
 		t.Run(fmt.Sprintf("blockNum_%d", test.blockNum), func(t *testing.T) {
 			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
-			assert.Equal(t, felt.NewUnsafeFromString[felt.Felt](test.expected), su.StateDiff.Hash())
+			assert.Equal(t, felt.UnsafeFromString[felt.Felt](test.expected), su.StateDiff.Hash())
 		})
 	}
 }

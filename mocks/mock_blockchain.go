@@ -196,10 +196,10 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 }
 
 // L1HandlerTxnHash mocks base method.
-func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
+func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1HandlerTxnHash", msgHash)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

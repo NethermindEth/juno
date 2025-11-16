@@ -373,7 +373,8 @@ func (t *Trie) insertOrUpdateValue(
 
 		leftChildHash := leftChild.Hash(&leftPath, t.hash)
 		rightChildHash := rightChild.Hash(&rightPath, t.hash)
-		newParent.Value = t.hash(&leftChildHash, &rightChildHash)
+		hash := t.hash(&leftChildHash, &rightChildHash)
+		newParent.Value = &hash
 		if err := t.storage.Put(&commonKey, newParent); err != nil {
 			return err
 		}
@@ -595,7 +596,8 @@ func (t *Trie) updateValueIfDirty(key *BitArray) (*Node, error) { //nolint:gocyc
 		rightChildHash := rightChild.Hash(&rightPath, t.hash)
 		rightHash = &rightChildHash
 	}
-	node.Value = t.hash(leftHash, rightHash)
+	hash := t.hash(leftHash, rightHash)
+	node.Value = &hash
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
 	}
