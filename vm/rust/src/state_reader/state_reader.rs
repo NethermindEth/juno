@@ -31,6 +31,9 @@ struct CachedRunnableCompiledClass {
 static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedRunnableCompiledClass>>> =
     Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
 
+static CASM_CLASS_HASH_V2_CACHE: Lazy<Mutex<SizedCache<ClassHash, CompiledClassHash>>> =
+    Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
+
 pub enum BlockHeight {
     Height(u64),
     Pending,
@@ -184,6 +187,7 @@ impl StateReader for JunoStateReader {
     }
 
     /// Returns the compiled class hash of the given class hash.
+    /// Returns CompiledClassHash::default() if no v1_class is found for the given class hash.
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
         let mut buffer: [u8; 32] = [0; 32];
@@ -195,22 +199,30 @@ impl StateReader for JunoStateReader {
             )
         };
         if wrote == 0 {
-            Err(StateError::StateReadError(format!(
-                "failed to read compiled class hash of {}",
-                class_hash.0
-            )))
+            Ok(CompiledClassHash::default())
         } else {
             assert!(wrote == 32, "Juno didn't write 32 bytes");
             Ok(CompiledClassHash(Felt::from_bytes_be(&buffer)))
         }
     }
 
-    /// Returns the compiled class hash v2 of the given class hash.
+    /// Returns the compiled class hash (v2) of the given class hash.
+    /// Returns `StateError::MissingCompiledClassHashV2` if no v1_class is found for the given class
+    /// hash.
     fn get_compiled_class_hash_v2(
         &self,
         class_hash: ClassHash,
         compiled_class: &RunnableCompiledClass,
     ) -> StateResult<CompiledClassHash> {
+        if let Some(cached_hash) = CASM_CLASS_HASH_V2_CACHE
+            .lock()
+            .unwrap()
+            .cache_get(&class_hash)
+            .cloned()
+        {
+            return Ok(cached_hash);
+        }
+
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
         let mut buffer: [u8; 32] = [0; 32];
         let wrote = unsafe {
@@ -220,17 +232,20 @@ impl StateReader for JunoStateReader {
                 buffer.as_mut_ptr(),
             )
         };
-        if wrote == 0 {
-            let casm_hash = blockifier::state::utils::get_compiled_class_hash_v2(
-                self,
-                class_hash,
-                compiled_class,
-            )?;
-            Ok(casm_hash)
+
+        let casm_hash_v2 = if wrote == 0 {
+            blockifier::state::utils::get_compiled_class_hash_v2(self, class_hash, compiled_class)?
         } else {
             assert!(wrote == 32, "Juno didn't write 32 bytes");
-            Ok(CompiledClassHash(Felt::from_bytes_be(&buffer)))
-        }
+            CompiledClassHash(Felt::from_bytes_be(&buffer))
+        };
+
+        CASM_CLASS_HASH_V2_CACHE
+            .lock()
+            .unwrap()
+            .cache_set(class_hash, casm_hash_v2);
+
+        Ok(casm_hash_v2)
     }
 }
 
