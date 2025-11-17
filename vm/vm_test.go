@@ -196,7 +196,8 @@ func TestCallCairo(t *testing.T) {
 	stateDB := state.NewStateDB(testDB, triedb)
 	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	require.NoError(t, err)
-	state, err := stateFactory.NewState(&felt.Zero, txn)
+	batch := testDB.NewBatch()
+	state, err := stateFactory.NewState(&felt.Zero, txn, batch)
 	newRoot := felt.NewUnsafeFromString[felt.Felt](
 		"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
 	)
@@ -211,6 +212,7 @@ func TestCallCairo(t *testing.T) {
 	}
 	declaredClass := map[felt.Felt]core.ClassDefinition{*classHash: simpleClass}
 	require.NoError(t, state.Update(0, &firstStateUpdate, declaredClass, false))
+	require.NoError(t, batch.Write())
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)
@@ -273,6 +275,10 @@ func TestCallCairo(t *testing.T) {
 		},
 	}
 	require.NoError(t, state.Update(1, &secondStateUpdate, nil, false))
+
+	if statetestutils.UseNewState() {
+		require.NoError(t, batch.Write())
+	}
 
 	ret, err = vm.Call(
 		&callInfo,

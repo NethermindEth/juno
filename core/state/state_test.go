@@ -262,12 +262,12 @@ func TestClass(t *testing.T) {
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
-		*cairo0Hash: cairo0Class,
-		*cairo1Hash: cairo1Class,
-	}, false, true))
-
-	gotCairo1Class, err := state.Class(cairo1Hash)
+	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
+		*deprecatedCairoHash: deprecatedCairoClass,
+		*sierraHash:          sierraClass,
+	}, false))
+	require.NoError(t, batch.Write())
+	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)
 	assert.Zero(t, gotSierraClass.At)
 	assert.Equal(t, sierraClass, gotSierraClass.Class)
