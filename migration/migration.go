@@ -954,50 +954,42 @@ func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) err
 		classHash := felt.FromBytes[felt.Felt](classHashBytes)
 		sierraClassHash := felt.SierraClassHash(classHash)
 
-		// Check if already has CASM hash V2
-		writeMu.Lock()
-		_, err := core.GetCasmClassHashV2(txn, &sierraClassHash)
-		writeMu.Unlock()
-		if err == nil {
-			continue // Already exists, skip
-		}
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return err
-		}
-
-		// Read class value
 		value, err := it.Value()
 		if err != nil {
+			_ = workerPool.Wait()
 			return err
 		}
 
-		var declaredClass core.DeclaredClassDefinition
-		if err := encoder.Unmarshal(value, &declaredClass); err != nil {
-			continue // Skip classes that can't be unmarshaled
-		}
+		workerPool.Go(
+			func() error {
+				var declaredClass core.DeclaredClassDefinition
+				if err := encoder.Unmarshal(value, &declaredClass); err != nil {
+					return err
+				}
 
-		// Only process Sierra classes
-		sierraClass, ok := declaredClass.Class.(*core.SierraClass)
-		if !ok {
-			continue
-		}
+				sierraClass, ok := declaredClass.Class.(*core.SierraClass)
+				if !ok {
+					return nil // Skip non-Sierra classes
+				}
 
-		// Schedule hash computation in parallel
-		workerPool.Go(func() error {
-			// Compute and write hash
-			casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
-			writeMu.Lock()
-			err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2)
-			writeMu.Unlock()
-			if err != nil {
-				return fmt.Errorf("failed to write CASM hash V2 for class %s: %w",
-					classHash.String(),
-					err,
-				)
-			}
+				if sierraClass.Compiled == nil {
+					return nil // Skip if Compiled field is nil
+				}
 
-			return nil
-		})
+				casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
+
+				writeMu.Lock()
+				err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2)
+				writeMu.Unlock()
+				if err != nil {
+					return fmt.Errorf("failed to write CASM hash V2 for class %s: %w",
+						sierraClassHash.String(),
+						err,
+					)
+				}
+
+				return nil
+			})
 	}
 
 	return workerPool.Wait()
