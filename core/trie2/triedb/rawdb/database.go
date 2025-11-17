@@ -1,6 +1,7 @@
 package rawdb
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -90,30 +91,44 @@ func (d *Database) Update(
 	defer d.lock.Unlock()
 
 	var classNodes classNodesMap
+	var classOrderedPaths []trieutils.Path
 	var contractNodes contractNodesMap
+	var contractOrderedPaths []trieutils.Path
 	var contractStorageNodes contractStorageNodesMap
+	var contractStorageOrderedPaths map[felt.Felt][]trieutils.Path
 
 	if mergedClassNodes != nil {
-		classNodes, _ = mergedClassNodes.Flatten()
+		classNodes, classOrderedPaths, _, _ = mergedClassNodes.FlattenWithOrder()
 	}
 	if mergedContractNodes != nil {
-		contractNodes, contractStorageNodes = mergedContractNodes.Flatten()
+		contractNodes, contractOrderedPaths, contractStorageNodes, contractStorageOrderedPaths = mergedContractNodes.FlattenWithOrder()
 	}
 
-	for path, n := range classNodes {
+	for _, path := range classOrderedPaths {
+		n := classNodes[path]
 		if err := d.updateNode(batch, db.ClassTrie, &felt.Zero, &path, n, true); err != nil {
 			return err
 		}
 	}
 
-	for path, n := range contractNodes {
+	for _, path := range contractOrderedPaths {
+		n := contractNodes[path]
 		if err := d.updateNode(batch, db.ContractTrieContract, &felt.Zero, &path, n, false); err != nil {
 			return err
 		}
 	}
 
-	for owner, nodes := range contractStorageNodes {
-		for path, n := range nodes {
+	owners := make([]felt.Felt, 0, len(contractStorageNodes))
+	for owner := range contractStorageNodes {
+		owners = append(owners, owner)
+	}
+	sort.Slice(owners, func(i, j int) bool {
+		return owners[i].Cmp(&owners[j]) < 0
+	})
+	for _, owner := range owners {
+		orderedPaths := contractStorageOrderedPaths[owner]
+		for _, path := range orderedPaths {
+			n := contractStorageNodes[owner][path]
 			if err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n, false); err != nil {
 				return err
 			}
