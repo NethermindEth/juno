@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/node"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"

@@ -33,8 +33,8 @@ type BinaryNode struct {
 func (n *BinaryNode) Hash(hf crypto.HashFn) felt.Felt {
 	leftHash := n.Left().Hash(hf)
 	rightHash := n.Right().Hash(hf)
-	res := hf(&leftHash, &rightHash)
-	return *res
+
+	return hf(&leftHash, &rightHash)
 }
 
 func (n *BinaryNode) Cache() (*HashNode, bool) { return n.Flags.Hash, n.Flags.Dirty }
@@ -70,13 +70,13 @@ func (n *EdgeNode) Hash(hf crypto.HashFn) felt.Felt {
 	var length [32]byte
 	length[31] = n.Path.Len()
 	pathFelt := n.Path.Felt()
-	lengthFelt := new(felt.Felt).SetBytes(length[:])
+	lengthFelt := felt.FromBytes[felt.Felt](length[:])
 
 	childHash := n.Child.Hash(hf)
 	innerHash := hf(&childHash, &pathFelt)
 
 	var res felt.Felt
-	res.Add(innerHash, lengthFelt)
+	res.Add(&innerHash, &lengthFelt)
 	return res
 }
 

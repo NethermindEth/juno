@@ -751,13 +751,9 @@ type declaredClass struct {
 }
 
 type oldCairo1Class struct {
-	Abi         string
-	AbiHash     *felt.Felt
-	EntryPoints struct {
-		Constructor []core.SierraEntryPoint
-		External    []core.SierraEntryPoint
-		L1Handler   []core.SierraEntryPoint
-	}
+	Abi             string
+	AbiHash         *felt.Felt
+	EntryPoints     core.SierraEntryPointsByType
 	Program         []*felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string
@@ -785,30 +781,30 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 		return err
 	}
 
-	var coreCompiledClass *core.CompiledClass
+	var casmClass *core.CasmClass
 	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(class.Class.Compiled); !deprecated {
-		var starknetCompiledClass starknet.CompiledClass
+		var starknetCompiledClass starknet.CasmClass
 		err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
 		if err != nil {
 			return err
 		}
 
-		coreCompiledClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
+		casmClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
 		if err != nil {
 			return err
 		}
 	}
 
-	declaredClass := core.DeclaredClass{
+	declaredClass := core.DeclaredClassDefinition{
 		At: class.At,
-		Class: &core.Cairo1Class{
+		Class: &core.SierraClass{
 			Abi:             class.Class.Abi,
 			AbiHash:         class.Class.AbiHash,
 			EntryPoints:     class.Class.EntryPoints,
 			Program:         class.Class.Program,
 			ProgramHash:     class.Class.ProgramHash,
 			SemanticVersion: class.Class.SemanticVersion,
-			Compiled:        coreCompiledClass,
+			Compiled:        casmClass,
 		},
 	}
 

@@ -10,13 +10,13 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+	"github.com/NethermindEth/juno/core/state/statefactory"
+
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
@@ -105,7 +105,7 @@ func GenesisStateDiff(
 	network *utils.Network,
 	maxSteps uint64,
 	maxGas uint64,
-) (core.StateDiff, map[felt.Felt]core.Class, error) {
+) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
 	triedb, err := triedb.New(memDB, nil)
@@ -115,7 +115,7 @@ func GenesisStateDiff(
 	stateDB := state.NewStateDB(memDB, triedb)
 
 	// TODO(maksymmalick): remove this after integration done
-	stateFactory, err := commonstate.NewStateFactory(false, triedb, stateDB)
+	stateFactory, err := statefactory.NewStateFactory(false, triedb, stateDB)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}
@@ -123,10 +123,9 @@ func GenesisStateDiff(
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}
-	//
-	genesisState := sync.NewPendingStateWriter(
+	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
-		make(map[felt.Felt]core.Class, len(config.Classes)),
+		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
 		state,
 	)
 
@@ -150,7 +149,10 @@ func GenesisStateDiff(
 	return genesisStateDiff, genesisClasses, nil
 }
 
-func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter) error {
+func declareClasses(
+	config *GenesisConfig,
+	genesisState *core.PendingStateWriter,
+) error {
 	newClasses, err := loadClasses(config.Classes)
 	if err != nil {
 		return err
@@ -165,13 +167,18 @@ func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter
 	return nil
 }
 
-func setClass(genesisState *sync.PendingStateWriter, classHash *felt.Felt, class core.Class) error {
+func setClass(
+	genesisState *core.PendingStateWriter,
+	classHash *felt.Felt,
+	class core.ClassDefinition,
+) error {
 	if err := genesisState.SetContractClass(classHash, class); err != nil {
 		return fmt.Errorf("declare v0 class: %v", err)
 	}
 
-	if cairo1Class, isCairo1 := class.(*core.Cairo1Class); isCairo1 {
-		if err := genesisState.SetCompiledClassHash(classHash, cairo1Class.Compiled.Hash()); err != nil {
+	if sierraClass, isCairo1 := class.(*core.SierraClass); isCairo1 {
+		casmHash := sierraClass.Compiled.Hash(core.HashVersionV1)
+		if err := genesisState.SetCompiledClassHash(classHash, &casmHash); err != nil {
 			return fmt.Errorf("set compiled class hash: %v", err)
 		}
 	}
@@ -183,7 +190,7 @@ func deployContracts(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 ) error {
 	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
 	if err != nil {
@@ -215,7 +222,7 @@ func deployContract(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 	address felt.Felt,
 	contractData GenesisContractData,
 	constructorSelector *felt.Felt,
@@ -261,7 +268,7 @@ func executeFunctionCalls(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 ) error {
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 
@@ -304,7 +311,7 @@ func executeFunctionCalls(
 func executeTransactions(
 	config *GenesisConfig,
 	v vm.VM,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 ) error {
 	if len(config.Txns) == 0 {
 		return nil
@@ -353,7 +360,7 @@ func executeTransactions(
 
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 	executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-		&blockInfo, genesisState, true, true, true, true, false)
+		&blockInfo, genesisState, true, true, true, true, false, false)
 	if err != nil {
 		return fmt.Errorf("execute transactions: %v", err)
 	}
@@ -385,8 +392,8 @@ func adaptResourceBounds(rb *rpc.ResourceBoundsMap) map[core.Resource]core.Resou
 	}
 }
 
-func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
-	classMap := make(map[felt.Felt]core.Class, len(classes))
+func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
+	classMap := make(map[felt.Felt]core.ClassDefinition, len(classes))
 	for _, classPath := range classes {
 		bytes, err := os.ReadFile(classPath)
 		if err != nil {
@@ -398,26 +405,26 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 			return nil, fmt.Errorf("unmarshal class: %v", err)
 		}
 
-		var coreClass core.Class
-		if response.V0 != nil {
-			if coreClass, err = sn2core.AdaptCairo0Class(response.V0); err != nil {
+		var class core.ClassDefinition
+		if response.DeprecatedCairo != nil {
+			if class, err = sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo); err != nil {
 				return nil, err
 			}
 		} else {
-			var compiledClass *starknet.CompiledClass
-			if compiledClass, err = compiler.Compile(response.V1); err != nil {
+			var casmClass *starknet.CasmClass
+			if casmClass, err = compiler.Compile(response.Sierra); err != nil {
 				return nil, err
 			}
-			if coreClass, err = sn2core.AdaptCairo1Class(response.V1, compiledClass); err != nil {
+			if class, err = sn2core.AdaptSierraClass(response.Sierra, casmClass); err != nil {
 				return nil, err
 			}
 		}
 
-		classhash, err := coreClass.Hash()
+		classhash, err := class.Hash()
 		if err != nil {
 			return nil, fmt.Errorf("calculate class hash: %v", err)
 		}
-		classMap[*classhash] = coreClass
+		classMap[classhash] = class
 	}
 	return classMap, nil
 }

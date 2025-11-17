@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -226,6 +226,12 @@ func TestBlockWithTxHashes(t *testing.T) {
 			nil,
 		)
 
+		blockToRegisterHash := core.Header{
+			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
+			Number: latestBlock.Number + 1 - 10,
+		}
+		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
+			Return(&blockToRegisterHash, nil)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
@@ -415,6 +421,12 @@ func TestBlockWithTxs(t *testing.T) {
 			nil,
 		)
 
+		blockToRegisterHash := core.Header{
+			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
+			Number: latestBlock.Number + 1 - 10,
+		}
+		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
+			Return(&blockToRegisterHash, nil)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 

@@ -54,20 +54,20 @@ func TestCompiledCasm(t *testing.T) {
 		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
-		cairo0, ok := class.(*core.Cairo0Class)
+		deprecatedCairo, ok := class.(*core.DeprecatedCairoClass)
 		require.True(t, ok)
-		program, err := utils.Gzip64Decode(cairo0.Program)
+		program, err := utils.Gzip64Decode(deprecatedCairo.Program)
 		require.NoError(t, err)
 
 		// only fields that need to be unmarshaled specified
-		var cairo0Definition struct {
+		var deprecatedCairoDefinition struct {
 			Data []*felt.Felt `json:"data"`
 		}
-		err = json.Unmarshal(program, &cairo0Definition)
+		err = json.Unmarshal(program, &deprecatedCairoDefinition)
 		require.NoError(t, err)
 
-		mockState := mocks.NewMockStateReader(mockCtrl)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: class}, nil)
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: class}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)
@@ -76,12 +76,12 @@ func TestCompiledCasm(t *testing.T) {
 			Prime:           "0x800000000000011000000000000000000000000000000000000000000000001",
 			CompilerVersion: "0.10.3",
 			EntryPointsByType: rpc.EntryPointsByType{
-				Constructor: utils.Map(cairo0.Constructors, adaptEntryPoint),
-				External:    utils.Map(cairo0.Externals, adaptEntryPoint),
-				L1Handler:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
+				Constructor: utils.Map(deprecatedCairo.Constructors, adaptEntryPoint),
+				External:    utils.Map(deprecatedCairo.Externals, adaptEntryPoint),
+				L1Handler:   utils.Map(deprecatedCairo.L1Handlers, adaptEntryPoint),
 			},
 			Hints:    json.RawMessage(`[[2,[{"Dst":0}]]]`),
-			Bytecode: cairo0Definition.Data,
+			Bytecode: deprecatedCairoDefinition.Data,
 		}, resp)
 	})
 
@@ -89,27 +89,27 @@ func TestCompiledCasm(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0x222")
 
 		// Create a compiled class with test data
-		casm := core.CompiledClass{
+		casm := core.CasmClass{
 			CompilerVersion: "1.0.0",
 			Prime:           big.NewInt(123),
-			External: []core.CompiledEntryPoint{
+			External: []core.CasmEntryPoint{
 				{
 					Offset:   42, // Test the uint64 offset
 					Selector: felt.NewUnsafeFromString[felt.Felt]("0xabc"),
 					Builtins: []string{"range_check"},
 				},
 			},
-			Constructor: []core.CompiledEntryPoint{},
-			L1Handler:   []core.CompiledEntryPoint{},
+			Constructor: []core.CasmEntryPoint{},
+			L1Handler:   []core.CasmEntryPoint{},
 			Bytecode:    []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x123")},
 		}
 
-		cairoClass := &core.Cairo1Class{
+		cairoClass := &core.SierraClass{
 			Compiled: &casm,
 		}
 
-		mockState := mocks.NewMockStateReader(mockCtrl)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: cairoClass}, nil)
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: cairoClass}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)
@@ -125,7 +125,7 @@ func TestCompiledCasm(t *testing.T) {
 	})
 }
 
-func adaptEntryPoint(point core.EntryPoint) rpc.EntryPoint {
+func adaptEntryPoint(point core.DeprecatedEntryPoint) rpc.EntryPoint {
 	return rpc.EntryPoint{
 		Offset:   point.Offset.Uint64(),
 		Selector: *point.Selector,

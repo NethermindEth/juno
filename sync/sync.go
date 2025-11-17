@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -52,6 +52,10 @@ type PendingDataSubscription struct {
 	*feed.Subscription[core.PendingData]
 }
 
+type PreLatestDataSubscription struct {
+	*feed.Subscription[*core.PreLatest]
+}
+
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
@@ -73,11 +77,10 @@ type Reader interface {
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePendingData() PendingDataSubscription
+	SubscribePreLatest() PreLatestDataSubscription
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
-	PendingState() (commonstate.StateReader, func() error, error)
-	PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -103,6 +106,10 @@ func (n *NoopSynchronizer) SubscribePendingData() PendingDataSubscription {
 	return PendingDataSubscription{feed.New[core.PendingData]().Subscribe()}
 }
 
+func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
+	return PreLatestDataSubscription{feed.New[*core.PreLatest]().Subscribe()}
+}
+
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
 	return nil
 }
@@ -111,14 +118,8 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (commonstate.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingState() (core.CommonStateReader, func() error, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
-}
-
-func (n *NoopSynchronizer) PendingStateBeforeIndex(
-	index int,
-) (commonstate.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -132,6 +133,7 @@ type Synchronizer struct {
 	newHeads            *feed.Feed[*core.Block]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
 	pendingDataFeed     *feed.Feed[core.PendingData]
+	preLatestDataFeed   *feed.Feed[*core.PreLatest]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -162,6 +164,7 @@ func New(
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		pendingDataFeed:          feed.New[core.PendingData](),
+		preLatestDataFeed:        feed.New[*core.PreLatest](),
 		pendingPollInterval:      pendingPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
@@ -509,7 +512,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 }
 
 func maxWorkers() int {
-	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
+	return min(16, runtime.GOMAXPROCS(0))
 }
 
 func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
@@ -564,6 +567,10 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 
 func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
 	return PendingDataSubscription{s.pendingDataFeed.Subscribe()}
+}
+
+func (s *Synchronizer) SubscribePreLatest() PreLatestDataSubscription {
+	return PreLatestDataSubscription{s.preLatestDataFeed.Subscribe()}
 }
 
 func (s *Synchronizer) pollLatest(ctx context.Context) {
@@ -625,113 +632,4 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 		return nil
 	}
 	return pendingData.GetBlock()
-}
-
-var noop = func() error { return nil }
-
-// PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, error) {
-	txn := s.db.NewIndexedBatch()
-
-	pendingPtr := s.pendingData.Load()
-	if pendingPtr == nil || *pendingPtr == nil {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, nil, err
-		}
-		head = nil
-	}
-
-	pending := *pendingPtr
-
-	if !pending.Validate(head) {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.Class)
-	switch pending.Variant() {
-	case core.PreConfirmedBlockVariant:
-		preLatest := pending.GetPreLatest()
-		// Built pre_confirmed state top on pre_latest if
-		// pre_confirmed is 2 blocks ahead of latest
-		if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
-			stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-			newClasses = preLatest.NewClasses
-		}
-		stateDiff.Merge(pending.GetStateUpdate().StateDiff)
-	case core.PendingBlockVariant:
-		newClasses = pending.GetNewClasses()
-		stateDiff.Merge(pending.GetStateUpdate().StateDiff)
-	default:
-		return nil, nil, errors.New("unsupported pending data variant")
-	}
-
-	pendingStateUpdate := pending.GetStateUpdate()
-	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return NewPendingState(&stateDiff, newClasses, state), noop, nil
-}
-
-// PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
-// up to given index in the pre-confirmed block.
-func (s *Synchronizer) PendingStateBeforeIndex(
-	index int,
-) (commonstate.StateReader, func() error, error) {
-	txn := s.db.NewIndexedBatch()
-
-	pendingPtr := s.pendingData.Load()
-	if pendingPtr == nil || *pendingPtr == nil {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	pending := *pendingPtr
-	if pending.Variant() != core.PreConfirmedBlockVariant {
-		return nil, nil, errors.New("only supported for pre_confirmed block")
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, nil, err
-		}
-		head = nil
-	}
-
-	if !pending.Validate(head) {
-		return nil, nil, core.ErrPendingDataNotFound
-	}
-
-	if index > len(pending.GetTransactions()) {
-		return nil, nil, errors.New("transaction index out of bounds")
-	}
-
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.Class)
-	preLatest := pending.GetPreLatest()
-	// Built pre_confirmed state top on pre_latest if
-	// pre_confirmed is 2 blocks ahead of latest
-	if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
-		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-		newClasses = preLatest.NewClasses
-	}
-
-	// Transaction state diffs size must always match Transactions
-	txStateDiffs := pending.GetTransactionStateDiffs()
-	for _, txStateDiff := range txStateDiffs[:index] {
-		stateDiff.Merge(txStateDiff)
-	}
-
-	pendingStateUpdate := pending.GetStateUpdate()
-	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return NewPendingState(&stateDiff, newClasses, state), noop, nil
 }

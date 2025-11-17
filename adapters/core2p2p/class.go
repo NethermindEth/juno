@@ -8,7 +8,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptClass(cls core.Class) *class.Class {
+func AdaptClass(cls core.ClassDefinition) *class.Class {
 	if cls == nil {
 		return nil
 	}
@@ -19,7 +19,7 @@ func AdaptClass(cls core.Class) *class.Class {
 	}
 
 	switch v := cls.(type) {
-	case *core.Cairo0Class:
+	case *core.DeprecatedCairoClass:
 		return &class.Class{
 			Class: &class.Class_Cairo0{
 				Cairo0: &class.Cairo0Class{
@@ -31,22 +31,22 @@ func AdaptClass(cls core.Class) *class.Class {
 				},
 			},
 			Domain:    0, // todo(kirill) recheck
-			ClassHash: AdaptHash(hash),
+			ClassHash: AdaptHash(&hash),
 		}
-	case *core.Cairo1Class:
+	case *core.SierraClass:
 		return &class.Class{
 			Class: &class.Class_Cairo1{
-				Cairo1: AdaptCairo1Class(v),
+				Cairo1: AdaptSierraClass(v),
 			},
 			Domain:    0, // todo(kirill) recheck
-			ClassHash: AdaptHash(hash),
+			ClassHash: AdaptHash(&hash),
 		}
 	default:
-		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, cls.Version()))
+		panic(fmt.Errorf("unsupported cairo class %T", v))
 	}
 }
 
-func AdaptCairo1Class(cls *core.Cairo1Class) *class.Cairo1Class {
+func AdaptSierraClass(cls *core.SierraClass) *class.Cairo1Class {
 	return &class.Cairo1Class{
 		Abi: cls.Abi,
 		EntryPoints: &class.Cairo1EntryPoints{
@@ -66,7 +66,7 @@ func adaptSierra(e core.SierraEntryPoint) *class.SierraEntryPoint {
 	}
 }
 
-func adaptEntryPoint(e core.EntryPoint) *class.EntryPoint {
+func adaptEntryPoint(e core.DeprecatedEntryPoint) *class.EntryPoint {
 	return &class.EntryPoint{
 		Selector: AdaptFelt(e.Selector),
 		Offset:   e.Offset.Uint64(),

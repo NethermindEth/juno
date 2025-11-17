@@ -112,10 +112,10 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	class1Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	class2Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
 
-	class1 := &core.Cairo1Class{}
-	class2 := &core.Cairo1Class{}
+	class1 := &core.SierraClass{}
+	class2 := &core.SierraClass{}
 
-	classes := map[felt.Felt]core.Class{
+	classes := map[felt.Felt]core.ClassDefinition{
 		class1Hash: class1,
 	}
 	stateUpdate := &core.StateUpdate{
@@ -136,7 +136,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 		NewRoot:   &stateComm,
 		StateDiff: &core.StateDiff{},
 	}
-	classes2 := map[felt.Felt]core.Class{
+	classes2 := map[felt.Felt]core.ClassDefinition{
 		class2Hash: class2,
 	}
 

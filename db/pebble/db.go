@@ -3,19 +3,12 @@ package pebble
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
-)
-
-const (
-	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
-	// This is also pebble's default value.
-	minCacheSizeMB = 8
 )
 
 var (
@@ -34,17 +27,12 @@ type DB struct {
 }
 
 // New opens a new database at the given path with default options
-func New(path string) (db.KeyValueStore, error) {
-	return newPebble(path, nil)
-}
-
-func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLogger bool) (db.KeyValueStore, error) {
-	// Ensure that the specified cache size meets a minimum threshold.
-	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
-	log := utils.NewLogLevel(utils.ERROR)
-	dbLog, err := utils.NewZapLogger(log, colouredLogger)
-	if err != nil {
-		return nil, fmt.Errorf("create DB logger: %w", err)
+func New(path string, options ...Option) (db.KeyValueStore, error) {
+	opts := pebble.Options{}
+	for _, option := range options {
+		if err := option(&opts); err != nil {
+			return nil, err
+		}
 	}
 
 	opts := &pebble.Options{
@@ -65,6 +53,7 @@ func newPebble(path string, options *pebble.Options) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &DB{
 		db:        pDB,
 		closeLock: new(sync.RWMutex),

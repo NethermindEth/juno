@@ -14,7 +14,6 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
-	trie "github.com/NethermindEth/juno/core/trie"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -58,10 +57,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ChainHeight() *gomock.Call {
 }
 
 // Class mocks base method.
-func (m *MockStateHistoryReader) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (m *MockStateHistoryReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Class", classHash)
-	ret0, _ := ret[0].(*core.DeclaredClass)
+	ret0, _ := ret[0].(*core.DeclaredClassDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -73,10 +72,10 @@ func (mr *MockStateHistoryReaderMockRecorder) Class(classHash any) *gomock.Call 
 }
 
 // ClassTrie mocks base method.
-func (m *MockStateHistoryReader) ClassTrie() (*trie.Trie, error) {
+func (m *MockStateHistoryReader) ClassTrie() (core.CommonTrie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClassTrie")
-	ret0, _ := ret[0].(*trie.Trie)
+	ret0, _ := ret[0].(core.CommonTrie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -117,19 +116,19 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractClassHashAt(addr, blockNum
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHashAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractClassHashAt), addr, blockNumber)
 }
 
-// ContractIsAlreadyDeployedAt mocks base method.
-func (m *MockStateHistoryReader) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+// ContractDeployedAt mocks base method.
+func (m *MockStateHistoryReader) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractIsAlreadyDeployedAt", addr, blockNumber)
+	ret := m.ctrl.Call(m, "ContractDeployedAt", addr, blockNumber)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ContractIsAlreadyDeployedAt indicates an expected call of ContractIsAlreadyDeployedAt.
-func (mr *MockStateHistoryReaderMockRecorder) ContractIsAlreadyDeployedAt(addr, blockNumber any) *gomock.Call {
+// ContractDeployedAt indicates an expected call of ContractDeployedAt.
+func (mr *MockStateHistoryReaderMockRecorder) ContractDeployedAt(addr, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractIsAlreadyDeployedAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractIsAlreadyDeployedAt), addr, blockNumber)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractDeployedAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractDeployedAt), addr, blockNumber)
 }
 
 // ContractNonce mocks base method.
@@ -193,10 +192,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractStorageAt(addr, key, block
 }
 
 // ContractStorageTrie mocks base method.
-func (m *MockStateHistoryReader) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (m *MockStateHistoryReader) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageTrie", addr)
-	ret0, _ := ret[0].(*trie.Trie)
+	ret0, _ := ret[0].(core.CommonTrie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -208,10 +207,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ContractStorageTrie(addr any) *gom
 }
 
 // ContractTrie mocks base method.
-func (m *MockStateHistoryReader) ContractTrie() (*trie.Trie, error) {
+func (m *MockStateHistoryReader) ContractTrie() (core.CommonTrie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractTrie")
-	ret0, _ := ret[0].(*trie.Trie)
+	ret0, _ := ret[0].(core.CommonTrie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

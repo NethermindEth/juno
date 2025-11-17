@@ -5,5 +5,5 @@ import (
 )
 
 func ToHex(b *big.Int) string {
-	return "0x" + b.Text(16) //nolint:mnd
+	return "0x" + b.Text(16)
 }

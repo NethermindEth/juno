@@ -50,8 +50,8 @@ func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
 	return r.Has(db.ClassKey(classHash))
 }
 
-func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClass, error) {
-	var class *DeclaredClass
+func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+	var class *DeclaredClassDefinition
 
 	err := r.Get(db.ClassKey(classHash), func(data []byte) error {
 		return encoder.Unmarshal(data, &class)
@@ -59,7 +59,7 @@ func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClass, error)
 	return class, err
 }
 
-func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClass) error {
+func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassDefinition) error {
 	data, err := encoder.Marshal(class)
 	if err != nil {
 		return err

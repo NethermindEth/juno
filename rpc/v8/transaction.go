@@ -328,7 +328,7 @@ type BroadcastedTransaction struct {
 
 func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
-) (core.Transaction, core.Class, *felt.Felt, error) {
+) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
 	txn, err := sn2core.AdaptTransaction(feederTxn)
@@ -336,7 +336,7 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 		return nil, nil, nil, err
 	}
 
-	var declaredClass core.Class
+	var declaredClass core.ClassDefinition
 	if len(broadcastedTxn.ContractClass) != 0 {
 		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
 		if err != nil {
@@ -347,10 +347,11 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
-		t.ClassHash, err = declaredClass.Hash()
+		classHash, err := declaredClass.Hash()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		t.ClassHash = &classHash
 	}
 
 	txnHash, err := core.TransactionHash(txn, network)
@@ -361,13 +362,13 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.InvokeTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.DeployAccountTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.L1HandlerTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
 		return nil, nil, nil, errors.New("unsupported transaction")
@@ -626,21 +627,31 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
+
+	err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		PaidFeeOnL1:   paidFeeOnL1,
-	}); err != nil {
+	})
+	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
+
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
-		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+		contractAddress := core.ContractAddress(
+			&felt.Zero,
+			tx.ClassHash,
+			tx.ContractAddressSalt,
+			*tx.ConstructorCallData,
+		)
+		res.ContractAddress = &contractAddress
 	} else if tx.Type == TxnDeclare {
-		res.ClassHash, err = userClass.Hash()
+		classHash, err := userClass.Hash()
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 		}
+		res.ClassHash = &classHash
 	}
 	return res, nil
 }

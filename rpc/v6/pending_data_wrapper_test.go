@@ -2,7 +2,6 @@ package rpcv6_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -10,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -30,72 +30,94 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 	require.NoError(t, err)
 
-	t.Run("Returns pending block data when starknet version < 0.14.0", func(t *testing.T) {
-		expectedPending := core.NewPending(latestBlock, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&expectedPending,
-			nil,
-		)
-		pending, err := handler.PendingData()
-		require.NoError(t, err)
-		require.Equal(t, expectedPending, core.Pending{
-			Block:       pending.GetBlock(),
-			StateUpdate: pending.GetStateUpdate(),
-			NewClasses:  pending.GetNewClasses(),
+	t.Run("Returns pending data when valid", func(t *testing.T) {
+		t.Run("when starknet version < 0.14.0", func(t *testing.T) {
+			expectedPending := core.NewPending(latestBlock, nil, nil)
+			mockSyncReader.EXPECT().PendingData().Return(
+				&expectedPending,
+				nil,
+			)
+			pending, err := handler.PendingData()
+			require.NoError(t, err)
+			require.Equal(t, core.PendingBlockVariant, pending.Variant())
+			require.Equal(t, &expectedPending, pending)
+		})
+
+		t.Run("when starknet version >= 0.14.0 - returns placeholder pending block", func(t *testing.T) {
+			preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+			mockSyncReader.EXPECT().PendingData().Return(
+				&preConfirmed,
+				nil,
+			)
+			mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+			mockReader.EXPECT().BlockHeaderByNumber(
+				latestBlock.Header.Number+1-pendingdata.BlockHashLag,
+			).Return(&core.Header{Hash: felt.NewFromUint64[felt.Felt](1234567)}, nil).Times(2)
+
+			expectedPending, err := pendingdata.MakeEmptyPendingForParent(
+				mockReader,
+				latestBlock.Header,
+			)
+			require.NoError(t, err)
+
+			pending, err := handler.PendingData()
+			require.NoError(t, err)
+			require.Equal(t, core.PendingBlockVariant, pending.Variant())
+			require.Equal(t, &expectedPending, pending)
 		})
 	})
-	t.Run("Returns empty pending block when starknet version >= 0.14.0", func(t *testing.T) {
-		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 
-		receipts := make([]*core.TransactionReceipt, 0)
-		expectedPendingB := &core.Block{
-			Header: &core.Header{
-				ParentHash:       latestBlock.Hash,
-				Number:           latestBlockNumber + 1,
-				SequencerAddress: latestBlock.SequencerAddress,
-				Timestamp:        uint64(time.Now().Unix()),
-				ProtocolVersion:  latestBlock.ProtocolVersion,
-				EventsBloom:      core.EventsBloom(receipts),
-				L1GasPriceETH:    latestBlock.L1GasPriceETH,
-				L1GasPriceSTRK:   latestBlock.L1GasPriceSTRK,
-				L2GasPrice:       latestBlock.L2GasPrice,
-				L1DataGasPrice:   latestBlock.L1DataGasPrice,
-				L1DAMode:         latestBlock.L1DAMode,
-			},
-			Transactions: make([]core.Transaction, 0),
-			Receipts:     receipts,
+	t.Run("Returns placeholder pending data when pending data is not valid", func(t *testing.T) {
+		blockToRegisterHash := core.Header{
+			Number: latestBlock.Header.Number + 1 - pendingdata.BlockHashLag,
+			Hash:   felt.NewFromUint64[felt.Felt](1234567),
 		}
 
-		emptyStateDiff := &core.StateDiff{
-			StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
-			Nonces:            make(map[felt.Felt]*felt.Felt),
-			DeployedContracts: make(map[felt.Felt]*felt.Felt),
-			DeclaredV0Classes: make([]*felt.Felt, 0),
-			DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
-			ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
-		}
+		t.Run("when starknet version < 0.14.0", func(t *testing.T) {
+			mockSyncReader.EXPECT().PendingData().Return(
+				nil,
+				core.ErrPendingDataNotFound,
+			)
 
-		expectedPending := &core.Pending{
-			Block: expectedPendingB,
-			StateUpdate: &core.StateUpdate{
-				OldRoot:   latestBlock.GlobalStateRoot,
-				StateDiff: emptyStateDiff,
-			},
-			NewClasses: make(map[felt.Felt]core.Class, 0),
-		}
+			mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+			mockReader.EXPECT().BlockHeaderByNumber(
+				latestBlock.Header.Number+1-pendingdata.BlockHashLag,
+			).Return(&blockToRegisterHash, nil).Times(2)
 
-		pending, err := handler.PendingData()
-		require.NoError(t, err)
-		require.Equal(t, *expectedPending, core.NewPending(
-			pending.GetBlock(),
-			pending.GetStateUpdate(),
-			pending.GetNewClasses(),
-		))
+			expectedPending, err := pendingdata.MakeEmptyPendingForParent(
+				mockReader,
+				latestBlock.Header,
+			)
+			require.NoError(t, err)
+			pending, err := handler.PendingData()
+			require.NoError(t, err)
+			require.Equal(t, core.PendingBlockVariant, pending.Variant())
+			require.Equal(t, &expectedPending, pending)
+		})
+
+		t.Run("when starknet version >= 0.14.0", func(t *testing.T) {
+			mockSyncReader.EXPECT().PendingData().Return(
+				nil,
+				core.ErrPendingDataNotFound,
+			)
+			latestHeader := latestBlock.Header
+			latestHeader.ProtocolVersion = "0.14.0"
+			mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
+			mockReader.EXPECT().BlockHeaderByNumber(
+				latestBlock.Header.Number+1-pendingdata.BlockHashLag,
+			).Return(&blockToRegisterHash, nil).Times(2)
+
+			expectedPending, err := pendingdata.MakeEmptyPendingForParent(
+				mockReader,
+				latestHeader,
+			)
+			require.NoError(t, err)
+
+			pending, err := handler.PendingData()
+			require.NoError(t, err)
+			require.Equal(t, core.PendingBlockVariant, pending.Variant())
+			require.Equal(t, &expectedPending, pending)
+		})
 	})
 }
 
@@ -108,11 +130,22 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	t.Run("Returns pending state when starknet version < 0.14.0", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingData().Return(
-			&core.Pending{},
-			nil,
-		)
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		stateDiff := core.EmptyStateDiff()
+		pendingData := core.Pending{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number: 1,
+				},
+			},
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &stateDiff,
+			},
+			NewClasses: map[felt.Felt]core.ClassDefinition{},
+		}
+		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
+		mockReader.EXPECT().StateAtBlockHash(
+			pendingData.Block.ParentHash,
+		).Return(mockState, nopCloser, nil)
 		pendingState, closer, err := handler.PendingState()
 
 		require.NoError(t, err)
@@ -120,11 +153,9 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 		require.NotNil(t, closer)
 	})
 
-	t.Run("Returns latest state starknet version >= 0.14.0", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingData().Return(
-			&core.PreConfirmed{},
-			nil,
-		)
+	t.Run("Returns latest state when starknet version >= 0.14.0", func(t *testing.T) {
+		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()
 
@@ -133,11 +164,8 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 		require.NotNil(t, closer)
 	})
 
-	t.Run("Returns latest state when pending data is nil", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingData().Return(
-			nil,
-			core.ErrPendingDataNotFound,
-		)
+	t.Run("Returns latest state when pending data is not valid", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()
 

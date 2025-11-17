@@ -35,9 +35,13 @@ func TestStateSnapshot(t *testing.T) {
 		return *historyValue, nil
 	}
 
-	mockState.EXPECT().ContractIsAlreadyDeployedAt(gomock.Any(), gomock.Any()).DoAndReturn(func(addr *felt.Felt, height uint64) (bool, error) {
-		return deployedHeight <= height, nil
-	}).AnyTimes()
+	mockState.EXPECT().ContractDeployedAt(
+		gomock.Any(),
+		gomock.Any(),
+	).DoAndReturn(
+		func(addr *felt.Felt, height uint64) (bool, error) {
+			return deployedHeight <= height, nil
+		}).AnyTimes()
 	mockState.EXPECT().ContractClassHashAt(gomock.Any(), gomock.Any()).DoAndReturn(doAtReq).AnyTimes()
 	mockState.EXPECT().ContractNonceAt(gomock.Any(), gomock.Any()).DoAndReturn(doAtReq).AnyTimes()
 	mockState.EXPECT().ContractStorageAt(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -64,7 +68,7 @@ func TestStateSnapshot(t *testing.T) {
 	require.NoError(t, err)
 
 	for desc, test := range map[string]struct {
-		snapshot core.StateReader
+		snapshot core.CommonStateReader
 		checker  func(*testing.T, felt.Felt, error)
 	}{
 		"contract is not deployed": {
@@ -120,7 +124,10 @@ func TestStateSnapshot(t *testing.T) {
 	})
 
 	declareHeight := deployedHeight
-	mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClass{At: declareHeight}, nil).AnyTimes()
+	mockState.EXPECT().Class(gomock.Any()).Return(
+		&core.DeclaredClassDefinition{At: declareHeight},
+		nil,
+	).AnyTimes()
 
 	t.Run("before class is declared", func(t *testing.T) {
 		_, err := snapshotBeforeDeployment.Class(addr)

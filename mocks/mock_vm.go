@@ -14,7 +14,6 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
-	commonstate "github.com/NethermindEth/juno/core/state/commonstate"
 	vm "github.com/NethermindEth/juno/vm"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -44,7 +43,7 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state commonstate.StateReader, maxSteps, maxGas uint64, structuredErrStack, returnStateDiff bool) (vm.CallResult, error) {
+func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.CommonStateReader, maxSteps, maxGas uint64, structuredErrStack, returnStateDiff bool) (vm.CallResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", callInfo, blockInfo, state, maxSteps, maxGas, structuredErrStack, returnStateDiff)
 	ret0, _ := ret[0].(vm.CallResult)
@@ -59,16 +58,16 @@ func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, maxSteps, maxGas,
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state commonstate.StateReader, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool) (vm.ExecutionResults, error) {
+func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.ClassDefinition, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.CommonStateReader, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch, isEstimateFee bool) (vm.ExecutionResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", txns, declaredClasses, paidFeesOnL1, blockInfo, state, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch)
+	ret := m.ctrl.Call(m, "Execute", txns, declaredClasses, paidFeesOnL1, blockInfo, state, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch, isEstimateFee)
 	ret0, _ := ret[0].(vm.ExecutionResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockVMMockRecorder) Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch any) *gomock.Call {
+func (mr *MockVMMockRecorder) Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch, isEstimateFee any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), txns, declaredClasses, paidFeesOnL1, blockInfo, state, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), txns, declaredClasses, paidFeesOnL1, blockInfo, state, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch, isEstimateFee)
 }

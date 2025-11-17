@@ -7,7 +7,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+	"github.com/NethermindEth/juno/core/state/statefactory"
+
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
@@ -53,9 +54,9 @@ type Reader interface {
 }
 
 type StateProvider interface {
-	HeadState() (commonstate.StateReader, StateCloser, error)
-	StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateReader, StateCloser, error)
-	StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, StateCloser, error)
+	HeadState() (core.CommonStateReader, StateCloser, error)
+	StateAtBlockHash(blockHash *felt.Felt) (core.CommonStateReader, StateCloser, error)
+	StateAtBlockNumber(blockNumber uint64) (core.CommonStateReader, StateCloser, error)
 }
 
 var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
@@ -72,7 +73,7 @@ type Blockchain struct {
 	l1HeadFeed    *feed.Feed[*core.L1Head]
 	cachedFilters *AggregatedBloomFilterCache
 	runningFilter *core.RunningEventFilter
-	StateFactory  *commonstate.StateFactory
+	StateFactory  *statefactory.StateFactory
 }
 
 func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *Blockchain {
@@ -82,7 +83,7 @@ func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *
 	}
 	stateDB := state.NewStateDB(database, trieDB)
 
-	stateFactory, err := commonstate.NewStateFactory(stateVersion, trieDB, stateDB)
+	stateFactory, err := statefactory.NewStateFactory(stateVersion, trieDB, stateDB)
 	if err != nil {
 		panic(err)
 	}
@@ -115,6 +116,14 @@ func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
 
 func (b *Blockchain) Network() *utils.Network {
 	return b.network
+}
+
+// StateCommitment returns the latest block state commitment.
+// If blockchain is empty zero felt is returned.
+func (b *Blockchain) StateCommitment() (felt.Felt, error) {
+	b.listener.OnRead("StateCommitment")
+	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
+	return core.NewState(batch).Commitment()
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
@@ -244,7 +253,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
-	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
+	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	// old state
 	// TODO(maksymmalick): remove this once we have a new state implementation
@@ -259,7 +268,7 @@ func (b *Blockchain) deprecatedStore(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	err := b.database.Update(func(txn db.IndexedBatch) error {
 		if err := verifyBlock(txn, block); err != nil {
@@ -309,7 +318,7 @@ func (b *Blockchain) store(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	// TODO(weiihann): handle unexpected shutdown
 	if err := verifyBlock(b.database, block); err != nil {
@@ -397,7 +406,7 @@ func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCo
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
 func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) (*core.BlockCommitments, error) {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
 		return nil, errors.New("block hashes do not match")
@@ -418,7 +427,7 @@ type StateCloser = func() error
 var noopStateCloser = func() error { return nil } // TODO: remove this once we refactor the state
 
 // HeadState returns a StateReader that provides a stable view to the latest state
-func (b *Blockchain) HeadState() (commonstate.StateReader, StateCloser, error) {
+func (b *Blockchain) HeadState() (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("HeadState")
 	txn := b.database.NewIndexedBatch()
 
@@ -440,7 +449,7 @@ func (b *Blockchain) HeadState() (commonstate.StateReader, StateCloser, error) {
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
 func (b *Blockchain) StateAtBlockNumber(
 	blockNumber uint64,
-) (commonstate.StateReader, StateCloser, error) {
+) (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
@@ -452,7 +461,7 @@ func (b *Blockchain) StateAtBlockNumber(
 	if !b.StateFactory.UseNewState {
 		deprecatedState := core.NewState(txn)
 		snapshot := core.NewStateSnapshot(deprecatedState, blockNumber)
-		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
+		return snapshot, noopStateCloser, nil
 	}
 
 	height, err := core.GetChainHeight(txn)
@@ -469,13 +478,13 @@ func (b *Blockchain) StateAtBlockNumber(
 	if err != nil {
 		return nil, nil, err
 	}
-	return commonstate.NewStateReaderAdapter(&history), noopStateCloser, nil
+	return &history, noopStateCloser, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
 func (b *Blockchain) StateAtBlockHash(
 	blockHash *felt.Felt,
-) (commonstate.StateReader, StateCloser, error) {
+) (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		emptyState, err := b.StateFactory.EmptyState()
@@ -490,7 +499,7 @@ func (b *Blockchain) StateAtBlockHash(
 	if !b.StateFactory.UseNewState {
 		deprecatedState := core.NewState(txn)
 		snapshot := core.NewStateSnapshot(deprecatedState, header.Number)
-		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
+		return snapshot, noopStateCloser, nil
 	}
 
 	height, err := core.GetChainHeight(txn)
@@ -507,7 +516,7 @@ func (b *Blockchain) StateAtBlockHash(
 	if err != nil {
 		return nil, nil, err
 	}
-	return commonstate.NewStateReaderAdapter(&history), noopStateCloser, nil
+	return &history, noopStateCloser, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
@@ -728,7 +737,7 @@ type SimulateResult struct {
 func (b *Blockchain) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
 	// Simulate without commit
@@ -764,7 +773,7 @@ func (b *Blockchain) Simulate(
 func (b *Blockchain) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 	sign utils.BlockSignFunc,
 ) error {
 	if !b.StateFactory.UseNewState {
@@ -820,7 +829,7 @@ func (b *Blockchain) updateStateRoots(
 	batch db.Batch,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	var height uint64
 	var err error
@@ -876,8 +885,8 @@ func (b *Blockchain) updateBlockHash(block *core.Block, stateUpdate *core.StateU
 	if err != nil {
 		return nil, err
 	}
-	block.Hash = blockHash
-	stateUpdate.BlockHash = blockHash
+	block.Hash = &blockHash
+	stateUpdate.BlockHash = &blockHash
 	return commitments, nil
 }
 
@@ -890,7 +899,8 @@ func (b *Blockchain) signBlock(
 	if sign == nil {
 		return nil
 	}
-	sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
+	commitment := stateUpdate.StateDiff.Commitment()
+	sig, err := sign(block.Hash, &commitment)
 	if err != nil {
 		return err
 	}
@@ -939,7 +949,7 @@ func (b *Blockchain) storeBlockData(
 
 func (b *Blockchain) StoreGenesis(
 	diff *core.StateDiff,
-	classes map[felt.Felt]core.Class,
+	classes map[felt.Felt]core.ClassDefinition,
 ) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 

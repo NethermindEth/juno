@@ -15,7 +15,7 @@ type StarknetData interface {
 	BlockLatest(ctx context.Context) (*core.Block, error)
 	BlockPending(ctx context.Context) (*core.Block, error)
 	Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error)
-	Class(ctx context.Context, classHash *felt.Felt) (core.Class, error)
+	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)
 	StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error)
 	StateUpdatePending(ctx context.Context) (*core.StateUpdate, error)
 	StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error)

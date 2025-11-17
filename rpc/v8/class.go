@@ -22,7 +22,7 @@ type FunctionCall struct {
 	Calldata           CalldataInputs `json:"calldata"`
 }
 
-func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
+func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, error) {
 	var feederClass starknet.ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
@@ -30,14 +30,14 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 	}
 
 	switch {
-	case feederClass.V1 != nil:
-		compiledClass, cErr := compiler.Compile(feederClass.V1)
+	case feederClass.Sierra != nil:
+		compiledClass, cErr := compiler.Compile(feederClass.Sierra)
 		if cErr != nil {
 			return nil, cErr
 		}
-		return sn2core.AdaptCairo1Class(feederClass.V1, compiledClass)
-	case feederClass.V0 != nil:
-		program := feederClass.V0.Program
+		return sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
+	case feederClass.DeprecatedCairo != nil:
+		program := feederClass.DeprecatedCairo.Program
 
 		// strip the quotes
 		if len(program) < 2 {
@@ -45,12 +45,12 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 		}
 		base64Program := string(program[1 : len(program)-1])
 
-		feederClass.V0.Program, err = utils.Gzip64Decode(base64Program)
+		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
 		if err != nil {
 			return nil, err
 		}
 
-		return sn2core.AdaptCairo0Class(feederClass.V0)
+		return sn2core.AdaptDeprecatedCairoClass(feederClass.DeprecatedCairo)
 	default:
 		return nil, errors.New("empty class")
 	}

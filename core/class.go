@@ -9,13 +9,14 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/crypto/blake2s"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
 )
 
 var (
-	_ Class = (*Cairo0Class)(nil)
-	_ Class = (*Cairo1Class)(nil)
+	_ ClassDefinition = (*DeprecatedCairoClass)(nil)
+	_ ClassDefinition = (*SierraClass)(nil)
 )
 
 const minDeclaredClassSize = 8
@@ -29,67 +30,52 @@ var SierraVersion010 felt.Felt = felt.Felt(
 		576348180530977296,
 	})
 
-// todo(rdr): this Class name is not a really good name, what could be a more descriptive one
-// Class unambiguously defines a [Contract]'s semantics.
-type Class interface {
-	Version() uint64
+type ClassDefinition interface {
 	SierraVersion() string
-	Hash() (*felt.Felt, error)
+	Hash() (felt.Felt, error)
 }
 
-// todo(rdr): rename this to DeprecatedCairoClass
-// Cairo0Class unambiguously defines a [Contract]'s semantics.
-type Cairo0Class struct {
+type DeprecatedCairoClass struct {
 	Abi json.RawMessage
 	// External functions defined in the class.
-	Externals []EntryPoint
+	Externals []DeprecatedEntryPoint
 	// Functions that receive L1 messages. See
 	// https://www.cairo-lang.org/docs/hello_starknet/l1l2.html#receiving-a-message-from-l1
-	L1Handlers []EntryPoint
+	L1Handlers []DeprecatedEntryPoint
 	// Constructors for the class. Currently, only one is allowed.
-	Constructors []EntryPoint
+	Constructors []DeprecatedEntryPoint
 	// Base64 encoding of compressed Program
 	Program string
 }
 
-// todo(rdr): rename this to DeprecatedEntryPoint
-// EntryPoint uniquely identifies a Cairo function to execute.
-type EntryPoint struct {
+type DeprecatedEntryPoint struct {
 	// starknet_keccak hash of the function signature.
 	Selector *felt.Felt
 	// The offset of the instruction in the class's bytecode.
 	Offset *felt.Felt
 }
 
-func (c *Cairo0Class) Version() uint64 {
+func (c *DeprecatedCairoClass) Version() uint64 {
 	return 0
 }
 
-func (c *Cairo0Class) Hash() (*felt.Felt, error) {
-	return cairo0ClassHash(c)
+func (c *DeprecatedCairoClass) Hash() (felt.Felt, error) {
+	return deprecatedCairoClassHash(c)
 }
 
-func (c *Cairo0Class) SierraVersion() string {
+func (c *DeprecatedCairoClass) SierraVersion() string {
 	return "0.0.0"
 }
 
-// todo(rdr): rename this to CairoClass
-// Cairo1Class unambiguously defines a [Contract]'s semantics.
-type Cairo1Class struct {
-	Abi     string
-	AbiHash *felt.Felt
-	// TODO: will implement this on a follow up PR commit to avoid the migration
-	// EntryPoints     SierraEntryPointsByType
-	EntryPoints struct {
-		Constructor []SierraEntryPoint
-		External    []SierraEntryPoint
-		L1Handler   []SierraEntryPoint
-	}
+type SierraClass struct {
+	Abi         string
+	AbiHash     *felt.Felt
+	EntryPoints SierraEntryPointsByType
 	Program     []*felt.Felt
 	ProgramHash *felt.Felt
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
-	Compiled        *CompiledClass
+	Compiled        *CasmClass
 }
 
 type SegmentLengths struct {
@@ -97,48 +83,54 @@ type SegmentLengths struct {
 	Length   uint64
 }
 
-// todo(rdr): rename CompiledClass to CasmClass
-type CompiledClass struct {
+type CasmClass struct {
 	Bytecode               []*felt.Felt
 	PythonicHints          json.RawMessage
 	CompilerVersion        string
 	Hints                  json.RawMessage
 	Prime                  *big.Int
-	External               []CompiledEntryPoint
-	L1Handler              []CompiledEntryPoint
-	Constructor            []CompiledEntryPoint
+	External               []CasmEntryPoint
+	L1Handler              []CasmEntryPoint
+	Constructor            []CasmEntryPoint
 	BytecodeSegmentLengths SegmentLengths
 }
 
-// todo(rdr): rename this to CasmEntryPoint
-type CompiledEntryPoint struct {
+type CasmEntryPoint struct {
 	Offset   uint64
 	Builtins []string
 	Selector *felt.Felt
 }
 
-// TODO: will implement this on a follow up PR commit to avoid the migration
-// type SierraEntryPointsByType struct {
-// 	Constructor []SierraEntryPoint
-// 	External    []SierraEntryPoint
-// 	L1Handler   []SierraEntryPoint
-// }
+type SierraEntryPointsByType struct {
+	Constructor []SierraEntryPoint
+	External    []SierraEntryPoint
+	L1Handler   []SierraEntryPoint
+}
 
 type SierraEntryPoint struct {
 	Index    uint64
 	Selector *felt.Felt
 }
 
-func (c *Cairo1Class) Version() uint64 {
+func (c *SierraClass) Version() uint64 {
 	return 1
 }
 
-func (c *Cairo1Class) Hash() (*felt.Felt, error) {
+func (c *SierraClass) Hash() (felt.Felt, error) {
+	externalEntryPointsHash := crypto.PoseidonArray(
+		flattenSierraEntryPoints(c.EntryPoints.External)...,
+	)
+	l1HandlerEntryPointsHash := crypto.PoseidonArray(
+		flattenSierraEntryPoints(c.EntryPoints.L1Handler)...,
+	)
+	constructorHash := crypto.PoseidonArray(
+		flattenSierraEntryPoints(c.EntryPoints.Constructor)...,
+	)
 	return crypto.PoseidonArray(
-		new(felt.Felt).SetBytes([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
-		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.External)...),
-		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.L1Handler)...),
-		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.Constructor)...),
+		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
+		&externalEntryPointsHash,
+		&l1HandlerEntryPointsHash,
+		&constructorHash,
 		c.AbiHash,
 		c.ProgramHash,
 	), nil
@@ -152,7 +144,7 @@ func (c *Cairo1Class) Hash() (*felt.Felt, error) {
 // "0.1.0" as a shortstring in its first Felt (0x302e312e30 = "0.1.0").
 // For all subsequent versions the version number is the first three felts
 // representing the three parts of a semantic version number.
-func (c *Cairo1Class) SierraVersion() string {
+func (c *SierraClass) SierraVersion() string {
 	if c.Program[0].Equal(&SierraVersion010) {
 		return "0.1.0"
 	}
@@ -168,52 +160,116 @@ func (c *Cairo1Class) SierraVersion() string {
 	return string(b)
 }
 
-// todo(rdr): this is only used in one place, why is it a global var :(.Fix it
-var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
+// CasmHashVersion represents the version of the hash function
+// used to compute the compiled class hash
+type CasmHashVersion int
 
-func (c *CompiledClass) Hash() *felt.Felt {
-	var bytecodeHash *felt.Felt
+const (
+	// HashVersionV1 uses Poseidon hash
+	HashVersionV1 CasmHashVersion = iota + 1
+	// HashVersionV2 uses Blake2s hash
+	HashVersionV2
+)
+
+// Hasher wraps hash algorithm operations
+type Hasher interface {
+	HashArray(felts ...*felt.Felt) felt.Felt
+	NewDigest() crypto.Digest
+}
+
+type poseidonHasher struct{}
+
+func (h poseidonHasher) HashArray(felts ...*felt.Felt) felt.Felt {
+	return crypto.PoseidonArray(felts...)
+}
+
+func (h poseidonHasher) NewDigest() crypto.Digest {
+	return &crypto.PoseidonDigest{}
+}
+
+type blake2sHasher struct{}
+
+func (h blake2sHasher) HashArray(felts ...*felt.Felt) felt.Felt {
+	hash := blake2s.Blake2sArray(felts...)
+	return felt.Felt(hash)
+}
+
+func (h blake2sHasher) NewDigest() crypto.Digest {
+	digest := blake2s.NewDigest()
+	return &digest
+}
+
+func NewCasmHasher(version CasmHashVersion) Hasher {
+	switch version {
+	case HashVersionV2:
+		return blake2sHasher{}
+	case HashVersionV1:
+		return poseidonHasher{}
+	default:
+		return blake2sHasher{}
+	}
+}
+
+// todo(rdr): this is only used in one place, why is it a global var :(.Fix it
+var compiledClassV1Prefix = felt.NewFromBytes[felt.Felt]([]byte("COMPILED_CLASS_V1"))
+
+// Hash computes the class hash using the specified hash version
+func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
+	h := NewCasmHasher(version)
+
+	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
-		bytecodeHash = crypto.PoseidonArray(c.Bytecode...)
+		bytecodeHash = h.HashArray(c.Bytecode...)
 	} else {
-		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children)
+		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children, h)
 	}
 
-	return crypto.PoseidonArray(
+	externalEntryPointsHash := h.HashArray(flattenCompiledEntryPoints(c.External, h)...)
+	l1HandlerEntryPointsHash := h.HashArray(flattenCompiledEntryPoints(c.L1Handler, h)...)
+	constructorHash := h.HashArray(flattenCompiledEntryPoints(c.Constructor, h)...)
+
+	return h.HashArray(
 		compiledClassV1Prefix,
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...),
-		bytecodeHash,
+		&externalEntryPointsHash,
+		&l1HandlerEntryPointsHash,
+		&constructorHash,
+		&bytecodeHash,
 	)
 }
 
-func SegmentedBytecodeHash(bytecode []*felt.Felt, segmentLengths []SegmentLengths) *felt.Felt {
+func SegmentedBytecodeHash(
+	bytecode []*felt.Felt,
+	segmentLengths []SegmentLengths,
+	h Hasher,
+) felt.Felt {
 	var startingOffset uint64
-	var digestSegment func(segments []SegmentLengths) (uint64, *felt.Felt)
-	digestSegment = func(segments []SegmentLengths) (uint64, *felt.Felt) {
+	var digestSegment func(segments []SegmentLengths) (uint64, felt.Felt)
+	digestSegment = func(segments []SegmentLengths) (uint64, felt.Felt) {
 		var totalLength uint64
-		var digest crypto.PoseidonDigest
+		digest := h.NewDigest()
+
 		for _, segment := range segments {
 			var curSegmentLength uint64
-			var curSegmentHash *felt.Felt
+			var curSegmentHash felt.Felt
 
 			if len(segment.Children) == 0 {
 				curSegmentLength = segment.Length
 				segmentBytecode := bytecode[startingOffset : startingOffset+segment.Length]
-				curSegmentHash = crypto.PoseidonArray(segmentBytecode...)
+				curSegmentHash = h.HashArray(segmentBytecode...)
 			} else {
 				curSegmentLength, curSegmentHash = digestSegment(segment.Children)
 			}
 
-			digest.Update(new(felt.Felt).SetUint64(curSegmentLength))
-			digest.Update(curSegmentHash)
+			curSegmentLengthFelt := felt.FromUint64[felt.Felt](curSegmentLength)
+			digest.Update(&curSegmentLengthFelt)
+			digest.Update(&curSegmentHash)
 
 			startingOffset += curSegmentLength
 			totalLength += curSegmentLength
 		}
 		digestRes := digest.Finish()
-		return totalLength, digestRes.Add(digestRes, new(felt.Felt).SetUint64(1))
+		digestRes.Add(&digestRes, &felt.One)
+		return totalLength, digestRes
 	}
 
 	_, hash := digestSegment(segmentLengths)
@@ -226,31 +282,32 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 		// It is important that Selector is first because the order
 		// influences the class hash.
 		result[2*i] = entryPoint.Selector
-		result[2*i+1] = new(felt.Felt).SetUint64(entryPoint.Index)
+		result[2*i+1] = felt.NewFromUint64[felt.Felt](entryPoint.Index)
 	}
 	return result
 }
 
-func flattenCompiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
+func flattenCompiledEntryPoints(entryPoints []CasmEntryPoint, h Hasher) []*felt.Felt {
 	result := make([]*felt.Felt, len(entryPoints)*3)
 	for i, entryPoint := range entryPoints {
 		// It is important that Selector is first, then Offset is second because the order
 		// influences the class hash.
 		result[3*i] = entryPoint.Selector
-		result[3*i+1] = new(felt.Felt).SetUint64(entryPoint.Offset)
+		result[3*i+1] = felt.NewFromUint64[felt.Felt](entryPoint.Offset)
 		builtins := make([]*felt.Felt, len(entryPoint.Builtins))
 		for idx, buil := range entryPoint.Builtins {
-			builtins[idx] = new(felt.Felt).SetBytes([]byte(buil))
+			builtins[idx] = felt.NewFromBytes[felt.Felt]([]byte(buil))
 		}
-		result[3*i+2] = crypto.PoseidonArray(builtins...)
+		builtinsHash := h.HashArray(builtins...)
+		result[3*i+2] = &builtinsHash
 	}
 
 	return result
 }
 
-func VerifyClassHashes(classes map[felt.Felt]Class) error {
+func VerifyClassHashes(classes map[felt.Felt]ClassDefinition) error {
 	for hash, class := range classes {
-		if _, ok := class.(*Cairo0Class); ok {
+		if _, ok := class.(*DeprecatedCairoClass); ok {
 			// skip validation of cairo0 class hash
 			continue
 		}
@@ -268,13 +325,13 @@ func VerifyClassHashes(classes map[felt.Felt]Class) error {
 	return nil
 }
 
-// todo(rdr): We can find a better naming for this as well
-type DeclaredClass struct {
+// DeclaredClassDefinition represents a class definition and the block number where it was declared
+type DeclaredClassDefinition struct {
 	At    uint64 // block number at which the class was declared
-	Class Class
+	Class ClassDefinition
 }
 
-func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
+func (d *DeclaredClassDefinition) MarshalBinary() ([]byte, error) {
 	classEnc, err := encoder.Marshal(d.Class)
 	if err != nil {
 		return nil, err
@@ -288,7 +345,7 @@ func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
 	return buf, nil
 }
 
-func (d *DeclaredClass) UnmarshalBinary(data []byte) error {
+func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 	if len(data) < minDeclaredClassSize {
 		return errors.New("data too short to unmarshal DeclaredClass")
 	}

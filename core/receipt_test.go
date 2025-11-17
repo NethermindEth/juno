@@ -11,7 +11,7 @@ import (
 // note(rdr): based on git blame, it seems this global var is here to avoid certain compiler optimizations.
 //			  it would be nice to have extra clarity
 
-var benchReceiptR *felt.Felt
+var benchReceiptR felt.Felt
 
 func BenchmarkReceiptCommitment(b *testing.B) {
 	// receipts were taken from sepolia block 35748
@@ -90,7 +90,7 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 		},
 	}
 	receipts := slices.Repeat(baseReceipts, 100)
-	var f *felt.Felt
+	var f felt.Felt
 	var err error
 	b.ResetTimer()
 	for range b.N {

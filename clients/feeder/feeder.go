@@ -99,9 +99,9 @@ func NewClient(clientURL string) *Client {
 		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
-		maxRetries: 10, // ~40 secs with default backoff and maxWait (block time on mainnet is 20 seconds on average)
-		maxWait:    4 * time.Second,
-		minWait:    time.Second,
+		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
+		maxWait:    2 * time.Second,
+		minWait:    500 * time.Millisecond,
 		log:        utils.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
 	}
@@ -156,8 +156,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 
 			if wait < c.minWait {
 				wait = c.minWait
+			} else {
+				wait = min(c.backoff(wait), c.maxWait)
 			}
-			wait = min(c.backoff(wait), c.maxWait)
 
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {
@@ -256,7 +257,10 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 	return class, nil
 }
 
-func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CompiledClass, error) {
+func (c *Client) CasmClassDefinition(
+	ctx context.Context,
+	classHash *felt.Felt,
+) (*starknet.CasmClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
 		"classHash":   classHash.String(),
 		"blockNumber": "pending",
@@ -277,7 +281,7 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 		return nil, ErrDeprecatedCompiledClass
 	}
 
-	class := new(starknet.CompiledClass)
+	class := new(starknet.CasmClass)
 	if err = json.Unmarshal(definition, class); err != nil {
 		return nil, err
 	}

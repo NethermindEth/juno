@@ -16,17 +16,21 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 )
 
-var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Transaction, *p2pconsensus.ConsensusTransaction]{
-	ToCore: func(transaction core.Transaction, class core.Class, paidFeeOnL1 *felt.Felt) consensus.Transaction {
+var TransactionBuilder = transactiontestutils.TransactionBuilder[
+	consensus.Transaction,
+	*p2pconsensus.ConsensusTransaction,
+]{
+	ToCore: func(
+		transaction core.Transaction,
+		class core.ClassDefinition,
+		paidFeeOnL1 *felt.Felt,
+	) consensus.Transaction {
 		return consensus.Transaction{
 			Transaction: transaction,
 			Class:       class,
 			PaidFeeOnL1: paidFeeOnL1,
 		}
 	},
-	ToP2PDeclareV0: nil,
-	ToP2PDeclareV1: nil,
-	ToP2PDeclareV2: nil,
 	ToP2PDeclareV3: func(
 		transaction *transaction.DeclareV3WithClass,
 		transactionHash *common.Hash,
@@ -38,7 +42,10 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Trans
 			TransactionHash: transactionHash,
 		}
 	},
-	ToP2PDeploy: func(transaction *transaction.DeployAccountV3, transactionHash *common.Hash) *p2pconsensus.ConsensusTransaction {
+	ToP2PDeploy: func(
+		transaction *transaction.DeployAccountV3,
+		transactionHash *common.Hash,
+	) *p2pconsensus.ConsensusTransaction {
 		return &p2pconsensus.ConsensusTransaction{
 			Txn: &p2pconsensus.ConsensusTransaction_DeployAccountV3{
 				DeployAccountV3: transaction,
@@ -46,7 +53,10 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Trans
 			TransactionHash: transactionHash,
 		}
 	},
-	ToP2PInvoke: func(transaction *transaction.InvokeV3, transactionHash *common.Hash) *p2pconsensus.ConsensusTransaction {
+	ToP2PInvoke: func(
+		transaction *transaction.InvokeV3,
+		transactionHash *common.Hash,
+	) *p2pconsensus.ConsensusTransaction {
 		return &p2pconsensus.ConsensusTransaction{
 			Txn: &p2pconsensus.ConsensusTransaction_InvokeV3{
 				InvokeV3: transaction,
@@ -54,7 +64,10 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Trans
 			TransactionHash: transactionHash,
 		}
 	},
-	ToP2PL1Handler: func(transaction *transaction.L1HandlerV0, transactionHash *common.Hash) *p2pconsensus.ConsensusTransaction {
+	ToP2PL1Handler: func(
+		transaction *transaction.L1HandlerV0,
+		transactionHash *common.Hash,
+	) *p2pconsensus.ConsensusTransaction {
 		return &p2pconsensus.ConsensusTransaction{
 			Txn: &p2pconsensus.ConsensusTransaction_L1Handler{
 				L1Handler: transaction,
@@ -140,7 +153,10 @@ func GetTestBlockInfo(t *testing.T) (consensus.BlockInfo, *p2pconsensus.BlockInf
 	return consensusBlockInfo, &p2pBlockInfo
 }
 
-func GetTestProposalCommitment(t *testing.T) (consensus.ProposalCommitment, *p2pconsensus.ProposalCommitment) {
+func GetTestProposalCommitment(t *testing.T) (
+	consensus.ProposalCommitment,
+	*p2pconsensus.ProposalCommitment,
+) {
 	blockNumber := rand.Uint64()
 	timestamp := rand.Uint64()
 	builder, builderBytes := getRandomFelt(t)

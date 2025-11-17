@@ -100,12 +100,12 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	for index := range vmFnInvocation.Messages {
 		vmMessage := &vmFnInvocation.Messages[index]
 
-		toAddr, _ := new(felt.Felt).SetString(vmMessage.To)
-
 		adaptedMessages[index] = OrderedL2toL1Message{
-			Order:   vmMessage.Order,
-			From:    vmMessage.From,
-			To:      toAddr,
+			Order: vmMessage.Order,
+			From:  vmMessage.From,
+			// todo(rdr): this conversion is unnecessary but the right fix it's a huge
+			//            refactor
+			To:      (*felt.Felt)(vmMessage.To),
 			Payload: vmMessage.Payload,
 		}
 	}
