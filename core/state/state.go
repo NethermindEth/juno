@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -55,9 +54,9 @@ type ClassReader interface {
 }
 
 type TrieProvider interface {
-	ClassTrie() (commontrie.Trie, error)
-	ContractTrie() (commontrie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
+	ClassTrie() (core.CommonTrie, error)
+	ContractTrie() (core.CommonTrie, error)
+	ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error)
 }
 
 type State struct {
@@ -74,7 +73,7 @@ func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("contractTrie", contractTrie, err)
 	classTrie, err := db.ClassTrie(stateRoot)
 	if err != nil {
 		return nil, err
@@ -147,15 +146,15 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, erro
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *State) ClassTrie() (commontrie.Trie, error) {
+func (s *State) ClassTrie() (core.CommonTrie, error) {
 	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (commontrie.Trie, error) {
+func (s *State) ContractTrie() (core.CommonTrie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 

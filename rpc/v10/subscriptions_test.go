@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -93,13 +94,13 @@ func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
 	return nil, core.ErrPendingDataNotFound
 }
 func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) {
+func (fs *fakeSyncer) PendingState() (core.CommonStateReader, func() error, error) {
 	return nil, nil, nil
 }
 
 func (fs *fakeSyncer) PendingStateBeforeIndex(
 	index int,
-) (core.StateReader, func() error, error) {
+) (core.CommonStateReader, func() error, error) {
 	return nil, nil, nil
 }
 
@@ -1369,10 +1370,10 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.NoError(t, err)
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Mainnet)
+	chain := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-	chain = blockchain.New(testDB, &utils.Mainnet)
+	chain = blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	syncer := newFakeSyncer()
 
 	ctx, cancel := context.WithCancel(t.Context())

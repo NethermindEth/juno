@@ -10,7 +10,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+	"github.com/NethermindEth/juno/core/state/statefactory"
+
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
@@ -114,7 +115,7 @@ func GenesisStateDiff(
 	stateDB := state.NewStateDB(memDB, triedb)
 
 	// TODO(maksymmalick): remove this after integration done
-	stateFactory, err := commonstate.NewStateFactory(false, triedb, stateDB)
+	stateFactory, err := statefactory.NewStateFactory(false, triedb, stateDB)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}

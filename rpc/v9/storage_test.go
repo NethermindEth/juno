@@ -12,8 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commontrie"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -241,7 +240,7 @@ func TestStorageProof(t *testing.T) {
 		blockNumber = uint64(1313)
 	)
 
-	var classTrie, contractTrie commontrie.Trie
+	var classTrie, contractTrie core.CommonTrie
 	trieRoot := felt.Zero
 
 	if !statetestutils.UseNewState() {
@@ -250,8 +249,8 @@ func TestStorageProof(t *testing.T) {
 		_, _ = tempTrie.Put(key2, value2)
 		_ = tempTrie.Commit()
 		trieRoot, _ = tempTrie.Root()
-		classTrie = (*commontrie.DeprecatedTrieAdapter)(tempTrie)
-		contractTrie = (*commontrie.DeprecatedTrieAdapter)(tempTrie)
+		classTrie = tempTrie
+		contractTrie = tempTrie
 	} else {
 		newComm := new(felt.Felt).SetUint64(1)
 		createTrie := func(
@@ -273,7 +272,8 @@ func TestStorageProof(t *testing.T) {
 		trieDB := trie2.NewTestNodeDatabase(memory.New(), trie2.PathScheme)
 		createTrie(t, trieutils.NewClassTrieID(felt.Zero), &trieDB)
 		contractTrie2 := createTrie(t, trieutils.NewContractTrieID(felt.Zero), &trieDB)
-		tmpTrieRoot := contractTrie2.Hash()
+		tmpTrieRoot, err := contractTrie2.Hash()
+		require.NoError(t, err)
 		trieRoot = tmpTrieRoot
 
 		// recreate because the previous ones are committed
@@ -291,8 +291,8 @@ func TestStorageProof(t *testing.T) {
 			&trieDB,
 		)
 		require.NoError(t, err)
-		classTrie = (*commontrie.TrieAdapter)(classTrie2)
-		contractTrie = (*commontrie.TrieAdapter)(contractTrie2)
+		classTrie = classTrie2
+		contractTrie = contractTrie2
 	}
 
 	headBlock := &core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}
@@ -929,13 +929,13 @@ func emptyTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-func emptyCommonTrie(t *testing.T) commontrie.Trie {
+func emptyCommonTrie(t *testing.T) core.CommonTrie {
 	if statetestutils.UseNewState() {
 		tempTrie, err := trie2.NewEmptyPedersen()
 		require.NoError(t, err)
-		return (*commontrie.TrieAdapter)(tempTrie)
+		return tempTrie
 	} else {
-		return (*commontrie.DeprecatedTrieAdapter)(emptyTrie(t))
+		return emptyTrie(t)
 	}
 }
 

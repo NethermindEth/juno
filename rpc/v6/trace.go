@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
@@ -159,7 +159,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
 	var (
-		headState       commonstate.StateReader
+		headState       core.CommonStateReader
 		headStateCloser blockchain.StateCloser
 	)
 	if isPending {

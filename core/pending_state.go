@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -15,13 +13,13 @@ var feltOne = new(felt.Felt).SetUint64(1)
 type PendingState struct {
 	stateDiff  *StateDiff
 	newClasses map[felt.Felt]ClassDefinition
-	head       commonstate.StateReader
+	head       CommonStateReader
 }
 
 func NewPendingState(
 	stateDiff *StateDiff,
 	newClasses map[felt.Felt]ClassDefinition,
-	head commonstate.StateReader,
+	head CommonStateReader,
 ) *PendingState {
 	return &PendingState{
 		stateDiff:  stateDiff,
@@ -78,15 +76,15 @@ func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, er
 	return p.head.Class(classHash)
 }
 
-func (p *PendingState) ClassTrie() (commontrie.Trie, error) {
+func (p *PendingState) ClassTrie() (CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractTrie() (commontrie.Trie, error) {
+func (p *PendingState) ContractTrie() (CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
@@ -97,7 +95,7 @@ type PendingStateWriter struct {
 func NewPendingStateWriter(
 	stateDiff *StateDiff,
 	newClasses map[felt.Felt]ClassDefinition,
-	head commonstate.StateReader,
+	head CommonStateReader,
 ) PendingStateWriter {
 	return PendingStateWriter{
 		PendingState: &PendingState{

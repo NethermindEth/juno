@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/plugin"
@@ -212,7 +212,7 @@ func (s *Sequencer) PendingBlock() *core.Block {
 	return s.buildState.PendingBlock()
 }
 
-func (s *Sequencer) PendingState() (commonstate.StateReader, func() error, error) {
+func (s *Sequencer) PendingState() (core.CommonStateReader, func() error, error) {
 	return s.builder.PendingState(s.buildState)
 }
 

@@ -161,7 +161,7 @@ func MakeEmptyPendingDataForParent(
 func ResolvePendingBaseState(
 	pending *core.Pending,
 	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
+) (core.CommonStateReader, blockchain.StateCloser, error) {
 	return stateReader.StateAtBlockHash(pending.Block.ParentHash)
 }
 
@@ -169,7 +169,7 @@ func ResolvePendingBaseState(
 func ResolvePreConfirmedBaseState(
 	preConfirmed *core.PreConfirmed,
 	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
+) (core.CommonStateReader, blockchain.StateCloser, error) {
 	preLatest := preConfirmed.PreLatest
 	// If pre-latest exists, use its parent hash as the base state
 	if preLatest != nil {
@@ -191,7 +191,7 @@ func ResolvePreConfirmedBaseState(
 func ResolvePendingDataBaseState(
 	pending core.PendingData,
 	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
+) (core.CommonStateReader, blockchain.StateCloser, error) {
 	switch p := pending.(type) {
 	case *core.PreConfirmed:
 		return ResolvePreConfirmedBaseState(p, stateReader)
@@ -207,7 +207,7 @@ func ResolvePendingDataBaseState(
 func PendingState(
 	pending core.PendingData,
 	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
+) (core.CommonStateReader, blockchain.StateCloser, error) {
 	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateReader)
 	if err != nil {
 		return nil, nil, err
@@ -222,7 +222,7 @@ func PendingStateBeforeIndex(
 	pending core.PendingData,
 	stateReader blockchain.Reader,
 	index uint,
-) (core.StateReader, blockchain.StateCloser, error) {
+) (core.CommonStateReader, blockchain.StateCloser, error) {
 	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateReader)
 	if err != nil {
 		return nil, nil, err

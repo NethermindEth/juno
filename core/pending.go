@@ -47,9 +47,9 @@ type PendingData interface {
 	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
 	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
 	// up to given index in the pre-confirmed block.
-	PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error)
+	PendingStateBeforeIndex(baseState CommonStateReader, index uint) (CommonStateReader, error)
 	// PendingState returns the state resulting from execution of the pending data
-	PendingState(baseState StateReader) StateReader
+	PendingState(baseState CommonStateReader) CommonStateReader
 }
 
 type Pending struct {
@@ -136,11 +136,11 @@ func (p *Pending) ReceiptByHash(
 	return nil, nil, 0, ErrTransactionReceiptNotFound
 }
 
-func (p *Pending) PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error) {
+func (p *Pending) PendingStateBeforeIndex(baseState CommonStateReader, index uint) (CommonStateReader, error) {
 	return nil, ErrPendingStateBeforeIndexNotSupported
 }
 
-func (p *Pending) PendingState(baseState StateReader) StateReader {
+func (p *Pending) PendingState(baseState CommonStateReader) CommonStateReader {
 	return NewPendingState(
 		p.StateUpdate.StateDiff,
 		p.NewClasses,
@@ -290,9 +290,9 @@ func (p *PreConfirmed) ReceiptByHash(
 }
 
 func (p *PreConfirmed) PendingStateBeforeIndex(
-	baseState StateReader,
+	baseState CommonStateReader,
 	index uint,
-) (StateReader, error) {
+) (CommonStateReader, error) {
 	if index > uint(len(p.Block.Transactions)) {
 		return nil, ErrTransactionIndexOutOfBounds
 	}
@@ -316,7 +316,7 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 	return NewPendingState(&stateDiff, newClasses, baseState), nil
 }
 
-func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
+func (p *PreConfirmed) PendingState(baseState CommonStateReader) CommonStateReader {
 	stateDiff := EmptyStateDiff()
 	newClasses := make(map[felt.Felt]ClassDefinition)
 

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commonstate"
-	"github.com/NethermindEth/juno/core/state/commontrie"
+
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -212,11 +212,11 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	return nil
 }
 
-func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+func getClassProof(tr core.CommonTrie, classes []felt.Felt) ([]*HashToNode, error) {
 	switch t := tr.(type) {
 	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
 	// care about which trie implementation is being used and the output format should be the same
-	case *commontrie.DeprecatedTrieAdapter:
+	case *trie.Trie:
 		classProof := trie.NewProofNodeSet()
 		for _, class := range classes {
 			if err := (*trie.Trie)(t).Prove(&class, classProof); err != nil {
@@ -224,7 +224,7 @@ func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, erro
 			}
 		}
 		return adaptDeprecatedTrieProofNodes(classProof), nil
-	case *commontrie.TrieAdapter:
+	case *trie2.Trie:
 		classProof := trie2.NewProofNodeSet()
 		for _, class := range classes {
 			if err := (*trie2.Trie)(t).Prove(&class, classProof); err != nil {
@@ -238,16 +238,16 @@ func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, erro
 }
 
 func getContractProof(
-	tr commontrie.Trie,
-	state commonstate.StateReader,
+	tr core.CommonTrie,
+	state core.CommonStateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
 	// care about which trie implementation is being used and the output format should be the same
 	switch t := tr.(type) {
-	case *commontrie.DeprecatedTrieAdapter:
+	case *trie.Trie:
 		return getContractProofWithDeprecatedTrie((*trie.Trie)(t), state, contracts)
-	case *commontrie.TrieAdapter:
+	case *trie2.Trie:
 		return getContractProofWithTrie((*trie2.Trie)(t), state, contracts)
 	default:
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
@@ -256,14 +256,14 @@ func getContractProof(
 
 func getContractProofWithDeprecatedTrie(
 	tr *trie.Trie,
-	state commonstate.StateReader,
+	state core.CommonStateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	contractProof := trie.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 
 	for i, contract := range contracts {
-		if err := t.Prove(&contract, contractProof); err != nil {
+		if err := tr.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
 
@@ -300,7 +300,7 @@ func getContractProofWithDeprecatedTrie(
 
 func getContractProofWithTrie(
 	tr *trie2.Trie,
-	st commonstate.StateReader,
+	st core.CommonStateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
@@ -311,7 +311,10 @@ func getContractProofWithTrie(
 			return nil, err
 		}
 
-		root := tr.Hash()
+		root, err := tr.Hash()
+		if err != nil {
+			return nil, err
+		}
 
 		nonce, err := st.ContractNonce(&contract)
 		if err != nil {
@@ -341,7 +344,7 @@ func getContractProofWithTrie(
 }
 
 func getContractStorageProof(
-	state commonstate.StateReader,
+	state core.CommonStateReader,
 	storageKeys []StorageKeys,
 ) ([][]*HashToNode, error) {
 	contractStorageRes := make([][]*HashToNode, len(storageKeys))
@@ -352,7 +355,7 @@ func getContractStorageProof(
 		}
 
 		switch t := contractStorageTrie.(type) {
-		case *commontrie.DeprecatedTrieAdapter:
+		case *trie.Trie:
 			contractStorageProof := trie.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
 				if err := (*trie.Trie)(t).Prove(&key, contractStorageProof); err != nil {
@@ -360,7 +363,7 @@ func getContractStorageProof(
 				}
 			}
 			contractStorageRes[i] = adaptDeprecatedTrieProofNodes(contractStorageProof)
-		case *commontrie.TrieAdapter:
+		case *trie2.Trie:
 			contractStorageProof := trie2.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
 				if err := (*trie2.Trie)(t).Prove(&key, contractStorageProof); err != nil {

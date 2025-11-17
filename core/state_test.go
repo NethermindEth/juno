@@ -51,7 +51,7 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("error when state current root doesn't match state update's old root",
 		func(t *testing.T) {
-			oldRoot := felt.NewUnsafeFromString[felt.Felt]("some old root")
+			oldRoot := felt.NewFromBytes[felt.Felt]([]byte("some old root"))
 			su := &core.StateUpdate{
 				OldRoot: oldRoot,
 			}
@@ -64,7 +64,7 @@ func TestUpdate(t *testing.T) {
 		})
 
 	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
-		newRoot := new(felt.Felt).SetBytes([]byte("some new root"))
+		newRoot := felt.NewFromBytes[felt.Felt]([]byte("some old root"))
 		su := &core.StateUpdate{
 			NewRoot:   newRoot,
 			OldRoot:   su0.NewRoot,
@@ -115,7 +115,7 @@ func TestUpdate(t *testing.T) {
 	scValue := felt.NewUnsafeFromString[felt.Felt](
 		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
 	)
-	scAddr := new(felt.Felt).SetUint64(1)
+	scAddr := felt.NewFromUint64[felt.Felt](1)
 
 	su4 := &core.StateUpdate{
 		OldRoot: su3.NewRoot,
@@ -247,7 +247,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("update contract nonce", func(t *testing.T) {
-		expectedNonce := new(felt.Felt).SetUint64(1)
+		expectedNonce := felt.NewFromUint64[felt.Felt](1)
 		su = &core.StateUpdate{
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1",

@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -760,7 +760,7 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 
 func TestStorePending(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Mainnet)
+	bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	log := utils.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)

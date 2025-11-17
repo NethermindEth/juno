@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -61,7 +61,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			declaredClasses []core.ClassDefinition,
 			paidFeesOnL1 []*felt.Felt,
 			blockInfo *vm.BlockInfo,
-			state commonstate.StateReader,
+			state core.CommonStateReader,
 			skipChargeFee,
 			skipValidate,
 			errOnRevert,
