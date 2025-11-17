@@ -27,7 +27,7 @@ func (l *logMessageToL2) hashMessage() *common.Hash {
 	hash := sha3.NewLegacyKeccak256()
 
 	writeUint256 := func(value *big.Int) {
-		bytes := make([]byte, 32) //nolint:mnd
+		bytes := make([]byte, 32)
 		value.FillBytes(bytes)
 		hash.Write(bytes)
 	}

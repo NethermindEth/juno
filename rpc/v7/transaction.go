@@ -257,7 +257,7 @@ type BroadcastedTransaction struct {
 
 func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
-) (core.Transaction, core.Class, *felt.Felt, error) {
+) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	// RPCv7 requests must set l2_gas to zero
 	if broadcastedTxn.ResourceBounds != nil {
 		broadcastedTxn.ResourceBounds = &rpcv6.ResourceBoundsMap{
@@ -274,7 +274,7 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	var declaredClass core.Class
+	var declaredClass core.ClassDefinition
 	if len(broadcastedTxn.ContractClass) != 0 {
 		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
 		if err != nil {
@@ -285,10 +285,11 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
-		t.ClassHash, err = declaredClass.Hash()
+		classHash, err := declaredClass.Hash()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		t.ClassHash = &classHash
 	}
 
 	txnHash, err := core.TransactionHash(txn, network)
@@ -299,13 +300,13 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.InvokeTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.DeployAccountTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.L1HandlerTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
 		return nil, nil, nil, errors.New("unsupported transaction")

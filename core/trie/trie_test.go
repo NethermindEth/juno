@@ -158,7 +158,7 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 func TestPutZero(t *testing.T) {
 	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
-		emptyRoot, err := tempTrie.Root()
+		emptyRoot, err := tempTrie.Hash()
 		require.NoError(t, err)
 		var roots []*felt.Felt
 		var keys []*felt.Felt
@@ -174,7 +174,7 @@ func TestPutZero(t *testing.T) {
 			keys = append(keys, key)
 
 			var root felt.Felt
-			root, err = tempTrie.Root()
+			root, err = tempTrie.Hash()
 			require.NoError(t, err)
 
 			roots = append(roots, &root)
@@ -188,7 +188,7 @@ func TestPutZero(t *testing.T) {
 				_, err = tempTrie.Put(key, new(felt.Felt))
 				require.NoError(t, err)
 
-				root, err := tempTrie.Root()
+				root, err := tempTrie.Hash()
 				require.NoError(t, err)
 
 				assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
@@ -200,7 +200,7 @@ func TestPutZero(t *testing.T) {
 			for i := range 64 {
 				root := roots[len(roots)-1-i]
 
-				gotRoot, err = tempTrie.Root()
+				gotRoot, err = tempTrie.Hash()
 				require.NoError(t, err)
 
 				assert.Equal(t, root, &gotRoot)
@@ -212,7 +212,7 @@ func TestPutZero(t *testing.T) {
 		})
 
 		t.Run("empty roots should match", func(t *testing.T) {
-			actualEmptyRoot, err := tempTrie.Root()
+			actualEmptyRoot, err := tempTrie.Hash()
 			require.NoError(t, err)
 
 			assert.Equal(t, true, actualEmptyRoot.Equal(&emptyRoot))
@@ -223,7 +223,7 @@ func TestPutZero(t *testing.T) {
 
 func TestTrie(t *testing.T) {
 	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
-		emptyRoot, err := tempTrie.Root()
+		emptyRoot, err := tempTrie.Hash()
 		require.NoError(t, err)
 		var roots []*felt.Felt
 		var keys []*felt.Felt
@@ -239,7 +239,7 @@ func TestTrie(t *testing.T) {
 			keys = append(keys, key)
 
 			var root felt.Felt
-			root, err = tempTrie.Root()
+			root, err = tempTrie.Hash()
 			require.NoError(t, err)
 
 			roots = append(roots, &root)
@@ -251,7 +251,7 @@ func TestTrie(t *testing.T) {
 			_, err = tempTrie.Put(key, new(felt.Felt))
 			require.NoError(t, err)
 
-			root, err := tempTrie.Root()
+			root, err := tempTrie.Hash()
 			require.NoError(t, err)
 
 			assert.Equal(t, true, (&root).Equal(roots[len(roots)-1]))
@@ -263,7 +263,7 @@ func TestTrie(t *testing.T) {
 			for i := range 64 {
 				root := roots[len(roots)-1-i]
 
-				gotRoot, err = tempTrie.Root()
+				gotRoot, err = tempTrie.Hash()
 				require.NoError(t, err)
 
 				assert.Equal(t, root, &gotRoot)
@@ -275,7 +275,7 @@ func TestTrie(t *testing.T) {
 		})
 
 		t.Run("empty roots should match", func(t *testing.T) {
-			actualEmptyRoot, err := tempTrie.Root()
+			actualEmptyRoot, err := tempTrie.Hash()
 			require.NoError(t, err)
 
 			assert.Equal(t, true, actualEmptyRoot.Equal(&emptyRoot))
@@ -399,7 +399,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	want := new(felt.Felt)
 
 	// Step 1d: Commit
-	got, err := tempTrie.Root()
+	got, err := tempTrie.Hash()
 	require.NoError(t, err)
 	// Ensure root value matches expectation.
 	assert.Equal(t, want, &got)
@@ -408,7 +408,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	tTxn = trie.NewStorage(txn, []byte{1, 2, 3})
 	secondTrie, err := trie.NewTriePedersen(tTxn, height)
 	require.NoError(t, err)
-	got, err = secondTrie.Root()
+	got, err = secondTrie.Hash()
 	require.NoError(t, err)
 	// Ensure root value is the same as the first trie.
 	assert.Equal(t, want, &got)

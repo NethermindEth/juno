@@ -46,7 +46,7 @@ func (tvm *ThrottledVM) Call(
 
 func (tvm *ThrottledVM) Execute(
 	txns []core.Transaction,
-	declaredClasses []core.Class,
+	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *vm.BlockInfo,
 	state commonstate.StateReader,
@@ -55,6 +55,7 @@ func (tvm *ThrottledVM) Execute(
 	errOnRevert,
 	errStack,
 	allowBinarySearch bool,
+	isEstimateFee bool,
 ) (vm.ExecutionResults, error) {
 	var executionResult vm.ExecutionResults
 	return executionResult, tvm.Do(func(vm *vm.VM) error {
@@ -70,6 +71,7 @@ func (tvm *ThrottledVM) Execute(
 			errOnRevert,
 			errStack,
 			allowBinarySearch,
+			isEstimateFee,
 		)
 		return err
 	})

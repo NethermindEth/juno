@@ -32,7 +32,7 @@ func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.N
 
 	var (
 		tx    core.Transaction
-		class core.Class
+		class core.ClassDefinition
 		err   error
 	)
 
@@ -57,8 +57,12 @@ func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.N
 		return mempool.BroadcastedTransaction{}, err
 	}
 
-	if *computedTransactionHash != *tx.Hash() {
-		return mempool.BroadcastedTransaction{}, fmt.Errorf("transaction hash mismatch: computed %s, got %s", computedTransactionHash, tx.Hash())
+	if computedTransactionHash != *tx.Hash() {
+		return mempool.BroadcastedTransaction{},
+			fmt.Errorf("transaction hash mismatch: computed %s, got %s",
+				&computedTransactionHash,
+				tx.Hash(),
+			)
 	}
 
 	return mempool.BroadcastedTransaction{

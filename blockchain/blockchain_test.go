@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -300,13 +300,10 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
 	require.NoError(t, err)
-	require.Equal(
-		t,
-		felt.NewUnsafeFromString[felt.Felt](
-			"0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5",
-		),
-		&l1HandlerTxnHash,
+	expectedHash := felt.UnsafeFromString[felt.Felt](
+		"0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5",
 	)
+	require.Equal(t, expectedHash, l1HandlerTxnHash)
 }
 
 func TestBlockCommitments(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -72,7 +72,7 @@ func (s *stateSnapshot) ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 }
 
 func (s *stateSnapshot) checkDeployed(addr *felt.Felt) error {
-	isDeployed, err := s.state.ContractIsAlreadyDeployedAt(addr, s.blockNumber)
+	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNumber)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (s *stateSnapshot) checkDeployed(addr *felt.Felt) error {
 	return nil
 }
 
-func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
 		return nil, err
@@ -95,14 +95,14 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	return declaredClass, nil
 }
 
-func (s *stateSnapshot) ClassTrie() (*trie.Trie, error) {
+func (s *stateSnapshot) ClassTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateSnapshot) ContractTrie() (*trie.Trie, error) {
+func (s *stateSnapshot) ContractTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateSnapshot) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (s *stateSnapshot) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

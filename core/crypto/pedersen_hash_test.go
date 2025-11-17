@@ -110,7 +110,7 @@ func TestPedersenArray(t *testing.T) {
 			data = append(data, elem)
 		}
 		digestWhole.Update(data...)
-		want := felt.NewUnsafeFromString[felt.Felt](test.want)
+		want := felt.UnsafeFromString[felt.Felt](test.want)
 		got := crypto.PedersenArray(data...)
 		assert.Equal(t, want, got)
 		assert.Equal(t, want, digest.Finish())
@@ -120,7 +120,7 @@ func TestPedersenArray(t *testing.T) {
 
 // By having a package and local level variable compiler optimisations can be eliminated for more accurate results.
 // See here: https://dave.cheney.net/2013/06/30/how-to-write-benchmarks-in-go
-var benchHashR *felt.Felt
+var benchHashR felt.Felt
 
 // go test -bench=. -run=^# -cpu=1,2,4,8,16
 func BenchmarkPedersenArray(b *testing.B) {
@@ -129,7 +129,7 @@ func BenchmarkPedersenArray(b *testing.B) {
 	for _, i := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
 			randomFeltSls := genRandomFeltSls(b, i)
-			var f *felt.Felt
+			var f felt.Felt
 			b.ResetTimer()
 			for n := range b.N {
 				f = crypto.PedersenArray(randomFeltSls[n]...)
@@ -141,7 +141,7 @@ func BenchmarkPedersenArray(b *testing.B) {
 
 func BenchmarkPedersen(b *testing.B) {
 	randFelts := genRandomFeltPairs(b)
-	var f *felt.Felt
+	var f felt.Felt
 	b.ResetTimer()
 	for n := range b.N {
 		f = crypto.Pedersen(randFelts[n][0], randFelts[n][1])

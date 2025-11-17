@@ -2,11 +2,10 @@ package rpcv7
 
 import (
 	"errors"
-	"time"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state/commonstate"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 )
 
 func (h *Handler) PendingData() (core.PendingData, error) {
@@ -24,7 +23,11 @@ func (h *Handler) PendingData() (core.PendingData, error) {
 	if err != nil {
 		return nil, err
 	}
-	emptyPending := emptyPendingForParent(latestHeader)
+
+	emptyPending, err := pendingdata.MakeEmptyPendingForParent(h.bcReader, latestHeader)
+	if err != nil {
+		return nil, err
+	}
 	return &emptyPending, nil
 }
 
@@ -37,7 +40,7 @@ func (h *Handler) PendingBlock() *core.Block {
 }
 
 func (h *Handler) PendingState() (commonstate.StateReader, func() error, error) {
-	pending, err := h.syncReader.PendingData()
+	pendingData, err := h.syncReader.PendingData()
 	if err != nil {
 		if errors.Is(err, core.ErrPendingDataNotFound) {
 			return h.bcReader.HeadState()
@@ -45,56 +48,9 @@ func (h *Handler) PendingState() (commonstate.StateReader, func() error, error) 
 		return nil, nil, err
 	}
 
-	if pending.Variant() == core.PendingBlockVariant {
-		state, closer, err := h.syncReader.PendingState()
-		if err != nil {
-			if errors.Is(err, core.ErrPendingDataNotFound) {
-				return h.bcReader.HeadState()
-			}
-			return nil, nil, err
-		}
-
-		return state, closer, nil
+	if pendingData.Variant() != core.PendingBlockVariant {
+		return h.bcReader.HeadState()
 	}
 
-	return h.bcReader.HeadState()
-}
-
-func emptyPendingForParent(parentHeader *core.Header) core.Pending {
-	receipts := make([]*core.TransactionReceipt, 0)
-	pendingBlock := &core.Block{
-		Header: &core.Header{
-			ParentHash:       parentHeader.Hash,
-			Number:           parentHeader.Number + 1,
-			SequencerAddress: parentHeader.SequencerAddress,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  parentHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    parentHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   parentHeader.L1GasPriceSTRK,
-			L2GasPrice:       parentHeader.L2GasPrice,
-			L1DataGasPrice:   parentHeader.L1DataGasPrice,
-			L1DAMode:         parentHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff := &core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
-		Nonces:            make(map[felt.Felt]*felt.Felt),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt),
-		DeclaredV0Classes: make([]*felt.Felt, 0),
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
-	}
-
-	return core.Pending{
-		Block: pendingBlock,
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   parentHeader.GlobalStateRoot,
-			StateDiff: stateDiff,
-		},
-		NewClasses: make(map[felt.Felt]core.Class, 0),
-	}
+	return pendingdata.PendingState(pendingData, h.bcReader)
 }

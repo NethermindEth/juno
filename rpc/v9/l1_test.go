@@ -98,7 +98,10 @@ func TestGetMessageStatus(t *testing.T) {
 
 			mockSubscriber.EXPECT().TransactionReceipt(gomock.Any(), gomock.Any()).Return(&test.l1TxnReceipt, nil)
 			for i, msg := range test.msgs {
-				mockReader.EXPECT().L1HandlerTxnHash(&test.msgHashes[i]).Return(*msg.L1HandlerHash, nil)
+				mockReader.EXPECT().L1HandlerTxnHash(&test.msgHashes[i]).Return(
+					*msg.L1HandlerHash,
+					nil,
+				)
 				// Expects for h.TransactionStatus()
 				mockReader.EXPECT().TransactionByHash(msg.L1HandlerHash).Return(l1handlerTxns[i], nil)
 				mockReader.EXPECT().Receipt(msg.L1HandlerHash).Return(block.Receipts[0], block.Hash, block.Number, nil)

@@ -1,0 +1,32 @@
+{
+    "type": "DECLARE",
+    "transaction_hash": "0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747",
+    "actual_fee": {
+        "amount": "0xd07af45c84550",
+        "unit": "WEI"
+    },
+    "execution_status": "SUCCEEDED",
+    "finality_status": "ACCEPTED_ON_L2",
+    "block_hash": "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869",
+    "block_number": 35748,
+    "messages_sent": [],
+    "events": [
+        {
+            "from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+            "keys": [
+                "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+            ],
+            "data": [
+                "0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+                "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+                "0xd07af45c84550",
+                "0x0"
+            ]
+        }
+    ],
+    "execution_resources": {
+        "l1_data_gas": 192,
+        "l1_gas": 117620,
+        "l2_gas": 0
+    }
+}

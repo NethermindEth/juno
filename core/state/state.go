@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -19,13 +20,18 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
+const (
+	systemContract1Addr = 1
+	systemContract2Addr = 2
+)
+
 var (
 	stateVersion0             = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 	leafVersion0              = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	noClassContractsClassHash = felt.Zero
 	noClassContracts          = map[felt.Felt]struct{}{
-		*new(felt.Felt).SetUint64(1): {},
-		*new(felt.Felt).SetUint64(2): {},
+		felt.FromUint64[felt.Felt](systemContract1Addr): {},
+		felt.FromUint64[felt.Felt](systemContract2Addr): {},
 	}
 )
 
@@ -45,13 +51,13 @@ type ContractReader interface {
 }
 
 type ClassReader interface {
-	Class(classHash *felt.Felt) (*core.DeclaredClass, error)
+	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
 }
 
 type TrieProvider interface {
-	ClassTrie() (*trie2.Trie, error)
-	ContractTrie() (*trie2.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error)
+	ClassTrie() (commontrie.Trie, error)
+	ContractTrie() (commontrie.Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
 }
 
 type State struct {
@@ -137,26 +143,32 @@ func (s *State) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, erro
 	return contract.DeployedHeight <= blockNum, nil
 }
 
-func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *State) ClassTrie() (*trie2.Trie, error) {
+func (s *State) ClassTrie() (commontrie.Trie, error) {
 	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (*trie2.Trie, error) {
+func (s *State) ContractTrie() (commontrie.Trie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
 // Returns the state commitment
 func (s *State) Commitment() (felt.Felt, error) {
-	contractRoot := s.contractTrie.Hash()
-	classRoot := s.classTrie.Hash()
+	contractRoot, err := s.contractTrie.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	classRoot, err := s.classTrie.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
 	return stateCommitment(&contractRoot, &classRoot), nil
 }
 
@@ -166,7 +178,7 @@ func (s *State) Commitment() (felt.Felt, error) {
 func (s *State) Update(
 	blockNum uint64,
 	update *core.StateUpdate,
-	declaredClasses map[felt.Felt]core.Class,
+	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
 	flushChanges bool,
 ) error {
@@ -174,7 +186,7 @@ func (s *State) Update(
 		return err
 	}
 
-	dirtyClasses := make(map[felt.Felt]core.Class)
+	dirtyClasses := make(map[felt.Felt]core.ClassDefinition)
 
 	// Register the declared classes
 	for hash, class := range declaredClasses {
@@ -270,7 +282,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	}
 
 	// Revert the classes
-	dirtyClasses := make(map[felt.Felt]core.Class)
+	dirtyClasses := make(map[felt.Felt]core.ClassDefinition)
 	for _, hash := range classHashes {
 		dc, err := s.Class(hash)
 		if err != nil {
@@ -281,7 +293,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 			continue
 		}
 
-		if _, ok := dc.Class.(*core.Cairo1Class); ok {
+		if _, ok := dc.Class.(*core.SierraClass); ok {
 			if err := s.classTrie.Update(hash, &felt.Zero); err != nil {
 				return err
 			}
@@ -489,7 +501,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 func (s *State) flush(
 	blockNum uint64,
 	update *stateUpdate,
-	classes map[felt.Felt]core.Class,
+	classes map[felt.Felt]core.ClassDefinition,
 	storeHistory bool,
 ) error {
 	batch := s.db.disk.NewBatch()
@@ -552,14 +564,17 @@ func (s *State) flush(
 	return batch.Write()
 }
 
-func (s *State) updateClassTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefs map[felt.Felt]core.Class) error {
+func (s *State) updateClassTrie(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	classDefs map[felt.Felt]core.ClassDefinition,
+) error {
 	for classHash, compiledClassHash := range declaredClasses {
 		if _, found := classDefs[classHash]; !found {
 			continue
 		}
 
 		leafVal := crypto.Poseidon(leafVersion0, compiledClassHash)
-		if err := s.classTrie.Update(&classHash, leafVal); err != nil {
+		if err := s.classTrie.Update(&classHash, &leafVal); err != nil {
 			return err
 		}
 	}
@@ -792,6 +807,5 @@ func stateCommitment(contractRoot, classRoot *felt.Felt) felt.Felt {
 		return *contractRoot
 	}
 
-	commitment := crypto.PoseidonArray(stateVersion0, contractRoot, classRoot)
-	return *commitment
+	return crypto.PoseidonArray(stateVersion0, contractRoot, classRoot)
 }

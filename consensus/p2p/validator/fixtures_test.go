@@ -174,7 +174,7 @@ func buildTransactions(t *testing.T, gw *adaptfeeder.Feeder, block *core.Block, 
 		transactions := make([]types.Transaction, len(txs))
 
 		for i, tx := range txs {
-			var class core.Class
+			var class core.ClassDefinition
 			var paidFeeOnL1 *felt.Felt
 			switch tx := tx.(type) {
 			case *core.DeclareTransaction:
@@ -309,7 +309,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 				OldRoot:   headBlockHeader.GlobalStateRoot,
 				StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
 			},
-			NewClasses:            map[felt.Felt]core.Class{},
+			NewClasses:            map[felt.Felt]core.ClassDefinition{},
 			TransactionStateDiffs: []*core.StateDiff{},
 			CandidateTxs:          []core.Transaction{},
 		},
@@ -331,8 +331,12 @@ func calculateConcatCounts(block *core.Block, stateUpdate *core.StateUpdate) fel
 	return core.ConcatCounts(block.TransactionCount, block.EventCount, stateUpdate.StateDiff.Length(), block.L1DAMode)
 }
 
-func calculateNewClasses(t *testing.T, gw *adaptfeeder.Feeder, stateUpdate *core.StateUpdate) map[felt.Felt]core.Class {
-	newClasses := make(map[felt.Felt]core.Class)
+func calculateNewClasses(
+	t *testing.T,
+	gw *adaptfeeder.Feeder,
+	stateUpdate *core.StateUpdate,
+) map[felt.Felt]core.ClassDefinition {
+	newClasses := make(map[felt.Felt]core.ClassDefinition)
 	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
 		class, err := gw.Class(t.Context(), &classHash)
 		require.NoError(t, err)

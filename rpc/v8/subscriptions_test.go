@@ -377,6 +377,7 @@ type fakeSyncer struct {
 	newHeads    *feed.Feed[*core.Block]
 	reorgs      *feed.Feed[*sync.ReorgBlockRange]
 	pendingData *feed.Feed[core.PendingData]
+	preLatest   *feed.Feed[*core.PreLatest]
 }
 
 func newFakeSyncer() *fakeSyncer {
@@ -384,6 +385,7 @@ func newFakeSyncer() *fakeSyncer {
 		newHeads:    feed.New[*core.Block](),
 		reorgs:      feed.New[*sync.ReorgBlockRange](),
 		pendingData: feed.New[core.PendingData](),
+		preLatest:   feed.New[*core.PreLatest](),
 	}
 }
 
@@ -397,6 +399,10 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 
 func (fs *fakeSyncer) SubscribePendingData() sync.PendingDataSubscription {
 	return sync.PendingDataSubscription{Subscription: fs.pendingData.Subscribe()}
+}
+
+func (fs *fakeSyncer) SubscribePreLatest() sync.PreLatestDataSubscription {
+	return sync.PreLatestDataSubscription{Subscription: fs.preLatest.Subscribe()}
 }
 
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
@@ -1134,7 +1140,7 @@ func createTestEvents(
 				BlockNumber:     &b.Number,
 				BlockHash:       b.Hash,
 				TransactionHash: receipt.TransactionHash,
-				EventIndex:      i,
+				EventIndex:      uint(i),
 			})
 			emitted = append(emitted, EmittedEvent{
 				Event: &Event{

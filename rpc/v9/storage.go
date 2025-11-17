@@ -214,6 +214,8 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 
 func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 	switch t := tr.(type) {
+	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
+	// care about which trie implementation is being used and the output format should be the same
 	case *commontrie.DeprecatedTrieAdapter:
 		classProof := trie.NewProofNodeSet()
 		for _, class := range classes {
@@ -240,6 +242,8 @@ func getContractProof(
 	state commonstate.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
+	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
+	// care about which trie implementation is being used and the output format should be the same
 	switch t := tr.(type) {
 	case *commontrie.DeprecatedTrieAdapter:
 		return getContractProofWithDeprecatedTrie((*trie.Trie)(t), state, contracts)
@@ -259,11 +263,11 @@ func getContractProofWithDeprecatedTrie(
 	contractLeavesData := make([]*LeafData, len(contracts))
 
 	for i, contract := range contracts {
-		if err := tr.Prove(&contract, contractProof); err != nil {
+		if err := t.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
 
-		root, err := tr.Root()
+		root, err := tr.Hash()
 		if err != nil {
 			return nil, err
 		}

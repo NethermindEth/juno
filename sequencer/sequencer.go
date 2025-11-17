@@ -39,6 +39,7 @@ type Sequencer struct {
 	subPendingData       *feed.Feed[core.PendingData]
 	subReorgFeed         *feed.Feed[*sync.ReorgBlockRange]
 	subPreConfirmedBlock *feed.Feed[*core.PreConfirmed]
+	subPreLatest         *feed.Feed[*core.PreLatest]
 	plugin               plugin.JunoPlugin
 
 	mu syncLock.RWMutex
@@ -215,12 +216,6 @@ func (s *Sequencer) PendingState() (commonstate.StateReader, func() error, error
 	return s.builder.PendingState(s.buildState)
 }
 
-func (s *Sequencer) PendingStateBeforeIndex(
-	index int,
-) (commonstate.StateReader, func() error, error) {
-	return nil, nil, errors.ErrUnsupported
-}
-
 func (s *Sequencer) HighestBlockHeader() *core.Header {
 	return nil // Not relevant for Sequencer. Todo: clean Reader
 }
@@ -240,6 +235,10 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 
 func (s *Sequencer) SubscribePendingData() sync.PendingDataSubscription {
 	return sync.PendingDataSubscription{Subscription: s.subPendingData.Subscribe()}
+}
+
+func (s *Sequencer) SubscribePreLatest() sync.PreLatestDataSubscription {
+	return sync.PreLatestDataSubscription{Subscription: s.subPreLatest.Subscribe()}
 }
 
 func (s *Sequencer) PendingData() (core.PendingData, error) {

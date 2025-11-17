@@ -259,11 +259,11 @@ func getContractProofWithDeprecatedTrie(
 	contractLeavesData := make([]*LeafData, len(contracts))
 
 	for i, contract := range contracts {
-		if err := tr.Prove(&contract, contractProof); err != nil {
+		if err := t.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
 
-		root, err := tr.Root()
+		root, err := t.Hash()
 		if err != nil {
 			return nil, err
 		}

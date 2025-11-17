@@ -13,6 +13,7 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -161,12 +162,25 @@ func TestStateUpdate(t *testing.T) {
 		update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
 		require.NoError(t, err)
 
-		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
+		preConfirmed := core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number: 21657,
+				},
+			},
+		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
 		)
 
+		blockToRegisterHash := core.Header{
+			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
+			Number: preConfirmed.Block.Number - 10,
+		}
+		// to update block hash registry
+		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
+			Return(&blockToRegisterHash, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{
 			GlobalStateRoot: update21656.NewRoot,
 			Number:          21656,
@@ -174,16 +188,13 @@ func TestStateUpdate(t *testing.T) {
 
 		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
+		expectedStateDiff := core.EmptyStateDiff()
+		expectedStateDiff.StorageDiffs[*pendingdata.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
+			felt.FromUint64[felt.Felt](blockToRegisterHash.Number): blockToRegisterHash.Hash,
+		}
 		checkUpdate(t, &core.StateUpdate{
-			OldRoot: update21656.NewRoot,
-			StateDiff: &core.StateDiff{
-				StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
-				Nonces:            make(map[felt.Felt]*felt.Felt),
-				DeployedContracts: make(map[felt.Felt]*felt.Felt),
-				DeclaredV0Classes: make([]*felt.Felt, 0),
-				DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
-				ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
-			},
+			OldRoot:   update21656.NewRoot,
+			StateDiff: &expectedStateDiff,
 		}, update)
 	})
 }

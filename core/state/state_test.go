@@ -21,12 +21,14 @@ import (
 
 // Address of first deployed contract in mainnet block 1's state update.
 var (
-	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
-	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
-	su3DeclaredClasses          = func() map[felt.Felt]core.Class {
+	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString(
+		"0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80",
+	)
+	su1FirstDeployedAddress = *_su1FirstDeployedAddress
+	su3DeclaredClasses      = func() map[felt.Felt]core.ClassDefinition {
 		classHash, _ := new(felt.Felt).SetString("0xDEADBEEF")
-		return map[felt.Felt]core.Class{
-			*classHash: &core.Cairo1Class{},
+		return map[felt.Felt]core.ClassDefinition{
+			*classHash: &core.SierraClass{},
 		}
 	}
 )
@@ -43,14 +45,18 @@ func TestUpdate(t *testing.T) {
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
 	scKey := felt.NewUnsafeFromString[felt.Felt]("0x492e8")
-	scValue := felt.NewUnsafeFromString[felt.Felt]("0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+	scValue := felt.NewUnsafeFromString[felt.Felt](
+		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
+	)
 	scAddr := new(felt.Felt).SetUint64(1)
 
 	stateUpdates := getStateUpdates(t)
 
 	su3 := &core.StateUpdate{
 		OldRoot: stateUpdates[2].NewRoot,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a",
+		),
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 				*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): felt.NewUnsafeFromString[felt.Felt]("0xBEEFDEAD"),
@@ -60,7 +66,9 @@ func TestUpdate(t *testing.T) {
 
 	su4 := &core.StateUpdate{
 		OldRoot: su3.NewRoot,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e",
+		),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr: {*scKey: scValue}},
 		},
@@ -135,7 +143,9 @@ func TestUpdate(t *testing.T) {
 		scAddr2 := felt.NewUnsafeFromString[felt.Felt]("0x10")
 		su5 := &core.StateUpdate{
 			OldRoot: su4.NewRoot,
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e",
+			),
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr2: {*scKey: scValue}},
 			},
@@ -170,15 +180,21 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	addr := felt.NewUnsafeFromString[felt.Felt]("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
-	root := felt.NewUnsafeFromString[felt.Felt]("0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
+	addr := felt.NewUnsafeFromString[felt.Felt](
+		"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+	)
+	root := felt.NewUnsafeFromString[felt.Felt](
+		"0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368",
+	)
 
 	su0 := &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
-				*addr: felt.NewUnsafeFromString[felt.Felt]("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+				*addr: felt.NewUnsafeFromString[felt.Felt](
+					"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+				),
 			},
 		},
 	}
@@ -202,7 +218,9 @@ func TestNonce(t *testing.T) {
 
 		expectedNonce := new(felt.Felt).SetUint64(1)
 		su1 := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1",
+			),
 			OldRoot: root,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{*addr: expectedNonce},
@@ -225,11 +243,15 @@ func TestClass(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	cairo0Hash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	cairo0Class, err := gw.Class(t.Context(), cairo0Hash)
+	deprecatedCairoHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
+	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
-	cairo1Hash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	cairo1Class, err := gw.Class(t.Context(), cairo1Hash)
+	sierraHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
+	sierraClass, err := gw.Class(t.Context(), sierraHash)
 	require.NoError(t, err)
 
 	state, err := New(&felt.Zero, stateDB)
@@ -237,20 +259,20 @@ func TestClass(t *testing.T) {
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
-		*cairo0Hash: cairo0Class,
-		*cairo1Hash: cairo1Class,
+	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
+		*deprecatedCairoHash: deprecatedCairoClass,
+		*sierraHash:          sierraClass,
 	}, false, true))
 
-	gotCairo1Class, err := state.Class(cairo1Hash)
+	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)
-	assert.Zero(t, gotCairo1Class.At)
-	assert.Equal(t, cairo1Class, gotCairo1Class.Class)
+	assert.Zero(t, gotSierraClass.At)
+	assert.Equal(t, sierraClass, gotSierraClass.Class)
 
-	gotCairo0Class, err := state.Class(cairo0Hash)
+	gotDeprecatedCairoClass, err := state.Class(deprecatedCairoHash)
 	require.NoError(t, err)
-	assert.Zero(t, gotCairo0Class.At)
-	assert.Equal(t, cairo0Class, gotCairo0Class.Class)
+	assert.Zero(t, gotDeprecatedCairoClass.At)
+	assert.Equal(t, deprecatedCairoClass, gotDeprecatedCairoClass.Class)
 }
 
 func TestContractDeployedAt(t *testing.T) {
@@ -262,7 +284,9 @@ func TestContractDeployedAt(t *testing.T) {
 		state, err := New(&root, stateDB)
 		require.NoError(t, err)
 
-		d0 := felt.NewUnsafeFromString[felt.Felt]("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+		d0 := felt.NewUnsafeFromString[felt.Felt](
+			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+		)
 		deployed, err := state.ContractDeployedAt(d0, block0)
 		require.NoError(t, err)
 		assert.True(t, deployed)
@@ -276,7 +300,9 @@ func TestContractDeployedAt(t *testing.T) {
 		state, err := New(&root, stateDB)
 		require.NoError(t, err)
 
-		d1 := felt.NewUnsafeFromString[felt.Felt]("0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+		d1 := felt.NewUnsafeFromString[felt.Felt](
+			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+		)
 		deployed, err := state.ContractDeployedAt(d1, block0)
 		require.NoError(t, err)
 		assert.True(t, deployed)
@@ -309,7 +335,9 @@ func TestRevert(t *testing.T) {
 
 		replacedVal := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 		replaceStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{
@@ -340,7 +368,9 @@ func TestRevert(t *testing.T) {
 
 		replacedVal := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 		nonceStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{
@@ -371,7 +401,9 @@ func TestRevert(t *testing.T) {
 
 		replacedVal := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 		storageStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x7bc3bf782373601d53e0ac26357e6df4a4e313af8e65414c92152810d8d0626"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x7bc3bf782373601d53e0ac26357e6df4a4e313af8e65414c92152810d8d0626",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -402,44 +434,64 @@ func TestRevert(t *testing.T) {
 	t.Run("revert a declare class", func(t *testing.T) {
 		stateDB := setupState(t, stateUpdates, 2)
 
-		classesM := make(map[felt.Felt]core.Class)
-		cairo0 := &core.Cairo0Class{
-			Abi:          json.RawMessage("some cairo 0 class abi"),
-			Externals:    []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("e1")), Offset: new(felt.Felt).SetBytes([]byte("e2"))}},
-			L1Handlers:   []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("l1")), Offset: new(felt.Felt).SetBytes([]byte("l2"))}},
-			Constructors: []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("c1")), Offset: new(felt.Felt).SetBytes([]byte("c2"))}},
-			Program:      "some cairo 0 program",
+		classesM := make(map[felt.Felt]core.ClassDefinition)
+		deprecatedCairo := &core.DeprecatedCairoClass{
+			Abi: json.RawMessage("some cairo 0 class abi"),
+			Externals: []core.DeprecatedEntryPoint{{
+				Selector: new(felt.Felt).SetBytes([]byte("e1")),
+				Offset:   new(felt.Felt).SetBytes([]byte("e2")),
+			}},
+			L1Handlers: []core.DeprecatedEntryPoint{{
+				Selector: new(felt.Felt).SetBytes([]byte("l1")),
+				Offset:   new(felt.Felt).SetBytes([]byte("l2")),
+			}},
+			Constructors: []core.DeprecatedEntryPoint{{
+				Selector: new(felt.Felt).SetBytes([]byte("c1")),
+				Offset:   new(felt.Felt).SetBytes([]byte("c2")),
+			}},
+			Program: "some cairo 0 program",
 		}
 
-		cairo0Addr := felt.NewUnsafeFromString[felt.Felt]("0xab1234")
-		classesM[*cairo0Addr] = cairo0
+		deprecatedCairoAddr := felt.NewUnsafeFromString[felt.Felt]("0xab1234")
+		classesM[*deprecatedCairoAddr] = deprecatedCairo
 
-		cairo1 := &core.Cairo1Class{
-			Abi:     "some cairo 1 class abi",
+		sierra := &core.SierraClass{
+			Abi:     "some sierra class abi",
 			AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xcd98"),
 			EntryPoints: struct {
 				Constructor []core.SierraEntryPoint
 				External    []core.SierraEntryPoint
 				L1Handler   []core.SierraEntryPoint
 			}{
-				Constructor: []core.SierraEntryPoint{{Index: 1, Selector: new(felt.Felt).SetBytes([]byte("c1"))}},
-				External:    []core.SierraEntryPoint{{Index: 0, Selector: new(felt.Felt).SetBytes([]byte("e1"))}},
-				L1Handler:   []core.SierraEntryPoint{{Index: 2, Selector: new(felt.Felt).SetBytes([]byte("l1"))}},
+				Constructor: []core.SierraEntryPoint{{
+					Index:    1,
+					Selector: new(felt.Felt).SetBytes([]byte("c1")),
+				}},
+				External: []core.SierraEntryPoint{{
+					Index:    0,
+					Selector: new(felt.Felt).SetBytes([]byte("e1")),
+				}},
+				L1Handler: []core.SierraEntryPoint{{
+					Index:    2,
+					Selector: new(felt.Felt).SetBytes([]byte("l1")),
+				}},
 			},
 			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
 			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
 			SemanticVersion: "version 1",
-			Compiled:        &core.CompiledClass{},
+			Compiled:        &core.CasmClass{},
 		}
 
 		cairo1Addr := felt.NewUnsafeFromString[felt.Felt]("0xcd5678")
-		classesM[*cairo1Addr] = cairo1
+		classesM[*cairo1Addr] = sierra
 
 		declaredClassesStateUpdate := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
-				DeclaredV0Classes: []*felt.Felt{cairo0Addr},
+				DeclaredV0Classes: []*felt.Felt{deprecatedCairoAddr},
 				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 					*cairo1Addr: felt.NewUnsafeFromString[felt.Felt]("0xef9123"),
 				},
@@ -454,8 +506,8 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, state.Revert(block2, declaredClassesStateUpdate))
 
-		var decClass *core.DeclaredClass
-		decClass, err = state.Class(cairo0Addr)
+		var decClass *core.DeclaredClassDefinition
+		decClass, err = state.Class(deprecatedCairoAddr)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 		assert.Nil(t, decClass)
 
@@ -504,11 +556,15 @@ func TestRevert(t *testing.T) {
 		// These value were taken from part of integration state update number 299762
 		// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
 		scKey := felt.NewUnsafeFromString[felt.Felt]("0x492e8")
-		scValue := felt.NewUnsafeFromString[felt.Felt]("0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+		scValue := felt.NewUnsafeFromString[felt.Felt](
+			"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
+		)
 		scAddr := new(felt.Felt).SetUint64(1)
 
 		// update state root
-		su1.NewRoot = felt.NewUnsafeFromString[felt.Felt]("0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341")
+		su1.NewRoot = felt.NewUnsafeFromString[felt.Felt](
+			"0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341",
+		)
 		su1.StateDiff.StorageDiffs[*scAddr] = map[felt.Felt]*felt.Felt{*scKey: scValue}
 
 		state, err := New(su1.OldRoot, stateDB)
@@ -526,8 +582,10 @@ func TestRevert(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 		sierraHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
 		declareDiff := &core.StateUpdate{
-			OldRoot:   &felt.Zero,
-			NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a"),
+			OldRoot: &felt.Zero,
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a",
+			),
 			BlockHash: &felt.Zero,
 			StateDiff: &core.StateDiff{
 				DeclaredV0Classes: []*felt.Felt{classHash},
@@ -536,9 +594,9 @@ func TestRevert(t *testing.T) {
 				},
 			},
 		}
-		newClasses := map[felt.Felt]core.Class{
-			*classHash:  &core.Cairo0Class{},
-			*sierraHash: &core.Cairo1Class{},
+		newClasses := map[felt.Felt]core.ClassDefinition{
+			*classHash:  &core.DeprecatedCairoClass{},
+			*sierraHash: &core.SierraClass{},
 		}
 
 		state, err := New(&felt.Zero, stateDB)
@@ -598,8 +656,10 @@ func TestRevert(t *testing.T) {
 		value := new(felt.Felt).SetUint64(3)
 		su := &core.StateUpdate{
 			BlockHash: new(felt.Felt),
-			NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8"),
-			OldRoot:   new(felt.Felt),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8",
+			),
+			OldRoot: new(felt.Felt),
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 					*addr: {
@@ -654,7 +714,9 @@ func TestContractHistory(t *testing.T) {
 
 	su := &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6",
+		),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
 			Nonces:            map[felt.Felt]*felt.Felt{*addr: nonce},
@@ -687,7 +749,9 @@ func TestContractHistory(t *testing.T) {
 
 		su0 := &core.StateUpdate{
 			OldRoot: &felt.Zero,
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6",
+			),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
 				Nonces:            map[felt.Felt]*felt.Felt{*addr: nonce},
@@ -755,7 +819,9 @@ func TestContractHistory(t *testing.T) {
 		require.NoError(t, err)
 		su2 := &core.StateUpdate{
 			OldRoot: su1.NewRoot,
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x22a4bfa58203c03d007cc990cf725fd18c0ce43029a4df5427f8f09f3faae60"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x22a4bfa58203c03d007cc990cf725fd18c0ce43029a4df5427f8f09f3faae60",
+			),
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{*addr: new(felt.Felt).SetBytes([]byte("new_nonce"))},
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -836,7 +902,7 @@ func setupState(t *testing.T, stateUpdates []*core.StateUpdate, blocks uint64) *
 	for i, su := range stateUpdates[:blocks] {
 		state, err := New(su.OldRoot, stateDB)
 		require.NoError(t, err)
-		var declaredClasses map[felt.Felt]core.Class
+		var declaredClasses map[felt.Felt]core.ClassDefinition
 		if i == 3 {
 			declaredClasses = su3DeclaredClasses()
 		}

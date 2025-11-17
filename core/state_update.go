@@ -16,12 +16,24 @@ type StateUpdate struct {
 }
 
 type StateDiff struct {
-	StorageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
-	Nonces            map[felt.Felt]*felt.Felt               // addr -> nonce
-	DeployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
-	DeclaredV0Classes []*felt.Felt                           // class hashes
-	DeclaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
-	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
+	// todo(rdr): replace felt.Felt for the right types (felt.Address to felt.What? to felt.What?)
+	//            felt.What? means I'm not sure which type, but if it doesn't exist, create it.
+	StorageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
+	// todo(rdr): felt.Address to felt.Nonce (`Nonce` is a new type that should be created?)
+	Nonces map[felt.Felt]*felt.Felt
+	// todo(rdr): felt.Addr to felt.ClassHash (do we know if it will be `SierraClassHash or
+	//            `CasmClassHash`)
+	DeployedContracts map[felt.Felt]*felt.Felt
+	// todo(rdr): an array of felt.ClassHash, or perhaps, felt.DeprecatedCairoClassHash
+	//            Also, change the name from `DeclaredV0Classes` to `DeprecatedDeclaredClasses`
+	DeclaredV0Classes []*felt.Felt
+	// todo(rdr): felt.SierraClassHash to felt.CasmClassHash
+	DeclaredV1Classes map[felt.Felt]*felt.Felt // class hash -> compiled class hash
+	// todo(rdr): felt.Address to (felt.SierraClassHash or felt.CasmClassHash, I'm unsure)
+	ReplacedClasses map[felt.Felt]*felt.Felt // addr -> class hash
+	// Sierra Class definitions which had their compiled class hash definition (CASM)
+	// migrated from poseidon hash to blake2s hash (Starknet 0.14.1)
+	MigratedClasses map[felt.SierraClassHash]felt.CasmClassHash
 }
 
 func (d *StateDiff) Length() uint64 {
@@ -35,50 +47,61 @@ func (d *StateDiff) Length() uint64 {
 	length += len(d.DeclaredV0Classes)
 	length += len(d.DeclaredV1Classes)
 	length += len(d.ReplacedClasses)
+	length += len(d.MigratedClasses)
 
 	return uint64(length)
 }
 
 func (d *StateDiff) Merge(incoming *StateDiff) {
-	mergeStorageDiffs := func(oldMap, newMap map[felt.Felt]map[felt.Felt]*felt.Felt) {
-		for addr, newAddrStorage := range newMap {
-			if oldAddrStorage, exists := oldMap[addr]; exists {
-				maps.Copy(oldAddrStorage, newAddrStorage)
-			} else {
-				oldMap[addr] = maps.Clone(newAddrStorage)
-			}
+	// Merge storage diffs
+	for addr, newAddrStorage := range incoming.StorageDiffs {
+		if oldAddrStorage, exists := d.StorageDiffs[addr]; exists {
+			maps.Copy(oldAddrStorage, newAddrStorage)
+		} else {
+			d.StorageDiffs[addr] = maps.Clone(newAddrStorage)
 		}
 	}
+
+	// Merge everything else
 	maps.Copy(d.Nonces, incoming.Nonces)
 	maps.Copy(d.DeployedContracts, incoming.DeployedContracts)
 	maps.Copy(d.DeclaredV1Classes, incoming.DeclaredV1Classes)
 	maps.Copy(d.ReplacedClasses, incoming.ReplacedClasses)
-	mergeStorageDiffs(d.StorageDiffs, incoming.StorageDiffs)
+	maps.Copy(d.MigratedClasses, incoming.MigratedClasses)
 	d.DeclaredV0Classes = append(d.DeclaredV0Classes, incoming.DeclaredV0Classes...)
 }
 
-var starknetStateDiff0 = new(felt.Felt).SetBytes([]byte("STARKNET_STATE_DIFF0"))
+// todo(rdr): Is this global variable justified?
+var starknetStateDiff0 = felt.FromBytes[felt.Felt]([]byte("STARKNET_STATE_DIFF0"))
 
-func (d *StateDiff) Hash() *felt.Felt {
+func (d *StateDiff) Hash() felt.Felt {
 	digest := new(crypto.PoseidonDigest)
 
-	digest.Update(starknetStateDiff0)
+	digest.Update(&starknetStateDiff0)
 
 	// updated_contracts = deployedContracts + replacedClasses
 	// Digest: [number_of_updated_contracts, address_0, class_hash_0, address_1, class_hash_1, ...].
 	updatedContractsDigest(d.DeployedContracts, d.ReplacedClasses, digest)
 
 	// declared classes
-	// Digest: [number_of_declared_classes, class_hash_0, compiled_class_hash_0, class_hash_1, compiled_class_hash_1,
-	// ...].
-	declaredClassesDigest(d.DeclaredV1Classes, digest)
+	// Digest: [
+	//    number_of_declared_classes,
+	//    class_hash_0, compiled_class_hash_0,
+	//    class_hash_1, compiled_class_hash_1,
+	//   ...
+	// ]  + [
+	//    migrated_class_hash_0, migrated_compiled_class_hash_0,
+	//    migrated_class_hash_1, migrated_compiled_class_hash_1,
+	//   ...
+	// ]
+	declaredClassesDigest(d.DeclaredV1Classes, d.MigratedClasses, digest)
 
 	// deprecated_declared_classes
 	// Digest: [number_of_old_declared_classes, class_hash_0, class_hash_1, ...].
 	deprecatedDeclaredClassesDigest(d.DeclaredV0Classes, digest)
 
 	// Placeholder values
-	digest.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(0))
+	digest.Update(&felt.One, &felt.Zero)
 
 	// storage_diffs
 	// Digest: [
@@ -89,17 +112,28 @@ func (d *StateDiff) Hash() *felt.Felt {
 	storageDiffDigest(d.StorageDiffs, digest)
 
 	// nonces
-	// Digest: [number_of_updated_contracts nonces, contract_address_0, nonce_0, contract_address_1, nonce_1, ...]
+	// Digest: [
+	//   number_of_updated_contracts nonces,
+	//   contract_address_0, nonce_0,
+	//   contract_address_1, nonce_1,
+	//   ...,
+	// ]
 	noncesDigest(d.Nonces, digest)
 
 	/*Poseidon(
-	    "STARKNET_STATE_DIFF0", deployed_contracts_and_replaced_classes, declared_classes, deprecated_declared_classes,
-	    1, 0, storage_diffs, nonces
+	    "STARKNET_STATE_DIFF0",
+		deployed_contracts_and_replaced_classes,
+		declared_classes,
+		deprecated_declared_classes,
+	    1,
+		0,
+		storage_diffs,
+		nonces
 	)*/
 	return digest.Finish()
 }
 
-func (d *StateDiff) Commitment() *felt.Felt {
+func (d *StateDiff) Commitment() felt.Felt {
 	version := felt.Zero
 	var tmpFelt felt.Felt
 
@@ -114,8 +148,9 @@ func (d *StateDiff) Commitment() *felt.Felt {
 		hash_of_declared_classes = hash([number_of_declared_classes, class_hash_1, compiled_class_hash_1,
 			class_hash_2, compiled_class_hash_2, ...])
 	*/
+	// todo(rdr): check if commitment is like this too
 	hashOfDeclaredClasses := new(crypto.PoseidonDigest)
-	declaredClassesDigest(d.DeclaredV1Classes, hashOfDeclaredClasses)
+	declaredClassesDigest(d.DeclaredV1Classes, d.MigratedClasses, hashOfDeclaredClasses)
 
 	/*
 		hash_of_old_declared_classes = hash([number_of_old_declared_classes, class_hash_1, class_hash_2, ...])
@@ -142,11 +177,23 @@ func (d *StateDiff) Commitment() *felt.Felt {
 			hash_of_old_declared_classes, number_of_DA_modes,
 			DA_mode_0, hash_of_storage_domain_state_diff_0, DA_mode_1, hash_of_storage_domain_state_diff_1, …])
 	*/
+	deployedContractsHash := hashOfDeployedContracts.Finish()
+	declaredClassesHash := hashOfDeclaredClasses.Finish()
+	oldDeclaredClassesHash := hashOfOldDeclaredClasses.Finish()
 	commitmentDigest := new(crypto.PoseidonDigest)
-	commitmentDigest.Update(&version, hashOfDeployedContracts.Finish(), hashOfDeclaredClasses.Finish(), hashOfOldDeclaredClasses.Finish())
+	commitmentDigest.Update(
+		&version,
+		&deployedContractsHash,
+		&declaredClassesHash,
+		&oldDeclaredClassesHash,
+	)
 	commitmentDigest.Update(tmpFelt.SetUint64(uint64(len(hashOfStorageDomains))))
 	for idx := range hashOfStorageDomains {
-		commitmentDigest.Update(tmpFelt.SetUint64(uint64(idx)), hashOfStorageDomains[idx].Finish())
+		storageDomainHash := hashOfStorageDomains[idx].Finish()
+		commitmentDigest.Update(
+			tmpFelt.SetUint64(uint64(idx)),
+			&storageDomainHash,
+		)
 	}
 	return commitmentDigest.Finish()
 }
@@ -173,13 +220,38 @@ func updatedContractsDigest(deployedContracts, replacedClasses map[felt.Felt]*fe
 	}
 }
 
-func declaredClassesDigest(declaredV1Classes map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
-	numOfDeclaredClasses := uint64(len(declaredV1Classes))
-	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredClasses))
+func declaredClassesDigest(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	migratedClasses map[felt.SierraClassHash]felt.CasmClassHash,
+	digest *crypto.PoseidonDigest,
+) {
+	mapsLen := len(declaredClasses) + len(migratedClasses)
+	numOfDeclaredClasses := felt.FromUint64[felt.Felt](uint64(mapsLen))
+	digest.Update(&numOfDeclaredClasses)
 
-	sortedDeclaredV1ClassHashes := sortedFeltKeys(declaredV1Classes)
-	for _, classHash := range sortedDeclaredV1ClassHashes {
-		digest.Update(&classHash, declaredV1Classes[classHash])
+	// Sorting the two keys without actually modifying `declaredClasses` or `migratedClasses`
+	// to avoid the memory overhead of creating a new map since we **mustn't** mutate them
+	keys := make([]felt.Felt, mapsLen)
+	index := 0
+	for key := range declaredClasses {
+		keys[index] = key
+		index += 1
+	}
+	for key := range migratedClasses {
+		// todo(rdr): we shouldn't need to convert the key to a felt here but the right fix
+		// includes a bigger refactor
+		keys[index] = felt.Felt(key)
+		index += 1
+	}
+	slices.SortFunc(keys, func(a felt.Felt, b felt.Felt) int { return a.Cmp(&b) })
+
+	for _, classHash := range keys {
+		if casmHash, ok := declaredClasses[classHash]; ok {
+			digest.Update(&classHash, casmHash)
+		} else {
+			casmHash := migratedClasses[felt.SierraClassHash(classHash)]
+			digest.Update(&classHash, (*felt.Felt)(&casmHash))
+		}
 	}
 }
 
@@ -191,7 +263,10 @@ func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *cry
 	digest.Update(declaredV0Classes...)
 }
 
-func storageDiffDigest(storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
+func storageDiffDigest(
+	storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfStorageDiffs := uint64(len(storageDiffs))
 	digest.Update(new(felt.Felt).SetUint64(numOfStorageDiffs))
 
@@ -226,5 +301,6 @@ func EmptyStateDiff() StateDiff {
 		DeclaredV0Classes: []*felt.Felt{},
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash),
 	}
 }
