@@ -396,11 +396,7 @@ func (s *State) CompiledClassHash(
 func (s *State) CompiledClassHashV2(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	casmHash, err := GetCasmClassHashV2(s.txn, classHash)
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-	return casmHash, nil
+	return GetCasmClassHashV2(s.txn, classHash)
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
