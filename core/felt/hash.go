@@ -18,6 +18,14 @@ func (h *Hash) MarshalJSON() ([]byte, error) {
 	return (*Felt)(h).MarshalJSON()
 }
 
+func (h *Hash) Marshal() []byte {
+	return (*Felt)(h).Marshal()
+}
+
+func (h *Hash) Unmarshal(e []byte) {
+	(*Felt)(h).Unmarshal(e)
+}
+
 type ClassHash Hash
 
 func (h *ClassHash) String() string {
@@ -30,6 +38,14 @@ func (h *ClassHash) UnmarshalJSON(data []byte) error {
 
 func (h *ClassHash) MarshalJSON() ([]byte, error) {
 	return (*Hash)(h).MarshalJSON()
+}
+
+func (h *ClassHash) Marshal() []byte {
+	return (*Hash)(h).Marshal()
+}
+
+func (h *ClassHash) Unmarshal(e []byte) {
+	(*Hash)(h).Unmarshal(e)
 }
 
 type SierraClassHash ClassHash
@@ -46,6 +62,14 @@ func (h *SierraClassHash) MarshalJSON() ([]byte, error) {
 	return (*ClassHash)(h).MarshalJSON()
 }
 
+func (h *SierraClassHash) Marshal() []byte {
+	return (*ClassHash)(h).Marshal()
+}
+
+func (h *SierraClassHash) Unmarshal(e []byte) {
+	(*ClassHash)(h).Unmarshal(e)
+}
+
 type CasmClassHash ClassHash
 
 func (h *CasmClassHash) String() string {
@@ -58,6 +82,14 @@ func (h *CasmClassHash) UnmarshalJSON(data []byte) error {
 
 func (h *CasmClassHash) MarshalJSON() ([]byte, error) {
 	return (*ClassHash)(h).MarshalJSON()
+}
+
+func (h *CasmClassHash) Marshal() []byte {
+	return (*ClassHash)(h).Marshal()
+}
+
+func (h *CasmClassHash) Unmarshal(e []byte) {
+	(*ClassHash)(h).Unmarshal(e)
 }
 
 type TransactionHash Hash
