@@ -87,10 +87,11 @@ If you prefer the traditional two-step approach or have limited bandwidth, you c
 
 ```bash
 # For Mainnet
-wget -O $HOME/snapshots/juno_mainnet.tar.zst https://juno-snapshots.nethermind.io/files/mainnet/latest
+wget --continue -O "$HOME/snapshots/juno_mainnet.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet/latest
+
 
 # Or using curl
-curl -L https://juno-snapshots.nethermind.io/files/mainnet/latest -o juno_mainnet.tar.zst
+curl -L -C - -o $HOME/snapshots/juno_mainnet.tar.zst https://juno-snapshots.nethermind.io/files/mainnet/latest
 ```
 
 ##### 2. Extract the snapshot

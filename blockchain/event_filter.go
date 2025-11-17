@@ -131,10 +131,17 @@ func (c *ContinuationToken) FromString(str string) error {
 
 type FilteredEvent struct {
 	*core.Event
-	BlockNumber     *uint64
-	BlockHash       *felt.Felt
-	TransactionHash *felt.Felt
-	EventIndex      int
+	BlockNumber *uint64
+	BlockHash   *felt.Felt
+	// BlockParentHash is used to distinguish pre_latest from pre_confirmed blocks
+	// when assigning finality status.
+	// If BlockNumber > latest_canonical_block_number or block hash is nil:
+	//   - BlockParentHash == nil indicates pre_confirmed block
+	//   - BlockParentHash != nil indicates pre_latest block
+	BlockParentHash  *felt.Felt
+	TransactionHash  *felt.Felt
+	TransactionIndex uint
+	EventIndex       uint
 }
 
 func (e *EventFilter) Events(

@@ -169,9 +169,13 @@ func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[pr
 			}
 		}
 
+		stateDiffCommitment := stateUpdate.StateDiff.Hash()
 		return &header.BlockHeadersResponse{
 			HeaderMessage: &header.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(blockHeader, commitments, stateUpdate.StateDiff.Hash(),
+				Header: core2p2p.AdaptHeader(
+					blockHeader,
+					commitments,
+					&stateDiffCommitment,
 					stateUpdate.StateDiff.Length()),
 			},
 		}, nil

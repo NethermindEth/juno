@@ -13,7 +13,6 @@ import (
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
-	commonstate "github.com/NethermindEth/juno/core/state/commonstate"
 	sync "github.com/NethermindEth/juno/sync"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -85,38 +84,6 @@ func (mr *MockSyncReaderMockRecorder) PendingData() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingData", reflect.TypeOf((*MockSyncReader)(nil).PendingData))
 }
 
-// PendingState mocks base method.
-func (m *MockSyncReader) PendingState() (commonstate.StateReader, func() error, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PendingState")
-	ret0, _ := ret[0].(commonstate.StateReader)
-	ret1, _ := ret[1].(func() error)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// PendingState indicates an expected call of PendingState.
-func (mr *MockSyncReaderMockRecorder) PendingState() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingState", reflect.TypeOf((*MockSyncReader)(nil).PendingState))
-}
-
-// PendingStateBeforeIndex mocks base method.
-func (m *MockSyncReader) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PendingStateBeforeIndex", index)
-	ret0, _ := ret[0].(commonstate.StateReader)
-	ret1, _ := ret[1].(func() error)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// PendingStateBeforeIndex indicates an expected call of PendingStateBeforeIndex.
-func (mr *MockSyncReaderMockRecorder) PendingStateBeforeIndex(index any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingStateBeforeIndex", reflect.TypeOf((*MockSyncReader)(nil).PendingStateBeforeIndex), index)
-}
-
 // StartingBlockNumber mocks base method.
 func (m *MockSyncReader) StartingBlockNumber() (uint64, error) {
 	m.ctrl.T.Helper()
@@ -158,6 +125,20 @@ func (m *MockSyncReader) SubscribePendingData() sync.PendingDataSubscription {
 func (mr *MockSyncReaderMockRecorder) SubscribePendingData() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePendingData", reflect.TypeOf((*MockSyncReader)(nil).SubscribePendingData))
+}
+
+// SubscribePreLatest mocks base method.
+func (m *MockSyncReader) SubscribePreLatest() sync.PreLatestDataSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribePreLatest")
+	ret0, _ := ret[0].(sync.PreLatestDataSubscription)
+	return ret0
+}
+
+// SubscribePreLatest indicates an expected call of SubscribePreLatest.
+func (mr *MockSyncReaderMockRecorder) SubscribePreLatest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePreLatest", reflect.TypeOf((*MockSyncReader)(nil).SubscribePreLatest))
 }
 
 // SubscribeReorg mocks base method.

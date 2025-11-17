@@ -51,18 +51,16 @@ func HadesPermutation(state []felt.Felt) {
 	}
 }
 
-var two = new(felt.Felt).SetUint64(2)
+var two = felt.FromUint64[felt.Felt](2)
 
 // Poseidon implements the [Poseidon hash].
 //
 // [Poseidon hash]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#poseidon_hash
-func Poseidon(x, y *felt.Felt) *felt.Felt {
-	state := []felt.Felt{*x, *y, *two}
+func Poseidon(x, y *felt.Felt) felt.Felt {
+	state := []felt.Felt{*x, *y, two}
 	HadesPermutation(state)
-	return new(felt.Felt).Set(&state[0])
+	return state[0]
 }
-
-var one = new(felt.Felt).SetUint64(1)
 
 // PoseidonArray calculates Poseidon hash over elems
 // If len(elems) is odd, pads with [1]
@@ -71,7 +69,7 @@ var one = new(felt.Felt).SetUint64(1)
 // PoseidonArray implements [Poseidon array hashing].
 //
 // [Poseidon array hashing]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#poseidon_array_hash
-func PoseidonArray(elems ...*felt.Felt) *felt.Felt {
+func PoseidonArray(elems ...*felt.Felt) felt.Felt {
 	state := []felt.Felt{{}, {}, {}}
 
 	for i := range len(elems) / 2 {
@@ -84,10 +82,10 @@ func PoseidonArray(elems ...*felt.Felt) *felt.Felt {
 	if rem == 1 {
 		state[0].Add(&state[0], elems[len(elems)-1])
 	}
-	state[rem].Add(&state[rem], one)
+	state[rem].Add(&state[rem], &felt.One)
 	HadesPermutation(state)
 
-	return new(felt.Felt).Set(&state[0])
+	return state[0]
 }
 
 var (
@@ -96,18 +94,17 @@ var (
 )
 
 func setRoundKeys() {
+	var err error
 	for _, keysStr := range roundKeysSpec {
-		curRound := []felt.Felt{}
-		for _, keyStr := range keysStr {
-			key, err := new(felt.Felt).SetString(keyStr)
+		curRound := make([]felt.Felt, len(keysStr))
+		for i, keyStr := range keysStr {
+			curRound[i], err = felt.FromString[felt.Felt](keyStr)
 			if err != nil {
-				panic(key)
+				panic(err)
 			}
-			if keyStr != key.Text(felt.Base10) {
+			if keyStr != curRound[i].Text(felt.Base10) {
 				panic("round key not in stark field " + keyStr)
 			}
-
-			curRound = append(curRound, *key)
 		}
 		roundKeys = append(roundKeys, curRound)
 	}
@@ -134,15 +131,15 @@ func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
 	return d
 }
 
-func (d *PoseidonDigest) Finish() *felt.Felt {
+func (d *PoseidonDigest) Finish() felt.Felt {
 	if d.lastElem == nil {
-		d.state[0].Add(&d.state[0], one)
+		d.state[0].Add(&d.state[0], &felt.One)
 	} else {
 		d.state[0].Add(&d.state[0], d.lastElem)
-		d.state[1].Add(&d.state[1], one)
+		d.state[1].Add(&d.state[1], &felt.One)
 	}
 	HadesPermutation(d.state[:])
-	return &d.state[0]
+	return d.state[0]
 }
 
 // https://github.com/starkware-industries/poseidon/blob/main/poseidon3.txt

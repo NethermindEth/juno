@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
@@ -15,7 +14,7 @@ import (
 )
 
 func AdaptStateDiff(
-	reader commonstate.StateReader,
+	reader core.CommonStateReader,
 	contractDiffs []*state.ContractDiff,
 	classes []*class.Class,
 ) (*core.StateDiff, error) {
@@ -34,10 +33,11 @@ func AdaptStateDiff(
 			return nil, fmt.Errorf("unexpected error when calculating class hash: %w", err)
 		}
 		switch c := class.(type) {
-		case *core.Cairo0Class:
-			declaredV0Classes = append(declaredV0Classes, h)
-		case *core.Cairo1Class:
-			declaredV1Classes[*h] = c.Compiled.Hash()
+		case *core.DeprecatedCairoClass:
+			declaredV0Classes = append(declaredV0Classes, &h)
+		case *core.SierraClass:
+			casmHash := c.Compiled.Hash(core.HashVersionV1)
+			declaredV1Classes[h] = &casmHash
 			// todo add type?
 		}
 	}
@@ -88,6 +88,7 @@ func AdaptStateDiff(
 		DeclaredV0Classes: declaredV0Classes,
 		DeclaredV1Classes: declaredV1Classes,
 		ReplacedClasses:   utils.ToMap(replacedClasses, adaptAddrToClassHash),
+		MigratedClasses:   nil, // todo(rdr): unsure of p2p relationship
 	}, nil
 }
 

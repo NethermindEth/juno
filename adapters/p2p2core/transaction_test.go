@@ -15,13 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var TransactionBuilder = transactiontestutils.TransactionBuilder[
+var SyncTransactionBuilder = transactiontestutils.SyncTransactionBuilder[
 	core.Transaction,
 	*synctransaction.TransactionInBlock,
 ]{
 	ToCore: func(
 		transaction core.Transaction,
-		class core.Class,
+		class core.ClassDefinition,
 		paidFeeOnL1 *felt.Felt,
 	) core.Transaction {
 		return transaction
@@ -59,15 +59,105 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[
 			TransactionHash: transactionHash,
 		}
 	},
+	ToP2PDeclareV3: func(
+		transaction *synctransaction.TransactionInBlock_DeclareV3WithoutClass,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_DeclareV3{
+				DeclareV3: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PDeployV0: func(
+		transaction *synctransaction.TransactionInBlock_Deploy,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_Deploy_{
+				Deploy: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PDeployV1: func(
+		transaction *synctransaction.TransactionInBlock_DeployAccountV1,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_DeployAccountV1_{
+				DeployAccountV1: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PDeployV3: func(
+		transaction *synctransaction.TransactionInBlock_DeployAccountV3,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn:             transaction,
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PInvokeV0: func(
+		transaction *synctransaction.TransactionInBlock_InvokeV0,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_InvokeV0_{
+				InvokeV0: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PInvokeV1: func(
+		transaction *synctransaction.TransactionInBlock_InvokeV1,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn: &synctransaction.TransactionInBlock_InvokeV1_{
+				InvokeV1: transaction,
+			},
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PInvokeV3: func(
+		transaction *synctransaction.TransactionInBlock_InvokeV3,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn:             transaction,
+			TransactionHash: transactionHash,
+		}
+	},
+	ToP2PL1Handler: func(
+		transaction *synctransaction.TransactionInBlock_L1Handler,
+		transactionHash *common.Hash,
+	) *synctransaction.TransactionInBlock {
+		return &synctransaction.TransactionInBlock{
+			Txn:             transaction,
+			TransactionHash: transactionHash,
+		}
+	},
 }
 
 func TestAdaptTransactionInBlock(t *testing.T) {
 	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
 		&utils.Mainnet,
-		TransactionBuilder.GetTestDeclareV0Transaction,
-		TransactionBuilder.GetTestDeclareV1Transaction,
-		TransactionBuilder.GetTestDeclareV2Transaction,
+		SyncTransactionBuilder.GetTestDeclareV0Transaction,
+		SyncTransactionBuilder.GetTestDeclareV1Transaction,
+		SyncTransactionBuilder.GetTestDeclareV2Transaction,
+		SyncTransactionBuilder.GetTestDeclareV3Transaction,
+		SyncTransactionBuilder.GetTestDeployTransactionV0,
+		SyncTransactionBuilder.GetTestDeployAccountTransactionV1,
+		SyncTransactionBuilder.GetTestDeployAccountTransactionV3,
+		SyncTransactionBuilder.GetTestInvokeTransactionV0,
+		SyncTransactionBuilder.GetTestInvokeTransactionV1,
+		SyncTransactionBuilder.GetTestInvokeTransactionV3,
+		SyncTransactionBuilder.GetTestL1HandlerTransaction,
 	)
 	for i := range consensusTransactions {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Hash()), func(t *testing.T) {

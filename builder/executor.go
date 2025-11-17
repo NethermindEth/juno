@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -58,10 +57,14 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}()
 
 	// Create a state writer for the transaction execution
-	stateWriter := sync.NewPendingStateWriter(state.Preconfirmed.StateUpdate.StateDiff, state.Preconfirmed.NewClasses, headState)
+	stateWriter := core.NewPendingStateWriter(
+		state.Preconfirmed.StateUpdate.StateDiff,
+		state.Preconfirmed.NewClasses,
+		headState,
+	)
 
 	// Prepare declared classes, if any
-	var declaredClasses []core.Class
+	var declaredClasses []core.ClassDefinition
 	paidFeesOnL1 := []*felt.Felt{}
 	coreTxns := make([]core.Transaction, len(txns))
 	for i, txn := range txns {
@@ -88,6 +91,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 		e.skipValidate,
 		false,
 		true,
+		false,
 		false,
 	)
 	if err != nil {
@@ -125,7 +129,10 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 }
 
 // processClassDeclaration handles class declaration storage for declare transactions
-func (e *executor) processClassDeclaration(txn *mempool.BroadcastedTransaction, state *sync.PendingStateWriter) error {
+func (e *executor) processClassDeclaration(
+	txn *mempool.BroadcastedTransaction,
+	state *core.PendingStateWriter,
+) error {
 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 		if err := state.SetContractClass(t.ClassHash, txn.DeclaredClass); err != nil {
 			e.log.Errorw("failed to set contract class", "err", err)

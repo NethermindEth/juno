@@ -10,14 +10,66 @@ func (h *Hash) String() string {
 	return (*Felt)(h).String()
 }
 
+func (h *Hash) UnmarshalJSON(data []byte) error {
+	return (*Felt)(h).UnmarshalJSON(data)
+}
+
+func (h *Hash) MarshalJSON() ([]byte, error) {
+	return (*Felt)(h).MarshalJSON()
+}
+
 type ClassHash Hash
 
 func (h *ClassHash) String() string {
 	return (*Hash)(h).String()
 }
 
+func (h *ClassHash) UnmarshalJSON(data []byte) error {
+	return (*Hash)(h).UnmarshalJSON(data)
+}
+
+func (h *ClassHash) MarshalJSON() ([]byte, error) {
+	return (*Hash)(h).MarshalJSON()
+}
+
+type SierraClassHash ClassHash
+
+func (h *SierraClassHash) String() string {
+	return (*ClassHash)(h).String()
+}
+
+func (h *SierraClassHash) UnmarshalJSON(data []byte) error {
+	return (*ClassHash)(h).UnmarshalJSON(data)
+}
+
+func (h *SierraClassHash) MarshalJSON() ([]byte, error) {
+	return (*ClassHash)(h).MarshalJSON()
+}
+
+type CasmClassHash ClassHash
+
+func (h *CasmClassHash) String() string {
+	return (*ClassHash)(h).String()
+}
+
+func (h *CasmClassHash) UnmarshalJSON(data []byte) error {
+	return (*ClassHash)(h).UnmarshalJSON(data)
+}
+
+func (h *CasmClassHash) MarshalJSON() ([]byte, error) {
+	return (*ClassHash)(h).MarshalJSON()
+}
+
 type TransactionHash Hash
 
 func (h *TransactionHash) String() string {
 	return (*Hash)(h).String()
+}
+
+func (h *TransactionHash) UnmarshalJSON(data []byte) error {
+	return (*Hash)(h).UnmarshalJSON(data)
+}
+
+func (h *TransactionHash) MarshalJSON() ([]byte, error) {
+	return (*Hash)(h).MarshalJSON()
 }

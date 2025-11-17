@@ -20,7 +20,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -50,7 +50,7 @@ type VM interface {
 	Call(
 		callInfo *CallInfo,
 		blockInfo *BlockInfo,
-		state commonstate.StateReader,
+		state core.CommonStateReader,
 		maxSteps uint64,
 		maxGas uint64,
 		structuredErrStack,
@@ -58,15 +58,16 @@ type VM interface {
 	) (CallResult, error)
 	Execute(
 		txns []core.Transaction,
-		declaredClasses []core.Class,
+		declaredClasses []core.ClassDefinition,
 		paidFeesOnL1 []*felt.Felt,
 		blockInfo *BlockInfo,
-		state commonstate.StateReader,
+		state core.CommonStateReader,
 		skipChargeFee,
 		skipValidate,
 		errOnRevert,
 		errStack,
 		allowBinarySearch bool,
+		isEstimateFee bool,
 	) (ExecutionResults, error)
 }
 
@@ -87,7 +88,7 @@ func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.SimpleLogger) VM 
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
-	state commonstate.StateReader
+	state core.CommonStateReader
 	log   utils.SimpleLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
@@ -103,7 +104,7 @@ type callContext struct {
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
 	receipts        []json.RawMessage
-	declaredClasses map[felt.Felt]core.Class
+	declaredClasses map[felt.Felt]core.ClassDefinition
 	executionFailed bool
 }
 
@@ -281,7 +282,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 func (v *vm) Call(
 	callInfo *CallInfo,
 	blockInfo *BlockInfo,
-	state commonstate.StateReader,
+	state core.CommonStateReader,
 	maxSteps uint64,
 	maxGas uint64,
 	structuredErrStack,
@@ -334,15 +335,16 @@ func (v *vm) Call(
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(
 	txns []core.Transaction,
-	declaredClasses []core.Class,
+	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
-	state commonstate.StateReader,
+	state core.CommonStateReader,
 	skipChargeFee,
 	skipValidate,
 	errOnRevert,
 	errorStack,
 	allowBinarySearch bool,
+	isEstimateFee bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
@@ -378,7 +380,8 @@ func (v *vm) Execute(
 		toUchar(errOnRevert),
 		toUchar(v.concurrencyMode),
 		toUchar(errorStack),
-		toUchar(allowBinarySearch), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(allowBinarySearch),
+		toUchar(isEstimateFee), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -419,7 +422,10 @@ func (v *vm) Execute(
 	}, nil
 }
 
-func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
+func marshalTxnsAndDeclaredClasses(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+) (json.RawMessage, json.RawMessage, error) {
 	txnJSONs := make([]json.RawMessage, 0, len(txns))
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)

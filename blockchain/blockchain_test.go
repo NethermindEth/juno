@@ -1,7 +1,6 @@
 package blockchain_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -9,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -301,13 +300,10 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
 	require.NoError(t, err)
-	require.Equal(
-		t,
-		felt.NewUnsafeFromString[felt.Felt](
-			"0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5",
-		),
-		&l1HandlerTxnHash,
+	expectedHash := felt.UnsafeFromString[felt.Felt](
+		"0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5",
 	)
+	require.Equal(t, expectedHash, l1HandlerTxnHash)
 }
 
 func TestBlockCommitments(t *testing.T) {
@@ -723,56 +719,4 @@ func TestSubscribeL1Head(t *testing.T) {
 	got, ok := <-sub.Recv()
 	require.True(t, ok)
 	assert.Equal(t, l1Head, got)
-}
-
-func fetchStateUpdatesAndBlocks(samples int) ([]*core.StateUpdate, []*core.Block, error) {
-	client := feeder.NewClient(utils.Mainnet.FeederURL)
-	gw := adaptfeeder.New(client)
-
-	suList := make([]*core.StateUpdate, samples)
-	blocks := make([]*core.Block, samples)
-	for i := range samples {
-		fmt.Println("fetching", i)
-		su, err := gw.StateUpdate(context.Background(), uint64(i))
-		if err != nil {
-			return nil, nil, err
-		}
-		suList[i] = su
-		block, err := gw.BlockByNumber(context.Background(), uint64(i))
-		if err != nil {
-			return nil, nil, err
-		}
-		blocks[i] = block
-	}
-	return suList, blocks, nil
-}
-
-func BenchmarkBlockchainStore(b *testing.B) {
-	samples := 100
-	stateUpdates, blocks, err := fetchStateUpdatesAndBlocks(samples)
-	require.NoError(b, err)
-
-	b.Run("new", func(b *testing.B) {
-		for b.Loop() {
-			b.StopTimer()
-			chain := blockchain.New(memory.New(), &utils.Mainnet, true)
-			b.StartTimer()
-
-			for j := range samples {
-				require.NoError(b, chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil))
-			}
-		}
-	})
-
-	b.Run("old", func(b *testing.B) {
-		for b.Loop() {
-			b.StopTimer()
-			chain := blockchain.New(memory.New(), &utils.Mainnet, false)
-			b.StartTimer()
-
-			for j := range samples {
-				require.NoError(b, chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil))
-			}
-		}
-	})
 }

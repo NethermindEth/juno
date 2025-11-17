@@ -29,6 +29,18 @@ func (u FeeUnit) MarshalText() ([]byte, error) {
 	}
 }
 
+func (u *FeeUnit) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "WEI":
+		*u = WEI
+	case "FRI":
+		*u = FRI
+	default:
+		return fmt.Errorf("unknown FeeUnit %s", string(text))
+	}
+	return nil
+}
+
 type FeeEstimate struct {
 	L1GasConsumed     *felt.Felt `json:"l1_gas_consumed,omitempty"`
 	L1GasPrice        *felt.Felt `json:"l1_gas_price,omitempty"`
@@ -267,6 +279,7 @@ func (h *Handler) EstimateFee(
 		id,
 		broadcastedTxns.Data,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		true,
 		true,
 	)
 	if err != nil {

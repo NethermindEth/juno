@@ -34,10 +34,11 @@ type Handler struct {
 	log           utils.Logger
 	memPool       mempool.Pool
 
-	newHeads    *feed.Feed[*core.Block]
-	reorgs      *feed.Feed[*sync.ReorgBlockRange]
-	pendingData *feed.Feed[core.PendingData]
-	l1Heads     *feed.Feed[*core.L1Head]
+	newHeads      *feed.Feed[*core.Block]
+	reorgs        *feed.Feed[*sync.ReorgBlockRange]
+	pendingData   *feed.Feed[core.PendingData]
+	l1Heads       *feed.Feed[*core.L1Head]
+	preLatestFeed *feed.Feed[*core.PreLatest]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -80,12 +81,16 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		newHeads:    feed.New[*core.Block](),
-		reorgs:      feed.New[*sync.ReorgBlockRange](),
-		pendingData: feed.New[core.PendingData](),
-		l1Heads:     feed.New[*core.L1Head](),
+		newHeads:      feed.New[*core.Block](),
+		reorgs:        feed.New[*sync.ReorgBlockRange](),
+		pendingData:   feed.New[core.PendingData](),
+		l1Heads:       feed.New[*core.L1Head](),
+		preLatestFeed: feed.New[*core.PreLatest](),
 
-		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
+		blockTraceCache: lru.NewCache[
+			rpccore.TraceCacheKey,
+			[]TracedBlockTransaction,
+		](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
@@ -143,14 +148,17 @@ func (h *Handler) Run(ctx context.Context) error {
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	pendingData := h.syncReader.SubscribePendingData().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
+	preLatestSub := h.syncReader.SubscribePreLatest().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
 	defer pendingData.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
+	defer preLatestSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
 	feed.Tee(pendingData, h.pendingData)
 	feed.Tee(l1HeadsSub, h.l1Heads)
+	feed.Tee(preLatestSub, h.preLatestFeed)
 
 	<-ctx.Done()
 	h.subscriptions.Range(func(key, value any) bool {

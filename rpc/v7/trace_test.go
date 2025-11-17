@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -302,9 +302,9 @@ func TestTraceTransaction(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
@@ -352,10 +352,20 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false,
-			false, false, false).
-			Return(vm.ExecutionResults{
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false,
+			false,
+		).Return(
+			vm.ExecutionResults{
 				OverallFees:      overallFee,
 				DataAvailability: dataGas,
 				Traces:           []vm.TransactionTrace{*vmTrace},
@@ -399,21 +409,27 @@ func TestTraceTransaction(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		pending := core.NewPending(block, nil, nil)
+		pendingStateDiff := core.EmptyStateDiff()
+		pending := core.Pending{
+			Block: block,
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &pendingStateDiff,
+			},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
+		}
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
 		).Times(2)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
-		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
+			Return(headState, nopCloser, nil).Times(2)
 
 		innerExecutionResources := `{
 			"pedersen": 0,
@@ -452,14 +468,23 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				OverallFees:      overallFee,
-				DataAvailability: consumedGas,
-				Traces:           []vm.TransactionTrace{*vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(), false,
+			false,
+			false,
+			false,
+			false,
+			false,
+		).Return(vm.ExecutionResults{
+			OverallFees:      overallFee,
+			DataAvailability: consumedGas,
+			Traces:           []vm.TransactionTrace{*vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
@@ -655,7 +680,6 @@ func TestTraceBlockTransactions(t *testing.T) {
 	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, n, log)
 
 	t.Run("pending block", func(t *testing.T) {
-		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x0001")
 		header := &core.Header{
 			// hash is not set because it's pending block
 			ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
@@ -666,9 +690,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 		declareTx := &core.DeclareTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
@@ -679,14 +703,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Transactions: []core.Transaction{l1Tx, declareTx},
 		}
 
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
-		state := mocks.NewMockStateReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
+		pendingStateDiff := core.EmptyStateDiff()
+		pending := core.Pending{
+			Block: block,
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &pendingStateDiff,
+			},
+			NewClasses: map[felt.Felt]core.ClassDefinition{*declareTx.ClassHash: declaredClass.Class},
+		}
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil).Times(2)
 		headState := mocks.NewMockStateReader(mockCtrl)
-		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		pending := core.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
+			Return(headState, nopCloser, nil).Times(2)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
 		vmTraceJSON := json.RawMessage(`{
@@ -710,15 +738,28 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{{}, {}},
-				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			block.Transactions,
+			[]core.ClassDefinition{declaredClass.Class},
+			paidL1Fees,
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false,
+			false,
+		).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{{}, {}},
+			Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
-		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
+		result, httpHeader, err := handler.TraceBlockTransactions(
+			t.Context(),
+			rpcv7.BlockID{Pending: true},
+		)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
@@ -778,9 +819,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Header:       header,
 			Transactions: []core.Transaction{tx},
 		}
-		declaredClass := &core.DeclaredClass{
+		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
-			Class: &core.Cairo1Class{},
+			Class: &core.SierraClass{},
 		}
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
@@ -809,13 +850,22 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, false, false).
-			Return(vm.ExecutionResults{
-				DataAvailability: []core.DataAvailability{{L1Gas: 123, L1DataGas: 456}},
-				Traces:           []vm.TransactionTrace{vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.ClassDefinition{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			false,
+			false,
+			false,
+			false,
+			false,
+			false).Return(vm.ExecutionResults{
+			DataAvailability: []core.DataAvailability{{L1Gas: 123, L1DataGas: 456}},
+			Traces:           []vm.TransactionTrace{vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
 		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
 
@@ -843,14 +893,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
 	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
-		fromAddr, _ := new(felt.Felt).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
-		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
+		fromAddr := felt.NewUnsafeFromString[felt.Felt](
+			"0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f",
+		)
+		toAddr := felt.NewUnsafeFromString[felt.Address](
+			"0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5",
+		)
 
-		payload0, _ := new(felt.Felt).SetString("0x0")
-		payload1, _ := new(felt.Felt).SetString("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
-		payload2, _ := new(felt.Felt).SetString("0x455448")
-		payload3, _ := new(felt.Felt).SetString("0x31da07977d000")
-		payload4, _ := new(felt.Felt).SetString("0x0")
+		payload0 := &felt.Zero
+		payload1 := felt.NewUnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
+		payload2 := felt.NewFromUint64[felt.Felt](0x455448)
+		payload3 := felt.NewFromUint64[felt.Felt](0x31da07977d000)
+		payload4 := &felt.Zero
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -859,7 +913,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					{
 						Order: 0,
 						From:  fromAddr,
-						To:    toAddrStr,
+						To:    toAddr,
 						Payload: []*felt.Felt{
 							payload0,
 							payload1,
@@ -944,8 +998,6 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 		}
 
-		toAddr, _ := new(felt.Felt).SetString(toAddrStr)
-
 		expectedAdaptedTrace := rpcv7.TransactionTrace{
 			Type: rpcv7.TxnInvoke,
 			ValidateInvocation: &rpcv6.FunctionInvocation{
@@ -955,7 +1007,9 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					{
 						Order: 0,
 						From:  fromAddr,
-						To:    toAddr,
+						// todo(rdr): this conversion is unnecessary but the right fix it's a huge
+						//            refactor
+						To: (*felt.Felt)(toAddr),
 						Payload: []*felt.Felt{
 							payload0,
 							payload1,

@@ -14,7 +14,6 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
-	commontrie "github.com/NethermindEth/juno/core/state/commontrie"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -43,10 +42,10 @@ func (m *MockStateReader) EXPECT() *MockStateReaderMockRecorder {
 }
 
 // Class mocks base method.
-func (m *MockStateReader) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (m *MockStateReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Class", classHash)
-	ret0, _ := ret[0].(*core.DeclaredClass)
+	ret0, _ := ret[0].(*core.DeclaredClassDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -58,10 +57,10 @@ func (mr *MockStateReaderMockRecorder) Class(classHash any) *gomock.Call {
 }
 
 // ClassTrie mocks base method.
-func (m *MockStateReader) ClassTrie() (commontrie.Trie, error) {
+func (m *MockStateReader) ClassTrie() (core.CommonTrie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClassTrie")
-	ret0, _ := ret[0].(commontrie.Trie)
+	ret0, _ := ret[0].(core.CommonTrie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -118,10 +117,10 @@ func (mr *MockStateReaderMockRecorder) ContractStorage(addr, key any) *gomock.Ca
 }
 
 // ContractStorageTrie mocks base method.
-func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageTrie", addr)
-	ret0, _ := ret[0].(commontrie.Trie)
+	ret0, _ := ret[0].(core.CommonTrie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -133,10 +132,10 @@ func (mr *MockStateReaderMockRecorder) ContractStorageTrie(addr any) *gomock.Cal
 }
 
 // ContractTrie mocks base method.
-func (m *MockStateReader) ContractTrie() (commontrie.Trie, error) {
+func (m *MockStateReader) ContractTrie() (core.CommonTrie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractTrie")
-	ret0, _ := ret[0].(commontrie.Trie)
+	ret0, _ := ret[0].(core.CommonTrie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

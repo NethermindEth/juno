@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commonstate"
+
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -139,8 +139,8 @@ func feeUnit(txn core.Transaction) FeeUnit {
 
 func (h *Handler) stateByBlockID(
 	blockID *BlockID,
-) (commonstate.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
-	var reader commonstate.StateReader
+) (core.CommonStateReader, blockchain.StateCloser, *jsonrpc.Error) {
+	var reader core.CommonStateReader
 	var closer blockchain.StateCloser
 	var err error
 	switch blockID.Type() {

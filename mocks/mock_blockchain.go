@@ -15,7 +15,6 @@ import (
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
-	commonstate "github.com/NethermindEth/juno/core/state/commonstate"
 	utils "github.com/NethermindEth/juno/utils"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
@@ -151,10 +150,10 @@ func (mr *MockReaderMockRecorder) Head() *gomock.Call {
 }
 
 // HeadState mocks base method.
-func (m *MockReader) HeadState() (commonstate.StateReader, blockchain.StateCloser, error) {
+func (m *MockReader) HeadState() (core.CommonStateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HeadState")
-	ret0, _ := ret[0].(commonstate.StateReader)
+	ret0, _ := ret[0].(core.CommonStateReader)
 	ret1, _ := ret[1].(blockchain.StateCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -258,10 +257,10 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 }
 
 // StateAtBlockHash mocks base method.
-func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateReader, blockchain.StateCloser, error) {
+func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.CommonStateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateAtBlockHash", blockHash)
-	ret0, _ := ret[0].(commonstate.StateReader)
+	ret0, _ := ret[0].(core.CommonStateReader)
 	ret1, _ := ret[1].(blockchain.StateCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -274,10 +273,10 @@ func (mr *MockReaderMockRecorder) StateAtBlockHash(blockHash any) *gomock.Call {
 }
 
 // StateAtBlockNumber mocks base method.
-func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, blockchain.StateCloser, error) {
+func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (core.CommonStateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateAtBlockNumber", blockNumber)
-	ret0, _ := ret[0].(commonstate.StateReader)
+	ret0, _ := ret[0].(core.CommonStateReader)
 	ret1, _ := ret[1].(blockchain.StateCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
