@@ -387,7 +387,6 @@ func (s *State) CompiledClassHash(classHash *felt.Felt) (felt.Felt, error) {
 	return casmHash, nil
 }
 
-// TODO(Ege): should we fallback to computing here on rust side
 func (s *State) CompiledClassHashV2(classHash *felt.Felt) (felt.Felt, error) {
 	sierraClassHash := felt.SierraClassHash(*classHash)
 	casmHash, err := GetCasmClassHashV2(s.txn, &sierraClassHash)
