@@ -373,7 +373,11 @@ func (s *State) CompiledClassHash(classHash *felt.Felt) (felt.Felt, error) {
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	defer closer()
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
 
 	casmHash, err := classTrie.Get(classHash)
 	if err != nil {
