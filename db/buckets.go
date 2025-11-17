@@ -48,6 +48,7 @@ const (
 	TrieJournal            // TrieJournal -> journal
 	AggregatedBloomFilters // maps block range to AggregatedBloomFilter
 	RunningEventFilter     // aggregated filter not full yet
+	ClassHashToCasmHashV2  // blake2s casm class hashes of the all sierra classes
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
