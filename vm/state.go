@@ -105,12 +105,12 @@ func JunoStateGetCompiledClassHash(
 	context := unwrapContext(readerHandle)
 
 	classHashFelt := makeFeltFromPtr(classHash)
-	val, err := context.state.CompiledClassHash(classHashFelt)
+	val, err := context.state.CompiledClassHash((*felt.SierraClassHash)(classHashFelt))
 	if err != nil {
 		return 0
 	}
 
-	return fillBufferWithFelt(&val, buffer)
+	return fillBufferWithFelt((*felt.Felt)(&val), buffer)
 }
 
 //export JunoStateGetCompiledClassHashV2
@@ -122,10 +122,10 @@ func JunoStateGetCompiledClassHashV2(
 	context := unwrapContext(readerHandle)
 
 	classHashFelt := makeFeltFromPtr(classHash)
-	val, err := context.state.CompiledClassHashV2(classHashFelt)
+	val, err := context.state.CompiledClassHashV2((*felt.SierraClassHash)(classHashFelt))
 	if err != nil {
 		return 0
 	}
 
-	return fillBufferWithFelt(&val, buffer)
+	return fillBufferWithFelt((*felt.Felt)(&val), buffer)
 }

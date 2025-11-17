@@ -43,8 +43,8 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
-	CompiledClassHash(classHash *felt.Felt) (felt.Felt, error)
-	CompiledClassHashV2(classHash *felt.Felt) (felt.Felt, error)
+	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
+	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
 	ClassTrie() (*trie.Trie, error)
 	ContractTrie() (*trie.Trie, error)
 	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
@@ -368,10 +368,12 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	return class, err
 }
 
-func (s *State) CompiledClassHash(classHash *felt.Felt) (felt.Felt, error) {
+func (s *State) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
 	classTrie, closer, err := s.classesTrie()
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.CasmClassHash{}, err
 	}
 	defer func() {
 		if closeErr := closer(); closeErr != nil {
@@ -379,25 +381,26 @@ func (s *State) CompiledClassHash(classHash *felt.Felt) (felt.Felt, error) {
 		}
 	}()
 
-	casmHash, err := classTrie.Get(classHash)
+	casmHash, err := classTrie.Get((*felt.Felt)(classHash))
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.CasmClassHash{}, err
 	}
 
 	if casmHash.IsZero() {
-		return felt.Felt{}, errors.New("casm hash not found")
+		return felt.CasmClassHash{}, errors.New("casm hash not found")
 	}
 
-	return casmHash, nil
+	return felt.CasmClassHash(casmHash), nil
 }
 
-func (s *State) CompiledClassHashV2(classHash *felt.Felt) (felt.Felt, error) {
-	sierraClassHash := felt.SierraClassHash(*classHash)
-	casmHash, err := GetCasmClassHashV2(s.txn, &sierraClassHash)
+func (s *State) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	casmHash, err := GetCasmClassHashV2(s.txn, classHash)
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.CasmClassHash{}, err
 	}
-	return felt.Felt(casmHash), nil
+	return casmHash, nil
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (

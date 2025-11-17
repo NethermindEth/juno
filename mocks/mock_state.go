@@ -88,10 +88,10 @@ func (mr *MockStateHistoryReaderMockRecorder) ClassTrie() *gomock.Call {
 }
 
 // CompiledClassHash mocks base method.
-func (m *MockStateHistoryReader) CompiledClassHash(classHash *felt.Felt) (felt.Felt, error) {
+func (m *MockStateHistoryReader) CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CompiledClassHash", classHash)
-	ret0, _ := ret[0].(felt.Felt)
+	ret0, _ := ret[0].(felt.CasmClassHash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,10 +103,10 @@ func (mr *MockStateHistoryReaderMockRecorder) CompiledClassHash(classHash any) *
 }
 
 // CompiledClassHashV2 mocks base method.
-func (m *MockStateHistoryReader) CompiledClassHashV2(classHash *felt.Felt) (felt.Felt, error) {
+func (m *MockStateHistoryReader) CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CompiledClassHashV2", classHash)
-	ret0, _ := ret[0].(felt.Felt)
+	ret0, _ := ret[0].(felt.CasmClassHash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
