@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - docs/docs/running-juno.md
       - .github/workflows/find-smallest-rust.yml
       - core/rust/*
       - vm/rust/*
@@ -35,7 +36,7 @@ jobs:
         with:
           script: |
             const msrv = '${{ steps.rust-version.outputs.highest-msrv }}'
-            const previous_msrv = '1.88.0'
+            const previous_msrv = '1.87.0'
 
             if (msrv != previous_msrv) {
               github.rest.issues.createComment({
@@ -49,7 +50,7 @@ jobs:
       - name: "Check README and Makefile"
         run: |
           set -euxo pipefail
-          echo "Checking if version is set in README"
-          cat README.md | grep "\[Rust\]" | grep "${{ steps.rust-version.outputs.highest-msrv }}"
+          echo "Checking if version is set in docs/docs/running-juno.md"
+          cat docs/docs/running-juno.md | grep "\[Rust\]" | grep "${{ steps.rust-version.outputs.highest-msrv }}"
           echo "Checking makefile"
           cat Makefile | grep "MINIMUM_RUST_VERSION = ${{ steps.rust-version.outputs.highest-msrv }}"
