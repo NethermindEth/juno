@@ -265,7 +265,7 @@ func TestClass(t *testing.T) {
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,
-	}, false, true))
+	}, false))
 	require.NoError(t, batch.Write())
 	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)
