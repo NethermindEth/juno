@@ -88,7 +88,7 @@ type CasmClass struct {
 	Hints                  json.RawMessage `json:"hints"`
 	PythonicHints          json.RawMessage `json:"pythonic_hints"`
 	CompilerVersion        string          `json:"compiler_version"`
-	BytecodeSegmentLengths SegmentLengths  `json:"bytecode_segment_lengths"`
+	BytecodeSegmentLengths *SegmentLengths `json:"bytecode_segment_lengths,omitempty"`
 	EntryPoints            struct {
 		External    []CompiledEntryPoint `json:"EXTERNAL"`
 		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
