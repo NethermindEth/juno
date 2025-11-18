@@ -706,6 +706,11 @@ func (s *State) removeDeclaredClasses(
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}
+
+			sierraClassHash := felt.SierraClassHash(*cHash)
+			if err = DeleteCasmClassHashV2(s.txn, &sierraClassHash); err != nil {
+				return fmt.Errorf("delete CASM class hash V2 for class %s: %v", cHash, err)
+			}
 		}
 	}
 	return classesCloser()
@@ -851,7 +856,8 @@ func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
 }
 
-// ContractStorageAt returns the value of a storage location of the given contract at the height `height`
+// ContractStorageAt returns the value of a storage location
+// of the given contract at the height `height`.
 func (s *State) ContractStorageAt(
 	contractAddress,
 	storageLocation *felt.Felt,
