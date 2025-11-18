@@ -357,7 +357,7 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewStateHistory(core.NewState(txn), blockNumber), noopStateCloser, nil
+	return core.NewStateSnapshot(core.NewState(txn), blockNumber), noopStateCloser, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
@@ -376,7 +376,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewStateHistory(core.NewState(txn), header.Number), noopStateCloser, nil
+	return core.NewStateSnapshot(core.NewState(txn), header.Number), noopStateCloser, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
