@@ -43,6 +43,8 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 		}
 	} else if config.HashConfig != nil {
 		triedb = hashdb.New(disk, config.HashConfig)
+	} else if config.RawConfig != nil {
+		triedb = rawdb.New(disk)
 	}
 
 	return &Database{
@@ -57,7 +59,7 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergeClassNodes,
 	mergeContractNodes *trienode.MergeNodeSet,
-	w db.KeyValueWriter,
+	batch db.KeyValueWriter,
 ) error {
 	switch td := d.triedb.(type) {
 	case *pathdb.Database:
@@ -65,7 +67,7 @@ func (d *Database) Update(
 	case *hashdb.Database:
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	case *rawdb.Database:
-		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes, w)
+		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes, batch)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
@@ -84,8 +86,12 @@ func (d *Database) Scheme() string {
 		return RawScheme
 	} else if d.config.PathConfig != nil {
 		return PathScheme
+	} else if d.config.HashConfig != nil {
+		return HashScheme
+	} else if d.config.RawConfig != nil {
+		return RawScheme
 	}
-	return HashScheme
+	return RawScheme
 }
 
 func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
