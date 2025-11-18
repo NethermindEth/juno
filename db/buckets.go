@@ -40,7 +40,7 @@ const (
 	MempoolNode
 	ClassTrie              // ClassTrie + nodetype + path + pathlength -> Trie Node
 	ContractTrieContract   // ContractTrieContract + nodetype + path + pathlength -> Trie Node
-	ContractTrieStorage    // ContractTrieStorage + nodetype + owner + path + pathlength -> Trie Node
+	ContractTrieStorage    // ContractTrieStorage + owner + nodetype + owner + path + pathlength -> Trie Node
 	Contract               // Contract + ContractAddr -> Contract
 	StateHashToTrieRoots   // StateHash -> ClassRootHash + ContractRootHash
 	StateID                // StateID + root hash -> state id

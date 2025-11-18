@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -498,6 +497,7 @@ type ContractProof struct {
 	Nodes      []*HashToNode `json:"nodes"`
 	LeavesData []*LeafData   `json:"contract_leaves_data"`
 }
+
 type GlobalRoots struct {
 	ContractsTreeRoot *felt.Felt `json:"contracts_tree_root"`
 	ClassesTreeRoot   *felt.Felt `json:"classes_tree_root"`

@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpc "github.com/NethermindEth/juno/rpc/v9"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +40,7 @@ func TestClass(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger())
+	handler := rpcv9.New(mockReader, nil, nil, utils.NewNopZapLogger())
 
 	latest := blockIDLatest(t)
 
@@ -75,7 +75,7 @@ func TestClass(t *testing.T) {
 
 	t.Run("state by id error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger())
+		handler := rpcv9.New(mockReader, nil, nil, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
@@ -87,7 +87,7 @@ func TestClass(t *testing.T) {
 	t.Run("class hash not found error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockState := mocks.NewMockStateReader(mockCtrl)
-		handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger())
+		handler := rpcv9.New(mockReader, nil, nil, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(mockState, func() error {
 			return nil
@@ -134,7 +134,7 @@ func TestClassAt(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger())
+	handler := rpcv9.New(mockReader, nil, nil, utils.NewNopZapLogger())
 
 	latest := blockIDLatest(t)
 
@@ -167,7 +167,7 @@ func TestClassHashAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	handler := rpcv9.New(mockReader, mockSyncReader, nil, log)
 
 	targetAddress := felt.FromUint64[felt.Felt](1234)
 	t.Run("empty blockchain", func(t *testing.T) {
