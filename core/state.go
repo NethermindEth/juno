@@ -888,7 +888,8 @@ func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
 }
 
-// ContractStorageAt returns the value of a storage location of the given contract at the height `height`
+// ContractStorageAt returns the value of a storage location
+// of the given contract at the height `height`.
 func (s *State) ContractStorageAt(
 	contractAddress,
 	storageLocation *felt.Felt,
