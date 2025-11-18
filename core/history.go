@@ -95,13 +95,13 @@ func (s *stateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, er
 	return declaredClass, nil
 }
 
-func (s *stateSnapshot) CompiledClassHash(
+func (s *stateHistory) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
 	return s.state.CompiledClassHash(classHash)
 }
 
-func (s *stateSnapshot) CompiledClassHashV2(
+func (s *stateHistory) CompiledClassHashV2(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
 	return s.state.CompiledClassHashV2(classHash)
