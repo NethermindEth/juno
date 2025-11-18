@@ -22,8 +22,8 @@ import (
 const globalTrieHeight = 251
 
 var (
-	stateVersion      = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
-	leafVersion       = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
+	stateVersion      = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
+	leafVersion       = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	ErrCheckHeadState = errors.New("check head state")
 )
 
@@ -407,7 +407,13 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 
 	onValueChanged := func(location, oldValue *felt.Felt) error {
 		if logChanges {
-			return WriteContractStorageHistory(bufferedState.txn, contractAddr, location, oldValue, blockNumber)
+			return WriteContractStorageHistory(
+				bufferedState.txn,
+				contractAddr,
+				location,
+				oldValue,
+				blockNumber,
+			)
 		}
 		return nil
 	}
@@ -845,17 +851,14 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error
 	return nil
 }
 
-func historyDBKey(key []byte, height uint64) []byte {
-	return binary.BigEndian.AppendUint64(key, height)
-}
-
 func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 	it, err := s.txn.NewIterator(nil, false)
 	if err != nil {
 		return nil, err
 	}
 
-	for it.Seek(historyDBKey(key, height)); it.Valid(); it.Next() {
+	seekKey := binary.BigEndian.AppendUint64(key, height)
+	for it.Seek(seekKey); it.Valid(); it.Next() {
 		seekedKey := it.Key()
 		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
 		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
@@ -868,8 +871,9 @@ func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 			// check head state
 			break
 		} else if seekedHeight == height {
-			// a log exists for the height we are looking for, so the old value in this log entry is not useful.
-			// advance the iterator and see we can use the next entry. If not, ErrCheckHeadState will be returned
+			// a log exists for the height we are looking for, so the old value in this
+			// log entry is not useful. Advance the iterator and see we can use the next entry.
+			// If not, ErrCheckHeadState will be returned.
 			continue
 		}
 
