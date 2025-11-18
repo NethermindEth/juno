@@ -55,7 +55,7 @@ func getRandomFelt(t *testing.T) (felt.Felt, []byte) {
 func getRandomFeltSlice(t *testing.T) ([]*felt.Felt, [][]byte) {
 	t.Helper()
 
-	size := rand.IntN(maxTransactionSize)
+	size := rand.IntN(maxTransactionSize-1) + 1
 	underlyingFelts := make([]felt.Felt, size)
 	felts := make([]*felt.Felt, size)
 	feltBytes := make([][]byte, size)

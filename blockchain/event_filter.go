@@ -33,6 +33,7 @@ type EventFilter struct {
 	pendingDataFn func() (core.PendingData, error)
 	cachedFilters *AggregatedBloomFilterCache
 	runningFilter *core.RunningEventFilter
+	layout        core.TransactionLayout
 }
 
 type EventFilterRange uint
@@ -50,6 +51,7 @@ func newEventFilter(
 	pendingDataFn func() (core.PendingData, error),
 	cachedFilters *AggregatedBloomFilterCache,
 	runningFilter *core.RunningEventFilter,
+	layout core.TransactionLayout,
 ) *EventFilter {
 	return &EventFilter{
 		txn:           txn,
@@ -60,6 +62,7 @@ func newEventFilter(
 		pendingDataFn: pendingDataFn,
 		cachedFilters: cachedFilters,
 		runningFilter: runningFilter,
+		layout:        layout,
 	}
 }
 
@@ -242,7 +245,7 @@ func (e *EventFilter) canonicalEvents(
 		}
 
 		var receipts []*core.TransactionReceipt
-		receipts, err = core.GetReceiptsByBlockNum(e.txn, header.Number)
+		receipts, err = e.layout.ReceiptsByBlockNumber(e.txn, header.Number)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}

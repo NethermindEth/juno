@@ -303,7 +303,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
 func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := core.GetBlockByNumber(txn, blockNumber)
+		block, err := core.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
@@ -531,7 +531,7 @@ func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) e
 func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		block, err := core.GetBlockByNumber(txn, blockNumber)
+		block, err := core.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
@@ -552,7 +552,7 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) erro
 func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		txns, err := core.GetTxsByBlockNum(txn, blockNumber)
+		txns, err := core.TransactionLayoutPerTx.TransactionsByBlockNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err

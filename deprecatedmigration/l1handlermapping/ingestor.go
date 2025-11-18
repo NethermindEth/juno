@@ -38,7 +38,8 @@ func newIngestor(
 var _ pipeline.State[uint64, db.Batch] = (*ingestor)(nil)
 
 func (i *ingestor) Run(index int, blockNumber uint64, outputs chan<- db.Batch) error {
-	txns, err := core.GetTxsByBlockNum(i.database, blockNumber)
+	// Force per-tx layout because this migration was created before the combined layout
+	txns, err := core.TransactionLayoutPerTx.TransactionsByBlockNumber(i.database, blockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get transactions for block %d: %w", blockNumber, err)
 	}
