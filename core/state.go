@@ -60,7 +60,8 @@ func NewStateSnapshotReader(txn db.IndexedBatch) *StateSnapshotReader {
 	}
 }
 
-// ContractStorageAt returns the value of a storage location of the given contract at the height `height`
+// ContractStorageAt returns the value of a storage location
+// of the given contract at the height `height`
 func (s *StateSnapshotReader) ContractStorageAt(
 	contractAddress,
 	storageLocation *felt.Felt,
@@ -75,7 +76,10 @@ func (s *StateSnapshotReader) ContractStorageAt(
 	return felt.FromBytes[felt.Felt](value), nil
 }
 
-func (s *StateSnapshotReader) ContractNonceAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
+func (s *StateSnapshotReader) ContractNonceAt(
+	contractAddress *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
 	key := db.ContractNonceHistoryKey(contractAddress)
 	value, err := s.valueAt(key, height)
 	if err != nil {
@@ -98,7 +102,10 @@ func (s *StateSnapshotReader) ContractClassHashAt(
 }
 
 // ContractDeployedAt returns if contract at given addr was deployed at blockNumber
-func (s *StateSnapshotReader) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+func (s *StateSnapshotReader) ContractDeployedAt(
+	addr *felt.Felt,
+	blockNumber uint64,
+) (bool, error) {
 	var deployedAt uint64
 
 	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
@@ -192,7 +199,10 @@ func (s *StateSnapshotReader) valueAt(key []byte, height uint64) ([]byte, error)
 }
 
 // todo(rdr): return `StateDiff` by value
-func (s *StateSnapshotReader) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
+func (s *StateSnapshotReader) GetReverseStateDiff(
+	blockNumber uint64,
+	diff *StateDiff,
+) (*StateDiff, error) {
 	reversed := *diff
 
 	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
@@ -293,9 +303,14 @@ func NewState(
 	}
 }
 
-// putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
+// putNewContract creates a contract storage instance in the state and stores
+// the relation between contract address and class hash to be
 // queried later with [GetContractClass].
-func (s *State) putNewContract(contractTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64) error {
+func (s *State) putNewContract(
+	contractTrie *trie.Trie,
+	addr, classHash *felt.Felt,
+	blockNumber uint64,
+) error {
 	contract, err := DeployContract(addr, classHash, s.txn)
 	if err != nil {
 		return err
@@ -875,7 +890,11 @@ func classesTrie(txn db.IndexedBatch) (*trie.Trie, func() error, error) {
 	return globalTrie(txn, db.ClassesTrie, trie.NewTriePoseidon)
 }
 
-func globalTrie(txn db.IndexedBatch, bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
+func globalTrie(
+	txn db.IndexedBatch,
+	bucket db.Bucket,
+	newTrie trie.NewTrieFunc,
+) (*trie.Trie, func() error, error) {
 	dbPrefix := bucket.Key()
 	tTxn := trie.NewStorage(txn, dbPrefix)
 
