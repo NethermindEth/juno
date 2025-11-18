@@ -706,6 +706,11 @@ func (s *State) removeDeclaredClasses(
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}
+
+			sierraClassHash := felt.SierraClassHash(*cHash)
+			if err = DeleteCasmClassHashV2(s.txn, &sierraClassHash); err != nil {
+				return fmt.Errorf("delete CASM class hash V2 for class %s: %v", cHash, err)
+			}
 		}
 	}
 	return classesCloser()
