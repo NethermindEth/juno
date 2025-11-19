@@ -89,14 +89,14 @@ func (s *stateHistory) Class(classHash *felt.Felt) (*core.DeclaredClassDefinitio
 	return declaredClass, nil
 }
 
-func (s *StateHistory) ClassTrie() (commontrie.Trie, error) {
+func (s *stateHistory) ClassTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *StateHistory) ContractTrie() (commontrie.Trie, error) {
+func (s *stateHistory) ContractTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *StateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
