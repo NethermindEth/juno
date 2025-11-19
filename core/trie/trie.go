@@ -449,6 +449,11 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	}
 }
 
+func (t *Trie) Update(key, value *felt.Felt) error {
+	_, err := t.Put(key, value)
+	return err
+}
+
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.Felt, error) {
 	if key.Cmp(t.maxKey) > 0 {
@@ -719,6 +724,11 @@ func (t *Trie) Hash() (felt.Felt, error) {
 
 	path := path(t.rootKey, nil)
 	return root.Hash(&path, t.hash), nil
+}
+
+// TODO: remove this in the followup PR
+func (t *Trie) Root() (felt.Felt, error) {
+	return t.Hash()
 }
 
 // Commit forces root calculation

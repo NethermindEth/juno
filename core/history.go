@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -107,14 +107,14 @@ func (s *stateHistory) CompiledClassHashV2(
 	return s.state.CompiledClassHashV2(classHash)
 }
 
-func (s *stateHistory) ClassTrie() (*trie.Trie, error) {
+func (s *stateHistory) ClassTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateHistory) ContractTrie() (*trie.Trie, error) {
+func (s *stateHistory) ContractTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
