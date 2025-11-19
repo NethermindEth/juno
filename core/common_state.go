@@ -32,4 +32,6 @@ type CommonStateReader interface {
 	ClassTrie() (CommonTrie, error)
 	ContractTrie() (CommonTrie, error)
 	ContractStorageTrie(addr *felt.Felt) (CommonTrie, error)
+	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
+	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
 }

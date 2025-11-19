@@ -158,6 +158,27 @@ func (s *State) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
+func (s *State) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	casmHash, err := s.classTrie.Get((*felt.Felt)(classHash))
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+
+	if casmHash.IsZero() {
+		return felt.CasmClassHash{}, errors.New("casm hash not found")
+	}
+
+	return felt.CasmClassHash(casmHash), nil
+}
+
+func (s *State) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return core.GetCasmClassHashV2(s.db.disk, classHash)
+}
+
 // Returns the state commitment
 func (s *State) Commitment() (felt.Felt, error) {
 	contractRoot, err := s.contractTrie.Hash()

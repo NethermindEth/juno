@@ -375,7 +375,7 @@ func (b *Blockchain) store(
 // For versions < 0.14.1, it computes hashes from class definitions.
 // For versions >= 0.14.1, it uses pre-computed hashes from the state update.
 func storeCasmClassHashesV2ForBlock(
-	txn db.IndexedBatch,
+	txn db.KeyValueWriter,
 	protocolVersion string,
 	newClasses map[felt.Felt]core.ClassDefinition,
 	stateUpdate *core.StateUpdate,
@@ -394,7 +394,7 @@ func storeCasmClassHashesV2ForBlock(
 
 // computeAndStoreCasmClassHashesV2 computes and stores CASM class hashes V2 from class definitions.
 func computeAndStoreCasmClassHashesV2(
-	txn db.IndexedBatch,
+	txn db.KeyValueWriter,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	for classHash, classDefinition := range declaredClasses {
@@ -415,7 +415,7 @@ func computeAndStoreCasmClassHashesV2(
 
 // storeCasmClassHashesV2 stores pre-computed CASM class hashes V2 from the state update.
 func storeCasmClassHashesV2(
-	txn db.IndexedBatch,
+	txn db.KeyValueWriter,
 	declaredV1Classes map[felt.Felt]*felt.Felt,
 ) error {
 	for classHash, casmClassHashV2 := range declaredV1Classes {
@@ -850,10 +850,10 @@ func (b *Blockchain) Finalise(
 			if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
 				return err
 			}
-      err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
-      if err != nil {
-        return err
-      }
+			err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+			if err != nil {
+				return err
+			}
 			return core.WriteChainHeight(txn, block.Number)
 		})
 		if err != nil {
@@ -876,7 +876,7 @@ func (b *Blockchain) Finalise(
 		if err := b.storeBlockData(batch, block, stateUpdate, commitments); err != nil {
 			return err
 		}
-    err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		err = storeCasmClassHashesV2ForBlock(batch, block.ProtocolVersion, newClasses, stateUpdate)
 		if err != nil {
 			return err
 		}
