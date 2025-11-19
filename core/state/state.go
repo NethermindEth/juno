@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -55,9 +54,9 @@ type ClassReader interface {
 }
 
 type TrieProvider interface {
-	ClassTrie() (commontrie.Trie, error)
-	ContractTrie() (commontrie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
+	ClassTrie() (core.CommonTrie, error)
+	ContractTrie() (core.CommonTrie, error)
+	ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error)
 }
 
 type State struct {
@@ -147,16 +146,37 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, erro
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *State) ClassTrie() (commontrie.Trie, error) {
+func (s *State) ClassTrie() (core.CommonTrie, error) {
 	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (commontrie.Trie, error) {
+func (s *State) ContractTrie() (core.CommonTrie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
+}
+
+func (s *State) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	casmHash, err := s.classTrie.Get((*felt.Felt)(classHash))
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+
+	if casmHash.IsZero() {
+		return felt.CasmClassHash{}, errors.New("casm hash not found")
+	}
+
+	return felt.CasmClassHash(casmHash), nil
+}
+
+func (s *State) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return core.GetCasmClassHashV2(s.db.disk, classHash)
 }
 
 // Returns the state commitment

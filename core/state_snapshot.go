@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -107,14 +106,14 @@ func (s *stateSnapshot) CompiledClassHashV2(
 	return s.state.CompiledClassHashV2(classHash)
 }
 
-func (s *stateSnapshot) ClassTrie() (commontrie.Trie, error) {
+func (s *stateSnapshot) ClassTrie() (CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateSnapshot) ContractTrie() (commontrie.Trie, error) {
+func (s *stateSnapshot) ContractTrie() (CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateSnapshot) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *stateSnapshot) ContractStorageTrie(addr *felt.Felt) (CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

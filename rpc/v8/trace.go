@@ -175,7 +175,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
 	var (
-		headState       core.StateReader
+		headState       core.CommonStateReader
 		headStateCloser blockchain.StateCloser
 	)
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -68,7 +67,7 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	chainHeight, err := state.ChainHeight()
+	chainHeight, err := h.bcReader.Height()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -208,7 +207,7 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	return nil
 }
 
-func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+func getClassProof(tr core.CommonTrie, classes []felt.Felt) ([]*HashToNode, error) {
 	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
 	// care about which trie implementation is being used and the output format should be the same
 	t, ok := tr.(*trie.Trie)
@@ -227,8 +226,8 @@ func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, erro
 }
 
 func getContractProof(
-	tr commontrie.Trie,
-	state core.StateReader,
+	tr core.CommonTrie,
+	state core.CommonStateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
@@ -277,7 +276,7 @@ func getContractProof(
 }
 
 func getContractStorageProof(
-	state core.StateReader,
+	state core.CommonStateReader,
 	storageKeys []StorageKeys,
 ) ([][]*HashToNode, error) {
 	contractStorageRes := make([][]*HashToNode, len(storageKeys))

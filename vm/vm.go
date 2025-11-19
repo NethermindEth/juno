@@ -49,7 +49,7 @@ type VM interface {
 	Call(
 		callInfo *CallInfo,
 		blockInfo *BlockInfo,
-		state core.StateReader,
+		state core.CommonStateReader,
 		maxSteps uint64,
 		maxGas uint64,
 		structuredErrStack,
@@ -60,7 +60,7 @@ type VM interface {
 		declaredClasses []core.ClassDefinition,
 		paidFeesOnL1 []*felt.Felt,
 		blockInfo *BlockInfo,
-		state core.StateReader,
+		state core.CommonStateReader,
 		skipChargeFee,
 		skipValidate,
 		errOnRevert,
@@ -87,7 +87,7 @@ func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.SimpleLogger) VM 
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
-	state core.StateReader
+	state core.CommonStateReader
 	log   utils.SimpleLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
@@ -281,7 +281,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 func (v *vm) Call(
 	callInfo *CallInfo,
 	blockInfo *BlockInfo,
-	state core.StateReader,
+	state core.CommonStateReader,
 	maxSteps uint64,
 	maxGas uint64,
 	structuredErrStack,
@@ -337,7 +337,7 @@ func (v *vm) Execute(
 	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
-	state core.StateReader,
+	state core.CommonStateReader,
 	skipChargeFee,
 	skipValidate,
 	errOnRevert,

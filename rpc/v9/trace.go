@@ -189,8 +189,8 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 func traceTransactionsWithState(
 	vm vm.VM,
 	transactions []core.Transaction,
-	executionState core.StateReader,
-	classLookupState core.StateReader,
+	executionState core.CommonStateReader,
+	classLookupState core.CommonStateReader,
 	blockInfo *vm.BlockInfo,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
@@ -257,7 +257,7 @@ func traceTransactionsWithState(
 //
 // Returns the list of declared classes, L1 handler fees, and an error if any.
 func fetchDeclaredClassesAndL1Fees(
-	transactions []core.Transaction, state core.StateReader,
+	transactions []core.Transaction, state core.CommonStateReader,
 ) ([]core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
 	var declaredClasses []core.ClassDefinition
 	l1HandlerFees := []*felt.Felt{}
@@ -490,7 +490,7 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 
 	// Get state to read class definitions for declare transactions
 	var (
-		headState       core.StateReader
+		headState       core.CommonStateReader
 		headStateCloser blockchain.StateCloser
 	)
 	// TODO: remove pending variant when it is no longer supported

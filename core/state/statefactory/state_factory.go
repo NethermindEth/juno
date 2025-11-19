@@ -1,44 +1,13 @@
-package commonstate
+package statefactory
 
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 )
-
-//go:generate mockgen -destination=../../mocks/mock_commonstate_reader.go -package=mocks github.com/NethermindEth/juno/core/state/commonstate StateReader
-type State interface {
-	StateReader
-
-	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
-
-	Update(
-		blockNum uint64,
-		update *core.StateUpdate,
-		declaredClasses map[felt.Felt]core.ClassDefinition,
-		skipVerifyNewRoot bool,
-	) error
-	Revert(blockNum uint64, update *core.StateUpdate) error
-	Commitment() (felt.Felt, error)
-}
-
-type StateReader interface {
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
-
-	ClassTrie() (commontrie.Trie, error)
-	ContractTrie() (commontrie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
-}
 
 type StateFactory struct {
 	UseNewState bool
@@ -62,7 +31,7 @@ func NewStateFactory(
 	}, nil
 }
 
-func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (State, error) {
+func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (core.CommonState, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
 		return deprecatedState, nil
@@ -79,7 +48,7 @@ func (sf *StateFactory) NewStateReader(
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
 	blockNumber uint64,
-) (StateReader, error) {
+) (core.CommonStateReader, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
 		snapshot := core.NewStateSnapshot(deprecatedState, blockNumber)
@@ -93,7 +62,7 @@ func (sf *StateFactory) NewStateReader(
 	return &history, nil
 }
 
-func (sf *StateFactory) EmptyState() (StateReader, error) {
+func (sf *StateFactory) EmptyState() (core.CommonStateReader, error) {
 	if !sf.UseNewState {
 		memDB := memory.New()
 		txn := memDB.NewIndexedBatch()

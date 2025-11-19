@@ -60,7 +60,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			declaredClasses []core.ClassDefinition,
 			paidFeesOnL1 []*felt.Felt,
 			blockInfo *vm.BlockInfo,
-			state core.StateReader,
+			state core.CommonStateReader,
 			skipChargeFee,
 			skipValidate,
 			errOnRevert,

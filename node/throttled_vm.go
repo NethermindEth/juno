@@ -22,7 +22,7 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 func (tvm *ThrottledVM) Call(
 	callInfo *vm.CallInfo,
 	blockInfo *vm.BlockInfo,
-	state core.StateReader,
+	state core.CommonStateReader,
 	maxSteps uint64,
 	maxGas uint64,
 	errStack, returnStateDiff bool,
@@ -48,7 +48,7 @@ func (tvm *ThrottledVM) Execute(
 	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *vm.BlockInfo,
-	state core.StateReader,
+	state core.CommonStateReader,
 	skipChargeFee,
 	skipValidate,
 	errOnRevert,
