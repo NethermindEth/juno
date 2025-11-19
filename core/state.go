@@ -44,7 +44,8 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
-
+	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
+	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
 	ClassTrie() (*trie.Trie, error)
 	ContractTrie() (*trie.Trie, error)
 	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
@@ -60,7 +61,8 @@ func NewStateSnapshotReader(txn db.SnapshotBatch) *StateSnapshotReader {
 	}
 }
 
-// ContractStorageAt returns the value of a storage location of the given contract at the height `height`
+// ContractStorageAt returns the value of a storage location
+// of the given contract at the height `height`
 func (s *StateSnapshotReader) ContractStorageAt(
 	contractAddress,
 	storageLocation *felt.Felt,
@@ -75,7 +77,10 @@ func (s *StateSnapshotReader) ContractStorageAt(
 	return felt.FromBytes[felt.Felt](value), nil
 }
 
-func (s *StateSnapshotReader) ContractNonceAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
+func (s *StateSnapshotReader) ContractNonceAt(
+	contractAddress *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
 	key := db.ContractNonceHistoryKey(contractAddress)
 	value, err := s.valueAt(key, height)
 	if err != nil {
@@ -98,7 +103,10 @@ func (s *StateSnapshotReader) ContractClassHashAt(
 }
 
 // ContractDeployedAt returns if contract at given addr was deployed at blockNumber
-func (s *StateSnapshotReader) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+func (s *StateSnapshotReader) ContractDeployedAt(
+	addr *felt.Felt,
+	blockNumber uint64,
+) (bool, error) {
 	var deployedAt uint64
 
 	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
@@ -192,7 +200,10 @@ func (s *StateSnapshotReader) valueAt(key []byte, height uint64) ([]byte, error)
 }
 
 // todo(rdr): return `StateDiff` by value
-func (s *StateSnapshotReader) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
+func (s *StateSnapshotReader) GetReverseStateDiff(
+	blockNumber uint64,
+	diff *StateDiff,
+) (*StateDiff, error) {
 	reversed := *diff
 
 	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
@@ -279,6 +290,37 @@ func (s *StateSnapshotReader) Commitment() (felt.Felt, error) {
 	return root, nil
 }
 
+func (s *StateSnapshotReader) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	classTrie, closer, err := classesTrie(s.txn)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	casmHash, err := classTrie.Get((*felt.Felt)(classHash))
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+
+	if casmHash.IsZero() {
+		return felt.CasmClassHash{}, errors.New("casm hash not found")
+	}
+
+	return felt.CasmClassHash(casmHash), nil
+}
+
+func (s *StateSnapshotReader) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return GetCasmClassHashV2(s.txn, classHash)
+}
+
 type State struct {
 	txn db.SnapshotBatch
 	*StateSnapshotReader
@@ -293,9 +335,14 @@ func NewState(
 	}
 }
 
-// putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
+// putNewContract creates a contract storage instance in the state and stores
+// the relation between contract address and class hash to be
 // queried later with [GetContractClass].
-func (s *State) putNewContract(contractTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64) error {
+func (s *State) putNewContract(
+	contractTrie *trie.Trie,
+	addr, classHash *felt.Felt,
+	blockNumber uint64,
+) error {
 	contract, err := DeployContract(addr, classHash, s.txn)
 	if err != nil {
 		return err
@@ -451,6 +498,15 @@ func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt
 		return s.txn.Put(classKey, classEncoded)
 	}
 	return err
+}
+
+// Class returns the class object corresponding to the given classHash
+func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+	var class *DeclaredClassDefinition
+	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
+		return encoder.Unmarshal(data, &class)
+	})
+	return class, err
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
@@ -779,6 +835,11 @@ func (s *State) removeDeclaredClasses(
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}
+
+			sierraClassHash := felt.SierraClassHash(*cHash)
+			if err = DeleteCasmClassHashV2(s.txn, &sierraClassHash); err != nil {
+				return fmt.Errorf("delete CASM class hash V2 for class %s: %v", cHash, err)
+			}
 		}
 	}
 	return classesCloser()
@@ -866,6 +927,22 @@ func (s *State) revertMigratedCasmClasses(
 	return classesCloser()
 }
 
+// ContractStorageAt returns the value of a storage location
+// of the given contract at the height `height`.
+func (s *State) ContractStorageAt(
+	contractAddress,
+	storageLocation *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
+	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
+	value, err := s.valueAt(key, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	return felt.FromBytes[felt.Felt](value), nil
+}
+
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
 func contractTrie(txn db.SnapshotBatch) (*trie.Trie, func() error, error) {
 	return globalTrie(txn, db.StateTrie, trie.NewTriePedersen)
@@ -875,7 +952,11 @@ func classesTrie(txn db.SnapshotBatch) (*trie.Trie, func() error, error) {
 	return globalTrie(txn, db.ClassesTrie, trie.NewTriePoseidon)
 }
 
-func globalTrie(txn db.SnapshotBatch, bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
+func globalTrie(
+	txn db.SnapshotBatch,
+	bucket db.Bucket,
+	newTrie trie.NewTrieFunc,
+) (*trie.Trie, func() error, error) {
 	dbPrefix := bucket.Key()
 	tTxn := trie.NewStorage(txn, dbPrefix)
 

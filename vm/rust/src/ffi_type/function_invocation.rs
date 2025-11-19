@@ -9,7 +9,7 @@ use blockifier::{
 use serde::Serialize;
 use starknet_api::{
     contract_class::EntryPointType,
-    core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress},
+    core::{ClassHash, ContractAddress, EntryPointSelector, L1Address},
     transaction::{
         fields::{Calldata, GasVectorComputationMode},
         EventContent, L2ToL1Payload,
@@ -28,7 +28,7 @@ pub struct FunctionCall {
 pub struct OrderedMessage {
     pub order: usize,
     pub from_address: ContractAddress,
-    pub to_address: EthAddress,
+    pub to_address: L1Address,
     pub payload: L2ToL1Payload,
 }
 
