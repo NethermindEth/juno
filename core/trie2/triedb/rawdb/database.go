@@ -63,10 +63,11 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
-	batch db.KeyValueWriter,
 ) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	batch := d.disk.NewBatch()
 
 	var classNodes classNodesMap
 	var contractNodes contractNodesMap
@@ -99,7 +100,7 @@ func (d *Database) Update(
 		}
 	}
 
-	return nil
+	return batch.Write()
 }
 
 func (d *Database) updateNode(
