@@ -502,61 +502,64 @@ func (s *State) flush(
 	classes map[felt.Felt]core.ClassDefinition,
 	storeHistory bool,
 ) error {
+	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
+
+	p.Go(func() error {
+		return s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes)
+	})
+
 	batch := s.db.disk.NewBatch()
-	if err := s.db.triedb.Update(
-		&update.curComm,
-		&update.prevComm,
-		blockNum,
-		update.classNodes,
-		update.contractNodes,
-		batch,
-	); err != nil {
-		return err
-	}
+	p.Go(func() error {
+		for addr, obj := range s.stateObjects {
+			if obj == nil { // marked as deleted
+				if err := DeleteContract(batch, &addr); err != nil {
+					return err
+				}
 
-	for addr, obj := range s.stateObjects {
-		if obj == nil { // marked as deleted
-			if err := DeleteContract(batch, &addr); err != nil {
-				return err
-			}
+				// TODO(weiihann): handle hash-based, and there should be better ways of doing this
+				if err := trieutils.DeleteStorageNodesByPath(batch, addr); err != nil {
+					return err
+				}
+			} else { // updated
+				if err := WriteContract(batch, &addr, obj.contract); err != nil {
+					return err
+				}
 
-			// TODO(weiihann): handle hash-based, and there should be better ways of doing this
-			if err := trieutils.DeleteStorageNodesByPath(batch, addr); err != nil {
-				return err
-			}
-		} else { // updated
-			if err := WriteContract(batch, &addr, obj.contract); err != nil {
-				return err
-			}
+				if storeHistory {
+					for key, val := range obj.dirtyStorage {
+						if err := WriteStorageHistory(batch, &addr, &key, blockNum, val); err != nil {
+							return err
+						}
+					}
 
-			if storeHistory {
-				for key, val := range obj.dirtyStorage {
-					if err := WriteStorageHistory(batch, &addr, &key, blockNum, val); err != nil {
+					if err := WriteNonceHistory(batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
+						return err
+					}
+
+					if err := WriteClassHashHistory(batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
 						return err
 					}
 				}
+			}
+		}
 
-				if err := WriteNonceHistory(batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
+		for classHash, class := range classes {
+			if class == nil { // mark as deleted
+				if err := DeleteClass(batch, &classHash); err != nil {
 					return err
 				}
-
-				if err := WriteClassHashHistory(batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
+			} else {
+				if err := WriteClass(batch, &classHash, class, blockNum); err != nil {
 					return err
 				}
 			}
 		}
-	}
 
-	for classHash, class := range classes {
-		if class == nil { // mark as deleted
-			if err := DeleteClass(batch, &classHash); err != nil {
-				return err
-			}
-		} else {
-			if err := WriteClass(batch, &classHash, class, blockNum); err != nil {
-				return err
-			}
-		}
+		return nil
+	})
+
+	if err := p.Wait(); err != nil {
+		return err
 	}
 
 	return batch.Write()

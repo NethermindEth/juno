@@ -59,7 +59,6 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergeClassNodes,
 	mergeContractNodes *trienode.MergeNodeSet,
-	batch db.KeyValueWriter,
 ) error {
 	switch td := d.triedb.(type) {
 	case *pathdb.Database:
@@ -67,7 +66,7 @@ func (d *Database) Update(
 	case *hashdb.Database:
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	case *rawdb.Database:
-		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes, batch)
+		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
