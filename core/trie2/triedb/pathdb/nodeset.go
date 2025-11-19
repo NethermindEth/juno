@@ -231,6 +231,7 @@ func (s *nodeSet) decode(data []byte) error {
 			}
 		}
 	}
+	s.computeSize()
 
 	return nil
 }

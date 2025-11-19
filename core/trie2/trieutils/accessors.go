@@ -2,6 +2,7 @@ package trieutils
 
 import (
 	"encoding/binary"
+	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -78,7 +79,7 @@ func WritePersistedStateID(w db.KeyValueWriter, id uint64) error {
 func ReadTrieJournal(r db.KeyValueReader) ([]byte, error) {
 	var journal []byte
 	if err := r.Get(db.TrieJournal.Key(), func(value []byte) error {
-		journal = value
+		journal = slices.Clone(value)
 		return nil
 	}); err != nil {
 		return nil, err

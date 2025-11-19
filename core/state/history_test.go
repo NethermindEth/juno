@@ -21,7 +21,7 @@ func TestNewStateHistory(t *testing.T) {
 	})
 
 	t.Run("invalid state root", func(t *testing.T) {
-		invalidRoot := new(felt.Felt).SetUint64(999) // Non-existent root
+		invalidRoot := felt.NewUnsafeFromString[felt.Felt]("0x999")
 		_, err := NewStateHistory(1, invalidRoot, stateDB)
 		assert.Error(t, err)
 	})
@@ -131,7 +131,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	}
 	state, err := New(&felt.Zero, stateDB)
 	require.NoError(t, err)
-	err = state.Update(0, stateUpdate, classes)
+	err = state.Update(0, stateUpdate, classes, false)
 	require.NoError(t, err)
 	stateComm, err := state.Commitment()
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 
 	state, err = New(&stateComm, stateDB)
 	require.NoError(t, err)
-	err = state.Update(1, stateUpdate, classes2)
+	err = state.Update(1, stateUpdate, classes2, false)
 	require.NoError(t, err)
 
 	historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
