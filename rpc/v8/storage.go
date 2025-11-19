@@ -224,7 +224,7 @@ func getClassProof(tr core.CommonTrie, classes []felt.Felt) ([]*HashToNode, erro
 	case *trie2.Trie:
 		classProof := trie2.NewProofNodeSet()
 		for _, class := range classes {
-			if err := (*trie2.Trie)(t).Prove(&class, classProof); err != nil {
+			if err := t.Prove(&class, classProof); err != nil {
 				return nil, err
 			}
 		}
@@ -241,9 +241,9 @@ func getContractProof(
 ) (*ContractProof, error) {
 	switch t := tr.(type) {
 	case *trie.Trie:
-		return getContractProofWithDeprecatedTrie((*trie.Trie)(t), state, contracts)
+		return getContractProofWithDeprecatedTrie(t, state, contracts)
 	case *trie2.Trie:
-		return getContractProofWithTrie((*trie2.Trie)(t), state, contracts)
+		return getContractProofWithTrie(t, state, contracts)
 	default:
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
 	}
