@@ -348,7 +348,9 @@ func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, err
 	casm.PythonicHints = compiledClass.PythonicHints
 	casm.CompilerVersion = compiledClass.CompilerVersion
 	casm.Hints = compiledClass.Hints
-	casm.BytecodeSegmentLengths = AdaptSegmentLengths(compiledClass.BytecodeSegmentLengths)
+	if compiledClass.BytecodeSegmentLengths != nil {
+		casm.BytecodeSegmentLengths = AdaptSegmentLengths(*compiledClass.BytecodeSegmentLengths)
+	}
 
 	var ok bool
 	casm.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)

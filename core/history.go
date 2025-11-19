@@ -95,6 +95,18 @@ func (s *stateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, er
 	return declaredClass, nil
 }
 
+func (s *stateHistory) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return s.state.CompiledClassHash(classHash)
+}
+
+func (s *stateHistory) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return s.state.CompiledClassHashV2(classHash)
+}
+
 func (s *stateHistory) ClassTrie() (*trie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

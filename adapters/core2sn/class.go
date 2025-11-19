@@ -28,9 +28,12 @@ func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
 	feederCompiledClass.CompilerVersion = coreCasmClass.CompilerVersion
 	feederCompiledClass.Hints = coreCasmClass.Hints
 	feederCompiledClass.Prime = utils.ToHex(coreCasmClass.Prime)
-	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(
-		coreCasmClass.BytecodeSegmentLengths,
-	)
+
+	if coreCasmClass.BytecodeSegmentLengths.Length != 0 ||
+		len(coreCasmClass.BytecodeSegmentLengths.Children) != 0 {
+		segmentLengths := AdaptSegmentLengths(coreCasmClass.BytecodeSegmentLengths)
+		feederCompiledClass.BytecodeSegmentLengths = &segmentLengths
+	}
 
 	feederCompiledClass.EntryPoints.External = make(
 		[]starknet.CompiledEntryPoint,

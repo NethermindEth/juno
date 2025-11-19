@@ -44,7 +44,8 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
-
+	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
+	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
 	ClassTrie() (*trie.Trie, error)
 	ContractTrie() (*trie.Trie, error)
 	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
@@ -468,6 +469,46 @@ func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt
 	return err
 }
 
+// Class returns the class object corresponding to the given classHash
+func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+	var class *DeclaredClassDefinition
+	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
+		return encoder.Unmarshal(data, &class)
+	})
+	return class, err
+}
+
+func (s *State) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	classTrie, closer, err := s.classesTrie()
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	casmHash, err := classTrie.Get((*felt.Felt)(classHash))
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+
+	if casmHash.IsZero() {
+		return felt.CasmClassHash{}, errors.New("casm hash not found")
+	}
+
+	return felt.CasmClassHash(casmHash), nil
+}
+
+func (s *State) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return GetCasmClassHashV2(s.txn, classHash)
+}
+
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
 	*db.BufferBatch, error,
 ) {
@@ -794,6 +835,11 @@ func (s *State) removeDeclaredClasses(
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}
+
+			sierraClassHash := felt.SierraClassHash(*cHash)
+			if err = DeleteCasmClassHashV2(s.txn, &sierraClassHash); err != nil {
+				return fmt.Errorf("delete CASM class hash V2 for class %s: %v", cHash, err)
+			}
 		}
 	}
 	return classesCloser()
@@ -879,6 +925,22 @@ func (s *State) revertMigratedCasmClasses(
 	}
 
 	return classesCloser()
+}
+
+// ContractStorageAt returns the value of a storage location
+// of the given contract at the height `height`.
+func (s *State) ContractStorageAt(
+	contractAddress,
+	storageLocation *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
+	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
+	value, err := s.valueAt(key, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	return felt.FromBytes[felt.Felt](value), nil
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
