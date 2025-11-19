@@ -413,7 +413,9 @@ func (b *Blockchain) HeadState() (core.CommonStateReader, StateCloser, error) {
 }
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.CommonStateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockNumber(
+	blockNumber uint64,
+) (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
@@ -426,7 +428,9 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.CommonStateRea
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.CommonStateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockHash(
+	blockHash *felt.Felt,
+) (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		memDB := memory.New()

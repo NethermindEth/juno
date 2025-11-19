@@ -4,7 +4,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-//go:generate mockgen -destination=../../mocks/mock_commonstate_reader.go -package=mocks github.com/NethermindEth/juno/core/state/commonstate StateReader
+//go:generate mockgen -destination=../mocks/mock_common_state.go -package=mocks github.com/NethermindEth/juno/core CommonState
 type CommonState interface {
 	CommonStateReader
 

@@ -77,7 +77,7 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockCommonState(mockCtrl)
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
@@ -234,7 +234,7 @@ func TestStorageProof(t *testing.T) {
 	headBlock := &core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockCommonState(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
 	mockReader.EXPECT().Head().Return(headBlock, nil).AnyTimes()
 	mockReader.EXPECT().BlockByNumber(blockNumber).Return(headBlock, nil).AnyTimes()

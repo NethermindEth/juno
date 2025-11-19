@@ -418,7 +418,10 @@ func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
 func (fs *fakeSyncer) PendingState() (core.CommonStateReader, func() error, error) {
 	return nil, nil, nil
 }
-func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (core.CommonStateReader, func() error, error) {
+
+func (fs *fakeSyncer) PendingStateBeforeIndex(
+	index int,
+) (core.CommonStateReader, func() error, error) {
 	return nil, nil, nil
 }
 
