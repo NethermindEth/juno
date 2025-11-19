@@ -225,10 +225,15 @@ func GetReceiptByHash(r db.KeyValueReader, hash *felt.Felt) (*TransactionReceipt
 	return GetReceiptByBlockNumIndexBytes(r, val)
 }
 
-func DeleteTxsAndReceipts(batch db.IndexedBatch, blockNum, numTxs uint64) error {
+func DeleteTxsAndReceipts(
+	r db.KeyValueReader,
+	batch db.KeyValueWriter,
+	blockNum,
+	numTxs uint64,
+) error {
 	// remove txs and receipts
 	for i := range numTxs {
-		txn, err := GetTxByBlockNumIndex(batch, blockNum, i)
+		txn, err := GetTxByBlockNumIndex(r, blockNum, i)
 		if err != nil {
 			return err
 		}
