@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -19,12 +20,18 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
+const (
+	systemContract1Addr = 1
+	systemContract2Addr = 2
+)
+
 var (
 	stateVersion0             = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 	leafVersion0              = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	noClassContractsClassHash = felt.Zero
 	noClassContracts          = map[felt.Felt]struct{}{
-		*new(felt.Felt).SetUint64(1): {},
+		felt.FromUint64[felt.Felt](systemContract1Addr): {},
+		felt.FromUint64[felt.Felt](systemContract2Addr): {},
 	}
 )
 
@@ -48,9 +55,9 @@ type ClassReader interface {
 }
 
 type TrieProvider interface {
-	ClassTrie() (*trie2.Trie, error)
-	ContractTrie() (*trie2.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error)
+	ClassTrie() (commontrie.Trie, error)
+	ContractTrie() (commontrie.Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
 }
 
 type State struct {
@@ -140,15 +147,15 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, erro
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *State) ClassTrie() (*trie2.Trie, error) {
+func (s *State) ClassTrie() (commontrie.Trie, error) {
 	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (*trie2.Trie, error) {
+func (s *State) ContractTrie() (commontrie.Trie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
@@ -172,6 +179,7 @@ func (s *State) Update(
 	blockNum uint64,
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
+	skipVerifyNewRoot bool,
 ) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
@@ -223,8 +231,15 @@ func (s *State) Update(
 	}
 
 	// Check if the new commitment matches the one in state diff
-	if !newComm.Equal(update.NewRoot) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
+	// The following check isn't relevant for the centralised Juno sequencer
+	if !skipVerifyNewRoot {
+		if !newComm.Equal(update.NewRoot) {
+			return fmt.Errorf(
+				"state commitment mismatch: %v (expected) != %v (actual)",
+				update.NewRoot,
+				&newComm,
+			)
+		}
 	}
 
 	s.db.stateCache.PushLayer(&newComm, &stateUpdate.prevComm, &diffCache{
@@ -574,7 +589,7 @@ func (s *State) verifyComm(comm *felt.Felt) error {
 	}
 
 	if !curComm.Equal(comm) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", comm, curComm)
+		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", comm, &curComm)
 	}
 
 	return nil

@@ -12,6 +12,11 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+const (
+	PathScheme string = "path"
+	HashScheme string = "hash"
+)
+
 type Config struct {
 	PathConfig *pathdb.Config
 	HashConfig *hashdb.Config
@@ -61,6 +66,23 @@ func (d *Database) Update(
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
+}
+
+func (d *Database) Journal(root *felt.Felt) error {
+	pdb, ok := d.triedb.(*pathdb.Database)
+	if !ok {
+		return fmt.Errorf("unsupported trie db type: %T", d.triedb)
+	}
+	return pdb.Journal(root)
+}
+
+func (d *Database) Scheme() string {
+	if d.config == nil {
+		return PathScheme
+	} else if d.config.PathConfig != nil {
+		return PathScheme
+	}
+	return HashScheme
 }
 
 func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
