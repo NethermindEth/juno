@@ -290,6 +290,37 @@ func (s *StateSnapshotReader) Commitment() (felt.Felt, error) {
 	return root, nil
 }
 
+func (s *StateSnapshotReader) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	classTrie, closer, err := classesTrie(s.txn)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	casmHash, err := classTrie.Get((*felt.Felt)(classHash))
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+
+	if casmHash.IsZero() {
+		return felt.CasmClassHash{}, errors.New("casm hash not found")
+	}
+
+	return felt.CasmClassHash(casmHash), nil
+}
+
+func (s *StateSnapshotReader) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return GetCasmClassHashV2(s.txn, classHash)
+}
+
 type State struct {
 	txn db.IndexedBatch
 	*StateSnapshotReader
@@ -476,37 +507,6 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 		return encoder.Unmarshal(data, &class)
 	})
 	return class, err
-}
-
-func (s *State) CompiledClassHash(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	classTrie, closer, err := s.classesTrie()
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			_ = closeErr
-		}
-	}()
-
-	casmHash, err := classTrie.Get((*felt.Felt)(classHash))
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-
-	if casmHash.IsZero() {
-		return felt.CasmClassHash{}, errors.New("casm hash not found")
-	}
-
-	return felt.CasmClassHash(casmHash), nil
-}
-
-func (s *State) CompiledClassHashV2(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	return GetCasmClassHashV2(s.txn, classHash)
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
