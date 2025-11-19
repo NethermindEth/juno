@@ -557,3 +557,30 @@ func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) er
 
 	return w.Put(db.RunningEventFilter.Key(), enc)
 }
+
+func GetCasmClassHashV2(
+	r db.KeyValueReader,
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	var casmClassHash felt.CasmClassHash
+	err := r.Get(db.ClassHashToCasmHashV2Key(classHash), func(data []byte) error {
+		casmClassHash.Unmarshal(data)
+		return nil
+	})
+	return casmClassHash, err
+}
+
+func WriteCasmClassHashV2(
+	w db.KeyValueWriter,
+	classHash *felt.SierraClassHash,
+	casmClassHash *felt.CasmClassHash,
+) error {
+	return w.Put(db.ClassHashToCasmHashV2Key(classHash), casmClassHash.Marshal())
+}
+
+func DeleteCasmClassHashV2(
+	w db.KeyValueWriter,
+	classHash *felt.SierraClassHash,
+) error {
+	return w.Delete(db.ClassHashToCasmHashV2Key(classHash))
+}

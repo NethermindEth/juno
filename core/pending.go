@@ -136,7 +136,10 @@ func (p *Pending) ReceiptByHash(
 	return nil, nil, 0, ErrTransactionReceiptNotFound
 }
 
-func (p *Pending) PendingStateBeforeIndex(baseState CommonStateReader, index uint) (CommonStateReader, error) {
+func (p *Pending) PendingStateBeforeIndex(
+	baseState CommonStateReader,
+	index uint,
+) (CommonStateReader, error) {
 	return nil, ErrPendingStateBeforeIndexNotSupported
 }
 

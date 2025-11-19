@@ -49,7 +49,6 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 		return felt.Zero, err
 	}
 
-	// TODO(maksym): test if this works instead of reading from disk
 	path := tr.FeltToPath(key)
 	reader, err := s.state.db.triedb.NodeReader(
 		trieutils.NewContractStorageTrieID(s.state.initRoot, s.addr),

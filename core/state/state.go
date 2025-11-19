@@ -73,7 +73,7 @@ func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("contractTrie", contractTrie, err)
+
 	classTrie, err := db.ClassTrie(stateRoot)
 	if err != nil {
 		return nil, err
@@ -156,6 +156,27 @@ func (s *State) ContractTrie() (core.CommonTrie, error) {
 
 func (s *State) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
+}
+
+func (s *State) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	casmHash, err := s.classTrie.Get((*felt.Felt)(classHash))
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+
+	if casmHash.IsZero() {
+		return felt.CasmClassHash{}, errors.New("casm hash not found")
+	}
+
+	return felt.CasmClassHash(casmHash), nil
+}
+
+func (s *State) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return core.GetCasmClassHashV2(s.db.disk, classHash)
 }
 
 // Returns the state commitment
@@ -409,7 +430,6 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 
 	for i, addr := range keys {
 		obj := s.stateObjects[addr]
-		idx := i
 		p.Go(func() error {
 			// Object is marked as delete
 			if obj == nil {
@@ -425,7 +445,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 				return err
 			}
 
-			comms[idx] = obj.commitment()
+			comms[i] = obj.commitment()
 			return nil
 		})
 	}
@@ -503,61 +523,64 @@ func (s *State) flush(
 	classes map[felt.Felt]core.ClassDefinition,
 	storeHistory bool,
 ) error {
+	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
+
+	p.Go(func() error {
+		return s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes)
+	})
+
 	batch := s.db.disk.NewBatch()
-	if err := s.db.triedb.Update(
-		&update.curComm,
-		&update.prevComm,
-		blockNum,
-		update.classNodes,
-		update.contractNodes,
-		batch,
-	); err != nil {
-		return err
-	}
+	p.Go(func() error {
+		for addr, obj := range s.stateObjects {
+			if obj == nil { // marked as deleted
+				if err := DeleteContract(batch, &addr); err != nil {
+					return err
+				}
 
-	for addr, obj := range s.stateObjects {
-		if obj == nil { // marked as deleted
-			if err := DeleteContract(batch, &addr); err != nil {
-				return err
-			}
+				// TODO(weiihann): handle hash-based, and there should be better ways of doing this
+				if err := trieutils.DeleteStorageNodesByPath(batch, addr); err != nil {
+					return err
+				}
+			} else { // updated
+				if err := WriteContract(batch, &addr, obj.contract); err != nil {
+					return err
+				}
 
-			// TODO(weiihann): handle hash-based, and there should be better ways of doing this
-			if err := trieutils.DeleteStorageNodesByPath(batch, addr); err != nil {
-				return err
-			}
-		} else { // updated
-			if err := WriteContract(batch, &addr, obj.contract); err != nil {
-				return err
-			}
+				if storeHistory {
+					for key, val := range obj.dirtyStorage {
+						if err := WriteStorageHistory(batch, &addr, &key, blockNum, val); err != nil {
+							return err
+						}
+					}
 
-			if storeHistory {
-				for key, val := range obj.dirtyStorage {
-					if err := WriteStorageHistory(batch, &addr, &key, blockNum, val); err != nil {
+					if err := WriteNonceHistory(batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
+						return err
+					}
+
+					if err := WriteClassHashHistory(batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
 						return err
 					}
 				}
+			}
+		}
 
-				if err := WriteNonceHistory(batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
+		for classHash, class := range classes {
+			if class == nil { // mark as deleted
+				if err := DeleteClass(batch, &classHash); err != nil {
 					return err
 				}
-
-				if err := WriteClassHashHistory(batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
+			} else {
+				if err := WriteClass(batch, &classHash, class, blockNum); err != nil {
 					return err
 				}
 			}
 		}
-	}
 
-	for classHash, class := range classes {
-		if class == nil { // mark as deleted
-			if err := DeleteClass(batch, &classHash); err != nil {
-				return err
-			}
-		} else {
-			if err := WriteClass(batch, &classHash, class, blockNum); err != nil {
-				return err
-			}
-		}
+		return nil
+	})
+
+	if err := p.Wait(); err != nil {
+		return err
 	}
 
 	return batch.Write()
@@ -586,6 +609,7 @@ func (s *State) verifyComm(comm *felt.Felt) error {
 	if err != nil {
 		return err
 	}
+
 	if !curComm.Equal(comm) {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", comm, &curComm)
 	}

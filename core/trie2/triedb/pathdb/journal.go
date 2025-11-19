@@ -272,7 +272,7 @@ func (d *Database) loadLayers(enc []byte) (layer, error) {
 }
 
 func (d *Database) getStateRoot() felt.Felt {
-	encContractRootRaw, err := trieutils.GetNodeByPath(
+	encContractRoot, err := trieutils.GetNodeByPath(
 		d.disk,
 		db.ContractTrieContract,
 		&felt.Zero,
@@ -282,10 +282,8 @@ func (d *Database) getStateRoot() felt.Felt {
 	if err != nil {
 		return felt.Zero
 	}
-	encContractRoot := make([]byte, len(encContractRootRaw))
-	copy(encContractRoot, encContractRootRaw)
 
-	encStorageRootRaw, err := trieutils.GetNodeByPath(
+	encStorageRoot, err := trieutils.GetNodeByPath(
 
 		d.disk,
 		db.ClassTrie,
@@ -296,8 +294,6 @@ func (d *Database) getStateRoot() felt.Felt {
 	if err != nil {
 		return felt.Zero
 	}
-	encStorageRoot := make([]byte, len(encStorageRootRaw))
-	copy(encStorageRoot, encStorageRootRaw)
 
 	contractRootNode, err := trienode.DecodeNode(encContractRoot, &felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {

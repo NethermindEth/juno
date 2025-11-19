@@ -76,7 +76,6 @@ func New(
 	}
 
 	root, err := tr.resolveNode(nil, Path{})
-	fmt.Println("root", root, err)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}

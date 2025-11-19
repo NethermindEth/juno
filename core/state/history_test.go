@@ -19,6 +19,14 @@ func TestNewStateHistory(t *testing.T) {
 		assert.Equal(t, uint64(0), history.blockNum)
 		assert.NotNil(t, history.state)
 	})
+
+	t.Run("bigger state root", func(t *testing.T) {
+		invalidRoot := felt.NewUnsafeFromString[felt.Felt]("0x999")
+		_, err := NewStateHistory(1, invalidRoot, stateDB)
+		// error is returned only for the triedb
+		// in path scheme
+		assert.NoError(t, err)
+	})
 }
 
 func TestStateHistoryContractOperations(t *testing.T) {
