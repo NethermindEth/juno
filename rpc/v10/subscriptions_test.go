@@ -93,13 +93,13 @@ func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
 	return nil, core.ErrPendingDataNotFound
 }
 func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) {
+func (fs *fakeSyncer) PendingState() (core.CommonStateReader, func() error, error) {
 	return nil, nil, nil
 }
 
 func (fs *fakeSyncer) PendingStateBeforeIndex(
 	index int,
-) (core.StateReader, func() error, error) {
+) (core.CommonStateReader, func() error, error) {
 	return nil, nil, nil
 }
 

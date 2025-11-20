@@ -117,7 +117,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockCommonState(mockCtrl)
 	t.Run("Returns pending state", func(t *testing.T) {
 		stateDiff := core.EmptyStateDiff()
 		pendingData := core.PreConfirmed{

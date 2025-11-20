@@ -68,7 +68,7 @@ func TestStateSnapshot(t *testing.T) {
 	require.NoError(t, err)
 
 	for desc, test := range map[string]struct {
-		snapshot core.StateReader
+		snapshot core.CommonStateReader
 		checker  func(*testing.T, felt.Felt, error)
 	}{
 		"contract is not deployed": {
