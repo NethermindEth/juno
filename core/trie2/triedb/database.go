@@ -3,7 +3,6 @@ package triedb
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/triedb/hashdb"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
@@ -29,8 +28,4 @@ func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
 		return rawdb.New(disk), nil
 	}
 	return nil, fmt.Errorf("invalid config")
-}
-
-func (d *Database) Commit(stateComm *felt.Felt) error {
-	return d.triedb.Commit(stateComm)
 }
