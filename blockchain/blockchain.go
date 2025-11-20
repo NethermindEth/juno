@@ -412,7 +412,8 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	return core.NewState(txn), noopStateCloser, nil
 }
 
-// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
+// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given
+// block number
 func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
@@ -422,10 +423,11 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), blockNumber), noopStateCloser, nil
+	return core.NewDeprecatedStateHistory(core.NewState(txn), blockNumber), noopStateCloser, nil
 }
 
-// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
+// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given
+// block hash
 func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
@@ -441,7 +443,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), header.Number), noopStateCloser, nil
+	return core.NewDeprecatedStateHistory(core.NewState(txn), header.Number), noopStateCloser, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
