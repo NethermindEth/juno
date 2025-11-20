@@ -11,10 +11,64 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 )
 
 const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
+
+type TrieReader struct {
+	height      uint8
+	rootKey     *BitArray
+	maxKey      *felt.Felt
+	readStorage *ReadStorage
+	hash        crypto.HashFn
+}
+
+func NewTrieReaderPedersen(
+	r db.KeyValueReader,
+	prefix []byte,
+	height uint8,
+) (*TrieReader, error) {
+	return newTrieReader(r, prefix, height, crypto.Pedersen)
+}
+
+func NewTrieReaderPoseidon(
+	r db.KeyValueReader,
+	prefix []byte,
+	height uint8,
+) (*TrieReader, error) {
+	return newTrieReader(r, prefix, height, crypto.Poseidon)
+}
+
+func newTrieReader(
+	r db.KeyValueReader,
+	prefix []byte,
+	height uint8,
+	hash crypto.HashFn,
+) (*TrieReader, error) {
+	if height > felt.Bits {
+		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
+	}
+
+	// maxKey is 2^height - 1
+	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
+	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
+
+	readStorage := NewReadStorage(r, prefix)
+	rootKey, err := readStorage.RootKey()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
+	}
+
+	return &TrieReader{
+		readStorage: readStorage,
+		height:      height,
+		rootKey:     rootKey,
+		maxKey:      maxKey,
+		hash:        hash,
+	}, nil
+}
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
@@ -34,27 +88,28 @@ const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, s
 //
 // [specification]: https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#merkle_patricia_trie
 type Trie struct {
-	height  uint8
-	rootKey *BitArray
-	maxKey  *felt.Felt
-	storage *Storage
-	hash    crypto.HashFn
-
+	*TrieReader
+	storage        *Storage
 	dirtyNodes     []*BitArray
 	rootKeyIsDirty bool
 }
 
-type NewTrieFunc func(*Storage, uint8) (*Trie, error)
+type NewTrieFunc func(db.IndexedBatch, []byte, uint8) (*Trie, error)
 
-func NewTriePedersen(storage *Storage, height uint8) (*Trie, error) {
-	return newTrie(storage, height, crypto.Pedersen)
+func NewTriePedersen(txn db.IndexedBatch, prefix []byte, height uint8) (*Trie, error) {
+	return newTrie(txn, prefix, height, crypto.Pedersen)
 }
 
-func NewTriePoseidon(storage *Storage, height uint8) (*Trie, error) {
-	return newTrie(storage, height, crypto.Poseidon)
+func NewTriePoseidon(txn db.IndexedBatch, prefix []byte, height uint8) (*Trie, error) {
+	return newTrie(txn, prefix, height, crypto.Poseidon)
 }
 
-func newTrie(storage *Storage, height uint8, hash crypto.HashFn) (*Trie, error) {
+func newTrie(
+	txn db.IndexedBatch,
+	prefix []byte,
+	height uint8,
+	hash crypto.HashFn,
+) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -63,23 +118,30 @@ func newTrie(storage *Storage, height uint8, hash crypto.HashFn) (*Trie, error) 
 	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
 	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
 
+	storage := NewStorage(txn, prefix)
 	rootKey, err := storage.RootKey()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}
 
+	readOnlyStorage := NewReadStorage(storage.txn, storage.prefix)
 	return &Trie{
+		TrieReader: &TrieReader{
+			readStorage: readOnlyStorage,
+			height:      height,
+			rootKey:     rootKey,
+			maxKey:      maxKey,
+			hash:        hash,
+		},
 		storage: storage,
-		height:  height,
-		rootKey: rootKey,
-		maxKey:  maxKey,
-		hash:    hash,
 	}, nil
 }
 
 // RunOnTempTriePedersen creates an in-memory Trie of height `height` and runs `do` on that Trie
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := NewTriePedersen(newMemStorage(), height)
+	memoryDB := memory.New()
+	txn := memoryDB.NewIndexedBatch()
+	trie, err := NewTriePedersen(txn, nil, height)
 	if err != nil {
 		return err
 	}
@@ -87,7 +149,9 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := NewTriePoseidon(newMemStorage(), height)
+	memoryDB := memory.New()
+	txn := memoryDB.NewIndexedBatch()
+	trie, err := NewTriePoseidon(txn, nil, height)
 	if err != nil {
 		return err
 	}
@@ -96,7 +160,7 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 
 // FeltToKey converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) FeltToKey(k *felt.Felt) BitArray {
+func (t *TrieReader) FeltToKey(k *felt.Felt) BitArray {
 	var ba BitArray
 	ba.SetFelt(t.height, k)
 	return ba
@@ -221,7 +285,7 @@ func (s *StorageNodeSet) Size() int {
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
+func (t *TrieReader) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
 	var nodes []StorageNode
 	cur := t.rootKey
 	for cur != nil {
@@ -230,7 +294,7 @@ func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
 			return nodes, nil
 		}
 
-		node, err := t.storage.Get(cur)
+		node, err := t.readStorage.Get(cur)
 		if err != nil {
 			return nil, err
 		}
@@ -255,9 +319,9 @@ func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
 }
 
 // Get the corresponding `value` for a `key`
-func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
+func (t *TrieReader) Get(key *felt.Felt) (felt.Felt, error) {
 	storageKey := t.FeltToKey(key)
-	value, err := t.storage.Get(&storageKey)
+	value, err := t.readStorage.Get(&storageKey)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return felt.Zero, nil
@@ -270,15 +334,28 @@ func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
 }
 
 // GetNodeFromKey returns the node for a given key.
-func (t *Trie) GetNodeFromKey(key *BitArray) (*Node, error) {
-	return t.storage.Get(key)
+func (t *TrieReader) GetNodeFromKey(key *BitArray) (*Node, error) {
+	return t.readStorage.Get(key)
+}
+
+// RootKey returns db key of the [Trie] root node
+func (t *TrieReader) RootKey() *BitArray {
+	return t.rootKey
+}
+
+func (t *TrieReader) Dump() {
+	t.dump(0, nil)
+}
+
+func (t *TrieReader) HashFn() crypto.HashFn {
+	return t.hash
 }
 
 // check if we are updating an existing leaf, if yes avoid traversing the trie
 func (t *Trie) updateLeaf(nodeKey BitArray, node *Node, value *felt.Felt) (*felt.Felt, error) {
 	// Check if we are updating an existing leaf
 	if !value.IsZero() {
-		if existingLeaf, err := t.storage.Get(&nodeKey); err == nil {
+		if existingLeaf, err := t.readStorage.Get(&nodeKey); err == nil {
 			old := *existingLeaf.Value // record old value to return to caller
 			if err = t.storage.Put(&nodeKey, node); err != nil {
 				return nil, err
@@ -454,7 +531,7 @@ func (t *Trie) Update(key, value *felt.Felt) error {
 	return err
 }
 
-// Put updates the corresponding `value` for a `key`
+// PutWithProof updates the corresponding `value` for a `key` using a proof
 func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.Felt, error) {
 	if key.Cmp(t.maxKey) > 0 {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
@@ -516,7 +593,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.
 	}
 }
 
-// Put updates the corresponding `value` for a `key`
+// PutInner updates an inner node in the trie
 func (t *Trie) PutInner(key *BitArray, node *Node) error {
 	if err := t.storage.Put(key, node); err != nil {
 		return err
@@ -530,7 +607,7 @@ func (t *Trie) setRootKey(newRootKey *BitArray) {
 }
 
 func (t *Trie) updateValueIfDirty(key *BitArray) (*Node, error) { //nolint:gocyclo
-	node, err := t.storage.Get(key)
+	node, err := t.readStorage.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -737,19 +814,6 @@ func (t *Trie) Commit() error {
 	return err
 }
 
-// RootKey returns db key of the [Trie] root node
-func (t *Trie) RootKey() *BitArray {
-	return t.rootKey
-}
-
-func (t *Trie) Dump() {
-	t.dump(0, nil)
-}
-
-func (t *Trie) HashFn() crypto.HashFn {
-	return t.hash
-}
-
 // Try to print a [Trie] in a somewhat human-readable form
 /*
 Todo: create more meaningful representation of trie. In the current format string, storage is being
@@ -764,13 +828,13 @@ The following can be printed:
 
 The spacing to represent the levels of the trie can remain the same.
 */
-func (t *Trie) dump(level int, parentP *BitArray) {
+func (t *TrieReader) dump(level int, parentP *BitArray) {
 	if t.rootKey == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
 		return
 	}
 
-	root, err := t.storage.Get(t.rootKey)
+	root, err := t.readStorage.Get(t.rootKey)
 	if err != nil {
 		return
 	}
@@ -805,12 +869,12 @@ func (t *Trie) dump(level int, parentP *BitArray) {
 		rightHash,
 		root.Value.String(),
 	)
-	(&Trie{
-		rootKey: root.Left,
-		storage: t.storage,
+	(&TrieReader{
+		rootKey:     root.Left,
+		readStorage: t.readStorage,
 	}).dump(level+1, t.rootKey)
-	(&Trie{
-		rootKey: root.Right,
-		storage: t.storage,
+	(&TrieReader{
+		rootKey:     root.Right,
+		readStorage: t.readStorage,
 	}).dump(level+1, t.rootKey)
 }
