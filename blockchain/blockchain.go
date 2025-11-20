@@ -38,9 +38,9 @@ type Reader interface {
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
 
-	HeadState() (core.StateReader, StateCloser, error)
-	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
-	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
+	HeadState() (core.CommonStateReader, StateCloser, error)
+	StateAtBlockHash(blockHash *felt.Felt) (core.CommonStateReader, StateCloser, error)
+	StateAtBlockNumber(blockNumber uint64) (core.CommonStateReader, StateCloser, error)
 
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
@@ -400,7 +400,7 @@ type StateCloser = func() error
 var noopStateCloser = func() error { return nil } // TODO: remove this once we refactor the state
 
 // HeadState returns a StateReader that provides a stable view to the latest state
-func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
+func (b *Blockchain) HeadState() (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("HeadState")
 	txn := b.database.NewIndexedBatch()
 
@@ -412,8 +412,11 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	return core.NewState(txn), noopStateCloser, nil
 }
 
-// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
+// StateAtBlockNumber returns a StateReader that provides
+// a stable view to the state at the given block number
+func (b *Blockchain) StateAtBlockNumber(
+	blockNumber uint64,
+) (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
@@ -425,8 +428,11 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 	return core.NewStateSnapshot(core.NewState(txn), blockNumber), noopStateCloser, nil
 }
 
-// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
+// StateAtBlockHash returns a StateReader that provides
+// a stable view to the state at the given block hash
+func (b *Blockchain) StateAtBlockHash(
+	blockHash *felt.Felt,
+) (core.CommonStateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		memDB := memory.New()

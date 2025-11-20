@@ -310,7 +310,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(header.Hash).Return(block, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
@@ -410,7 +410,7 @@ func TestTraceTransaction(t *testing.T) {
 			&pending,
 			nil,
 		).Times(2)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
 			Return(headState, nopCloser, nil).Times(2)
 
@@ -673,7 +673,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			NewClasses: map[felt.Felt]core.ClassDefinition{*declareTx.ClassHash: declaredClass.Class},
 		}
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil).Times(2)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
 			Return(headState, nopCloser, nil).Times(2)
 
@@ -801,7 +801,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
@@ -1315,7 +1315,7 @@ func TestCall(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockCommonState(mockCtrl)
 
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
