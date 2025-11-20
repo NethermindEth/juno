@@ -82,8 +82,8 @@ func (sf *StateFactory) NewStateReader(
 ) (StateReader, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
-		snapshot := core.NewStateSnapshot(deprecatedState, blockNumber)
-		return snapshot, nil
+		history := core.NewDeprecatedStateHistory(deprecatedState, blockNumber)
+		return history, nil
 	}
 
 	history, err := state.NewStateHistory(blockNumber, stateRoot, sf.stateDB)

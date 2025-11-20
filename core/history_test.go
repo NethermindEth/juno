@@ -19,9 +19,9 @@ func TestStateHistory(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	deployedHeight := uint64(3)
 	changeHeight := uint64(10)
-	snapshotBeforeDeployment := core.NewStateHistory(mockState, deployedHeight-1)
-	snapshotBeforeChange := core.NewStateHistory(mockState, deployedHeight)
-	snapshotAfterChange := core.NewStateHistory(mockState, changeHeight+1)
+	snapshotBeforeDeployment := core.NewDeprecatedStateHistory(mockState, deployedHeight-1)
+	snapshotBeforeChange := core.NewDeprecatedStateHistory(mockState, deployedHeight)
+	snapshotAfterChange := core.NewDeprecatedStateHistory(mockState, changeHeight+1)
 
 	historyValue := felt.NewFromUint64[felt.Felt](1)
 	doAtReq := func(addr *felt.Felt, at uint64) (felt.Felt, error) {

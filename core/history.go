@@ -10,23 +10,26 @@ import (
 
 var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
 
-type stateHistory struct {
+type deprecatedStateHistory struct {
 	blockNumber uint64
 	state       StateHistoryReader
 }
 
-func NewStateHistory(state StateHistoryReader, blockNumber uint64) *stateHistory {
-	return &stateHistory{
+func NewDeprecatedStateHistory(
+	state StateHistoryReader,
+	blockNumber uint64,
+) *deprecatedStateHistory {
+	return &deprecatedStateHistory{
 		blockNumber: blockNumber,
 		state:       state,
 	}
 }
 
-func (s *stateHistory) ChainHeight() (uint64, error) {
+func (s *deprecatedStateHistory) ChainHeight() (uint64, error) {
 	return s.blockNumber, nil
 }
 
-func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (s *deprecatedStateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -41,7 +44,7 @@ func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return val, nil
 }
 
-func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (s *deprecatedStateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -56,7 +59,7 @@ func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return val, nil
 }
 
-func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (s *deprecatedStateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -71,7 +74,7 @@ func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return val, nil
 }
 
-func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
+func (s *deprecatedStateHistory) checkDeployed(addr *felt.Felt) error {
 	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNumber)
 	if err != nil {
 		return err
@@ -83,7 +86,7 @@ func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 	return nil
 }
 
-func (s *stateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
+func (s *deprecatedStateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
 		return nil, err
@@ -95,26 +98,26 @@ func (s *stateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefinition, er
 	return declaredClass, nil
 }
 
-func (s *stateHistory) CompiledClassHash(
+func (s *deprecatedStateHistory) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
 	return s.state.CompiledClassHash(classHash)
 }
 
-func (s *stateHistory) CompiledClassHashV2(
+func (s *deprecatedStateHistory) CompiledClassHashV2(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
 	return s.state.CompiledClassHashV2(classHash)
 }
 
-func (s *stateHistory) ClassTrie() (commontrie.Trie, error) {
+func (s *deprecatedStateHistory) ClassTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateHistory) ContractTrie() (commontrie.Trie, error) {
+func (s *deprecatedStateHistory) ContractTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *deprecatedStateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
