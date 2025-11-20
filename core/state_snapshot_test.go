@@ -23,7 +23,7 @@ func TestStateSnapshot(t *testing.T) {
 	snapshotBeforeChange := core.NewStateSnapshot(mockState, deployedHeight)
 	snapshotAfterChange := core.NewStateSnapshot(mockState, changeHeight+1)
 
-	historyValue := new(felt.Felt).SetUint64(1)
+	historyValue := felt.NewFromUint64[felt.Felt](1)
 	doAtReq := func(addr *felt.Felt, at uint64) (felt.Felt, error) {
 		if addr.IsZero() {
 			return felt.Zero, errors.New("some error")
@@ -50,7 +50,7 @@ func TestStateSnapshot(t *testing.T) {
 		},
 	).AnyTimes()
 
-	headValue := new(felt.Felt).SetUint64(2)
+	headValue := felt.NewFromUint64[felt.Felt](2)
 	var err error
 	doHeadReq := func(_ *felt.Felt) (felt.Felt, error) {
 		return *headValue, err

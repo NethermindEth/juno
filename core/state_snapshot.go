@@ -15,7 +15,7 @@ type stateSnapshot struct {
 	state       StateHistoryReader
 }
 
-func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) StateReader {
+func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) *stateSnapshot {
 	return &stateSnapshot{
 		blockNumber: blockNumber,
 		state:       state,

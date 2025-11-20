@@ -16,14 +16,16 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/pool"
 )
 
 const globalTrieHeight = 251
 
 var (
-	stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
-	leafVersion  = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
+	stateVersion      = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
+	leafVersion       = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
+	ErrCheckHeadState = errors.New("check head state")
 )
 
 var _ StateHistoryReader = (*State)(nil)
@@ -39,7 +41,6 @@ type StateHistoryReader interface {
 }
 
 type StateReader interface {
-	ChainHeight() (uint64, error)
 	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
@@ -52,19 +53,13 @@ type StateReader interface {
 }
 
 type State struct {
-	*history
 	txn db.IndexedBatch
 }
 
 func NewState(txn db.IndexedBatch) *State {
 	return &State{
-		history: &history{txn: txn},
-		txn:     txn,
+		txn: txn,
 	}
-}
-
-func (s *State) ChainHeight() (uint64, error) {
-	return GetChainHeight(s.txn)
 }
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
@@ -307,7 +302,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 		}
 
 		if logChanges {
-			if err = s.LogContractClassHash(&addr, &oldClassHash, blockNumber); err != nil {
+			if err = WriteContractClassHashHistory(s.txn, &addr, &oldClassHash, blockNumber); err != nil {
 				return err
 			}
 		}
@@ -321,7 +316,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 		}
 
 		if logChanges {
-			if err = s.LogContractNonce(&addr, &oldNonce, blockNumber); err != nil {
+			if err = WriteContractNonceHistory(s.txn, &addr, &oldNonce, blockNumber); err != nil {
 				return err
 			}
 		}
@@ -413,7 +408,13 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 
 	onValueChanged := func(location, oldValue *felt.Felt) error {
 		if logChanges {
-			return bufferedState.LogContractStorage(contractAddr, location, oldValue, blockNumber)
+			return WriteContractStorageHistory(
+				bufferedState.txn,
+				contractAddr,
+				location,
+				oldValue,
+				blockNumber,
+			)
 		}
 		return nil
 	}
@@ -517,7 +518,7 @@ func (s *State) updateContractNonce(
 func (s *State) updateContract(
 	stateTrie *trie.Trie,
 	addr *felt.Felt,
-	getOldValue func(*felt.Felt, db.IndexedBatch) (felt.Felt, error),
+	getOldValue func(*felt.Felt, db.KeyValueReader) (felt.Felt, error),
 	updateValue func(*ContractUpdater) error,
 ) (felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)
@@ -828,7 +829,7 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error
 	// storage diffs
 	for addr, storageDiffs := range diff.StorageDiffs {
 		for key := range storageDiffs {
-			if err := s.DeleteContractStorageLog(&addr, &key, blockNumber); err != nil {
+			if err := DeleteContractStorageHistory(s.txn, &addr, &key, blockNumber); err != nil {
 				return err
 			}
 		}
@@ -836,19 +837,94 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error
 
 	// nonces
 	for addr := range diff.Nonces {
-		if err := s.DeleteContractNonceLog(&addr, blockNumber); err != nil {
+		if err := DeleteContractNonceHistory(s.txn, &addr, blockNumber); err != nil {
 			return err
 		}
 	}
 
 	// replaced classes
 	for addr := range diff.ReplacedClasses {
-		if err := s.DeleteContractClassHashLog(&addr, blockNumber); err != nil {
+		if err := DeleteContractClassHashHistory(s.txn, &addr, blockNumber); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
+	it, err := s.txn.NewIterator(nil, false)
+	if err != nil {
+		return nil, err
+	}
+
+	seekKey := binary.BigEndian.AppendUint64(key, height)
+	for it.Seek(seekKey); it.Valid(); it.Next() {
+		seekedKey := it.Key()
+		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
+		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
+			break
+		}
+
+		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
+		if seekedHeight < height {
+			// last change happened before the height we are looking for
+			// check head state
+			break
+		} else if seekedHeight == height {
+			// a log exists for the height we are looking for, so the old value in this
+			// log entry is not useful. Advance the iterator and see we can use the next entry.
+			// If not, ErrCheckHeadState will be returned.
+			continue
+		}
+
+		val, itErr := it.Value()
+		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
+			return nil, err
+		}
+		// seekedHeight > height
+		return val, nil
+	}
+
+	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
+}
+
+// ContractStorageAt returns the value of a storage location
+// of the given contract at the height `height`.
+func (s *State) ContractStorageAt(
+	contractAddress,
+	storageLocation *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
+	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
+	value, err := s.valueAt(key, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	return felt.FromBytes[felt.Felt](value), nil
+}
+
+func (s *State) ContractNonceAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
+	key := db.ContractNonceHistoryKey(contractAddress)
+	value, err := s.valueAt(key, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return felt.FromBytes[felt.Felt](value), nil
+}
+
+func (s *State) ContractClassHashAt(
+	contractAddress *felt.Felt,
+	height uint64,
+) (felt.Felt, error) {
+	key := db.ContractClassHashHistoryKey(contractAddress)
+	value, err := s.valueAt(key, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	return felt.FromBytes[felt.Felt](value), nil
 }
 
 func (s *State) revertMigratedCasmClasses(
