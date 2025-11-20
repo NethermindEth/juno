@@ -9,6 +9,7 @@ use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use cached::{Cached, SizedCache};
 use once_cell::sync::Lazy;
+use starknet_api::contract_class::compiled_class_hash::{HashVersion, HashableCompiledClass};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
@@ -234,18 +235,26 @@ impl StateReader for JunoStateReader {
         };
 
         let casm_hash_v2 = if wrote == 0 {
-            blockifier::state::utils::get_compiled_class_hash_v2(self, class_hash, compiled_class)?
+            // Not found in state, compute from compiled_class
+            match compiled_class {
+                RunnableCompiledClass::V0(_) => {
+                    Err(StateError::MissingCompiledClassHashV2(class_hash))
+                }
+                RunnableCompiledClass::V1(class) => Ok(class.hash(&HashVersion::V2)),
+            }
         } else {
             assert!(wrote == 32, "Juno didn't write 32 bytes");
-            CompiledClassHash(Felt::from_bytes_be(&buffer))
+            Ok(CompiledClassHash(Felt::from_bytes_be(&buffer)))
         };
 
-        CASM_CLASS_HASH_V2_CACHE
-            .lock()
-            .unwrap()
-            .cache_set(class_hash, casm_hash_v2);
+        if let Ok(casm_hash_v2) = casm_hash_v2 {
+            CASM_CLASS_HASH_V2_CACHE
+                .lock()
+                .unwrap()
+                .cache_set(class_hash, casm_hash_v2);
+        };
 
-        Ok(casm_hash_v2)
+        casm_hash_v2
     }
 }
 
