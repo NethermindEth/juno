@@ -48,10 +48,16 @@ func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 	// Essentially
 	// for each event.Keys[i], (len(e.keys[i]) == 0 OR event.Keys[i] is in e.keys[i]) should hold
 	for index, eventKey := range eventKeys {
-		// empty filter keys means match all
-		if index >= len(e.keysMap) || len(e.keysMap[index]) == 0 {
-			break
+		if index >= len(e.keysMap) {
+			// event has more keys than filter keys and
+			// so far event keys match the filter keys
+			return true
 		}
+		// empty filter keys means match all
+		if len(e.keysMap[index]) == 0 {
+			continue
+		}
+		// check if event key is in filter keys
 		if _, found := e.keysMap[index][*eventKey]; !found {
 			return false
 		}
