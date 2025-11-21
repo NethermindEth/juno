@@ -26,7 +26,9 @@ jobs:
       - name: Run jsonrpc tests
         run: |
           cd starknet-providers && cargo test jsonrpc -- --skip jsonrpc_get_block_with_receipts
-          cd ../starknet-accounts && cargo test jsonrpc -- \
+          cd ../starknet-accounts
+          # TODO: Once SDK is updated, remove ignore for declare tests
+          cargo test jsonrpc -- \
             --skip can_declare_cairo0_contract_with_jsonrpc \
             --skip can_estimate_declare_v3_fee_with_jsonrpc \
             --skip can_declare_cairo1_contract_v3_with_jsonrpc
