@@ -15,6 +15,7 @@ type KeyValueReader interface {
 	//		return nil
 	//	})
 	Get(key []byte, cb func(value []byte) error) error
+	Iterable
 }
 
 // Exposes a write-only interface to the database
@@ -51,7 +52,6 @@ type KeyValueStore interface {
 	Batcher
 	IndexedBatcher
 	Snapshotter
-	Iterable
 	Helper
 	Listener
 	io.Closer

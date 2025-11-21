@@ -25,6 +25,8 @@ type TrieReader struct {
 	hash        crypto.HashFn
 }
 
+type NewTrieReaderFunc func(db.KeyValueReader, []byte, uint8) (*TrieReader, error)
+
 func NewTrieReaderPedersen(
 	r db.KeyValueReader,
 	prefix []byte,
@@ -400,6 +402,15 @@ func (t *Trie) replaceLinkWithNewParent(key *BitArray, commonKey BitArray, sibli
 	} else {
 		*siblingParent.node.Right = commonKey
 	}
+}
+
+func (t *TrieReader) Hash() (felt.Felt, error) {
+	root, err := t.readStorage.Get(t.rootKey)
+	if err != nil {
+		return felt.Zero, err
+	}
+	path := path(t.rootKey, nil)
+	return root.Hash(&path, t.hash), nil
 }
 
 // TODO(weiihann): not a good idea to couple proof verification logic with trie logic
