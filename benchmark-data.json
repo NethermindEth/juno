@@ -1048,5 +1048,11 @@
     "block_target": 800000,
     "duration_seconds": 74583.383111,
     "timestamp": "2025-11-19T06:08:47.094719+00:00"
+  },
+  {
+    "version": "v0.15.10-6-g7457fb20",
+    "block_target": 800000,
+    "duration_seconds": 74583.331441,
+    "timestamp": "2025-11-21T10:45:08.879728+00:00"
   }
 ]
