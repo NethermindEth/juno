@@ -13,7 +13,6 @@ use blockifier::{
     transaction::objects::{DeprecatedTransactionInfo, TransactionInfo},
 };
 use once_cell::sync::Lazy;
-use serde_json::json;
 use starknet_api::{
     contract_class::EntryPointType,
     core::{ClassHash, ContractAddress},
@@ -129,12 +128,11 @@ pub fn cairo_vm_call(
             );
             match e {
                 CallError::ContractError(revert_error, error_stack) => {
-                    let err_string = if structured_err_stack {
-                        error_stack_frames_to_json(error_stack).to_string()
+                    if structured_err_stack {
+                        JunoError::json_error(error_stack_frames_to_json(error_stack), None)
                     } else {
-                        json!(revert_error).to_string()
-                    };
-                    JunoError::block_error(err_string)
+                        JunoError::block_error(revert_error)
+                    }
                 }
                 CallError::Internal(e) | CallError::Custom(e) => JunoError::block_error(e),
             }
