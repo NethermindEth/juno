@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, CStr, CString},
+    panic,
 };
 
 use crate::{
@@ -16,6 +17,18 @@ extern "C" {
         err: *const c_char,
         execution_failed: usize,
     );
+}
+
+fn format_panic(payload: Box<dyn std::any::Any + Send>) -> String {
+    payload
+        .downcast_ref::<&str>()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            payload
+                .downcast_ref::<String>()
+                .map(|s| s.clone())
+                .unwrap_or("Unknown panic payload".into())
+        })
 }
 
 fn report_error(reader_handle: usize, err: JunoError) {
@@ -80,18 +93,23 @@ pub extern "C" fn cairoVMCall(
     err_stack: c_uchar,
     return_state_diff: c_uchar,
 ) {
-    cairo_vm_call(
-        call_info_ptr,
-        block_info_ptr,
-        chain_info_ptr,
-        reader_handle,
-        max_steps,
-        initial_gas,
-        concurrency_mode,
-        err_stack,
-        return_state_diff,
+    panic::catch_unwind(|| {
+        cairo_vm_call(
+            call_info_ptr,
+            block_info_ptr,
+            chain_info_ptr,
+            reader_handle,
+            max_steps,
+            initial_gas,
+            concurrency_mode,
+            err_stack,
+            return_state_diff,
+        )
+    })
+    .map_or_else(
+        |err| report_error(reader_handle, JunoError::block_error(format_panic(err))),
+        |res| res.unwrap_or_else(|err| report_error(reader_handle, err)),
     )
-    .unwrap_or_else(|err| report_error(reader_handle, err));
 }
 
 #[no_mangle]
@@ -111,22 +129,27 @@ pub extern "C" fn cairoVMExecute(
     allow_binary_search: c_uchar,
     is_estimate_fee: c_uchar,
 ) {
-    cairo_vm_execute(
-        txns_json,
-        classes_json,
-        paid_fees_on_l1_json,
-        block_info_ptr,
-        chain_info_ptr,
-        reader_handle,
-        skip_charge_fee,
-        skip_validate,
-        err_on_revert,
-        concurrency_mode,
-        err_stack,
-        allow_binary_search,
-        is_estimate_fee,
+    panic::catch_unwind(|| {
+        cairo_vm_execute(
+            txns_json,
+            classes_json,
+            paid_fees_on_l1_json,
+            block_info_ptr,
+            chain_info_ptr,
+            reader_handle,
+            skip_charge_fee,
+            skip_validate,
+            err_on_revert,
+            concurrency_mode,
+            err_stack,
+            allow_binary_search,
+            is_estimate_fee,
+        )
+    })
+    .map_or_else(
+        |err| report_error(reader_handle, JunoError::block_error(format_panic(err))),
+        |res| res.unwrap_or_else(|err| report_error(reader_handle, err)),
     )
-    .unwrap_or_else(|err| report_error(reader_handle, err));
 }
 
 #[no_mangle]
