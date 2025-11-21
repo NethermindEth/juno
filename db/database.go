@@ -51,6 +51,7 @@ type KeyValueStore interface {
 	KeyValueRangeDeleter
 	Batcher
 	IndexedBatcher
+	SnapshotBatcher
 	Snapshotter
 	Helper
 	Listener

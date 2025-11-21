@@ -31,12 +31,12 @@ var (
 )
 
 type State struct {
-	txn db.IndexedBatch
+	txn db.SnapshotBatch
 	*StateSnapshotReader
 }
 
 func NewState(
-	txn db.IndexedBatch,
+	txn db.SnapshotBatch,
 ) *State {
 	return &State{
 		txn:                 txn,
@@ -657,16 +657,16 @@ func (s *State) revertMigratedCasmClasses(
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
-func contractTrie(txn db.IndexedBatch) (*trie.Trie, func() error, error) {
+func contractTrie(txn db.SnapshotBatch) (*trie.Trie, func() error, error) {
 	return globalTrie(txn, db.StateTrie, trie.NewTriePedersen)
 }
 
-func classesTrie(txn db.IndexedBatch) (*trie.Trie, func() error, error) {
+func classesTrie(txn db.SnapshotBatch) (*trie.Trie, func() error, error) {
 	return globalTrie(txn, db.ClassesTrie, trie.NewTriePoseidon)
 }
 
 func globalTrie(
-	txn db.IndexedBatch,
+	txn db.SnapshotBatch,
 	bucket db.Bucket,
 	newTrie trie.NewTrieFunc,
 ) (*trie.Trie, func() error, error) {
