@@ -516,7 +516,7 @@ func (s *State) flush(
 				}
 
 				// TODO(weiihann): handle hash-based, and there should be better ways of doing this
-				if err := trieutils.DeleteStorageNodesByPath(batch, addr); err != nil {
+				if err := trieutils.DeleteStorageNodesByPath(batch, (*felt.Address)(&addr)); err != nil {
 					return err
 				}
 			} else { // updated

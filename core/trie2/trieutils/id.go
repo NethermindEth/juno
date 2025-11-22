@@ -43,8 +43,8 @@ type TrieID interface {
 	// Also, note that a state commitment is calculated with the combination of both class trie and contract trie.
 	StateComm() felt.Felt
 
-	HasOwner() bool   // whether the trie has an owner
-	Owner() felt.Felt // the owner of the trie (e.g. contract address)
+	HasOwner() bool      // whether the trie has an owner
+	Owner() felt.Address // the owner of the trie (e.g. contract address)
 
 	Type() TrieType
 	Bucket() db.Bucket // the database bucket prefix
@@ -63,7 +63,7 @@ func (id ClassTrieID) Type() TrieType       { return Class }
 func (id ClassTrieID) Bucket() db.Bucket    { return db.ClassTrie }
 func (id ClassTrieID) StateComm() felt.Felt { return id.stateComm }
 func (id ClassTrieID) HasOwner() bool       { return false }
-func (id ClassTrieID) Owner() felt.Felt     { return felt.Zero }
+func (id ClassTrieID) Owner() felt.Address  { return felt.Address{} }
 
 // Identifier for a contract trie
 type ContractTrieID struct {
@@ -78,15 +78,15 @@ func (id ContractTrieID) Type() TrieType       { return Contract }
 func (id ContractTrieID) Bucket() db.Bucket    { return db.ContractTrieContract }
 func (id ContractTrieID) StateComm() felt.Felt { return id.stateComm }
 func (id ContractTrieID) HasOwner() bool       { return false }
-func (id ContractTrieID) Owner() felt.Felt     { return felt.Zero }
+func (id ContractTrieID) Owner() felt.Address  { return felt.Address{} }
 
 // Identifier for a contract storage trie
 type ContractStorageTrieID struct {
 	stateComm felt.Felt
-	owner     felt.Felt
+	owner     felt.Address
 }
 
-func NewContractStorageTrieID(stateComm, owner felt.Felt) ContractStorageTrieID {
+func NewContractStorageTrieID(stateComm felt.Felt, owner felt.Address) ContractStorageTrieID {
 	return ContractStorageTrieID{stateComm: stateComm, owner: owner}
 }
 
@@ -94,7 +94,7 @@ func (id ContractStorageTrieID) Type() TrieType       { return ContractStorage }
 func (id ContractStorageTrieID) Bucket() db.Bucket    { return db.ContractTrieStorage }
 func (id ContractStorageTrieID) StateComm() felt.Felt { return id.stateComm }
 func (id ContractStorageTrieID) HasOwner() bool       { return true }
-func (id ContractStorageTrieID) Owner() felt.Felt     { return id.owner }
+func (id ContractStorageTrieID) Owner() felt.Address  { return id.owner }
 
 // Identifier for an empty trie, only used for temporary purposes
 type EmptyTrieID struct {
@@ -109,4 +109,4 @@ func (id EmptyTrieID) Type() TrieType       { return Empty }
 func (id EmptyTrieID) Bucket() db.Bucket    { return db.Bucket(0) }
 func (id EmptyTrieID) StateComm() felt.Felt { return id.stateComm }
 func (id EmptyTrieID) HasOwner() bool       { return false }
-func (id EmptyTrieID) Owner() felt.Felt     { return felt.Zero }
+func (id EmptyTrieID) Owner() felt.Address  { return felt.Address{} }

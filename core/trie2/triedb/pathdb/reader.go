@@ -16,7 +16,7 @@ type reader struct {
 	l  layer
 }
 
-func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	return r.l.node(r.id, owner, path, isLeaf)
 }
 

@@ -28,7 +28,7 @@ func New(disk db.KeyValueStore) *Database {
 
 func (d *Database) readNode(
 	id trieutils.TrieID,
-	owner *felt.Felt,
+	owner *felt.Address,
 	path *trieutils.Path,
 	isLeaf bool,
 ) ([]byte, error) {
@@ -45,7 +45,7 @@ func (d *Database) readNode(
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	key := id.Bucket().Key()
 	owner := id.Owner()
-	if !owner.Equal(&felt.Zero) {
+	if !(*felt.Felt)(&owner).Equal(&felt.Zero) {
 		oBytes := owner.Bytes()
 		key = append(key, oBytes[:]...)
 	}
@@ -81,13 +81,13 @@ func (d *Database) Update(
 	}
 
 	for path, n := range classNodes {
-		if err := d.updateNode(batch, db.ClassTrie, &felt.Zero, &path, n); err != nil {
+		if err := d.updateNode(batch, db.ClassTrie, &felt.Address{}, &path, n); err != nil {
 			return err
 		}
 	}
 
 	for path, n := range contractNodes {
-		if err := d.updateNode(batch, db.ContractTrieContract, &felt.Zero, &path, n); err != nil {
+		if err := d.updateNode(batch, db.ContractTrieContract, &felt.Address{}, &path, n); err != nil {
 			return err
 		}
 	}
@@ -106,7 +106,7 @@ func (d *Database) Update(
 func (d *Database) updateNode(
 	batch db.KeyValueWriter,
 	bucket db.Bucket,
-	owner *felt.Felt,
+	owner *felt.Address,
 	path *trieutils.Path,
 	n trienode.TrieNode,
 ) error {

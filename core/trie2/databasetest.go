@@ -26,7 +26,7 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 	return &testNodeReader{id: id, nodes: nodes, db: db, scheme: scheme}
 }
 
-func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (n *testNodeReader) Node(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	for _, nodes := range n.nodes {
 		var (
 			node trienode.TrieNode
@@ -55,9 +55,9 @@ func readNode(
 	owner := id.Owner()
 	switch scheme {
 	case PathScheme:
-		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, path, isLeaf)
+		return trieutils.GetNodeByPath(r, id.Bucket(), (*felt.Address)(&owner), path, isLeaf)
 	case HashScheme:
-		return trieutils.GetNodeByHash(r, id.Bucket(), &owner, path, hash, isLeaf)
+		return trieutils.GetNodeByHash(r, id.Bucket(), (*felt.Address)(&owner), path, hash, isLeaf)
 	}
 	return nil, &MissingNodeError{owner: owner, path: *path, hash: *hash}
 }

@@ -14,7 +14,7 @@ import (
 // Represents a layer of the layer tree
 type layer interface {
 	// Returns the encoded node bytes for a given trie id, owner, path and isLeaf flag
-	node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error)
+	node(id trieutils.TrieID, owner *felt.Address, path *trieutils.Path, isLeaf bool) ([]byte, error)
 	// Updates the layer with a new root hash, state id and block number
 	update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer
 	// Writes the journal to the given writer
