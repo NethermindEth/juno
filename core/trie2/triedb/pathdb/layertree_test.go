@@ -78,7 +78,7 @@ func TestLayersNonExistNode(t *testing.T) {
 			require.Nil(t, blob)
 
 			// Invalid contract storage node
-			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, (felt.Address)(validRoot)), &felt.Address{}, &invalidPath, false)
+			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, felt.Address(validRoot)), &felt.Address{}, &invalidPath, false)
 			require.Error(t, err)
 			require.Nil(t, blob)
 		})

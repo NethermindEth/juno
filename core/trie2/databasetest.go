@@ -55,9 +55,9 @@ func readNode(
 	owner := id.Owner()
 	switch scheme {
 	case PathScheme:
-		return trieutils.GetNodeByPath(r, id.Bucket(), (*felt.Address)(&owner), path, isLeaf)
+		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, path, isLeaf)
 	case HashScheme:
-		return trieutils.GetNodeByHash(r, id.Bucket(), (*felt.Address)(&owner), path, hash, isLeaf)
+		return trieutils.GetNodeByHash(r, id.Bucket(), &owner, path, hash, isLeaf)
 	}
 	return nil, &MissingNodeError{owner: owner, path: *path, hash: *hash}
 }
