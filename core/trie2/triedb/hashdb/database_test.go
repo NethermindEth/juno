@@ -52,9 +52,9 @@ func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, pat
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
+	_, found := database.dirtyCache.getNode((*felt.Address)(&owner), path, &nodeHash, id.Bucket() == db.ClassTrie)
 	assert.False(t, found)
-	blob, err := reader.Node(&owner, path, &nodeHash, node.IsLeaf())
+	blob, err := reader.Node((*felt.Address)(&owner), path, &nodeHash, node.IsLeaf())
 	require.NoError(t, err)
 	assert.Equal(t, node.Blob(), blob)
 }
@@ -64,7 +64,7 @@ func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieI
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
+	_, found := database.dirtyCache.getNode((*felt.Address)(&owner), path, &nodeHash, id.Bucket() == db.ClassTrie)
 	assert.True(t, found)
 }
 
