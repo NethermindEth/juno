@@ -236,7 +236,14 @@ func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) 
 		return nil, nil, fmt.Errorf("class root node not found")
 	}
 
-	contractRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ContractTrieContract, &felt.Address{}, &trieutils.Path{}, contractRootHash, false)
+	contractRootBlob, err := trieutils.GetNodeByHash(
+		d.disk,
+		db.ContractTrieContract,
+		&felt.Address{},
+		&trieutils.Path{},
+		contractRootHash,
+		false,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("contract root node not found: %w", err)
 	}

@@ -11,7 +11,7 @@ import (
 func TestNodeSet(t *testing.T) {
 	t.Run("new node set", func(t *testing.T) {
 		ns := NewNodeSet(felt.Address{})
-		require.Equal(t, felt.Zero, ns.Owner)
+		require.Equal(t, felt.Address{}, ns.Owner)
 		require.Empty(t, ns.Nodes)
 		require.Zero(t, ns.updates)
 		require.Zero(t, ns.deletes)
