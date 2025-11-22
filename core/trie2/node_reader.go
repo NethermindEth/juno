@@ -24,7 +24,7 @@ func (r *nodeReader) node(path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]
 		return nil, &MissingNodeError{tt: r.id.Type(), owner: r.id.Owner(), path: path, hash: *hash}
 	}
 	owner := r.id.Owner()
-	return r.reader.Node(&owner, &path, hash, isLeaf)
+	return r.reader.Node((*felt.Address)(&owner), &path, hash, isLeaf)
 }
 
 func NewEmptyNodeReader() nodeReader {
