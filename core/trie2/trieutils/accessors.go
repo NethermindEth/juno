@@ -140,7 +140,15 @@ func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Address, p
 	return res, nil
 }
 
-func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Address, path *Path, hash *felt.Felt, isLeaf bool, blob []byte) error {
+func WriteNodeByHash(
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	hash *felt.Felt,
+	isLeaf bool,
+	blob []byte,
+) error {
 	return w.Put(nodeKeyByHash(bucket, owner, path, hash, isLeaf), blob)
 }
 

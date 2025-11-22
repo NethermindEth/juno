@@ -38,5 +38,8 @@ func (s *StateDB) ContractTrie(stateComm *felt.Felt) (*trie2.Trie, error) {
 
 // Opens a contract storage trie for the given state root and contract address
 func (s *StateDB) ContractStorageTrie(stateComm, owner *felt.Felt) (*trie2.Trie, error) {
-	return trie2.New(trieutils.NewContractStorageTrieID(*stateComm, (felt.Address)(*owner)), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
+	return trie2.New(trieutils.NewContractStorageTrieID(
+		*stateComm,
+		felt.Address(*owner),
+	), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
 }
