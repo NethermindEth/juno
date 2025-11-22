@@ -10,7 +10,7 @@ import (
 
 func TestNodeSet(t *testing.T) {
 	t.Run("new node set", func(t *testing.T) {
-		ns := NewNodeSet(felt.Zero)
+		ns := NewNodeSet(felt.Address{})
 		require.Equal(t, felt.Zero, ns.Owner)
 		require.Empty(t, ns.Nodes)
 		require.Zero(t, ns.updates)
@@ -18,7 +18,7 @@ func TestNodeSet(t *testing.T) {
 	})
 
 	t.Run("add nodes", func(t *testing.T) {
-		ns := NewNodeSet(felt.Zero)
+		ns := NewNodeSet(felt.Address{})
 
 		// Add a regular node
 		key1 := trieutils.NewBitArray(8, 0xFF)
@@ -40,8 +40,8 @@ func TestNodeSet(t *testing.T) {
 	})
 
 	t.Run("merge sets", func(t *testing.T) {
-		ns1 := NewNodeSet(felt.Zero)
-		ns2 := NewNodeSet(felt.Zero)
+		ns1 := NewNodeSet(felt.Address{})
+		ns2 := NewNodeSet(felt.Address{})
 
 		// Add nodes to first set
 		key1 := trieutils.NewBitArray(8, 0xFF)
@@ -66,18 +66,18 @@ func TestNodeSet(t *testing.T) {
 	})
 
 	t.Run("merge with different owners", func(t *testing.T) {
-		owner1 := new(felt.Felt).SetUint64(123)
-		owner2 := new(felt.Felt).SetUint64(456)
-		ns1 := NewNodeSet(*owner1)
-		ns2 := NewNodeSet(*owner2)
+		owner1 := felt.FromUint64[felt.Address](123)
+		owner2 := felt.FromUint64[felt.Address](456)
+		ns1 := NewNodeSet(owner1)
+		ns2 := NewNodeSet(owner2)
 
 		err := ns1.MergeSet(&ns2)
 		require.Error(t, err)
 	})
 
 	t.Run("merge map", func(t *testing.T) {
-		owner := new(felt.Felt).SetUint64(123)
-		ns := NewNodeSet(*owner)
+		owner := felt.FromUint64[felt.Address](123)
+		ns := NewNodeSet(owner)
 
 		// Create a map to merge
 		nodes := make(map[trieutils.Path]TrieNode)
@@ -86,7 +86,7 @@ func TestNodeSet(t *testing.T) {
 		nodes[key1] = node1
 
 		// Merge map
-		err := ns.Merge(*owner, nodes)
+		err := ns.Merge(owner, nodes)
 		require.NoError(t, err)
 
 		// Verify merged state
@@ -97,7 +97,7 @@ func TestNodeSet(t *testing.T) {
 	})
 
 	t.Run("foreach", func(t *testing.T) {
-		ns := NewNodeSet(felt.Zero)
+		ns := NewNodeSet(felt.Address{})
 
 		// Add nodes in random order
 		keys := []trieutils.Path{

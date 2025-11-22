@@ -52,9 +52,9 @@ func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, pat
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
+	_, found := database.dirtyCache.getNode((*felt.Address)(&owner), path, &nodeHash, id.Bucket() == db.ClassTrie)
 	assert.False(t, found)
-	blob, err := reader.Node(&owner, path, &nodeHash, node.IsLeaf())
+	blob, err := reader.Node((*felt.Address)(&owner), path, &nodeHash, node.IsLeaf())
 	require.NoError(t, err)
 	assert.Equal(t, node.Blob(), blob)
 }
@@ -64,7 +64,7 @@ func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieI
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
+	_, found := database.dirtyCache.getNode((*felt.Address)(&owner), path, &nodeHash, id.Bucket() == db.ClassTrie)
 	assert.True(t, found)
 }
 
@@ -92,16 +92,16 @@ func createEdgeNodeBlob(childHash *felt.Felt) []byte {
 }
 
 func createMergeNodeSet(nodes map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
-	ownerSet := trienode.NewNodeSet(felt.Zero)
+	ownerSet := trienode.NewNodeSet(felt.Address{})
 	for path, node := range nodes {
 		ownerSet.Add(&path, node)
 	}
 	return trienode.NewMergeNodeSet(&ownerSet)
 }
 
-func createContractMergeNodeSet(nodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
-	ownerSet := trienode.NewNodeSet(felt.Zero)
-	childSets := make(map[felt.Felt]*trienode.NodeSet)
+func createContractMergeNodeSet(nodes map[felt.Address]map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
+	ownerSet := trienode.NewNodeSet(felt.Address{})
+	childSets := make(map[felt.Address]*trienode.NodeSet)
 
 	for owner, ownerNodes := range nodes {
 		childSet := trienode.NewNodeSet(owner)
@@ -169,7 +169,7 @@ func TestDatabase(t *testing.T) {
 		database := New(memDB, nil)
 
 		contractHash := *new(felt.Felt).SetUint64(210)
-		contractOwner := *new(felt.Felt).SetUint64(123)
+		contractOwner := felt.FromUint64[felt.Address](123)
 		contractPath := trieutils.NewBitArray(1, 0x01)
 		contractNode := trienode.NewLeaf(contractHash, []byte{4, 5, 6})
 
@@ -177,19 +177,19 @@ func TestDatabase(t *testing.T) {
 		storagePath := trieutils.NewBitArray(1, 0x02)
 		storageNode := trienode.NewLeaf(storageHash, []byte{7, 8, 9})
 
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
+		contractNodes := map[felt.Address]map[trieutils.Path]trienode.TrieNode{
 			contractOwner: {
 				contractPath: contractNode,
 			},
 		}
 
-		contractStorageNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
+		contractStorageNodes := map[felt.Address]map[trieutils.Path]trienode.TrieNode{
 			contractOwner: {
 				storagePath: storageNode,
 			},
 		}
 
-		allContractNodes := make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
+		allContractNodes := make(map[felt.Address]map[trieutils.Path]trienode.TrieNode)
 		maps.Copy(allContractNodes, contractNodes)
 		for owner, nodes := range contractStorageNodes {
 			if _, exists := allContractNodes[owner]; !exists {
@@ -356,7 +356,7 @@ func TestDatabase(t *testing.T) {
 			err = trieutils.WriteNodeByHash(
 				memDB,
 				db.ClassTrie,
-				&felt.Zero,
+				&felt.Address{},
 				&rootPath,
 				&classRootHash,
 				false,
@@ -366,7 +366,7 @@ func TestDatabase(t *testing.T) {
 			err = trieutils.WriteNodeByHash(
 				memDB,
 				db.ContractTrieContract,
-				&felt.Zero,
+				&felt.Address{},
 				&rootPath,
 				&contractRootHash,
 				false,
