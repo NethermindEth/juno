@@ -18,7 +18,9 @@ import (
 const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
 
 type TrieReader struct {
-	height      uint8
+	height uint8
+	// TODO(maksym): Trie mutates rootKey field, and the idea behind TrieReader is to be immutable.
+	// Fix this in the Trie logic (potentially modify the rootKeyIsDirty field)
 	rootKey     *BitArray
 	maxKey      *felt.Felt
 	readStorage *ReadStorage
@@ -112,14 +114,6 @@ func newTrie(
 	height uint8,
 	hash crypto.HashFn,
 ) (*Trie, error) {
-	if height > felt.Bits {
-		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
-	}
-
-	// maxKey is 2^height - 1
-	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
-	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
-
 	storage := NewStorage(txn, prefix)
 
 	trieReader, err := newTrieReader(storage.txn, prefix, height, hash)
