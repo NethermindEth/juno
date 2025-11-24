@@ -99,7 +99,9 @@ func createMergeNodeSet(nodes map[trieutils.Path]trienode.TrieNode) *trienode.Me
 	return trienode.NewMergeNodeSet(&ownerSet)
 }
 
-func createContractMergeNodeSet(nodes map[felt.Address]map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
+func createContractMergeNodeSet(
+	nodes map[felt.Address]map[trieutils.Path]trienode.TrieNode,
+) *trienode.MergeNodeSet {
 	ownerSet := trienode.NewNodeSet(felt.Address{})
 	childSets := make(map[felt.Address]*trienode.NodeSet)
 

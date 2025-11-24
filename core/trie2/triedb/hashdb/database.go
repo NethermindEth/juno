@@ -46,7 +46,9 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	}
 }
 
-func (d *Database) insert(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+func (d *Database) insert(
+	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode,
+) {
 	_, found := d.dirtyCache.getNode(owner, path, hash, isClass)
 	if found {
 		return
@@ -54,7 +56,9 @@ func (d *Database) insert(owner *felt.Address, path *trieutils.Path, hash *felt.
 	d.dirtyCache.putNode(owner, path, hash, isClass, node)
 }
 
-func (d *Database) readNode(bucket db.Bucket, owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (d *Database) readNode(
+	bucket db.Bucket, owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool,
+) ([]byte, error) {
 	if blob := d.cleanCache.getNode(path, hash); blob != nil {
 		return blob, nil
 	}
@@ -99,7 +103,9 @@ func (d *Database) Commit(_ *felt.Felt) error {
 		if err != nil {
 			return err
 		}
-		if err := trieutils.WriteNodeByHash(batch, db.ClassTrie, &felt.Address{}, path, hash, node.IsLeaf(), node.Blob()); err != nil {
+		if err := trieutils.WriteNodeByHash(
+			batch, db.ClassTrie, &felt.Address{}, path, hash, node.IsLeaf(), node.Blob(),
+		); err != nil {
 			return err
 		}
 		d.cleanCache.putNode(path, hash, node.Blob())
@@ -110,7 +116,9 @@ func (d *Database) Commit(_ *felt.Felt) error {
 		if err != nil {
 			return err
 		}
-		if err := trieutils.WriteNodeByHash(batch, db.ContractTrieContract, &felt.Address{}, path, hash, node.IsLeaf(), node.Blob()); err != nil {
+		if err := trieutils.WriteNodeByHash(
+			batch, db.ContractTrieContract, &felt.Address{}, path, hash, node.IsLeaf(), node.Blob(),
+		); err != nil {
 			return err
 		}
 		d.cleanCache.putNode(path, hash, node.Blob())
@@ -122,7 +130,9 @@ func (d *Database) Commit(_ *felt.Felt) error {
 			if err != nil {
 				return err
 			}
-			if err := trieutils.WriteNodeByHash(batch, db.ContractTrieStorage, &owner, path, hash, node.IsLeaf(), node.Blob()); err != nil {
+			if err := trieutils.WriteNodeByHash(
+				batch, db.ContractTrieStorage, &owner, path, hash, node.IsLeaf(), node.Blob(),
+			); err != nil {
 				return err
 			}
 			d.cleanCache.putNode(path, hash, node.Blob())
@@ -207,7 +217,9 @@ type reader struct {
 	d  *Database
 }
 
-func (r *reader) Node(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(
+	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool,
+) ([]byte, error) {
 	return r.d.readNode(r.id.Bucket(), owner, path, hash, isLeaf)
 }
 
@@ -226,7 +238,9 @@ func (d *Database) Close() error {
 func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) (trienode.Node, trienode.Node, error) {
 	const contractClassTrieHeight = 251
 
-	classRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ClassTrie, &felt.Address{}, &trieutils.Path{}, classRootHash, false)
+	classRootBlob, err := trieutils.GetNodeByHash(
+		d.disk, db.ClassTrie, &felt.Address{}, &trieutils.Path{}, classRootHash, false,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("class root node not found: %w", err)
 	}
