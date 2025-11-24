@@ -21,7 +21,9 @@ func newDirtyCache() *dirtyCache {
 	}
 }
 
-func (c *dirtyCache) putNode(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+func (c *dirtyCache) putNode(
+	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode,
+) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
 
@@ -39,7 +41,9 @@ func (c *dirtyCache) putNode(owner *felt.Address, path *trieutils.Path, hash *fe
 	}
 }
 
-func (c *dirtyCache) getNode(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool) (trienode.TrieNode, bool) {
+func (c *dirtyCache) getNode(
+	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool,
+) (trienode.TrieNode, bool) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
 

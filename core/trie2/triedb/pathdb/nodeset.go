@@ -39,7 +39,9 @@ func newNodeSet(classNodes classNodesMap, contractNodes contractNodesMap, contra
 	return ns
 }
 
-func (s *nodeSet) node(owner *felt.Address, path *trieutils.Path, isClass bool) (trienode.TrieNode, bool) {
+func (s *nodeSet) node(
+	owner *felt.Address, path *trieutils.Path, isClass bool,
+) (trienode.TrieNode, bool) {
 	// class trie nodes
 	if isClass {
 		node, ok := s.classNodes[*path]
@@ -302,12 +304,16 @@ func writeNodes(
 ) error {
 	for path, n := range classNodes {
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(w, db.ClassTrie, &felt.Address{}, &path, n.IsLeaf()); err != nil {
+			if err := trieutils.DeleteNodeByPath(
+				w, db.ClassTrie, &felt.Address{}, &path, n.IsLeaf(),
+			); err != nil {
 				return err
 			}
 			cleans.deleteNode(&felt.Address{}, &path, true)
 		} else {
-			if err := trieutils.WriteNodeByPath(w, db.ClassTrie, &felt.Address{}, &path, n.IsLeaf(), n.Blob()); err != nil {
+			if err := trieutils.WriteNodeByPath(
+				w, db.ClassTrie, &felt.Address{}, &path, n.IsLeaf(), n.Blob(),
+			); err != nil {
 				return err
 			}
 			cleans.putNode(&felt.Address{}, &path, true, n.Blob())
@@ -316,12 +322,16 @@ func writeNodes(
 
 	for path, n := range contractNodes {
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(w, db.ContractTrieContract, &felt.Address{}, &path, n.IsLeaf()); err != nil {
+			if err := trieutils.DeleteNodeByPath(
+				w, db.ContractTrieContract, &felt.Address{}, &path, n.IsLeaf(),
+			); err != nil {
 				return err
 			}
 			cleans.deleteNode(&felt.Address{}, &path, false)
 		} else {
-			if err := trieutils.WriteNodeByPath(w, db.ContractTrieContract, &felt.Address{}, &path, n.IsLeaf(), n.Blob()); err != nil {
+			if err := trieutils.WriteNodeByPath(
+				w, db.ContractTrieContract, &felt.Address{}, &path, n.IsLeaf(), n.Blob(),
+			); err != nil {
 				return err
 			}
 			cleans.putNode(&felt.Address{}, &path, false, n.Blob())

@@ -73,12 +73,17 @@ func TestLayersNonExistNode(t *testing.T) {
 			require.Nil(t, blob)
 
 			// Invalid contract node
-			blob, err = layer.node(trieutils.NewContractTrieID(validRoot), &felt.Address{}, &invalidPath, false)
+			blob, err = layer.node(
+				trieutils.NewContractTrieID(validRoot), &felt.Address{}, &invalidPath, false,
+			)
 			require.Error(t, err)
 			require.Nil(t, blob)
 
 			// Invalid contract storage node
-			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, felt.Address(validRoot)), &felt.Address{}, &invalidPath, false)
+			blob, err = layer.node(
+				trieutils.NewContractStorageTrieID(felt.Zero, felt.Address(validRoot)),
+				&felt.Address{}, &invalidPath, false,
+			)
 			require.Error(t, err)
 			require.Nil(t, blob)
 		})
@@ -194,7 +199,9 @@ func (t *layerTracker) trackContractNodes(root *felt.Felt, nodes map[trieutils.P
 	}
 }
 
-func (t *layerTracker) trackContractStorageNodes(root *felt.Felt, nodes map[felt.Address]map[trieutils.Path]trienode.TrieNode) {
+func (t *layerTracker) trackContractStorageNodes(
+	root *felt.Felt, nodes map[felt.Address]map[trieutils.Path]trienode.TrieNode,
+) {
 	for owner, ownerNodes := range nodes {
 		if t.contractStorageNodes[*root] == nil {
 			t.contractStorageNodes[*root] = make(map[felt.Address]map[trieutils.Path]trienode.TrieNode)
@@ -213,7 +220,9 @@ func (t *layerTracker) trackContractStorageNodes(root *felt.Felt, nodes map[felt
 }
 
 // resolveNode finds a node by traversing the layer hierarchy from the given root
-func (t *layerTracker) resolveNode(root *felt.Felt, owner *felt.Address, path *trieutils.Path, isClass bool) ([]byte, error) {
+func (t *layerTracker) resolveNode(
+	root *felt.Felt, owner *felt.Address, path *trieutils.Path, isClass bool,
+) ([]byte, error) {
 	currentRoot := root
 	for {
 		if blob, found := t.findNodeInLayer(currentRoot, owner, path, isClass); found {
@@ -223,15 +232,19 @@ func (t *layerTracker) resolveNode(root *felt.Felt, owner *felt.Address, path *t
 		// Try parent layer if available
 		parent, hasParent := t.childToParent[*currentRoot]
 		if !hasParent {
-			return nil, fmt.Errorf("node not found in layer hierarchy: root=%v, owner=%v, path=%v",
-				root.String(), owner.String(), path.String())
+			return nil, fmt.Errorf(
+				"node not found in layer hierarchy: root=%v, owner=%v, path=%v",
+				root.String(), owner.String(), path.String(),
+			)
 		}
 		currentRoot = &parent
 	}
 }
 
 // findNodeInLayer checks if a node exists in a specific layer (without parent traversal)
-func (t *layerTracker) findNodeInLayer(root *felt.Felt, owner *felt.Address, path *trieutils.Path, isClass bool) ([]byte, bool) {
+func (t *layerTracker) findNodeInLayer(
+	root *felt.Felt, owner *felt.Address, path *trieutils.Path, isClass bool,
+) ([]byte, bool) {
 	if isClass {
 		if nodeMap, ok := t.classNodes[*root]; ok {
 			if node, exists := nodeMap[*path]; exists {
@@ -426,7 +439,9 @@ func verifyClassNodes(layer layer, root *felt.Felt, tracker *layerTracker) error
 func verifyContractNodes(layer layer, root *felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.contractPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, &felt.Address{}, &path, false)
-		actualBlob, actualErr := layer.node(trieutils.NewContractTrieID(*root), &felt.Address{}, &path, false)
+		actualBlob, actualErr := layer.node(
+			trieutils.NewContractTrieID(*root), &felt.Address{}, &path, false,
+		)
 
 		if expectedErr != nil {
 			if actualErr == nil {
@@ -449,7 +464,9 @@ func verifyContractStorageNodes(layer layer, root *felt.Felt, tracker *layerTrac
 	for owner, paths := range tracker.contractStoragePaths {
 		for path := range paths {
 			expectedBlob, expectedErr := tracker.resolveNode(root, &owner, &path, false)
-			actualBlob, actualErr := layer.node(trieutils.NewContractStorageTrieID(*root, owner), &owner, &path, false)
+			actualBlob, actualErr := layer.node(
+				trieutils.NewContractStorageTrieID(*root, owner), &owner, &path, false,
+			)
 
 			if expectedErr != nil {
 				if actualErr == nil {
