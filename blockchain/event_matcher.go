@@ -36,10 +36,8 @@ func makeKeysMaps(filterKeys [][]felt.Felt) []map[felt.Felt]struct{} {
 
 func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 	// short circuit if event doest have enough keys
-	for i := len(eventKeys); i < len(e.keysMap); i++ {
-		if len(e.keysMap[i]) > 0 {
-			return false
-		}
+	if len(eventKeys) < len(e.keysMap) {
+		return false
 	}
 
 	/// e.keys = [["V1", "V2"], [], ["V3"]] means:
