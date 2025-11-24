@@ -102,7 +102,7 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 			filterKeys: [][]felt.Felt{
 				{felt.FromUint64[felt.Felt](1)},
 				{felt.FromUint64[felt.Felt](2)},
-				{felt.FromUint64[felt.Felt](3)},
+				{},
 			},
 			eventKeys: []*felt.Felt{
 				felt.NewFromUint64[felt.Felt](1),
@@ -167,12 +167,6 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 			filterKeys: [][]felt.Felt{{felt.FromUint64[felt.Felt](1)}},
 			eventKeys:  []*felt.Felt{},
 			expected:   false,
-		},
-		{
-			name:       "trailing empty filter positions are trimmed",
-			filterKeys: [][]felt.Felt{{felt.FromUint64[felt.Felt](1)}, {}, {}},
-			eventKeys:  []*felt.Felt{felt.NewFromUint64[felt.Felt](1)},
-			expected:   true,
 		},
 		{
 			name: "complex filter with OR logic",
