@@ -550,12 +550,24 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	}
 
-	header, rpcErr := h.blockHeaderByID(blockID)
-	if rpcErr != nil {
-		return nil, rpcErr
+	var blockNumber uint64
+
+	switch blockID.Type() {
+	case hash:
+		var err error
+		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
+		if err != nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+	case number:
+		blockNumber = blockID.Number()
+	case l1Accepted, preConfirmed, latest:
+		return nil, rpccore.ErrBlockNotFound
+	default:
+		panic("unknown block type id")
 	}
 
-	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint64(txIndex))
+	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, uint64(txIndex))
 	if err != nil {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
