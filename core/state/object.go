@@ -51,7 +51,9 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 	}
 
 	path := tr.FeltToPath(key)
-	v, err := trieutils.GetNodeByPath(s.state.db.disk, db.ContractTrieStorage, (*felt.Address)(&s.addr), &path, true)
+	v, err := trieutils.GetNodeByPath(
+		s.state.db.disk, db.ContractTrieStorage, (*felt.Address)(&s.addr), &path, true,
+	)
 	if err != nil {
 		return felt.Zero, err
 	}
