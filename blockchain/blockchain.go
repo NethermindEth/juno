@@ -154,12 +154,7 @@ func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 
 func (b *Blockchain) BlockNumberByHash(hash *felt.Felt) (uint64, error) {
 	b.listener.OnRead("BlockNumberByHash")
-	blockNum, err := core.GetBlockHeaderNumberByHash(b.database, hash)
-	if err != nil {
-		return 0, err
-	}
-
-	return blockNum, nil
+	return core.GetBlockHeaderNumberByHash(b.database, hash)
 }
 
 func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
