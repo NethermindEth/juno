@@ -537,7 +537,10 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	if blockID.IsPreConfirmed() {
+	var blockNumber uint64
+	var err error
+	switch blockID.Type() {
+	case preConfirmed:
 		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
@@ -548,23 +551,28 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		}
 
 		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
-	}
-
-	var blockNumber uint64
-
-	switch blockID.Type() {
-	case hash:
-		var err error
-		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
+	case latest:
+		block, err := h.bcReader.Head()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
+		if uint64(txIndex) >= block.TransactionCount {
+			return nil, rpccore.ErrInvalidTxIndex
+		}
+
+		return AdaptTransaction(block.Transactions[txIndex]), nil
+	case hash:
+		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
 	case number:
 		blockNumber = blockID.Number()
-	case l1Accepted, preConfirmed, latest:
+	case l1Accepted:
 		return nil, rpccore.ErrBlockNotFound
 	default:
 		panic("unknown block type id")
+	}
+
+	if err != nil {
+		return nil, rpccore.ErrBlockNotFound
 	}
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, uint64(txIndex))
