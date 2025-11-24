@@ -15,7 +15,8 @@ type KeyValueReader interface {
 	//		return nil
 	//	})
 	Get(key []byte, cb func(value []byte) error) error
-	Iterable
+	// Creates iterators over a database's key/value pairs
+	NewIterator(prefix []byte, withUpperBound bool) (Iterator, error)
 }
 
 // Exposes a write-only interface to the database

@@ -121,21 +121,14 @@ func newTrie(
 	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
 
 	storage := NewStorage(txn, prefix)
-	rootKey, err := storage.RootKey()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+
+	trieReader, err := newTrieReader(storage.txn, prefix, height, hash)
+	if err != nil {
 		return nil, err
 	}
-
-	readOnlyStorage := NewReadStorage(storage.txn, storage.prefix)
 	return &Trie{
-		TrieReader: &TrieReader{
-			readStorage: readOnlyStorage,
-			height:      height,
-			rootKey:     rootKey,
-			maxKey:      maxKey,
-			hash:        hash,
-		},
-		storage: storage,
+		TrieReader: trieReader,
+		storage:    storage,
 	}, nil
 }
 
