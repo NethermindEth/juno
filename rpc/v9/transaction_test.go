@@ -526,7 +526,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
@@ -535,7 +535,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockNumberByHash(gomock.Any()).Return(uint64(0), db.ErrKeyNotFound)
 
 		blockID := blockIDHash(t, felt.NewFromBytes[felt.Felt]([]byte("random")))
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
@@ -544,15 +544,16 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
 		blockID := blockIDNumber(t, rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
 	t.Run("negative index", func(t *testing.T) {
+		mockReader.EXPECT().Head().Return(nil, errors.New("negative index"))
+
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1)
 		assert.Nil(t, txn)
@@ -560,20 +561,20 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("invalid index", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().Head().Return(latestBlock, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			latestBlock.TransactionCount).Return(nil, errors.New("invalid index"))
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, len(latestBlock.Transactions))
 		assert.Nil(t, txn)
-		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().Head().Return(latestBlock, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
@@ -589,7 +590,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - hash", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
-		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockNumberByHash(latestBlockHash).Return(latestBlock.Header, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
