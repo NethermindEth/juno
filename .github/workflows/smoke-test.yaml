@@ -59,7 +59,7 @@ jobs:
         run: docker pull ${{ env.FULL_IMAGE_PATH }}
 
       - name: Checkout Juno Smoke Tests
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: NethermindEth/juno-smoke-tests
           token: ${{ steps.generate-token.outputs.token }}

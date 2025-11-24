@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: NethermindEth/starknet.go
           ref: ${{ inputs.ref }}
