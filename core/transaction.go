@@ -131,6 +131,7 @@ type BuiltinInstanceCounter struct {
 }
 
 type Transaction interface {
+	// TODO: This should be TransactionHash instead of Felt.
 	Hash() *felt.Felt
 	Signature() []*felt.Felt
 	TxVersion() *TransactionVersion
