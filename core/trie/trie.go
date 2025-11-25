@@ -17,6 +17,7 @@ import (
 
 const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
 
+// TODO(maksym): try to make this interface private after common trie is integrated
 type TrieReader struct {
 	height uint8
 	// TODO(maksym): Trie mutates rootKey field, and the idea behind TrieReader is to be immutable.
