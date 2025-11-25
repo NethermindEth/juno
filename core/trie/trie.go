@@ -17,7 +17,7 @@ import (
 
 const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
 
-// TODO(maksym): try to make this interface private after common trie is integrated
+// TODO(maksym): try to make this struct private after common trie is integrated, rename to reader
 type TrieReader struct {
 	height uint8
 	// TODO(maksym): Trie mutates rootKey field, and the idea behind TrieReader is to be immutable.
@@ -34,7 +34,7 @@ func NewTrieReaderPedersen(
 	r db.KeyValueReader,
 	prefix []byte,
 	height uint8,
-) (*TrieReader, error) {
+) (TrieReader, error) {
 	return newTrieReader(r, prefix, height, crypto.Pedersen)
 }
 
@@ -42,7 +42,7 @@ func NewTrieReaderPoseidon(
 	r db.KeyValueReader,
 	prefix []byte,
 	height uint8,
-) (*TrieReader, error) {
+) (TrieReader, error) {
 	return newTrieReader(r, prefix, height, crypto.Poseidon)
 }
 
@@ -51,22 +51,24 @@ func newTrieReader(
 	prefix []byte,
 	height uint8,
 	hash crypto.HashFn,
-) (*TrieReader, error) {
+) (TrieReader, error) {
 	if height > felt.Bits {
-		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
+		return TrieReader{}, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
 
 	// maxKey is 2^height - 1
-	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
-	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
+	x := felt.NewFromUint64[felt.Felt](2)
+	y := new(big.Int).SetUint64(uint64(height))
+	maxKey := x.Exp(x, y)
+	maxKey.Sub(maxKey, &felt.One)
 
 	readStorage := NewReadStorage(r, prefix)
 	rootKey, err := readStorage.RootKey()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, err
+		return TrieReader{}, err
 	}
 
-	return &TrieReader{
+	return TrieReader{
 		readStorage: readStorage,
 		height:      height,
 		rootKey:     rootKey,
@@ -93,7 +95,7 @@ func newTrieReader(
 //
 // [specification]: https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#merkle_patricia_trie
 type Trie struct {
-	*TrieReader
+	TrieReader
 	storage        *Storage
 	dirtyNodes     []*BitArray
 	rootKeyIsDirty bool
