@@ -157,7 +157,6 @@ func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 
 func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
 	dbPrefix := bucket.Key()
-	tTxn := trie.NewStorage(s.txn, dbPrefix)
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
@@ -179,7 +178,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 		}
 	}
 
-	gTrie, err := newTrie(tTxn, globalTrieHeight)
+	gTrie, err := newTrie(s.txn, dbPrefix, globalTrieHeight)
 	if err != nil {
 		return nil, nil, err
 	}
