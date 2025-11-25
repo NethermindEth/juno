@@ -556,17 +556,18 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
-		if uint64(txIndex) >= block.TransactionCount {
-			return nil, rpccore.ErrInvalidTxIndex
-		}
-
-		return AdaptTransaction(block.Transactions[txIndex]), nil
+		blockNumber = block.Number
 	case hash:
 		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
 	case number:
 		blockNumber = blockID.Number()
 	case l1Accepted:
-		return nil, rpccore.ErrBlockNotFound
+		var l1Head core.L1Head
+		l1Head, err = h.bcReader.L1Head()
+		if err != nil {
+			break
+		}
+		blockNumber = l1Head.BlockNumber
 	default:
 		panic("unknown block type id")
 	}
