@@ -378,10 +378,9 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	// The database transaction we will use to create both tries.
 	memDB := memory.New()
 	txn := memDB.NewIndexedBatch()
-	tTxn := trie.NewStorage(txn, []byte{1, 2, 3})
 
 	// Step 1: Create first trie
-	tempTrie, err := trie.NewTriePedersen(tTxn, height)
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{1, 2, 3}, height)
 	require.NoError(t, err)
 
 	// Step 1a: Put
@@ -405,8 +404,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	assert.Equal(t, want, &got)
 
 	// Step 2: Different trie created with the same db transaction and calls [trie.Root].
-	tTxn = trie.NewStorage(txn, []byte{1, 2, 3})
-	secondTrie, err := trie.NewTriePedersen(tTxn, height)
+	secondTrie, err := trie.NewTriePedersen(txn, []byte{1, 2, 3}, height)
 	require.NoError(t, err)
 	got, err = secondTrie.Hash()
 	require.NoError(t, err)

@@ -17,3 +17,15 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 func (a *Address) MarshalJSON() ([]byte, error) {
 	return (*Felt)(a).MarshalJSON()
 }
+
+func (a *Address) Marshal() []byte {
+	return (*Felt)(a).Marshal()
+}
+
+func (a *Address) Unmarshal(e []byte) {
+	(*Felt)(a).Unmarshal(e)
+}
+
+func (a *Address) SetBytesCanonical(data []byte) error {
+	return (*Felt)(a).SetBytesCanonical(data)
+}

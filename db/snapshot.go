@@ -4,7 +4,6 @@ package db
 // If you don't need to read at a specific time, use the database directly.
 type Snapshot interface {
 	KeyValueReader
-	Iterable
 	Close() error
 }
 

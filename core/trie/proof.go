@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -584,7 +585,9 @@ func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
 
 // buildTrie builds a trie from a list of storage nodes and a list of keys and values.
 func buildTrie(height uint8, rootKey *BitArray, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
-	tr, err := NewTriePedersen(newMemStorage(), height)
+	memoryDB := memory.New()
+	txn := memoryDB.NewIndexedBatch()
+	tr, err := NewTriePedersen(txn, nil, height)
 	if err != nil {
 		return nil, err
 	}

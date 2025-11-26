@@ -32,9 +32,3 @@ type Iterator interface {
 	// key in lexicographical order
 	Seek(key []byte) bool
 }
-
-// Creates iterators over a database's key/value pairs
-type Iterable interface {
-	// Returns an iterator over the database's key/value pairs
-	NewIterator(prefix []byte, withUpperBound bool) (Iterator, error)
-}
