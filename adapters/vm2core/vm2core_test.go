@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,6 @@ func TestAdaptOrderedEvent(t *testing.T) {
 	}))
 }
 
-//nolint:dupl
 func TestAdaptOrderedEvents(t *testing.T) {
 	numEvents := 5
 	events := make([]vm.OrderedEvent, 0, numEvents)
@@ -41,11 +41,11 @@ func TestAdaptOrderedEvents(t *testing.T) {
 }
 
 func TestAdaptOrderedMessageToL1(t *testing.T) {
-	require.Equal(t, &core.L2ToL1Message{
+	require.Equal(t, core.L2ToL1Message{
 		From:    felt.NewFromUint64[felt.Felt](2),
 		To:      common.HexToAddress("0x3"),
 		Payload: []*felt.Felt{new(felt.Felt).SetUint64(4)},
-	}, vm2core.AdaptOrderedMessageToL1(vm.OrderedL2toL1Message{
+	}, vm2core.AdaptOrderedMessageToL1(&vm.OrderedL2toL1Message{
 		Order:   1,
 		From:    felt.NewFromUint64[felt.Felt](2),
 		To:      felt.NewFromUint64[felt.Address](0x3),
@@ -53,7 +53,6 @@ func TestAdaptOrderedMessageToL1(t *testing.T) {
 	}))
 }
 
-//nolint:dupl
 func TestAdaptOrderedMessagesToL1(t *testing.T) {
 	numMessages := 5
 	messages := make([]vm.OrderedL2toL1Message, 0, numMessages)
@@ -61,10 +60,10 @@ func TestAdaptOrderedMessagesToL1(t *testing.T) {
 		messages = append(messages, vm.OrderedL2toL1Message{Order: uint64(i)})
 	}
 	require.Equal(t, []*core.L2ToL1Message{
-		vm2core.AdaptOrderedMessageToL1(messages[4]),
-		vm2core.AdaptOrderedMessageToL1(messages[3]),
-		vm2core.AdaptOrderedMessageToL1(messages[2]),
-		vm2core.AdaptOrderedMessageToL1(messages[1]),
-		vm2core.AdaptOrderedMessageToL1(messages[0]),
+		utils.HeapPtr(vm2core.AdaptOrderedMessageToL1(&messages[4])),
+		utils.HeapPtr(vm2core.AdaptOrderedMessageToL1(&messages[3])),
+		utils.HeapPtr(vm2core.AdaptOrderedMessageToL1(&messages[2])),
+		utils.HeapPtr(vm2core.AdaptOrderedMessageToL1(&messages[1])),
+		utils.HeapPtr(vm2core.AdaptOrderedMessageToL1(&messages[0])),
 	}, vm2core.AdaptOrderedMessagesToL1(messages))
 }

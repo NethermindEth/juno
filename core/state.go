@@ -656,7 +656,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return err
 	}
 
-	if err = s.updateContracts(stateTrie, blockNumber, reversedDiff, false); err != nil {
+	if err = s.updateContracts(stateTrie, blockNumber, &reversedDiff, false); err != nil {
 		return fmt.Errorf("update contracts: %v", err)
 	}
 
@@ -774,8 +774,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 	return storageCloser()
 }
 
-// todo(rdr): return `StateDiff` by value
-func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
+func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (StateDiff, error) {
 	reversed := *diff
 
 	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
@@ -786,7 +785,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 			if blockNumber > 0 {
 				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber-1)
 				if err != nil {
-					return nil, err
+					return StateDiff{}, err
 				}
 				value = oldValue
 			}
@@ -802,7 +801,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 			var err error
 			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
 			if err != nil {
-				return nil, err
+				return StateDiff{}, err
 			}
 		}
 		reversed.Nonces[addr] = &oldNonce
@@ -815,13 +814,13 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 			var err error
 			classHash, err = s.ContractClassHashAt(&addr, blockNumber-1)
 			if err != nil {
-				return nil, err
+				return StateDiff{}, err
 			}
 		}
 		reversed.ReplacedClasses[addr] = &classHash
 	}
 
-	return &reversed, nil
+	return reversed, nil
 }
 
 func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error {
