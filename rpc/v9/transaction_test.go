@@ -544,7 +544,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+			gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
 		blockID := blockIDNumber(t, rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)

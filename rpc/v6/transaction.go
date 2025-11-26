@@ -527,37 +527,6 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	return AdaptTransaction(txn), nil
 }
 
-func (h *Handler) TransactionByBlockIDAndIndex2(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
-	if txIndex < 0 {
-		return nil, rpccore.ErrInvalidTxIndex
-	}
-
-	if id.Pending {
-		pending, err := h.PendingData()
-		if err != nil {
-			return nil, rpccore.ErrBlockNotFound
-		}
-
-		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
-			return nil, rpccore.ErrInvalidTxIndex
-		}
-
-		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
-	}
-
-	header, rpcErr := h.blockHeaderByID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint64(txIndex))
-	if err != nil {
-		return nil, rpccore.ErrInvalidTxIndex
-	}
-
-	return AdaptTransaction(txn), nil
-}
-
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
