@@ -509,6 +509,53 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
+	var blockNumber uint64
+	var err error
+	switch blockID.Type() {
+	case pending:
+		pending, err := h.PendingData()
+		if err != nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+
+		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
+			return nil, rpccore.ErrInvalidTxIndex
+		}
+
+		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
+	case latest:
+		header, err := h.bcReader.HeadsHeader()
+		if err != nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		blockNumber = header.Number
+	case hash:
+		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
+	case number:
+		blockNumber = blockID.Number()
+	default:
+		panic("unknown block type id")
+	}
+
+	if err != nil {
+		return nil, rpccore.ErrBlockNotFound
+	}
+
+	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, uint64(txIndex))
+	if err != nil {
+		return nil, rpccore.ErrInvalidTxIndex
+	}
+
+	return AdaptTransaction(txn), nil
+}
+
+func (h *Handler) TransactionByBlockIDAndIndex2(
+	blockID *BlockID, txIndex int,
+) (*Transaction, *jsonrpc.Error) {
+	if txIndex < 0 {
+		return nil, rpccore.ErrInvalidTxIndex
+	}
+
 	if blockID.IsPending() {
 		pending, err := h.PendingData()
 		if err != nil {
