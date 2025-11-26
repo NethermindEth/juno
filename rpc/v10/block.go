@@ -232,26 +232,26 @@ func AdaptBlockHeader(
 	var l1DataGasPrice rpcv6.ResourcePrice
 	if header.L1DataGasPrice != nil {
 		l1DataGasPrice = rpcv6.ResourcePrice{
-			InWei: nilToZero(header.L1DataGasPrice.PriceInWei),
-			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
+			InWei: nilToOne(header.L1DataGasPrice.PriceInWei),
+			InFri: nilToOne(header.L1DataGasPrice.PriceInFri),
 		}
 	} else {
 		l1DataGasPrice = rpcv6.ResourcePrice{
-			InWei: &felt.Zero,
-			InFri: &felt.Zero,
+			InWei: &felt.One,
+			InFri: &felt.One,
 		}
 	}
 
 	var l2GasPrice rpcv6.ResourcePrice
 	if header.L2GasPrice != nil {
 		l2GasPrice = rpcv6.ResourcePrice{
-			InWei: nilToZero(header.L2GasPrice.PriceInWei),
-			InFri: nilToZero(header.L2GasPrice.PriceInFri),
+			InWei: nilToOne(header.L2GasPrice.PriceInWei),
+			InFri: nilToOne(header.L2GasPrice.PriceInFri),
 		}
 	} else {
 		l2GasPrice = rpcv6.ResourcePrice{
-			InWei: &felt.Zero,
-			InFri: &felt.Zero,
+			InWei: &felt.One,
+			InFri: &felt.One,
 		}
 	}
 
@@ -263,8 +263,8 @@ func AdaptBlockHeader(
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
 		L1GasPrice: &rpcv6.ResourcePrice{
-			InWei: header.L1GasPriceETH,
-			InFri: nilToZero(header.L1GasPriceSTRK),
+			InWei: nilToOne(header.L1GasPriceETH),
+			InFri: nilToOne(header.L1GasPriceSTRK),
 		},
 		L1DataGasPrice:  &l1DataGasPrice,
 		L1DAMode:        &l1DAMode,
@@ -294,6 +294,13 @@ func AdaptBlockHeader(
 func nilToZero(f *felt.Felt) *felt.Felt {
 	if f == nil {
 		return &felt.Zero
+	}
+	return f
+}
+
+func nilToOne(f *felt.Felt) *felt.Felt {
+	if f == nil {
+		return &felt.One
 	}
 	return f
 }

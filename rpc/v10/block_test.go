@@ -123,12 +123,12 @@ func assertCommittedBlockHeader(
 	assert.Equal(t, expectedBlock.GlobalStateRoot, actual.NewRoot)
 	assert.Equal(t, expectedBlock.Timestamp, actual.Timestamp)
 	assert.Equal(t, expectedBlock.SequencerAddress, actual.SequencerAddress)
-	assert.Equal(t, expectedBlock.L1GasPriceETH, actual.L1GasPrice.InWei)
-	assert.Equal(t, expectedBlock.L1GasPriceSTRK, actual.L1GasPrice.InFri)
-	assert.Equal(t, expectedBlock.L1DataGasPrice.PriceInWei, actual.L1DataGasPrice.InWei)
-	assert.Equal(t, expectedBlock.L1DataGasPrice.PriceInFri, actual.L1DataGasPrice.InFri)
-	assert.Equal(t, expectedBlock.L2GasPrice.PriceInWei, actual.L2GasPrice.InWei)
-	assert.Equal(t, expectedBlock.L2GasPrice.PriceInFri, actual.L2GasPrice.InFri)
+	assert.Equal(t, nilToOne(expectedBlock.L1GasPriceETH), actual.L1GasPrice.InWei)
+	assert.Equal(t, nilToOne(expectedBlock.L1GasPriceSTRK), actual.L1GasPrice.InFri)
+	assert.Equal(t, nilToOne(expectedBlock.L1DataGasPrice.PriceInWei), actual.L1DataGasPrice.InWei)
+	assert.Equal(t, nilToOne(expectedBlock.L1DataGasPrice.PriceInFri), actual.L1DataGasPrice.InFri)
+	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInWei), actual.L2GasPrice.InWei)
+	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInFri), actual.L2GasPrice.InFri)
 	var expectedl1DAMode rpcv6.L1DAMode
 	switch expectedBlock.L1DAMode {
 	case core.Blob:
@@ -175,12 +175,12 @@ func assertPreConfirmedBlockHeader(
 	assert.Equal(t, expectedBlock.Number, *actual.Number)
 	assert.Equal(t, expectedBlock.Timestamp, actual.Timestamp)
 	assert.Equal(t, expectedBlock.SequencerAddress, actual.SequencerAddress)
-	assert.Equal(t, expectedBlock.L1GasPriceETH, actual.L1GasPrice.InWei)
-	assert.Equal(t, expectedBlock.L1GasPriceSTRK, actual.L1GasPrice.InFri)
-	assert.Equal(t, expectedBlock.L1DataGasPrice.PriceInWei, actual.L1DataGasPrice.InWei)
-	assert.Equal(t, expectedBlock.L1DataGasPrice.PriceInFri, actual.L1DataGasPrice.InFri)
-	assert.Equal(t, expectedBlock.L2GasPrice.PriceInWei, actual.L2GasPrice.InWei)
-	assert.Equal(t, expectedBlock.L2GasPrice.PriceInFri, actual.L2GasPrice.InFri)
+	assert.Equal(t, nilToOne(expectedBlock.L1GasPriceETH), actual.L1GasPrice.InWei)
+	assert.Equal(t, nilToOne(expectedBlock.L1GasPriceSTRK), actual.L1GasPrice.InFri)
+	assert.Equal(t, nilToOne(expectedBlock.L1DataGasPrice.PriceInWei), actual.L1DataGasPrice.InWei)
+	assert.Equal(t, nilToOne(expectedBlock.L1DataGasPrice.PriceInFri), actual.L1DataGasPrice.InFri)
+	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInWei), actual.L2GasPrice.InWei)
+	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInFri), actual.L2GasPrice.InFri)
 	assert.Equal(t, expectedBlock.ProtocolVersion, actual.StarknetVersion)
 	var expectedl1DAMode rpcv6.L1DAMode
 	switch expectedBlock.L1DAMode {
@@ -291,8 +291,6 @@ func assertTransactionsWithReceiptsEq(
 	for i, expectedReceipt := range expectedBlock.Receipts {
 		require.Equal(t, expectedReceipt.TransactionHash, actual[i].Receipt.Hash)
 		adaptedTransaction := rpcv9.AdaptTransaction(expectedBlock.Transactions[i])
-		// JSON-RPC spec does not include hash field for TXN type,
-		// there is another type for that TXN_WITH_HASH
 		adaptedTransaction.Hash = nil
 		adaptedReceipt := rpcv9.AdaptReceipt(
 			expectedReceipt,
@@ -809,6 +807,13 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 func nilToZero(f *felt.Felt) *felt.Felt {
 	if f == nil {
 		return &felt.Zero
+	}
+	return f
+}
+
+func nilToOne(f *felt.Felt) *felt.Felt {
+	if f == nil {
+		return &felt.One
 	}
 	return f
 }
