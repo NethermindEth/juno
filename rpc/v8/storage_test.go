@@ -849,7 +849,7 @@ func emptyTrie(t *testing.T) *trie.Trie {
 	memdb := memory.New()
 	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
 	require.NoError(t, err)
 	return tempTrie
 }
