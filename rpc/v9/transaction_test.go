@@ -526,7 +526,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
+		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
@@ -552,7 +552,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("negative index", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("negative index"))
+		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("negative index"))
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1)
@@ -561,7 +561,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("invalid index", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(latestBlock, nil)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, len(latestBlock.Transactions))

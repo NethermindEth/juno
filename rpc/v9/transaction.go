@@ -552,11 +552,11 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 
 		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	case latest:
-		block, err := h.bcReader.Head()
+		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
-		blockNumber = block.Number
+		blockNumber = header.Number
 	case hash:
 		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
 	case number:
