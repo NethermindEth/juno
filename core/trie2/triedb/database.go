@@ -30,7 +30,7 @@ type Database struct {
 	config *Config
 }
 
-func New(disk db.KeyValueStore, config *Config) (*Database, error) {
+func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
 	var triedb database.TrieDB
 	var err error
 	// Default to raw config if not provided
@@ -101,4 +101,8 @@ func (d *Database) Close() error {
 
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.triedb.NewIterator(id)
+}
+
+func (d *Database) Commit(stateComm *felt.Felt) error {
+	return d.triedb.Commit(stateComm)
 }

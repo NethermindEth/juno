@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 )
@@ -29,4 +30,8 @@ type TrieDB interface {
 	io.Closer
 
 	Commit(stateComm *felt.Felt) error
+	Update(
+		root, parent *felt.Felt, blockNum uint64,
+		mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
+	) error
 }
