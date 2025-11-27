@@ -505,7 +505,7 @@ func WriteTxBlockNumIndexByHash(w db.KeyValueWriter, num, index uint64, hash *fe
 		Number: num,
 		Index:  index,
 	}
-	return w.Put(db.TxBlockNumIndexByHashKey(hash), val.MarshalBinary())
+	return w.Put(db.TxBlockNumIndexByHashKey(hash), val.Marshal())
 }
 
 func DeleteTxBlockNumIndexByHash(w db.KeyValueWriter, hash *felt.Felt) error {

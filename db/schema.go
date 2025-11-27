@@ -47,11 +47,15 @@ type BlockNumIndexKey struct {
 	Index  uint64
 }
 
-func (b *BlockNumIndexKey) MarshalBinary() []byte {
+func (b BlockNumIndexKey) Marshal() []byte {
 	data := make([]byte, BlockNumIndexKeySize)
 	binary.BigEndian.PutUint64(data[0:8], b.Number)
 	binary.BigEndian.PutUint64(data[8:16], b.Index)
 	return data
+}
+
+func (b *BlockNumIndexKey) MarshalBinary() ([]byte, error) {
+	return b.Marshal(), nil
 }
 
 func (b *BlockNumIndexKey) UnmarshalBinary(data []byte) error {
@@ -65,7 +69,7 @@ func (b *BlockNumIndexKey) UnmarshalBinary(data []byte) error {
 
 func TxByBlockNumIndexKey(num, index uint64) []byte {
 	key := &BlockNumIndexKey{Number: num, Index: index}
-	return TransactionsByBlockNumberAndIndex.Key(key.MarshalBinary())
+	return TransactionsByBlockNumberAndIndex.Key(key.Marshal())
 }
 
 func TxByBlockNumIndexKeyBytes(key []byte) []byte {
@@ -74,7 +78,7 @@ func TxByBlockNumIndexKeyBytes(key []byte) []byte {
 
 func ReceiptByBlockNumIndexKey(num, index uint64) []byte {
 	key := &BlockNumIndexKey{Number: num, Index: index}
-	return ReceiptsByBlockNumberAndIndex.Key(key.MarshalBinary())
+	return ReceiptsByBlockNumberAndIndex.Key(key.Marshal())
 }
 
 func ReceiptByBlockNumIndexKeyBytes(key []byte) []byte {
@@ -145,11 +149,15 @@ type AggregatedBloomFilterRangeKey struct {
 	ToBlock   uint64
 }
 
-func (b *AggregatedBloomFilterRangeKey) MarshalBinary() []byte {
+func (b AggregatedBloomFilterRangeKey) Marshal() []byte {
 	data := make([]byte, AggregatedBloomFilterRangeKeySize)
 	binary.BigEndian.PutUint64(data[0:8], b.FromBlock)
 	binary.BigEndian.PutUint64(data[8:16], b.ToBlock)
 	return data
+}
+
+func (b *AggregatedBloomFilterRangeKey) MarshalBinary() ([]byte, error) {
+	return b.Marshal(), nil
 }
 
 func (b *AggregatedBloomFilterRangeKey) UnmarshalBinary(data []byte) error {
@@ -163,7 +171,7 @@ func (b *AggregatedBloomFilterRangeKey) UnmarshalBinary(data []byte) error {
 
 func AggregatedBloomFilterKey(fromBlock, toBlock uint64) []byte {
 	key := &AggregatedBloomFilterRangeKey{FromBlock: fromBlock, ToBlock: toBlock}
-	return AggregatedBloomFilters.Key(key.MarshalBinary())
+	return AggregatedBloomFilters.Key(key.Marshal())
 }
 
 func uint64ToBytes(num uint64) [8]byte {
