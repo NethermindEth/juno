@@ -16,8 +16,8 @@ permissions:
 
 jobs:
   build:
-    # Skip for PRs from forks as they don't have access to secrets
-    if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+    # Skip for PRs from forks as they don't have access to secrets. Also skip for non-fork PRs with "disable-deploy-test" label
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.head.repo.fork && !contains(github.event.pull_request.labels.*.name, 'disable-deploy-test'))
     permissions:
       actions: write
       contents: read

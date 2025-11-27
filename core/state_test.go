@@ -266,7 +266,7 @@ func TestNonce(t *testing.T) {
 	})
 }
 
-func TestStateHistory(t *testing.T) {
+func TestStateHistoricalReads(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)

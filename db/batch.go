@@ -33,7 +33,6 @@ type Batcher interface {
 type IndexedBatch interface {
 	Batch
 	KeyValueReader
-	Iterable
 }
 
 // Produce an IndexedBatch to write to the database and read from it.

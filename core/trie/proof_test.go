@@ -134,7 +134,7 @@ func TestProveCustom(t *testing.T) {
 				memdb := memory.New()
 				txn := memdb.NewIndexedBatch()
 
-				tr, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{1}), 251)
+				tr, err := trie.NewTriePedersen(txn, []byte{1}, 251)
 				require.NoError(t, err)
 
 				records := []*keyValue{
@@ -683,7 +683,7 @@ func buildTrie(t *testing.T, records []*keyValue) *trie.Trie {
 	memdb := memory.New()
 	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
 	require.NoError(t, err)
 
 	for _, record := range records {
@@ -784,7 +784,7 @@ func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
 	memdb := memory.New()
 	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
 	require.NoError(t, err)
 
 	records := make([]*keyValue, numKeys)
@@ -810,7 +810,7 @@ func randomTrie(t testing.TB, n int) (*trie.Trie, []*keyValue) {
 	memdb := memory.New()
 	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
 	require.NoError(t, err)
 
 	records := make([]*keyValue, n)

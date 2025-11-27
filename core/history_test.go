@@ -12,16 +12,16 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestStateSnapshot(t *testing.T) {
+func TestStateHistory(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	deployedHeight := uint64(3)
 	changeHeight := uint64(10)
-	snapshotBeforeDeployment := core.NewStateSnapshot(mockState, deployedHeight-1)
-	snapshotBeforeChange := core.NewStateSnapshot(mockState, deployedHeight)
-	snapshotAfterChange := core.NewStateSnapshot(mockState, changeHeight+1)
+	snapshotBeforeDeployment := core.NewDeprecatedStateHistory(mockState, deployedHeight-1)
+	snapshotBeforeChange := core.NewDeprecatedStateHistory(mockState, deployedHeight)
+	snapshotAfterChange := core.NewDeprecatedStateHistory(mockState, changeHeight+1)
 
 	historyValue := felt.NewFromUint64[felt.Felt](1)
 	doAtReq := func(addr *felt.Felt, at uint64) (felt.Felt, error) {

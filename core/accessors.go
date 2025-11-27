@@ -401,19 +401,19 @@ func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error)
 	return GetBlockHeaderByNumber(r, blockNum)
 }
 
-func WriteBlockHeader(r db.KeyValueWriter, header *Header) error {
-	if err := WriteBlockHeaderNumberByHash(r, header.Hash, header.Number); err != nil {
+func WriteBlockHeader(w db.KeyValueWriter, header *Header) error {
+	if err := WriteBlockHeaderNumberByHash(w, header.Hash, header.Number); err != nil {
 		return err
 	}
 
-	return WriteBlockHeaderByNumber(r, header)
+	return WriteBlockHeaderByNumber(w, header)
 }
 
 // Returns all transactions in a given block
-func GetTxsByBlockNum(iterable db.Iterable, blockNum uint64) ([]Transaction, error) {
+func GetTxsByBlockNum(r db.KeyValueReader, blockNum uint64) ([]Transaction, error) {
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(MarshalBlockNumber(blockNum))
 
-	it, err := iterable.NewIterator(prefix, true)
+	it, err := r.NewIterator(prefix, true)
 	if err != nil {
 		return nil, err
 	}
@@ -441,10 +441,10 @@ func GetTxsByBlockNum(iterable db.Iterable, blockNum uint64) ([]Transaction, err
 }
 
 // Returns all receipts in a given block
-func GetReceiptsByBlockNum(iterable db.Iterable, blockNum uint64) ([]*TransactionReceipt, error) {
+func GetReceiptsByBlockNum(r db.KeyValueReader, blockNum uint64) ([]*TransactionReceipt, error) {
 	prefix := db.ReceiptsByBlockNumberAndIndex.Key(MarshalBlockNumber(blockNum))
 
-	it, err := iterable.NewIterator(prefix, true)
+	it, err := r.NewIterator(prefix, true)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +471,7 @@ func GetReceiptsByBlockNum(iterable db.Iterable, blockNum uint64) ([]*Transactio
 	return receipts, nil
 }
 
-func GetBlockByNumber(r db.IndexedBatch, blockNum uint64) (*Block, error) {
+func GetBlockByNumber(r db.KeyValueReader, blockNum uint64) (*Block, error) {
 	header, err := GetBlockHeaderByNumber(r, blockNum)
 	if err != nil {
 		return nil, err

@@ -12,6 +12,7 @@ use serde::Deserialize;
 
 use starknet_api::execution_resources::{GasAmount, GasVector};
 use starknet_api::transaction::fields::Tip;
+use starknet_api::transaction::TransactionVersion;
 use starknet_api::{
     contract_class::ClassInfo,
     transaction::{
@@ -128,11 +129,11 @@ pub fn adjust_fee_calculation_result(
 
     let tip = if block_context.versioned_constants().enable_tip {
         match txn {
-            Transaction::Account(txn) => txn.tip(),
-            Transaction::L1Handler(_) => Tip(0),
+            Transaction::Account(txn) if txn.version() >= TransactionVersion::THREE => txn.tip(),
+            _ => Tip::ZERO,
         }
     } else {
-        starknet_api::transaction::fields::Tip(0)
+        Tip::ZERO
     };
     tx_execution_info.receipt.gas.l1_gas = adjusted_l1_gas_consumed;
     tx_execution_info.receipt.gas.l1_data_gas = adjusted_l1_data_gas_consumed;
