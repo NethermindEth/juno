@@ -450,8 +450,8 @@ func TestTrie_Hash_ConcurrentReadsWithinHash(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := range 100 {
-		key := new(felt.Felt).SetUint64(uint64(i))
-		value := new(felt.Felt).SetUint64(uint64(i * 2))
+		key := felt.NewFromUint64[felt.Felt](uint64(i))
+		value := felt.NewFromUint64[felt.Felt](uint64(i * 2))
 		_, err := trieInstance.Put(key, value)
 		require.NoError(t, err)
 	}
@@ -476,8 +476,8 @@ func TestTrie_Hash_ConcurrentReadsWithBufferBatch(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := range 100 {
-		key := new(felt.Felt).SetUint64(uint64(i))
-		value := new(felt.Felt).SetUint64(uint64(i * 2))
+		key := felt.NewFromUint64[felt.Felt](uint64(i))
+		value := felt.NewFromUint64[felt.Felt](uint64(i * 2))
 		_, err := trieInstance.Put(key, value)
 		require.NoError(t, err)
 	}
