@@ -175,3 +175,22 @@ func getTransactionType(t core.Transaction) rpcv9.TransactionType {
 		panic("unknown transaction type")
 	}
 }
+
+// getCommitmentsAndStateDiff retrieves commitments and stateDiff by block number.
+func (h *Handler) getCommitmentsAndStateDiff(
+	blockNumber uint64,
+) (*core.BlockCommitments, *core.StateDiff, error) {
+	// Get commitments
+	commitments, err := h.bcReader.BlockCommitmentsByNumber(blockNumber)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get stateDiff from stateUpdate
+	stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return commitments, stateUpdate.StateDiff, nil
+}
