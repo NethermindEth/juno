@@ -449,7 +449,7 @@ func TestTrie_Hash_ConcurrentReadsWithinHash(t *testing.T) {
 	trieInstance, err := trie.NewTriePedersen(txn, prefix, 8)
 	require.NoError(t, err)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		key := new(felt.Felt).SetUint64(uint64(i))
 		value := new(felt.Felt).SetUint64(uint64(i * 2))
 		_, err := trieInstance.Put(key, value)
@@ -475,7 +475,7 @@ func TestTrie_Hash_ConcurrentReadsWithBufferBatch(t *testing.T) {
 	trieInstance, err := trie.NewTriePedersen(bufferBatch, prefix, 8)
 	require.NoError(t, err)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		key := new(felt.Felt).SetUint64(uint64(i))
 		value := new(felt.Felt).SetUint64(uint64(i * 2))
 		_, err := trieInstance.Put(key, value)
