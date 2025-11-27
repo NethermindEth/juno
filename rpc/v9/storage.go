@@ -77,7 +77,7 @@ func (h *Handler) StorageProof(
 	// We don't use the head query directly to avoid race condition where there is a new incoming block.
 	// Currently it's still working because we don't have revert yet.
 	// We should figure out a way to merge the two transactions.
-	head, err := h.bcReader.BlockByNumber(chainHeight)
+	header, err := h.bcReader.BlockHeaderByNumber(chainHeight)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -140,7 +140,7 @@ func (h *Handler) StorageProof(
 		GlobalRoots: &GlobalRoots{
 			ContractsTreeRoot: &contractTreeRoot,
 			ClassesTreeRoot:   &classTreeRoot,
-			BlockHash:         head.Hash,
+			BlockHash:         header.Hash,
 		},
 	}, nil
 }
