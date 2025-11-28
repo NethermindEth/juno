@@ -31,7 +31,10 @@ type TrieDB interface {
 
 	Commit(stateComm *felt.Felt) error
 	Update(
-		root, parent *felt.Felt, blockNum uint64,
-		mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
+		root,
+		parent *felt.Felt,
+		blockNum uint64,
+		mergeClassNodes,
+		mergeContractNodes *trienode.MergeNodeSet,
 	) error
 }
