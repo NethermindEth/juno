@@ -458,11 +458,7 @@ func TestRevert(t *testing.T) {
 		sierra := &core.SierraClass{
 			Abi:     "some sierra class abi",
 			AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xcd98"),
-			EntryPoints: struct {
-				Constructor []core.SierraEntryPoint
-				External    []core.SierraEntryPoint
-				L1Handler   []core.SierraEntryPoint
-			}{
+			EntryPoints: core.SierraEntryPointsByType{
 				Constructor: []core.SierraEntryPoint{{
 					Index:    1,
 					Selector: new(felt.Felt).SetBytes([]byte("c1")),

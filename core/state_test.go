@@ -579,11 +579,7 @@ func TestRevert(t *testing.T) {
 		cairo1 := &core.SierraClass{
 			Abi:     "some cairo 1 class abi",
 			AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xcd98"),
-			EntryPoints: struct {
-				Constructor []core.SierraEntryPoint
-				External    []core.SierraEntryPoint
-				L1Handler   []core.SierraEntryPoint
-			}{
+			EntryPoints: core.SierraEntryPointsByType{
 				Constructor: []core.SierraEntryPoint{{
 					1,
 					felt.NewFromBytes[felt.Felt]([]byte("c1")),

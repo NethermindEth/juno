@@ -15,37 +15,37 @@ import (
 
 type Header struct {
 	// The hash of this block
-	Hash *felt.Felt
+	Hash *felt.Felt `cbor:"1,keyasint,omitempty"`
 	// The hash of this block’s parent
-	ParentHash *felt.Felt
+	ParentHash *felt.Felt `cbor:"2,keyasint,omitempty"`
 	// The number (height) of this block
-	Number uint64
+	Number uint64 `cbor:"3,keyasint,omitempty"`
 	// The state commitment after this block
-	GlobalStateRoot *felt.Felt
+	GlobalStateRoot *felt.Felt `cbor:"4,keyasint,omitempty"`
 	// The Starknet address of the sequencer who created this block
-	SequencerAddress *felt.Felt
+	SequencerAddress *felt.Felt `cbor:"5,keyasint,omitempty"`
 	// The amount Transactions and Receipts stored in this block
-	TransactionCount uint64
+	TransactionCount uint64 `cbor:"6,keyasint,omitempty"`
 	// The amount of events stored in transaction receipts
-	EventCount uint64
+	EventCount uint64 `cbor:"7,keyasint,omitempty"`
 	// The time the sequencer created this block before executing transactions
-	Timestamp uint64
+	Timestamp uint64 `cbor:"8,keyasint,omitempty"`
 	// Todo(rdr): It makes more sense for Protocol version to be stored in semver.Version instead
 	// The version of the Starknet protocol used when creating this block
-	ProtocolVersion string
+	ProtocolVersion string `cbor:"9,keyasint,omitempty"`
 	// Bloom filter on the events emitted this block
-	EventsBloom *bloom.BloomFilter
+	EventsBloom *bloom.BloomFilter `cbor:"10,keyasint,omitempty"`
 	// Amount of WEI charged per Gas spent on L1
-	L1GasPriceETH *felt.Felt `cbor:"gasprice"`
+	L1GasPriceETH *felt.Felt `cbor:"11,keyasint,omitempty"`
 	// Amount of STRK charged per Gas spent on L2
-	Signatures [][]*felt.Felt
+	Signatures [][]*felt.Felt `cbor:"12,keyasint,omitempty"`
 	// Amount of STRK charged per Gas spent on L1
-	L1GasPriceSTRK *felt.Felt `cbor:"gaspricestrk"`
+	L1GasPriceSTRK *felt.Felt `cbor:"13,keyasint,omitempty"`
 	// Amount of STRK charged per Gas spent on L2
-	L1DAMode L1DAMode
+	L1DAMode L1DAMode `cbor:"14,keyasint,omitempty"`
 	// The gas price for L1 data availability
-	L1DataGasPrice *GasPrice
-	L2GasPrice     *GasPrice
+	L1DataGasPrice *GasPrice `cbor:"15,keyasint,omitempty"`
+	L2GasPrice     *GasPrice `cbor:"16,keyasint,omitempty"`
 }
 
 type L1DAMode uint
@@ -62,8 +62,8 @@ var (
 )
 
 type GasPrice struct {
-	PriceInWei *felt.Felt
-	PriceInFri *felt.Felt
+	PriceInWei *felt.Felt `cbor:"1,keyasint,omitempty"`
+	PriceInFri *felt.Felt `cbor:"2,keyasint,omitempty"`
 }
 
 type Block struct {
@@ -81,10 +81,10 @@ func (b *Block) L2GasConsumed() uint64 {
 }
 
 type BlockCommitments struct {
-	TransactionCommitment *felt.Felt
-	EventCommitment       *felt.Felt
-	ReceiptCommitment     *felt.Felt
-	StateDiffCommitment   *felt.Felt
+	TransactionCommitment *felt.Felt `cbor:"1,keyasint,omitempty"`
+	EventCommitment       *felt.Felt `cbor:"2,keyasint,omitempty"`
+	ReceiptCommitment     *felt.Felt `cbor:"3,keyasint,omitempty"`
+	StateDiffCommitment   *felt.Felt `cbor:"4,keyasint,omitempty"`
 }
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have

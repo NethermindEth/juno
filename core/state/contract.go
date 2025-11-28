@@ -14,10 +14,10 @@ const (
 )
 
 type stateContract struct {
-	Nonce          felt.Felt // Contract's nonce
-	ClassHash      felt.Felt // Hash of the contract's class
-	DeployedHeight uint64    // Block height at which the contract is deployed
-	StorageRoot    felt.Felt // Root hash of the contract's storage
+	Nonce          felt.Felt `cbor:"1,keyasint,omitempty"` // Contract's nonce
+	ClassHash      felt.Felt `cbor:"2,keyasint,omitempty"` // Hash of the contract's class
+	DeployedHeight uint64    `cbor:"3,keyasint,omitempty"` // Block height at which the contract is deployed
+	StorageRoot    felt.Felt `cbor:"4,keyasint,omitempty"` // Root hash of the contract's storage
 }
 
 func newContractDeployed(classHash felt.Felt, deployHeight uint64) stateContract {

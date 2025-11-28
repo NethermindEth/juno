@@ -36,23 +36,23 @@ type ClassDefinition interface {
 }
 
 type DeprecatedCairoClass struct {
-	Abi json.RawMessage
+	Abi json.RawMessage `cbor:"1,keyasint,omitempty"`
 	// External functions defined in the class.
-	Externals []DeprecatedEntryPoint
+	Externals []DeprecatedEntryPoint `cbor:"2,keyasint,omitempty"`
 	// Functions that receive L1 messages. See
 	// https://www.cairo-lang.org/docs/hello_starknet/l1l2.html#receiving-a-message-from-l1
-	L1Handlers []DeprecatedEntryPoint
+	L1Handlers []DeprecatedEntryPoint `cbor:"3,keyasint,omitempty"`
 	// Constructors for the class. Currently, only one is allowed.
-	Constructors []DeprecatedEntryPoint
+	Constructors []DeprecatedEntryPoint `cbor:"4,keyasint,omitempty"`
 	// Base64 encoding of compressed Program
-	Program string
+	Program string `cbor:"5,keyasint,omitempty"`
 }
 
 type DeprecatedEntryPoint struct {
 	// starknet_keccak hash of the function signature.
-	Selector *felt.Felt
+	Selector *felt.Felt `cbor:"1,keyasint,omitempty"`
 	// The offset of the instruction in the class's bytecode.
-	Offset *felt.Felt
+	Offset *felt.Felt `cbor:"2,keyasint,omitempty"`
 }
 
 func (c *DeprecatedCairoClass) Version() uint64 {
@@ -68,48 +68,48 @@ func (c *DeprecatedCairoClass) SierraVersion() string {
 }
 
 type SierraClass struct {
-	Abi         string
-	AbiHash     *felt.Felt
-	EntryPoints SierraEntryPointsByType
-	Program     []*felt.Felt
-	ProgramHash *felt.Felt
+	Abi         string                  `cbor:"1,keyasint,omitempty"`
+	AbiHash     *felt.Felt              `cbor:"2,keyasint,omitempty"`
+	EntryPoints SierraEntryPointsByType `cbor:"3,keyasint,omitempty"`
+	Program     []*felt.Felt            `cbor:"4,keyasint,omitempty"`
+	ProgramHash *felt.Felt              `cbor:"5,keyasint,omitempty"`
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
-	SemanticVersion string
-	Compiled        *CasmClass
+	SemanticVersion string     `cbor:"6,keyasint,omitempty"`
+	Compiled        *CasmClass `cbor:"7,keyasint,omitempty"`
 }
 
 type SegmentLengths struct {
-	Children []SegmentLengths
-	Length   uint64
+	Children []SegmentLengths `cbor:"1,keyasint,omitempty"`
+	Length   uint64           `cbor:"2,keyasint,omitempty"`
 }
 
 type CasmClass struct {
-	Bytecode               []*felt.Felt
-	PythonicHints          json.RawMessage
-	CompilerVersion        string
-	Hints                  json.RawMessage
-	Prime                  *big.Int
-	External               []CasmEntryPoint
-	L1Handler              []CasmEntryPoint
-	Constructor            []CasmEntryPoint
-	BytecodeSegmentLengths SegmentLengths
+	Bytecode               []*felt.Felt     `cbor:"1,keyasint,omitempty"`
+	PythonicHints          json.RawMessage  `cbor:"2,keyasint,omitempty"`
+	CompilerVersion        string           `cbor:"3,keyasint,omitempty"`
+	Hints                  json.RawMessage  `cbor:"4,keyasint,omitempty"`
+	Prime                  *big.Int         `cbor:"5,keyasint,omitempty"`
+	External               []CasmEntryPoint `cbor:"6,keyasint,omitempty"`
+	L1Handler              []CasmEntryPoint `cbor:"7,keyasint,omitempty"`
+	Constructor            []CasmEntryPoint `cbor:"8,keyasint,omitempty"`
+	BytecodeSegmentLengths SegmentLengths   `cbor:"9,keyasint,omitempty"`
 }
 
 type CasmEntryPoint struct {
-	Offset   uint64
-	Builtins []string
-	Selector *felt.Felt
+	Offset   uint64     `cbor:"1,keyasint,omitempty"`
+	Builtins []string   `cbor:"2,keyasint,omitempty"`
+	Selector *felt.Felt `cbor:"3,keyasint,omitempty"`
 }
 
 type SierraEntryPointsByType struct {
-	Constructor []SierraEntryPoint
-	External    []SierraEntryPoint
-	L1Handler   []SierraEntryPoint
+	Constructor []SierraEntryPoint `cbor:"1,keyasint,omitempty"`
+	External    []SierraEntryPoint `cbor:"2,keyasint,omitempty"`
+	L1Handler   []SierraEntryPoint `cbor:"3,keyasint,omitempty"`
 }
 
 type SierraEntryPoint struct {
-	Index    uint64
-	Selector *felt.Felt
+	Index    uint64     `cbor:"1,keyasint,omitempty"`
+	Selector *felt.Felt `cbor:"2,keyasint,omitempty"`
 }
 
 func (c *SierraClass) Version() uint64 {
