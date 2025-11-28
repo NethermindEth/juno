@@ -55,7 +55,7 @@ func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
 
 func (d *Database) Update(
 	root,
-	parent *felt.Felt,
+	parent *felt.Hash,
 	blockNum uint64,
 	mergeClassNodes,
 	mergeContractNodes *trienode.MergeNodeSet,
@@ -72,7 +72,7 @@ func (d *Database) Update(
 	}
 }
 
-func (d *Database) Journal(root *felt.Felt) error {
+func (d *Database) Journal(root *felt.Hash) error {
 	pdb, ok := d.triedb.(*pathdb.Database)
 	if !ok {
 		return fmt.Errorf("unsupported trie db type: %T", d.triedb)
@@ -103,6 +103,6 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.triedb.NewIterator(id)
 }
 
-func (d *Database) Commit(stateComm *felt.Felt) error {
+func (d *Database) Commit(stateComm *felt.Hash) error {
 	return d.triedb.Commit(stateComm)
 }

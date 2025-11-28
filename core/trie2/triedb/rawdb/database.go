@@ -53,13 +53,13 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (d *Database) Commit(_ *felt.Felt) error {
+func (d *Database) Commit(_ *felt.Hash) error {
 	return nil
 }
 
 func (d *Database) Update(
 	root,
-	parent *felt.Felt,
+	parent *felt.Hash,
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,

@@ -47,7 +47,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 }
 
 func (d *Database) insert(
-	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode,
+	owner *felt.Address, path *trieutils.Path, hash *felt.Hash, isClass bool, node trienode.TrieNode,
 ) {
 	_, found := d.dirtyCache.getNode(owner, path, hash, isClass)
 	if found {
@@ -57,7 +57,7 @@ func (d *Database) insert(
 }
 
 func (d *Database) readNode(
-	bucket db.Bucket, owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool,
+	bucket db.Bucket, owner *felt.Address, path *trieutils.Path, hash *felt.Hash, isLeaf bool,
 ) ([]byte, error) {
 	if blob := d.cleanCache.getNode(path, hash); blob != nil {
 		return blob, nil
@@ -92,7 +92,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (d *Database) Commit(_ *felt.Felt) error {
+func (d *Database) Commit(_ *felt.Hash) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
@@ -156,7 +156,7 @@ func (d *Database) Commit(_ *felt.Felt) error {
 
 func (d *Database) Update(
 	root,
-	parent *felt.Felt,
+	parent *felt.Hash,
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
@@ -186,7 +186,7 @@ func (d *Database) Update(
 			continue // Since the hashdb is used for archive node only, there is no need to remove nodes
 		} else {
 			nodeHash := node.Hash()
-			d.insert(&felt.Address{}, &path, &nodeHash, true, node)
+			d.insert(&felt.Address{}, &path, (*felt.Hash)(&nodeHash), true, node)
 		}
 	}
 
@@ -195,7 +195,7 @@ func (d *Database) Update(
 			continue
 		} else {
 			nodeHash := node.Hash()
-			d.insert(&felt.Address{}, &path, &nodeHash, false, node)
+			d.insert(&felt.Address{}, &path, (*felt.Hash)(&nodeHash), false, node)
 		}
 	}
 
@@ -205,7 +205,7 @@ func (d *Database) Update(
 				continue
 			} else {
 				nodeHash := node.Hash()
-				d.insert(&owner, &path, &nodeHash, false, node)
+				d.insert(&owner, &path, (*felt.Hash)(&nodeHash), false, node)
 			}
 		}
 	}
@@ -218,7 +218,7 @@ type reader struct {
 }
 
 func (r *reader) Node(
-	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool,
+	owner *felt.Address, path *trieutils.Path, hash *felt.Hash, isLeaf bool,
 ) ([]byte, error) {
 	return r.d.readNode(r.id.Bucket(), owner, path, hash, isLeaf)
 }
@@ -235,7 +235,10 @@ func (d *Database) Close() error {
 // with the state commitment are present in the db, if not, the lost data needs to be recovered
 // This will be integrated during the state refactor integration, if there is a node crash,
 // the chain needs to be reverted to the last state commitment with the trie roots present in the db
-func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) (trienode.Node, trienode.Node, error) {
+func (d *Database) GetTrieRootNodes(
+	classRootHash,
+	contractRootHash *felt.Hash,
+) (trienode.Node, trienode.Node, error) {
 	const contractClassTrieHeight = 251
 
 	classRootBlob, err := trieutils.GetNodeByHash(
@@ -263,12 +266,22 @@ func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) 
 		return nil, nil, fmt.Errorf("contract root node not found")
 	}
 
-	classRootNode, err := trienode.DecodeNode(classRootBlob, classRootHash, 0, contractClassTrieHeight)
+	classRootNode, err := trienode.DecodeNode(
+		classRootBlob,
+		(*felt.Felt)(classRootHash),
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode class root node: %w", err)
 	}
 
-	contractRootNode, err := trienode.DecodeNode(contractRootBlob, contractRootHash, 0, contractClassTrieHeight)
+	contractRootNode, err := trienode.DecodeNode(
+		contractRootBlob,
+		(*felt.Felt)(contractRootHash),
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode contract root node: %w", err)
 	}
