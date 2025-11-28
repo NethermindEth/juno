@@ -11,7 +11,7 @@ import (
 
 // Represents a reader for trie nodes
 type NodeReader interface {
-	Node(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error)
+	Node(owner *felt.Address, path *trieutils.Path, hash *felt.Hash, isLeaf bool) ([]byte, error)
 }
 
 // Represents a database that produces a node reader for a given trie id
@@ -29,10 +29,10 @@ type TrieDB interface {
 	NodeIterator
 	io.Closer
 
-	Commit(stateComm *felt.Felt) error
+	Commit(stateComm *felt.Hash) error
 	Update(
 		root,
-		parent *felt.Felt,
+		parent *felt.Hash,
 		blockNum uint64,
 		mergeClassNodes,
 		mergeContractNodes *trienode.MergeNodeSet,

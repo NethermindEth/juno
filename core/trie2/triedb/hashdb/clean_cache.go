@@ -21,14 +21,14 @@ func newCleanCache(size uint64) cleanCache {
 	}
 }
 
-func (c *cleanCache) getNode(path *trieutils.Path, hash *felt.Felt) []byte {
+func (c *cleanCache) getNode(path *trieutils.Path, hash *felt.Hash) []byte {
 	key := nodeKey(path, hash)
 	value := c.cache.Get(nil, key)
 
 	return value
 }
 
-func (c *cleanCache) putNode(path *trieutils.Path, hash *felt.Felt, value []byte) {
+func (c *cleanCache) putNode(path *trieutils.Path, hash *felt.Hash, value []byte) {
 	key := nodeKey(path, hash)
 	c.cache.Set(key, value)
 }

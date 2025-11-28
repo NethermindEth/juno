@@ -42,14 +42,14 @@ func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner *felt.Address) er
 	return w.DeleteRange(prefix, dbutils.UpperBound(prefix))
 }
 
-func WriteStateID(w db.KeyValueWriter, root *felt.Felt, id uint64) error {
+func WriteStateID(w db.KeyValueWriter, root *felt.Hash, id uint64) error {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], id)
-	return w.Put(db.StateIDKey(root), buf[:])
+	return w.Put(db.StateIDKey((*felt.Felt)(root)), buf[:])
 }
 
-func ReadStateID(r db.KeyValueReader, root *felt.Felt) (uint64, error) {
-	key := db.StateIDKey(root)
+func ReadStateID(r db.KeyValueReader, root *felt.Hash) (uint64, error) {
+	key := db.StateIDKey((*felt.Felt)(root))
 
 	var id uint64
 	if err := r.Get(key, func(value []byte) error {
@@ -138,7 +138,7 @@ func GetNodeByHash(
 	bucket db.Bucket,
 	owner *felt.Address,
 	path *Path,
-	hash *felt.Felt,
+	hash *felt.Hash,
 	isLeaf bool,
 ) ([]byte, error) {
 	var res []byte
@@ -158,7 +158,7 @@ func WriteNodeByHash(
 	bucket db.Bucket,
 	owner *felt.Address,
 	path *Path,
-	hash *felt.Felt,
+	hash *felt.Hash,
 	isLeaf bool,
 	blob []byte,
 ) error {
@@ -180,7 +180,7 @@ func WriteNodeByHash(
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
 func nodeKeyByHash(
-	prefix db.Bucket, owner *felt.Address, path *Path, hash *felt.Felt, isLeaf bool,
+	prefix db.Bucket, owner *felt.Address, path *Path, hash *felt.Hash, isLeaf bool,
 ) []byte {
 	const pathSignificantBytes = 8
 	var (

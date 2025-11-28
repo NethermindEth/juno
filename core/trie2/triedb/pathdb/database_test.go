@@ -28,10 +28,10 @@ func TestCommit(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			parent := &felt.Zero
+			parent := &felt.Hash{}
 			tracker := newLayerTracker()
 			for i := 1; i <= tc.numDiffs; i++ {
-				root := new(felt.Felt).SetUint64(uint64(i))
+				root := felt.NewFromUint64[felt.Hash](uint64(i))
 				classNodes := createTestNodeSet(numNodes, i, tc.numDiffs, true)
 				contractNodes := createTestNodeSet(numNodes, i, tc.numDiffs, false)
 				require.NoError(t, pathDB.Update(root, parent, uint64(i), classNodes, contractNodes))
