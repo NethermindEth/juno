@@ -36,10 +36,6 @@ func BlockHeaderByNumberKey(blockNum uint64) []byte {
 	return BlockHeadersByNumber.Key(b[:])
 }
 
-func TxBlockNumIndexByHashKey(hash *felt.Felt) []byte {
-	return TransactionBlockNumbersAndIndicesByHash.Key(hash.Marshal())
-}
-
 const BlockNumIndexKeySize = 16
 
 type BlockNumIndexKey struct {
@@ -65,24 +61,6 @@ func (b *BlockNumIndexKey) UnmarshalBinary(data []byte) error {
 	b.Number = binary.BigEndian.Uint64(data[0:8])
 	b.Index = binary.BigEndian.Uint64(data[8:16])
 	return nil
-}
-
-func TxByBlockNumIndexKey(num, index uint64) []byte {
-	key := &BlockNumIndexKey{Number: num, Index: index}
-	return TransactionsByBlockNumberAndIndex.Key(key.Marshal())
-}
-
-func TxByBlockNumIndexKeyBytes(key []byte) []byte {
-	return TransactionsByBlockNumberAndIndex.Key(key)
-}
-
-func ReceiptByBlockNumIndexKey(num, index uint64) []byte {
-	key := &BlockNumIndexKey{Number: num, Index: index}
-	return ReceiptsByBlockNumberAndIndex.Key(key.Marshal())
-}
-
-func ReceiptByBlockNumIndexKeyBytes(key []byte) []byte {
-	return ReceiptsByBlockNumberAndIndex.Key(key)
 }
 
 func StateUpdateByBlockNumKey(num uint64) []byte {

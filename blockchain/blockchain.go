@@ -184,24 +184,31 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
-	return core.GetTxByBlockNumIndex(b.database, blockNumber, index)
+	return core.TransactionsByBlockNumberAndIndexBucket.Get(
+		b.database,
+		db.BlockNumIndexKey{
+			Number: blockNumber,
+			Index:  index,
+		},
+	)
 }
 
 // TransactionByHash gets the transaction for a given hash.
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
-	return core.GetTxByHash(b.database, hash)
+	return core.GetTxByHash(b.database, (*felt.TransactionHash)(hash))
 }
 
 // Receipt gets the transaction receipt for a given transaction hash.
 func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	b.listener.OnRead("Receipt")
-	bnIndex, err := core.GetTxBlockNumIndexByHash(b.database, hash)
+	txHash := (*felt.TransactionHash)(hash)
+	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, txHash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	receipt, err := core.GetReceiptByHash(b.database, hash)
+	receipt, err := core.GetReceiptByHash(b.database, txHash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
