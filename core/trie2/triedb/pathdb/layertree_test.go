@@ -124,7 +124,7 @@ func TestLayersCap(t *testing.T) {
 			actualDiskHash := tree.diskLayer().rootHash()
 			require.Equal(
 				t,
-				&expDiskHash,
+				expDiskHash,
 				actualDiskHash,
 				fmt.Sprintf("expected disk hash %s, got %s", expDiskHash.String(), actualDiskHash.String()),
 			)
