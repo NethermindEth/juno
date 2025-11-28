@@ -1350,7 +1350,9 @@ func TestCall(t *testing.T) {
 		classHash := felt.NewFromUint64[felt.Felt](3)
 		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{
-			Result:          []*felt.Felt{felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt)},
+			Result: []*felt.Felt{
+				felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt),
+			},
 			ExecutionFailed: true,
 		}
 		expectedErr := rpccore.ErrEntrypointNotFoundV0_10
