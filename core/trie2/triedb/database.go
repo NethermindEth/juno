@@ -30,7 +30,7 @@ type Database struct {
 	config *Config
 }
 
-func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
+func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	var triedb database.TrieDB
 	var err error
 	// Default to raw config if not provided

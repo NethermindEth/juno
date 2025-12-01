@@ -4,11 +4,14 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
+
+var _ database.TrieDB = (*Database)(nil)
 
 type Config struct{}
 
@@ -51,10 +54,6 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	}
 
 	return d.disk.NewIterator(key, true)
-}
-
-func (d *Database) Commit(_ *felt.Felt) error {
-	return nil
 }
 
 func (d *Database) Update(
@@ -134,6 +133,12 @@ func (d *Database) updateNode(
 	return nil
 }
 
+// This method was added to satisfy the TrieDB interface, but it is not used.
+func (d *Database) Commit(_ *felt.Felt) error {
+	return nil
+}
+
+// This method was added to satisfy the TrieDB interface, but it is not used.
 func (d *Database) Close() error {
 	return nil
 }
