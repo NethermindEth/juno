@@ -304,16 +304,27 @@ func writeNodes(
 ) error {
 	for path, n := range classNodes {
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(
-				w, db.ClassTrie, &felt.Address{}, &path, n.IsLeaf(),
-			); err != nil {
+			err := trieutils.DeleteNodeByPath(
+				w,
+				db.ClassTrie,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+			)
+			if err != nil {
 				return err
 			}
 			cleans.deleteNode(&felt.Address{}, &path, true)
 		} else {
-			if err := trieutils.WriteNodeByPath(
-				w, db.ClassTrie, &felt.Address{}, &path, n.IsLeaf(), n.Blob(),
-			); err != nil {
+			err := trieutils.WriteNodeByPath(
+				w,
+				db.ClassTrie,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+				n.Blob(),
+			)
+			if err != nil {
 				return err
 			}
 			cleans.putNode(&felt.Address{}, &path, true, n.Blob())
@@ -322,16 +333,27 @@ func writeNodes(
 
 	for path, n := range contractNodes {
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(
-				w, db.ContractTrieContract, &felt.Address{}, &path, n.IsLeaf(),
-			); err != nil {
+			err := trieutils.DeleteNodeByPath(
+				w,
+				db.ContractTrieContract,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+			)
+			if err != nil {
 				return err
 			}
 			cleans.deleteNode(&felt.Address{}, &path, false)
 		} else {
-			if err := trieutils.WriteNodeByPath(
-				w, db.ContractTrieContract, &felt.Address{}, &path, n.IsLeaf(), n.Blob(),
-			); err != nil {
+			err := trieutils.WriteNodeByPath(
+				w,
+				db.ContractTrieContract,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+				n.Blob(),
+			)
+			if err != nil {
 				return err
 			}
 			cleans.putNode(&felt.Address{}, &path, false, n.Blob())
@@ -341,12 +363,14 @@ func writeNodes(
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
 			if _, deleted := n.(*trienode.DeletedNode); deleted {
-				if err := trieutils.DeleteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf()); err != nil {
+				err := trieutils.DeleteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf())
+				if err != nil {
 					return err
 				}
 				cleans.deleteNode(&owner, &path, false)
 			} else {
-				if err := trieutils.WriteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf(), n.Blob()); err != nil {
+				err := trieutils.WriteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf(), n.Blob())
+				if err != nil {
 					return err
 				}
 				cleans.putNode(&owner, &path, false, n.Blob())

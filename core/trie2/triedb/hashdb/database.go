@@ -105,9 +105,16 @@ func (d *Database) Commit(_ *felt.Felt) error {
 		if err != nil {
 			return err
 		}
-		if err := trieutils.WriteNodeByHash(
-			batch, db.ClassTrie, &felt.Address{}, path, hash, node.IsLeaf(), node.Blob(),
-		); err != nil {
+		err = trieutils.WriteNodeByHash(
+			batch,
+			db.ClassTrie,
+			&felt.Address{},
+			path,
+			hash,
+			node.IsLeaf(),
+			node.Blob(),
+		)
+		if err != nil {
 			return err
 		}
 		d.cleanCache.putNode(path, hash, node.Blob())
@@ -118,9 +125,16 @@ func (d *Database) Commit(_ *felt.Felt) error {
 		if err != nil {
 			return err
 		}
-		if err := trieutils.WriteNodeByHash(
-			batch, db.ContractTrieContract, &felt.Address{}, path, hash, node.IsLeaf(), node.Blob(),
-		); err != nil {
+		err = trieutils.WriteNodeByHash(
+			batch,
+			db.ContractTrieContract,
+			&felt.Address{},
+			path,
+			hash,
+			node.IsLeaf(),
+			node.Blob(),
+		)
+		if err != nil {
 			return err
 		}
 		d.cleanCache.putNode(path, hash, node.Blob())
@@ -132,9 +146,16 @@ func (d *Database) Commit(_ *felt.Felt) error {
 			if err != nil {
 				return err
 			}
-			if err := trieutils.WriteNodeByHash(
-				batch, db.ContractTrieStorage, &owner, path, hash, node.IsLeaf(), node.Blob(),
-			); err != nil {
+			err = trieutils.WriteNodeByHash(
+				batch,
+				db.ContractTrieStorage,
+				&owner,
+				path,
+				hash,
+				node.IsLeaf(),
+				node.Blob(),
+			)
+			if err != nil {
 				return err
 			}
 			d.cleanCache.putNode(path, hash, node.Blob())
