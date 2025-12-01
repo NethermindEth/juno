@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	leaf1Hash = new(felt.Felt).SetUint64(201)
-	leaf2Hash = new(felt.Felt).SetUint64(202)
-	rootHash  = new(felt.Felt).SetUint64(100)
+	leaf1Hash = felt.NewFromUint64[felt.Felt](201)
+	leaf2Hash = felt.NewFromUint64[felt.Felt](202)
+	rootHash  = felt.NewFromUint64[felt.Felt](100)
 
 	leaf1Path = trieutils.NewBitArray(1, 0x00)
 	leaf2Path = trieutils.NewBitArray(1, 0x01)
@@ -111,12 +111,12 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
-		contractHash := new(felt.Felt).SetUint64(210)
+		contractHash := felt.NewFromUint64[felt.Felt](210)
 		contractPath := trieutils.NewBitArray(1, 0x01)
 		contractNode := trienode.NewLeaf(*contractHash, []byte{7, 8, 9})
 
-		contractOwner := new(felt.Felt).SetUint64(123)
-		storageHash := new(felt.Felt).SetUint64(220)
+		contractOwner := felt.NewFromUint64[felt.Felt](123)
+		storageHash := felt.NewFromUint64[felt.Felt](220)
 		storagePath := trieutils.NewBitArray(1, 0x02)
 		storageNode := trienode.NewLeaf(*storageHash, []byte{10, 11, 12})
 
@@ -222,7 +222,7 @@ func TestRawDB(t *testing.T) {
 		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
 		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
 
-		newLeafHash := new(felt.Felt).SetUint64(203)
+		newLeafHash := felt.NewFromUint64[felt.Felt](203)
 		newLeafPath := trieutils.NewBitArray(2, 0x02)
 		newLeafNode := trienode.NewLeaf(*newLeafHash, []byte{13, 14, 15})
 

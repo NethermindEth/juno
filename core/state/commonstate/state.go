@@ -5,7 +5,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/state/commontrie"
-	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 )
@@ -42,13 +42,13 @@ type StateReader interface {
 
 type StateFactory struct {
 	UseNewState bool
-	triedb      *triedb.Database
+	triedb      database.TrieDB
 	stateDB     *state.StateDB
 }
 
 func NewStateFactory(
 	newState bool,
-	triedb *triedb.Database,
+	triedb database.TrieDB,
 	stateDB *state.StateDB,
 ) (*StateFactory, error) {
 	if !newState {

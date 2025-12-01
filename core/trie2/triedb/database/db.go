@@ -37,4 +37,5 @@ type TrieDB interface {
 		mergeClassNodes,
 		mergeContractNodes *trienode.MergeNodeSet,
 	) error
+	Scheme() string
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+const RawScheme string = "raw"
+
 var _ database.TrieDB = (*Database)(nil)
 
 type Config struct{}
@@ -113,24 +115,16 @@ func (d *Database) updateNode(
 	n trienode.TrieNode,
 ) error {
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
-		err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
-		if err != nil {
-			return err
-		}
-	} else {
-		err := trieutils.WriteNodeByPath(
-			batch,
-			bucket,
-			owner,
-			path,
-			n.IsLeaf(),
-			n.Blob(),
-		)
-		if err != nil {
-			return err
-		}
+		return trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
 	}
-	return nil
+	return trieutils.WriteNodeByPath(
+		batch,
+		bucket,
+		owner,
+		path,
+		n.IsLeaf(),
+		n.Blob(),
+	)
 }
 
 // This method was added to satisfy the TrieDB interface, but it is not used.
@@ -141,4 +135,8 @@ func (d *Database) Commit(_ *felt.Felt) error {
 // This method was added to satisfy the TrieDB interface, but it is not used.
 func (d *Database) Close() error {
 	return nil
+}
+
+func (d *Database) Scheme() string {
+	return RawScheme
 }

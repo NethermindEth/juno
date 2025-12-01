@@ -13,6 +13,10 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+const HashScheme string = "hash"
+
+var _ database.TrieDB = (*Database)(nil)
+
 type Config struct {
 	CleanCacheSize uint64 // Maximum size (in bytes) for caching clean nodes
 }
@@ -253,4 +257,8 @@ func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) 
 	}
 
 	return classRootNode, contractRootNode, nil
+}
+
+func (d *Database) Scheme() string {
+	return HashScheme
 }
