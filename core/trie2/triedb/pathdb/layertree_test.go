@@ -254,7 +254,7 @@ func (t *layerTracker) findNodeInLayer(
 		return nil, false
 	}
 
-	if (*felt.Felt)(owner).IsZero() {
+	if owner.IsZero() {
 		if nodeMap, ok := t.contractNodes[*root]; ok {
 			if node, exists := nodeMap[*path]; exists {
 				return node.Blob(), true

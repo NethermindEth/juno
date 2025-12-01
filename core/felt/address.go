@@ -29,3 +29,11 @@ func (a *Address) Unmarshal(e []byte) {
 func (a *Address) SetBytesCanonical(data []byte) error {
 	return (*Felt)(a).SetBytesCanonical(data)
 }
+
+func (a *Address) IsZero() bool {
+	return (*Felt)(a).IsZero()
+}
+
+func (a *Address) Equal(b *Address) bool {
+	return (*Felt)(a).Equal((*Felt)(b))
+}

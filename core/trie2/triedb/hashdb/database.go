@@ -86,7 +86,7 @@ func (d *Database) readNode(
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	key := id.Bucket().Key()
 	owner := id.Owner()
-	if !(*felt.Felt)(&owner).Equal(&felt.Zero) {
+	if !owner.Equal(&felt.Address{}) {
 		oBytes := owner.Bytes()
 		key = append(key, oBytes[:]...)
 	}

@@ -49,7 +49,7 @@ func (s *nodeSet) node(
 	}
 
 	// contract trie nodes
-	if (*felt.Felt)(owner).IsZero() {
+	if owner.IsZero() {
 		node, ok := s.contractNodes[*path]
 		return node, ok
 	}

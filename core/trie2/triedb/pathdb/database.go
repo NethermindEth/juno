@@ -94,7 +94,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	)
 
 	owner := id.Owner()
-	if !(*felt.Felt)(&owner).Equal(&felt.Zero) {
+	if !owner.Equal(&felt.Address{}) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}
