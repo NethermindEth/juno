@@ -960,7 +960,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
 		handler := New(mockChain, mockSyncer, nil, log).WithSubmittedTransactionsCache(cache)
 
-		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(txHash),
+		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
@@ -988,8 +990,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-
+			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+				(*felt.TransactionHash)(txHash),
+			).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
@@ -997,7 +1000,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := felt.NewFromString[felt.Felt]("0x1010")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+				(*felt.TransactionHash)(txHash),
+			).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 		})
@@ -1043,7 +1048,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		)
 		require.Nil(t, addErr)
 		txHash := addRes.TransactionHash
-		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(
+			uint64(0), uint64(0), db.ErrKeyNotFound,
+		)
 		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).Times(2)
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 
@@ -1051,7 +1058,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
 		// Candidate Status
-		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(
+			uint64(0), uint64(0), db.ErrKeyNotFound,
+		)
 		preConfirmed := &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
@@ -1110,8 +1119,15 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			nil,
 		).Times(1)
 		// Accepted on l2 Status
-		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(txHash),
+		).Return(block.Number, uint64(0), nil)
+		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+			block.Number, uint64(0),
+		).Return(block.Transactions[0], nil)
+		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
+			block.Number, uint64(0),
+		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		handler.newHeads.Send(block)
@@ -1122,8 +1138,14 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			nil,
 		).Times(1)
 		l1Head := core.L1Head{BlockNumber: block.Number}
-		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(txHash),
+		).Return(block.Number, uint64(0), nil)
+		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+			block.Number, uint64(0)).Return(block.Transactions[0], nil)
+		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
+			block.Number, uint64(0),
+		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
 		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
