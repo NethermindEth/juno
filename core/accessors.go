@@ -265,6 +265,24 @@ func GetReceiptByBlockNumIndexBytes(r db.KeyValueReader, bnIndex []byte) (*Trans
 	return receipt, nil
 }
 
+func GetReceiptByBlockNumIndex(r db.KeyValueReader, num, index uint64) (*TransactionReceipt, error) {
+	var (
+		receipt *TransactionReceipt
+		val     []byte
+	)
+	err := r.Get(db.ReceiptByBlockNumIndexKey(num, index), func(data []byte) error {
+		val = data
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err = encoder.Unmarshal(val, &receipt); err != nil {
+		return nil, err
+	}
+	return receipt, nil
+}
+
 func WriteReceiptByBlockNumIndex(w db.KeyValueWriter, num, index uint64, receipt *TransactionReceipt) error {
 	data, err := encoder.Marshal(receipt)
 	if err != nil {
