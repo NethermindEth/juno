@@ -990,7 +990,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})

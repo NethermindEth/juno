@@ -545,15 +545,8 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		pendingBIndex int
 	)
 
-	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash(&hash)
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return nil, rpccore.ErrTxnHashNotFound
-	}
-
-	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, idx)
+	txh := felt.TransactionHash(hash)
+	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash(&txh)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -564,6 +557,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrTxnHashNotFound
 		}
 
+		var txn core.Transaction
 		for i, t := range pendingB.Transactions {
 			if hash.Equal(t.Hash()) {
 				pendingBIndex = i
@@ -575,30 +569,30 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		if txn == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
+
+		receipt := pendingB.Receipts[pendingBIndex]
+		return AdaptReceipt(receipt, txn, TxnAcceptedOnL2, nil, 0), nil
 	}
 
-	var (
-		receipt   *core.TransactionReceipt
-		blockHash *felt.Felt
-	)
-
-	if pendingB != nil {
-		receipt = pendingB.Receipts[pendingBIndex]
-	} else {
-		receipt, blockHash, err = h.bcReader.ReceiptByBlockNumberAndIndex(blockNumber, idx)
-		if err != nil {
-			return nil, rpccore.ErrTxnHashNotFound
+	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, idx)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	receipt, blockHash, err := h.bcReader.ReceiptByBlockNumberAndIndex(blockNumber, idx)
+	if err != nil {
+		return nil, rpccore.ErrTxnHashNotFound
 	}
 
 	status := TxnAcceptedOnL2
-
 	if blockHash != nil {
 		l1H, jsonErr := h.l1Head()
 		if jsonErr != nil {
 			return nil, jsonErr
 		}
-
 		if isL1Verified(blockNumber, l1H) {
 			status = TxnAcceptedOnL1
 		}
