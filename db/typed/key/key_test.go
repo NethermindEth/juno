@@ -46,13 +46,22 @@ func TestKeySerializer(t *testing.T) {
 
 	runLiteralTest(t, key.TransactionHash, (*felt.TransactionHash)(&feltInput), feltOutput)
 
+	blockNumIndexKey := db.BlockNumIndexKey{
+		Number: 2025112220251122,
+		Index:  2025112320251123,
+	}
+
 	runLiteralTest(
 		t,
 		key.Marshal[db.BlockNumIndexKey](),
-		db.BlockNumIndexKey{
-			Number: 2025112220251122,
-			Index:  2025112320251123,
-		},
+		blockNumIndexKey,
 		"000731d42e84b3f2000731d4347a94f3",
+	)
+
+	runLiteralTest(
+		t,
+		key.Cbor[db.BlockNumIndexKey](),
+		blockNumIndexKey,
+		"50000731d42e84b3f2000731d4347a94f3",
 	)
 }
