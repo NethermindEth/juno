@@ -387,7 +387,7 @@ func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), hash)
 }
 
-func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.Felt) (uint64, uint64, error) {
+func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.TransactionHash) (uint64, uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockNumberAndIndexByTxHash", hash)
 	ret0, _ := ret[0].(uint64)

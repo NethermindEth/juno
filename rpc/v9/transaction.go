@@ -604,7 +604,7 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 		return adaptedReceipt, nil
 	}
 
-	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash(hash)
+	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash))
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
