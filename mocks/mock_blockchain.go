@@ -261,7 +261,7 @@ func (m *MockReader) ReceiptByBlockNumberAndIndex(
 	blockNumber, index uint64,
 ) (*core.TransactionReceipt, *felt.Felt, error) {
 	m.ctrl.T.Helper()
-	fmt.Println("Got here", blockNumber, index)
+
 	ret := m.ctrl.Call(m, "ReceiptByBlockNumberAndIndex", blockNumber, index)
 	ret0, _ := ret[0].(*core.TransactionReceipt)
 	ret1, _ := ret[1].(*felt.Felt)

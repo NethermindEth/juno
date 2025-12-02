@@ -612,7 +612,7 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	// txn, err := h.bcReader.TransactionByHash(hash)
+
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, idx)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -621,7 +621,7 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	// receipt, blockHash, blockNumber, err := h.bcReader.Receipt(hash)
+
 	receipt, blockHash, err := h.bcReader.ReceiptByBlockNumberAndIndex(blockNumber, idx)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
