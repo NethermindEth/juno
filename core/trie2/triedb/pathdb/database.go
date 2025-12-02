@@ -105,3 +105,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 
 	return d.disk.NewIterator(prefix, true)
 }
+
+func (d *Database) Scheme() database.TrieDBScheme {
+	return database.PathScheme
+}
