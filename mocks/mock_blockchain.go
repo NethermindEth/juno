@@ -10,7 +10,6 @@
 package mocks
 
 import (
-	"fmt"
 	reflect "reflect"
 
 	blockchain "github.com/NethermindEth/juno/blockchain"
@@ -388,21 +387,21 @@ func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), hash)
 }
 
-func (m *MockReader) TxBlockNumberAndIndexByHash(hash *felt.Felt) (uint64, uint64, error) {
+func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.Felt) (uint64, uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TxBlockNumberAndIndexByHash", hash)
+	ret := m.ctrl.Call(m, "BlockNumberAndIndexByTxHash", hash)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(uint64)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-func (mr *MockReaderMockRecorder) TxBlockNumberAndIndexByHash(hash any) *gomock.Call {
+func (mr *MockReaderMockRecorder) BlockNumberAndIndexByTxHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(
 		mr.mock,
-		"TxBlockNumberAndIndexByHash",
-		reflect.TypeOf((*MockReader)(nil).TxBlockNumberAndIndexByHash),
+		"BlockNumberAndIndexByTxHash",
+		reflect.TypeOf((*MockReader)(nil).BlockNumberAndIndexByTxHash),
 		hash,
 	)
 }

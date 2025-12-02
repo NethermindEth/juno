@@ -33,7 +33,7 @@ type Reader interface {
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
-	BlockNumberAndIndexByTxHash(hash *felt.TransactionHash) (blockNumber uint64, index uint64, err error)
+	BlockNumberAndIndexByTxHash(hash *felt.Felt) (blockNumber uint64, index uint64, err error)
 
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	ReceiptByBlockNumberAndIndex(blockNumber, index uint64) (receipt *core.TransactionReceipt, blockHash *felt.Felt, err error)
@@ -197,9 +197,9 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 	return core.GetTxByHash(b.database, hash)
 }
 
-// TxBlockNumberAndIndexByHash gets transaction block number and index by Tx hash
-func (b *Blockchain) TxBlockNumberAndIndexByHash(hash *felt.Felt) (uint64, uint64, error) {
-	b.listener.OnRead("TxBlockNumberAndIndexByHash")
+// BlockNumberAndIndexByTxHash gets transaction block number and index by Tx hash
+func (b *Blockchain) BlockNumberAndIndexByTxHash(hash *felt.Felt) (uint64, uint64, error) {
+	b.listener.OnRead("BlockNumberAndIndexByTxHash")
 	data, err := core.GetTxBlockNumIndexByHash(b.database, hash)
 	return data.Number, data.Index, err
 }
@@ -228,7 +228,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 	blockNumber, index uint64,
 ) (*core.TransactionReceipt, *felt.Felt, error) {
-	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
+	b.listener.OnRead("Receipt")
 
 	receipt, err := core.GetReceiptByBlockNumIndex(b.database, blockNumber, index)
 	if err != nil {

@@ -545,7 +545,15 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		pendingBIndex int
 	)
 
-	txn, err := h.bcReader.TransactionByHash(&hash)
+	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash(&hash)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, idx)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -570,15 +578,14 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	}
 
 	var (
-		receipt     *core.TransactionReceipt
-		blockHash   *felt.Felt
-		blockNumber uint64
+		receipt   *core.TransactionReceipt
+		blockHash *felt.Felt
 	)
 
 	if pendingB != nil {
 		receipt = pendingB.Receipts[pendingBIndex]
 	} else {
-		receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
+		receipt, blockHash, err = h.bcReader.ReceiptByBlockNumberAndIndex(blockNumber, idx)
 		if err != nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
