@@ -48,7 +48,7 @@ func createBinaryNodeBlob(leftHash, rightHash *felt.Felt) []byte {
 }
 
 func createMergeNodeSet(nodes map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
-	ownerSet := trienode.NewNodeSet(felt.Zero)
+	ownerSet := trienode.NewNodeSet(felt.Address{})
 	for path, node := range nodes {
 		ownerSet.Add(&path, node)
 	}
@@ -56,10 +56,10 @@ func createMergeNodeSet(nodes map[trieutils.Path]trienode.TrieNode) *trienode.Me
 }
 
 func createContractMergeNodeSet(
-	nodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+	nodes map[felt.Address]map[trieutils.Path]trienode.TrieNode,
 ) *trienode.MergeNodeSet {
-	ownerSet := trienode.NewNodeSet(felt.Zero)
-	childSets := make(map[felt.Felt]*trienode.NodeSet)
+	ownerSet := trienode.NewNodeSet(felt.Address{})
+	childSets := make(map[felt.Address]*trienode.NodeSet)
 
 	for owner, ownerNodes := range nodes {
 		if owner.IsZero() {
@@ -115,24 +115,24 @@ func TestRawDB(t *testing.T) {
 		contractPath := trieutils.NewBitArray(1, 0x01)
 		contractNode := trienode.NewLeaf(*contractHash, []byte{7, 8, 9})
 
-		contractOwner := felt.NewFromUint64[felt.Felt](123)
+		contractOwner := felt.NewFromUint64[felt.Address](123)
 		storageHash := felt.NewFromUint64[felt.Felt](220)
 		storagePath := trieutils.NewBitArray(1, 0x02)
 		storageNode := trienode.NewLeaf(*storageHash, []byte{10, 11, 12})
 
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
-			felt.Zero: {
+		contractNodes := map[felt.Address]map[trieutils.Path]trienode.TrieNode{
+			{}: {
 				contractPath: contractNode,
 			},
 		}
 
-		contractStorageNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
+		contractStorageNodes := map[felt.Address]map[trieutils.Path]trienode.TrieNode{
 			*contractOwner: {
 				storagePath: storageNode,
 			},
 		}
 
-		allContractNodes := make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
+		allContractNodes := make(map[felt.Address]map[trieutils.Path]trienode.TrieNode)
 		maps.Copy(allContractNodes, contractNodes)
 		for owner, nodes := range contractStorageNodes {
 			if _, exists := allContractNodes[owner]; !exists {
@@ -184,7 +184,7 @@ func TestRawDB(t *testing.T) {
 		reader, err := database.NodeReader(classID)
 		require.NoError(t, err)
 
-		owner := felt.Zero
+		owner := felt.Address{}
 		leaf1Hash := leaf1Node.Hash()
 		_, err = reader.Node(&owner, &leaf1Path, &leaf1Hash, true)
 		require.Error(t, err)
@@ -203,7 +203,7 @@ func TestRawDB(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, reader)
 
-		owner := felt.Zero
+		owner := felt.Address{}
 		rootHash := rootNode.Hash()
 		blob, err := reader.Node(&owner, &rootPath, &rootHash, false)
 		require.NoError(t, err)
@@ -247,7 +247,7 @@ func TestRawDB(t *testing.T) {
 		require.NoError(t, err)
 
 		classID := trieutils.NewClassTrieID(felt.Zero)
-		owner := felt.Zero
+		owner := felt.Address{}
 
 		const numGoroutines = 20
 		const readsPerGoroutine = 10
