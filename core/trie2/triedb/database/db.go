@@ -9,6 +9,14 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+type TrieDBScheme uint8
+
+const (
+	RawScheme TrieDBScheme = iota + 1
+	PathScheme
+	HashScheme
+)
+
 // Represents a reader for trie nodes
 type NodeReader interface {
 	Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error)
@@ -37,5 +45,5 @@ type TrieDB interface {
 		mergeClassNodes,
 		mergeContractNodes *trienode.MergeNodeSet,
 	) error
-	Scheme() string
+	Scheme() TrieDBScheme
 }

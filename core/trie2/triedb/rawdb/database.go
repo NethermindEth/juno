@@ -11,8 +11,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-const RawScheme string = "raw"
-
 var _ database.TrieDB = (*Database)(nil)
 
 type Config struct{}
@@ -137,6 +135,6 @@ func (d *Database) Close() error {
 	return nil
 }
 
-func (d *Database) Scheme() string {
-	return RawScheme
+func (d *Database) Scheme() database.TrieDBScheme {
+	return database.RawScheme
 }

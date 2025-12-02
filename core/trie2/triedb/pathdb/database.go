@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	maxDiffLayers                  = 128 // TODO(weiihann): might want to make this configurable
-	contractClassTrieHeight        = 251
-	PathScheme              string = "path"
+	maxDiffLayers           = 128 // TODO(weiihann): might want to make this configurable
+	contractClassTrieHeight = 251
 )
 
 var _ database.TrieDB = (*Database)(nil)
@@ -107,6 +106,6 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(prefix, true)
 }
 
-func (d *Database) Scheme() string {
-	return PathScheme
+func (d *Database) Scheme() database.TrieDBScheme {
+	return database.PathScheme
 }
