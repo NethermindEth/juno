@@ -151,12 +151,12 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv9Handler.BlockWithTxHashes,
+			Handler: h.rpcv10Handler.BlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv9Handler.BlockWithTxs,
+			Handler: h.rpcv10Handler.BlockWithTxs,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
@@ -246,7 +246,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_call",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.rpcv9Handler.Call,
+			Handler: h.rpcv10Handler.Call,
 		},
 		{
 			Name: "starknet_estimateFee",
@@ -325,7 +325,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv9Handler.BlockWithReceipts,
+			Handler: h.rpcv10Handler.BlockWithReceipts,
 		},
 		{
 			Name:    "starknet_getCompiledCasm",

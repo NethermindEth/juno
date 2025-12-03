@@ -1,0 +1,274 @@
+package rawdb
+
+import (
+	"maps"
+	"sync"
+	"testing"
+
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+var (
+	leaf1Hash = felt.NewFromUint64[felt.Felt](201)
+	leaf2Hash = felt.NewFromUint64[felt.Felt](202)
+	rootHash  = felt.NewFromUint64[felt.Felt](100)
+
+	leaf1Path = trieutils.NewBitArray(1, 0x00)
+	leaf2Path = trieutils.NewBitArray(1, 0x01)
+	rootPath  = trieutils.NewBitArray(0, 0x0)
+
+	leaf1Node = trienode.NewLeaf(*leaf1Hash, []byte{1, 2, 3})
+	leaf2Node = trienode.NewLeaf(*leaf2Hash, []byte{4, 5, 6})
+	rootNode  = trienode.NewNonLeaf(*rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
+
+	basicClassNodes = map[trieutils.Path]trienode.TrieNode{
+		rootPath:  rootNode,
+		leaf1Path: leaf1Node,
+		leaf2Path: leaf2Node,
+	}
+)
+
+func createBinaryNodeBlob(leftHash, rightHash *felt.Felt) []byte {
+	binaryBlob := make([]byte, 1+2*felt.Bytes)
+	binaryBlob[0] = 1
+
+	leftBytes := leftHash.Bytes()
+	rightBytes := rightHash.Bytes()
+
+	copy(binaryBlob[1:felt.Bytes+1], leftBytes[:])
+	copy(binaryBlob[felt.Bytes+1:], rightBytes[:])
+
+	return binaryBlob
+}
+
+func createMergeNodeSet(nodes map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
+	ownerSet := trienode.NewNodeSet(felt.Zero)
+	for path, node := range nodes {
+		ownerSet.Add(&path, node)
+	}
+	return trienode.NewMergeNodeSet(&ownerSet)
+}
+
+func createContractMergeNodeSet(
+	nodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+) *trienode.MergeNodeSet {
+	ownerSet := trienode.NewNodeSet(felt.Zero)
+	childSets := make(map[felt.Felt]*trienode.NodeSet)
+
+	for owner, ownerNodes := range nodes {
+		if owner.IsZero() {
+			for path, node := range ownerNodes {
+				ownerSet.Add(&path, node)
+			}
+		} else {
+			childSet := trienode.NewNodeSet(owner)
+			for path, node := range ownerNodes {
+				childSet.Add(&path, node)
+			}
+			childSets[owner] = &childSet
+		}
+	}
+
+	return &trienode.MergeNodeSet{
+		OwnerSet:  &ownerSet,
+		ChildSets: childSets,
+	}
+}
+
+func verifyNode(
+	t *testing.T,
+	database *Database,
+	id trieutils.TrieID,
+	path *trieutils.Path,
+	node trienode.TrieNode,
+) {
+	t.Helper()
+
+	reader, err := database.NodeReader(id)
+	require.NoError(t, err)
+
+	owner := id.Owner()
+	nodeHash := node.Hash()
+	blob, err := reader.Node(&owner, path, &nodeHash, node.IsLeaf())
+	require.NoError(t, err)
+	assert.Equal(t, node.Blob(), blob)
+}
+
+func TestRawDB(t *testing.T) {
+	t.Run("New creates database", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB)
+		require.NotNil(t, database)
+	})
+
+	t.Run("Update with all node types", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB)
+
+		contractHash := felt.NewFromUint64[felt.Felt](210)
+		contractPath := trieutils.NewBitArray(1, 0x01)
+		contractNode := trienode.NewLeaf(*contractHash, []byte{7, 8, 9})
+
+		contractOwner := felt.NewFromUint64[felt.Felt](123)
+		storageHash := felt.NewFromUint64[felt.Felt](220)
+		storagePath := trieutils.NewBitArray(1, 0x02)
+		storageNode := trienode.NewLeaf(*storageHash, []byte{10, 11, 12})
+
+		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
+			felt.Zero: {
+				contractPath: contractNode,
+			},
+		}
+
+		contractStorageNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
+			*contractOwner: {
+				storagePath: storageNode,
+			},
+		}
+
+		allContractNodes := make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
+		maps.Copy(allContractNodes, contractNodes)
+		for owner, nodes := range contractStorageNodes {
+			if _, exists := allContractNodes[owner]; !exists {
+				allContractNodes[owner] = make(map[trieutils.Path]trienode.TrieNode)
+			}
+			for path, node := range nodes {
+				allContractNodes[owner][path] = node
+			}
+		}
+
+		err := database.Update(
+			&felt.Zero,
+			&felt.Zero,
+			1,
+			createMergeNodeSet(basicClassNodes),
+			createContractMergeNodeSet(allContractNodes),
+		)
+		require.NoError(t, err)
+
+		classID := trieutils.NewClassTrieID(felt.Zero)
+		verifyNode(t, database, classID, &rootPath, rootNode)
+		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
+		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
+
+		contractID := trieutils.NewContractTrieID(felt.Zero)
+		verifyNode(t, database, contractID, &contractPath, contractNode)
+
+		storageID := trieutils.NewContractStorageTrieID(felt.Zero, *contractOwner)
+		verifyNode(t, database, storageID, &storagePath, storageNode)
+	})
+
+	t.Run("Update with deleted nodes", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB)
+
+		err := database.Update(&felt.Zero, &felt.Zero, 1, createMergeNodeSet(basicClassNodes), nil)
+		require.NoError(t, err)
+
+		classID := trieutils.NewClassTrieID(felt.Zero)
+		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
+
+		deletedNodes := map[trieutils.Path]trienode.TrieNode{
+			leaf1Path: trienode.NewDeleted(true),
+		}
+
+		err = database.Update(&felt.Zero, &felt.Zero, 2, createMergeNodeSet(deletedNodes), nil)
+		require.NoError(t, err)
+
+		reader, err := database.NodeReader(classID)
+		require.NoError(t, err)
+
+		owner := felt.Zero
+		leaf1Hash := leaf1Node.Hash()
+		_, err = reader.Node(&owner, &leaf1Path, &leaf1Hash, true)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("NodeReader returns correct reader", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB)
+
+		err := database.Update(&felt.Zero, &felt.Zero, 1, createMergeNodeSet(basicClassNodes), nil)
+		require.NoError(t, err)
+
+		classID := trieutils.NewClassTrieID(felt.Zero)
+		reader, err := database.NodeReader(classID)
+		require.NoError(t, err)
+		require.NotNil(t, reader)
+
+		owner := felt.Zero
+		rootHash := rootNode.Hash()
+		blob, err := reader.Node(&owner, &rootPath, &rootHash, false)
+		require.NoError(t, err)
+		assert.Equal(t, rootNode.Blob(), blob)
+	})
+
+	t.Run("Multiple updates", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB)
+
+		err := database.Update(&felt.Zero, &felt.Zero, 1, createMergeNodeSet(basicClassNodes), nil)
+		require.NoError(t, err)
+
+		classID := trieutils.NewClassTrieID(felt.Zero)
+		verifyNode(t, database, classID, &rootPath, rootNode)
+		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
+		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
+
+		newLeafHash := felt.NewFromUint64[felt.Felt](203)
+		newLeafPath := trieutils.NewBitArray(2, 0x02)
+		newLeafNode := trienode.NewLeaf(*newLeafHash, []byte{13, 14, 15})
+
+		newNodes := map[trieutils.Path]trienode.TrieNode{
+			newLeafPath: newLeafNode,
+		}
+
+		err = database.Update(&felt.Zero, &felt.Zero, 2, createMergeNodeSet(newNodes), nil)
+		require.NoError(t, err)
+
+		verifyNode(t, database, classID, &newLeafPath, newLeafNode)
+		verifyNode(t, database, classID, &rootPath, rootNode)
+		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
+		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
+	})
+
+	t.Run("Concurrent reads", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB)
+
+		err := database.Update(&felt.Zero, &felt.Zero, 1, createMergeNodeSet(basicClassNodes), nil)
+		require.NoError(t, err)
+
+		classID := trieutils.NewClassTrieID(felt.Zero)
+		owner := felt.Zero
+
+		const numGoroutines = 20
+		const readsPerGoroutine = 10
+		var wg sync.WaitGroup
+		wg.Add(numGoroutines)
+
+		for range numGoroutines {
+			go func() {
+				defer wg.Done()
+				reader, err := database.NodeReader(classID)
+				if err != nil {
+					return
+				}
+
+				for range readsPerGoroutine {
+					rootHash := rootNode.Hash()
+					_, _ = reader.Node(&owner, &rootPath, &rootHash, false)
+				}
+			}()
+		}
+
+		wg.Wait()
+	})
+}

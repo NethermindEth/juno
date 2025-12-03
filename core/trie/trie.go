@@ -608,7 +608,7 @@ func (t *Trie) setRootKey(newRootKey *BitArray) {
 }
 
 func (t *Trie) updateValueIfDirty(key *BitArray) (*Node, error) { //nolint:gocyclo
-	node, err := t.readStorage.Get(key)
+	node, err := t.storage.Get(key)
 	if err != nil {
 		return nil, err
 	}

@@ -588,8 +588,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
 			L2GasPrice: &rpcv6.ResourcePrice{
-				InFri: &felt.Zero,
-				InWei: &felt.Zero,
+				InFri: &felt.One,
+				InWei: &felt.One,
 			},
 		},
 		Status: rpcv9.BlockAcceptedL2,

@@ -35,8 +35,15 @@ type TraceCacheKey struct {
 }
 
 var (
-	ErrContractNotFound                 = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrEntrypointNotFound               = &jsonrpc.Error{Code: 21, Message: "Requested entrypoint does not exist in the contract"}
+	ErrContractNotFound   = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrEntrypointNotFound = &jsonrpc.Error{
+		Code:    21,
+		Message: "Requested entrypoint does not exist in the contract",
+	}
+	ErrEntrypointNotFoundV0_10 = &jsonrpc.Error{
+		Code:    21,
+		Message: "Requested entry point does not exist in the contract",
+	}
 	ErrBlockNotFound                    = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrInvalidTxHash                    = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
 	ErrInvalidBlockHash                 = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}

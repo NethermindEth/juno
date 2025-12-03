@@ -82,9 +82,10 @@ func (t *Storage) DeleteRootKey() error {
 }
 
 func (t *Storage) SyncedStorage() *Storage {
+	syncedBatch := db.NewSyncBatch(t.txn)
 	return &Storage{
-		txn:         db.NewSyncBatch(t.txn),
-		ReadStorage: NewReadStorage(t.txn, t.prefix),
+		txn:         syncedBatch,
+		ReadStorage: NewReadStorage(syncedBatch, t.prefix),
 	}
 }
 
