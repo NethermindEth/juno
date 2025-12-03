@@ -243,7 +243,10 @@ func (t *layerTracker) resolveNode(
 
 // findNodeInLayer checks if a node exists in a specific layer (without parent traversal)
 func (t *layerTracker) findNodeInLayer(
-	root *felt.Felt, owner *felt.Address, path *trieutils.Path, isClass bool,
+	root *felt.Felt,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isClass bool,
 ) ([]byte, bool) {
 	if isClass {
 		if nodeMap, ok := t.classNodes[*root]; ok {
@@ -254,7 +257,7 @@ func (t *layerTracker) findNodeInLayer(
 		return nil, false
 	}
 
-	if felt.IsZero(owner) {
+	if felt.IsZero(*owner) {
 		if nodeMap, ok := t.contractNodes[*root]; ok {
 			if node, exists := nodeMap[*path]; exists {
 				return node.Blob(), true
@@ -440,7 +443,10 @@ func verifyContractNodes(layer layer, root *felt.Felt, tracker *layerTracker) er
 	for path := range tracker.contractPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, &felt.Address{}, &path, false)
 		actualBlob, actualErr := layer.node(
-			trieutils.NewContractTrieID(*root), &felt.Address{}, &path, false,
+			trieutils.NewContractTrieID(*root),
+			&felt.Address{},
+			&path,
+			false,
 		)
 
 		if expectedErr != nil {
@@ -465,7 +471,10 @@ func verifyContractStorageNodes(layer layer, root *felt.Felt, tracker *layerTrac
 		for path := range paths {
 			expectedBlob, expectedErr := tracker.resolveNode(root, &owner, &path, false)
 			actualBlob, actualErr := layer.node(
-				trieutils.NewContractStorageTrieID(*root, owner), &owner, &path, false,
+				trieutils.NewContractStorageTrieID(*root, owner),
+				&owner,
+				&path,
+				false,
 			)
 
 			if expectedErr != nil {

@@ -28,7 +28,9 @@ func newBuffer(limit int, nodes *nodeSet, layer uint64) *buffer {
 }
 
 func (b *buffer) node(
-	owner *felt.Address, path *trieutils.Path, isClass bool,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isClass bool,
 ) (trienode.TrieNode, bool) {
 	return b.nodes.node(owner, path, isClass)
 }

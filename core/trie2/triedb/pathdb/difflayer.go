@@ -34,7 +34,10 @@ func newDiffLayer(parent layer, root *felt.Felt, id, block uint64, nodes *nodeSe
 }
 
 func (dl *diffLayer) node(
-	id trieutils.TrieID, owner *felt.Address, path *trieutils.Path, isLeaf bool,
+	id trieutils.TrieID,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isLeaf bool,
 ) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()

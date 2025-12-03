@@ -17,7 +17,10 @@ type reader struct {
 }
 
 func (r *reader) Node(
-	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool,
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
 ) ([]byte, error) {
 	return r.l.node(r.id, owner, path, isLeaf)
 }
