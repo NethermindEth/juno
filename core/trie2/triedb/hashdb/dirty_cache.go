@@ -31,7 +31,7 @@ func (c *dirtyCache) putNode(
 		c.classNodes[keyStr] = node
 	}
 
-	if owner.IsZero() {
+	if felt.IsZero(owner) {
 		c.contractNodes[keyStr] = node
 	} else {
 		if _, ok := c.contractStorageNodes[*owner]; !ok {
@@ -52,7 +52,7 @@ func (c *dirtyCache) getNode(
 		return node, ok
 	}
 
-	if owner.IsZero() {
+	if felt.IsZero(owner) {
 		node, ok := c.contractNodes[keyStr]
 		return node, ok
 	}

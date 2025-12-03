@@ -62,7 +62,7 @@ func createContractMergeNodeSet(
 	childSets := make(map[felt.Address]*trienode.NodeSet)
 
 	for owner, ownerNodes := range nodes {
-		if owner.IsZero() {
+		if felt.IsZero(&owner) {
 			for path, node := range ownerNodes {
 				ownerSet.Add(&path, node)
 			}
