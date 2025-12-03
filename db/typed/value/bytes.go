@@ -1,5 +1,7 @@
 package value
 
+import "slices"
+
 type BytesSerializer struct{}
 
 func (BytesSerializer) Marshal(value *[]byte) ([]byte, error) {
@@ -7,6 +9,6 @@ func (BytesSerializer) Marshal(value *[]byte) ([]byte, error) {
 }
 
 func (BytesSerializer) Unmarshal(data []byte, value *[]byte) error {
-	*value = data
+	*value = slices.Clone(data)
 	return nil
 }

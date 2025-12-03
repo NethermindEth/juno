@@ -17,6 +17,7 @@ use starknet_api::{
         GasPrices, NonzeroGasPrice, StarknetVersion,
     },
     core::{ChainId, ContractAddress},
+    versioned_constants_logic::VersionedConstantsTrait,
 };
 use starknet_types_core::felt::Felt;
 
