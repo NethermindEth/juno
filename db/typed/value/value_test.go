@@ -67,6 +67,8 @@ func TestValueSerializer(t *testing.T) {
 
 		runLiteralTest(t, value.Felt, feltInput, feltOutput)
 
+		runLiteralTest(t, value.Hash, felt.Hash(feltInput), feltOutput)
+
 		runLiteralTest(t, value.ClassHash, felt.ClassHash(feltInput), feltOutput)
 
 		runLiteralTest(t, value.CasmClassHash, felt.CasmClassHash(feltInput), feltOutput)
@@ -100,6 +102,8 @@ func TestValueSerializer(t *testing.T) {
 		runRandomTest(t, value.Uint64, rand.Uint64)
 
 		runRandomTest(t, value.Felt, felt.Random[felt.Felt])
+
+		runRandomTest(t, value.Hash, felt.Random[felt.Hash])
 
 		runRandomTest(t, value.ClassHash, felt.Random[felt.ClassHash])
 
