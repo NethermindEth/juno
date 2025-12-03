@@ -210,7 +210,7 @@ func (b *Blockchain) BlockNumberAndIndexByTxHash(
 	hash *felt.TransactionHash,
 ) (uint64, uint64, error) {
 	b.listener.OnRead("BlockNumberAndIndexByTxHash")
-	data, err := core.GetTxBlockNumIndexByHash(b.database, (*felt.Felt)(hash))
+	data, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, hash)
 	return data.Number, data.Index, err
 }
 
