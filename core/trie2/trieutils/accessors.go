@@ -10,7 +10,11 @@ import (
 )
 
 func GetNodeByPath(
-	r db.KeyValueReader, bucket db.Bucket, owner *felt.Address, path *Path, isLeaf bool,
+	r db.KeyValueReader,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	isLeaf bool,
 ) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
@@ -25,20 +29,28 @@ func GetNodeByPath(
 }
 
 func WriteNodeByPath(
-	w db.KeyValueWriter, bucket db.Bucket, owner *felt.Address, path *Path, isLeaf bool, blob []byte,
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	isLeaf bool,
+	blob []byte,
 ) error {
 	return w.Put(nodeKeyByPath(bucket, owner, path, isLeaf), blob)
 }
 
 func DeleteNodeByPath(
-	w db.KeyValueWriter, bucket db.Bucket, owner *felt.Address, path *Path, isLeaf bool,
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	isLeaf bool,
 ) error {
 	return w.Delete(nodeKeyByPath(bucket, owner, path, isLeaf))
 }
 
 func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner *felt.Address) error {
-	ownerBytes := owner.Bytes()
-	prefix := db.ContractTrieStorage.Key(ownerBytes[:])
+	prefix := db.ContractTrieStorage.Key(owner.Marshal())
 	return w.DeleteRange(prefix, dbutils.UpperBound(prefix))
 }
 
@@ -113,7 +125,7 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf boo
 		pathBytes   = path.EncodedBytes()
 	)
 
-	if !(*felt.Felt)(owner).IsZero() {
+	if !felt.IsZero(owner) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}
@@ -180,7 +192,11 @@ func WriteNodeByHash(
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
 func nodeKeyByHash(
-	prefix db.Bucket, owner *felt.Address, path *Path, hash *felt.Felt, isLeaf bool,
+	prefix db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	hash *felt.Felt,
+	isLeaf bool,
 ) []byte {
 	const pathSignificantBytes = 8
 	var (
@@ -191,7 +207,7 @@ func nodeKeyByHash(
 		hashBytes   = hash.Bytes()
 	)
 
-	if !(*felt.Felt)(owner).IsZero() {
+	if !felt.IsZero(owner) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}

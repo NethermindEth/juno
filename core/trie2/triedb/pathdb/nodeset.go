@@ -40,7 +40,9 @@ func newNodeSet(classNodes classNodesMap, contractNodes contractNodesMap, contra
 }
 
 func (s *nodeSet) node(
-	owner *felt.Address, path *trieutils.Path, isClass bool,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isClass bool,
 ) (trienode.TrieNode, bool) {
 	// class trie nodes
 	if isClass {
@@ -49,7 +51,7 @@ func (s *nodeSet) node(
 	}
 
 	// contract trie nodes
-	if felt.IsZero(*owner) {
+	if felt.IsZero(owner) {
 		node, ok := s.contractNodes[*path]
 		return node, ok
 	}

@@ -22,7 +22,11 @@ func newDirtyCache() *dirtyCache {
 }
 
 func (c *dirtyCache) putNode(
-	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode,
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isClass bool,
+	node trienode.TrieNode,
 ) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
@@ -31,7 +35,7 @@ func (c *dirtyCache) putNode(
 		c.classNodes[keyStr] = node
 	}
 
-	if felt.IsZero(*owner) {
+	if felt.IsZero(owner) {
 		c.contractNodes[keyStr] = node
 	} else {
 		if _, ok := c.contractStorageNodes[*owner]; !ok {
@@ -42,7 +46,10 @@ func (c *dirtyCache) putNode(
 }
 
 func (c *dirtyCache) getNode(
-	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isClass bool,
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isClass bool,
 ) (trienode.TrieNode, bool) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
@@ -52,7 +59,7 @@ func (c *dirtyCache) getNode(
 		return node, ok
 	}
 
-	if felt.IsZero(*owner) {
+	if felt.IsZero(owner) {
 		node, ok := c.contractNodes[keyStr]
 		return node, ok
 	}

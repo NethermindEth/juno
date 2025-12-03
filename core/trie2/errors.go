@@ -22,7 +22,7 @@ type MissingNodeError struct {
 }
 
 func (e *MissingNodeError) Error() string {
-	if (*felt.Felt)(&e.owner).Equal(&felt.Zero) {
+	if felt.IsZero(&e.owner) {
 		return fmt.Sprintf("%s: missing trie node (path %v, hash %v) %v", e.tt, e.path, e.hash, e.err)
 	}
 	return fmt.Sprintf("%s: missing trie node (owner %v, path %v, hash %v) %v", e.tt, e.owner, e.path, e.hash, e.err)

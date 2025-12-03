@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	leaf1Hash   = new(felt.Felt).SetUint64(201)
-	leaf2Hash   = new(felt.Felt).SetUint64(202)
-	rootHash    = new(felt.Felt).SetUint64(100)
-	level1Hash1 = new(felt.Felt).SetUint64(301)
-	level1Hash2 = new(felt.Felt).SetUint64(302)
+	leaf1Hash   = felt.NewFromUint64[felt.Felt](201)
+	leaf2Hash   = felt.NewFromUint64[felt.Felt](202)
+	rootHash    = felt.NewFromUint64[felt.Felt](100)
+	level1Hash1 = felt.NewFromUint64[felt.Felt](301)
+	level1Hash2 = felt.NewFromUint64[felt.Felt](302)
 
 	leaf1Path   = trieutils.NewBitArray(1, 0x00)
 	leaf2Path   = trieutils.NewBitArray(1, 0x01)
@@ -170,12 +170,12 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, nil)
 
-		contractHash := *new(felt.Felt).SetUint64(210)
+		contractHash := felt.FromUint64[felt.Felt](210)
 		contractOwner := felt.FromUint64[felt.Address](123)
 		contractPath := trieutils.NewBitArray(1, 0x01)
 		contractNode := trienode.NewLeaf(contractHash, []byte{4, 5, 6})
 
-		storageHash := *new(felt.Felt).SetUint64(220)
+		storageHash := felt.FromUint64[felt.Felt](220)
 		storagePath := trieutils.NewBitArray(1, 0x02)
 		storageNode := trienode.NewLeaf(storageHash, []byte{7, 8, 9})
 
@@ -222,7 +222,7 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, nil)
 
-		edgeHash := *new(felt.Felt).SetUint64(201)
+		edgeHash := felt.FromUint64[felt.Felt](201)
 		edgePath := trieutils.NewBitArray(1, 0x01)
 		edgeNode := trienode.NewNonLeaf(edgeHash, createEdgeNodeBlob(leaf1Hash))
 
@@ -257,8 +257,8 @@ func TestDatabase(t *testing.T) {
 		}, numTries)
 
 		for i := range numTries {
-			leafHash := new(felt.Felt).SetUint64(uint64(i*100 + 50))
-			rootHash := new(felt.Felt).SetUint64(uint64(i * 100))
+			leafHash := felt.NewFromUint64[felt.Felt](uint64(i*100 + 50))
+			rootHash := felt.NewFromUint64[felt.Felt](uint64(i * 100))
 
 			leafPath := trieutils.NewBitArray(1, 0x00)
 			leafNode := trienode.NewLeaf(*leafHash, []byte{byte(i), byte(i + 1), byte(i + 2)})
@@ -274,13 +274,13 @@ func TestDatabase(t *testing.T) {
 				contractRoot felt.Felt
 			}{
 				root:   *rootHash,
-				parent: *new(felt.Felt).SetUint64(uint64(i*100 - 1)),
+				parent: felt.FromUint64[felt.Felt](uint64(i*100 - 1)),
 				classNodes: map[trieutils.Path]trienode.TrieNode{
 					rootPath: rootNode,
 					leafPath: leafNode,
 				},
 				classRoot:    *rootHash,
-				contractRoot: *new(felt.Felt).SetUint64(uint64(3000 + i)),
+				contractRoot: felt.FromUint64[felt.Felt](uint64(3000 + i)),
 			}
 
 			err := database.Update(&tries[i].root, &tries[i].parent, uint64(i), createMergeNodeSet(tries[i].classNodes), createContractMergeNodeSet(nil))
@@ -312,7 +312,7 @@ func TestDatabase(t *testing.T) {
 		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
-		newRootHash := *new(felt.Felt).SetUint64(101)
+		newRootHash := felt.FromUint64[felt.Felt](101)
 		newRootNode := trienode.NewNonLeaf(newRootHash, createBinaryNodeBlob(&felt.Zero, leaf2Hash))
 
 		updatedNodes := map[trieutils.Path]trienode.TrieNode{
@@ -345,7 +345,7 @@ func TestDatabase(t *testing.T) {
 			memDB := memory.New()
 			database := New(memDB, nil)
 
-			stateCommitment := new(felt.Felt).SetUint64(1000)
+			stateCommitment := felt.NewFromUint64[felt.Felt](1000)
 			classRootBlob := createBinaryNodeBlob(leaf1Hash, leaf2Hash)
 			contractRootBlob := createBinaryNodeBlob(leaf1Hash, leaf2Hash)
 			classRootHash := crypto.Poseidon(leaf1Hash, leaf2Hash)
@@ -393,9 +393,9 @@ func TestDatabase(t *testing.T) {
 			memDB := memory.New()
 			database := New(memDB, nil)
 
-			stateCommitment := new(felt.Felt).SetUint64(1000)
-			classRootHash := new(felt.Felt).SetUint64(2000)
-			contractRootHash := new(felt.Felt).SetUint64(3000)
+			stateCommitment := felt.NewFromUint64[felt.Felt](1000)
+			classRootHash := felt.NewFromUint64[felt.Felt](2000)
+			contractRootHash := felt.NewFromUint64[felt.Felt](3000)
 
 			val := append(classRootHash.Marshal(), contractRootHash.Marshal()...)
 			err := memDB.Put(db.StateHashToTrieRootsKey(stateCommitment), val)

@@ -58,7 +58,10 @@ func (dl *diskLayer) isStale() bool {
 }
 
 func (dl *diskLayer) node(
-	id trieutils.TrieID, owner *felt.Address, path *trieutils.Path, isLeaf bool,
+	id trieutils.TrieID,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isLeaf bool,
 ) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()

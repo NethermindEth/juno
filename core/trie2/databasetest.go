@@ -27,7 +27,10 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 }
 
 func (n *testNodeReader) Node(
-	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool,
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
 ) ([]byte, error) {
 	for _, nodes := range n.nodes {
 		var (

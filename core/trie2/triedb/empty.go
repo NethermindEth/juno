@@ -24,7 +24,10 @@ func (EmptyNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader, e
 type EmptyNodeReader struct{}
 
 func (EmptyNodeReader) Node(
-	owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool,
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
 ) ([]byte, error) {
 	return nil, nil
 }
