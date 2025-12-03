@@ -105,8 +105,10 @@ func TestGetMessageStatus(t *testing.T) {
 				// Expects for h.TransactionStatus()
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(msg.L1HandlerHash)).Return(block.Number, uint64(i), nil)
-				mockReader.EXPECT().TransactionByBlockNumberAndIndex(block.Number, uint64(i)).Return(l1handlerTxns[i], nil)
-				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(block.Number, uint64(i)).Return(block.Receipts[i], block.Hash, nil)
+				mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+					block.Number, uint64(i)).Return(l1handlerTxns[i], nil)
+				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
+					block.Number, uint64(i)).Return(block.Receipts[i], block.Hash, nil)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: test.l1HeadBlockNum}, nil)
 			}
 			msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &test.l1TxnHash)

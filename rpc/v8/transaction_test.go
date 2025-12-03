@@ -827,7 +827,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		revertedTxnHash := blockWithRevertedTxn.Transactions[revertedTxnIdx].Hash()
 
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(revertedTxnHash)).Return(blockWithRevertedTxn.Number, uint64(revertedTxnIdx), nil)
+			(*felt.TransactionHash)(revertedTxnHash)).Return(
+			blockWithRevertedTxn.Number, uint64(revertedTxnIdx), nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
 			blockWithRevertedTxn.Number, uint64(revertedTxnIdx)).Return(
 			blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
@@ -1467,7 +1468,8 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-							(*felt.TransactionHash)(notFoundTest.hash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
+							(*felt.TransactionHash)(notFoundTest.hash)).Return(
+							uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 						mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).Times(2)
 						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 						handler := rpc.New(mockReader, mockSyncReader, nil, log)

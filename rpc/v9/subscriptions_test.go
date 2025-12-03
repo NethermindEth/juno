@@ -989,7 +989,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+				(*felt.TransactionHash)(txHash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
@@ -997,7 +998,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := felt.NewFromString[felt.Felt]("0x1010")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+				(*felt.TransactionHash)(txHash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 		})
@@ -1043,7 +1045,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		)
 		require.Nil(t, addErr)
 		txHash := addRes.TransactionHash
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(
+			uint64(0), uint64(0), db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).Times(2)
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 
@@ -1051,7 +1054,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
 		// Candidate Status
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(
+			uint64(0), uint64(0), db.ErrKeyNotFound)
 		preConfirmed := &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
@@ -1110,8 +1114,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			nil,
 		).Times(1)
 		// Accepted on l2 Status
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(block.Number, uint64(0)).Return(block.Transactions[0], nil)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(txHash)).Return(block.Number, uint64(0), nil)
+		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+			block.Number, uint64(0)).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(block.Number, uint64(0)).Return(
 			block.Receipts[0], block.Hash, nil,
 		)
@@ -1125,8 +1131,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			nil,
 		).Times(1)
 		l1Head := core.L1Head{BlockNumber: block.Number}
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(block.Number, uint64(0)).Return(block.Transactions[0], nil)
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(txHash)).Return(block.Number, uint64(0), nil)
+		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+			block.Number, uint64(0)).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(block.Number, uint64(0)).Return(
 			block.Receipts[0], block.Hash, nil,
 		)
