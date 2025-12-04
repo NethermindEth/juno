@@ -241,24 +241,29 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(id)
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	txnHashes := make([]*felt.Felt, len(block.Transactions))
-	for index, txn := range block.Transactions {
+	blockTxns, rpcErr := h.blockTxnsByNumber(header.Number)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txnHashes := make([]*felt.Felt, header.TransactionCount)
+	for index, txn := range blockTxns {
 		txnHashes[index] = txn.Hash()
 	}
 
-	status, rpcErr := h.blockStatus(id, block)
+	status, rpcErr := h.blockStatus(id, header.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: AdaptBlockHeader(block.Header),
+		BlockHeader: AdaptBlockHeader(header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -273,7 +278,7 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 		return nil, rpcErr
 	}
 
-	blockStatus, rpcErr := h.blockStatus(id, block)
+	blockStatus, rpcErr := h.blockStatus(id, block.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -319,29 +324,34 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L62
 func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(blockID)
+	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	txs := make([]*Transaction, len(block.Transactions))
-	for index, txn := range block.Transactions {
+	blockTxns, rpcErr := h.blockTxnsByNumber(header.Number)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txs := make([]*Transaction, header.TransactionCount)
+	for index, txn := range blockTxns {
 		txs[index] = AdaptTransaction(txn)
 	}
 
-	status, rpcErr := h.blockStatus(blockID, block)
+	status, rpcErr := h.blockStatus(blockID, header.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  AdaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(header),
 		Transactions: txs,
 	}, nil
 }
 
-func (h *Handler) blockStatus(id *BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
@@ -350,7 +360,7 @@ func (h *Handler) blockStatus(id *BlockID, block *core.Block) (BlockStatus, *jso
 	status := BlockAcceptedL2
 	if id.IsPreConfirmed() {
 		status = BlockPreConfirmed
-	} else if isL1Verified(block.Number, l1H) {
+	} else if isL1Verified(blockNumber, l1H) {
 		status = BlockAcceptedL1
 	}
 

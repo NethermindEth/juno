@@ -33,6 +33,8 @@ type Reader interface {
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
+	TransactionsByBlockNumber(blockNumber uint64) (transactions []core.Transaction, err error)
+
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
@@ -197,6 +199,13 @@ func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64)
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
 	return core.GetTxByHash(b.database, (*felt.TransactionHash)(hash))
+}
+
+// TransactionsByBlockNumber gets all transactions for a given block number
+func (b *Blockchain) TransactionsByBlockNumber(number uint64) ([]core.Transaction, error) {
+	b.listener.OnRead("TransactionsByBlockNumber")
+	txn := b.database.NewIndexedBatch()
+	return core.GetTxsByBlockNum(txn, number)
 }
 
 // Receipt gets the transaction receipt for a given transaction hash.

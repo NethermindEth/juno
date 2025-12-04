@@ -347,6 +347,14 @@ func (mr *MockReaderMockRecorder) TransactionByBlockNumberAndIndex(blockNumber, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).TransactionByBlockNumberAndIndex), blockNumber, index)
 }
 
+func (m *MockReader) TransactionsByBlockNumber(number uint64) ([]core.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionsByBlockNumber", number)
+	ret0, _ := ret[0].([]core.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // TransactionByHash mocks base method.
 func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	m.ctrl.T.Helper()
