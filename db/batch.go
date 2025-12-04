@@ -44,7 +44,6 @@ type IndexedBatcher interface {
 type SnapshotBatch interface {
 	Batch
 	KeyValueReader
-	Iterable
 }
 
 type SnapshotBatcher interface {
