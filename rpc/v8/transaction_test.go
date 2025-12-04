@@ -476,7 +476,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockNumberByHash(gomock.Any()).Return(uint64(0), db.ErrKeyNotFound)
 
 		blockID := blockIDHash(t, new(felt.Felt).SetBytes([]byte("random")))
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
@@ -485,12 +485,13 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(gomock.Any(),
+			gomock.Any()).Return(nil, errors.New("invalid index"))
 
 		blockID := blockIDNumber(t, rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
 	t.Run("negative index", func(t *testing.T) {
@@ -537,7 +538,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - hash", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
-		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockNumberByHash(latestBlockHash).Return(latestBlock.Number, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
@@ -560,7 +561,6 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - number", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
