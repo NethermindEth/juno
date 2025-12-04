@@ -22,7 +22,7 @@ type Trie struct {
 	height uint8
 
 	// The owner of the trie, only used for contract trie. If not empty, this is a storage trie.
-	owner felt.Felt
+	owner felt.Address
 
 	// The root node of the trie
 	root trienode.Node

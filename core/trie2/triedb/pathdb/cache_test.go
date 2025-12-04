@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	testOwner = *new(felt.Felt).SetUint64(1234567890)
+	testOwner = felt.FromUint64[felt.Address](1234567890)
 	testPath  = *new(trieutils.Path).SetUint64(100, 1234567890)
 )
 
@@ -46,7 +46,7 @@ func TestPutAndGetNode(t *testing.T) {
 
 func TestCacheMisses(t *testing.T) {
 	cache := newCleanCache(1024 * 1024)
-	owner := *new(felt.Felt).SetUint64(1234567890)
+	owner := felt.FromUint64[felt.Address](1234567890)
 	path := *new(trieutils.Path).SetUint64(100, 1234567890)
 
 	// Test retrieving non-existent entry
@@ -58,7 +58,7 @@ func TestCacheMisses(t *testing.T) {
 	cache.putNode(&owner, &path, false, blob)
 
 	// Different owner
-	diffOwner := *new(felt.Felt).SetUint64(9876543210)
+	diffOwner := felt.FromUint64[felt.Address](9876543210)
 	result = cache.getNode(&diffOwner, &testPath, false)
 	assert.Nil(t, result)
 
