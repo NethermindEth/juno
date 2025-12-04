@@ -94,7 +94,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	)
 
 	owner := id.Owner()
-	if !owner.Equal(&felt.Zero) {
+	if !felt.IsZero(&owner) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}
@@ -104,4 +104,8 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	prefix = append(prefix, ownerBytes...)
 
 	return d.disk.NewIterator(prefix, true)
+}
+
+func (d *Database) Scheme() database.TrieDBScheme {
+	return database.PathScheme
 }

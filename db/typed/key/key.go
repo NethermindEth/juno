@@ -13,6 +13,10 @@ var Bytes = BytesSerializer{}
 
 var Uint64 = uint64Serializer{}
 
+func Cbor[K any]() cborSerializer[K] {
+	return cborSerializer[K]{}
+}
+
 func Marshal[K marshaler[K]]() marshalSerializer[K] {
 	return marshalSerializer[K]{}
 }

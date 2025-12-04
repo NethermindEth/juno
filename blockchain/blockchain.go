@@ -184,24 +184,32 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
-	return core.GetTxByBlockNumIndex(b.database, blockNumber, index)
+	return core.TransactionsByBlockNumberAndIndexBucket.Get(
+		b.database,
+		db.BlockNumIndexKey{
+			Number: blockNumber,
+			Index:  index,
+		},
+	)
 }
 
 // TransactionByHash gets the transaction for a given hash.
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
-	return core.GetTxByHash(b.database, hash)
+	return core.GetTxByHash(b.database, (*felt.TransactionHash)(hash))
 }
 
 // Receipt gets the transaction receipt for a given transaction hash.
+// TODO: Return TransactionReceipt instead of *TransactionReceipt.
 func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	b.listener.OnRead("Receipt")
-	bnIndex, err := core.GetTxBlockNumIndexByHash(b.database, hash)
+	txHash := (*felt.TransactionHash)(hash)
+	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, txHash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	receipt, err := core.GetReceiptByHash(b.database, hash)
+	receipt, err := core.GetReceiptByHash(b.database, txHash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -412,8 +420,8 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	return core.NewState(txn), noopStateCloser, nil
 }
 
-// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given
-// block number
+// StateAtBlockNumber returns a StateReader that provides
+// a stable view to the state at the given block number
 func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
@@ -426,8 +434,8 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 	return core.NewDeprecatedStateHistory(core.NewState(txn), blockNumber), noopStateCloser, nil
 }
 
-// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given
-// block hash
+// StateAtBlockHash returns a StateReader that provides
+// a stable view to the state at the given block hash
 func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
