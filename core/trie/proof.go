@@ -67,7 +67,7 @@ func (e *Edge) String() string {
 // The result contains the proof nodes on the path from the root to the leaf.
 // The value is included in the proof if the key is present in the trie.
 // If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
-func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
+func (t *TrieReader) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	k := t.FeltToKey(key)
 
 	nodesFromRoot, err := t.nodesFromRoot(&k)
@@ -101,7 +101,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 
 // GetRangeProof generates a range proof for the given range of keys.
 // The proof contains the proof nodes on the path from the root to the closest ancestor of the left and right keys.
-func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSet) error {
+func (t *TrieReader) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSet) error {
 	err := t.Prove(leftKey, proofSet)
 	if err != nil {
 		return err
@@ -349,7 +349,7 @@ func isEdge(parentKey *BitArray, sNode StorageNode) bool {
 // storageNodeToProofNode converts a StorageNode to the ProofNode(s).
 // Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
 // We need to convert the former to the latter for proof generation.
-func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (*Edge, *Binary, error) {
+func storageNodeToProofNode(tri *TrieReader, parentKey *BitArray, sNode StorageNode) (*Edge, *Binary, error) {
 	var edge *Edge
 	if isEdge(parentKey, sNode) {
 		edgePath := path(sNode.key, parentKey)
