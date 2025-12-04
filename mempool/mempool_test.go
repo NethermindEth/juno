@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
@@ -30,7 +30,7 @@ func setupDatabase(dbPath string, dltExisting bool) (db.KeyValueStore, func(), e
 	} else if !os.IsNotExist(err) {
 		return nil, nil, err
 	}
-	persistentPool, err := pebble.New(dbPath)
+	persistentPool, err := pebblev2.New(dbPath)
 	if err != nil {
 		return nil, nil, err
 	}
