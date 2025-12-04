@@ -57,7 +57,12 @@ func (dl *diskLayer) isStale() bool {
 	return dl.stale
 }
 
-func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diskLayer) node(
+	id trieutils.TrieID,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isLeaf bool,
+) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -105,12 +110,14 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	dl.stale = true
 
 	if dl.id == 0 {
-		if err := trieutils.WriteStateID(dl.db.disk, &dl.root, 0); err != nil {
+		err := trieutils.WriteStateID(dl.db.disk, &dl.root, 0)
+		if err != nil {
 			return nil, err
 		}
 	}
 	bottomRootHash := bottom.rootHash()
-	if err := trieutils.WriteStateID(dl.db.disk, bottomRootHash, bottom.stateID()); err != nil {
+	err := trieutils.WriteStateID(dl.db.disk, bottomRootHash, bottom.stateID())
+	if err != nil {
 		return nil, err
 	}
 

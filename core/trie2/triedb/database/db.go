@@ -19,7 +19,7 @@ const (
 
 // Represents a reader for trie nodes
 type NodeReader interface {
-	Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error)
+	Node(owner *felt.Address, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error)
 }
 
 // Represents a database that produces a node reader for a given trie id

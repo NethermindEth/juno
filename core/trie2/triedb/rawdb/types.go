@@ -9,5 +9,5 @@ import (
 type (
 	classNodesMap           = map[trieutils.Path]trienode.TrieNode
 	contractNodesMap        = map[trieutils.Path]trienode.TrieNode
-	contractStorageNodesMap = map[felt.Felt]map[trieutils.Path]trienode.TrieNode
+	contractStorageNodesMap = map[felt.Address]map[trieutils.Path]trienode.TrieNode
 )
