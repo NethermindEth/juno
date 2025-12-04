@@ -485,7 +485,8 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
 func (h *Handler) TransactionByBlockIDAndIndex(
-	id BlockID, txIndex int,
+	id BlockID,
+	txIndex int,
 ) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, rpccore.ErrInvalidTxIndex
