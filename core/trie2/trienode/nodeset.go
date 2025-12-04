@@ -12,13 +12,13 @@ import (
 // Contains a set of nodes, which are indexed by their path in the trie.
 // It is not thread safe.
 type NodeSet struct {
-	Owner   felt.Felt // The owner (i.e. contract address)
+	Owner   felt.Address // The owner ( contract address)
 	Nodes   map[trieutils.Path]TrieNode
 	updates int // the count of updated and inserted nodes
 	deletes int // the count of deleted nodes
 }
 
-func NewNodeSet(owner felt.Felt) NodeSet {
+func NewNodeSet(owner felt.Address) NodeSet {
 	return NodeSet{Owner: owner, Nodes: make(map[trieutils.Path]TrieNode)}
 }
 
@@ -70,7 +70,7 @@ func (ns *NodeSet) MergeSet(other *NodeSet) error {
 }
 
 // Adds a set of nodes to the current node set.
-func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.Path]TrieNode) error {
+func (ns *NodeSet) Merge(owner felt.Address, other map[trieutils.Path]TrieNode) error {
 	if ns.Owner != owner {
 		return fmt.Errorf("cannot merge node sets with different owners %x-%x", ns.Owner, owner)
 	}
@@ -97,19 +97,19 @@ func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.Path]TrieNode) err
 }
 
 type MergeNodeSet struct {
-	OwnerSet  *NodeSet               // the node set of contract or class nodes
-	ChildSets map[felt.Felt]*NodeSet // each node set is indexed by the owner
+	OwnerSet  *NodeSet                  // the node set of contract or class nodes
+	ChildSets map[felt.Address]*NodeSet // each node set is indexed by the owner
 }
 
 func NewMergeNodeSet(nodes *NodeSet) *MergeNodeSet {
 	ns := &MergeNodeSet{
 		OwnerSet:  &NodeSet{Nodes: make(map[trieutils.Path]TrieNode)},
-		ChildSets: make(map[felt.Felt]*NodeSet),
+		ChildSets: make(map[felt.Address]*NodeSet),
 	}
 	if nodes == nil {
 		return ns
 	}
-	if nodes.Owner.IsZero() {
+	if (*felt.Felt)(&nodes.Owner).IsZero() {
 		ns.OwnerSet = nodes
 	} else {
 		ns.ChildSets[nodes.Owner] = nodes
@@ -118,7 +118,7 @@ func NewMergeNodeSet(nodes *NodeSet) *MergeNodeSet {
 }
 
 func (m *MergeNodeSet) Merge(other *NodeSet) error {
-	if other.Owner.IsZero() {
+	if (*felt.Felt)(&other.Owner).IsZero() {
 		return m.OwnerSet.Merge(other.Owner, other.Nodes)
 	}
 
@@ -131,8 +131,10 @@ func (m *MergeNodeSet) Merge(other *NodeSet) error {
 	return nil
 }
 
-func (m *MergeNodeSet) Flatten() (map[trieutils.Path]TrieNode, map[felt.Felt]map[trieutils.Path]TrieNode) {
-	childFlat := make(map[felt.Felt]map[trieutils.Path]TrieNode, len(m.ChildSets))
+func (m *MergeNodeSet) Flatten() (
+	map[trieutils.Path]TrieNode, map[felt.Address]map[trieutils.Path]TrieNode,
+) {
+	childFlat := make(map[felt.Address]map[trieutils.Path]TrieNode, len(m.ChildSets))
 	for owner, set := range m.ChildSets {
 		childFlat[owner] = set.Nodes
 	}
