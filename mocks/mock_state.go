@@ -101,21 +101,6 @@ func (mr *MockStateMockRecorder) CompiledClassHash(classHash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHash", reflect.TypeOf((*MockState)(nil).CompiledClassHash), classHash)
 }
 
-// CompiledClassHashAt mocks base method.
-func (m *MockState) CompiledClassHashAt(classHash *felt.SierraClassHash, blockNumber uint64) (felt.CasmClassHash, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompiledClassHashAt", classHash, blockNumber)
-	ret0, _ := ret[0].(felt.CasmClassHash)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CompiledClassHashAt indicates an expected call of CompiledClassHashAt.
-func (mr *MockStateMockRecorder) CompiledClassHashAt(classHash, blockNumber any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHashAt", reflect.TypeOf((*MockState)(nil).CompiledClassHashAt), classHash, blockNumber)
-}
-
 // CompiledClassHashV2 mocks base method.
 func (m *MockState) CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error) {
 	m.ctrl.T.Helper()
@@ -146,36 +131,6 @@ func (mr *MockStateMockRecorder) ContractClassHash(addr any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHash", reflect.TypeOf((*MockState)(nil).ContractClassHash), addr)
 }
 
-// ContractClassHashAt mocks base method.
-func (m *MockState) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractClassHashAt", addr, blockNumber)
-	ret0, _ := ret[0].(felt.Felt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ContractClassHashAt indicates an expected call of ContractClassHashAt.
-func (mr *MockStateMockRecorder) ContractClassHashAt(addr, blockNumber any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHashAt", reflect.TypeOf((*MockState)(nil).ContractClassHashAt), addr, blockNumber)
-}
-
-// ContractDeployedAt mocks base method.
-func (m *MockState) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractDeployedAt", addr, blockNumber)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ContractDeployedAt indicates an expected call of ContractDeployedAt.
-func (mr *MockStateMockRecorder) ContractDeployedAt(addr, blockNumber any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractDeployedAt", reflect.TypeOf((*MockState)(nil).ContractDeployedAt), addr, blockNumber)
-}
-
 // ContractNonce mocks base method.
 func (m *MockState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()
@@ -191,21 +146,6 @@ func (mr *MockStateMockRecorder) ContractNonce(addr any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractNonce", reflect.TypeOf((*MockState)(nil).ContractNonce), addr)
 }
 
-// ContractNonceAt mocks base method.
-func (m *MockState) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractNonceAt", addr, blockNumber)
-	ret0, _ := ret[0].(felt.Felt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ContractNonceAt indicates an expected call of ContractNonceAt.
-func (mr *MockStateMockRecorder) ContractNonceAt(addr, blockNumber any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractNonceAt", reflect.TypeOf((*MockState)(nil).ContractNonceAt), addr, blockNumber)
-}
-
 // ContractStorage mocks base method.
 func (m *MockState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()
@@ -219,21 +159,6 @@ func (m *MockState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 func (mr *MockStateMockRecorder) ContractStorage(addr, key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorage", reflect.TypeOf((*MockState)(nil).ContractStorage), addr, key)
-}
-
-// ContractStorageAt mocks base method.
-func (m *MockState) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractStorageAt", addr, key, blockNumber)
-	ret0, _ := ret[0].(felt.Felt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ContractStorageAt indicates an expected call of ContractStorageAt.
-func (mr *MockStateMockRecorder) ContractStorageAt(addr, key, blockNumber any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageAt", reflect.TypeOf((*MockState)(nil).ContractStorageAt), addr, key, blockNumber)
 }
 
 // ContractStorageTrie mocks base method.
@@ -281,15 +206,15 @@ func (mr *MockStateMockRecorder) Revert(blockNum, update any) *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockState) Update(blockNum uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.ClassDefinition, skipVerifyNewRoot bool) error {
+func (m *MockState) Update(blockNum uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.ClassDefinition, skipVerifyNewRoot, flushChanges bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", blockNum, update, declaredClasses, skipVerifyNewRoot)
+	ret := m.ctrl.Call(m, "Update", blockNum, update, declaredClasses, skipVerifyNewRoot, flushChanges)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockStateMockRecorder) Update(blockNum, update, declaredClasses, skipVerifyNewRoot any) *gomock.Call {
+func (mr *MockStateMockRecorder) Update(blockNum, update, declaredClasses, skipVerifyNewRoot, flushChanges any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockState)(nil).Update), blockNum, update, declaredClasses, skipVerifyNewRoot)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockState)(nil).Update), blockNum, update, declaredClasses, skipVerifyNewRoot, flushChanges)
 }

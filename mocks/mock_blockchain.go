@@ -394,20 +394,6 @@ func (mr *MockReaderMockRecorder) TransactionByBlockNumberAndIndex(blockNumber, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).TransactionByBlockNumberAndIndex), blockNumber, index)
 }
 
-func (m *MockReader) TransactionsByBlockNumber(number uint64) ([]core.Transaction, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TransactionsByBlockNumber", number)
-	ret0, _ := ret[0].([]core.Transaction)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// TransactionsByBlockNumber indicates an expected call of TransactionsByBlockNumber.
-func (mr *MockReaderMockRecorder) TransactionsByBlockNumber(number any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionsByBlockNumber", reflect.TypeOf((*MockReader)(nil).TransactionsByBlockNumber), number)
-}
-
 // TransactionByHash mocks base method.
 func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	m.ctrl.T.Helper()
@@ -421,4 +407,19 @@ func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), hash)
+}
+
+// TransactionsByBlockNumber mocks base method.
+func (m *MockReader) TransactionsByBlockNumber(blockNumber uint64) ([]core.Transaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionsByBlockNumber", blockNumber)
+	ret0, _ := ret[0].([]core.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TransactionsByBlockNumber indicates an expected call of TransactionsByBlockNumber.
+func (mr *MockReaderMockRecorder) TransactionsByBlockNumber(blockNumber any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionsByBlockNumber", reflect.TypeOf((*MockReader)(nil).TransactionsByBlockNumber), blockNumber)
 }

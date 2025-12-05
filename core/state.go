@@ -210,6 +210,7 @@ func (s *DeprecatedState) Update(
 	update *StateUpdate,
 	declaredClasses map[felt.Felt]ClassDefinition,
 	skipVerifyNewRoot bool,
+	flushChanges bool, // TODO(maksym): added to satisfy the interface, but not used
 ) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {

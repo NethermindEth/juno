@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -93,7 +94,7 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 	t.Helper()
 
 	database := memory.New()
-	bc := blockchain.New(database, network)
+	bc := blockchain.New(database, network, statetestutils.UseNewState())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -138,7 +139,7 @@ func newBlockGenerator(
 	database *memory.Database,
 	sequencer uint64,
 ) *blockGenerator {
-	bc := blockchain.New(database, network)
+	bc := blockchain.New(database, network, statetestutils.UseNewState())
 	builder := newTestBuilder(utils.NewNopZapLogger(), bc)
 
 	return &blockGenerator{
@@ -237,7 +238,7 @@ func setup(
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), false)
 	require.NoError(t, err)
 
-	blockchain := blockchain.New(synchronizerDatabase, network)
+	blockchain := blockchain.New(synchronizerDatabase, network, statetestutils.UseNewState())
 
 	wg := gosync.WaitGroup{}
 	ctx, cancel := context.WithCancel(t.Context())
