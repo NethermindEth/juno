@@ -75,6 +75,7 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergeClassNodes,
 	mergeContractNodes *trienode.MergeNodeSet,
+	_ db.Batch, // todo(maksym): added for interface compatibility, not used
 ) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()

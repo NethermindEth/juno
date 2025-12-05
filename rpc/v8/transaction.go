@@ -639,7 +639,6 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
 	}
-
 	if err != nil {
 		return AddTxResponse{}, err
 	}
