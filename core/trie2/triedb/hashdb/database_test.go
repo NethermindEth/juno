@@ -171,6 +171,7 @@ func TestDatabase(t *testing.T) {
 			42,
 			createMergeNodeSet(deepClassNodes),
 			createContractMergeNodeSet(nil),
+			nil,
 		)
 		require.NoError(t, err)
 
@@ -240,6 +241,7 @@ func TestDatabase(t *testing.T) {
 			42,
 			createMergeNodeSet(basicClassNodes),
 			createContractMergeNodeSet(allContractNodes),
+			nil,
 		)
 		require.NoError(t, err)
 
@@ -302,6 +304,7 @@ func TestDatabase(t *testing.T) {
 			42,
 			createMergeNodeSet(edgeClassNodes),
 			createContractMergeNodeSet(nil),
+			nil,
 		)
 		require.NoError(t, err)
 
@@ -362,7 +365,14 @@ func TestDatabase(t *testing.T) {
 				contractRoot: felt.FromUint64[felt.Hash](uint64(3000 + i)),
 			}
 
-			err := database.Update(&tries[i].root, &tries[i].parent, uint64(i), createMergeNodeSet(tries[i].classNodes), createContractMergeNodeSet(nil))
+			err := database.Update(
+				&tries[i].root,
+				&tries[i].parent,
+				uint64(i),
+				createMergeNodeSet(tries[i].classNodes),
+				createContractMergeNodeSet(nil),
+				nil,
+			)
 			require.NoError(t, err)
 		}
 
@@ -394,6 +404,7 @@ func TestDatabase(t *testing.T) {
 			42,
 			createMergeNodeSet(basicClassNodes),
 			createContractMergeNodeSet(nil),
+			nil,
 		)
 		require.NoError(t, err)
 
@@ -412,6 +423,7 @@ func TestDatabase(t *testing.T) {
 			42,
 			createMergeNodeSet(updatedNodes),
 			createContractMergeNodeSet(nil),
+			nil,
 		)
 		require.NoError(t, err)
 

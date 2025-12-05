@@ -83,11 +83,10 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
+	batch db.Batch,
 ) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-
-	batch := d.disk.NewBatch()
 
 	var classNodes classNodesMap
 	var contractNodes contractNodesMap
@@ -123,7 +122,7 @@ func (d *Database) Update(
 		}
 	}
 
-	return batch.Write()
+	return nil
 }
 
 func (d *Database) updateNode(
@@ -134,6 +133,10 @@ func (d *Database) updateNode(
 	n trienode.TrieNode,
 	isClass bool,
 ) error {
+	if batch == nil {
+		return nil
+	}
+
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
 		err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
 		if err != nil {

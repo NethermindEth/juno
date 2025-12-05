@@ -43,9 +43,11 @@ type State struct {
 	classTrie    *trie2.Trie
 
 	stateObjects map[felt.Felt]*stateObject
+
+	batch db.Batch
 }
 
-func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
+func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 	contractTrie, err := db.ContractTrie(stateRoot)
 	if err != nil {
 		return nil, err
@@ -62,6 +64,7 @@ func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 		contractTrie: contractTrie,
 		classTrie:    classTrie,
 		stateObjects: make(map[felt.Felt]*stateObject),
+		batch:        batch,
 	}, nil
 }
 
@@ -244,8 +247,8 @@ func (s *State) Update(
 		deployedContracts: update.StateDiff.ReplacedClasses,
 	})
 
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
-		return err
+	if s.batch != nil {
+		return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
 	}
 
 	return nil
@@ -312,16 +315,16 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	if !newComm.Equal(update.OldRoot) {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &newComm)
 	}
-
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
-		return err
+	if s.batch != nil {
+		if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
+			return err
+		}
+		if err := s.deleteHistory(blockNum, update.StateDiff); err != nil {
+			return err
+		}
 	}
 
 	if err := s.db.stateCache.PopLayer(update.NewRoot, update.OldRoot); err != nil {
-		return err
-	}
-
-	if err := s.deleteHistory(blockNum, update.StateDiff); err != nil {
 		return err
 	}
 
@@ -497,74 +500,64 @@ func (s *State) flush(
 	classes map[felt.Felt]core.ClassDefinition,
 	storeHistory bool,
 ) error {
-	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
-
-	p.Go(func() error {
-		return s.db.triedb.Update(
-			(*felt.StateRootHash)(&update.curComm),
-			(*felt.StateRootHash)(&update.prevComm),
-			blockNum,
-			update.classNodes,
-			update.contractNodes,
-		)
-	})
-
-	batch := s.db.disk.NewBatch()
-	p.Go(func() error {
-		for addr, obj := range s.stateObjects {
-			if obj == nil { // marked as deleted
-				if err := DeleteContract(batch, &addr); err != nil {
-					return err
-				}
-
-				// TODO(weiihann): handle hash-based, and there should be better ways of doing this
-				err := trieutils.DeleteStorageNodesByPath(batch, (*felt.Address)(&addr))
-				if err != nil {
-					return err
-				}
-			} else { // updated
-				if err := WriteContract(batch, &addr, obj.contract); err != nil {
-					return err
-				}
-
-				if storeHistory {
-					for key, val := range obj.dirtyStorage {
-						if err := WriteStorageHistory(batch, &addr, &key, blockNum, val); err != nil {
-							return err
-						}
-					}
-
-					if err := WriteNonceHistory(batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
-						return err
-					}
-
-					if err := WriteClassHashHistory(batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		for classHash, class := range classes {
-			if class == nil { // mark as deleted
-				if err := DeleteClass(batch, &classHash); err != nil {
-					return err
-				}
-			} else {
-				if err := WriteClass(batch, &classHash, class, blockNum); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
-	})
-
-	if err := p.Wait(); err != nil {
+	if err := s.db.triedb.Update(
+		(*felt.StateRootHash)(&update.curComm),
+		(*felt.StateRootHash)(&update.prevComm),
+		blockNum,
+		update.classNodes,
+		update.contractNodes,
+		s.batch,
+	); err != nil {
 		return err
 	}
 
-	return batch.Write()
+	for addr, obj := range s.stateObjects {
+		if obj == nil { // marked as deleted
+			if err := DeleteContract(s.batch, &addr); err != nil {
+				return err
+			}
+
+			// TODO(weiihann): handle hash-based, and there should be better ways of doing this
+			err := trieutils.DeleteStorageNodesByPath(s.batch, (*felt.Address)(&addr))
+			if err != nil {
+				return err
+			}
+		} else { // updated
+			if err := WriteContract(s.batch, &addr, obj.contract); err != nil {
+				return err
+			}
+
+			if storeHistory {
+				for key, val := range obj.dirtyStorage {
+					if err := WriteStorageHistory(s.batch, &addr, &key, blockNum, val); err != nil {
+						return err
+					}
+				}
+
+				if err := WriteNonceHistory(s.batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
+					return err
+				}
+
+				if err := WriteClassHashHistory(s.batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	for classHash, class := range classes {
+		if class == nil { // mark as deleted
+			if err := DeleteClass(s.batch, &classHash); err != nil {
+				return err
+			}
+		} else {
+			if err := WriteClass(s.batch, &classHash, class, blockNum); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *State) updateClassTrie(
@@ -766,39 +759,37 @@ func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) erro
 }
 
 func (s *State) deleteHistory(blockNum uint64, diff *core.StateDiff) error {
-	batch := s.db.disk.NewBatch()
-
 	for addr, storage := range diff.StorageDiffs {
 		for key := range storage {
-			if err := DeleteStorageHistory(batch, &addr, &key, blockNum); err != nil {
+			if err := DeleteStorageHistory(s.batch, &addr, &key, blockNum); err != nil {
 				return err
 			}
 		}
 	}
 
 	for addr := range diff.Nonces {
-		if err := DeleteNonceHistory(batch, &addr, blockNum); err != nil {
+		if err := DeleteNonceHistory(s.batch, &addr, blockNum); err != nil {
 			return err
 		}
 	}
 
 	for addr := range diff.ReplacedClasses {
-		if err := DeleteClassHashHistory(batch, &addr, blockNum); err != nil {
+		if err := DeleteClassHashHistory(s.batch, &addr, blockNum); err != nil {
 			return err
 		}
 	}
 
 	for addr := range diff.DeployedContracts {
-		if err := DeleteNonceHistory(batch, &addr, blockNum); err != nil {
+		if err := DeleteNonceHistory(s.batch, &addr, blockNum); err != nil {
 			return err
 		}
 
-		if err := DeleteClassHashHistory(batch, &addr, blockNum); err != nil {
+		if err := DeleteClassHashHistory(s.batch, &addr, blockNum); err != nil {
 			return err
 		}
 	}
 
-	return batch.Write()
+	return nil
 }
 
 func (s *State) compareContracts(a, b felt.Felt) int {

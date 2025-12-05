@@ -3,7 +3,6 @@ package trienode
 import (
 	"fmt"
 	"maps"
-	"sort"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -12,14 +11,17 @@ import (
 // Contains a set of nodes, which are indexed by their path in the trie.
 // It is not thread safe.
 type NodeSet struct {
-	Owner   felt.Address // The owner ( contract address)
+	Owner   felt.Address // The owner (i.e. contract address)
 	Nodes   map[trieutils.Path]TrieNode
 	updates int // the count of updated and inserted nodes
 	deletes int // the count of deleted nodes
 }
 
 func NewNodeSet(owner felt.Address) NodeSet {
-	return NodeSet{Owner: owner, Nodes: make(map[trieutils.Path]TrieNode)}
+	return NodeSet{
+		Owner: owner,
+		Nodes: make(map[trieutils.Path]TrieNode),
+	}
 }
 
 func (ns *NodeSet) Add(key *trieutils.Path, node TrieNode) {
@@ -29,32 +31,6 @@ func (ns *NodeSet) Add(key *trieutils.Path, node TrieNode) {
 		ns.updates += 1
 	}
 	ns.Nodes[*key] = node
-}
-
-// Iterates over the nodes in a sorted order and calls the callback for each node.
-func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.Path, node TrieNode) error) error {
-	paths := make([]trieutils.Path, 0, len(ns.Nodes))
-	for key := range ns.Nodes {
-		paths = append(paths, key)
-	}
-
-	if desc { // longest path first
-		sort.Slice(paths, func(i, j int) bool {
-			return paths[i].Cmp(&paths[j]) > 0
-		})
-	} else {
-		sort.Slice(paths, func(i, j int) bool {
-			return paths[i].Cmp(&paths[j]) < 0
-		})
-	}
-
-	for _, key := range paths {
-		if err := callback(key, ns.Nodes[key]); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Merges the other node set into the current node set.
