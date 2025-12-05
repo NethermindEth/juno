@@ -34,17 +34,18 @@ func NewStateFactory(
 func (sf *StateFactory) NewState(
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
+	batch db.Batch,
 ) (core.State, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
 		return deprecatedState, nil
 	}
 
-	stateState, err := state.New(stateRoot, sf.stateDB)
+	state, err := state.New(stateRoot, sf.stateDB, batch)
 	if err != nil {
 		return nil, err
 	}
-	return stateState, nil
+	return state, nil
 }
 
 func (sf *StateFactory) NewStateReader(
@@ -72,7 +73,7 @@ func (sf *StateFactory) EmptyState() (core.StateReader, error) {
 		emptyState := core.NewState(txn)
 		return emptyState, nil
 	}
-	state, err := state.New(&felt.Zero, sf.stateDB)
+	state, err := state.New(&felt.Zero, sf.stateDB, nil)
 	if err != nil {
 		return nil, err
 	}
