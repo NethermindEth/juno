@@ -13,19 +13,32 @@ import (
 
 var _ database.TrieDB = (*Database)(nil)
 
-type Config struct{}
+type Config struct {
+	CleanCacheSize uint64 // Maximum size (in bytes) for caching clean nodes
+}
 
 type Database struct {
 	disk db.KeyValueStore
 
 	lock sync.RWMutex
 	log  utils.StructuredLogger
+
+	config     Config
+	cleanCache *cleanCache
 }
 
-func New(disk db.KeyValueStore) *Database {
+func New(disk db.KeyValueStore, config *Config) *Database {
+	if config == nil {
+		config = &Config{
+			CleanCacheSize: 16 * utils.Megabyte,
+		}
+	}
+	cleanCache := newCleanCache(config.CleanCacheSize)
 	return &Database{
-		disk: disk,
-		log:  utils.NewNopZapLogger(),
+		disk:       disk,
+		config:     *config,
+		cleanCache: &cleanCache,
+		log:        utils.NewNopZapLogger(),
 	}
 }
 
@@ -80,14 +93,14 @@ func (d *Database) Update(
 	}
 
 	for path, n := range classNodes {
-		err := d.updateNode(batch, db.ClassTrie, &felt.Address{}, &path, n)
+		err := d.updateNode(batch, db.ClassTrie, &felt.Address{}, &path, n, true)
 		if err != nil {
 			return err
 		}
 	}
 
 	for path, n := range contractNodes {
-		err := d.updateNode(batch, db.ContractTrieContract, &felt.Address{}, &path, n)
+		err := d.updateNode(batch, db.ContractTrieContract, &felt.Address{}, &path, n, false)
 		if err != nil {
 			return err
 		}
@@ -95,7 +108,7 @@ func (d *Database) Update(
 
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
-			err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n)
+			err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n, false)
 			if err != nil {
 				return err
 			}
@@ -111,11 +124,17 @@ func (d *Database) updateNode(
 	owner *felt.Address,
 	path *trieutils.Path,
 	n trienode.TrieNode,
+	isClass bool,
 ) error {
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
-		return trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
+		err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
+		if err != nil {
+			return err
+		}
+		d.cleanCache.deleteNode(owner, path, isClass)
+		return nil
 	}
-	return trieutils.WriteNodeByPath(
+	err := trieutils.WriteNodeByPath(
 		batch,
 		bucket,
 		owner,
@@ -123,6 +142,11 @@ func (d *Database) updateNode(
 		n.IsLeaf(),
 		n.Blob(),
 	)
+	if err != nil {
+		return err
+	}
+	d.cleanCache.putNode(owner, path, isClass, n.Blob())
+	return nil
 }
 
 // This method was added to satisfy the TrieDB interface, but it is not used.
