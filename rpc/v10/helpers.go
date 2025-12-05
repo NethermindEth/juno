@@ -126,8 +126,8 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 
 func (h *Handler) stateByBlockID(
 	blockID *rpcv9.BlockID,
-) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
-	var reader core.StateReader
+) (core.CommonStateReader, blockchain.StateCloser, *jsonrpc.Error) {
+	var reader core.CommonStateReader
 	var closer blockchain.StateCloser
 	var err error
 	switch {

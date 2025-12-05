@@ -46,7 +46,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		Timestamp:     456,
 		L1GasPriceETH: new(felt.Felt).SetUint64(42),
 	}
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockCommonStateReader(mockCtrl)
 
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
@@ -60,7 +60,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			declaredClasses []core.ClassDefinition,
 			paidFeesOnL1 []*felt.Felt,
 			blockInfo *vm.BlockInfo,
-			state core.StateReader,
+			state core.CommonStateReader,
 			skipChargeFee,
 			skipValidate,
 			errOnRevert,

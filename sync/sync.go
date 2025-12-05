@@ -117,7 +117,7 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingState() (core.CommonStateReader, func() error, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
