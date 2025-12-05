@@ -211,7 +211,7 @@ func (s *Sequencer) PendingBlock() *core.Block {
 	return s.buildState.PendingBlock()
 }
 
-func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
+func (s *Sequencer) PendingState() (core.CommonStateReader, func() error, error) {
 	return s.builder.PendingState(s.buildState)
 }
 
