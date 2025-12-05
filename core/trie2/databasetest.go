@@ -29,7 +29,7 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 func (n *testNodeReader) Node(
 	owner *felt.Address,
 	path *trieutils.Path,
-	hash *felt.Felt,
+	hash *felt.Hash,
 	isLeaf bool,
 ) ([]byte, error) {
 	for _, nodes := range n.nodes {
@@ -42,7 +42,8 @@ func (n *testNodeReader) Node(
 			continue
 		}
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			return nil, &MissingNodeError{owner: *owner, path: *path, hash: node.Hash()}
+			hash := node.Hash()
+			return nil, &MissingNodeError{owner: *owner, path: *path, hash: felt.Hash(hash)}
 		}
 		return node.Blob(), nil
 	}
@@ -54,7 +55,7 @@ func readNode(
 	id trieutils.TrieID,
 	scheme dbScheme,
 	path *trieutils.Path,
-	hash *felt.Felt,
+	hash *felt.Hash,
 	isLeaf bool,
 ) ([]byte, error) {
 	owner := id.Owner()
@@ -105,7 +106,7 @@ func (d *TestNodeDatabase) Update(root, parent *felt.Felt, nodes *trienode.Merge
 
 func (d *TestNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
 	root := id.StateComm()
-	nodes, _ := d.dirties(&root, true)
+	nodes, _ := d.dirties((*felt.Felt)(&root), true)
 	return newTestNodeReader(id, nodes, d.disk, d.scheme), nil
 }
 

@@ -15,7 +15,7 @@ var _ layer = (*diskLayer)(nil)
 // Nodes are buffered in memory and when the buffer size reaches a certain threshold,
 // the nodes are flushed to the database.
 type diskLayer struct {
-	root    felt.Felt // The corresponding state commitment
+	root    felt.Hash // The corresponding state commitment
 	id      uint64
 	db      *Database
 	cleans  *cleanCache // Clean nodes that are already written in the db
@@ -24,7 +24,13 @@ type diskLayer struct {
 	lock    sync.RWMutex
 }
 
-func newDiskLayer(root *felt.Felt, id uint64, db *Database, cache *cleanCache, buffer *buffer) *diskLayer {
+func newDiskLayer(
+	root *felt.Hash,
+	id uint64,
+	db *Database,
+	cache *cleanCache,
+	buffer *buffer,
+) *diskLayer {
 	if cache == nil {
 		newCleanCache := newCleanCache(db.config.CleanCacheSize)
 		cache = &newCleanCache
@@ -43,7 +49,7 @@ func (dl *diskLayer) parentLayer() layer {
 	return nil
 }
 
-func (dl *diskLayer) rootHash() *felt.Felt {
+func (dl *diskLayer) rootHash() *felt.Hash {
 	return &dl.root
 }
 
@@ -96,7 +102,7 @@ func (dl *diskLayer) node(
 	return blob, nil
 }
 
-func (dl *diskLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {
+func (dl *diskLayer) update(root *felt.Hash, id, block uint64, nodes *nodeSet) diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 
