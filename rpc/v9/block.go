@@ -246,7 +246,13 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 		return nil, rpcErr
 	}
 
-	blockTxns, rpcErr := h.blockTxnsByNumber(header.Number)
+	var numID BlockID
+	if id.IsPreConfirmed() {
+		numID = *id
+	} else {
+		numID = BlockIDFromNumber(header.Number)
+	}
+	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -329,7 +335,13 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 		return nil, rpcErr
 	}
 
-	blockTxns, rpcErr := h.blockTxnsByNumber(header.Number)
+	var numID BlockID
+	if blockID.IsPreConfirmed() {
+		numID = *blockID
+	} else {
+		numID = BlockIDFromNumber(header.Number)
+	}
+	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}

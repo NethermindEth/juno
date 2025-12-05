@@ -68,16 +68,28 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockTxnsByNumber(number uint64) ([]core.Transaction, *jsonrpc.Error) {
-	txns, err := h.bcReader.TransactionsByBlockNumber(number)
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
-			return nil, rpccore.ErrBlockNotFound
+func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
+	switch blockID.Type() {
+	case preConfirmed:
+		pending, err := h.PendingData()
+		if err != nil {
+			if errors.Is(err, core.ErrPendingDataNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrInternal.CloneWithData(err)
+		txns := pending.GetTransactions()
+		return txns, nil
+	default:
+		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		return txns, nil
 	}
-
-	return txns, nil
 }
 
 func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Error) {

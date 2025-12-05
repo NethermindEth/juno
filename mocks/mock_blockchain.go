@@ -355,6 +355,12 @@ func (m *MockReader) TransactionsByBlockNumber(number uint64) ([]core.Transactio
 	return ret0, ret1
 }
 
+// TransactionsByBlockNumber indicates an expected call of TransactionsByBlockNumber.
+func (mr *MockReaderMockRecorder) TransactionsByBlockNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionsByBlockNumber", reflect.TypeOf((*MockReader)(nil).TransactionsByBlockNumber), number)
+}
+
 // TransactionByHash mocks base method.
 func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	m.ctrl.T.Helper()
