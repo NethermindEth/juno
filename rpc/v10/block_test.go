@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -624,7 +625,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			handler := rpc.New(chain, mockSyncReader, nil, log)
 
@@ -753,7 +754,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 			handler := rpc.New(chain, mockSyncReader, nil, log)
@@ -900,7 +901,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			handler := rpc.New(chain, mockSyncReader, nil, log)
 

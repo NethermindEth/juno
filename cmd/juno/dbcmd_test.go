@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/core"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -21,6 +22,9 @@ var emptyCommitments = core.BlockCommitments{}
 func TestDBCmd(t *testing.T) {
 	t.Run("retrieve info when db contains block0", func(t *testing.T) {
 		cmd := juno.DBInfoCmd()
+		if statetestutils.UseNewState() {
+			require.NoError(t, cmd.Flags().Set("new-state", "true"))
+		}
 		executeCmdInDB(t, cmd)
 	})
 
@@ -44,6 +48,9 @@ func TestDBCmd(t *testing.T) {
 
 		require.NoError(t, cmd.Flags().Set("db-path", dbPath))
 		require.NoError(t, cmd.Flags().Set("to-block", strconv.Itoa(int(revertToBlock))))
+		if statetestutils.UseNewState() {
+			require.NoError(t, cmd.Flags().Set("new-state", "true"))
+		}
 		require.NoError(t, cmd.Execute())
 
 		// unfortunately we cannot use blockchain from prepareDB because
@@ -55,7 +62,7 @@ func TestDBCmd(t *testing.T) {
 			require.NoError(t, db.Close())
 		})
 
-		chain := blockchain.New(db, &network)
+		chain := blockchain.New(db, &network, statetestutils.UseNewState())
 		block, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, revertToBlock, block.Number)
@@ -79,7 +86,7 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 	testDB, err := pebblev2.New(dbPath)
 	require.NoError(t, err)
 
-	chain := blockchain.New(testDB, network)
+	chain := blockchain.New(testDB, network, statetestutils.UseNewState())
 
 	for blockNumber := uint64(0); blockNumber <= syncToBlock; blockNumber++ {
 		block, err := gw.BlockByNumber(t.Context(), blockNumber)

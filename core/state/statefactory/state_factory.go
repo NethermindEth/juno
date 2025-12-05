@@ -9,7 +9,7 @@ import (
 )
 
 type StateFactory struct {
-	UseNewState bool
+	useNewState bool
 	triedb      database.TrieDB
 	stateDB     *state.StateDB
 }
@@ -18,16 +18,16 @@ func NewStateFactory(
 	newState bool,
 	triedb database.TrieDB,
 	stateDB *state.StateDB,
-) (*StateFactory, error) {
+) *StateFactory {
 	if !newState {
-		return &StateFactory{UseNewState: false}, nil
+		return &StateFactory{useNewState: false}
 	}
 
 	return &StateFactory{
-		UseNewState: true,
+		useNewState: true,
 		triedb:      triedb,
 		stateDB:     stateDB,
-	}, nil
+	}
 }
 
 func (sf *StateFactory) NewState(

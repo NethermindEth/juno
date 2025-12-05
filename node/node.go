@@ -131,6 +131,7 @@ type Config struct {
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
+	NewState                  bool          `mapstructure:"new-state"`
 }
 
 type Node struct {

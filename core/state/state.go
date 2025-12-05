@@ -206,6 +206,7 @@ func (s *State) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
+	flushChanges bool,
 ) error {
 	blockNum := header.Number
 	protocolVersion := header.ProtocolVersion
@@ -519,6 +520,7 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	newComm := stateCommitment(&contractRoot, &classRoot, protocolVersion)
 
 	su := stateUpdate{
+		// todo: remove felt cast
 		prevComm:      s.initRoot,
 		curComm:       newComm,
 		contractNodes: mergedContractNodes,
@@ -786,7 +788,7 @@ func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) erro
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 	if !it.Seek(seekKey) {
-		return ErrNoHistoryValue
+		return ErrCheckHeadState
 	}
 
 	key := it.Key()

@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	_ "github.com/NethermindEth/juno/encoder/registry"
@@ -194,7 +195,7 @@ func TestWait(t *testing.T) {
 	defer dbCloser()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &utils.Sepolia, statetestutils.UseNewState())
 	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
