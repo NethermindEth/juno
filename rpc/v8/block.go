@@ -168,24 +168,35 @@ type BlockWithReceipts struct {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(id)
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	txnHashes := make([]*felt.Felt, len(block.Transactions))
-	for index, txn := range block.Transactions {
+	var numID BlockID
+	if id.IsPending() {
+		numID = *id
+	} else {
+		numID = BlockIDFromNumber(header.Number)
+	}
+	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txnHashes := make([]*felt.Felt, header.TransactionCount)
+	for index, txn := range blockTxns {
 		txnHashes[index] = txn.Hash()
 	}
 
-	status, rpcErr := h.blockStatus(id, block)
+	status, rpcErr := h.blockStatus(id, header.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: adaptBlockHeader(header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -196,7 +207,7 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 		return nil, rpcErr
 	}
 
-	blockStatus, rpcErr := h.blockStatus(id, block)
+	blockStatus, rpcErr := h.blockStatus(id, block.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -231,29 +242,40 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
 func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(blockID)
+	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	txs := make([]*Transaction, len(block.Transactions))
-	for index, txn := range block.Transactions {
+	var numID BlockID
+	if blockID.IsPending() {
+		numID = *blockID
+	} else {
+		numID = BlockIDFromNumber(header.Number)
+	}
+	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txs := make([]*Transaction, header.TransactionCount)
+	for index, txn := range blockTxns {
 		txs[index] = AdaptTransaction(txn)
 	}
 
-	status, rpcErr := h.blockStatus(blockID, block)
+	status, rpcErr := h.blockStatus(blockID, header.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  adaptBlockHeader(header),
 		Transactions: txs,
 	}, nil
 }
 
-func (h *Handler) blockStatus(id *BlockID, block *core.Block) (rpcv6.BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (rpcv6.BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
@@ -262,7 +284,7 @@ func (h *Handler) blockStatus(id *BlockID, block *core.Block) (rpcv6.BlockStatus
 	status := rpcv6.BlockAcceptedL2
 	if id.IsPending() {
 		status = rpcv6.BlockPending
-	} else if isL1Verified(block.Number, l1H) {
+	} else if isL1Verified(blockNumber, l1H) {
 		status = rpcv6.BlockAcceptedL1
 	}
 
