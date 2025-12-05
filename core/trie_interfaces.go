@@ -1,4 +1,4 @@
-package commontrie
+package core
 
 import (
 	"github.com/NethermindEth/juno/core/crypto"

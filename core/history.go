@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -12,11 +11,11 @@ var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
 
 type deprecatedStateHistory struct {
 	blockNumber uint64
-	state       StateHistoryReader
+	state       *DeprecatedState
 }
 
 func NewDeprecatedStateHistory(
-	state StateHistoryReader,
+	state *DeprecatedState,
 	blockNumber uint64,
 ) *deprecatedStateHistory {
 	return &deprecatedStateHistory{
@@ -110,14 +109,14 @@ func (s *deprecatedStateHistory) CompiledClassHashV2(
 	return s.state.CompiledClassHashV2(classHash)
 }
 
-func (s *deprecatedStateHistory) ClassTrie() (commontrie.Trie, error) {
+func (s *deprecatedStateHistory) ClassTrie() (Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *deprecatedStateHistory) ContractTrie() (commontrie.Trie, error) {
+func (s *deprecatedStateHistory) ContractTrie() (Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *deprecatedStateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *deprecatedStateHistory) ContractStorageTrie(addr *felt.Felt) (Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

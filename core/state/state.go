@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -35,30 +34,7 @@ var (
 	}
 )
 
-var _ StateReader = &State{}
-
-//go:generate mockgen -destination=../../mocks/mock_state_reader.go -package=mocks github.com/NethermindEth/juno/core/state StateReader
-type StateReader interface {
-	ContractReader
-	ClassReader
-	TrieProvider
-}
-
-type ContractReader interface {
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-}
-
-type ClassReader interface {
-	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
-}
-
-type TrieProvider interface {
-	ClassTrie() (commontrie.Trie, error)
-	ContractTrie() (commontrie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
-}
+var _ core.State = &State{}
 
 type State struct {
 	initRoot     felt.Felt
@@ -147,16 +123,36 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, erro
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *State) ClassTrie() (commontrie.Trie, error) {
+func (s *State) ClassTrie() (core.Trie, error) {
 	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (commontrie.Trie, error) {
+func (s *State) ContractTrie() (core.Trie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
+}
+
+func (s *State) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHash(), nil
+}
+
+func (s *State) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashV2(), nil
 }
 
 // Returns the state commitment
@@ -695,6 +691,17 @@ func (s *State) ContractNonceAt(addr *felt.Felt, blockNum uint64) (felt.Felt, er
 func (s *State) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
 	prefix := db.ContractClassHashHistoryKey(addr)
 	return s.getHistoricalValue(prefix, blockNum)
+}
+
+func (s *State) CompiledClassHashAt(
+	classHash *felt.SierraClassHash,
+	blockNumber uint64,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(blockNumber)
 }
 
 func (s *State) getHistoricalValue(prefix []byte, blockNum uint64) (felt.Felt, error) {
