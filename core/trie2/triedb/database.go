@@ -10,6 +10,12 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+const (
+	PathScheme string = "path"
+	HashScheme string = "hash"
+	RawScheme  string = "raw"
+)
+
 type Config struct {
 	PathConfig *pathdb.Config
 	HashConfig *hashdb.Config
@@ -19,13 +25,13 @@ type Config struct {
 func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
 	// Default to raw config if not provided
 	if config == nil {
-		return rawdb.New(disk), nil
+		return rawdb.New(disk, nil), nil
 	} else if config.PathConfig != nil {
 		return pathdb.New(disk, config.PathConfig)
 	} else if config.HashConfig != nil {
 		return hashdb.New(disk, config.HashConfig), nil
 	} else if config.RawConfig != nil {
-		return rawdb.New(disk), nil
+		return rawdb.New(disk, config.RawConfig), nil
 	}
 	return nil, fmt.Errorf("invalid config")
 }
