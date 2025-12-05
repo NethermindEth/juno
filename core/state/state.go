@@ -94,6 +94,7 @@ func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 		contractTrie: contractTrie,
 		classTrie:    classTrie,
 		stateObjects: make(map[felt.Felt]*stateObject),
+		batch:        batch,
 	}, nil
 }
 
