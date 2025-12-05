@@ -504,7 +504,13 @@ func (s *State) flush(
 	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
 
 	p.Go(func() error {
-		return s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes)
+		return s.db.triedb.Update(
+			(*felt.Hash)(&update.curComm),
+			(*felt.Hash)(&update.prevComm),
+			blockNum,
+			update.classNodes,
+			update.contractNodes,
+		)
 	})
 
 	batch := s.db.disk.NewBatch()

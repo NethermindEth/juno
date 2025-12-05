@@ -26,7 +26,7 @@ type EmptyNodeReader struct{}
 func (EmptyNodeReader) Node(
 	owner *felt.Address,
 	path *trieutils.Path,
-	hash *felt.Felt,
+	hash *felt.Hash,
 	isLeaf bool,
 ) ([]byte, error) {
 	return nil, nil

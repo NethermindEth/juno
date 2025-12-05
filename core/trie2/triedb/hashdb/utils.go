@@ -6,7 +6,7 @@ import (
 )
 
 // key = hash (32 bytes) + path (dynamic) + pathLen (1 byte)
-func nodeKey(path *trieutils.Path, hash *felt.Felt) []byte {
+func nodeKey(path *trieutils.Path, hash *felt.Hash) []byte {
 	hashBytes := hash.Bytes()
 	pathBytes := path.EncodedBytes()
 
@@ -18,7 +18,7 @@ func nodeKey(path *trieutils.Path, hash *felt.Felt) []byte {
 	return key
 }
 
-func decodeNodeKey(key []byte) (path trieutils.Path, hash felt.Felt, err error) {
+func decodeNodeKey(key []byte) (path trieutils.Path, hash felt.Hash, err error) {
 	hash.Unmarshal(key[:felt.Bytes])
 
 	pathBytes := key[felt.Bytes:]
