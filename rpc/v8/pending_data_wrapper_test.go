@@ -128,7 +128,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 	t.Run("Returns pending state when starknet version < 0.14.0", func(t *testing.T) {
 		stateDiff := core.EmptyStateDiff()
 		pendingData := core.Pending{
