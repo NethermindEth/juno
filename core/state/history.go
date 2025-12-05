@@ -3,7 +3,6 @@ package state
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -89,24 +88,26 @@ func (s *stateHistory) Class(classHash *felt.Felt) (*core.DeclaredClassDefinitio
 	return declaredClass, nil
 }
 
+func (s *stateHistory) ClassTrie() (core.CommonTrie, error) {
+	return nil, ErrHistoricalTrieNotSupported
+}
+
+func (s *stateHistory) ContractTrie() (core.CommonTrie, error) {
+	return nil, ErrHistoricalTrieNotSupported
+}
+
+func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
+	return nil, ErrHistoricalTrieNotSupported
+}
+
 func (s *stateHistory) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.state.db.disk, classHash)
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-	return metadata.CasmHashAt(s.blockNum)
+	return s.state.CompiledClassHash(classHash)
 }
 
-func (s *stateHistory) ClassTrie() (commontrie.Trie, error) {
-	return nil, ErrHistoricalTrieNotSupported
-}
-
-func (s *stateHistory) ContractTrie() (commontrie.Trie, error) {
-	return nil, ErrHistoricalTrieNotSupported
-}
-
-func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
-	return nil, ErrHistoricalTrieNotSupported
+func (s *stateHistory) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return s.state.CompiledClassHashV2(classHash)
 }
