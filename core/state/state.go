@@ -71,6 +71,7 @@ func (s *State) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
+	flushChanges bool,
 ) error {
 	blockNum := header.Number
 	protocolVersion := header.ProtocolVersion
@@ -332,6 +333,7 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	newComm := stateCommitment(&contractRoot, &classRoot, protocolVersion)
 
 	su := stateUpdate{
+		// todo: remove felt cast
 		prevComm:      s.initRoot,
 		curComm:       newComm,
 		contractNodes: mergedContractNodes,

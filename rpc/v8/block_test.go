@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -263,7 +264,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
@@ -454,7 +455,7 @@ func TestBlockWithTxs(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
 

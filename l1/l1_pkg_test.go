@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mocks"
@@ -337,7 +338,7 @@ func TestClient(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			nopLog := log.NewNopZapLogger()
 			network := networks.Mainnet
-			chain := blockchain.New(memory.New(), &network)
+			chain := blockchain.New(memory.New(), &network, statetestutils.UseNewState())
 
 			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
@@ -398,7 +399,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := log.NewNopZapLogger()
 	network := networks.Mainnet
-	chain := blockchain.New(memory.New(), &network)
+	chain := blockchain.New(memory.New(), &network, statetestutils.UseNewState())
 	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	err := errors.New("test err")

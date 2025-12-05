@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +20,7 @@ type L1HeadSubscription struct {
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
+	StateProvider
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)
@@ -51,10 +53,6 @@ type Reader interface {
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
 
-	HeadState() (core.StateReader, StateCloser, error)
-	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
-	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
-
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
 	EventFilter(
@@ -74,12 +72,21 @@ type (
 
 var ErrParentDoesNotMatchHead = statebackend.ErrParentDoesNotMatchHead
 
+type StateProvider interface {
+	HeadState() (core.StateReader, StateCloser, error)
+	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
+	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
+}
+
+var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
+
 var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
 	network       *networks.Network
 	database      db.KeyValueStore
+	stateDB       *state.StateDB
 	listener      EventListener
 	l1HeadFeed    *feed.Feed[*core.L1Head]
 	cachedFilters *AggregatedBloomFilterCache
@@ -127,6 +134,7 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 
 	return &Blockchain{
 		database:      database,
+		stateDB:       stateDB,
 		network:       network,
 		listener:      o.listener,
 		l1HeadFeed:    feed.New[*core.L1Head](),
