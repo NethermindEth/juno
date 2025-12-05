@@ -122,6 +122,10 @@ func (d *Database) updateNode(
 	n trienode.TrieNode,
 	isClass bool,
 ) error {
+	if batch == nil {
+		return nil
+	}
+
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
 		err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
 		if err != nil {
