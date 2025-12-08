@@ -71,7 +71,7 @@ func New(
 	}
 
 	stateComm := id.StateComm()
-	if (*felt.Felt)(&stateComm).IsZero() {
+	if felt.IsZero(&stateComm) {
 		return tr, nil
 	}
 
@@ -107,7 +107,7 @@ func NewFromRootHash(
 	}
 
 	stateComm := id.StateComm()
-	if (*felt.Felt)(&stateComm).IsZero() {
+	if felt.IsZero(&stateComm) {
 		return tr, nil
 	}
 

@@ -175,7 +175,7 @@ func newLayerTracker() *layerTracker {
 }
 
 func (t *layerTracker) trackLayer(root, parent *felt.Hash) {
-	if (*felt.Felt)(root).Equal((*felt.Felt)(parent)) {
+	if felt.Equal(root, parent) {
 		return
 	}
 	t.childToParent[*root] = *parent

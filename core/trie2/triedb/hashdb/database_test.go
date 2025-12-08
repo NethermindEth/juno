@@ -451,7 +451,7 @@ func TestDatabase(t *testing.T) {
 			memDB := memory.New()
 			database := New(memDB, nil)
 
-			stateCommitment := felt.NewFromUint64[felt.Hash](uint64(1000))
+			stateCommitment := felt.NewFromUint64[felt.Hash](1000)
 			classRootHash := felt.NewFromUint64[felt.Hash](2000)
 			contractRootHash := felt.NewFromUint64[felt.Hash](3000)
 

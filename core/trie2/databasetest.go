@@ -70,19 +70,19 @@ func readNode(
 
 type TestNodeDatabase struct {
 	disk      db.KeyValueStore
-	root      felt.Felt
+	root      felt.Hash
 	scheme    dbScheme
-	nodes     map[felt.Felt]*trienode.MergeNodeSet
-	rootLinks map[felt.Felt]felt.Felt // map[child_root]parent_root - keep track of the parent root for each child root
+	nodes     map[felt.Hash]*trienode.MergeNodeSet
+	rootLinks map[felt.Hash]felt.Hash // map[child_root]parent_root - keep track of the parent root for each child root
 }
 
 func NewTestNodeDatabase(disk db.KeyValueStore, scheme dbScheme) TestNodeDatabase {
 	return TestNodeDatabase{
 		disk:      disk,
-		root:      felt.Zero,
+		root:      felt.Hash{},
 		scheme:    scheme,
-		nodes:     make(map[felt.Felt]*trienode.MergeNodeSet),
-		rootLinks: make(map[felt.Felt]felt.Felt),
+		nodes:     make(map[felt.Hash]*trienode.MergeNodeSet),
+		rootLinks: make(map[felt.Hash]felt.Hash),
 	}
 }
 
@@ -91,8 +91,8 @@ func (d *TestNodeDatabase) Update(root, parent *felt.Felt, nodes *trienode.Merge
 		return nil
 	}
 
-	rootVal := *root
-	parentVal := *parent
+	rootVal := felt.Hash(*root)
+	parentVal := felt.Hash(*parent)
 
 	if _, ok := d.nodes[rootVal]; ok { // already exists
 		return nil
@@ -106,14 +106,14 @@ func (d *TestNodeDatabase) Update(root, parent *felt.Felt, nodes *trienode.Merge
 
 func (d *TestNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
 	root := id.StateComm()
-	nodes, _ := d.dirties((*felt.Felt)(&root), true)
+	nodes, _ := d.dirties(&root, true)
 	return newTestNodeReader(id, nodes, d.disk, d.scheme), nil
 }
 
-func (d *TestNodeDatabase) dirties(root *felt.Felt, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Felt) {
+func (d *TestNodeDatabase) dirties(root *felt.Hash, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Hash) {
 	var (
 		pending []*trienode.MergeNodeSet
-		roots   []felt.Felt
+		roots   []felt.Hash
 	)
 
 	rootVal := *root
@@ -129,7 +129,7 @@ func (d *TestNodeDatabase) dirties(root *felt.Felt, newerFirst bool) ([]*trienod
 			roots = append(roots, rootVal)
 		} else {
 			pending = append([]*trienode.MergeNodeSet{nodes}, pending...)
-			roots = append([]felt.Felt{rootVal}, roots...)
+			roots = append([]felt.Hash{rootVal}, roots...)
 		}
 
 		rootVal = d.rootLinks[rootVal]
