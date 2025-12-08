@@ -55,7 +55,7 @@ func (h *Handler) EstimateMessageFee(
 	if rpcErr != nil {
 		return rpcv9.FeeEstimate{}, nil, rpcErr
 	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateMessageFee")
 
 	if _, err := state.ContractClassHash(&msg.To); err != nil {
 		return rpcv9.FeeEstimate{}, nil, rpccore.ErrContractNotFound
