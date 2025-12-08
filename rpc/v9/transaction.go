@@ -924,30 +924,20 @@ func AdaptReceiptWithBlockInfo(
 	blockNumber uint64,
 	isPreLatest bool,
 ) *TransactionReceipt {
-	base := adaptReceiptBase(receipt, txn, finalityStatus)
+	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
 
 	// Return block number for canonical, pre_latest and pre_confirmed block
 	shouldHaveBlockNumber := blockHash != nil || finalityStatus == TxnPreConfirmed || isPreLatest
 	if shouldHaveBlockNumber {
-		base.BlockNumber = &blockNumber
+		adaptedReceipt.BlockNumber = &blockNumber
 	}
 
-	base.BlockHash = blockHash
-	return base
+	adaptedReceipt.BlockHash = blockHash
+	return adaptedReceipt
 }
 
 // AdaptReceiptWithoutBlockInfo adapts a receipt and transaction into JSON-RPC TXN_RECEIPT.
 func AdaptReceipt(
-	receipt *core.TransactionReceipt,
-	txn core.Transaction,
-	finalityStatus TxnFinalityStatus,
-) *TransactionReceipt {
-	return adaptReceiptBase(receipt, txn, finalityStatus)
-}
-
-// adaptReceiptBase contains the common logic for adapting receipts.
-// Return JSON-RPC TXN_RECEIPT.
-func adaptReceiptBase(
 	receipt *core.TransactionReceipt,
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
