@@ -696,9 +696,6 @@ func TestBlockWithReceipts(t *testing.T) {
 					receipt,
 					tx,
 					rpcv9.TxnPreConfirmed,
-					nil,
-					0,
-					false,
 				),
 			})
 		}
@@ -746,9 +743,6 @@ func TestBlockWithReceipts(t *testing.T) {
 					receipt,
 					tx,
 					rpcv9.TxnAcceptedOnL1,
-					nil,
-					0,
-					false,
 				),
 			}
 		}
