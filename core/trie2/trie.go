@@ -581,7 +581,7 @@ func (t *Trie) String() string {
 
 func NewEmptyPedersen() (*Trie, error) {
 	return New(
-		trieutils.NewEmptyTrieID(felt.Hash{}),
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
 		contractClassTrieHeight,
 		crypto.Pedersen,
 		triedb.NewEmptyNodeDatabase(),
@@ -590,7 +590,7 @@ func NewEmptyPedersen() (*Trie, error) {
 
 func NewEmptyPoseidon() (*Trie, error) {
 	return New(
-		trieutils.NewEmptyTrieID(felt.Hash{}),
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
 		contractClassTrieHeight,
 		crypto.Poseidon,
 		triedb.NewEmptyNodeDatabase(),
@@ -599,7 +599,7 @@ func NewEmptyPoseidon() (*Trie, error) {
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 	trie, err := New(
-		trieutils.NewEmptyTrieID(felt.Hash{}),
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
 		height,
 		crypto.Pedersen,
 		triedb.NewEmptyNodeDatabase(),
@@ -612,7 +612,7 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 	trie, err := New(
-		trieutils.NewEmptyTrieID(felt.Hash{}),
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
 		height,
 		crypto.Poseidon,
 		triedb.NewEmptyNodeDatabase(),

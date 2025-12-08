@@ -15,7 +15,7 @@ var _ layer = (*diskLayer)(nil)
 // Nodes are buffered in memory and when the buffer size reaches a certain threshold,
 // the nodes are flushed to the database.
 type diskLayer struct {
-	root    felt.Hash // The corresponding state commitment
+	root    felt.StateRootHash // The corresponding state commitment
 	id      uint64
 	db      *Database
 	cleans  *cleanCache // Clean nodes that are already written in the db
@@ -25,7 +25,7 @@ type diskLayer struct {
 }
 
 func newDiskLayer(
-	root *felt.Hash,
+	root *felt.StateRootHash,
 	id uint64,
 	db *Database,
 	cache *cleanCache,
@@ -49,7 +49,7 @@ func (dl *diskLayer) parentLayer() layer {
 	return nil
 }
 
-func (dl *diskLayer) rootHash() *felt.Hash {
+func (dl *diskLayer) rootHash() *felt.StateRootHash {
 	return &dl.root
 }
 
@@ -102,7 +102,7 @@ func (dl *diskLayer) node(
 	return blob, nil
 }
 
-func (dl *diskLayer) update(root *felt.Hash, id, block uint64, nodes *nodeSet) diffLayer {
+func (dl *diskLayer) update(root *felt.StateRootHash, id, block uint64, nodes *nodeSet) diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 

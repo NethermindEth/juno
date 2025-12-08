@@ -149,23 +149,23 @@ func TestRawDB(t *testing.T) {
 		}
 
 		err := database.Update(
-			&felt.Hash{},
-			&felt.Hash{},
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
 			1,
 			createMergeNodeSet(basicClassNodes),
 			createContractMergeNodeSet(allContractNodes),
 		)
 		require.NoError(t, err)
 
-		classID := trieutils.NewClassTrieID(felt.Hash{})
+		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		verifyNode(t, database, classID, &rootPath, rootNode)
 		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
 		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
 
-		contractID := trieutils.NewContractTrieID(felt.Hash{})
+		contractID := trieutils.NewContractTrieID(felt.StateRootHash{})
 		verifyNode(t, database, contractID, &contractPath, contractNode)
 
-		storageID := trieutils.NewContractStorageTrieID(felt.Hash{}, *contractOwner)
+		storageID := trieutils.NewContractStorageTrieID(felt.StateRootHash{}, *contractOwner)
 		verifyNode(t, database, storageID, &storagePath, storageNode)
 	})
 
@@ -173,17 +173,29 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
-		err := database.Update(&felt.Hash{}, &felt.Hash{}, 1, createMergeNodeSet(basicClassNodes), nil)
+		err := database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			1,
+			createMergeNodeSet(basicClassNodes),
+			nil,
+		)
 		require.NoError(t, err)
 
-		classID := trieutils.NewClassTrieID(felt.Hash{})
+		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
 
 		deletedNodes := map[trieutils.Path]trienode.TrieNode{
 			leaf1Path: trienode.NewDeleted(true),
 		}
 
-		err = database.Update(&felt.Hash{}, &felt.Hash{}, 2, createMergeNodeSet(deletedNodes), nil)
+		err = database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			2,
+			createMergeNodeSet(deletedNodes),
+			nil,
+		)
 		require.NoError(t, err)
 
 		reader, err := database.NodeReader(classID)
@@ -205,10 +217,16 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
-		err := database.Update(&felt.Hash{}, &felt.Hash{}, 1, createMergeNodeSet(basicClassNodes), nil)
+		err := database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			1,
+			createMergeNodeSet(basicClassNodes),
+			nil,
+		)
 		require.NoError(t, err)
 
-		classID := trieutils.NewClassTrieID(felt.Hash{})
+		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		reader, err := database.NodeReader(classID)
 		require.NoError(t, err)
 		require.NotNil(t, reader)
@@ -229,10 +247,16 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
-		err := database.Update(&felt.Hash{}, &felt.Hash{}, 1, createMergeNodeSet(basicClassNodes), nil)
+		err := database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			1,
+			createMergeNodeSet(basicClassNodes),
+			nil,
+		)
 		require.NoError(t, err)
 
-		classID := trieutils.NewClassTrieID(felt.Hash{})
+		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		verifyNode(t, database, classID, &rootPath, rootNode)
 		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
 		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
@@ -245,7 +269,13 @@ func TestRawDB(t *testing.T) {
 			newLeafPath: newLeafNode,
 		}
 
-		err = database.Update(&felt.Hash{}, &felt.Hash{}, 2, createMergeNodeSet(newNodes), nil)
+		err = database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			2,
+			createMergeNodeSet(newNodes),
+			nil,
+		)
 		require.NoError(t, err)
 
 		verifyNode(t, database, classID, &newLeafPath, newLeafNode)
@@ -259,15 +289,15 @@ func TestRawDB(t *testing.T) {
 		database := New(memDB)
 
 		err := database.Update(
-			&felt.Hash{},
-			&felt.Hash{},
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
 			1,
 			createMergeNodeSet(basicClassNodes),
 			nil,
 		)
 		require.NoError(t, err)
 
-		classID := trieutils.NewClassTrieID(felt.Hash{})
+		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		owner := felt.Address{}
 
 		const numGoroutines = 20

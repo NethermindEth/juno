@@ -54,13 +54,13 @@ func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner *felt.Address) er
 	return w.DeleteRange(prefix, dbutils.UpperBound(prefix))
 }
 
-func WriteStateID(w db.KeyValueWriter, root *felt.Hash, id uint64) error {
+func WriteStateID(w db.KeyValueWriter, root *felt.StateRootHash, id uint64) error {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], id)
 	return w.Put(db.StateIDKey((*felt.Felt)(root)), buf[:])
 }
 
-func ReadStateID(r db.KeyValueReader, root *felt.Hash) (uint64, error) {
+func ReadStateID(r db.KeyValueReader, root *felt.StateRootHash) (uint64, error) {
 	key := db.StateIDKey((*felt.Felt)(root))
 
 	var id uint64

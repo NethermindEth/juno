@@ -158,7 +158,7 @@ func uint64ToBytes(num uint64) [8]byte {
 	return numBytes
 }
 
-func StateHashToTrieRootsKey(stateCommitment *felt.Hash) []byte {
+func StateHashToTrieRootsKey(stateCommitment *felt.StateRootHash) []byte {
 	return StateHashToTrieRoots.Key(stateCommitment.Marshal())
 }
 

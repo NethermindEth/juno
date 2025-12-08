@@ -27,14 +27,14 @@ func TestJournal(t *testing.T) {
 			db.tree = tree
 
 			// Use the root from the disk layer
-			root := felt.NewFromUint64[felt.Hash](uint64(tc.numDiffs))
+			root := felt.NewFromUint64[felt.StateRootHash](uint64(tc.numDiffs))
 			require.NoError(t, db.Journal(root))
 
 			_, err = New(testDB, nil)
 			require.NoError(t, err)
 
 			for i := 0; i <= tc.numDiffs; i++ {
-				root := felt.NewFromUint64[felt.Hash](uint64(i))
+				root := felt.NewFromUint64[felt.StateRootHash](uint64(i))
 				err := verifyLayer(tree, root, tracker)
 				require.NoError(t, err)
 			}
@@ -49,6 +49,6 @@ func TestMissingJournal(t *testing.T) {
 
 	require.Equal(t, 1, db.tree.len())
 
-	root := felt.NewFromUint64[felt.Hash](uint64(1))
+	root := felt.NewFromUint64[felt.StateRootHash](uint64(1))
 	require.Error(t, db.Journal(root))
 }

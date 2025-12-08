@@ -37,10 +37,10 @@ type TrieDB interface {
 	NodeIterator
 	io.Closer
 
-	Commit(stateComm *felt.Hash) error
+	Commit(stateComm *felt.StateRootHash) error
 	Update(
 		root,
-		parent *felt.Hash,
+		parent *felt.StateRootHash,
 		blockNum uint64,
 		mergeClassNodes,
 		mergeContractNodes *trienode.MergeNodeSet,

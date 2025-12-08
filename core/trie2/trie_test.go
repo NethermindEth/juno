@@ -289,7 +289,7 @@ func runRandTest(rt randTest) error {
 		curRoot := felt.Zero
 		trieDB := NewTestNodeDatabase(db, scheme)
 		tr, err := New(
-			trieutils.NewContractTrieID(felt.Hash(curRoot)),
+			trieutils.NewContractTrieID(felt.StateRootHash(curRoot)),
 			contractClassTrieHeight,
 			crypto.Pedersen,
 			&trieDB,
@@ -351,7 +351,7 @@ func runRandTest(rt randTest) error {
 				}
 
 				newtr, err := New(
-					trieutils.NewContractTrieID(felt.Hash(root)),
+					trieutils.NewContractTrieID(felt.StateRootHash(root)),
 					contractClassTrieHeight,
 					crypto.Pedersen,
 					&trieDB,

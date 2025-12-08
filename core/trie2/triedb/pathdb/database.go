@@ -59,7 +59,7 @@ func (d *Database) Close() error {
 }
 
 // Forces the commit of all the in-memory diff layers to the disk layer
-func (d *Database) Commit(root *felt.Hash) error {
+func (d *Database) Commit(root *felt.StateRootHash) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -71,7 +71,7 @@ func (d *Database) Commit(root *felt.Hash) error {
 // will be merged to the disk layer.
 func (d *Database) Update(
 	root,
-	parent *felt.Hash,
+	parent *felt.StateRootHash,
 	blockNum uint64,
 	mergeClassNodes,
 	mergeContractNodes *trienode.MergeNodeSet,

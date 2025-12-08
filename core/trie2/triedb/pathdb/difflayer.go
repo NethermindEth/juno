@@ -14,16 +14,21 @@ var _ layer = (*diffLayer)(nil)
 
 // Represents an in-memory layer which contains the diff nodes for a specific state root hash
 type diffLayer struct {
-	root  felt.Hash // State root hash where this diff layer is applied
-	id    uint64    // Corresponding state id
-	block uint64    // Associated block number
-	nodes *nodeSet  // Cached trie nodes
+	root  felt.StateRootHash // State root hash where this diff layer is applied
+	id    uint64             // Corresponding state id
+	block uint64             // Associated block number
+	nodes *nodeSet           // Cached trie nodes
 
 	parent layer // Parent layer
 	lock   sync.RWMutex
 }
 
-func newDiffLayer(parent layer, root *felt.Hash, id, block uint64, nodes *nodeSet) diffLayer {
+func newDiffLayer(
+	parent layer,
+	root *felt.StateRootHash,
+	id, block uint64,
+	nodes *nodeSet,
+) diffLayer {
 	return diffLayer{
 		root:   *root,
 		id:     id,
@@ -54,7 +59,7 @@ func (dl *diffLayer) node(
 	return dl.parent.node(id, owner, path, isLeaf)
 }
 
-func (dl *diffLayer) rootHash() *felt.Hash {
+func (dl *diffLayer) rootHash() *felt.StateRootHash {
 	return &dl.root
 }
 
@@ -62,7 +67,7 @@ func (dl *diffLayer) stateID() uint64 {
 	return dl.id
 }
 
-func (dl *diffLayer) update(root *felt.Hash, id, block uint64, nodes *nodeSet) diffLayer {
+func (dl *diffLayer) update(root *felt.StateRootHash, id, block uint64, nodes *nodeSet) diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 

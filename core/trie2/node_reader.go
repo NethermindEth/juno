@@ -28,5 +28,5 @@ func (r *nodeReader) node(path trieutils.Path, hash *felt.Hash, isLeaf bool) ([]
 }
 
 func NewEmptyNodeReader() nodeReader {
-	return nodeReader{id: trieutils.NewEmptyTrieID(felt.Hash{}), reader: nil}
+	return nodeReader{id: trieutils.NewEmptyTrieID(felt.StateRootHash{}), reader: nil}
 }

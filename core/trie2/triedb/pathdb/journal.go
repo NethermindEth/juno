@@ -31,7 +31,7 @@ const (
 // DiffJournal represents a single state transition layer containing changes to the trie.
 // It stores the new state root, block number, and the encoded set of modified nodes.
 type DiffJournal struct {
-	Root       felt.Hash
+	Root       felt.StateRootHash
 	Block      uint64
 	EncNodeset []byte // encoded bytes of nodeset
 }
@@ -39,7 +39,7 @@ type DiffJournal struct {
 // DiskJournal represents a persisted state of the trie.
 // It contains the state root, state ID, and the encoded set of all nodes at this state.
 type DiskJournal struct {
-	Root       felt.Hash
+	Root       felt.StateRootHash
 	ID         uint64
 	EncNodeset []byte
 }
@@ -49,7 +49,7 @@ type DiskJournal struct {
 // that make up the state history.
 type DBJournal struct {
 	// TODO(weiihann): handle this, by right we should store the state root and verify when loading
-	// root felt.Hash
+	// root felt.StateRootHash
 	Version   uint8
 	EncLayers []byte // encoded bytes of layers
 }
@@ -139,7 +139,7 @@ func (dl *diskLayer) journal(w io.Writer) error {
 	return err
 }
 
-func (d *Database) Journal(root *felt.Hash) error {
+func (d *Database) Journal(root *felt.StateRootHash) error {
 	l := d.tree.get(root)
 	if l == nil {
 		return fmt.Errorf("layer %v not found", root)
@@ -271,7 +271,7 @@ func (d *Database) loadLayers(enc []byte) (layer, error) {
 	return head, nil
 }
 
-func (d *Database) getStateRoot() felt.Hash {
+func (d *Database) getStateRoot() felt.StateRootHash {
 	encContractRoot, err := trieutils.GetNodeByPath(
 		d.disk,
 		db.ContractTrieContract,
@@ -280,7 +280,7 @@ func (d *Database) getStateRoot() felt.Hash {
 		false,
 	)
 	if err != nil {
-		return felt.Hash{}
+		return felt.StateRootHash{}
 	}
 
 	encStorageRoot, err := trieutils.GetNodeByPath(
@@ -291,21 +291,21 @@ func (d *Database) getStateRoot() felt.Hash {
 		false,
 	)
 	if err != nil {
-		return felt.Hash{}
+		return felt.StateRootHash{}
 	}
 
 	contractRootNode, err := trienode.DecodeNode(encContractRoot, &felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
-		return felt.Hash{}
+		return felt.StateRootHash{}
 	}
 	contractRootHash := contractRootNode.Hash(crypto.Pedersen)
 
 	classRootNode, err := trienode.DecodeNode(encStorageRoot, &felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
-		return felt.Hash{}
+		return felt.StateRootHash{}
 	}
 	classRootHash := classRootNode.Hash(crypto.Pedersen)
 
 	stateRoot := crypto.PoseidonArray(stateVersion, &contractRootHash, &classRootHash)
-	return felt.Hash(stateRoot)
+	return felt.StateRootHash(stateRoot)
 }

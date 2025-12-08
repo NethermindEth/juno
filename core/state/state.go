@@ -505,8 +505,8 @@ func (s *State) flush(
 
 	p.Go(func() error {
 		return s.db.triedb.Update(
-			(*felt.Hash)(&update.curComm),
-			(*felt.Hash)(&update.prevComm),
+			(*felt.StateRootHash)(&update.curComm),
+			(*felt.StateRootHash)(&update.prevComm),
 			blockNum,
 			update.classNodes,
 			update.contractNodes,
