@@ -14,7 +14,7 @@ import (
 )
 
 func AdaptStateDiff(
-	reader core.StateReader,
+	reader core.CommonStateReader,
 	contractDiffs []*state.ContractDiff,
 	classes []*class.Class,
 ) (*core.StateDiff, error) {
