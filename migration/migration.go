@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -117,7 +118,7 @@ func migrateIfNeeded(
 		new ones. It will be able to do this since the schema version it reads from the database will be
 		non-zero and that is what we use to initialise the i loop variable.
 	*/
-	metadata, err := SchemaMetadata(targetDB)
+	metadata, err := SchemaMetadata(log, targetDB)
 	if err != nil {
 		return err
 	}
@@ -182,35 +183,33 @@ func closeMigrationServer(srv *http.Server, log utils.SimpleLogger) {
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
-func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
+func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMetadata, error) {
 	metadata := schemaMetadata{}
 	txn := targetDB
 
-	var sv []byte
 	err := txn.Get(db.SchemaVersion.Key(), func(data []byte) error {
-		sv = data
+		metadata.Version = binary.BigEndian.Uint64(data)
 		return nil
 	})
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}
 
-	if sv != nil {
-		metadata.Version = binary.BigEndian.Uint64(sv)
-	}
-
-	var is []byte
 	err = txn.Get(db.SchemaIntermediateState.Key(), func(data []byte) error {
-		is = data
+		err := cbor.Unmarshal(data, &metadata.IntermediateState)
+		if err != nil {
+			// TODO: Instead of returning nil, we log the error for now to debug the issue
+			log.Errorw(
+				"Failed to unmarshal intermediate state",
+				"version", metadata.Version,
+				"state", hex.EncodeToString(data),
+				"err", err,
+			)
+		}
 		return nil
 	})
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
-	}
-	if is != nil {
-		if err := cbor.Unmarshal(is, &metadata.IntermediateState); err != nil {
-			return metadata, err
-		}
 	}
 
 	return metadata, nil

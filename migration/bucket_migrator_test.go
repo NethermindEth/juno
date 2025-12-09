@@ -45,29 +45,25 @@ func TestBucketMover(t *testing.T) {
 	require.NoError(t, err)
 
 	err = testDB.View(func(txn db.Snapshot) error {
-		var val []byte
 		err := txn.Get(sourceBucket.Key(), func(data []byte) error {
-			val = data
+			if !bytes.Equal(data, []byte{44}) {
+				return errors.New("shouldnt have changed")
+			}
 			return nil
 		})
 		if err != nil {
 			return err
 		}
-		if !bytes.Equal(val, []byte{44}) {
-			return errors.New("shouldnt have changed")
-		}
 
 		for i := byte(0); i < 3; i++ {
-			var val []byte
 			err := txn.Get(destBucket.Key([]byte{i}), func(data []byte) error {
-				val = data
+				if !bytes.Equal(data, []byte{i}) {
+					return errors.New("shouldve moved")
+				}
 				return nil
 			})
 			if err != nil {
 				return err
-			}
-			if !bytes.Equal(val, []byte{i}) {
-				return errors.New("shouldve moved")
 			}
 
 			err = txn.Get(sourceBucket.Key([]byte{i}), func([]byte) error { return nil })

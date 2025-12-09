@@ -112,16 +112,16 @@ func DeleteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64) error {
 }
 
 func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, error) {
-	var val []byte
+	var blockNum uint64
 	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
-		val = data
+		blockNum = binary.BigEndian.Uint64(data)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return GetStateUpdateByBlockNum(r, binary.BigEndian.Uint64(val))
+	return GetStateUpdateByBlockNum(r, blockNum)
 }
 
 // WriteContractStorageHistory writes the old value of a storage location
