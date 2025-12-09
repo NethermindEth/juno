@@ -213,10 +213,10 @@ func createSimulatedTransactions(
 
 	l1GasPriceWei := header.L1GasPriceETH
 	l1GasPriceStrk := header.L1GasPriceSTRK
-	l2GasPriceWei := &felt.Zero
-	l2GasPriceStrk := &felt.Zero
-	l1DataGasPriceWei := &felt.Zero
-	l1DataGasPriceStrk := &felt.Zero
+	l2GasPriceWei := &felt.One
+	l2GasPriceStrk := &felt.One
+	l1DataGasPriceWei := &felt.One
+	l1DataGasPriceStrk := &felt.One
 
 	if gasPrice := header.L2GasPrice; gasPrice != nil {
 		l2GasPriceWei = gasPrice.PriceInWei
