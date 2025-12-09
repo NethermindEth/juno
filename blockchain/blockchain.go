@@ -34,11 +34,13 @@ type Reader interface {
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
 	BlockNumberAndIndexByTxHash(
-		hash *felt.TransactionHash) (blockNumber uint64, index uint64, err error)
+		hash *felt.TransactionHash,
+	) (blockNumber uint64, index uint64, err error)
 
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	ReceiptByBlockNumberAndIndex(
-		blockNumber, index uint64) (receipt *core.TransactionReceipt, blockHash *felt.Felt, err error)
+		blockNumber, index uint64,
+	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, err error)
 
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
