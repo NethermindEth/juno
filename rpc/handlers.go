@@ -253,12 +253,12 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Params: []jsonrpc.Parameter{
 				{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"},
 			},
-			Handler: h.rpcv9Handler.EstimateFee,
+			Handler: h.rpcv10Handler.EstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.rpcv9Handler.EstimateMessageFee,
+			Handler: h.rpcv10Handler.EstimateMessageFee,
 		},
 		{
 			Name:    "starknet_traceTransaction",

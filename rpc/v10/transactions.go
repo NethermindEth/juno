@@ -112,7 +112,14 @@ func (h *Handler) TransactionReceiptByHash(
 		status = rpcv9.TxnAcceptedOnL1
 	}
 
-	return rpcv9.AdaptReceipt(receipt, txn, status, blockHash, blockNumber, false), nil
+	return rpcv9.AdaptReceiptWithBlockInfo(
+		receipt,
+		txn,
+		status,
+		blockHash,
+		blockNumber,
+		false,
+	), nil
 }
 
 // getPendingTransactionReceipt searches for a transaction receipt in the pending data.
@@ -143,7 +150,7 @@ func (h *Handler) getPendingTransactionReceipt(
 		// If pending data is pre_confirmed receipt is coming from pre_latest
 		isPreLatest = pending.Variant() == core.PreConfirmedBlockVariant
 	}
-	return rpcv9.AdaptReceipt(
+	return rpcv9.AdaptReceiptWithBlockInfo(
 		receipt,
 		txn,
 		status,

@@ -296,9 +296,6 @@ func assertTransactionsWithReceiptsEq(
 			expectedReceipt,
 			expectedBlock.Transactions[i],
 			expectedTxnFinalityStatus,
-			nil,
-			0,
-			false,
 		)
 
 		require.Equal(t, adaptedTransaction, actual[i].Transaction)

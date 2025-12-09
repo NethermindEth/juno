@@ -981,7 +981,7 @@ func processBlockReceipts(
 			continue
 		}
 
-		adaptedReceipt := rpcv9.AdaptReceipt(
+		adaptedReceipt := rpcv9.AdaptReceiptWithBlockInfo(
 			block.Receipts[i],
 			txn,
 			rpcv9.TxnFinalityStatus(finalityStatus),

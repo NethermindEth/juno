@@ -957,7 +957,7 @@ func processBlockReceipts(
 			continue
 		}
 
-		adaptedReceipt := AdaptReceipt(
+		adaptedReceipt := AdaptReceiptWithBlockInfo(
 			block.Receipts[i],
 			txn,
 			TxnFinalityStatus(finalityStatus),

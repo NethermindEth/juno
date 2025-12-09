@@ -134,7 +134,7 @@ func (h *Handler) BlockWithReceipts(id *rpcv9.BlockID) (*BlockWithReceipts, *jso
 		txsWithReceipts[index] = rpcv9.TransactionWithReceipt{
 			Transaction: t,
 			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: rpcv9.AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
+			Receipt: rpcv9.AdaptReceipt(r, txn, finalityStatus),
 		}
 	}
 
