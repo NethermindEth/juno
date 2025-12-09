@@ -128,7 +128,7 @@ func (b *Blockchain) Network() *utils.Network {
 func (b *Blockchain) StateCommitment() (felt.Felt, error) {
 	b.listener.OnRead("StateCommitment")
 	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
-	return core.NewState(batch).Commitment()
+	return core.NewStateSnapshotReader(batch).Commitment()
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.

@@ -87,44 +87,6 @@ func (s *State) putNewContract(
 	return s.updateContractCommitment(contractTrie, contract)
 }
 
-// Root returns the state commitment.
-func (s *State) Commitment() (felt.Felt, error) {
-	var storageRoot, classesRoot felt.Felt
-
-	sStorage, closer, err := contractTrie(s.txn)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	if storageRoot, err = sStorage.Hash(); err != nil {
-		return felt.Felt{}, err
-	}
-
-	if err = closer(); err != nil {
-		return felt.Felt{}, err
-	}
-
-	classes, closer, err := classesTrie(s.txn)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	if classesRoot, err = classes.Hash(); err != nil {
-		return felt.Felt{}, err
-	}
-
-	if err = closer(); err != nil {
-		return felt.Felt{}, err
-	}
-
-	if classesRoot.IsZero() {
-		return storageRoot, nil
-	}
-
-	root := crypto.PoseidonArray(stateVersion, &storageRoot, &classesRoot)
-	return root, nil
-}
-
 func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 	currentRoot, err := s.Commitment()
 	if err != nil {

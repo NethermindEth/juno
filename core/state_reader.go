@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
@@ -45,6 +46,38 @@ func NewStateSnapshotReader(txn db.KeyValueReader) *StateSnapshotReader {
 	return &StateSnapshotReader{
 		txn: txn,
 	}
+}
+
+// Root returns the state commitment.
+func (s *StateSnapshotReader) Commitment() (felt.Felt, error) {
+	var storageRoot, classesRoot felt.Felt
+
+	sStorage, err := contractTrieReader(s.txn)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	storageRoot, err = sStorage.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	classes, err := classesTrieReader(s.txn)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	classesRoot, err = classes.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	if classesRoot.IsZero() {
+		return storageRoot, nil
+	}
+
+	root := crypto.PoseidonArray(stateVersion, &storageRoot, &classesRoot)
+	return root, nil
 }
 
 // ContractStorageAt returns the value of a storage location
