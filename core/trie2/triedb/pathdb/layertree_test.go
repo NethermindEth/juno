@@ -125,7 +125,7 @@ func TestLayersCap(t *testing.T) {
 			require.Equal(t, tree.len(), min(tc.capLayers+1, numDiffs+1))
 
 			exp := max(0, numDiffs-tc.capLayers)
-			expDiskHash := felt.NewFromUint64[felt.Hash](uint64(exp))
+			expDiskHash := felt.NewFromUint64[felt.StateRootHash](uint64(exp))
 			actualDiskHash := tree.diskLayer().rootHash()
 			require.Equal(
 				t,
