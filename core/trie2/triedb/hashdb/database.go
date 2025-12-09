@@ -315,6 +315,8 @@ func (d *Database) GetTrieRootNodes(
 		return nil, nil, fmt.Errorf("failed to decode class root node: %w", err)
 	}
 
+	// TODO(maksym): update to make contractRootHash
+	// use felt.Hash instead of felt.Felt
 	contractRootNode, err := trienode.DecodeNode(
 		contractRootBlob,
 		(*felt.Felt)(contractRootHash),

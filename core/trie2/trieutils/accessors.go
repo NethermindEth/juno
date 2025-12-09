@@ -57,11 +57,11 @@ func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner *felt.Address) er
 func WriteStateID(w db.KeyValueWriter, root *felt.StateRootHash, id uint64) error {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], id)
-	return w.Put(db.StateIDKey((*felt.Felt)(root)), buf[:])
+	return w.Put(db.StateIDKey(root), buf[:])
 }
 
 func ReadStateID(r db.KeyValueReader, root *felt.StateRootHash) (uint64, error) {
-	key := db.StateIDKey((*felt.Felt)(root))
+	key := db.StateIDKey(root)
 
 	var id uint64
 	if err := r.Get(key, func(value []byte) error {
@@ -74,7 +74,7 @@ func ReadStateID(r db.KeyValueReader, root *felt.StateRootHash) (uint64, error) 
 	return id, nil
 }
 
-func DeleteStateID(w db.KeyValueWriter, root *felt.Felt) error {
+func DeleteStateID(w db.KeyValueWriter, root *felt.StateRootHash) error {
 	return w.Delete(db.StateIDKey(root))
 }
 
