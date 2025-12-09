@@ -74,12 +74,6 @@ func (b *batch) Has(key []byte) (bool, error) {
 	return true, closer.Close()
 }
 
-func (d *DB) NewSnapshotBatch() (db.SnapshotBatch, func() error) {
-	snapshot := NewSnapshot(d.db, d.listener)
-	batch := NewBatch(d.db.NewBatch(), d, d.listener)
-	return NewSnapshotBatch(batch, snapshot), snapshot.Close
-}
-
 func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator, error) {
 	var iter *pebble.Iterator
 	var err error

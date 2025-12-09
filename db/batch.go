@@ -45,7 +45,3 @@ type SnapshotBatch interface {
 	Batch
 	KeyValueReader
 }
-
-type SnapshotBatcher interface {
-	NewSnapshotBatch() (SnapshotBatch, func() error)
-}

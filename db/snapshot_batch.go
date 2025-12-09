@@ -1,15 +1,15 @@
-package pebble
+package db
 
 import (
 	"bytes"
 	"slices"
-
-	"github.com/NethermindEth/juno/db"
 )
 
-type SnapshotBatch struct {
-	batch    *batch
-	snapshot *snapshot
+var _ SnapshotBatch = (*snapshotBatch)(nil)
+
+type snapshotBatch struct {
+	batch    Batch
+	snapshot Snapshot
 	writes   map[string][]byte
 	deletes  map[string]struct{}
 	size     int
@@ -21,8 +21,8 @@ type deleteRange struct {
 	end   []byte
 }
 
-func NewSnapshotBatch(batch *batch, snapshot *snapshot) *SnapshotBatch {
-	return &SnapshotBatch{
+func NewSnapshotBatch(batch Batch, snapshot Snapshot) *snapshotBatch {
+	return &snapshotBatch{
 		batch:    batch,
 		snapshot: snapshot,
 		writes:   make(map[string][]byte),
@@ -30,19 +30,19 @@ func NewSnapshotBatch(batch *batch, snapshot *snapshot) *SnapshotBatch {
 	}
 }
 
-func (b *SnapshotBatch) Put(key, value []byte) error {
+func (b *snapshotBatch) Put(key, value []byte) error {
 	b.writes[string(key)] = slices.Clone(value)
 	b.size += len(key) + len(value)
 	return nil
 }
 
-func (b *SnapshotBatch) Delete(key []byte) error {
+func (b *snapshotBatch) Delete(key []byte) error {
 	b.deletes[string(key)] = struct{}{}
 	b.size += len(key)
 	return nil
 }
 
-func (b *SnapshotBatch) DeleteRange(start, end []byte) error {
+func (b *snapshotBatch) DeleteRange(start, end []byte) error {
 	b.ranges = append(b.ranges, deleteRange{
 		start: slices.Clone(start),
 		end:   slices.Clone(end),
@@ -50,11 +50,11 @@ func (b *SnapshotBatch) DeleteRange(start, end []byte) error {
 	return nil
 }
 
-func (b *SnapshotBatch) Size() int {
+func (b *snapshotBatch) Size() int {
 	return b.size
 }
 
-func (b *SnapshotBatch) Write() error {
+func (b *snapshotBatch) Flush() error {
 	for _, r := range b.ranges {
 		if err := b.batch.DeleteRange(r.start, r.end); err != nil {
 			return err
@@ -73,9 +73,6 @@ func (b *SnapshotBatch) Write() error {
 		}
 	}
 
-	if err := b.batch.Write(); err != nil {
-		return err
-	}
 	b.writes = make(map[string][]byte)
 	b.deletes = make(map[string]struct{})
 	b.ranges = b.ranges[:0]
@@ -83,7 +80,14 @@ func (b *SnapshotBatch) Write() error {
 	return nil
 }
 
-func (b *SnapshotBatch) Reset() {
+func (b *snapshotBatch) Write() error {
+	if err := b.Flush(); err != nil {
+		return err
+	}
+	return b.batch.Write()
+}
+
+func (b *snapshotBatch) Reset() {
 	b.writes = make(map[string][]byte)
 	b.deletes = make(map[string]struct{})
 	b.ranges = b.ranges[:0]
@@ -91,17 +95,17 @@ func (b *SnapshotBatch) Reset() {
 	b.size = 0
 }
 
-func (b *SnapshotBatch) Get(key []byte, cb func([]byte) error) error {
+func (b *snapshotBatch) Get(key []byte, cb func([]byte) error) error {
 	if entry, ok := b.writes[string(key)]; ok {
 		return cb(entry)
 	}
 	if inRange(b.ranges, key) {
-		return db.ErrKeyNotFound
+		return ErrKeyNotFound
 	}
 	return b.snapshot.Get(key, cb)
 }
 
-func (b *SnapshotBatch) Has(key []byte) (bool, error) {
+func (b *snapshotBatch) Has(key []byte) (bool, error) {
 	if entry, ok := b.writes[string(key)]; ok {
 		return entry != nil, nil
 	}
@@ -123,6 +127,6 @@ func inRange(ranges []deleteRange, key []byte) bool {
 	return false
 }
 
-func (b *SnapshotBatch) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+func (b *snapshotBatch) NewIterator(prefix []byte, withUpperBound bool) (Iterator, error) {
 	return b.snapshot.NewIterator(prefix, withUpperBound)
 }

@@ -96,7 +96,9 @@ func (sf *StateFactory) NewStateReader(
 func (sf *StateFactory) EmptyState() (StateReader, error) {
 	if !sf.UseNewState {
 		memDB := memory.New()
-		txn, _ := memDB.NewSnapshotBatch()
+		snapshot := memDB.NewSnapshot()
+		txn := db.NewSnapshotBatch(nil, snapshot)
+		defer snapshot.Close()
 		emptyState := core.NewState(txn)
 		return emptyState, nil
 	}

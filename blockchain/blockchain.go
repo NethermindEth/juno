@@ -99,8 +99,9 @@ func (b *Blockchain) Network() *utils.Network {
 // If blockchain is empty zero felt is returned.
 func (b *Blockchain) StateCommitment() (felt.Felt, error) {
 	b.listener.OnRead("StateCommitment")
-	batch, closer := b.database.NewSnapshotBatch() // this is a hack because we don't need to write to the db
-	defer closer()
+	snapshot := b.database.NewSnapshot()
+	defer snapshot.Close()
+	batch := db.NewSnapshotBatch(nil, snapshot)
 	return core.NewState(batch).Commitment()
 }
 
@@ -248,8 +249,10 @@ func (b *Blockchain) Store(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	txn, closer := b.database.NewSnapshotBatch()
-	defer closer()
+	snapshot := b.database.NewSnapshot()
+	defer snapshot.Close()
+	batch := b.database.NewBatch()
+	txn := db.NewSnapshotBatch(batch, snapshot)
 	if err := verifyBlock(txn, block); err != nil {
 		return err
 	}
@@ -419,6 +422,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 
 	_, err := core.GetChainHeight(snapshot)
 	if err != nil {
+		snapshot.Close()
 		return nil, nil, err
 	}
 
@@ -433,6 +437,7 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 
 	_, err := core.GetBlockHeaderByNumber(snapshot, blockNumber)
 	if err != nil {
+		snapshot.Close()
 		return nil, nil, err
 	}
 
@@ -454,6 +459,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 	snapshot := b.database.NewSnapshot()
 	header, err := core.GetBlockHeaderByHash(snapshot, blockHash)
 	if err != nil {
+		snapshot.Close()
 		return nil, nil, err
 	}
 
@@ -487,8 +493,10 @@ func (b *Blockchain) EventFilter(
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	txn, closer := b.database.NewSnapshotBatch()
-	defer closer()
+	snapshot := b.database.NewSnapshot()
+	defer snapshot.Close()
+	batch := b.database.NewBatch()
+	txn := db.NewSnapshotBatch(batch, snapshot)
 	if err := b.revertHead(txn); err != nil {
 		return err
 	}
@@ -595,8 +603,9 @@ func (b *Blockchain) Simulate(
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
 	// Simulate without commit
-	txn, closer := b.database.NewSnapshotBatch()
-	defer closer()
+	snapshot := b.database.NewSnapshot()
+	defer snapshot.Close()
+	txn := db.NewSnapshotBatch(nil, snapshot)
 
 	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 		return SimulateResult{}, err
@@ -631,8 +640,10 @@ func (b *Blockchain) Finalise(
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign utils.BlockSignFunc,
 ) error {
-	txn, closer := b.database.NewSnapshotBatch()
-	defer closer()
+	snapshot := b.database.NewSnapshot()
+	defer snapshot.Close()
+	batch := b.database.NewBatch()
+	txn := db.NewSnapshotBatch(batch, snapshot)
 	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 		return err
 	}

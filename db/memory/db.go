@@ -110,9 +110,6 @@ func (d *Database) NewBatch() db.Batch                            { return newBa
 func (d *Database) NewBatchWithSize(_ int) db.Batch               { return newBatch(d) }
 func (d *Database) NewIndexedBatch() db.IndexedBatch              { return newBatch(d) }
 func (d *Database) NewIndexedBatchWithSize(_ int) db.IndexedBatch { return newBatch(d) }
-func (d *Database) NewSnapshotBatch() (db.SnapshotBatch, func() error) {
-	return newBatch(d), func() error { return nil }
-}
 
 func (d *Database) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
 	d.lock.RLock()
@@ -178,6 +175,7 @@ func (d *Database) View(fn func(db.Snapshot) error) error {
 	}
 
 	snap := d.NewSnapshot()
+	defer snap.Close()
 	return fn(snap)
 }
 

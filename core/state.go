@@ -684,8 +684,9 @@ func globalTrie(
 		return nil, nil, err
 	}
 
-	rootKey := new(trie.BitArray)
+	var rootKey *trie.BitArray
 	if len(val) > 0 {
+		rootKey = new(trie.BitArray)
 		err = rootKey.UnmarshalBinary(val)
 		if err != nil {
 			return nil, nil, err
@@ -705,7 +706,8 @@ func globalTrie(
 
 		resultingRootKey := gTrie.RootKey()
 		// no updates on the trie, short circuit and return
-		if resultingRootKey.Equal(rootKey) {
+		if (resultingRootKey == nil && rootKey == nil) ||
+			(resultingRootKey != nil && rootKey != nil && resultingRootKey.Equal(rootKey)) {
 			return nil
 		}
 
