@@ -242,7 +242,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 	blockNumber, index uint64,
 ) (*core.TransactionReceipt, *felt.Felt, error) {
-	b.listener.OnRead("Receipt")
+	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
 
 	receipt, err := core.GetReceiptByBlockNumIndex(b.database, blockNumber, index)
 	if err != nil {
@@ -254,7 +254,7 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 		return nil, nil, err
 	}
 
-	return receipt, header.Hash, nil
+	return &receipt, header.Hash, nil
 }
 
 func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
