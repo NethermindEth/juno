@@ -258,11 +258,11 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 
 func (m *MockReader) ReceiptByBlockNumberAndIndex(
 	blockNumber, index uint64,
-) (*core.TransactionReceipt, *felt.Felt, error) {
+) (core.TransactionReceipt, *felt.Felt, error) {
 	m.ctrl.T.Helper()
 
 	ret := m.ctrl.Call(m, "ReceiptByBlockNumberAndIndex", blockNumber, index)
-	ret0, _ := ret[0].(*core.TransactionReceipt)
+	ret0, _ := ret[0].(core.TransactionReceipt)
 	ret1, _ := ret[1].(*felt.Felt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2

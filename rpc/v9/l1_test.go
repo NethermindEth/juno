@@ -111,7 +111,7 @@ func TestGetMessageStatus(t *testing.T) {
 				).Return(l1handlerTxns[i], nil)
 				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
 					block.Number, uint64(i),
-				).Return(block.Receipts[i], block.Hash, nil)
+				).Return(*block.Receipts[i], block.Hash, nil)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: test.l1HeadBlockNum}, nil)
 			}
 			msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &test.l1TxnHash)

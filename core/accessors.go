@@ -268,9 +268,9 @@ func GetReceiptByBlockNumIndex(
 	num,
 	index uint64,
 ) (TransactionReceipt, error) {
-	numIdxKey := db.BlockNumIndexKey {
+	numIdxKey := db.BlockNumIndexKey{
 		Number: num,
-		Index: index,
+		Index:  index,
 	}
 	return ReceiptsByBlockNumberAndIndexBucket.Get(r, numIdxKey)
 }

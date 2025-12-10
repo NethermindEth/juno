@@ -217,7 +217,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				).Return(transaction, nil)
 				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
 					*expected.BlockNumber, uint64(transactionIndex),
-				).Return(loadedBlock.Receipts[transactionIndex], expected.BlockHash, nil)
+				).Return(*loadedBlock.Receipts[transactionIndex], expected.BlockHash, nil)
 				mockReader.EXPECT().L1Head().Return(test.l1Head, nil)
 			}
 
@@ -286,7 +286,7 @@ func TestTransactionStatus(t *testing.T) {
 		).Return(tx, nil)
 		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Receipts[0], block.Hash, nil)
+		).Return(*block.Receipts[0], block.Hash, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&preConfirmedPlaceHolder, nil)
 	}
 

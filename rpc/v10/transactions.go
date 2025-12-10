@@ -113,7 +113,7 @@ func (h *Handler) TransactionReceiptByHash(
 	}
 
 	return rpcv9.AdaptReceiptWithBlockInfo(
-		receipt,
+		&receipt,
 		txn,
 		status,
 		blockHash,

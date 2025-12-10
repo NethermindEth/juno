@@ -643,7 +643,7 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 	}
 
 	return AdaptReceiptWithBlockInfo(
-		receipt,
+		&receipt,
 		txn,
 		status,
 		blockHash,

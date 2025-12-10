@@ -598,7 +598,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
+	return AdaptReceipt(&receipt, txn, status, blockHash, blockNumber), nil
 }
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled

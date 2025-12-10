@@ -40,7 +40,7 @@ type Reader interface {
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	ReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
-	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, err error)
+	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
 
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
@@ -241,20 +241,20 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 
 func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 	blockNumber, index uint64,
-) (*core.TransactionReceipt, *felt.Felt, error) {
+) (core.TransactionReceipt, *felt.Felt, error) {
 	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
 
 	receipt, err := core.GetReceiptByBlockNumIndex(b.database, blockNumber, index)
 	if err != nil {
-		return nil, nil, err
+		return receipt, nil, err
 	}
 
 	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
 	if err != nil {
-		return nil, nil, err
+		return receipt, nil, err
 	}
 
-	return &receipt, header.Hash, nil
+	return receipt, header.Hash, nil
 }
 
 func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {

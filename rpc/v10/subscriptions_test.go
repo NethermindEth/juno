@@ -1233,9 +1233,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
 			block.Number, uint64(0)).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(block.Number, uint64(0)).Return(
-			block.Receipts[0], block.Hash, nil,
-		)
+		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
+			block.Number, uint64(0),
+		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		handler.newHeads.Send(block)
@@ -1261,7 +1261,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			block.Number, uint64(0),
 		).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0)).Return(block.Receipts[0], block.Hash, nil)
+			block.Number, uint64(0),
+		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
 		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(
