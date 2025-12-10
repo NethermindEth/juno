@@ -1232,7 +1232,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			(*felt.TransactionHash)(txHash),
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
-			block.Number, uint64(0)).Return(block.Transactions[0], nil)
+			block.Number, uint64(0),
+		).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
 			block.Number, uint64(0),
 		).Return(*block.Receipts[0], block.Hash, nil)
