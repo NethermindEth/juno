@@ -521,7 +521,8 @@ func TestDatabase(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			// TODO(maksym): update to make classRootHash and contractRootHash a felt.Hash instead of felt.Felt
+			// TODO(maksym): update to make classRootHash and contractRootHash
+			// a felt.Hash instead of felt.Felt
 			newClassRootNode, newContractRootNode, err := database.GetTrieRootNodes(
 				(*felt.Hash)(&classRootHash),
 				(*felt.Hash)(&contractRootHash),
