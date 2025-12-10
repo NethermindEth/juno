@@ -493,8 +493,6 @@ func verifyContractNodes(layer layer, root *felt.StateRootHash, tracker *layerTr
 }
 
 // verifyContractStorageNodes verifies all contract storage nodes in a layer against expected values
-//
-//nolint:dupl
 func verifyContractStorageNodes(
 	layer layer,
 	root *felt.StateRootHash,
