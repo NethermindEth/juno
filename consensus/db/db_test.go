@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +18,7 @@ type testTendermintDB = TendermintDB[starknet.Value, starknet.Hash, starknet.Add
 func newTestTMDB(t *testing.T) (testTendermintDB, db.KeyValueStore, string) {
 	t.Helper()
 	dbPath := t.TempDir()
-	testDB, err := pebble.New(dbPath)
+	testDB, err := pebblev2.New(dbPath)
 	require.NoError(t, err)
 
 	tmState := NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB)
@@ -31,7 +31,7 @@ func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string) (testTe
 	t.Helper()
 	require.NoError(t, oldDB.Close())
 
-	newDB, err := pebble.New(dbPath)
+	newDB, err := pebblev2.New(dbPath)
 	require.NoError(t, err)
 
 	tmState := NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](newDB)

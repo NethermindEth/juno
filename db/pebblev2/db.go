@@ -28,10 +28,13 @@ type DB struct {
 
 // New opens a new database at the given path with default options
 func New(path string, options ...Option) (db.KeyValueStore, error) {
-	upgradeFormatIfNeeded(path)
+	version, err := upgradeFormatIfNeeded(path)
+	if err != nil {
+		return nil, err
+	}
 
 	opts := pebble.Options{
-		FormatMajorVersion: pebble.FormatFlushableIngest,
+		FormatMajorVersion: version,
 	}
 	for _, option := range options {
 		if err := option(&opts); err != nil {
