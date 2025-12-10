@@ -1240,3 +1240,200 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		require.Equal(t, expectedAdaptedTrace, res)
 	})
 }
+
+func TestCall(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+
+		blockID := rpcv9.BlockIDLatest()
+		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		require.Nil(t, res)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
+
+		blockID := rpcv9.BlockIDFromHash(&felt.Zero)
+		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		require.Nil(t, res)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
+
+		blockID := rpcv9.BlockIDFromNumber(0)
+		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		require.Nil(t, res)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	t.Run("call - unknown contract", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
+
+		blockID := rpcv9.BlockIDLatest()
+		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		require.Nil(t, res)
+		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+	})
+
+	t.Run("ok", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
+
+		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		selector := felt.NewFromUint64[felt.Felt](2)
+		classHash := felt.NewFromUint64[felt.Felt](3)
+		calldata := []felt.Felt{
+			*felt.NewFromUint64[felt.Felt](4),
+			*felt.NewFromUint64[felt.Felt](5),
+		}
+		expectedRes := vm.CallResult{Result: []*felt.Felt{
+			felt.NewFromUint64[felt.Felt](6),
+			felt.NewFromUint64[felt.Felt](7),
+		}}
+
+		headsHeader := &core.Header{
+			Number:    9,
+			Timestamp: 101,
+		}
+
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
+		mockVM.EXPECT().Call(
+			&vm.CallInfo{
+				ContractAddress: contractAddr,
+				ClassHash:       classHash,
+				Selector:        selector,
+				Calldata:        calldata,
+			},
+			&vm.BlockInfo{
+				Header: headsHeader,
+			},
+			gomock.Any(),
+			uint64(1337),
+			uint64(1338),
+			true,
+			false,
+		).Return(expectedRes, nil)
+
+		blockID := rpcv9.BlockIDLatest()
+		res, rpcErr := handler.Call(
+			&rpcv9.FunctionCall{
+				ContractAddress:    *contractAddr,
+				EntryPointSelector: *selector,
+				Calldata:           rpcv9.CalldataInputs{Data: calldata},
+			},
+			&blockID,
+		)
+		require.Nil(t, rpcErr)
+		require.Equal(t, expectedRes.Result, res)
+	})
+
+	t.Run("entrypoint not found error", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
+
+		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		selector := felt.NewFromUint64[felt.Felt](2)
+		classHash := felt.NewFromUint64[felt.Felt](3)
+		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		expectedRes := vm.CallResult{
+			Result: []*felt.Felt{
+				felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt),
+			},
+			ExecutionFailed: true,
+		}
+		expectedErr := rpccore.ErrEntrypointNotFoundV0_10
+
+		headsHeader := &core.Header{
+			Number:    9,
+			Timestamp: 101,
+		}
+
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
+		mockVM.EXPECT().Call(
+			&vm.CallInfo{
+				ContractAddress: contractAddr,
+				ClassHash:       classHash,
+				Selector:        selector,
+				Calldata:        calldata,
+			},
+			&vm.BlockInfo{
+				Header: headsHeader,
+			},
+			gomock.Any(),
+			uint64(1337),
+			uint64(1338),
+			true,
+			false,
+		).Return(expectedRes, nil)
+
+		blockID := rpcv9.BlockIDLatest()
+		res, rpcErr := handler.Call(&rpcv9.FunctionCall{
+			ContractAddress:    *contractAddr,
+			EntryPointSelector: *selector,
+			Calldata:           rpcv9.CalldataInputs{Data: calldata},
+		},
+			&blockID,
+		)
+		require.Nil(t, res)
+		require.Equal(t, rpcErr, expectedErr)
+	})
+
+	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
+
+		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		selector := felt.NewFromUint64[felt.Felt](2)
+		classHash := felt.NewFromUint64[felt.Felt](3)
+		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		expectedRes := vm.CallResult{
+			ExecutionFailed: true,
+		}
+		expectedErr := rpcv9.MakeContractError(json.RawMessage(""))
+
+		headsHeader := &core.Header{
+			Number:    9,
+			Timestamp: 101,
+		}
+
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
+		mockVM.EXPECT().Call(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+		).Return(expectedRes, nil)
+
+		blockID := rpcv9.BlockIDLatest()
+		res, rpcErr := handler.Call(
+			&rpcv9.FunctionCall{
+				ContractAddress:    *contractAddr,
+				EntryPointSelector: *selector,
+				Calldata:           rpcv9.CalldataInputs{Data: calldata},
+			},
+			&blockID,
+		)
+		require.Nil(t, res)
+		require.Equal(t, expectedErr, rpcErr)
+	})
+}

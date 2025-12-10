@@ -64,12 +64,13 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 		FeeDAMode:             0,   // this field is not available on v0
 	}
 
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeclareTransaction,
 		network,
 	)
+	consensusDeclareTransaction.TransactionHash = &transactionHash
+
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
 		b.ToP2PDeclareV0(&p2pTransaction, p2pHash)
 }
@@ -112,12 +113,13 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
 		FeeDAMode:             0,   // this field is not available on v1
 	}
 
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeclareTransaction,
 		network,
 	)
+	consensusDeclareTransaction.TransactionHash = &transactionHash
+
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
 		b.ToP2PDeclareV1(&p2pTransaction, p2pHash)
 }
@@ -133,6 +135,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	nonce, nonceBytes := getRandomFelt(t)
 	maxFee, maxFeeBytes := getRandomFelt(t)
 	version := new(core.TransactionVersion).SetUint64(2)
+	casmClassHash := sierraClass.Compiled.Hash(core.HashVersionV1)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV2WithoutClass{
 		Sender: &common.Address{Elements: senderAddressBytes},
@@ -142,7 +145,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 		},
 		ClassHash:         core2p2p.AdaptHash(&classHash),
 		Nonce:             &common.Felt252{Elements: nonceBytes},
-		CompiledClassHash: core2p2p.AdaptHash(sierraClass.Compiled.Hash()),
+		CompiledClassHash: core2p2p.AdaptHash(&casmClassHash),
 	}
 
 	consensusDeclareTransaction := core.DeclareTransaction{
@@ -153,7 +156,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     sierraClass.Compiled.Hash(),
+		CompiledClassHash:     &casmClassHash,
 		ResourceBounds:        nil, // this field is not available on v2
 		PaymasterData:         nil, // this field is not available on v2
 		AccountDeploymentData: nil, // this field is not available on v2
@@ -162,12 +165,12 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 		FeeDAMode:             0,   // this field is not available on v2
 	}
 
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeclareTransaction,
 		network,
 	)
+	consensusDeclareTransaction.TransactionHash = &transactionHash
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
 		b.ToP2PDeclareV2(&p2pTransaction, p2pHash)
 }
@@ -186,6 +189,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
 	accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
+	casmHash := sierraClass.Compiled.Hash(core.HashVersionV1)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV3WithoutClass{
 		Common: &transaction.DeclareV3Common{
@@ -194,7 +198,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 				Parts: toFelt252Slice(transactionSignatureBytes),
 			},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
-			CompiledClassHash:         core2p2p.AdaptHash(sierraClass.Compiled.Hash()),
+			CompiledClassHash:         core2p2p.AdaptHash(&casmHash),
 			ResourceBounds:            p2pResourceBounds,
 			Tip:                       tip,
 			PaymasterData:             toFelt252Slice(paymasterDataBytes),
@@ -213,7 +217,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     sierraClass.Compiled.Hash(),
+		CompiledClassHash:     &casmHash,
 		ResourceBounds:        resourceBounds,
 		Tip:                   tip,
 		PaymasterData:         paymasterData,
@@ -222,12 +226,12 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 		FeeDAMode:             core.DAModeL2,
 	}
 
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeclareTransaction,
 		network,
 	)
+	consensusDeclareTransaction.TransactionHash = &transactionHash
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
 		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
 }
@@ -257,18 +261,19 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 
 	consensusDeployTransaction := core.DeployTransaction{
 		TransactionHash:     nil, // this field is populated later
-		ContractAddress:     contractAddress,
+		ContractAddress:     &contractAddress,
 		ContractAddressSalt: &contractAddressSalt,
 		ClassHash:           &classHash,
 		ConstructorCallData: constructorCallData,
 		Version:             version,
 	}
-	var p2pHash *common.Hash
-	consensusDeployTransaction.TransactionHash, p2pHash = getTransactionHash(
+
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeployTransaction,
 		network,
 	)
+	consensusDeployTransaction.TransactionHash = &transactionHash
 	return b.ToCore(&consensusDeployTransaction, nil, nil),
 		b.ToP2PDeployV0(&p2pTransaction, p2pHash)
 }
@@ -306,7 +311,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     nil, // this field is populated later
 			ContractAddressSalt: &contractAddressSalt,
-			ContractAddress:     contractAddress,
+			ContractAddress:     &contractAddress,
 			ClassHash:           &classHash,
 			ConstructorCallData: constructorCallData,
 			Version:             version,
@@ -320,12 +325,14 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 		NonceDAMode:          0,   // this field is not available on v1
 		FeeDAMode:            0,   // this field is not available on v1
 	}
-	var p2pHash *common.Hash
-	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeployAccountTransaction,
 		network,
 	)
+	consensusDeployAccountTransaction.TransactionHash = &transactionHash
+
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PDeployV1(&p2pTransaction, p2pHash)
 }
@@ -371,7 +378,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     nil, // this field is populated later
 			ContractAddressSalt: &contractAddressSalt,
-			ContractAddress:     contractAddress,
+			ContractAddress:     &contractAddress,
 			ClassHash:           &classHash,
 			ConstructorCallData: constructorCallData,
 			Version:             version,
@@ -385,12 +392,14 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 		NonceDAMode:          core.DAModeL2,
 		FeeDAMode:            core.DAModeL2,
 	}
-	var p2pHash *common.Hash
-	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeployAccountTransaction,
 		network,
 	)
+	consensusDeployAccountTransaction.TransactionHash = &transactionHash
+
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PDeployV3(&p2pTransaction, p2pHash)
 }
@@ -434,12 +443,14 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 		NonceDAMode:           0,   // this field is not available on v0
 		FeeDAMode:             0,   // this field is not available on v0
 	}
-	var p2pHash *common.Hash
-	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeployAccountTransaction,
 		network,
 	)
+	consensusDeployAccountTransaction.TransactionHash = &transactionHash
+
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PInvokeV0(&p2pTransaction, p2pHash)
 }
@@ -483,12 +494,14 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 		NonceDAMode:           0,   // this field is not available on v1
 		FeeDAMode:             0,   // this field is not available on v1
 	}
-	var p2pHash *common.Hash
-	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeployAccountTransaction,
 		network,
 	)
+	consensusDeployAccountTransaction.TransactionHash = &transactionHash
+
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PInvokeV1(&p2pTransaction, p2pHash)
 }
@@ -541,12 +554,14 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 		FeeDAMode:             core.DAModeL2,
 		AccountDeploymentData: nil, // TODO: this is for future use as per starknet document
 	}
-	var p2pHash *common.Hash
-	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusDeployAccountTransaction,
 		network,
 	)
+	consensusDeployAccountTransaction.TransactionHash = &transactionHash
+
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
 		b.ToP2PInvokeV3(&p2pTransaction, p2pHash)
 }
@@ -580,12 +595,12 @@ func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 		Version:            version,
 	}
 
-	var p2pHash *common.Hash
-	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(
+	transactionHash, p2pHash := getTransactionHash(
 		t,
 		&consensusL1HandlerTransaction,
 		network,
 	)
+	consensusL1HandlerTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()),
 		b.ToP2PL1Handler(&p2pTransaction, p2pHash)

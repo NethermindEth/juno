@@ -2,6 +2,7 @@ package rpcv10
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -57,6 +58,69 @@ func (h *Handler) TraceTransaction(
 		return TransactionTrace{}, httpHeader, err
 	}
 	return trace, header, nil
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/39553a2e5216b7b5e06f6d44368317c0ccd79dfa/api/starknet_api_openrpc.json#L569
+func (h *Handler) Call(
+	funcCall *rpcv9.FunctionCall,
+	id *rpcv9.BlockID,
+) ([]*felt.Felt, *jsonrpc.Error) {
+	state, closer, rpcErr := h.stateByBlockID(id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
+
+	header, rpcErr := h.blockHeaderByID(id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	classHash, err := state.ContractClassHash(&funcCall.ContractAddress)
+	if err != nil {
+		return nil, rpccore.ErrContractNotFound
+	}
+
+	blockInfo, rpcErr := h.buildBlockInfo(header)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	res, err := h.vm.Call(
+		&vm.CallInfo{
+			ContractAddress: &funcCall.ContractAddress,
+			Selector:        &funcCall.EntryPointSelector,
+			Calldata:        funcCall.Calldata.Data,
+			ClassHash:       &classHash,
+		},
+		&blockInfo,
+		state,
+		h.callMaxSteps,
+		h.callMaxGas,
+		true,
+		false,
+	)
+	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
+		}
+		return nil, rpcv9.MakeContractError(json.RawMessage(err.Error()))
+	}
+	if res.ExecutionFailed {
+		// the blockifier 0.13.4 update requires us to check if the execution failed,
+		// and if so, return ErrEntrypointNotFound if res.Result[0]==EntrypointNotFoundFelt,
+		// otherwise we should wrap the result in ErrContractError
+		var strErr string
+		if len(res.Result) != 0 {
+			if res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
+				return nil, rpccore.ErrEntrypointNotFoundV0_10
+			}
+			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
+		}
+		// Todo: There is currently no standardised way to format these error messages
+		return nil, rpcv9.MakeContractError(json.RawMessage(strErr))
+	}
+	return res.Result, nil
 }
 
 // TraceBlockTransactions returns the trace for a given blockID

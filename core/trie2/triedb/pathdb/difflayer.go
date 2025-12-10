@@ -5,7 +5,9 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
 )
 
 var _ layer = (*diffLayer)(nil)
@@ -31,17 +33,25 @@ func newDiffLayer(parent layer, root *felt.Felt, id, block uint64, nodes *nodeSe
 	}
 }
 
-func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diffLayer) node(
+	id trieutils.TrieID,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isLeaf bool,
+) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
 	isClass := id.Type() == trieutils.Class
 	n, ok := dl.nodes.node(owner, path, isClass)
 	if ok {
+		if _, deleted := n.(*trienode.DeletedNode); deleted {
+			return nil, db.ErrKeyNotFound
+		}
 		return n.Blob(), nil
 	}
 
-	return dl.parent.node(id, owner, path, isClass)
+	return dl.parent.node(id, owner, path, isLeaf)
 }
 
 func (dl *diffLayer) rootHash() *felt.Felt {

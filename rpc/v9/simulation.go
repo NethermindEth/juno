@@ -46,8 +46,12 @@ func (h *Handler) SimulateTransactions(
 	return h.simulateTransactions(id, transactions.Data, simulationFlags, false, false)
 }
 
-func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool, isEstimateFee bool,
+func (h *Handler) simulateTransactions(
+	id *BlockID,
+	transactions []BroadcastedTransaction,
+	simulationFlags []rpcv6.SimulationFlag,
+	errOnRevert bool,
+	isEstimateFee bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)

@@ -4,7 +4,9 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
 )
 
 var _ layer = (*diskLayer)(nil)
@@ -55,7 +57,12 @@ func (dl *diskLayer) isStale() bool {
 	return dl.stale
 }
 
-func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diskLayer) node(
+	id trieutils.TrieID,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isLeaf bool,
+) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -67,6 +74,9 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	isClass := id.Type() == trieutils.Class
 	n, ok := dl.dirties.node(owner, path, isClass)
 	if ok {
+		if _, deleted := n.(*trienode.DeletedNode); deleted {
+			return nil, db.ErrKeyNotFound
+		}
 		return n.Blob(), nil
 	}
 
@@ -77,7 +87,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	}
 
 	// Finally, read from disk
-	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, path, isClass)
+	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, path, isLeaf)
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +110,14 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	dl.stale = true
 
 	if dl.id == 0 {
-		if err := trieutils.WriteStateID(dl.db.disk, &dl.root, 0); err != nil {
+		err := trieutils.WriteStateID(dl.db.disk, &dl.root, 0)
+		if err != nil {
 			return nil, err
 		}
 	}
 	bottomRootHash := bottom.rootHash()
-	if err := trieutils.WriteStateID(dl.db.disk, bottomRootHash, bottom.stateID()); err != nil {
+	err := trieutils.WriteStateID(dl.db.disk, bottomRootHash, bottom.stateID())
+	if err != nil {
 		return nil, err
 	}
 

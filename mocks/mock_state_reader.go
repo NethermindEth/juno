@@ -14,7 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
-	trie2 "github.com/NethermindEth/juno/core/trie2"
+	commontrie "github.com/NethermindEth/juno/core/state/commontrie"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -58,10 +58,10 @@ func (mr *MockStateReaderMockRecorder) Class(classHash any) *gomock.Call {
 }
 
 // ClassTrie mocks base method.
-func (m *MockStateReader) ClassTrie() (*trie2.Trie, error) {
+func (m *MockStateReader) ClassTrie() (commontrie.Trie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClassTrie")
-	ret0, _ := ret[0].(*trie2.Trie)
+	ret0, _ := ret[0].(commontrie.Trie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -118,10 +118,10 @@ func (mr *MockStateReaderMockRecorder) ContractStorage(addr, key any) *gomock.Ca
 }
 
 // ContractStorageTrie mocks base method.
-func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
+func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageTrie", addr)
-	ret0, _ := ret[0].(*trie2.Trie)
+	ret0, _ := ret[0].(commontrie.Trie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -133,10 +133,10 @@ func (mr *MockStateReaderMockRecorder) ContractStorageTrie(addr any) *gomock.Cal
 }
 
 // ContractTrie mocks base method.
-func (m *MockStateReader) ContractTrie() (*trie2.Trie, error) {
+func (m *MockStateReader) ContractTrie() (commontrie.Trie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractTrie")
-	ret0, _ := ret[0].(*trie2.Trie)
+	ret0, _ := ret[0].(commontrie.Trie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

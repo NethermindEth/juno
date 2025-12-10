@@ -19,7 +19,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		require.ErrorIs(t, migration.MigrateIfNeeded(ctx, testDB, &utils.Mainnet, utils.NewNopZapLogger(), &migration.HTTPConfig{}), ctx.Err())
 	})
 
-	meta, err := migration.SchemaMetadata(testDB)
+	meta, err := migration.SchemaMetadata(utils.NewNopZapLogger(), testDB)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), meta.Version)
 	require.Nil(t, meta.IntermediateState)
@@ -28,14 +28,14 @@ func TestMigrateIfNeeded(t *testing.T) {
 		require.NoError(t, migration.MigrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), &migration.HTTPConfig{}))
 	})
 
-	meta, err = migration.SchemaMetadata(testDB)
+	meta, err = migration.SchemaMetadata(utils.NewNopZapLogger(), testDB)
 	require.NoError(t, err)
 	require.NotEqual(t, uint64(0), meta.Version)
 	require.Nil(t, meta.IntermediateState)
 
 	t.Run("subsequent calls to MigrateIfNeeded should not change the DB version", func(t *testing.T) {
 		require.NoError(t, migration.MigrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), &migration.HTTPConfig{}))
-		postVersion, postErr := migration.SchemaMetadata(testDB)
+		postVersion, postErr := migration.SchemaMetadata(utils.NewNopZapLogger(), testDB)
 		require.NoError(t, postErr)
 		require.Equal(t, meta, postVersion)
 	})

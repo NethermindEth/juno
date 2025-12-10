@@ -352,7 +352,7 @@ func (s *Service) persistPeers() error {
 }
 
 // loadPeers loads the previously stored peers from the database
-func loadPeers(database db.Iterable) ([]peer.AddrInfo, error) {
+func loadPeers(database db.KeyValueReader) ([]peer.AddrInfo, error) {
 	var peers []peer.AddrInfo
 
 	it, err := database.NewIterator(db.Peer.Key(), true)

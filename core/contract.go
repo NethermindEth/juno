@@ -65,17 +65,22 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 }
 
 // ContractAddress computes the address of a Starknet contract.
-func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallData []*felt.Felt) *felt.Felt {
-	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
+func ContractAddress(
+	callerAddress,
+	classHash,
+	salt *felt.Felt,
+	constructorCallData []*felt.Felt,
+) felt.Felt {
+	prefix := felt.FromBytes[felt.Felt]([]byte("STARKNET_CONTRACT_ADDRESS"))
 	callDataHash := crypto.PedersenArray(constructorCallData...)
 
 	// https://docs.starknet.io/architecture-and-concepts/smart-contracts/contract-address/
 	return crypto.PedersenArray(
-		prefix,
+		&prefix,
 		callerAddress,
 		salt,
 		classHash,
-		callDataHash,
+		&callDataHash,
 	)
 }
 
@@ -115,7 +120,7 @@ func (c *ContractUpdater) Purge() error {
 
 // ContractNonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
-func ContractNonce(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+func ContractNonce(addr *felt.Felt, txn db.KeyValueReader) (felt.Felt, error) {
 	return GetContractNonce(txn, addr)
 }
 
@@ -168,7 +173,7 @@ func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, erro
 }
 
 // ContractClassHash returns hash of the class that the contract at the given address instantiates.
-func ContractClassHash(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+func ContractClassHash(addr *felt.Felt, txn db.KeyValueReader) (felt.Felt, error) {
 	return GetContractClassHash(txn, addr)
 }
 
@@ -186,6 +191,5 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 // storage of the contract.
 func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
-	trieTxn := trie.NewStorage(txn, db.ContractStorage.Key(addrBytes))
-	return trie.NewTriePedersen(trieTxn, ContractStorageTrieHeight)
+	return trie.NewTriePedersen(txn, db.ContractStorage.Key(addrBytes), ContractStorageTrieHeight)
 }

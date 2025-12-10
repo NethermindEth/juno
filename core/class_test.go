@@ -38,8 +38,8 @@ func TestClassV0Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
-			class, err := gw.Class(t.Context(), hash)
+			hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
+			class, err := gw.Class(t.Context(), &hash)
 			require.NoError(t, err)
 
 			got, err := class.Hash()
@@ -68,8 +68,8 @@ func TestClassV1Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
-			class, err := gw.Class(t.Context(), hash)
+			hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
+			class, err := gw.Class(t.Context(), &hash)
 			require.NoError(t, err)
 
 			got, err := class.Hash()
@@ -80,35 +80,49 @@ func TestClassV1Hash(t *testing.T) {
 }
 
 func TestCompiledClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
-	gw := adaptfeeder.New(client)
 	tests := []struct {
+		network                   utils.Network
 		classHash                 string
 		expectedCompiledClassHash string
+		hashVersion               core.CasmHashVersion
 	}{
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc
 			classHash:                 "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
 			expectedCompiledClassHash: "0x18f95714044fd5408d3bf812bcd249ddec098ab3cd201b7916170cfbfa59e05",
+			hashVersion:               core.HashVersionV1,
+			network:                   utils.Integration,
 		},
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d
 			classHash:                 "0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d",
 			expectedCompiledClassHash: "0x603dd72504d8b0bc54df4f1102fdcf87fc3b2b94750a9083a5876913eec08e4",
+			hashVersion:               core.HashVersionV1,
+			network:                   utils.Integration,
 		},
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89
 			classHash:                 "0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89",
 			expectedCompiledClassHash: "0x260f0d9862f0dd76ac1f9c93e6ce0c2536f7c0275c87061e73abce321bfd4ad",
+			hashVersion:               core.HashVersionV1,
+			network:                   utils.Integration,
+		},
+		{
+			classHash:                 "0x941a2dc3ab607819fdc929bea95831a2e0c1aab2f2f34b3a23c55cebc8a040",
+			expectedCompiledClassHash: "0x6c1f99f23865abe822bd9690f8d6cd181d43b1ff5535842aa973363aa7c7bb3",
+			hashVersion:               core.HashVersionV2,
+			network:                   utils.SepoliaIntegration,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
+			client := feeder.NewTestClient(t, &tt.network)
+			gw := adaptfeeder.New(client)
 			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
-			got := class.(*core.SierraClass).Compiled.Hash()
+			got := class.(*core.SierraClass).Compiled.Hash(tt.hashVersion)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCompiledClassHash, got.String())
 		})
@@ -247,27 +261,56 @@ func TestVerifyClassHash(t *testing.T) {
 }
 
 func TestSegmentedBytecodeHash(t *testing.T) {
-	// nested case that is not covered by class hash tests
-	require.Equal(t, "0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
-		core.SegmentedBytecodeHash([]*felt.Felt{
-			new(felt.Felt).SetUint64(1),
-			new(felt.Felt).SetUint64(2),
-			new(felt.Felt).SetUint64(3),
-		}, []core.SegmentLengths{
-			{
-				Length: 1,
-			},
-			{
-				Children: []core.SegmentLengths{
-					{
-						Length: 1,
-					},
-					{
-						Length: 1,
-					},
+	byteCode := []*felt.Felt{
+		felt.NewFromUint64[felt.Felt](1),
+		felt.NewFromUint64[felt.Felt](2),
+		felt.NewFromUint64[felt.Felt](3),
+	}
+	segmentLengths := []core.SegmentLengths{
+		{
+			Length: 1,
+		},
+		{
+			Children: []core.SegmentLengths{
+				{
+					Length: 1,
+				},
+				{
+					Length: 1,
 				},
 			},
-		}).String())
+		},
+	}
+
+	t.Run("hash version v1", func(t *testing.T) {
+		hasher := core.NewCasmHasher(core.HashVersionV1)
+		// nested case that is not covered by class hash tests
+		segmentedByteCodeHash := core.SegmentedBytecodeHash(
+			byteCode,
+			segmentLengths,
+			hasher,
+		)
+		require.Equal(
+			t,
+			"0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
+			segmentedByteCodeHash.String(),
+		)
+	})
+
+	t.Run("hash version v2", func(t *testing.T) {
+		hasher := core.NewCasmHasher(core.HashVersionV2)
+		// nested case that is not covered by class hash tests
+		segmentedByteCodeHash := core.SegmentedBytecodeHash(
+			byteCode,
+			segmentLengths,
+			hasher,
+		)
+		require.Equal(
+			t,
+			"0x6cbb48b353d958576794ae55e64046f150ebac350207c97bdfd3cd5cdfbe406",
+			segmentedByteCodeHash.String(),
+		)
+	})
 }
 
 func TestSierraVersion(t *testing.T) {

@@ -36,7 +36,7 @@ type Reader interface {
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
-	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash *felt.Felt, err error)
+	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
 
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
@@ -176,33 +176,40 @@ func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, erro
 	return core.GetStateUpdateByHash(b.database, hash)
 }
 
-func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
+func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 	b.listener.OnRead("L1HandlerTxnHash")
-	txnHash, err := core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
-	return &txnHash, err // TODO: return felt value
+	return core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
 }
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
-	return core.GetTxByBlockNumIndex(b.database, blockNumber, index)
+	return core.TransactionsByBlockNumberAndIndexBucket.Get(
+		b.database,
+		db.BlockNumIndexKey{
+			Number: blockNumber,
+			Index:  index,
+		},
+	)
 }
 
 // TransactionByHash gets the transaction for a given hash.
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
-	return core.GetTxByHash(b.database, hash)
+	return core.GetTxByHash(b.database, (*felt.TransactionHash)(hash))
 }
 
 // Receipt gets the transaction receipt for a given transaction hash.
+// TODO: Return TransactionReceipt instead of *TransactionReceipt.
 func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	b.listener.OnRead("Receipt")
-	bnIndex, err := core.GetTxBlockNumIndexByHash(b.database, hash)
+	txHash := (*felt.TransactionHash)(hash)
+	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, txHash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	receipt, err := core.GetReceiptByHash(b.database, hash)
+	receipt, err := core.GetReceiptByHash(b.database, txHash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -231,8 +238,11 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
-	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition,
+func (b *Blockchain) Store(
+	block *core.Block,
+	blockCommitments *core.BlockCommitments,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	err := b.database.Update(func(txn db.IndexedBatch) error {
 		if err := verifyBlock(txn, block); err != nil {
@@ -265,6 +275,11 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
+		err := storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		if err != nil {
+			return err
+		}
+
 		return core.WriteChainHeight(txn, block.Number)
 	})
 	if err != nil {
@@ -275,6 +290,63 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		block.EventsBloom,
 		block.Number,
 	)
+}
+
+// storeCasmClassHashesV2ForBlock stores CASM class hashes V2 based on the block version.
+// For versions < 0.14.1, it computes hashes from class definitions.
+// For versions >= 0.14.1, it uses pre-computed hashes from the state update.
+func storeCasmClassHashesV2ForBlock(
+	txn db.IndexedBatch,
+	protocolVersion string,
+	newClasses map[felt.Felt]core.ClassDefinition,
+	stateUpdate *core.StateUpdate,
+) error {
+	ver, err := core.ParseBlockVersion(protocolVersion)
+	if err != nil {
+		return err
+	}
+	if ver.LessThan(core.Ver0_14_1) {
+		// Pre-compute blake2s CASM class hashes of declared classes in this block and
+		// store them in order to avoid computing them during simulation.
+		return computeAndStoreCasmClassHashesV2(txn, newClasses)
+	}
+	return storeCasmClassHashesV2(txn, stateUpdate.StateDiff.DeclaredV1Classes)
+}
+
+// computeAndStoreCasmClassHashesV2 computes and stores CASM class hashes V2 from class definitions.
+func computeAndStoreCasmClassHashesV2(
+	txn db.IndexedBatch,
+	declaredClasses map[felt.Felt]core.ClassDefinition,
+) error {
+	for classHash, classDefinition := range declaredClasses {
+		sierraClass, ok := classDefinition.(*core.SierraClass)
+		if !ok {
+			// We don't have CASM classes for deprecated Cairo class
+			continue
+		}
+
+		casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
+		sierraClassHash := felt.SierraClassHash(classHash)
+		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// storeCasmClassHashesV2 stores pre-computed CASM class hashes V2 from the state update.
+func storeCasmClassHashesV2(
+	txn db.IndexedBatch,
+	declaredV1Classes map[felt.Felt]*felt.Felt,
+) error {
+	for classHash, casmClassHashV2 := range declaredV1Classes {
+		casmHashV2 := felt.CasmClassHash(*casmClassHashV2)
+		sierraClassHash := felt.SierraClassHash(classHash)
+		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -348,7 +420,8 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	return core.NewState(txn), noopStateCloser, nil
 }
 
-// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
+// StateAtBlockNumber returns a StateReader that provides
+// a stable view to the state at the given block number
 func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
@@ -358,10 +431,11 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), blockNumber), noopStateCloser, nil
+	return core.NewDeprecatedStateHistory(core.NewState(txn), blockNumber), noopStateCloser, nil
 }
 
-// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
+// StateAtBlockHash returns a StateReader that provides
+// a stable view to the state at the given block hash
 func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
@@ -377,7 +451,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), header.Number), noopStateCloser, nil
+	return core.NewDeprecatedStateHistory(core.NewState(txn), header.Number), noopStateCloser, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
@@ -555,6 +629,12 @@ func (b *Blockchain) Finalise(
 		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
 			return err
 		}
+
+		err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		if err != nil {
+			return err
+		}
+
 		return core.WriteChainHeight(txn, block.Number)
 	})
 	if err != nil {
@@ -608,8 +688,8 @@ func (b *Blockchain) updateBlockHash(block *core.Block, stateUpdate *core.StateU
 	if err != nil {
 		return nil, err
 	}
-	block.Hash = blockHash
-	stateUpdate.BlockHash = blockHash
+	block.Hash = &blockHash
+	stateUpdate.BlockHash = &blockHash
 	return commitments, nil
 }
 
@@ -622,7 +702,8 @@ func (b *Blockchain) signBlock(
 	if sign == nil {
 		return nil
 	}
-	sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
+	commitment := stateUpdate.StateDiff.Commitment()
+	sig, err := sign(block.Hash, &commitment)
 	if err != nil {
 		return err
 	}

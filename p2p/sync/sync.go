@@ -384,7 +384,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %w", err)}
 					return
 				}
-				newClasses[*h] = coreC
+				newClasses[h] = coreC
 			}
 
 			// Build State update
@@ -426,8 +426,11 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 					return
 				}
 
-				if !expectedHash.Equal(post0132Hash) {
-					err = fmt.Errorf("block hash mismatch: expected %s, got %s", expectedHash, post0132Hash)
+				if !expectedHash.Equal(&post0132Hash) {
+					err = fmt.Errorf("block hash mismatch: expected %s, got %s",
+						expectedHash,
+						&post0132Hash,
+					)
 					bodyCh <- BlockBody{Err: err}
 					return
 				}

@@ -135,11 +135,16 @@ func getSampleClass(t *testing.T) (felt.Felt, *core.SierraClass) {
 	return classHash, sierraClass
 }
 
-func getTransactionHash(t *testing.T, tx core.Transaction, network *utils.Network) (*felt.Felt, *common.Hash) {
+func getTransactionHash(
+	t *testing.T,
+	tx core.Transaction,
+	network *utils.Network,
+) (felt.Felt, *common.Hash) {
 	t.Helper()
 	hash, err := core.TransactionHash(tx, network)
 	require.NoError(t, err)
-	return hash, core2p2p.AdaptHash(hash)
+	adaptedHash := core2p2p.AdaptHash(&hash)
+	return hash, adaptedHash
 }
 
 func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, network *utils.Network) (C, P) {
@@ -153,6 +158,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
 	accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
+	casmHash := sierraClass.Compiled.Hash(core.HashVersionV1)
 
 	consensusDeclareTransaction := core.DeclareTransaction{
 		TransactionHash:       nil,
@@ -162,7 +168,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     sierraClass.Compiled.Hash(),
+		CompiledClassHash:     &casmHash,
 		ResourceBounds:        resourceBounds,
 		Tip:                   tip,
 		PaymasterData:         paymasterData,
@@ -176,7 +182,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 			Sender:                    &common.Address{Elements: senderAddressBytes},
 			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
-			CompiledClassHash:         core2p2p.AdaptHash(sierraClass.Compiled.Hash()),
+			CompiledClassHash:         core2p2p.AdaptHash(&casmHash),
 			ResourceBounds:            p2pResourceBounds,
 			Tip:                       tip,
 			PaymasterData:             toFelt252Slice(paymasterDataBytes),
@@ -187,8 +193,8 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 		Class: core2p2p.AdaptSierraClass(sierraClass),
 	}
 
-	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeclareTransaction, network)
+	transactionHash, p2pHash := getTransactionHash(t, &consensusDeclareTransaction, network)
+	consensusDeclareTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeclareTransaction, sierraClass, nil),
 		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
@@ -212,7 +218,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T,
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     nil,
 			ContractAddressSalt: &contractAddressSalt,
-			ContractAddress:     contractAddress,
+			ContractAddress:     &contractAddress,
 			ClassHash:           &classHash,
 			ConstructorCallData: constructorCallData,
 			Version:             version,
@@ -240,8 +246,8 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T,
 		FeeDataAvailabilityMode:   common.VolitionDomain_L2,
 	}
 
-	var p2pHash *common.Hash
-	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeployAccountTransaction, network)
+	transactionHash, p2pHash := getTransactionHash(t, &consensusDeployAccountTransaction, network)
+	consensusDeployAccountTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil), b.ToP2PDeploy(&p2pTransaction, p2pHash)
 }
@@ -288,8 +294,8 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, networ
 		Nonce:                     &common.Felt252{Elements: nonceBytes},
 	}
 
-	var p2pHash *common.Hash
-	consensusInvokeTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusInvokeTransaction, network)
+	transactionHash, p2pHash := getTransactionHash(t, &consensusInvokeTransaction, network)
+	consensusInvokeTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusInvokeTransaction, nil, nil), b.ToP2PInvoke(&p2pTransaction, p2pHash)
 }
@@ -318,8 +324,8 @@ func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, net
 		Calldata:           toFelt252Slice(callDataBytes),
 	}
 
-	var p2pHash *common.Hash
-	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusL1HandlerTransaction, network)
+	transactionHash, p2pHash := getTransactionHash(t, &consensusL1HandlerTransaction, network)
+	consensusL1HandlerTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
 }

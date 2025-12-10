@@ -17,6 +17,7 @@ use starknet_api::{
         GasPrices, NonzeroGasPrice, StarknetVersion,
     },
     core::{ChainId, ContractAddress},
+    versioned_constants_logic::VersionedConstantsTrait,
 };
 use starknet_types_core::felt::Felt;
 
@@ -123,6 +124,8 @@ pub fn build_block_context(
             eth_fee_token_address: ContractAddress::try_from(eth_fee_token_felt)?,
             strk_fee_token_address: ContractAddress::try_from(strk_fee_token_felt)?,
         },
+        // TODO(Ege): make this configurable
+        is_l3: false,
     };
 
     pre_process_block(

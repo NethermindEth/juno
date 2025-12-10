@@ -39,7 +39,11 @@ func newNodeSet(classNodes classNodesMap, contractNodes contractNodesMap, contra
 	return ns
 }
 
-func (s *nodeSet) node(owner *felt.Felt, path *trieutils.Path, isClass bool) (trienode.TrieNode, bool) {
+func (s *nodeSet) node(
+	owner *felt.Address,
+	path *trieutils.Path,
+	isClass bool,
+) (trienode.TrieNode, bool) {
 	// class trie nodes
 	if isClass {
 		node, ok := s.classNodes[*path]
@@ -47,7 +51,7 @@ func (s *nodeSet) node(owner *felt.Felt, path *trieutils.Path, isClass bool) (tr
 	}
 
 	// contract trie nodes
-	if owner.IsZero() {
+	if felt.IsZero(owner) {
 		node, ok := s.contractNodes[*path]
 		return node, ok
 	}
@@ -123,7 +127,7 @@ type journalNode struct {
 // Represents a set of journal nodes for a specific trie type and owner
 type journalNodes struct {
 	TrieType trieutils.TrieType
-	Owner    felt.Felt
+	Owner    felt.Address
 	Nodes    []journalNode
 }
 
@@ -138,7 +142,7 @@ func (s *nodeSet) encode(w io.Writer) error {
 
 	classEntry := journalNodes{
 		TrieType: trieutils.Class,
-		Owner:    felt.Zero,
+		Owner:    felt.Address{},
 		Nodes:    make([]journalNode, 0, len(s.classNodes)),
 	}
 	for path, n := range s.classNodes {
@@ -153,7 +157,7 @@ func (s *nodeSet) encode(w io.Writer) error {
 
 	contractEntry := journalNodes{
 		TrieType: trieutils.Contract,
-		Owner:    felt.Zero,
+		Owner:    felt.Address{},
 		Nodes:    make([]journalNode, 0, len(s.contractNodes)),
 	}
 	for path, n := range s.contractNodes {
@@ -231,6 +235,7 @@ func (s *nodeSet) decode(data []byte) error {
 			}
 		}
 	}
+	s.computeSize()
 
 	return nil
 }
@@ -301,41 +306,73 @@ func writeNodes(
 ) error {
 	for path, n := range classNodes {
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(w, db.ClassTrie, &felt.Zero, &path, n.IsLeaf()); err != nil {
+			err := trieutils.DeleteNodeByPath(
+				w,
+				db.ClassTrie,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+			)
+			if err != nil {
 				return err
 			}
-			cleans.deleteNode(&felt.Zero, &path, true)
+			cleans.deleteNode(&felt.Address{}, &path, true)
 		} else {
-			if err := trieutils.WriteNodeByPath(w, db.ClassTrie, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
+			err := trieutils.WriteNodeByPath(
+				w,
+				db.ClassTrie,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+				n.Blob(),
+			)
+			if err != nil {
 				return err
 			}
-			cleans.putNode(&felt.Zero, &path, true, n.Blob())
+			cleans.putNode(&felt.Address{}, &path, true, n.Blob())
 		}
 	}
 
 	for path, n := range contractNodes {
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
-			if err := trieutils.DeleteNodeByPath(w, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf()); err != nil {
+			err := trieutils.DeleteNodeByPath(
+				w,
+				db.ContractTrieContract,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+			)
+			if err != nil {
 				return err
 			}
-			cleans.deleteNode(&felt.Zero, &path, false)
+			cleans.deleteNode(&felt.Address{}, &path, false)
 		} else {
-			if err := trieutils.WriteNodeByPath(w, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
+			err := trieutils.WriteNodeByPath(
+				w,
+				db.ContractTrieContract,
+				&felt.Address{},
+				&path,
+				n.IsLeaf(),
+				n.Blob(),
+			)
+			if err != nil {
 				return err
 			}
-			cleans.putNode(&felt.Zero, &path, false, n.Blob())
+			cleans.putNode(&felt.Address{}, &path, false, n.Blob())
 		}
 	}
 
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
 			if _, deleted := n.(*trienode.DeletedNode); deleted {
-				if err := trieutils.DeleteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf()); err != nil {
+				err := trieutils.DeleteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf())
+				if err != nil {
 					return err
 				}
 				cleans.deleteNode(&owner, &path, false)
 			} else {
-				if err := trieutils.WriteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf(), n.Blob()); err != nil {
+				err := trieutils.WriteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf(), n.Blob())
+				if err != nil {
 					return err
 				}
 				cleans.putNode(&owner, &path, false, n.Blob())

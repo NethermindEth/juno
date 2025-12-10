@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -16,7 +17,7 @@ func NewProofNodeSet() *ProofNodeSet {
 }
 
 type ProofNode interface {
-	Hash(hash crypto.HashFn) *felt.Felt
+	Hash(hash crypto.HashFn) felt.Felt
 	Len() uint8
 	String() string
 }
@@ -26,7 +27,7 @@ type Binary struct {
 	RightHash *felt.Felt
 }
 
-func (b *Binary) Hash(hash crypto.HashFn) *felt.Felt {
+func (b *Binary) Hash(hash crypto.HashFn) felt.Felt {
 	return hash(b.LeftHash, b.RightHash)
 }
 
@@ -43,13 +44,15 @@ type Edge struct {
 	Path  *BitArray  // path from parent to child
 }
 
-func (e *Edge) Hash(hash crypto.HashFn) *felt.Felt {
+func (e *Edge) Hash(hash crypto.HashFn) felt.Felt {
 	var length [32]byte
 	length[31] = e.Path.len
 	pathFelt := e.Path.Felt()
 	lengthFelt := new(felt.Felt).SetBytes(length[:])
-	// TODO: no need to return reference, just return value to avoid heap allocation
-	return new(felt.Felt).Add(hash(e.Child, &pathFelt), lengthFelt)
+
+	hashPath := hash(e.Child, &pathFelt)
+	hashPath.Add(&hashPath, lengthFelt)
+	return hashPath
 }
 
 func (e *Edge) Len() uint8 {
@@ -82,12 +85,12 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		isLeaf := sNode.key.len == t.height
 
 		if sNodeEdge != nil && !isLeaf { // Internal Edge
-			proof.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
-			proof.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
+			proof.Put(sNodeEdge.Hash(t.hash), sNodeEdge)
+			proof.Put(sNodeBinary.Hash(t.hash), sNodeBinary)
 		} else if sNodeEdge == nil && !isLeaf { // Internal Binary
-			proof.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
+			proof.Put(sNodeBinary.Hash(t.hash), sNodeBinary)
 		} else if sNodeEdge != nil && isLeaf { // Leaf Edge
-			proof.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
+			proof.Put(sNodeEdge.Hash(t.hash), sNodeEdge)
 		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
 			break
 		}
@@ -138,26 +141,46 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 //   - Any node's computed hash doesn't match its expected hash
 //   - The path bits don't match the key bits
 //   - The proof ends before processing all key bits
-func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) (*felt.Felt, error) {
-	keyBits := new(BitArray).SetFelt(globalTrieHeight, keyFelt)
+func VerifyProof(
+	root,
+	keyFelt *felt.Felt,
+	proof *ProofNodeSet,
+	hash crypto.HashFn,
+) (felt.Felt, error) {
+	var keyBits BitArray
+	keyBits.SetFelt(globalTrieHeight, keyFelt)
 	expectedHash := root
 
 	var curPos uint8
 	for {
 		proofNode, ok := proof.Get(*expectedHash)
 		if !ok {
-			return nil, fmt.Errorf("proof node not found, expected hash: %s", expectedHash.String())
+			return felt.Felt{}, fmt.Errorf(
+				"proof node not found, expected hash: %s",
+				expectedHash.String(),
+			)
 		}
 
 		// Verify the hash matches
-		if !proofNode.Hash(hash).Equal(expectedHash) {
-			return nil, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expectedHash.String(), proofNode.Hash(hash).String())
+		proofNodeHash := proofNode.Hash(hash)
+		if !proofNodeHash.Equal(expectedHash) {
+			return felt.Felt{},
+				fmt.Errorf(
+					"proof node hash mismatch, expected hash: %s, got hash: %s",
+					expectedHash.String(),
+					proofNodeHash.String(),
+				)
 		}
 
 		switch node := proofNode.(type) {
 		case *Binary: // Binary nodes represent left/right choices
 			if keyBits.Len() <= curPos {
-				return nil, fmt.Errorf("key length less than current position, key length: %d, current position: %d", keyBits.Len(), curPos)
+				return felt.Felt{},
+					fmt.Errorf(
+						"key length less than current position, key length: %d, current position: %d",
+						keyBits.Len(),
+						curPos,
+					)
 			}
 			// Determine the next node to traverse based on the next bit position
 			expectedHash = node.LeftHash
@@ -166,8 +189,8 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 			}
 			curPos++
 		case *Edge: // Edge nodes represent paths between binary nodes
-			if !verifyEdgePath(keyBits, node.Path, curPos) {
-				return &felt.Zero, nil
+			if !verifyEdgePath(&keyBits, node.Path, curPos) {
+				return felt.Zero, nil
 			}
 
 			// Move to the immediate child node
@@ -177,7 +200,7 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 
 		// We've consumed all bits in our path
 		if curPos >= keyBits.Len() {
-			return expectedHash, nil
+			return *expectedHash, nil
 		}
 	}
 }
@@ -354,7 +377,8 @@ func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (
 			Path:  &edgePath,
 			Child: rNode.Value,
 		}
-		rightHash = rEdge.Hash(tri.hash)
+		hash := rEdge.Hash(tri.hash)
+		rightHash = &hash
 	}
 	leftHash := lNode.Value
 	if isEdge(sNode.key, StorageNode{node: lNode, key: sNode.node.Left}) {
@@ -363,7 +387,8 @@ func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (
 			Path:  &edgePath,
 			Child: lNode.Value,
 		}
-		leftHash = lEdge.Hash(tri.hash)
+		hash := lEdge.Hash(tri.hash)
+		leftHash = &hash
 	}
 	binary := &Binary{
 		LeftHash:  leftHash,
@@ -560,7 +585,9 @@ func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
 
 // buildTrie builds a trie from a list of storage nodes and a list of keys and values.
 func buildTrie(height uint8, rootKey *BitArray, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
-	tr, err := NewTriePedersen(newMemStorage(), height)
+	memoryDB := memory.New()
+	txn := memoryDB.NewIndexedBatch()
+	tr, err := NewTriePedersen(txn, nil, height)
 	if err != nil {
 		return nil, err
 	}

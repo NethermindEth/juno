@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http/httptest"
+	"strconv"
+	stdsync "sync"
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
@@ -25,15 +26,13 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/coder/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-var emptyCommitments = core.BlockCommitments{}
-
 type fakeConn struct {
+	net.Conn
 	w io.Writer
 }
 
@@ -279,8 +278,8 @@ func TestSubscribeEvents(t *testing.T) {
 		rpcv9.TxnAcceptedOnL2,
 		false,
 	)
-	b2PreConfirmedPartial := createTestPreConfirmed(t, b2, 3)
-	b2PreConfirmedExtended := createTestPreConfirmed(t, b2, 6)
+	b2PreConfirmedPartial := CreateTestPreConfirmed(t, b2, 3)
+	b2PreConfirmedExtended := CreateTestPreConfirmed(t, b2, 6)
 
 	b2PreConfirmedPartialFiltered, b2PreConfirmedPartialEmitted := createTestEvents(
 		t,
@@ -311,8 +310,8 @@ func TestSubscribeEvents(t *testing.T) {
 		true,
 	)
 
-	b3PreConfirmedPartial := createTestPreConfirmed(t, b3, len(b3.Transactions)-1)
-	b3PreConfirmedFull := createTestPreConfirmed(t, b3, len(b3.Transactions))
+	b3PreConfirmedPartial := CreateTestPreConfirmed(t, b3, len(b3.Transactions)-1)
+	b3PreConfirmedFull := CreateTestPreConfirmed(t, b3, len(b3.Transactions))
 	b3PreConfirmedPartialFiltered, b3PreConfirmedPartialEmitted := createTestEvents(
 		t,
 		b3PreConfirmedPartial.Block,
@@ -400,10 +399,11 @@ func TestSubscribeEvents(t *testing.T) {
 	handler := New(mockChain, mockSyncer, nil, log)
 
 	type stepInfo struct {
-		description string
-		setupMocks  func()
-		notify      func()
-		expect      [][]SubscriptionEmittedEvent
+		description   string
+		setupMocks    func()
+		notify        func()
+		expect        [][]SubscriptionEmittedEvent
+		expectedReorg *rpcv9.ReorgEvent
 	}
 
 	type testCase struct {
@@ -895,6 +895,53 @@ func TestSubscribeEvents(t *testing.T) {
 		},
 	}
 
+	reorg := sync.ReorgBlockRange{
+		StartBlockHash: b1.Hash,
+		StartBlockNum:  b1.Number,
+		EndBlockHash:   b1.Hash,
+		EndBlockNum:    b1.Number,
+	}
+	reorgEvent := testCase{
+		description: "returns reorg event",
+		blockID:     nil,
+		keys:        nil,
+		fromAddr:    nil,
+		setupMocks: func() {
+			setupMockEventFilterer(
+				mockChain,
+				mockEventFilterer,
+				b1.Header,
+				b1.Header.Number-1,
+				b1Filtered,
+			)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from latest on start",
+				expect:      [][]SubscriptionEmittedEvent{b1Emitted},
+			},
+			{
+				description: "on reorg event",
+				notify: func() {
+					handler.reorgs.Send(&reorg)
+				},
+				expectedReorg: &rpcv9.ReorgEvent{
+					StartBlockHash: reorg.StartBlockHash,
+					StartBlockNum:  reorg.StartBlockNum,
+					EndBlockHash:   reorg.EndBlockHash,
+					EndBlockNum:    reorg.EndBlockNum,
+				},
+			},
+			{
+				description: "events from incoming block after reorg",
+				notify: func() {
+					handler.newHeads.Send(b1)
+				},
+				expect: [][]SubscriptionEmittedEvent{b1Emitted},
+			},
+		},
+	}
+
 	testCases := []testCase{
 		preStarknet0_14_0basicSubscription,
 		preStarknet0_14_0basicSubscriptionWithPending,
@@ -907,6 +954,7 @@ func TestSubscribeEvents(t *testing.T) {
 		eventsWithAllFilterAndPreConfirmed,
 		deduplication,
 		deduplicationWithPreLatestOnStart,
+		reorgEvent,
 	}
 
 	for _, tc := range testCases {
@@ -930,6 +978,11 @@ func TestSubscribeEvents(t *testing.T) {
 
 				if step.notify != nil {
 					step.notify()
+				}
+
+				if step.expectedReorg != nil {
+					assertNextReorg(t, conn, subID, step.expectedReorg)
+					continue
 				}
 
 				if len(step.expect) == 0 {
@@ -1273,9 +1326,69 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			"",
 		)
 	})
+
+	t.Run("returns reorg event", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		adapterFeeder := adaptfeeder.New(client)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(nil, mockSyncer, nil, log)
+		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
+		require.NoError(t, err)
+
+		targetTxn := block.Transactions[0]
+		targetReceipt := block.Receipts[0]
+
+		preConfirmedData1 := &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number,
+					ParentHash:       block.ParentHash,
+					TransactionCount: 1,
+				},
+				Transactions: []core.Transaction{targetTxn},
+				Receipts:     []*core.TransactionReceipt{targetReceipt},
+			},
+		}
+
+		// We need to return some status at start, otherwise it will re-try for a while
+		// and mocking `PendingData` will be observed before prelatest feed trigger.
+		mockSyncer.EXPECT().PendingData().Return(preConfirmedData1, nil)
+		id, conn := createTestTxStatusWebsocket(t, handler, targetTxn.Hash())
+		assertNextTxnStatus(
+			t,
+			conn,
+			id,
+			targetTxn.Hash(),
+			rpcv9.TxnStatusPreConfirmed,
+			rpcv9.TxnSuccess,
+			"",
+		)
+
+		reorg := sync.ReorgBlockRange{
+			StartBlockHash: felt.NewUnsafeFromString[felt.Felt](
+				"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
+			),
+			StartBlockNum: 0,
+			EndBlockHash: felt.NewUnsafeFromString[felt.Felt](
+				"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
+			),
+			EndBlockNum: 2,
+		}
+		handler.reorgs.Send(&reorg)
+		expectedReorgEvent := rpcv9.ReorgEvent{
+			StartBlockHash: reorg.StartBlockHash,
+			StartBlockNum:  reorg.StartBlockNum,
+			EndBlockHash:   reorg.EndBlockHash,
+			EndBlockNum:    reorg.EndBlockNum,
+		}
+		assertNextReorg(t, conn, id, &expectedReorgEvent)
+	})
 }
 
-func TestSubscribeNewHeads(t *testing.T) {
+func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
 	t.Run("BlockID - Number, Invalid Input", func(t *testing.T) {
@@ -1315,272 +1428,204 @@ func TestSubscribeNewHeads(t *testing.T) {
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 	})
+}
 
-	t.Run("new block is received", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
+func TestSubscribeNewHeads(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	blockNumber1 := uint64(56377)
+	blockNumber2 := uint64(56378)
+	blockNumber3 := uint64(56379)
+	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block3, commitments3, stateUpdate3 := GetTestBlockWithCommitments(t, client, blockNumber3)
 
-		ctx, cancel := context.WithCancel(t.Context())
-		t.Cleanup(cancel)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
 
-		mockChain := mocks.NewMockReader(mockCtrl)
-		syncer := newFakeSyncer()
+	mockChain := mocks.NewMockReader(mockCtrl)
+	handler := New(mockChain, nil, nil, log)
 
-		l1Feed := feed.New[*core.L1Head]()
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		mockChain.EXPECT().SubscribeL1Head().
-			Return(
-				blockchain.L1HeadSubscription{
-					Subscription: l1Feed.Subscribe(),
-				},
-			)
+	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
 
-		handler, server := setupRPC(t, ctx, mockChain, syncer)
-		conn := createWsConn(t, ctx, server)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
+	blockIDLatest := rpcv9.BlockIDLatest()
+	subID, conn := createTestNewHeadsWebsocket(
+		t,
+		handler,
+		(*rpcv9.SubscriptionBlockID)(&blockIDLatest),
+	)
 
-		id := "1"
-		handler.WithIDGen(func() string { return id })
+	// Receive one historical head
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader)
+	// Receive new block
+	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
-		got := sendWsMessage(t, ctx, conn, subMsg("starknet_subscribeNewHeads"))
-		require.Equal(t, subResp(id), got)
+	handler.newHeads.Send(block2)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader2)
+	// Receive new block
+	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block3.Number).Return(stateUpdate3, nil)
 
-		// Ignore the first mock header
-		_, _, err := conn.Read(ctx)
-		require.NoError(t, err)
-
-		// Simulate a new block
-		syncer.newHeads.Send(testHeadBlock(t))
-
-		// Receive a block header.
-		_, headerGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, newHeadsResponse(id), string(headerGot))
-	})
+	handler.newHeads.Send(block3)
+	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader3)
 }
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
-	gw := adaptfeeder.New(client)
+	log := utils.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	blockNumber1 := uint64(56377)
+	blockNumber2 := uint64(56378)
+	blockNumber3 := uint64(56379)
+	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block3, commitments3, stateUpdate3 := GetTestBlockWithCommitments(t, client, blockNumber3)
 
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
 
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	handler := New(mockChain, nil, nil, log)
 
-	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Mainnet)
-	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+	mockChain.EXPECT().HeadsHeader().Return(block2.Header, nil)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
+	mockChain.EXPECT().BlockHeaderByNumber(block2.Number).Return(block2.Header, nil)
 
-	chain = blockchain.New(testDB, &utils.Mainnet)
-	syncer := newFakeSyncer()
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
+	blockID := rpcv9.BlockIDFromNumber(block1.Number)
+	subID, conn := createTestNewHeadsWebsocket(
+		t,
+		handler,
+		(*rpcv9.SubscriptionBlockID)(&blockID),
+	)
 
-	handler, server := setupRPC(t, ctx, chain, syncer)
+	// Receive two historical heads
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader)
 
-	conn := createWsConn(t, ctx, server)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader2)
 
-	id := "1"
-	handler.WithIDGen(func() string { return id })
+	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block3.Number).Return(stateUpdate3, nil)
 
-	subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}`
-	got := sendWsMessage(t, ctx, conn, subMsg)
-	require.Equal(t, subResp(id), got)
+	// Receive new block
+	handler.newHeads.Send(block3)
+	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader3)
+}
 
-	// Check block 0 content
-	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":"%s"}}`
-	want = fmt.Sprintf(want, id)
-	_, block0Got, err := conn.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, want, string(block0Got))
+func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	blockNumber1 := uint64(56377)
+	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
 
-	// Simulate a new block
-	syncer.newHeads.Send(testHeadBlock(t))
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
 
-	// Check new block content
-	_, newBlockGot, err := conn.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, newHeadsResponse(id), string(newBlockGot))
+	mockChain := mocks.NewMockReader(mockCtrl)
+	handler := New(mockChain, nil, nil, log)
+
+	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
+
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
+	blockIDLatest := rpcv9.BlockIDLatest()
+	subID, conn := createTestNewHeadsWebsocket(
+		t,
+		handler,
+		(*rpcv9.SubscriptionBlockID)(&blockIDLatest),
+	)
+
+	// Receive one historical head
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader)
+
+	// Receive reorg event
+	reorg := sync.ReorgBlockRange{
+		StartBlockHash: block1.Hash,
+		StartBlockNum:  block1.Number,
+		EndBlockHash:   block1.Hash,
+		EndBlockNum:    block1.Number,
+	}
+	handler.reorgs.Send(&reorg)
+	expectedReorgEvent := rpcv9.ReorgEvent{
+		StartBlockHash: reorg.StartBlockHash,
+		StartBlockNum:  reorg.StartBlockNum,
+		EndBlockHash:   reorg.EndBlockHash,
+		EndBlockNum:    reorg.EndBlockNum,
+	}
+	assertNextReorg(t, conn, subID, &expectedReorgEvent)
+
+	// Keep receiving incoming heads
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
+	handler.newHeads.Send(block1)
+	adaptedHeader2 := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader2)
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
+	log := utils.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	blockNumber1 := uint64(56377)
+	blockNumber2 := uint64(56378)
 
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
-	mockChain := mocks.NewMockReader(mockCtrl)
-	syncer := newFakeSyncer()
-
-	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().
-		Return(
-			blockchain.L1HeadSubscription{
-				Subscription: l1Feed.Subscribe(),
-			},
-		)
-
-	handler, server := setupRPC(t, ctx, mockChain, syncer)
-
-	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
-
-	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
-	httpSrv := httptest.NewServer(ws)
-
-	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose // closed in cleanup
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, conn1.Close(websocket.StatusNormalClosure, ""))
-	})
-
-	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose // closed in cleanup
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, conn2.Close(websocket.StatusNormalClosure, ""))
-	})
-
-	firstID := "1"
-	secondID := "2"
-
-	handler.WithIDGen(func() string { return firstID })
-	firstGot := sendWsMessage(t, ctx, conn1, subMsg("starknet_subscribeNewHeads"))
-	require.NoError(t, err)
-	require.Equal(t, subResp(firstID), firstGot)
-
-	handler.WithIDGen(func() string { return secondID })
-	secondGot := sendWsMessage(t, ctx, conn2, subMsg("starknet_subscribeNewHeads"))
-	require.NoError(t, err)
-	require.Equal(t, subResp(secondID), secondGot)
-
-	// Ignore the first mock header
-	_, _, err = conn1.Read(ctx)
-	require.NoError(t, err)
-	_, _, err = conn2.Read(ctx)
-	require.NoError(t, err)
-
-	// Simulate a new block
-	syncer.newHeads.Send(testHeadBlock(t))
-
-	// Receive a block header.
-	_, firstHeaderGot, err := conn1.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, newHeadsResponse(firstID), string(firstHeaderGot))
-
-	_, secondHeaderGot, err := conn2.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, newHeadsResponse(secondID), string(secondHeaderGot))
-
-	// Unsubscribe
-	unsubMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_unsubscribe","params":[%s]}`
-	require.NoError(
-		t, conn1.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, firstID)),
-	)
-	require.NoError(
-		t, conn2.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, secondID)),
-	)
-}
-
-func TestSubscriptionReorg(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
+	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().Return(
-		blockchain.L1HeadSubscription{
-			Subscription: l1Feed.Subscribe(),
-		},
-	)
-	mockChain.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
-	syncer := newFakeSyncer()
-	handler, server := setupRPC(t, ctx, mockChain, syncer)
+	handler := New(mockChain, nil, nil, log)
 
-	testCases := []struct {
-		name            string
-		subscribeMethod string
-		ignoreFirst     bool
-	}{
-		{
-			name:            "reorg event in starknet_subscribeNewHeads",
-			subscribeMethod: "starknet_subscribeNewHeads",
-			ignoreFirst:     true,
-		},
-		{
-			name:            "reorg event in starknet_subscribeEvents",
-			subscribeMethod: "starknet_subscribeEvents",
-			ignoreFirst:     false,
-		},
-		{
-			name:            "reorg event in starknet_subscribeNewTransactionReceipts",
-			subscribeMethod: "starknet_subscribeNewTransactionReceipts",
-			ignoreFirst:     false,
-		},
-		{
-			name:            "reorg event in starknet_subscribeNewTransactions",
-			subscribeMethod: "starknet_subscribeNewTransactions",
-			ignoreFirst:     false,
-		},
-		// TODO: test reorg event in TransactionStatus
-	}
+	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil).Times(2)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
+	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil).Times(2)
 
-	mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
-	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-		Return(nil).AnyTimes()
-	mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
-		Return(nil, blockchain.ContinuationToken{}, nil).AnyTimes()
-	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
+	blockIDLatest := rpcv9.SubscriptionBlockID(rpcv9.BlockIDLatest())
+	// Create two subscriber
+	subID1, conn1 := createTestNewHeadsWebsocket(t, handler, &blockIDLatest)
+	subID2, conn2 := createTestNewHeadsWebsocket(t, handler, &blockIDLatest)
 
-	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
-	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(mockEventFilterer, nil).AnyTimes()
+	// Both subscribers receives one historical head
+	adaptedHeader1 := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	assertNextHead(t, conn1, subID1, &adaptedHeader1)
+	assertNextHead(t, conn2, subID2, &adaptedHeader1)
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			conn := createWsConn(t, ctx, server)
+	// Both subscribers receives new block
+	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil).Times(2)
+	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil).Times(2)
+	handler.newHeads.Send(block2)
 
-			id := "1"
-			handler.WithIDGen(func() string { return id })
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	assertNextHead(t, conn1, subID1, &adaptedHeader2)
+	assertNextHead(t, conn2, subID2, &adaptedHeader2)
 
-			got := sendWsMessage(t, ctx, conn, subMsg(tc.subscribeMethod))
-			require.Equal(t, subResp(id), got)
+	// Unsubscribe - use the same fakeConn instances that were stored during subscription
+	subCtx1 := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn1)
+	unsubDone, err := handler.Unsubscribe(subCtx1, string(subID1))
+	require.Nil(t, err)
+	require.True(t, unsubDone)
 
-			if tc.ignoreFirst {
-				_, _, err := conn.Read(ctx)
-				require.NoError(t, err)
-			}
-
-			// Simulate a reorg
-			syncer.reorgs.Send(&sync.ReorgBlockRange{
-				StartBlockHash: felt.NewUnsafeFromString[felt.Felt](
-					"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
-				),
-				StartBlockNum: 0,
-				EndBlockHash: felt.NewUnsafeFromString[felt.Felt](
-					"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
-				),
-				EndBlockNum: 2,
-			})
-
-			// Receive reorg event
-			expectedRes := `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":"%s"}}`
-			want := fmt.Sprintf(expectedRes, id)
-			_, reorgGot, err := conn.Read(ctx)
-			require.NoError(t, err)
-			require.Equal(t, want, string(reorgGot))
-		})
-	}
+	subCtx2 := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn2)
+	unsubDone, err = handler.Unsubscribe(subCtx2, string(subID2))
+	require.True(t, unsubDone)
+	require.Nil(t, err)
 }
 
 func TestSubscribeNewTransactions(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -1592,7 +1637,14 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			Subscription: l1Feed.Subscribe(),
 		},
 	)
-	handler, _ := setupRPC(t, ctx, mockChain, syncer)
+	handler := New(mockChain, syncer, nil, utils.NewNopZapLogger())
+	handlerCtx, handlerCancel := context.WithCancel(t.Context())
+	var handlerWg stdsync.WaitGroup
+	handlerWg.Go(func() {
+		require.NoError(t, handler.Run(handlerCtx))
+	})
+	defer handlerWg.Wait()
+	defer handlerCancel()
 
 	n := &utils.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -1625,25 +1677,26 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	extendedPreConfirmedCount := 6
 
 	// Pre-confirmed blocks for block 56377
-	b1PreConfirmedPartial := createTestPreConfirmed(t, newHead1, partialPreConfirmedCount)
-	b1PreConfirmedExtended := createTestPreConfirmed(t, newHead1, extendedPreConfirmedCount)
-	b1PreConfirmedFull := createTestPreConfirmed(t, newHead1, len(newHead1.Transactions))
+	b1PreConfirmedPartial := CreateTestPreConfirmed(t, newHead1, partialPreConfirmedCount)
+	b1PreConfirmedExtended := CreateTestPreConfirmed(t, newHead1, extendedPreConfirmedCount)
+	b1PreConfirmedFull := CreateTestPreConfirmed(t, newHead1, len(newHead1.Transactions))
 
 	// Pre-latest block for block 56377
 	b1PreLatest := core.PreLatest(createTestPending(t, newHead1, len(newHead1.Transactions)))
 
 	// Pre-confirmed blocks for block 56378
-	b2PreConfirmedPartial := createTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
-	b2PreConfirmedExtended := createTestPreConfirmed(t, newHead2, extendedPreConfirmedCount)
-	b2PreConfirmedFull := createTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
+	b2PreConfirmedPartial := CreateTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
+	b2PreConfirmedExtended := CreateTestPreConfirmed(t, newHead2, extendedPreConfirmedCount)
+	b2PreConfirmedFull := CreateTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
 
 	// Pre-latest block for block 56378
 	b2PreLatest := core.PreLatest(createTestPending(t, newHead2, len(newHead2.Transactions)))
 
 	type stepInfo struct {
-		description string
-		notify      func()
-		expect      [][]*rpcv9.SubscriptionNewTransaction
+		description   string
+		notify        func()
+		expect        [][]*rpcv9.SubscriptionNewTransaction
+		expectedReorg *rpcv9.ReorgEvent
 	}
 
 	type testCase struct {
@@ -1973,7 +2026,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed full of candidates",
 				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, 0)))
+					syncer.pendingData.Send(utils.HeapPtr(CreateTestPreConfirmed(t, newHead2, 0)))
 				},
 				expect: [][]*rpcv9.SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -2143,6 +2196,36 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	}
 
+	reorg := sync.ReorgBlockRange{
+		StartBlockHash: felt.NewUnsafeFromString[felt.Felt](
+			"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
+		),
+		StartBlockNum: 0,
+		EndBlockHash: felt.NewUnsafeFromString[felt.Felt](
+			"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
+		),
+		EndBlockNum: 2,
+	}
+	reorgEvent := testCase{
+		description:   "returns reorg event",
+		statuses:      nil,
+		senderAddress: nil,
+		steps: []stepInfo{
+			{
+				description: "on reorg event",
+				notify: func() {
+					syncer.reorgs.Send(&reorg)
+				},
+				expectedReorg: &rpcv9.ReorgEvent{
+					StartBlockHash: reorg.StartBlockHash,
+					StartBlockNum:  reorg.StartBlockNum,
+					EndBlockHash:   reorg.EndBlockHash,
+					EndBlockNum:    reorg.EndBlockNum,
+				},
+			},
+		},
+	}
+
 	testCases := []testCase{
 		preStarknet0_14_0DefaultFinality,
 		defaultFinality, // onlyAcceptedOnL2
@@ -2152,14 +2235,20 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		allStatusesWithFilter,
 		preLatestTransactions,
 		deduplication,
+		reorgEvent,
 	}
-
+	//nolint:dupl // Shares similar structure with other tests but tests different method
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			subID, conn := createTestNewTransactionsWebsocket(t, handler, tc.statuses, tc.senderAddress)
 			for _, step := range tc.steps {
 				if step.notify != nil {
 					step.notify()
+				}
+
+				if step.expectedReorg != nil {
+					assertNextReorg(t, conn, subID, step.expectedReorg)
+					continue
 				}
 
 				if len(step.expect) == 0 {
@@ -2174,7 +2263,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		})
 	}
 
-	//nolint:dupl // not duplicate, similar test for different method
 	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
 		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
 
@@ -2192,9 +2280,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 }
 
 func TestSubscribeTransactionReceipts(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -2206,7 +2291,14 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			Subscription: l1Feed.Subscribe(),
 		},
 	)
-	handler, _ := setupRPC(t, ctx, mockChain, syncer)
+	handler := New(mockChain, syncer, nil, utils.NewNopZapLogger())
+	handlerCtx, handlerCancel := context.WithCancel(t.Context())
+	var handlerWg stdsync.WaitGroup
+	handlerWg.Go(func() {
+		require.NoError(t, handler.Run(handlerCtx))
+	})
+	defer handlerWg.Wait()
+	defer handlerCancel()
 
 	n := &utils.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -2219,9 +2311,10 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	require.NoError(t, err)
 
 	type stepInfo struct {
-		description string
-		notify      func()
-		expect      [][]*rpcv9.TransactionReceipt
+		description   string
+		notify        func()
+		expect        [][]*rpcv9.TransactionReceipt
+		expectedReorg *rpcv9.ReorgEvent
 	}
 
 	type testCase struct {
@@ -2243,7 +2336,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			if filterTxBySender(txn, senderAddress) {
 				receipts = append(
 					receipts,
-					rpcv9.AdaptReceipt(
+					rpcv9.AdaptReceiptWithBlockInfo(
 						receipt,
 						txn,
 						finalityStatus,
@@ -2322,15 +2415,15 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	partialPreConfirmedCount := 3
 	extendedPreConfirmedCount := 6
-	b1PreConfirmedPartial := createTestPreConfirmed(t, newHead1, partialPreConfirmedCount)
-	b1PreConfirmedExtended := createTestPreConfirmed(t, newHead1, extendedPreConfirmedCount)
+	b1PreConfirmedPartial := CreateTestPreConfirmed(t, newHead1, partialPreConfirmedCount)
+	b1PreConfirmedExtended := CreateTestPreConfirmed(t, newHead1, extendedPreConfirmedCount)
 
 	b1PreLatest := core.PreLatest(createTestPending(t, newHead1, len(newHead1.Transactions)))
 	b2PreLatest := core.PreLatest(createTestPending(t, newHead2, len(newHead2.Transactions)))
 
-	b2PreConfirmedPartial := createTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
-	b2PreConfirmedExtended := createTestPreConfirmed(t, newHead2, extendedPreConfirmedCount)
-	b2PreConfirmedFull := createTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
+	b2PreConfirmedPartial := CreateTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
+	b2PreConfirmedExtended := CreateTestPreConfirmed(t, newHead2, extendedPreConfirmedCount)
+	b2PreConfirmedFull := CreateTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
 
 	defaultFinalityStatus := testCase{
 		description: "Basic subscription with default finality status",
@@ -2677,6 +2770,35 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		},
 	}
 
+	reorg := sync.ReorgBlockRange{
+		StartBlockHash: felt.NewUnsafeFromString[felt.Felt](
+			"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
+		),
+		StartBlockNum: 0,
+		EndBlockHash: felt.NewUnsafeFromString[felt.Felt](
+			"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
+		),
+		EndBlockNum: 2,
+	}
+	reorgEvent := testCase{
+		description: "returns reorg event",
+		statuses:    nil,
+		steps: []stepInfo{
+			{
+				description: "on reorg event",
+				notify: func() {
+					syncer.reorgs.Send(&reorg)
+				},
+				expectedReorg: &rpcv9.ReorgEvent{
+					StartBlockHash: reorg.StartBlockHash,
+					StartBlockNum:  reorg.StartBlockNum,
+					EndBlockHash:   reorg.EndBlockHash,
+					EndBlockNum:    reorg.EndBlockNum,
+				},
+			},
+		},
+	}
+
 	testCases := []testCase{
 		defaultFinalityStatus,
 		preStarknet0_14_0defaultFinalityStatus,
@@ -2685,14 +2807,21 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		onlyPreConfirmed,
 		preLatestReceipts,
 		receiptDeduplication,
+		reorgEvent,
 	}
 
+	//nolint:dupl // Shares similar structure with other tests but tests different method
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			subID, conn := createTestTransactionReceiptsWebsocket(t, handler, tc.senderAddress, tc.statuses)
 			for _, step := range tc.steps {
 				if step.notify != nil {
 					step.notify()
+				}
+
+				if step.expectedReorg != nil {
+					assertNextReorg(t, conn, subID, step.expectedReorg)
+					continue
 				}
 
 				if len(step.expect) == 0 {
@@ -2706,7 +2835,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			}
 		})
 	}
-	//nolint:dupl // not duplicate, similar test for different method
+
 	t.Run("Returns error if to many address in filter", func(t *testing.T) {
 		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
 
@@ -2824,82 +2953,6 @@ func TestUnsubscribe(t *testing.T) {
 	})
 }
 
-func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *websocket.Conn {
-	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
-	httpSrv := httptest.NewServer(ws)
-
-	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose // closed in cleanup
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
-	})
-
-	return conn
-}
-
-func subResp(id string) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":"1"}`, id)
-}
-
-func subMsg(method string) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","id":"1","method":%q}`, method)
-}
-
-func testHeadBlock(t *testing.T) *core.Block {
-	t.Helper()
-
-	n := utils.HeapPtr(utils.Sepolia)
-	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
-
-	b1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	return b1
-}
-
-func newHeadsResponse(id string) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce","parent_hash":"0x5d5e7c03c7ef4419c0847d7ae1d1079b6f91fa952ebdb20b74ca2e621017f02","block_number":56377,"new_root":"0x2a899e1200baa9b843cbfb65d63f4f746cec27f8edb42f8446ae349b532f8b3","timestamp":1712213818,"sequencer_address":"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","l1_gas_price":{"price_in_fri":"0x1d1a94a20000","price_in_wei":"0x4a817c800"},"l1_data_gas_price":{"price_in_fri":"0x2dfb78bf913d","price_in_wei":"0x6b85dda55"},"l1_da_mode":"BLOB","starknet_version":"0.13.1","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%q}}`, id)
-}
-
-// setupRPC creates a RPC handler that runs in a goroutine and
-// a JSONRPC server that can be used to test subscriptions
-func setupRPC(
-	t *testing.T,
-	ctx context.Context,
-	chain blockchain.Reader,
-	syncer sync.Reader,
-) (*Handler, *jsonrpc.Server) {
-	t.Helper()
-
-	log := utils.NewNopZapLogger()
-	handler := New(chain, syncer, nil, log)
-
-	go func() {
-		require.NoError(t, handler.Run(ctx))
-	}()
-	time.Sleep(50 * time.Millisecond)
-
-	server := jsonrpc.NewServer(1, log)
-	methods, _ := handler.methods()
-	require.NoError(t, server.RegisterMethods(methods...))
-
-	return handler, server
-}
-
-// sendWsMessage sends a message to a websocket connection and returns the response
-func sendWsMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, message string) string {
-	t.Helper()
-
-	err := conn.Write(ctx, websocket.MessageText, []byte(message))
-	require.NoError(t, err)
-
-	_, response, err := conn.Read(ctx)
-	require.NoError(t, err)
-	return string(response)
-}
-
 func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte, error) {
 	return json.Marshal(rpcv9.SubscriptionResponse{
 		Version: "2.0",
@@ -3015,6 +3068,23 @@ func assertNextTransactions(
 	}
 }
 
+func assertNextHead(
+	t *testing.T,
+	conn net.Conn,
+	id SubscriptionID,
+	blockHeader *BlockHeader,
+) {
+	t.Helper()
+
+	assertNextMessage(t, conn, id, "starknet_subscriptionNewHeads", blockHeader)
+}
+
+func assertNextReorg(t *testing.T, conn net.Conn, id SubscriptionID, reorg *rpcv9.ReorgEvent) {
+	t.Helper()
+
+	assertNextMessage(t, conn, id, "starknet_subscriptionReorg", reorg)
+}
+
 func createTestPending(t *testing.T, b *core.Block, txCount int) core.Pending {
 	t.Helper()
 
@@ -3034,7 +3104,7 @@ func createTestPending(t *testing.T, b *core.Block, txCount int) core.Pending {
 	}
 }
 
-func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) core.PreConfirmed {
+func CreateTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) core.PreConfirmed {
 	t.Helper()
 
 	actualTxCount := len(b.Transactions)
@@ -3053,15 +3123,27 @@ func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) 
 			Hash:             nil,
 			ParentHash:       nil,
 			Number:           b.Number,
-			GlobalStateRoot:  b.GlobalStateRoot,
 			SequencerAddress: b.SequencerAddress,
 			TransactionCount: uint64(preConfirmedCount),
+			Timestamp:        b.Timestamp,
+			ProtocolVersion:  b.ProtocolVersion,
+			L1GasPriceETH:    b.L1GasPriceETH,
+			L1GasPriceSTRK:   b.L1GasPriceSTRK,
+			L2GasPrice:       b.L2GasPrice,
+			L1DataGasPrice:   b.L1DataGasPrice,
+			L1DAMode:         b.L1DAMode,
 		},
 	}
 
 	preConfirmedBlock.Transactions = b.Transactions[:preConfirmedCount]
 	preConfirmedBlock.Receipts = b.Receipts[:preConfirmedCount]
 	preConfirmedBlock.EventsBloom = core.EventsBloom(preConfirmedBlock.Receipts)
+
+	eventCount := 0
+	for _, receipt := range preConfirmedBlock.Receipts {
+		eventCount += len(receipt.Events)
+	}
+	preConfirmedBlock.EventCount = uint64(eventCount)
 	preConfirmed.Block = &preConfirmedBlock
 	return preConfirmed
 }
@@ -3171,6 +3253,18 @@ func createTestTransactionReceiptsWebsocket(
 	})
 }
 
+func createTestNewHeadsWebsocket(
+	t *testing.T,
+	h *Handler,
+	blockID *rpcv9.SubscriptionBlockID,
+) (SubscriptionID, net.Conn) {
+	t.Helper()
+
+	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
+		return h.SubscribeNewHeads(ctx, blockID)
+	})
+}
+
 func createTestWebsocket(
 	t *testing.T,
 	subscribe func(context.Context) (SubscriptionID, *jsonrpc.Error),
@@ -3180,7 +3274,9 @@ func createTestWebsocket(
 	serverConn, clientConn := net.Pipe()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	// Create fakeConn embedding clientConn for net.Conn methods, using serverConn for writing
+	fakeConn := &fakeConn{Conn: clientConn, w: serverConn}
+	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, fakeConn)
 	id, rpcErr := subscribe(subCtx)
 	require.Nil(t, rpcErr)
 
@@ -3191,5 +3287,35 @@ func createTestWebsocket(
 		time.Sleep(100 * time.Millisecond)
 	})
 
-	return id, clientConn
+	// Return the same fakeConn instance so it can be reused for unsubscribe
+	return id, fakeConn
+}
+
+func GetTestBlockWithCommitments(
+	t *testing.T,
+	client *feeder.Client,
+	blockNumber uint64,
+) (*core.Block, *core.BlockCommitments, *core.StateUpdate) {
+	t.Helper()
+
+	blockID := strconv.FormatUint(blockNumber, 10)
+	blockWithStateUpdate, err := client.StateUpdateWithBlock(t.Context(), blockID)
+	require.NoError(t, err)
+
+	sig, err := client.Signature(t.Context(), blockID)
+	require.NoError(t, err)
+
+	adaptedState, err := sn2core.AdaptStateUpdate(blockWithStateUpdate.StateUpdate)
+	require.NoError(t, err)
+	adaptedBlock, err := sn2core.AdaptBlock(blockWithStateUpdate.Block, sig)
+	require.NoError(t, err)
+
+	commitments := &core.BlockCommitments{
+		TransactionCommitment: blockWithStateUpdate.Block.TransactionCommitment,
+		EventCommitment:       blockWithStateUpdate.Block.EventCommitment,
+		ReceiptCommitment:     blockWithStateUpdate.Block.ReceiptCommitment,
+		StateDiffCommitment:   blockWithStateUpdate.Block.StateDiffCommitment,
+	}
+
+	return adaptedBlock, commitments, adaptedState
 }

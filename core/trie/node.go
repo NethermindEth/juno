@@ -31,8 +31,8 @@ func (n *Node) Hash(path *BitArray, hashFn crypto.HashFn) felt.Felt {
 	pathFelt := path.Felt()
 	hash := hashFn(n.Value, &pathFelt)
 	pathFelt.SetUint64(uint64(path.Len()))
-	fullHash := hash.Add(hash, &pathFelt)
-	return *fullHash
+	hash.Add(&hash, &pathFelt)
+	return hash
 }
 
 // Hash calculates the hash of a [Node]

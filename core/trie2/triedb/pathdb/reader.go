@@ -16,7 +16,12 @@ type reader struct {
 	l  layer
 }
 
-func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
 	return r.l.node(r.id, owner, path, isLeaf)
 }
 
@@ -24,7 +29,7 @@ func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) 
 	stateComm := id.StateComm()
 	l := d.tree.get(&stateComm)
 	if l == nil {
-		return nil, fmt.Errorf("layer %v not found", id.StateComm())
+		return nil, fmt.Errorf("layer %v not found", &stateComm)
 	}
 	return &reader{id: id, l: l}, nil
 }

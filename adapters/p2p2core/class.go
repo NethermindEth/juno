@@ -28,10 +28,11 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 		return utils.Map(utils.NonNilSlice(points), adaptSierra)
 	}
 
+	programHash := crypto.PoseidonArray(program...)
 	entryPoints := cairo1.EntryPoints
 	return core.SierraClass{
 		Abi:     cairo1.Abi,
-		AbiHash: abiHash,
+		AbiHash: &abiHash,
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint
 			External    []core.SierraEntryPoint
@@ -42,7 +43,7 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 			L1Handler:   adaptEP(entryPoints.L1Handlers),
 		},
 		Program:         program,
-		ProgramHash:     crypto.PoseidonArray(program...),
+		ProgramHash:     &programHash,
 		SemanticVersion: cairo1.ContractClassVersion,
 		Compiled:        compiled,
 	}, nil

@@ -275,7 +275,7 @@ func (d *Database) getStateRoot() felt.Felt {
 	encContractRoot, err := trieutils.GetNodeByPath(
 		d.disk,
 		db.ContractTrieContract,
-		&felt.Zero,
+		&felt.Address{},
 		&trieutils.Path{},
 		false,
 	)
@@ -286,7 +286,7 @@ func (d *Database) getStateRoot() felt.Felt {
 	encStorageRoot, err := trieutils.GetNodeByPath(
 		d.disk,
 		db.ClassTrie,
-		&felt.Zero,
+		&felt.Address{},
 		&trieutils.Path{},
 		false,
 	)
@@ -306,5 +306,5 @@ func (d *Database) getStateRoot() felt.Felt {
 	}
 	classRootHash := classRootNode.Hash(crypto.Pedersen)
 
-	return *crypto.PoseidonArray(stateVersion, &contractRootHash, &classRootHash)
+	return crypto.PoseidonArray(stateVersion, &contractRootHash, &classRootHash)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -378,10 +379,9 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	// The database transaction we will use to create both tries.
 	memDB := memory.New()
 	txn := memDB.NewIndexedBatch()
-	tTxn := trie.NewStorage(txn, []byte{1, 2, 3})
 
 	// Step 1: Create first trie
-	tempTrie, err := trie.NewTriePedersen(tTxn, height)
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{1, 2, 3}, height)
 	require.NoError(t, err)
 
 	// Step 1a: Put
@@ -405,8 +405,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	assert.Equal(t, want, &got)
 
 	// Step 2: Different trie created with the same db transaction and calls [trie.Root].
-	tTxn = trie.NewStorage(txn, []byte{1, 2, 3})
-	secondTrie, err := trie.NewTriePedersen(tTxn, height)
+	secondTrie, err := trie.NewTriePedersen(txn, []byte{1, 2, 3}, height)
 	require.NoError(t, err)
 	got, err = secondTrie.Hash()
 	require.NoError(t, err)
@@ -437,4 +436,54 @@ func BenchmarkTriePut(b *testing.B) {
 		benchTriePutR = f
 		return t.Commit()
 	}))
+}
+
+// ConcurrentReadsWithinHash tests that Trie.Hash()
+// can handle concurrent reads when updateChildTriesConcurrently
+// is called.
+func TestTrie_Hash_ConcurrentReadsWithinHash(t *testing.T) {
+	memDB := memory.New()
+	txn := memDB.NewIndexedBatch()
+	prefix := []byte("test")
+
+	trieInstance, err := trie.NewTriePedersen(txn, prefix, 8)
+	require.NoError(t, err)
+
+	for i := range 100 {
+		key := felt.NewFromUint64[felt.Felt](uint64(i))
+		value := felt.NewFromUint64[felt.Felt](uint64(i * 2))
+		_, err := trieInstance.Put(key, value)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, txn.Write())
+
+	_, err = trieInstance.Hash()
+	require.NoError(t, err)
+}
+
+// ConcurrentReadsWithinHash tests that Trie.Hash()
+// can handle concurrent reads when updateChildTriesConcurrently
+// is called with BufferBatch.
+func TestTrie_Hash_ConcurrentReadsWithBufferBatch(t *testing.T) {
+	memDB := memory.New()
+	baseTxn := memDB.NewIndexedBatch()
+	prefix := []byte("test")
+
+	bufferBatch := db.NewBufferBatch(baseTxn)
+
+	trieInstance, err := trie.NewTriePedersen(bufferBatch, prefix, 8)
+	require.NoError(t, err)
+
+	for i := range 100 {
+		key := felt.NewFromUint64[felt.Felt](uint64(i))
+		value := felt.NewFromUint64[felt.Felt](uint64(i * 2))
+		_, err := trieInstance.Put(key, value)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, bufferBatch.Flush())
+
+	_, err = trieInstance.Hash()
+	require.NoError(t, err)
 }

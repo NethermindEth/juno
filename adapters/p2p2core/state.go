@@ -34,9 +34,10 @@ func AdaptStateDiff(
 		}
 		switch c := class.(type) {
 		case *core.DeprecatedCairoClass:
-			declaredV0Classes = append(declaredV0Classes, h)
+			declaredV0Classes = append(declaredV0Classes, &h)
 		case *core.SierraClass:
-			declaredV1Classes[*h] = c.Compiled.Hash()
+			casmHash := c.Compiled.Hash(core.HashVersionV1)
+			declaredV1Classes[h] = &casmHash
 			// todo add type?
 		}
 	}

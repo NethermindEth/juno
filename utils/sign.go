@@ -11,8 +11,9 @@ type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt
 // Sign returns the builder's signature over data.
 func Sign(privKey *ecdsa.PrivateKey) BlockSignFunc {
 	return func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error) {
-		data := crypto.PoseidonArray(blockHash, stateDiffCommitment).Bytes()
-		signatureBytes, err := privKey.Sign(data[:], nil)
+		data := crypto.PoseidonArray(blockHash, stateDiffCommitment)
+		dataBytes := data.Bytes()
+		signatureBytes, err := privKey.Sign(dataBytes[:], nil)
 		if err != nil {
 			return nil, err
 		}

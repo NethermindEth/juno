@@ -22,7 +22,7 @@ type Trie struct {
 	height uint8
 
 	// The owner of the trie, only used for contract trie. If not empty, this is a storage trie.
-	owner felt.Felt
+	owner felt.Address
 
 	// The root node of the trie
 	root trienode.Node
@@ -194,6 +194,8 @@ func (t *Trie) Delete(key *felt.Felt) error {
 func (t *Trie) Hash() (felt.Felt, error) {
 	hash, cached := t.hashRoot()
 	t.root = cached
+	// TODO: return of error added to comply with common trie interface.
+	// Should be removed after integration.
 	return felt.Felt(*hash.(*trienode.HashNode)), nil
 }
 

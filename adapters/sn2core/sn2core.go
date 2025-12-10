@@ -219,12 +219,13 @@ func adaptResourceBounds(
 // todo(rdr): return by value
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
-		t.ContractAddress = core.ContractAddress(
+		contractAddress := core.ContractAddress(
 			&felt.Zero,
 			t.ClassHash,
 			t.ContractAddressSalt,
 			*t.ConstructorCallData,
 		)
+		t.ContractAddress = &contractAddress
 	}
 	return &core.DeployTransaction{
 		TransactionHash:     t.Hash,
@@ -328,13 +329,15 @@ func AdaptSierraClass(
 		return nil, err
 	}
 
+	programHash := crypto.PoseidonArray(response.Program...)
+	abiHash := crypto.StarknetKeccak([]byte(response.Abi))
 	return &core.SierraClass{
 		SemanticVersion: response.Version,
 		Program:         response.Program,
-		ProgramHash:     crypto.PoseidonArray(response.Program...),
+		ProgramHash:     &programHash,
 
 		Abi:     response.Abi,
-		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
+		AbiHash: &abiHash,
 
 		Compiled: &coreCompiledClass,
 
@@ -352,7 +355,9 @@ func AdaptCasmClass(compiledClass *starknet.CasmClass) (core.CasmClass, error) {
 	casm.PythonicHints = compiledClass.PythonicHints
 	casm.CompilerVersion = compiledClass.CompilerVersion
 	casm.Hints = compiledClass.Hints
-	casm.BytecodeSegmentLengths = AdaptSegmentLengths(compiledClass.BytecodeSegmentLengths)
+	if compiledClass.BytecodeSegmentLengths != nil {
+		casm.BytecodeSegmentLengths = AdaptSegmentLengths(*compiledClass.BytecodeSegmentLengths)
+	}
 
 	var ok bool
 	casm.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)

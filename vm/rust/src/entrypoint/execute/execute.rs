@@ -18,7 +18,6 @@ use crate::{
     state_reader::{state_reader::BlockHeight, JunoStateReader},
 };
 use serde::Deserialize;
-use serde_json::json;
 use std::{
     collections::VecDeque,
     ffi::{c_char, c_uchar},
@@ -138,15 +137,14 @@ pub fn cairo_vm_execute(
         )
         .map_err(|e| match e {
             ExecutionError::ExecutionError { error, error_stack } => {
-                let err_string = if err_stack {
-                    error_stack_frames_to_json(error_stack).to_string()
+                if err_stack {
+                    JunoError::json_error(error_stack_frames_to_json(error_stack), Some(txn_index))
                 } else {
-                    json!(error).to_string()
-                };
-                JunoError::tx_non_execution_error(err_string, txn_index)
+                    JunoError::tx_non_execution_error(error, txn_index)
+                }
             }
             ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
-                JunoError::tx_non_execution_error(json!(e), txn_index)
+                JunoError::tx_non_execution_error(e, txn_index)
             }
         })?;
 
@@ -180,7 +178,7 @@ pub fn cairo_vm_execute(
         )
         .map_err(|err| {
             JunoError::tx_non_execution_error(
-                format!("failed building txn state diff reason: {:?}", err),
+                format!("failed building txn state diff reason: {err:?}"),
                 txn_index,
             )
         })?;

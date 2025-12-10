@@ -68,32 +68,32 @@ func DeleteContract(w db.KeyValueWriter, addr *felt.Felt) error {
 }
 
 func WriteNonceHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, nonce *felt.Felt) error {
-	key := db.ContractHistoryNonceKey(addr, blockNum)
+	key := db.ContractNonceHistoryAtBlockKey(addr, blockNum)
 	return w.Put(key, nonce.Marshal())
 }
 
 func WriteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, classHash *felt.Felt) error {
-	key := db.ContractHistoryClassHashKey(addr, blockNum)
+	key := db.ContractClassHashHistoryAtBlockKey(addr, blockNum)
 	return w.Put(key, classHash.Marshal())
 }
 
 func WriteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64, value *felt.Felt) error {
-	dbKey := db.ContractHistoryStorageKey(addr, key, blockNum)
+	dbKey := db.ContractStorageHistoryAtBlockKey(addr, key, blockNum)
 	return w.Put(dbKey, value.Marshal())
 }
 
 func DeleteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64) error {
-	dbKey := db.ContractHistoryStorageKey(addr, key, blockNum)
+	dbKey := db.ContractStorageHistoryAtBlockKey(addr, key, blockNum)
 	return w.Delete(dbKey)
 }
 
 func DeleteNonceHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64) error {
-	dbKey := db.ContractHistoryNonceKey(addr, blockNum)
+	dbKey := db.ContractNonceHistoryAtBlockKey(addr, blockNum)
 	return w.Delete(dbKey)
 }
 
 func DeleteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64) error {
-	dbKey := db.ContractHistoryClassHashKey(addr, blockNum)
+	dbKey := db.ContractClassHashHistoryAtBlockKey(addr, blockNum)
 	return w.Delete(dbKey)
 }
 

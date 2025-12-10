@@ -383,10 +383,11 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
-		t.ClassHash, err = declaredClass.Hash()
+		classHash, err := declaredClass.Hash()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		t.ClassHash = &classHash
 	}
 
 	txnHash, err := core.TransactionHash(txn, network)
@@ -397,13 +398,13 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.InvokeTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.DeployAccountTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 	case *core.L1HandlerTransaction:
-		t.TransactionHash = txnHash
+		t.TransactionHash = &txnHash
 		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
 		return nil, nil, nil, errors.New("unsupported transaction")
@@ -590,7 +591,14 @@ func (h *Handler) getPendingTransactionReceipt(
 		// If pending data is pre_confirmed receipt is coming from pre_latest
 		isPreLatest = pending.Variant() == core.PreConfirmedBlockVariant
 	}
-	return AdaptReceipt(receipt, txn, status, nil, blockNumber, isPreLatest), nil
+	return AdaptReceiptWithBlockInfo(
+		receipt,
+		txn,
+		status,
+		nil,
+		blockNumber,
+		isPreLatest,
+	), nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -626,7 +634,14 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 		status = TxnAcceptedOnL1
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, false), nil
+	return AdaptReceiptWithBlockInfo(
+		receipt,
+		txn,
+		status,
+		blockHash,
+		blockNumber,
+		false,
+	), nil
 }
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
@@ -666,12 +681,19 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	}
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
-		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+		contractAddress := core.ContractAddress(
+			&felt.Zero,
+			tx.ClassHash,
+			tx.ContractAddressSalt,
+			*tx.ConstructorCallData,
+		)
+		res.ContractAddress = &contractAddress
 	} else if tx.Type == TxnDeclare {
-		res.ClassHash, err = userClass.Hash()
+		classHash, err := userClass.Hash()
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 		}
+		res.ClassHash = &classHash
 	}
 	return res, nil
 }
@@ -892,13 +914,33 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 }
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
-func AdaptReceipt(
+//
+// AdaptReceiptWithoutBlockInfo returns JSON-RPC TXN_RECEIPT_WITH_BLOCK_INFO
+func AdaptReceiptWithBlockInfo(
 	receipt *core.TransactionReceipt,
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
 	isPreLatest bool,
+) *TransactionReceipt {
+	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
+
+	// Return block number for canonical, pre_latest and pre_confirmed block
+	shouldHaveBlockNumber := blockHash != nil || finalityStatus == TxnPreConfirmed || isPreLatest
+	if shouldHaveBlockNumber {
+		adaptedReceipt.BlockNumber = &blockNumber
+	}
+
+	adaptedReceipt.BlockHash = blockHash
+	return adaptedReceipt
+}
+
+// AdaptReceiptWithoutBlockInfo adapts a receipt and transaction into JSON-RPC TXN_RECEIPT.
+func AdaptReceipt(
+	receipt *core.TransactionReceipt,
+	txn core.Transaction,
+	finalityStatus TxnFinalityStatus,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
@@ -929,14 +971,6 @@ func AdaptReceipt(
 		messageHash = "0x" + hex.EncodeToString(v.MessageHash())
 	}
 
-	var receiptBlockNumber *uint64
-
-	// Do not return block number for pending block
-	// Return block number for canonical, pre_latest and pre_confirmed block
-	if blockHash != nil || finalityStatus == TxnPreConfirmed || isPreLatest {
-		receiptBlockNumber = &blockNumber
-	}
-
 	var es TxnExecutionStatus
 	if receipt.Reverted {
 		es = TxnFailure
@@ -953,8 +987,6 @@ func AdaptReceipt(
 			Amount: receipt.Fee,
 			Unit:   feeUnit(txn),
 		},
-		BlockHash:          blockHash,
-		BlockNumber:        receiptBlockNumber,
 		MessagesSent:       messages,
 		Events:             events,
 		ContractAddress:    contractAddress,

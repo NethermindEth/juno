@@ -505,8 +505,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Timestamp:        coreBlock.Timestamp,
 			},
 			L2GasPrice: &rpcv6.ResourcePrice{
-				InFri: &felt.Zero,
-				InWei: &felt.Zero,
+				InFri: &felt.One,
+				InWei: &felt.One,
 			},
 		},
 		Status: rpcv6.BlockAcceptedL2,

@@ -100,7 +100,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	schemaMeta, err := migration.SchemaMetadata(database)
+	schemaMeta, err := migration.SchemaMetadata(utils.NewNopZapLogger(), database)
 	if err != nil {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}

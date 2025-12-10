@@ -74,7 +74,7 @@ func (d *StateDiff) Merge(incoming *StateDiff) {
 // todo(rdr): Is this global variable justified?
 var starknetStateDiff0 = felt.FromBytes[felt.Felt]([]byte("STARKNET_STATE_DIFF0"))
 
-func (d *StateDiff) Hash() *felt.Felt {
+func (d *StateDiff) Hash() felt.Felt {
 	digest := new(crypto.PoseidonDigest)
 
 	digest.Update(&starknetStateDiff0)
@@ -133,7 +133,7 @@ func (d *StateDiff) Hash() *felt.Felt {
 	return digest.Finish()
 }
 
-func (d *StateDiff) Commitment() *felt.Felt {
+func (d *StateDiff) Commitment() felt.Felt {
 	version := felt.Zero
 	var tmpFelt felt.Felt
 
@@ -177,11 +177,23 @@ func (d *StateDiff) Commitment() *felt.Felt {
 			hash_of_old_declared_classes, number_of_DA_modes,
 			DA_mode_0, hash_of_storage_domain_state_diff_0, DA_mode_1, hash_of_storage_domain_state_diff_1, …])
 	*/
+	deployedContractsHash := hashOfDeployedContracts.Finish()
+	declaredClassesHash := hashOfDeclaredClasses.Finish()
+	oldDeclaredClassesHash := hashOfOldDeclaredClasses.Finish()
 	commitmentDigest := new(crypto.PoseidonDigest)
-	commitmentDigest.Update(&version, hashOfDeployedContracts.Finish(), hashOfDeclaredClasses.Finish(), hashOfOldDeclaredClasses.Finish())
+	commitmentDigest.Update(
+		&version,
+		&deployedContractsHash,
+		&declaredClassesHash,
+		&oldDeclaredClassesHash,
+	)
 	commitmentDigest.Update(tmpFelt.SetUint64(uint64(len(hashOfStorageDomains))))
 	for idx := range hashOfStorageDomains {
-		commitmentDigest.Update(tmpFelt.SetUint64(uint64(idx)), hashOfStorageDomains[idx].Finish())
+		storageDomainHash := hashOfStorageDomains[idx].Finish()
+		commitmentDigest.Update(
+			tmpFelt.SetUint64(uint64(idx)),
+			&storageDomainHash,
+		)
 	}
 	return commitmentDigest.Finish()
 }

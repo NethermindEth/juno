@@ -13,8 +13,12 @@ func TestPoseidon(t *testing.T) {
 	left := new(felt.Felt).SetUint64(1)
 	right := new(felt.Felt).SetUint64(2)
 
-	assert.Equal(t, "0x5d44a3decb2b2e0cc71071f7b802f45dd792d064f0fc7316c46514f70f9891a",
-		crypto.Poseidon(left, right).String())
+	hash := crypto.Poseidon(left, right)
+	assert.Equal(
+		t,
+		"0x5d44a3decb2b2e0cc71071f7b802f45dd792d064f0fc7316c46514f70f9891a",
+		hash.String(),
+	)
 }
 
 func TestPoseidonArray(t *testing.T) {
@@ -43,13 +47,16 @@ func TestPoseidonArray(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var digest, digestWhole crypto.PoseidonDigest
-			assert.Equal(t, test.expected, crypto.PoseidonArray(test.elems...).String())
-			assert.Equal(t, test.expected, digestWhole.Update(test.elems...).Finish().String())
+			hash := crypto.PoseidonArray(test.elems...)
+			assert.Equal(t, test.expected, hash.String())
+			hash = digestWhole.Update(test.elems...).Finish()
+			assert.Equal(t, test.expected, hash.String())
 
 			for _, elem := range test.elems {
 				digest.Update(elem)
 			}
-			assert.Equal(t, test.expected, digest.Finish().String())
+			hash = digest.Finish()
+			assert.Equal(t, test.expected, hash.String())
 		})
 	}
 }
@@ -61,7 +68,7 @@ func BenchmarkPoseidonArray(b *testing.B) {
 	for _, i := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
 			randomFeltSls := genRandomFeltSls(b, i)
-			var f *felt.Felt
+			var f felt.Felt
 			b.ResetTimer()
 			for n := range b.N {
 				f = crypto.PoseidonArray(randomFeltSls[n]...)
@@ -74,7 +81,7 @@ func BenchmarkPoseidonArray(b *testing.B) {
 func BenchmarkPoseidon(b *testing.B) {
 	randFelts := genRandomFeltPairs(b)
 
-	var f *felt.Felt
+	var f felt.Felt
 	b.ResetTimer()
 	for n := range b.N {
 		f = crypto.Poseidon(randFelts[n][0], randFelts[n][1])

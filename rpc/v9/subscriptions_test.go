@@ -2106,7 +2106,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			if filterTxBySender(txn, senderAddress) {
 				receipts = append(
 					receipts,
-					AdaptReceipt(
+					AdaptReceiptWithBlockInfo(
 						receipt,
 						txn,
 						finalityStatus,

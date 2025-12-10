@@ -719,7 +719,13 @@ func (h *Handler) SubscribeNewHeads(
 			_ *subscription,
 			head *core.Block,
 		) error {
-			return sendHeader(w, head.Header, id)
+			commitments, stateDiff, err := h.getCommitmentsAndStateDiff(head.Number)
+			if err != nil {
+				return err
+			}
+
+			adaptedHeader := AdaptBlockHeader(head.Header, commitments, stateDiff)
+			return sendHeader(w, &adaptedHeader, id)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)
@@ -788,17 +794,19 @@ func (h *Handler) sendHistoricalHeaders(
 	w jsonrpc.Conn,
 	id string,
 ) error {
-	var (
-		err       error
-		curHeader = startHeader
-	)
-
+	curHeader := startHeader
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			if err := sendHeader(w, curHeader, id); err != nil {
+			commitments, stateDiff, err := h.getCommitmentsAndStateDiff(curHeader.Number)
+			if err != nil {
+				return err
+			}
+
+			adaptedHeader := AdaptBlockHeader(curHeader, commitments, stateDiff)
+			if err = sendHeader(w, &adaptedHeader, id); err != nil {
 				return err
 			}
 
@@ -973,7 +981,7 @@ func processBlockReceipts(
 			continue
 		}
 
-		adaptedReceipt := rpcv9.AdaptReceipt(
+		adaptedReceipt := rpcv9.AdaptReceiptWithBlockInfo(
 			block.Receipts[i],
 			txn,
 			rpcv9.TxnFinalityStatus(finalityStatus),
@@ -1224,8 +1232,8 @@ func sendEvent(w jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error
 }
 
 // sendHeader creates a request and sends it to the client
-func sendHeader(w jsonrpc.Conn, header *core.Header, id string) error {
-	return sendResponse("starknet_subscriptionNewHeads", w, id, rpcv9.AdaptBlockHeader(header))
+func sendHeader(w jsonrpc.Conn, header *BlockHeader, id string) error {
+	return sendResponse("starknet_subscriptionNewHeads", w, id, header)
 }
 
 func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {

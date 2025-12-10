@@ -588,8 +588,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
 			L2GasPrice: &rpcv6.ResourcePrice{
-				InFri: &felt.Zero,
-				InWei: &felt.Zero,
+				InFri: &felt.One,
+				InWei: &felt.One,
 			},
 		},
 		Status: rpcv9.BlockAcceptedL2,
@@ -696,9 +696,6 @@ func TestBlockWithReceipts(t *testing.T) {
 					receipt,
 					tx,
 					rpcv9.TxnPreConfirmed,
-					nil,
-					0,
-					false,
 				),
 			})
 		}
@@ -746,9 +743,6 @@ func TestBlockWithReceipts(t *testing.T) {
 					receipt,
 					tx,
 					rpcv9.TxnAcceptedOnL1,
-					nil,
-					0,
-					false,
 				),
 			}
 		}

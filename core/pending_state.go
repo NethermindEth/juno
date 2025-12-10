@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -27,10 +27,6 @@ func NewPendingState(
 		newClasses: newClasses,
 		head:       head,
 	}
-}
-
-func (p *PendingState) ChainHeight() (uint64, error) {
-	return p.head.ChainHeight()
 }
 
 func (p *PendingState) StateDiff() *StateDiff {
@@ -78,15 +74,34 @@ func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, er
 	return p.head.Class(classHash)
 }
 
-func (p *PendingState) ClassTrie() (*trie.Trie, error) {
+func (p *PendingState) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	classHashFelt := felt.Felt(*classHash)
+	if casmHash, found := p.stateDiff.DeclaredV1Classes[classHashFelt]; found {
+		return felt.CasmClassHash(*casmHash), nil
+	}
+	return p.head.CompiledClassHash(classHash)
+}
+
+func (p *PendingState) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	if casmHash, found := p.stateDiff.MigratedClasses[*classHash]; found {
+		return casmHash, nil
+	}
+	return p.head.CompiledClassHashV2(classHash)
+}
+
+func (p *PendingState) ClassTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractTrie() (*trie.Trie, error) {
+func (p *PendingState) ContractTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
