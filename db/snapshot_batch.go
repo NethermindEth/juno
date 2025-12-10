@@ -31,13 +31,17 @@ func NewSnapshotBatch(batch Batch, snapshot Snapshot) *snapshotBatch {
 }
 
 func (b *snapshotBatch) Put(key, value []byte) error {
-	b.writes[string(key)] = slices.Clone(value)
+	keyStr := string(key)
+	delete(b.deletes, keyStr)
+	b.writes[keyStr] = slices.Clone(value)
 	b.size += len(key) + len(value)
 	return nil
 }
 
 func (b *snapshotBatch) Delete(key []byte) error {
-	b.deletes[string(key)] = struct{}{}
+	keyStr := string(key)
+	delete(b.writes, keyStr)
+	b.deletes[keyStr] = struct{}{}
 	b.size += len(key)
 	return nil
 }
@@ -96,6 +100,9 @@ func (b *snapshotBatch) Reset() {
 }
 
 func (b *snapshotBatch) Get(key []byte, cb func([]byte) error) error {
+	if _, ok := b.deletes[string(key)]; ok {
+		return ErrKeyNotFound
+	}
 	if entry, ok := b.writes[string(key)]; ok {
 		return cb(entry)
 	}
