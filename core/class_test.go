@@ -150,11 +150,7 @@ func TestClassEncoding(t *testing.T) {
 			class: &core.SierraClass{
 				Abi:     "abi",
 				AbiHash: felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"),
-				EntryPoints: struct {
-					Constructor []core.SierraEntryPoint
-					External    []core.SierraEntryPoint
-					L1Handler   []core.SierraEntryPoint
-				}{
+				EntryPoints: core.SierraEntryPointsByType{
 					Constructor: []core.SierraEntryPoint{},
 					External: []core.SierraEntryPoint{
 						{

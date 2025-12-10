@@ -10,21 +10,21 @@ import (
 )
 
 type GasConsumed struct {
-	L1Gas     uint64
-	L1DataGas uint64
-	L2Gas     uint64
+	L1Gas     uint64 `cbor:"1,keyasint,omitempty"`
+	L1DataGas uint64 `cbor:"2,keyasint,omitempty"`
+	L2Gas     uint64 `cbor:"3,keyasint,omitempty"`
 }
 
 type TransactionReceipt struct {
-	Fee                *felt.Felt
-	FeeUnit            FeeUnit
-	Events             []*Event
-	ExecutionResources *ExecutionResources
-	L1ToL2Message      *L1ToL2Message
-	L2ToL1Message      []*L2ToL1Message
-	TransactionHash    *felt.Felt
-	Reverted           bool
-	RevertReason       string
+	Fee                *felt.Felt          `cbor:"1,keyasint,omitempty"`
+	FeeUnit            FeeUnit             `cbor:"2,keyasint,omitempty"`
+	Events             []*Event            `cbor:"3,keyasint,omitempty"`
+	ExecutionResources *ExecutionResources `cbor:"4,keyasint,omitempty"`
+	L1ToL2Message      *L1ToL2Message      `cbor:"5,keyasint,omitempty"`
+	L2ToL1Message      []*L2ToL1Message    `cbor:"6,keyasint,omitempty"`
+	TransactionHash    *felt.Felt          `cbor:"7,keyasint,omitempty"`
+	Reverted           bool                `cbor:"8,keyasint,omitempty"`
+	RevertReason       string              `cbor:"9,keyasint,omitempty"`
 }
 
 func (r *TransactionReceipt) hash() felt.Felt {
