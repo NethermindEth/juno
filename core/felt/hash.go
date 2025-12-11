@@ -133,3 +133,29 @@ func (h *TransactionHash) Unmarshal(e []byte) {
 func (h *TransactionHash) SetBytesCanonical(data []byte) error {
 	return (*Hash)(h).SetBytesCanonical(data)
 }
+
+type StateRootHash Hash
+
+func (h *StateRootHash) String() string {
+	return (*Hash)(h).String()
+}
+
+func (h *StateRootHash) UnmarshalJSON(data []byte) error {
+	return (*Hash)(h).UnmarshalJSON(data)
+}
+
+func (h *StateRootHash) MarshalJSON() ([]byte, error) {
+	return (*Hash)(h).MarshalJSON()
+}
+
+func (h *StateRootHash) Marshal() []byte {
+	return (*Hash)(h).Marshal()
+}
+
+func (h *StateRootHash) Unmarshal(e []byte) {
+	(*Hash)(h).Unmarshal(e)
+}
+
+func (h *StateRootHash) SetBytesCanonical(data []byte) error {
+	return (*Hash)(h).SetBytesCanonical(data)
+}

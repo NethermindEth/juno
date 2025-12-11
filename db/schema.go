@@ -116,7 +116,7 @@ func ContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []b
 	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }
 
-func StateIDKey(root *felt.Felt) []byte {
+func StateIDKey(root *felt.StateRootHash) []byte {
 	return StateID.Key(root.Marshal())
 }
 
@@ -158,7 +158,7 @@ func uint64ToBytes(num uint64) [8]byte {
 	return numBytes
 }
 
-func StateHashToTrieRootsKey(stateCommitment *felt.Felt) []byte {
+func StateHashToTrieRootsKey(stateCommitment *felt.StateRootHash) []byte {
 	return StateHashToTrieRoots.Key(stateCommitment.Marshal())
 }
 
