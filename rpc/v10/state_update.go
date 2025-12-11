@@ -18,7 +18,7 @@ import (
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash,omitempty"`
 	NewRoot   *felt.Felt `json:"new_root,omitempty"`
-	OldRoot   *felt.Felt `json:"old_root"`
+	OldRoot   *felt.Felt `json:"old_root,omitempty"`
 	StateDiff *StateDiff `json:"state_diff"`
 }
 
