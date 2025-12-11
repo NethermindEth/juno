@@ -28,19 +28,29 @@ func NewStateDB(disk db.KeyValueStore, triedb database.TrieDB) *StateDB {
 
 // Opens a class trie for the given state root
 func (s *StateDB) ClassTrie(stateComm *felt.Felt) (*trie2.Trie, error) {
-	return trie2.New(trieutils.NewClassTrieID(*stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb)
+	return trie2.New(
+		trieutils.NewClassTrieID(felt.StateRootHash(*stateComm)),
+		ClassTrieHeight,
+		crypto.Poseidon,
+		s.triedb,
+	)
 }
 
 // Opens a contract trie for the given state root
 func (s *StateDB) ContractTrie(stateComm *felt.Felt) (*trie2.Trie, error) {
-	return trie2.New(trieutils.NewContractTrieID(*stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb)
+	return trie2.New(
+		trieutils.NewContractTrieID(felt.StateRootHash(*stateComm)),
+		ContractTrieHeight,
+		crypto.Pedersen,
+		s.triedb,
+	)
 }
 
 // Opens a contract storage trie for the given state root and contract address
 func (s *StateDB) ContractStorageTrie(stateComm, owner *felt.Felt) (*trie2.Trie, error) {
 	return trie2.New(
 		trieutils.NewContractStorageTrieID(
-			*stateComm,
+			felt.StateRootHash(*stateComm),
 			felt.Address(*owner),
 		),
 		ContractStorageTrieHeight,

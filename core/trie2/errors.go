@@ -17,7 +17,7 @@ type MissingNodeError struct {
 	tt    trieutils.TrieType
 	owner felt.Address
 	path  trieutils.Path
-	hash  felt.Felt
+	hash  felt.Hash
 	err   error
 }
 

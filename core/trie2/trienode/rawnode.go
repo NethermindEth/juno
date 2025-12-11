@@ -12,6 +12,7 @@ var (
 
 type TrieNode interface {
 	Blob() []byte
+	// TODO(maksym): update to make Hash() return felt.Hash instead of felt.Felt
 	Hash() felt.Felt
 	IsLeaf() bool
 }

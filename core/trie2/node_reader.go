@@ -19,7 +19,7 @@ func newNodeReader(id trieutils.TrieID, nodeDB database.NodeDatabase) (nodeReade
 	return nodeReader{id: id, reader: reader}, nil
 }
 
-func (r *nodeReader) node(path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *nodeReader) node(path trieutils.Path, hash *felt.Hash, isLeaf bool) ([]byte, error) {
 	if r.reader == nil {
 		return nil, &MissingNodeError{tt: r.id.Type(), owner: r.id.Owner(), path: path, hash: *hash}
 	}
@@ -28,5 +28,5 @@ func (r *nodeReader) node(path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]
 }
 
 func NewEmptyNodeReader() nodeReader {
-	return nodeReader{id: trieutils.NewEmptyTrieID(felt.Zero), reader: nil}
+	return nodeReader{id: trieutils.NewEmptyTrieID(felt.StateRootHash{}), reader: nil}
 }
