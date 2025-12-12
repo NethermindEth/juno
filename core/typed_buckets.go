@@ -156,3 +156,10 @@ var ClassHashToCasmHashV2Bucket = typed.NewBucket(
 	key.SierraClassHash,
 	value.CasmClassHash,
 )
+
+// Bucket 40: Block number (uint64) -> Block transactions (BlockTransactions)
+var BlockTransactionsBucket = typed.NewBucket(
+	db.BlockTransactions,
+	key.Cbor[uint64](),
+	value.Cbor[BlockTransactions](),
+)

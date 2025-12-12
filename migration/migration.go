@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -84,6 +85,7 @@ var defaultMigrations = []Migration{
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
+	blocktransactions.BlockTransactionsMigration{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -172,7 +174,7 @@ func migrateIfNeeded(
 		}
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 func closeMigrationServer(srv *http.Server, log utils.SimpleLogger) {
