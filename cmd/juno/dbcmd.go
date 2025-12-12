@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/cockroachdb/pebble/v2/sstable/block"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -311,7 +312,7 @@ func openDB(path string) (db.KeyValueStore, error) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	database, err := pebblev2.New(path)
+	database, err := pebblev2.New(path, pebblev2.WithCompression(block.ZstdCompression))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
