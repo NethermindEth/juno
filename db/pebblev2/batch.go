@@ -117,3 +117,7 @@ func (b *batch) Reset() {
 	b.batch.Reset()
 	b.size = 0
 }
+
+func (b *batch) Close() error {
+	return b.batch.Close()
+}
