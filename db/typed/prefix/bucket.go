@@ -53,7 +53,6 @@ func (b *PrefixedBucket[T, K, V, KS, VS]) scan( //nolint:unused // False positiv
 		}
 
 		isExited, err := iterate[V, VS](it, yield)
-		err = utils.RunAndWrapOnError(it.Close, err)
 		if err := utils.RunAndWrapOnError(it.Close, err); !isExited && err != nil {
 			yield(Entry[V]{}, err)
 		}
