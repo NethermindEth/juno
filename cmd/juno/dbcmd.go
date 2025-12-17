@@ -40,7 +40,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
-	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd(), DBRecoveryScanCmd())
 	return dbCmd
 }
 
@@ -72,6 +72,15 @@ func DBRevertCmd() *cobra.Command {
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
 
 	return cmd
+}
+
+func DBRecoveryScanCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "recovery-scan",
+		Short: "Scan all tries and verify root hashes against leaf nodes",
+		Long:  `This subcommand scans all tries, collects leaf nodes, rebuilds the trie in memory from leaves, and compares the calculated root with the stored root to detect corruption.`,
+		RunE:  dbRecoveryScan,
+	}
 }
 
 func dbInfo(cmd *cobra.Command, args []string) error {
@@ -303,6 +312,21 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	}
 
 	return "unknown"
+}
+
+func dbRecoveryScan(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	database, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	return core.RecoveryScan(database)
 }
 
 func openDB(path string) (db.KeyValueStore, error) {
