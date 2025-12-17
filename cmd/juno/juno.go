@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/cmd/juno/verify"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
@@ -486,6 +487,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
 	)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
+	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), verify.VerifyCmd(defaultDBPath))
 
 	return junoCmd
 }
