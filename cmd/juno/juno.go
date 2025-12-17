@@ -430,7 +430,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)
-	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
+	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), VerifyCmd(defaultDBPath))
 
 	return junoCmd
 }
