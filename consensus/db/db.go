@@ -33,8 +33,6 @@ type walMsgCount uint32
 // 2. Right before we broadcast a message
 //
 // We call Delete when we start a new height and commit a block
-//
-//go:generate mockgen -destination=../mocks/mock_db.go -package=mocks github.com/NethermindEth/juno/consensus/db TendermintDB
 type TendermintDB[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	// Flush writes the accumulated batch operations to the underlying database.
 	Flush() error
