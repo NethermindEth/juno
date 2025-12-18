@@ -19,9 +19,9 @@ const (
 type TrieType string
 
 const (
-	TrieTypeState    TrieType = "state"
-	TrieTypeClass    TrieType = "class"
-	TrieTypeContract TrieType = "contract"
+	ContractTrieType        TrieType = "contract"
+	ClassTrieType           TrieType = "class"
+	ContractStorageTrieType TrieType = "contract-storage"
 )
 
 type TrieConfig struct {
@@ -58,7 +58,7 @@ func (v *TrieVerifier) Run(ctx context.Context, cfg Config) error {
 
 	typesToVerify := trieCfg.Tries
 	if len(typesToVerify) == 0 {
-		typesToVerify = []TrieType{TrieTypeState, TrieTypeClass, TrieTypeContract}
+		typesToVerify = []TrieType{ContractTrieType, ClassTrieType, ContractStorageTrieType}
 	}
 
 	typeSet := make(map[TrieType]bool)
@@ -68,7 +68,7 @@ func (v *TrieVerifier) Run(ctx context.Context, cfg Config) error {
 
 	var allErrors []error
 
-	if typeSet[TrieTypeState] {
+	if typeSet[ContractTrieType] {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -76,7 +76,7 @@ func (v *TrieVerifier) Run(ctx context.Context, cfg Config) error {
 		}
 
 		stateTrieInfo := TrieInfo{
-			Name:     "StateTrie",
+			Name:     "ContractTrie",
 			Bucket:   db.StateTrie,
 			HashFunc: trie.NewTriePedersen,
 			ReaderFunc: func(r db.KeyValueReader, prefix []byte, height uint8) (trie.TrieReader, error) {
@@ -85,21 +85,21 @@ func (v *TrieVerifier) Run(ctx context.Context, cfg Config) error {
 			Height: starknetTrieHeight,
 		}
 
-		v.logger.Infow("=== Scanning StateTrie ===")
+		v.logger.Infow("=== Scanning ContractTrie ===")
 		if err := v.scanTrie(v.database, stateTrieInfo); err != nil {
-			v.logger.Errorw("Error scanning StateTrie", "error", err)
-			allErrors = append(allErrors, fmt.Errorf("StateTrie: %w", err))
+			v.logger.Errorw("Error scanning ContractTrie", "error", err)
+			allErrors = append(allErrors, fmt.Errorf("ContractTrie: %w", err))
 		}
 	}
 
-	if typeSet[TrieTypeClass] {
+	if typeSet[ClassTrieType] {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		classesTrieInfo := TrieInfo{
+		classTrieInfo := TrieInfo{
 			Name:     "ClassesTrie",
 			Bucket:   db.ClassesTrie,
 			HashFunc: trie.NewTriePoseidon,
@@ -109,14 +109,14 @@ func (v *TrieVerifier) Run(ctx context.Context, cfg Config) error {
 			Height: starknetTrieHeight,
 		}
 
-		v.logger.Infow("=== Scanning ClassesTrie ===")
-		if err := v.scanTrie(v.database, classesTrieInfo); err != nil {
-			v.logger.Errorw("Error scanning ClassesTrie", "error", err)
-			allErrors = append(allErrors, fmt.Errorf("ClassesTrie: %w", err))
+		v.logger.Infow("=== Scanning ClassTrie ===")
+		if err := v.scanTrie(v.database, classTrieInfo); err != nil {
+			v.logger.Errorw("Error scanning ClassTrie", "error", err)
+			allErrors = append(allErrors, fmt.Errorf("ClassTrie: %w", err))
 		}
 	}
 
-	if typeSet[TrieTypeContract] {
+	if typeSet[ContractStorageTrieType] {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -341,7 +341,7 @@ func (v *TrieVerifier) scanTrieWithPrefix(database db.KeyValueStore, trieInfo Tr
 	v.logger.Errorw("ROOT MISMATCH DETECTED!",
 		"calculated", calculatedRoot.String(),
 		"stored", storedRootHash.String())
-	return fmt.Errorf("root hash mismatch for %s", trieInfo.Name)
+	return fmt.Errorf("root hash mismatch for %s, expected %s, got %s", trieInfo.Name, calculatedRoot.String(), storedRootHash.String())
 }
 
 func (v *TrieVerifier) rebuildTrieFromLeaves(leaves map[felt.Felt]felt.Felt, trieInfo TrieInfo) (felt.Felt, error) {
@@ -356,8 +356,6 @@ func (v *TrieVerifier) rebuildTrieFromLeaves(leaves map[felt.Felt]felt.Felt, tri
 		return felt.Zero, fmt.Errorf("failed to create in-memory trie: %w", err)
 	}
 
-	totalLeaves := len(leaves)
-	const rebuildProgressInterval = 10000
 	inserted := 0
 
 	for key, value := range leaves {
@@ -369,10 +367,7 @@ func (v *TrieVerifier) rebuildTrieFromLeaves(leaves map[felt.Felt]felt.Felt, tri
 		inserted++
 	}
 
-	if totalLeaves > 0 && inserted%rebuildProgressInterval != 0 {
-		v.logger.Infow("Inserted all leaves", "count", inserted)
-	}
-
+	v.logger.Infow("Inserted all leaves", "count", inserted)
 	v.logger.Infow("Calculating root hash...")
 
 	rootHash, err := t.Hash()
