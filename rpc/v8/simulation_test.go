@@ -46,10 +46,14 @@ func TestSimulateTransactions(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 	}
 	tests := []struct {
-		name            string
-		stepsUsed       uint64
-		err             *jsonrpc.Error
-		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockCommonState)
+		name         string
+		stepsUsed    uint64
+		err          *jsonrpc.Error
+		mockBehavior func(
+			mockReader *mocks.MockReader,
+			mockVM *mocks.MockVM,
+			mockState *mocks.MockCommonState,
+		)
 		simulationFlags []rpcv6.SimulationFlag
 		simulatedTxs    []rpc.SimulatedTransaction
 	}{
@@ -61,6 +65,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM *mocks.MockVM,
 				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -84,6 +89,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM *mocks.MockVM,
 				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -106,6 +112,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM *mocks.MockVM,
 				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -128,6 +135,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM *mocks.MockVM,
 				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
