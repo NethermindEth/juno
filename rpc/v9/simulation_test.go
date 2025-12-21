@@ -61,6 +61,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM *mocks.MockVM,
 				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -84,6 +85,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM *mocks.MockVM,
 				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -103,8 +105,10 @@ func TestSimulateTransactions(t *testing.T) {
 			name: "transaction execution error",
 			mockBehavior: func(
 				mockReader *mocks.MockReader,
-				mockVM *mocks.MockVM, mockState *mocks.MockCommonState,
+				mockVM *mocks.MockVM,
+				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -127,6 +131,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM *mocks.MockVM,
 				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
