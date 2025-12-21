@@ -70,7 +70,11 @@ func verifyTrieCmd() *cobra.Command {
 		RunE:  runTrieVerify,
 	}
 
-	cmd.Flags().StringSlice(verifyTrieType, nil, "Trie types to verify (state, class, contract). Can be specified multiple times. Empty = all.")
+	cmd.Flags().StringSlice(
+		verifyTrieType,
+		nil,
+		"Trie types to verify (state, class, contract). Can be specified multiple times. Empty = all.",
+	)
 
 	return cmd
 }
