@@ -212,7 +212,12 @@ func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error 
 		return nil
 	}
 
-	v.logger.Infow("Starting verification", "trie", trieInfo.Name, "expectedRoot", expectedRoot.String())
+	v.logger.Infow("Starting verification",
+		"trie",
+		trieInfo.Name,
+		"expectedRoot",
+		expectedRoot.String(),
+	)
 	storageReader := trie.NewReadStorage(v.database, trieInfo.prefix)
 
 	err = verifyTrie(ctx, storageReader, starknetTrieHeight, trieInfo.HashFn, &expectedRoot)
@@ -224,7 +229,10 @@ func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error 
 		return err
 	}
 
-	v.logger.Infow("Trie verification successful", "trie", trieInfo.Name, "root", expectedRoot.String())
+	v.logger.Infow("Trie verification successful",
+		"trie", trieInfo.Name, "root",
+		expectedRoot.String(),
+	)
 	return nil
 }
 
@@ -258,19 +266,30 @@ func (v *TrieVerifier) verifyContractStorageTries(ctx context.Context) error {
 			Height: starknetTrieHeight,
 		}
 
-		v.logger.Infow("Verifying contract storage",
-			"contract", contractAddress.String(),
-			"progress", fmt.Sprintf("%d/%d", i+1, len(contractAddresses)))
+		v.logger.Infow(
+			"Verifying contract storage",
+			"contract",
+			contractAddress.String(),
+			"progress",
+			fmt.Sprintf("%d/%d", i+1, len(contractAddresses)),
+		)
 
 		err := v.verifyTrie(ctx, trieInfo)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				return err
 			}
-			v.logger.Errorw("Contract storage verification failed",
-				"contract", contractAddress.String(),
-				"error", err)
-			return fmt.Errorf("contract storage verification failed for %s: %w", contractAddress.String(), err)
+			v.logger.Errorw(
+				"Contract storage verification failed",
+				"contract",
+				contractAddress.String(),
+				"error",
+				err,
+			)
+			return fmt.Errorf(
+				"contract storage verification failed for %s: %w",
+				contractAddress.String(), err,
+			)
 		}
 	}
 
