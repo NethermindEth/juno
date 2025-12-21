@@ -302,7 +302,8 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	err = s.plugin.RevertBlock(
 		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
 		toBlockAndStateUpdate,
-		reverseStateDiff)
+		&reverseStateDiff,
+	)
 	if err != nil {
 		s.log.Errorw("Plugin RevertBlock failure:", "err", err)
 	}
