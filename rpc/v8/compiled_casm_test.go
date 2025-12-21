@@ -37,7 +37,7 @@ func TestCompiledCasm(t *testing.T) {
 	t.Run("class doesn't exist", func(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0x111")
 
-		mockState := mocks.NewMockStateReader(mockCtrl)
+		mockState := mocks.NewMockCommonState(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(nil, db.ErrKeyNotFound)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
@@ -66,7 +66,7 @@ func TestCompiledCasm(t *testing.T) {
 		err = json.Unmarshal(program, &deprecatedCairoDefinition)
 		require.NoError(t, err)
 
-		mockState := mocks.NewMockStateReader(mockCtrl)
+		mockState := mocks.NewMockCommonState(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: class}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
@@ -108,7 +108,7 @@ func TestCompiledCasm(t *testing.T) {
 			Compiled: casmClass,
 		}
 
-		mockState := mocks.NewMockStateReader(mockCtrl)
+		mockState := mocks.NewMockCommonState(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: sierraClass}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 

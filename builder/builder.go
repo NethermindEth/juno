@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"

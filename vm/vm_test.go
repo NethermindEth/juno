@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-
 	"github.com/NethermindEth/juno/core/state/statefactory"
 	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/core/trie2/triedb"

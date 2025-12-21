@@ -39,7 +39,7 @@ func TestSimulateTransactions(t *testing.T) {
 	defaultMockBehavior := func(
 		mockReader *mocks.MockReader,
 		_ *mocks.MockVM,
-		mockState *mocks.MockStateReader,
+		mockState *mocks.MockCommonState,
 	) {
 		mockReader.EXPECT().Network().Return(n)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
@@ -49,7 +49,7 @@ func TestSimulateTransactions(t *testing.T) {
 		name            string
 		stepsUsed       uint64
 		err             *jsonrpc.Error
-		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockStateReader)
+		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockCommonState)
 		simulationFlags []rpcv6.SimulationFlag
 		simulatedTxs    []rpc.SimulatedTransaction
 	}{
@@ -59,8 +59,9 @@ func TestSimulateTransactions(t *testing.T) {
 			mockBehavior: func(
 				mockReader *mocks.MockReader,
 				mockVM *mocks.MockVM,
-				mockState *mocks.MockStateReader,
+				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -82,8 +83,9 @@ func TestSimulateTransactions(t *testing.T) {
 			mockBehavior: func(
 				mockReader *mocks.MockReader,
 				mockVM *mocks.MockVM,
-				mockState *mocks.MockStateReader,
+				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -104,8 +106,9 @@ func TestSimulateTransactions(t *testing.T) {
 			mockBehavior: func(
 				mockReader *mocks.MockReader,
 				mockVM *mocks.MockVM,
-				mockState *mocks.MockStateReader,
+				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -126,8 +129,9 @@ func TestSimulateTransactions(t *testing.T) {
 			mockBehavior: func(
 				mockReader *mocks.MockReader,
 				mockVM *mocks.MockVM,
-				mockState *mocks.MockStateReader,
+				mockState *mocks.MockCommonState,
 			) {
+				t.Parallel()
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -155,7 +159,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockVM := mocks.NewMockVM(mockCtrl)
-			mockState := mocks.NewMockStateReader(mockCtrl)
+			mockState := mocks.NewMockCommonState(mockCtrl)
 
 			test.mockBehavior(mockReader, mockVM, mockState)
 			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
@@ -279,7 +283,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockVM := mocks.NewMockVM(mockCtrl)
-			mockState := mocks.NewMockStateReader(mockCtrl)
+			mockState := mocks.NewMockCommonState(mockCtrl)
 
 			mockReader.EXPECT().Network().Return(n)
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

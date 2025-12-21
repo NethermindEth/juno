@@ -390,7 +390,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(header.Hash).Return(block, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
@@ -471,7 +471,7 @@ func TestTraceTransaction(t *testing.T) {
 			&pending,
 			nil,
 		).Times(2)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).
 			Return(headState, nopCloser, nil).Times(2)
 
@@ -548,7 +548,7 @@ func TestTraceTransaction(t *testing.T) {
 			&preConfirmed,
 			nil,
 		)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
 			Return(headState, nopCloser, nil)
 
@@ -641,7 +641,7 @@ func TestTraceTransaction(t *testing.T) {
 			nil,
 		)
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(preLatest.Block.ParentHash).
 			Return(headState, nopCloser, nil)
 
@@ -797,7 +797,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 

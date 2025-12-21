@@ -34,7 +34,7 @@ func TestThrottledVMError(t *testing.T) {
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
 	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, nil)
-	mockState := mocks.NewMockStateReader(mockCtrl)
+	mockState := mocks.NewMockCommonState(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
 	t.Run("call", func(t *testing.T) {
@@ -87,9 +87,9 @@ func TestThrottledVMError(t *testing.T) {
 		}
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
-		state := mocks.NewMockStateReader(mockCtrl)
+		state := mocks.NewMockCommonState(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
-		headState := mocks.NewMockStateReader(mockCtrl)
+		headState := mocks.NewMockCommonState(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 		blockID := blockIDHash(t, blockHash)

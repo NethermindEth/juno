@@ -109,3 +109,15 @@ func (s *StateHistory) ContractTrie() (core.CommonTrie, error) {
 func (s *StateHistory) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
+
+func (s *StateHistory) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return s.state.CompiledClassHash(classHash)
+}
+
+func (s *StateHistory) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	return s.state.CompiledClassHashV2(classHash)
+}
