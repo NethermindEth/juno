@@ -160,7 +160,7 @@ func TestTrieVerifier_Run_CorruptedTrie(t *testing.T) {
 	ctx := context.Background()
 	err = verifier.Run(ctx, cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "root hash mismatch")
+	assert.Contains(t, err.Error(), "node corruption detected")
 }
 
 func TestTrieVerifier_Run_MultipleTrieTypes(t *testing.T) {
