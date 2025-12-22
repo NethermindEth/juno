@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -27,6 +28,60 @@ const (
 	ClassTrieType           TrieType = "class"
 	ContractStorageTrieType TrieType = "contract-storage"
 )
+
+func verifyTrieCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "trie",
+		Short: "Verify trie integrity",
+		Long:  `Verify trie integrity by rebuilding tries from leaf nodes and comparing root hashes.`,
+		RunE:  runTrieVerify,
+	}
+
+	cmd.Flags().StringSlice(
+		verifyTrieType,
+		nil,
+		"Trie types to verify (state, class, contract). Can be specified multiple times. Empty = all.",
+	)
+
+	return cmd
+}
+
+func runTrieVerify(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(verifyDBPathF)
+	if err != nil {
+		return err
+	}
+
+	database, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	trieTypes, err := cmd.Flags().GetStringSlice(verifyTrieType)
+	if err != nil {
+		return err
+	}
+
+	cfg := &TrieConfig{}
+
+	if len(trieTypes) > 0 {
+		cfg.Tries = make([]TrieType, len(trieTypes))
+		for i, t := range trieTypes {
+			cfg.Tries[i] = TrieType(t)
+		}
+	}
+
+	logLevel := utils.NewLogLevel(utils.INFO)
+	logger, err := utils.NewZapLogger(logLevel, true)
+	if err != nil {
+		return fmt.Errorf("failed to create logger: %w", err)
+	}
+
+	verifier := NewTrieVerifier(database, logger)
+	ctx := cmd.Context()
+	return verifier.Run(ctx, cfg)
+}
 
 type TrieConfig struct {
 	Tries []TrieType
