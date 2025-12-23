@@ -28,6 +28,16 @@ type Iterator interface {
 	// Value returns the value at the current position.
 	Value() ([]byte, error)
 
+	// DO NOT USE this if you don't unmarshal the value immediately.
+	//
+	// UncopiedValue returns the value at the current position without copying it to a new slice.
+	// The returned byte slice is invalid after the next call to [Next], [Prev], or [Seek].
+	// Therefore it's the caller's responsibility to copy the value to not use the byte slice
+	// after its iteration or copy it to a new slice (e.g, in []byte case).
+	// This function DOES NOT copy the value to a new slice. This is useful when the typed bucket
+	// calls unmarshal the value immediately.
+	UncopiedValue() ([]byte, error)
+
 	// Seek would seek to the provided key if present. If absent, it would seek to the next
 	// key in lexicographical order
 	Seek(key []byte) bool
