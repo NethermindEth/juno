@@ -71,3 +71,9 @@ func (s *SyncBatch) Size() int {
 	defer s.lock.RUnlock()
 	return s.batch.Size()
 }
+
+func (s *SyncBatch) Close() error {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.batch.Close()
+}

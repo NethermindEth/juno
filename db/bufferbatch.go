@@ -66,6 +66,10 @@ func (b *BufferBatch) Flush() error {
 	return nil
 }
 
+func (b *BufferBatch) Close() error {
+	return b.txn.Close()
+}
+
 func (b *BufferBatch) Has(key []byte) (bool, error) {
 	panic("should not be called")
 }

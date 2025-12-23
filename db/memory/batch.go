@@ -155,3 +155,12 @@ func (b *batch) Reset() {
 	b.writes = b.writes[:0] // reuse the memory
 	b.writeMap = make(map[string]keyValue)
 }
+
+func (b *batch) Close() error {
+	// Clear all the fields to prevent any further use of the batch.
+	b.db = nil
+	b.writes = nil
+	b.writeMap = nil
+	b.size = 0
+	return nil
+}

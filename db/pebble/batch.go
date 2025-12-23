@@ -110,10 +110,19 @@ func (b *batch) Write() error {
 	if b.db.closed {
 		return pebble.ErrClosed
 	}
-	return b.batch.Commit(pebble.Sync)
+
+	if err := b.batch.Commit(pebble.Sync); err != nil {
+		return err
+	}
+
+	return b.batch.Close()
 }
 
 func (b *batch) Reset() {
 	b.batch.Reset()
 	b.size = 0
+}
+
+func (b *batch) Close() error {
+	return b.batch.Close()
 }
