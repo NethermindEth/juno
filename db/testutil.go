@@ -152,6 +152,36 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 					val, err := it.Value()
 					require.NoError(t, err, "failed to get value")
 					require.Equal(t, tt.content[string(it.Key())], string(val), "value mismatch")
+
+					uncopiedVal, err := it.UncopiedValue()
+					require.NoError(t, err, "failed to get value")
+					require.Equal(
+						t,
+						tt.content[string(it.Key())],
+						string(uncopiedVal),
+						"value mismatch",
+					)
+					require.NotSame(
+						t,
+						&val[0],
+						&uncopiedVal[0],
+						"Iterator value should be copied to a new slice",
+					)
+
+					uncopiedVal2, err := it.UncopiedValue()
+					require.NoError(t, err, "failed to get value")
+					require.Equal(
+						t,
+						tt.content[string(it.Key())],
+						string(uncopiedVal2),
+						"value mismatch",
+					)
+					require.Same(
+						t,
+						&uncopiedVal[0],
+						&uncopiedVal2[0],
+						"Iterator value should be copied to a new slice",
+					)
 				}
 
 				// Sort the expected order for comparison
@@ -359,6 +389,38 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			val, err := iter.Value()
 			require.NoError(t, err, "Iterator value retrieval failed for key %s", key)
 			require.Equal(t, []byte(testData[key]), val, "Iterator value mismatch for key %s", key)
+
+			uncopiedVal, err := iter.UncopiedValue()
+			require.NoError(t, err, "Iterator uncopied value retrieval failed for key %s", key)
+			require.Equal(
+				t,
+				[]byte(testData[key]),
+				uncopiedVal,
+				"Iterator uncopied value mismatch for key %s",
+				key,
+			)
+			require.NotSame(
+				t,
+				&val[0],
+				&uncopiedVal[0],
+				"Iterator value should be copied to a new slice",
+			)
+
+			uncopiedVal2, err := iter.UncopiedValue()
+			require.NoError(t, err, "Iterator uncopied value retrieval failed for key %s", key)
+			require.Equal(
+				t,
+				[]byte(testData[key]),
+				uncopiedVal2,
+				"Iterator uncopied value mismatch for key %s",
+				key,
+			)
+			require.Same(
+				t,
+				&uncopiedVal[0],
+				&uncopiedVal2[0],
+				"Iterator uncopied values should be the same",
+			)
 		}
 		require.Equal(t, len(testData), count, "Iterator should return all keys with prefix")
 

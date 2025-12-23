@@ -67,7 +67,8 @@ func iterate[V any, VS value.Serializer[V]]( //nolint:unused // False positive, 
 		var entry Entry[V]
 		entry.Key = it.Key()
 
-		valueBytes, err := it.Value()
+		// VS is in charge of copying the value to a new slice if necessary
+		valueBytes, err := it.UncopiedValue()
 		if err != nil {
 			return false, err
 		}
