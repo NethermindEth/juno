@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 const (
 	starknetTrieHeight  = 251
 	concurrencyMaxDepth = 8
+	verifyContractAddr  = "address"
 )
 
 type TrieType string
@@ -40,7 +42,13 @@ func verifyTrieCmd() *cobra.Command {
 	cmd.Flags().StringSlice(
 		verifyTrieType,
 		nil,
-		"Trie types to verify (state, class, contract). Can be specified multiple times. Empty = all.",
+		"Trie types to verify (contract, class, contract-storage). Can be specified multiple times. Empty = all.",
+	)
+
+	cmd.Flags().String(
+		verifyContractAddr,
+		"",
+		"Contract address to verify (only used with --type contract-storage). If not specified, all contract storage tries are verified.",
 	)
 
 	return cmd
@@ -63,6 +71,11 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	contractAddrStr, err := cmd.Flags().GetString(verifyContractAddr)
+	if err != nil {
+		return err
+	}
+
 	cfg := &TrieConfig{}
 
 	if len(trieTypes) > 0 {
@@ -70,6 +83,24 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 		for i, t := range trieTypes {
 			cfg.Tries[i] = TrieType(t)
 		}
+	}
+
+	if contractAddrStr != "" {
+		hasContractStorage := slices.Contains(cfg.Tries, ContractStorageTrieType)
+		if len(cfg.Tries) == 0 {
+			hasContractStorage = true
+		}
+
+		if !hasContractStorage {
+			return fmt.Errorf("--address flag can only be used with --type contract-storage")
+		}
+
+		var contractAddr felt.Felt
+		_, err := (&contractAddr).SetString(contractAddrStr)
+		if err != nil {
+			return fmt.Errorf("invalid contract address %s: %w", contractAddrStr, err)
+		}
+		cfg.ContractAddress = &contractAddr
 	}
 
 	logLevel := utils.NewLogLevel(utils.INFO)
@@ -84,7 +115,8 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 }
 
 type TrieConfig struct {
-	Tries []TrieType
+	Tries           []TrieType
+	ContractAddress *felt.Felt
 }
 
 type TrieVerifier struct {
@@ -175,7 +207,7 @@ func (v *TrieVerifier) Run(ctx context.Context, cfg Config) error {
 	}
 
 	if typeSet[ContractStorageTrieType] {
-		if err := v.verifyContractStorageTries(ctx); err != nil {
+		if err := v.verifyContractStorageTries(ctx, trieCfg.ContractAddress); err != nil {
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
@@ -229,7 +261,6 @@ func (v *TrieVerifier) collectContractAddresses() []felt.Felt {
 }
 
 func (v *TrieVerifier) verifyTrieWithLogging(ctx context.Context, trieInfo TrieInfo) error {
-	v.logger.Infow(fmt.Sprintf("=== Starting %s verification ===", trieInfo.Name))
 	err := v.verifyTrie(ctx, trieInfo)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -239,11 +270,11 @@ func (v *TrieVerifier) verifyTrieWithLogging(ctx context.Context, trieInfo TrieI
 		v.logger.Errorw(fmt.Sprintf("%s verification failed", trieInfo.Name), "error", err)
 		return fmt.Errorf("%s verification failed: %w", trieInfo.Name, err)
 	}
-	v.logger.Infow(fmt.Sprintf("%s verification completed successfully", trieInfo.Name))
 	return nil
 }
 
 func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error {
+	v.logger.Infow(fmt.Sprintf("=== Starting %s verification ===", trieInfo.Name))
 	expectedRoot := felt.Zero
 	err := v.database.View(func(snap db.Snapshot) error {
 		reader, err := trieInfo.ReaderFunc(snap, trieInfo.prefix, trieInfo.Height)
@@ -291,16 +322,21 @@ func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error 
 	return nil
 }
 
-func (v *TrieVerifier) verifyContractStorageTries(ctx context.Context) error {
+func (v *TrieVerifier) verifyContractStorageTries(ctx context.Context, filterAddress *felt.Felt) error {
 	v.logger.Infow("=== Starting Contract Storage Tries verification ===")
-	contractAddresses := v.collectContractAddresses()
 
-	if len(contractAddresses) == 0 {
-		v.logger.Infow("No contract addresses found, skipping contract storage verification")
-		return nil
+	var contractAddresses []felt.Felt
+	if filterAddress != nil {
+		contractAddresses = []felt.Felt{*filterAddress}
+		v.logger.Infow("Verifying specific contract", "address", filterAddress.String())
+	} else {
+		contractAddresses = v.collectContractAddresses()
+		if len(contractAddresses) == 0 {
+			v.logger.Infow("No contract addresses found, skipping contract storage verification")
+			return nil
+		}
+		v.logger.Infow("Found contracts to verify", "count", len(contractAddresses))
 	}
-
-	v.logger.Infow("Found contracts to verify", "count", len(contractAddresses))
 
 	for i, contractAddress := range contractAddresses {
 		select {
