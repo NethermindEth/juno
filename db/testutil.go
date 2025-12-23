@@ -131,14 +131,20 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 				}
 
 				// Iterate over the database with the given configs and verify the results
+				// Pebble v2 panics when prefix is []byte{} and -race flag is set.
+				var prefixBytes []byte
+				if tt.prefix != "" {
+					prefixBytes = []byte(tt.prefix)
+				}
+
 				var startBytes []byte
 				if tt.start != "" {
 					startBytes = []byte(tt.start)
 				}
 
-				it, err := database.NewIterator([]byte(tt.prefix), true)
+				it, err := database.NewIterator(prefixBytes, true)
 				require.NoError(t, err, "failed to create iterator")
-				defer it.Close()
+				defer assertIteratorErrorsAfterClose(t, it)
 
 				if startBytes != nil {
 					it.Seek(startBytes)
@@ -180,7 +186,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 						t,
 						&uncopiedVal[0],
 						&uncopiedVal2[0],
-						"Iterator value should be copied to a new slice",
+						"Iterator uncopied values should be the same",
 					)
 				}
 
@@ -280,23 +286,18 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		}
 
 		// Write batch to database
-		err := batch.Write()
-		require.NoError(t, err, "Batch write failed")
+		assertWriteAndErrorsAfterWrite(t, batch)
 
 		// Verify data is in database after write
 		for k, v := range testData {
 			var val []byte
-			err = database.Get([]byte(k), func(data []byte) error {
+			err := database.Get([]byte(k), func(data []byte) error {
 				val = data
 				return nil
 			})
 			require.NoError(t, err, "Get operation failed for key %s", k)
 			require.Equal(t, []byte(v), val, "Value mismatch after batch write for key %s, expected %s, got %s", k, v, val)
 		}
-
-		// Test batch reset
-		batch.Reset()
-		require.Equal(t, 0, batch.Size(), "Batch size should be 0 after reset")
 
 		// Test batch with pre-allocated size
 		batchWithSize := database.NewBatchWithSize(1024)
@@ -305,12 +306,11 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		// Add data to the batch with size
 		key := "batch-size-key"
 		value := "batch-size-value"
-		err = batchWithSize.Put([]byte(key), []byte(value))
+		err := batchWithSize.Put([]byte(key), []byte(value))
 		require.NoError(t, err, "Put operation on batch with size failed for key %s", key)
 
 		// Write batch with size to database
-		err = batchWithSize.Write()
-		require.NoError(t, err, "Batch with size write failed")
+		assertWriteAndErrorsAfterWrite(t, batchWithSize)
 
 		// Verify data is in database
 		var got []byte
@@ -326,8 +326,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		key = "batch-key1"
 		err = deleteBatch.Delete([]byte(key))
 		require.NoError(t, err, "Delete operation on batch failed for key %s", key)
-		err = deleteBatch.Write()
-		require.NoError(t, err, "Batch write failed")
+		assertWriteAndErrorsAfterWrite(t, deleteBatch)
 
 		// Verify key was deleted
 		has, err := database.Has([]byte(key))
@@ -378,7 +377,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		// Test iterator on the batch
 		iter, err := batch.NewIterator([]byte("indexed-"), false)
 		require.NoError(t, err, "NewIterator on indexed batch failed")
-		defer iter.Close()
+		defer assertIteratorErrorsAfterClose(t, iter)
 
 		// Count keys with prefix
 		count := 0
@@ -425,8 +424,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.Equal(t, len(testData), count, "Iterator should return all keys with prefix")
 
 		// Write batch to database
-		err = batch.Write()
-		require.NoError(t, err, "Indexed batch write failed")
+		assertWriteAndErrorsAfterWrite(t, batch)
 
 		// Verify data is in database after write
 		for k, v := range testData {
@@ -459,8 +457,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.Equal(t, []byte(value), val, "Value mismatch in indexed batch with size for key %s", key)
 
 		// Write batch with size to database
-		err = batchWithSize.Write()
-		require.NoError(t, err, "Indexed batch with size write failed")
+		assertWriteAndErrorsAfterWrite(t, batchWithSize)
 
 		// Test batch delete and read in the same batch
 		deleteBatch := database.NewIndexedBatch()
@@ -481,8 +478,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.False(t, has, "key %s should not exist in indexed batch after delete", key)
 
 		// Write the batch
-		err = deleteBatch.Write()
-		require.NoError(t, err, "Indexed batch write failed")
+		assertWriteAndErrorsAfterWrite(t, deleteBatch)
 	})
 
 	t.Run("BatchSize", func(t *testing.T) {
@@ -647,7 +643,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		// Test snapshot iterator
 		it, err := snapshot.NewIterator(nil, false)
 		require.NoError(t, err, "failed to create iterator")
-		defer it.Close()
+		defer assertIteratorErrorsAfterClose(t, it)
 
 		var keys []string
 		for it.First(); it.Valid(); it.Next() {
@@ -711,4 +707,81 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			database.NewSnapshot()
 		})
 	})
+}
+
+func assertIteratorErrorsAfterClose(t *testing.T, it Iterator) {
+	t.Helper()
+	require.NoError(t, it.Close(), "iterator close should succeed")
+	require.Panics(
+		t,
+		func() { it.Valid() },
+		"iterator valid should panic after close",
+	)
+	require.Panics(
+		t,
+		func() { it.First() },
+		"iterator first should panic after close",
+	)
+	require.Panics(
+		t,
+		func() { it.Prev() },
+		"iterator prev should panic after close",
+	)
+	require.Panics(
+		t,
+		func() { it.Next() },
+		"iterator next should panic after close",
+	)
+	require.Panics(
+		t,
+		func() { it.Key() },
+		"iterator key should panic after close",
+	)
+	require.Panics(
+		t,
+		func() { it.Seek([]byte("key")) },
+		"iterator seek should panic after close",
+	)
+	_, err := it.Value()
+	require.Error(t, err, "iterator value should fail after close")
+	_, err = it.UncopiedValue()
+	require.Error(t, err, "iterator uncopied value should fail after close")
+	require.Error(t, it.Close(), "iterator close should fail after close")
+}
+
+func assertWriteAndErrorsAfterWrite(t *testing.T, batch Batch) {
+	t.Helper()
+	require.NoError(t, batch.Write(), "batch write failed")
+	if indexedBatch, ok := batch.(IndexedBatch); ok {
+		require.Error(
+			t,
+			indexedBatch.Get([]byte("key"), func([]byte) error { return nil }),
+			"indexed batch get should fail after write",
+		)
+	}
+	require.Error(
+		t,
+		batch.Put([]byte("key"), []byte("value")),
+		"batch put should fail after write",
+	)
+	require.Error(
+		t,
+		batch.Delete([]byte("key")),
+		"batch delete should fail after write",
+	)
+	require.Error(
+		t,
+		batch.DeleteRange([]byte("key"), []byte("key2")),
+		"batch delete range should fail after write",
+	)
+	require.Error(
+		t,
+		batch.Write(),
+		"batch write should fail after write",
+	)
+	require.Error(
+		t,
+		batch.Close(),
+		"batch close should fail after write",
+	)
 }
