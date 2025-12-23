@@ -28,6 +28,10 @@ func NewBatch(dbBatch *pebble.Batch, db *DB, listener db.EventListener) *batch {
 
 // Delete : see db.Transaction.Delete
 func (b *batch) Delete(key []byte) error {
+	if b.batch == nil {
+		return pebble.ErrClosed
+	}
+
 	start := time.Now()
 	defer func() { b.listener.OnIO(true, time.Since(start)) }()
 
@@ -39,11 +43,18 @@ func (b *batch) Delete(key []byte) error {
 }
 
 func (b *batch) DeleteRange(start, end []byte) error {
+	if b.batch == nil {
+		return pebble.ErrClosed
+	}
+
 	return b.batch.DeleteRange(start, end, pebble.Sync)
 }
 
-//nolint:dupl
 func (b *batch) Get(key []byte, cb func(value []byte) error) error {
+	if b.batch == nil {
+		return pebble.ErrClosed
+	}
+
 	start := time.Now()
 	defer func() { b.listener.OnIO(false, time.Since(start)) }()
 
@@ -63,6 +74,10 @@ func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 }
 
 func (b *batch) Has(key []byte) (bool, error) {
+	if b.batch == nil {
+		return false, pebble.ErrClosed
+	}
+
 	_, closer, err := b.batch.Get(key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
@@ -75,6 +90,10 @@ func (b *batch) Has(key []byte) (bool, error) {
 }
 
 func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator, error) {
+	if b.batch == nil {
+		return nil, pebble.ErrClosed
+	}
+
 	var iter *pebble.Iterator
 	var err error
 
@@ -92,6 +111,10 @@ func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator
 }
 
 func (b *batch) Put(key, value []byte) error {
+	if b.batch == nil {
+		return pebble.ErrClosed
+	}
+
 	if err := b.batch.Set(key, value, pebble.Sync); err != nil {
 		return err
 	}
@@ -104,16 +127,34 @@ func (b *batch) Size() int {
 }
 
 func (b *batch) Write() error {
+	if b.batch == nil {
+		return pebble.ErrClosed
+	}
+
 	b.db.closeLock.RLock()
 	defer b.db.closeLock.RUnlock()
 
 	if b.db.closed {
 		return pebble.ErrClosed
 	}
-	return b.batch.Commit(pebble.Sync)
+
+	if err := b.batch.Commit(pebble.Sync); err != nil {
+		return err
+	}
+
+	return b.Close()
 }
 
-func (b *batch) Reset() {
-	b.batch.Reset()
-	b.size = 0
+func (b *batch) Close() error {
+	if b.batch == nil {
+		return pebble.ErrClosed
+	}
+
+	if err := b.batch.Close(); err != nil {
+		return err
+	}
+
+	// Clear all the fields to prevent any further use of the batch.
+	*b = batch{}
+	return nil
 }

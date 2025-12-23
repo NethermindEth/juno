@@ -11,7 +11,11 @@ import (
 	"github.com/NethermindEth/juno/db/dbutils"
 )
 
-var errDBClosed = errors.New("memory database closed")
+var (
+	errDBClosed       = errors.New("memory database closed")
+	errBatchClosed    = errors.New("memory batch closed")
+	errIteratorClosed = errors.New("memory iterator closed")
+)
 
 var _ db.KeyValueStore = (*Database)(nil)
 
@@ -146,6 +150,7 @@ func (d *Database) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator,
 		curInd: -1,
 		keys:   keys,
 		values: vals,
+		closed: false,
 	}, nil
 }
 
