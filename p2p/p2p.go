@@ -6,18 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/p2p/dht"
 	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
+	libp2pdht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/crypto/pb"
@@ -42,7 +43,7 @@ type Service struct {
 	handler *p2pPeers.Handler
 	log     utils.SimpleLogger
 
-	dht    *dht.IpfsDHT
+	dht    *libp2pdht.IpfsDHT
 	pubsub *pubsub.PubSub
 
 	synchroniser *p2pSync.Service
@@ -116,29 +117,27 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger, database db.KeyValueStore,
 ) (*Service, error) {
-	var (
-		peersAddrInfoS []peer.AddrInfo
-		err            error
-	)
-
-	peersAddrInfoS, err = loadPeers(database)
+	peersAddrInfoS, err := loadPeers(database)
 	if err != nil {
 		log.Warnw("Failed to load peers", "err", err)
 	}
 
-	if peers != "" {
-		for peerStr := range strings.SplitSeq(peers, ",") {
-			var peerAddr *peer.AddrInfo
-			peerAddr, err = peer.AddrInfoFromString(peerStr)
-			if err != nil {
-				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
-			}
-
-			peersAddrInfoS = append(peersAddrInfoS, *peerAddr)
-		}
+	configuredPeers, err := dht.ExtractPeers(peers)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract peers: %w", err)
 	}
 
-	p2pdht, err := makeDHT(p2phost, peersAddrInfoS)
+	peersAddrInfoS = append(peersAddrInfoS, configuredPeers...)
+
+	p2pdht, err := dht.New(
+		context.Background(),
+		p2phost,
+		snNetwork,
+		starknetp2p.SyncProtocolID,
+		func() []peer.AddrInfo {
+			return peersAddrInfoS
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -158,15 +157,6 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		database:     database,
 	}
 	return s, nil
-}
-
-func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
-	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(p2pSync.Prefix),
-		dht.BootstrapPeers(addrInfos...),
-		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
-		dht.Mode(dht.ModeServer),
-	)
 }
 
 func privateKey(privKeyStr string) (crypto.PrivKey, error) {
@@ -255,11 +245,11 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) setProtocolHandlers() {
-	s.SetProtocolHandler(p2pSync.HeadersPID(), s.handler.HeadersHandler)
-	s.SetProtocolHandler(p2pSync.EventsPID(), s.handler.EventsHandler)
-	s.SetProtocolHandler(p2pSync.TransactionsPID(), s.handler.TransactionsHandler)
-	s.SetProtocolHandler(p2pSync.ClassesPID(), s.handler.ClassesHandler)
-	s.SetProtocolHandler(p2pSync.StateDiffPID(), s.handler.StateDiffHandler)
+	s.SetProtocolHandler(starknetp2p.HeadersSyncSubProtocol, s.handler.HeadersHandler)
+	s.SetProtocolHandler(starknetp2p.EventsSyncSubProtocol, s.handler.EventsHandler)
+	s.SetProtocolHandler(starknetp2p.TransactionsSyncSubProtocol, s.handler.TransactionsHandler)
+	s.SetProtocolHandler(starknetp2p.ClassesSyncSubProtocol, s.handler.ClassesHandler)
+	s.SetProtocolHandler(starknetp2p.StateDiffSyncSubProtocol, s.handler.StateDiffHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {
@@ -309,8 +299,11 @@ func (s *Service) NewStream(ctx context.Context, pids ...protocol.ID) (network.S
 	}
 }
 
-func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {
-	s.host.SetStreamHandler(pid, handler)
+func (s *Service) SetProtocolHandler(
+	syncSubProtocol starknetp2p.SyncSubProtocol,
+	handler func(network.Stream),
+) {
+	s.host.SetStreamHandler(starknetp2p.Sync(s.network, syncSubProtocol), handler)
 }
 
 func (s *Service) WithListener(l junoSync.EventListener) {
