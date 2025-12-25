@@ -3,8 +3,8 @@ name: Deploy and Test on Dev
 on:
   merge_group:
     branches: [main]
-  pull_request:
-    branches: [main]
+  # pull_request:
+  #   branches: [main]
   push:
     branches: [main]
     tags: ["v*"]
