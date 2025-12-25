@@ -62,6 +62,12 @@ func Unmarshal(b []byte, v any) error {
 	return decMode.Unmarshal(b, v)
 }
 
+// UnmarshalFirst decodes the first CBOR data item into param v and returns the remaining bytes
+func UnmarshalFirst(b []byte, v any) ([]byte, error) {
+	initialiseEncoder.Do(initEncAndDecModes)
+	return decMode.UnmarshalFirst(b, v)
+}
+
 // TestSymmetry checks if a type can be marshalled and unmarshalled with no issues
 func TestSymmetry(t *testing.T, value any) {
 	t.Helper()
