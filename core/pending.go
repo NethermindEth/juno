@@ -12,8 +12,15 @@ var (
 )
 
 var (
-	ErrTransactionNotFound        = errors.New("pending_data: transaction not found")
-	ErrTransactionReceiptNotFound = errors.New("pending_data: transaction receipt not found")
+	ErrPendingDataNotFound         = errors.New("pending_data not found")
+	ErrTransactionNotFound         = errors.New("pending_data: transaction not found")
+	ErrTransactionReceiptNotFound  = errors.New("pending_data: transaction receipt not found")
+	ErrTransactionIndexOutOfBounds = errors.New(
+		"pending_data: transaction index out of bounds",
+	)
+	ErrPendingStateBeforeIndexNotSupported = errors.New(
+		"pending_data: PendingStateBeforeIndex not supported for Pending block",
+	)
 )
 
 type PendingDataVariant uint8
@@ -28,7 +35,7 @@ type PendingData interface {
 	GetHeader() *Header
 	GetTransactions() []Transaction
 	GetStateUpdate() *StateUpdate
-	GetNewClasses() map[felt.Felt]Class
+	GetNewClasses() map[felt.Felt]ClassDefinition
 	GetCandidateTransaction() []Transaction
 	GetTransactionStateDiffs() []*StateDiff
 	GetPreLatest() *PreLatest
@@ -38,15 +45,24 @@ type PendingData interface {
 	Variant() PendingDataVariant
 	TransactionByHash(hash *felt.Felt) (Transaction, error)
 	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
+	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
+	// up to given index in the pre-confirmed block.
+	PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error)
+	// PendingState returns the state resulting from execution of the pending data
+	PendingState(baseState StateReader) StateReader
 }
 
 type Pending struct {
 	Block       *Block
 	StateUpdate *StateUpdate
-	NewClasses  map[felt.Felt]Class
+	NewClasses  map[felt.Felt]ClassDefinition
 }
 
-func NewPending(block *Block, stateUpdate *StateUpdate, newClasses map[felt.Felt]Class) Pending {
+func NewPending(
+	block *Block,
+	stateUpdate *StateUpdate,
+	newClasses map[felt.Felt]ClassDefinition,
+) Pending {
 	return Pending{
 		Block:       block,
 		StateUpdate: stateUpdate,
@@ -70,7 +86,7 @@ func (p *Pending) GetStateUpdate() *StateUpdate {
 	return p.StateUpdate
 }
 
-func (p *Pending) GetNewClasses() map[felt.Felt]Class {
+func (p *Pending) GetNewClasses() map[felt.Felt]ClassDefinition {
 	return p.NewClasses
 }
 
@@ -120,13 +136,25 @@ func (p *Pending) ReceiptByHash(
 	return nil, nil, 0, ErrTransactionReceiptNotFound
 }
 
+func (p *Pending) PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error) {
+	return nil, ErrPendingStateBeforeIndexNotSupported
+}
+
+func (p *Pending) PendingState(baseState StateReader) StateReader {
+	return NewPendingState(
+		p.StateUpdate.StateDiff,
+		p.NewClasses,
+		baseState,
+	)
+}
+
 type PreLatest Pending
 
 type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
 	// Node does not fetch unknown classes. but we keep it for sequencer
-	NewClasses            map[felt.Felt]Class
+	NewClasses            map[felt.Felt]ClassDefinition
 	TransactionStateDiffs []*StateDiff
 	CandidateTxs          []Transaction
 	// Optional field, exists if pre_confirmed is N+2 when latest is N
@@ -147,7 +175,7 @@ func NewPreConfirmed(
 	}
 }
 
-func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) *PreConfirmed {
+func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]ClassDefinition) *PreConfirmed {
 	p.NewClasses = newClasses
 	return p
 }
@@ -178,7 +206,7 @@ func (p *PreConfirmed) GetStateUpdate() *StateUpdate {
 	return p.StateUpdate
 }
 
-func (p *PreConfirmed) GetNewClasses() map[felt.Felt]Class {
+func (p *PreConfirmed) GetNewClasses() map[felt.Felt]ClassDefinition {
 	return p.NewClasses
 }
 
@@ -259,4 +287,47 @@ func (p *PreConfirmed) ReceiptByHash(
 	}
 
 	return nil, nil, 0, ErrTransactionReceiptNotFound
+}
+
+func (p *PreConfirmed) PendingStateBeforeIndex(
+	baseState StateReader,
+	index uint,
+) (StateReader, error) {
+	if index > uint(len(p.Block.Transactions)) {
+		return nil, ErrTransactionIndexOutOfBounds
+	}
+
+	stateDiff := EmptyStateDiff()
+	newClasses := make(map[felt.Felt]ClassDefinition)
+
+	// Add pre_latest state diff if available
+	preLatest := p.PreLatest
+	if preLatest != nil {
+		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+		newClasses = preLatest.NewClasses
+	}
+
+	// Apply transaction state diffs up to the given index
+	txStateDiffs := p.TransactionStateDiffs
+	for _, txStateDiff := range txStateDiffs[:index] {
+		stateDiff.Merge(txStateDiff)
+	}
+
+	return NewPendingState(&stateDiff, newClasses, baseState), nil
+}
+
+func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
+	stateDiff := EmptyStateDiff()
+	newClasses := make(map[felt.Felt]ClassDefinition)
+
+	// Add pre_latest state diff if available
+	preLatest := p.PreLatest
+	if preLatest != nil {
+		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+		newClasses = preLatest.NewClasses
+	}
+
+	stateDiff.Merge(p.StateUpdate.StateDiff)
+
+	return NewPendingState(&stateDiff, newClasses, baseState)
 }

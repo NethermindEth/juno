@@ -52,7 +52,11 @@ type testConfig struct {
 	networkSetup testutils.NetworkConfigFn
 }
 
-func getBlockchain(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[felt.Felt]core.Class) *blockchain.Blockchain {
+func getBlockchain(
+	t *testing.T,
+	genesisDiff core.StateDiff,
+	genesisClasses map[felt.Felt]core.ClassDefinition,
+) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
@@ -61,7 +65,10 @@ func getBlockchain(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[
 	return bc
 }
 
-func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.Felt]core.Class) {
+func loadGenesis(
+	t *testing.T,
+	log *utils.ZapLogger,
+) (core.StateDiff, map[felt.Felt]core.ClassDefinition) {
 	t.Helper()
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -96,7 +103,7 @@ func initNode(
 	commits chan commit,
 	cfg *testConfig,
 	genesisDiff core.StateDiff,
-	genesisClasses map[felt.Felt]core.Class,
+	genesisClasses map[felt.Felt]core.ClassDefinition,
 ) {
 	t.Helper()
 

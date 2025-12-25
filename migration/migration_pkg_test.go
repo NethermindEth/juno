@@ -65,13 +65,16 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 
 		// New entry exists.
-		var val []byte
 		err := txn.Get(db.ContractStorage.Key(exampleBytes[:]), func(data []byte) error {
-			val = data
+			require.Equal(
+				t,
+				exampleBytes[:],
+				data,
+				"the correct value was not transferred to the new location",
+			)
 			return nil
 		})
 		require.NoError(t, err)
-		require.Equal(t, exampleBytes[:], val, "the correct value was not transferred to the new location")
 
 		// Old entry does not exist.
 		oldKey := db.Peer.Key(exampleBytes[:])
@@ -272,11 +275,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 	class := oldCairo1Class{
 		Abi:     "some cairo abi",
 		AbiHash: felt.NewRandom[felt.Felt](),
-		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
-		}{
+		EntryPoints: core.SierraEntryPointsByType{
 			Constructor: []core.SierraEntryPoint{
 				{
 					Index:    0,
@@ -329,7 +328,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 
 		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &utils.Mainnet))
 
-		var actualDeclared core.DeclaredClass
+		var actualDeclared core.DeclaredClassDefinition
 		err = txn.Get(key, func(data []byte) error {
 			return encoder.Unmarshal(data, &actualDeclared)
 		})
@@ -337,7 +336,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 
 		assert.Equal(t, actualDeclared.At, expectedDeclared.At)
 
-		actualClass := actualDeclared.Class.(*core.Cairo1Class)
+		actualClass := actualDeclared.Class.(*core.SierraClass)
 		expectedClass := expectedDeclared.Class
 		assert.Equal(t, expectedClass.Abi, actualClass.Abi)
 		assert.Equal(t, expectedClass.AbiHash, actualClass.AbiHash)
@@ -404,7 +403,7 @@ func TestSchemaMetadata(t *testing.T) {
 	t.Run("conversion", func(t *testing.T) {
 		t.Run("version not set", func(t *testing.T) {
 			testDB := memory.New()
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(0), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -418,7 +417,7 @@ func TestSchemaMetadata(t *testing.T) {
 				return txn.Put(db.SchemaVersion.Key(), version[:])
 			}))
 
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -434,7 +433,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: nil,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -452,7 +451,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
@@ -470,7 +469,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)

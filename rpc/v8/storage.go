@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -67,7 +68,7 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	chainHeight, err := state.ChainHeight()
+	chainHeight, err := h.bcReader.Height()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -76,7 +77,7 @@ func (h *Handler) StorageProof(
 	// We don't use the head query directly to avoid race condition where there is a new incoming block.
 	// Currently it's still working because we don't have revert yet.
 	// We should figure out a way to merge the two transactions.
-	head, err := h.bcReader.BlockByNumber(chainHeight)
+	head, err := h.bcReader.BlockHeaderByNumber(chainHeight)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -122,12 +123,12 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	contractTreeRoot, err := contractTrie.Root()
+	contractTreeRoot, err := contractTrie.Hash()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	classTreeRoot, err := classTrie.Root()
+	classTreeRoot, err := classTrie.Hash()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -137,8 +138,8 @@ func (h *Handler) StorageProof(
 		ContractsProof:         contractProof,
 		ContractsStorageProofs: contractStorageProof,
 		GlobalRoots: &GlobalRoots{
-			ContractsTreeRoot: contractTreeRoot,
-			ClassesTreeRoot:   classTreeRoot,
+			ContractsTreeRoot: &contractTreeRoot,
+			ClassesTreeRoot:   &classTreeRoot,
 			BlockHash:         head.Hash,
 		},
 	}, nil
@@ -206,10 +207,17 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	return nil
 }
 
-func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
+	// care about which trie implementation is being used and the output format should be the same
+	t, ok := tr.(*trie.Trie)
+	if !ok {
+		return nil, fmt.Errorf("unknown trie type: %T", tr)
+	}
+
 	classProof := trie.NewProofNodeSet()
 	for _, class := range classes {
-		if err := tr.Prove(&class, classProof); err != nil {
+		if err := t.Prove(&class, classProof); err != nil {
 			return nil, err
 		}
 	}
@@ -217,15 +225,26 @@ func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 	return adaptProofNodes(classProof), nil
 }
 
-func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProof(
+	tr commontrie.Trie,
+	state core.StateReader,
+	contracts []felt.Felt,
+) (*ContractProof, error) {
+	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
+	// care about which trie implementation is being used and the output format should be the same
+	t, ok := tr.(*trie.Trie)
+	if !ok {
+		return nil, fmt.Errorf("unknown trie type: %T", tr)
+	}
+
 	contractProof := trie.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 	for i, contract := range contracts {
-		if err := tr.Prove(&contract, contractProof); err != nil {
+		if err := t.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
 
-		root, err := tr.Root()
+		root, err := t.Hash()
 		if err != nil {
 			return nil, err
 		}
@@ -246,7 +265,7 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 		contractLeavesData[i] = &LeafData{
 			Nonce:       &nonce,
 			ClassHash:   &classHash,
-			StorageRoot: root,
+			StorageRoot: &root,
 		}
 	}
 
@@ -256,7 +275,10 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 	}, nil
 }
 
-func getContractStorageProof(state core.StateReader, storageKeys []StorageKeys) ([][]*HashToNode, error) {
+func getContractStorageProof(
+	state core.StateReader,
+	storageKeys []StorageKeys,
+) ([][]*HashToNode, error) {
 	contractStorageRes := make([][]*HashToNode, len(storageKeys))
 	for i, storageKey := range storageKeys {
 		contractStorageTrie, err := state.ContractStorageTrie(storageKey.Contract)
@@ -264,9 +286,13 @@ func getContractStorageProof(state core.StateReader, storageKeys []StorageKeys) 
 			return nil, err
 		}
 
+		t, ok := contractStorageTrie.(*trie.Trie)
+		if !ok {
+			return nil, fmt.Errorf("unknown trie type: %T", t)
+		}
 		contractStorageProof := trie.NewProofNodeSet()
 		for _, key := range storageKey.Keys {
-			if err := contractStorageTrie.Prove(&key, contractStorageProof); err != nil {
+			if err := t.Prove(&key, contractStorageProof); err != nil {
 				return nil, err
 			}
 		}

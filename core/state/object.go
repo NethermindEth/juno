@@ -51,7 +51,13 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 	}
 
 	path := tr.FeltToPath(key)
-	v, err := trieutils.GetNodeByPath(s.state.db.disk, db.ContractTrieStorage, &s.addr, &path, true)
+	v, err := trieutils.GetNodeByPath(
+		s.state.db.disk,
+		db.ContractTrieStorage,
+		(*felt.Address)(&s.addr),
+		&path,
+		true,
+	)
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -80,7 +86,7 @@ func (s *stateObject) getStorageRoot() felt.Felt {
 	// If the storage trie is loaded, it may be modified somewhere already.
 	// Return the hash of the trie and update the contract's storage root.
 	if s.storageTrie != nil {
-		root := s.storageTrie.Hash()
+		root, _ := s.storageTrie.Hash()
 		s.contract.StorageRoot = root
 		return root
 	}

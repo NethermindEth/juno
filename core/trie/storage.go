@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/memory"
 )
 
 // bufferPool caches unused buffer objects for later reuse.
@@ -30,27 +29,15 @@ func getBuffer() *bytes.Buffer {
 
 // Storage is a database transaction on a trie.
 type Storage struct {
-	txn    db.IndexedBatch
-	prefix []byte
+	txn db.IndexedBatch
+	*ReadStorage
 }
 
 func NewStorage(txn db.IndexedBatch, prefix []byte) *Storage {
 	return &Storage{
-		txn:    txn,
-		prefix: prefix,
+		txn:         txn,
+		ReadStorage: NewReadStorage(txn, prefix),
 	}
-}
-
-// dbKey creates a byte array to be used as a key to our KV store
-// it simply appends the given key to the configured prefix
-func (t *Storage) dbKey(key *BitArray, buffer *bytes.Buffer) (int, error) {
-	_, err := buffer.Write(t.prefix)
-	if err != nil {
-		return 0, err
-	}
-
-	keyLen, err := key.Write(buffer)
-	return len(t.prefix) + keyLen, err
 }
 
 func (t *Storage) Put(key *BitArray, value *Node) error {
@@ -70,23 +57,6 @@ func (t *Storage) Put(key *BitArray, value *Node) error {
 	return t.txn.Put(encodedBytes[:keyLen], encodedBytes[keyLen:])
 }
 
-func (t *Storage) Get(key *BitArray) (*Node, error) {
-	buffer := getBuffer()
-	defer bufferPool.Put(buffer)
-	_, err := t.dbKey(key, buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	var node *Node
-	err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
-		node = nodePool.Get().(*Node)
-		return node.UnmarshalBinary(val)
-	})
-
-	return node, err
-}
-
 func (t *Storage) Delete(key *BitArray) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
@@ -95,15 +65,6 @@ func (t *Storage) Delete(key *BitArray) error {
 		return err
 	}
 	return t.txn.Delete(buffer.Bytes())
-}
-
-func (t *Storage) RootKey() (*BitArray, error) {
-	var rootKey *BitArray
-	err := t.txn.Get(t.prefix, func(val []byte) error {
-		rootKey = new(BitArray)
-		return rootKey.UnmarshalBinary(val)
-	})
-	return rootKey, err
 }
 
 func (t *Storage) PutRootKey(newRootKey *BitArray) error {
@@ -121,13 +82,61 @@ func (t *Storage) DeleteRootKey() error {
 }
 
 func (t *Storage) SyncedStorage() *Storage {
+	syncedBatch := db.NewSyncBatch(t.txn)
 	return &Storage{
-		txn:    db.NewSyncBatch(t.txn),
-		prefix: t.prefix,
+		txn:         syncedBatch,
+		ReadStorage: NewReadStorage(syncedBatch, t.prefix),
 	}
 }
 
-func newMemStorage() *Storage {
-	memoryDB := memory.New()
-	return NewStorage(memoryDB.NewIndexedBatch(), nil)
+// ReadOnlyStorage is a read-only database interface for a trie.
+type ReadStorage struct {
+	reader db.KeyValueReader
+	prefix []byte
+}
+
+// NewReadOnlyStorage creates a read-only storage wrapper.
+func NewReadStorage(reader db.KeyValueReader, prefix []byte) *ReadStorage {
+	return &ReadStorage{
+		reader: reader,
+		prefix: prefix,
+	}
+}
+
+func (t *ReadStorage) Get(key *BitArray) (*Node, error) {
+	buffer := getBuffer()
+	defer bufferPool.Put(buffer)
+	_, err := t.dbKey(key, buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	var node *Node
+	err = t.reader.Get(buffer.Bytes(), func(val []byte) error {
+		node = nodePool.Get().(*Node)
+		return node.UnmarshalBinary(val)
+	})
+
+	return node, err
+}
+
+func (t *ReadStorage) RootKey() (*BitArray, error) {
+	var rootKey *BitArray
+	err := t.reader.Get(t.prefix, func(val []byte) error {
+		rootKey = new(BitArray)
+		return rootKey.UnmarshalBinary(val)
+	})
+	return rootKey, err
+}
+
+// dbKey creates a byte array to be used as a key to our KV store
+// it simply appends the given key to the configured prefix
+func (t *ReadStorage) dbKey(key *BitArray, buffer *bytes.Buffer) (int, error) {
+	_, err := buffer.Write(t.prefix)
+	if err != nil {
+		return 0, err
+	}
+
+	keyLen, err := key.Write(buffer)
+	return len(t.prefix) + keyLen, err
 }

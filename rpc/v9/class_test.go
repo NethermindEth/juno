@@ -31,10 +31,11 @@ func TestClass(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
-		class, err := integGw.Class(t.Context(), classHash)
-		return &core.DeclaredClass{Class: class, At: 0}, err
-	}).AnyTimes()
+	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+		func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+			class, err := integGw.Class(t.Context(), classHash)
+			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+		}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
@@ -44,19 +45,23 @@ func TestClass(t *testing.T) {
 	latest := blockIDLatest(t)
 
 	t.Run("sierra class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+		hash := felt.NewUnsafeFromString[felt.Felt](
+			"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+		)
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.Class(&latest, hash)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.Cairo1Class)
-		assertEqualCairo1Class(t, cairo1Class, class)
+		sierraClass := coreClass.(*core.SierraClass)
+		assertEqualSierraClass(t, sierraClass, class)
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+		hash := felt.NewUnsafeFromString[felt.Felt](
+			"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+		)
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -64,8 +69,8 @@ func TestClass(t *testing.T) {
 		class, rpcErr := handler.Class(&latest, hash)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.Cairo0Class)
-		assertEqualCairo0Class(t, cairo0Class, class)
+		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
+		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
 	})
 
 	t.Run("state by id error", func(t *testing.T) {
@@ -106,18 +111,25 @@ func TestClassAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	cairo0ContractAddress := felt.NewRandom[felt.Felt]()
-	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(*cairo0ClassHash, nil)
+	deprecatedCairoContractAddress := felt.NewRandom[felt.Felt]()
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
+	mockState.EXPECT().
+		ContractClassHash(deprecatedCairoContractAddress).
+		Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
-	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*cairo1ClassHash, nil)
+	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
+	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
-		class, err := integGw.Class(t.Context(), classHash)
-		return &core.DeclaredClass{Class: class, At: 0}, err
-	}).AnyTimes()
+	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+		func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+			class, err := integGw.Class(t.Context(), classHash)
+			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+		}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
@@ -127,24 +139,24 @@ func TestClassAt(t *testing.T) {
 	latest := blockIDLatest(t)
 
 	t.Run("sierra class", func(t *testing.T) {
-		coreClass, err := integGw.Class(t.Context(), cairo1ClassHash)
+		coreClass, err := integGw.Class(t.Context(), sierraClassHash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.ClassAt(&latest, cairo1ContractAddress)
 		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.Cairo1Class)
-		assertEqualCairo1Class(t, cairo1Class, class)
+		sierraClass := coreClass.(*core.SierraClass)
+		assertEqualSierraClass(t, sierraClass, class)
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		coreClass, err := integGw.Class(t.Context(), cairo0ClassHash)
+		coreClass, err := integGw.Class(t.Context(), deprecatedCairoClassHash)
 		require.NoError(t, err)
 
-		class, rpcErr := handler.ClassAt(&latest, cairo0ContractAddress)
+		class, rpcErr := handler.ClassAt(&latest, deprecatedCairoContractAddress)
 		require.Nil(t, rpcErr)
 
-		cairo0Class := coreClass.(*core.Cairo0Class)
-		assertEqualCairo0Class(t, cairo0Class, class)
+		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
+		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
 	})
 }
 
@@ -157,10 +169,11 @@ func TestClassHashAt(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpcv9.New(mockReader, mockSyncReader, nil, log)
 
+	targetAddress := felt.FromUint64[felt.Felt](1234)
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 		latest := blockIDLatest(t)
-		classHash, rpcErr := handler.ClassHashAt(&latest, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(&latest, &targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -168,7 +181,7 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 		hash := blockIDHash(t, &felt.Zero)
-		classHash, rpcErr := handler.ClassHashAt(&hash, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(&hash, &targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -176,7 +189,7 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
 		number := blockIDNumber(t, 0)
-		classHash, rpcErr := handler.ClassHashAt(&number, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(&number, &targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -185,12 +198,10 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(
-			felt.Zero,
-			errors.New("non-existent contract"),
-		)
+		mockState.EXPECT().ContractClassHash(&targetAddress).
+			Return(felt.Felt{}, errors.New("non-existent contract"))
 		latest := blockIDLatest(t)
-		classHash, rpcErr := handler.ClassHashAt(&latest, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(&latest, &targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
@@ -199,44 +210,59 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 		latest := blockIDLatest(t)
-		classHash, rpcErr := handler.ClassHashAt(&latest, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(&latest, &targetAddress)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 		hash := blockIDHash(t, &felt.Zero)
-		classHash, rpcErr := handler.ClassHashAt(&hash, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(&hash, &targetAddress)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 		number := blockIDNumber(t, 0)
-		classHash, rpcErr := handler.ClassHashAt(&number, &felt.Zero)
+		classHash, rpcErr := handler.ClassHashAt(&number, &targetAddress)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
-
+	//nolint:dupl //  similar structure with nonce test, different endpoint.
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
-		preConfirmed := blockIDPreConfirmed(t)
-		classHash, rpcErr := handler.ClassHashAt(&preConfirmed, &felt.Zero)
+		stateDiff := core.EmptyStateDiff()
+		stateDiff.DeployedContracts[targetAddress] = expectedClassHash
+
+		preConfirmed := core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number: 2,
+				},
+			},
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &stateDiff,
+			},
+		}
+		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+			Return(mockState, nopCloser, nil)
+
+		preConfirmedID := blockIDPreConfirmed(t)
+		classHash, rpcErr := handler.ClassHashAt(&preConfirmedID, &targetAddress)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedClassHash, classHash)
+		require.Equal(t, expectedClassHash, classHash)
 	})
 
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
 		l1HeadBlockNumber := uint64(10)
 		mockReader.EXPECT().L1Head().Return(
-			&core.L1Head{
+			core.L1Head{
 				BlockNumber: l1HeadBlockNumber,
 				BlockHash:   &felt.Zero,
 				StateRoot:   &felt.Zero,
@@ -252,55 +278,107 @@ func TestClassHashAt(t *testing.T) {
 	})
 }
 
-func assertEqualCairo0Class(t *testing.T, cairo0Class *core.Cairo0Class, class *rpcv6.Class) {
-	assert.Equal(t, cairo0Class.Program, class.Program)
-	assert.Equal(t, cairo0Class.Abi, class.Abi.(json.RawMessage))
+func assertEqualDeprecatedCairoClass(
+	t *testing.T,
+	deprecatedCairoClass *core.DeprecatedCairoClass,
+	class *rpcv6.Class,
+) {
+	assert.Equal(t, deprecatedCairoClass.Program, class.Program)
+	assert.Equal(t, deprecatedCairoClass.Abi, class.Abi.(json.RawMessage))
 
-	require.Equal(t, len(cairo0Class.L1Handlers), len(class.EntryPoints.L1Handler))
-	for idx := range cairo0Class.L1Handlers {
+	require.Equal(t, len(deprecatedCairoClass.L1Handlers), len(class.EntryPoints.L1Handler))
+	for idx := range deprecatedCairoClass.L1Handlers {
 		assert.Nil(t, class.EntryPoints.L1Handler[idx].Index)
-		assert.Equal(t, cairo0Class.L1Handlers[idx].Offset, class.EntryPoints.L1Handler[idx].Offset)
-		assert.Equal(t, cairo0Class.L1Handlers[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.L1Handlers[idx].Offset,
+			class.EntryPoints.L1Handler[idx].Offset,
+		)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.L1Handlers[idx].Selector,
+			class.EntryPoints.L1Handler[idx].Selector,
+		)
 	}
 
-	require.Equal(t, len(cairo0Class.Constructors), len(class.EntryPoints.Constructor))
-	for idx := range cairo0Class.Constructors {
+	require.Equal(t, len(deprecatedCairoClass.Constructors), len(class.EntryPoints.Constructor))
+	for idx := range deprecatedCairoClass.Constructors {
 		assert.Nil(t, class.EntryPoints.Constructor[idx].Index)
-		assert.Equal(t, cairo0Class.Constructors[idx].Offset, class.EntryPoints.Constructor[idx].Offset)
-		assert.Equal(t, cairo0Class.Constructors[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Constructors[idx].Offset,
+			class.EntryPoints.Constructor[idx].Offset,
+		)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Constructors[idx].Selector,
+			class.EntryPoints.Constructor[idx].Selector,
+		)
 	}
 
-	require.Equal(t, len(cairo0Class.Externals), len(class.EntryPoints.External))
-	for idx := range cairo0Class.Externals {
+	require.Equal(t, len(deprecatedCairoClass.Externals), len(class.EntryPoints.External))
+	for idx := range deprecatedCairoClass.Externals {
 		assert.Nil(t, class.EntryPoints.External[idx].Index)
-		assert.Equal(t, cairo0Class.Externals[idx].Offset, class.EntryPoints.External[idx].Offset)
-		assert.Equal(t, cairo0Class.Externals[idx].Selector, class.EntryPoints.External[idx].Selector)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Externals[idx].Offset,
+			class.EntryPoints.External[idx].Offset,
+		)
+		assert.Equal(
+			t,
+			deprecatedCairoClass.Externals[idx].Selector,
+			class.EntryPoints.External[idx].Selector,
+		)
 	}
 }
 
-func assertEqualCairo1Class(t *testing.T, cairo1Class *core.Cairo1Class, class *rpcv6.Class) {
-	assert.Equal(t, cairo1Class.Program, class.SierraProgram)
-	assert.Equal(t, cairo1Class.Abi, class.Abi.(string))
-	assert.Equal(t, cairo1Class.SemanticVersion, class.ContractClassVersion)
+func assertEqualSierraClass(t *testing.T, sierraClass *core.SierraClass, class *rpcv6.Class) {
+	assert.Equal(t, sierraClass.Program, class.SierraProgram)
+	assert.Equal(t, sierraClass.Abi, class.Abi.(string))
+	assert.Equal(t, sierraClass.SemanticVersion, class.ContractClassVersion)
 
-	require.Equal(t, len(cairo1Class.EntryPoints.L1Handler), len(class.EntryPoints.L1Handler))
-	for idx := range cairo1Class.EntryPoints.L1Handler {
+	require.Equal(t, len(sierraClass.EntryPoints.L1Handler), len(class.EntryPoints.L1Handler))
+	for idx := range sierraClass.EntryPoints.L1Handler {
 		assert.Nil(t, class.EntryPoints.L1Handler[idx].Offset)
-		assert.Equal(t, cairo1Class.EntryPoints.L1Handler[idx].Index, *class.EntryPoints.L1Handler[idx].Index)
-		assert.Equal(t, cairo1Class.EntryPoints.L1Handler[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.L1Handler[idx].Index,
+			*class.EntryPoints.L1Handler[idx].Index,
+		)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.L1Handler[idx].Selector,
+			class.EntryPoints.L1Handler[idx].Selector,
+		)
 	}
 
-	require.Equal(t, len(cairo1Class.EntryPoints.Constructor), len(class.EntryPoints.Constructor))
-	for idx := range cairo1Class.EntryPoints.Constructor {
+	require.Equal(t, len(sierraClass.EntryPoints.Constructor), len(class.EntryPoints.Constructor))
+	for idx := range sierraClass.EntryPoints.Constructor {
 		assert.Nil(t, class.EntryPoints.Constructor[idx].Offset)
-		assert.Equal(t, cairo1Class.EntryPoints.Constructor[idx].Index, *class.EntryPoints.Constructor[idx].Index)
-		assert.Equal(t, cairo1Class.EntryPoints.Constructor[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.Constructor[idx].Index,
+			*class.EntryPoints.Constructor[idx].Index,
+		)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.Constructor[idx].Selector,
+			class.EntryPoints.Constructor[idx].Selector,
+		)
 	}
 
-	require.Equal(t, len(cairo1Class.EntryPoints.External), len(class.EntryPoints.External))
-	for idx := range cairo1Class.EntryPoints.External {
+	require.Equal(t, len(sierraClass.EntryPoints.External), len(class.EntryPoints.External))
+	for idx := range sierraClass.EntryPoints.External {
 		assert.Nil(t, class.EntryPoints.External[idx].Offset)
-		assert.Equal(t, cairo1Class.EntryPoints.External[idx].Index, *class.EntryPoints.External[idx].Index)
-		assert.Equal(t, cairo1Class.EntryPoints.External[idx].Selector, class.EntryPoints.External[idx].Selector)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.External[idx].Index,
+			*class.EntryPoints.External[idx].Index,
+		)
+		assert.Equal(
+			t,
+			sierraClass.EntryPoints.External[idx].Selector,
+			class.EntryPoints.External[idx].Selector,
+		)
 	}
 }

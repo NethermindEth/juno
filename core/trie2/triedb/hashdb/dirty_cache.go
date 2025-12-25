@@ -9,7 +9,7 @@ import (
 type dirtyCache struct {
 	classNodes           map[string]trienode.TrieNode
 	contractNodes        map[string]trienode.TrieNode
-	contractStorageNodes map[felt.Felt]map[string]trienode.TrieNode
+	contractStorageNodes map[felt.Address]map[string]trienode.TrieNode
 	size                 int
 }
 
@@ -17,11 +17,17 @@ func newDirtyCache() *dirtyCache {
 	return &dirtyCache{
 		classNodes:           make(map[string]trienode.TrieNode),
 		contractNodes:        make(map[string]trienode.TrieNode),
-		contractStorageNodes: make(map[felt.Felt]map[string]trienode.TrieNode),
+		contractStorageNodes: make(map[felt.Address]map[string]trienode.TrieNode),
 	}
 }
 
-func (c *dirtyCache) putNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+func (c *dirtyCache) putNode(
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Hash,
+	isClass bool,
+	node trienode.TrieNode,
+) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
 
@@ -29,7 +35,7 @@ func (c *dirtyCache) putNode(owner *felt.Felt, path *trieutils.Path, hash *felt.
 		c.classNodes[keyStr] = node
 	}
 
-	if owner.IsZero() {
+	if felt.IsZero(owner) {
 		c.contractNodes[keyStr] = node
 	} else {
 		if _, ok := c.contractStorageNodes[*owner]; !ok {
@@ -39,7 +45,12 @@ func (c *dirtyCache) putNode(owner *felt.Felt, path *trieutils.Path, hash *felt.
 	}
 }
 
-func (c *dirtyCache) getNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool) (trienode.TrieNode, bool) {
+func (c *dirtyCache) getNode(
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Hash,
+	isClass bool,
+) (trienode.TrieNode, bool) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
 
@@ -48,7 +59,7 @@ func (c *dirtyCache) getNode(owner *felt.Felt, path *trieutils.Path, hash *felt.
 		return node, ok
 	}
 
-	if owner.IsZero() {
+	if felt.IsZero(owner) {
 		node, ok := c.contractNodes[keyStr]
 		return node, ok
 	}
@@ -69,6 +80,6 @@ func (c *dirtyCache) len() int {
 func (c *dirtyCache) reset() {
 	c.classNodes = make(map[string]trienode.TrieNode)
 	c.contractNodes = make(map[string]trienode.TrieNode)
-	c.contractStorageNodes = make(map[felt.Felt]map[string]trienode.TrieNode)
+	c.contractStorageNodes = make(map[felt.Address]map[string]trienode.TrieNode)
 	c.size = 0
 }

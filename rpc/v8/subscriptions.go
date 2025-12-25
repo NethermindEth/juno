@@ -175,7 +175,7 @@ func (h *Handler) subscribe(
 // Therefore, the emitted events are deterministic and we can use the transaction hash and event index to identify.
 type SentEvent struct {
 	TransactionHash felt.Felt
-	EventIndex      int
+	EventIndex      uint
 }
 
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
@@ -373,7 +373,7 @@ func (h *Handler) processEvents(
 	eventsPreviouslySent map[SentEvent]struct{},
 	height uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
@@ -395,8 +395,8 @@ func (h *Handler) processEvents(
 		return err
 	}
 
-	for cToken != nil {
-		filteredEvents, cToken, err = filter.Events(cToken, subscribeEventsChunkSize)
+	for !cToken.IsEmpty() {
+		filteredEvents, cToken, err = filter.Events(&cToken, subscribeEventsChunkSize)
 		if err != nil {
 			return err
 		}
@@ -409,8 +409,12 @@ func (h *Handler) processEvents(
 	return nil
 }
 
-func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent,
-	eventsPreviouslySent map[SentEvent]struct{}, id string,
+func sendEvents(
+	ctx context.Context,
+	w jsonrpc.Conn,
+	events []blockchain.FilteredEvent,
+	eventsPreviouslySent map[SentEvent]struct{},
+	id string,
 ) error {
 	for _, event := range events {
 		select {

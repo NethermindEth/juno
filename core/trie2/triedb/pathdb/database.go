@@ -59,7 +59,7 @@ func (d *Database) Close() error {
 }
 
 // Forces the commit of all the in-memory diff layers to the disk layer
-func (d *Database) Commit(root *felt.Felt) error {
+func (d *Database) Commit(root *felt.StateRootHash) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -71,7 +71,7 @@ func (d *Database) Commit(root *felt.Felt) error {
 // will be merged to the disk layer.
 func (d *Database) Update(
 	root,
-	parent *felt.Felt,
+	parent *felt.StateRootHash,
 	blockNum uint64,
 	mergeClassNodes,
 	mergeContractNodes *trienode.MergeNodeSet,
@@ -94,7 +94,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	)
 
 	owner := id.Owner()
-	if !owner.Equal(&felt.Zero) {
+	if !felt.IsZero(&owner) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}
@@ -104,4 +104,8 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	prefix = append(prefix, ownerBytes...)
 
 	return d.disk.NewIterator(prefix, true)
+}
+
+func (d *Database) Scheme() database.TrieDBScheme {
+	return database.PathScheme
 }

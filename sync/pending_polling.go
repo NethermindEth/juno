@@ -12,24 +12,14 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common/lru"
 )
 
 const (
-	blockHashLag       = 10
 	preLatestCacheSize = 10
 )
-
-// needsPreConfirmed reports whether the given protocol version string
-// indicates blocks >= v0.14.0 (i.e., pre_confirmed path is required).
-func needsPreConfirmed(protocolVersion string) (bool, error) {
-	ver, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return false, err
-	}
-	return ver.GreaterThanEqual(core.Ver0_14_0), nil
-}
 
 // isGreaterThanTip reports whether the given number is at or beyond the highest known header.
 func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
@@ -156,110 +146,8 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 	), nil
 }
 
-// makeStateDiffForEmptyBlock constructs a minimal state diff for an empty block.
-// It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
-func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
-	stateDiff := &core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, 1),
-		Nonces:            make(map[felt.Felt]*felt.Felt, 0),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt, 0),
-		DeclaredV0Classes: make([]*felt.Felt, 0),
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, 0),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, 0),
-	}
-
-	if blockNumber < blockHashLag {
-		return stateDiff, nil
-	}
-
-	header, err := bc.BlockHeaderByNumber(blockNumber - blockHashLag)
-	if err != nil {
-		return nil, err
-	}
-
-	blockHashStorageContract := new(felt.Felt).SetUint64(1)
-	stateDiff.StorageDiffs[*blockHashStorageContract] = map[felt.Felt]*felt.Felt{
-		*new(felt.Felt).SetUint64(header.Number): header.Hash,
-	}
-	return stateDiff, nil
-}
-
-func (s *Synchronizer) makeEmptyPendingForParent(latestHeader *core.Header) (core.Pending, error) {
-	receipts := make([]*core.TransactionReceipt, 0)
-	pendingBlock := &core.Block{
-		Header: &core.Header{
-			ParentHash:       latestHeader.Hash,
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    latestHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
-			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
-	if err != nil {
-		return core.Pending{}, err
-	}
-
-	pending := core.Pending{
-		Block: pendingBlock,
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   latestHeader.GlobalStateRoot,
-			StateDiff: stateDiff,
-		},
-		NewClasses: make(map[felt.Felt]core.Class, 0),
-	}
-	return pending, nil
-}
-
-func (s *Synchronizer) makeEmptyPreConfirmedForParent(latestHeader *core.Header) (core.PreConfirmed, error) {
-	receipts := make([]*core.TransactionReceipt, 0)
-	preConfirmedBlock := &core.Block{
-		// pre_confirmed block does not have parent hash
-		Header: &core.Header{
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    latestHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
-			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
-	if err != nil {
-		return core.PreConfirmed{}, err
-	}
-
-	preConfirmed := core.PreConfirmed{
-		Block: preConfirmedBlock,
-		StateUpdate: &core.StateUpdate{
-			StateDiff: stateDiff,
-		},
-		NewClasses:            make(map[felt.Felt]core.Class, 0),
-		TransactionStateDiffs: make([]*core.StateDiff, 0),
-		CandidateTxs:          make([]core.Transaction, 0),
-	}
-
-	return preConfirmed, nil
-}
-
 func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
-	pending, err := s.makeEmptyPendingForParent(latestHeader)
+	pending, err := pendingdata.MakeEmptyPendingForParent(s.blockchain, latestHeader)
 	if err != nil {
 		return err
 	}
@@ -270,8 +158,11 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 
 // storeEmptyPreConfirmed creates a baseline pre_confirmed for head+1 and stores it.
 // Pass preLatest to attach it to the baseline; pass nil to clear any attachment.
-func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header, preLatest *core.PreLatest) error {
-	preConfirmed, err := s.makeEmptyPreConfirmedForParent(latestHeader)
+func (s *Synchronizer) storeEmptyPreConfirmed(
+	latestHeader *core.Header,
+	preLatest *core.PreLatest,
+) error {
+	preConfirmed, err := pendingdata.MakeEmptyPreConfirmedForParent(s.blockchain, latestHeader)
 	if err != nil {
 		return err
 	}
@@ -281,13 +172,13 @@ func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header, preLate
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
-	blockVer, err := core.ParseBlockVersion(lastHeader.ProtocolVersion)
+	needPreConfirmed, err := pendingdata.NeedsPreConfirmed(lastHeader.ProtocolVersion)
 	if err != nil {
 		s.log.Errorw("Failed to parse block version", "err", err)
 		return
 	}
 
-	if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+	if needPreConfirmed {
 		if err := s.storeEmptyPreConfirmed(lastHeader, nil); err != nil {
 			s.log.Errorw("Failed to store empty pre_confirmed block", "number", lastHeader.Number)
 		}
@@ -364,7 +255,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			if !ok {
 				return false
 			}
-			need, err := needsPreConfirmed(head.ProtocolVersion)
+			need, err := pendingdata.NeedsPreConfirmed(head.ProtocolVersion)
 			if err != nil {
 				s.log.Debugw("Failed to parse protocol version", "err", err)
 				continue
@@ -379,7 +270,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 
 		case p := <-pendingCh:
-			need, err := needsPreConfirmed(p.Block.ProtocolVersion)
+			need, err := pendingdata.NeedsPreConfirmed(p.Block.ProtocolVersion)
 			if err != nil {
 				s.log.Debugw("Failed to parse pending protocol version", "err", err)
 				continue
@@ -593,6 +484,8 @@ func (s *Synchronizer) handlePreLatest(
 	if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
 		s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
 	}
+
+	s.preLatestDataFeed.Send(pl)
 	return pl
 }
 
@@ -608,6 +501,7 @@ func (s *Synchronizer) handlePreConfirmed(
 		s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
 		return
 	}
+
 	if changed {
 		s.pendingDataFeed.Send(pc)
 	}

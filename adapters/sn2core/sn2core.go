@@ -19,9 +19,9 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 	}
 
 	txns := make([]core.Transaction, len(response.Transactions))
-	for i, txn := range response.Transactions {
+	for i := range response.Transactions {
 		var err error
-		txns[i], err = AdaptTransaction(txn)
+		txns[i], err = AdaptTransaction(response.Transactions[i])
 		if err != nil {
 			return nil, err
 		}
@@ -29,9 +29,9 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 
 	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
 	eventCount := uint64(0)
-	for i, receipt := range response.Receipts {
-		receipts[i] = AdaptTransactionReceipt(receipt)
-		eventCount += uint64(len(receipt.Events))
+	for i := range response.Receipts {
+		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
+		eventCount += uint64(len(response.Receipts[i].Events))
 	}
 
 	sigs := [][]*felt.Felt{}
@@ -75,9 +75,12 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 		Events:             utils.Map(utils.NonNilSlice(response.Events), AdaptEvent),
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
-		L2ToL1Message:      utils.Map(utils.NonNilSlice(response.L2ToL1Message), AdaptL2ToL1Message),
-		Reverted:           response.ExecutionStatus == starknet.Reverted,
-		RevertReason:       response.RevertError,
+		L2ToL1Message: utils.Map(
+			utils.NonNilSlice(response.L2ToL1Message),
+			AdaptL2ToL1Message,
+		),
+		Reverted:     response.ExecutionStatus == starknet.Reverted,
+		RevertReason: response.RevertError,
 	}
 }
 
@@ -189,7 +192,10 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 	return core.DataAvailabilityMode(*mode)
 }
 
-func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds { //nolint:gocritic
+// todo(rdr): get rid of this gocritic
+func adaptResourceBounds(
+	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint: gocritic // someone was lazy
+) map[core.Resource]core.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
@@ -203,9 +209,16 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 	return coreBounds
 }
 
+// todo(rdr): return by value
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
-		t.ContractAddress = core.ContractAddress(&felt.Zero, t.ClassHash, t.ContractAddressSalt, *t.ConstructorCallData)
+		contractAddress := core.ContractAddress(
+			&felt.Zero,
+			t.ClassHash,
+			t.ContractAddressSalt,
+			*t.ConstructorCallData,
+		)
+		t.ContractAddress = &contractAddress
 	}
 	return &core.DeployTransaction{
 		TransactionHash:     t.Hash,
@@ -262,12 +275,45 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
-func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
+func adaptSierraEntrypoint(ep *starknet.SierraEntryPoint) core.SierraEntryPoint {
+	return core.SierraEntryPoint{
+		Index:    ep.Index,
+		Selector: ep.Selector,
+	}
+}
+
+func adaptSierraEntrypoints(ep *starknet.SierraEntryPoints) core.SierraEntryPointsByType {
+	entryPoints := core.SierraEntryPointsByType{
+		Constructor: make([]core.SierraEntryPoint, len(ep.Constructor)),
+		External:    make([]core.SierraEntryPoint, len(ep.External)),
+		L1Handler:   make([]core.SierraEntryPoint, len(ep.L1Handler)),
+	}
+
+	for i := range ep.Constructor {
+		entryPoints.Constructor[i] = adaptSierraEntrypoint(&ep.Constructor[i])
+	}
+
+	for i := range ep.External {
+		entryPoints.External[i] = adaptSierraEntrypoint(&ep.External[i])
+	}
+
+	for i := range ep.L1Handler {
+		entryPoints.L1Handler[i] = adaptSierraEntrypoint(&ep.L1Handler[i])
+	}
+
+	return entryPoints
+}
+
+func AdaptSierraClass(
+	response *starknet.SierraClass,
+	compiledClass *starknet.CasmClass,
+) (*core.SierraClass, error) {
 	var err error
 
 	// TODO: what's the absolute minimum size of a Sierra Definition?
 	// A Sierra program size should be at least 3 to contain the version or 1 if it's version is 0.1.0
-	if len(response.Program) < 3 && (len(response.Program) == 0 || !response.Program[0].Equal(&core.SierraVersion010)) {
+	if len(response.Program) < 3 && (len(response.Program) == 0 ||
+		!response.Program[0].Equal(&core.SierraVersion010)) {
 		return nil, errors.New("sierra program size is too small")
 	}
 
@@ -276,56 +322,48 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 		return nil, err
 	}
 
-	adapt := func(ep *starknet.SierraEntryPoint) core.SierraEntryPoint {
-		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
-	}
-
-	return &core.Cairo1Class{
+	programHash := crypto.PoseidonArray(response.Program...)
+	abiHash := crypto.StarknetKeccak([]byte(response.Abi))
+	return &core.SierraClass{
 		SemanticVersion: response.Version,
 		Program:         response.Program,
-		ProgramHash:     crypto.PoseidonArray(response.Program...),
+		ProgramHash:     &programHash,
 
 		Abi:     response.Abi,
-		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
+		AbiHash: &abiHash,
 
 		Compiled: coreCompiledClass,
 
-		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
-		}{
-			Constructor: utils.MapByRef(utils.NonNilSlice(response.EntryPoints.Constructor), adapt),
-			External:    utils.MapByRef(utils.NonNilSlice(response.EntryPoints.External), adapt),
-			L1Handler:   utils.MapByRef(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt),
-		},
+		EntryPoints: adaptSierraEntrypoints(&response.EntryPoints),
 	}, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {
+func AdaptCompiledClass(compiledClass *starknet.CasmClass) (*core.CasmClass, error) {
 	if compiledClass == nil {
 		return nil, nil
 	}
 
-	var compiled core.CompiledClass
-	compiled.Bytecode = compiledClass.Bytecode
-	compiled.PythonicHints = compiledClass.PythonicHints
-	compiled.CompilerVersion = compiledClass.CompilerVersion
-	compiled.Hints = compiledClass.Hints
-	compiled.BytecodeSegmentLengths = AdaptSegmentLengths(compiledClass.BytecodeSegmentLengths)
+	var casm core.CasmClass
+	casm.Bytecode = compiledClass.Bytecode
+	casm.PythonicHints = compiledClass.PythonicHints
+	casm.CompilerVersion = compiledClass.CompilerVersion
+	casm.Hints = compiledClass.Hints
+	if compiledClass.BytecodeSegmentLengths != nil {
+		casm.BytecodeSegmentLengths = AdaptSegmentLengths(*compiledClass.BytecodeSegmentLengths)
+	}
 
 	var ok bool
-	compiled.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
+	casm.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
 	if !ok {
-		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
+		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", casm.Prime)
 	}
 
 	entryPoints := compiledClass.EntryPoints
-	compiled.External = utils.Map(entryPoints.External, adaptCompiledEntryPoint)
-	compiled.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
-	compiled.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
+	casm.External = utils.Map(entryPoints.External, adaptCompiledEntryPoint)
+	casm.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
+	casm.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
 
-	return &compiled, nil
+	return &casm, nil
 }
 
 func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
@@ -335,17 +373,31 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 	}
 }
 
-func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
-	class := new(core.Cairo0Class)
+func adaptStarknetEntrypoint(ep *starknet.EntryPoint) core.DeprecatedEntryPoint {
+	return core.DeprecatedEntryPoint{Selector: ep.Selector, Offset: ep.Offset}
+}
+
+// todo(rdr): We know the right type here which is a deprecated cairo class, why use polymorphism.
+func AdaptDeprecatedCairoClass(
+	response *starknet.DeprecatedCairoClass,
+) (core.ClassDefinition, error) {
+	class := new(core.DeprecatedCairoClass)
 	class.Abi = response.Abi
 
-	adapt := func(ep starknet.EntryPoint) core.EntryPoint {
-		return core.EntryPoint{Selector: ep.Selector, Offset: ep.Offset}
+	class.Externals = make([]core.DeprecatedEntryPoint, len(response.EntryPoints.External))
+	for i := range response.EntryPoints.External {
+		class.Externals[i] = adaptStarknetEntrypoint(&response.EntryPoints.External[i])
 	}
 
-	class.Externals = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
-	class.L1Handlers = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
-	class.Constructors = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)
+	class.L1Handlers = make([]core.DeprecatedEntryPoint, len(response.EntryPoints.L1Handler))
+	for i := range response.EntryPoints.L1Handler {
+		class.L1Handlers[i] = adaptStarknetEntrypoint(&response.EntryPoints.L1Handler[i])
+	}
+
+	class.Constructors = make([]core.DeprecatedEntryPoint, len(response.EntryPoints.Constructor))
+	for i := range response.EntryPoints.Constructor {
+		class.Constructors[i] = adaptStarknetEntrypoint(&response.EntryPoints.Constructor[i])
+	}
 
 	var err error
 	class.Program, err = utils.Gzip64Encode(response.Program)
@@ -366,17 +418,24 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		BlockHash: response.BlockHash,
 		NewRoot:   response.NewRoot,
 		OldRoot:   response.OldRoot,
-		StateDiff: stateDiff,
+		StateDiff: &stateDiff,
 	}, nil
 }
 
-func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
-	stateDiff := new(core.StateDiff)
+func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
+	var stateDiff core.StateDiff
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
 
 	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.DeclaredClasses))
 	for _, declaredV1Class := range response.DeclaredClasses {
 		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
+	}
+
+	stateDiff.MigratedClasses = make(
+		map[felt.SierraClassHash]felt.CasmClassHash, len(response.MigratedClasses),
+	)
+	for _, migratedClass := range response.MigratedClasses {
+		stateDiff.MigratedClasses[migratedClass.ClassHash] = migratedClass.CompiledClassHash
 	}
 
 	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.ReplacedClasses))
@@ -393,16 +452,19 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	for addrStr, nonce := range response.Nonces {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
-			return nil, err
+			return core.StateDiff{}, err
 		}
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StorageDiffs))
+	stateDiff.StorageDiffs = make(
+		map[felt.Felt]map[felt.Felt]*felt.Felt,
+		len(response.StorageDiffs),
+	)
 	for addrStr, diffs := range response.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
-			return nil, err
+			return core.StateDiff{}, err
 		}
 
 		stateDiff.StorageDiffs[*addr] = make(map[felt.Felt]*felt.Felt)
@@ -414,7 +476,17 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64) (core.PreConfirmed, error) {
+// Comparing to preconfirmed, candidate txns don't include state diffs and receipts.
+// `||` is used to cover any possible descrepancies
+// https://community.starknet.io/t/sn-0-14-0-pre-release-notes
+func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
+	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
+}
+
+func AdaptPreConfirmedBlock(
+	response *starknet.PreConfirmedBlock,
+	number uint64,
+) (core.PreConfirmed, error) {
 	if response == nil {
 		return core.PreConfirmed{}, errors.New("nil preconfirmed block")
 	}
@@ -423,46 +495,51 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
-	var adaptedStateDiff *core.StateDiff
-	var err error
-
-	txStateDiffs := make([]*core.StateDiff, 0, len(response.TransactionStateDiffs))
-	for _, stateDiff := range response.TransactionStateDiffs {
-		if stateDiff == nil {
-			break
-		}
-
-		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
-			return core.PreConfirmed{}, err
-		}
-		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
+	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
+		len(response.Transactions) != len(response.Receipts)
+	if isInvalidPayloadSizes {
+		return core.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
 	}
 
-	preConfirmedTxCount := len(txStateDiffs)
+	preConfirmedTxCount := 0
+	for i := range len(response.Transactions) {
+		if !IsCandidateTx(response, i) {
+			preConfirmedTxCount++
+		}
+	}
+	candidateCount := len(response.Transactions) - preConfirmedTxCount
 
 	txns := make([]core.Transaction, preConfirmedTxCount)
-	for i := range preConfirmedTxCount {
-		txns[i], err = AdaptTransaction(&response.Transactions[i])
-		if err != nil {
-			return core.PreConfirmed{}, err
-		}
-	}
-
-	rawTxCount := len(response.Transactions)
-	candidateTxs := make([]core.Transaction, rawTxCount-preConfirmedTxCount)
-
-	for i := range rawTxCount - preConfirmedTxCount {
-		candidateTxs[i], err = AdaptTransaction(&response.Transactions[preConfirmedTxCount+i])
-		if err != nil {
-			return core.PreConfirmed{}, err
-		}
-	}
-
+	txStateDiffs := make([]*core.StateDiff, preConfirmedTxCount)
 	receipts := make([]*core.TransactionReceipt, preConfirmedTxCount)
 	eventCount := uint64(0)
-	for i, receipt := range response.Receipts[:preConfirmedTxCount] {
-		receipts[i] = AdaptTransactionReceipt(receipt)
-		eventCount += uint64(len(receipt.Events))
+	candidateTxs := make([]core.Transaction, candidateCount)
+
+	var err error
+	preIdx := 0
+	candIdx := 0
+	for i := range len(response.Transactions) {
+		if !IsCandidateTx(response, i) {
+			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+			var stateDiff core.StateDiff
+			stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+			txStateDiffs[preIdx] = &stateDiff
+			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+			eventCount += uint64(len(response.Receipts[i].Events))
+			preIdx++
+		} else {
+			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
+			if err != nil {
+				return core.PreConfirmed{}, err
+			}
+			candIdx++
+		}
 	}
 
 	// Squash per-tx state updates
@@ -516,8 +593,8 @@ func safeFeltToUint64(f *felt.Felt) uint64 {
 	return 0
 }
 
-func adaptCompiledEntryPoint(entryPoint starknet.CompiledEntryPoint) core.CompiledEntryPoint {
-	return core.CompiledEntryPoint{
+func adaptCompiledEntryPoint(entryPoint starknet.CompiledEntryPoint) core.CasmEntryPoint {
+	return core.CasmEntryPoint{
 		Offset:   entryPoint.Offset,
 		Selector: entryPoint.Selector,
 		Builtins: entryPoint.Builtins,

@@ -122,7 +122,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with no keys", func(t *testing.T) {
-		var allEvents []*rpc.EmittedEvent
+		var allEvents []rpc.EmittedEvent
 		t.Run("get canonical events without pagination", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Latest: true}
 			args.Address = from
@@ -134,7 +134,7 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("accumulate events with pagination", func(t *testing.T) {
-			var accEvents []*rpc.EmittedEvent
+			var accEvents []rpc.EmittedEvent
 			args.ChunkSize = 1
 
 			for range len(allEvents) + 1 {

@@ -20,22 +20,23 @@ type Node struct {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(path *BitArray, hashFn crypto.HashFn) *felt.Felt {
+func (n *Node) Hash(path *BitArray, hashFn crypto.HashFn) felt.Felt {
 	if path.Len() == 0 {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
 		hash := *n.Value
-		return &hash
+		return hash
 	}
 
 	pathFelt := path.Felt()
 	hash := hashFn(n.Value, &pathFelt)
 	pathFelt.SetUint64(uint64(path.Len()))
-	return hash.Add(hash, &pathFelt)
+	hash.Add(&hash, &pathFelt)
+	return hash
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) HashFromParent(parentKey, nodeKey *BitArray, hashFn crypto.HashFn) *felt.Felt {
+func (n *Node) HashFromParent(parentKey, nodeKey *BitArray, hashFn crypto.HashFn) felt.Felt {
 	path := path(nodeKey, parentKey)
 	return n.Hash(&path, hashFn)
 }

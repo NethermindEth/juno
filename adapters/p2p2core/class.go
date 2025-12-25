@@ -14,13 +14,13 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
+func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 	program := utils.Map(cairo1.Program, AdaptFelt)
 	compiled, err := createCompiledClass(cairo1)
 	if err != nil {
-		return core.Cairo1Class{}, fmt.Errorf("invalid compiled class: %w", err)
+		return core.SierraClass{}, fmt.Errorf("invalid compiled class: %w", err)
 	}
 
 	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
@@ -28,10 +28,11 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 		return utils.Map(utils.NonNilSlice(points), adaptSierra)
 	}
 
+	programHash := crypto.PoseidonArray(program...)
 	entryPoints := cairo1.EntryPoints
-	return core.Cairo1Class{
+	return core.SierraClass{
 		Abi:     cairo1.Abi,
-		AbiHash: abiHash,
+		AbiHash: &abiHash,
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint
 			External    []core.SierraEntryPoint
@@ -42,34 +43,34 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 			L1Handler:   adaptEP(entryPoints.L1Handlers),
 		},
 		Program:         program,
-		ProgramHash:     crypto.PoseidonArray(program...),
+		ProgramHash:     &programHash,
 		SemanticVersion: cairo1.ContractClassVersion,
 		Compiled:        compiled,
 	}, nil
 }
 
-func AdaptClass(cls *class.Class) (core.Class, error) {
+func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
 	if cls == nil {
 		return nil, nil
 	}
 
 	switch cls := cls.Class.(type) {
 	case *class.Class_Cairo0:
-		adaptEP := func(points []*class.EntryPoint) []core.EntryPoint {
+		adaptEP := func(points []*class.EntryPoint) []core.DeprecatedEntryPoint {
 			// usage of NonNilSlice is essential because relevant core class fields are non nil
 			return utils.Map(utils.NonNilSlice(points), adaptEntryPoint)
 		}
 
-		cairo0 := cls.Cairo0
-		return &core.Cairo0Class{
-			Abi:          json.RawMessage(cairo0.Abi),
-			Externals:    adaptEP(cairo0.Externals),
-			L1Handlers:   adaptEP(cairo0.L1Handlers),
-			Constructors: adaptEP(cairo0.Constructors),
-			Program:      cairo0.Program,
+		deprecatedCairo := cls.Cairo0
+		return &core.DeprecatedCairoClass{
+			Abi:          json.RawMessage(deprecatedCairo.Abi),
+			Externals:    adaptEP(deprecatedCairo.Externals),
+			L1Handlers:   adaptEP(deprecatedCairo.L1Handlers),
+			Constructors: adaptEP(deprecatedCairo.Constructors),
+			Program:      deprecatedCairo.Program,
 		}, nil
 	case *class.Class_Cairo1:
-		cairoClass, err := AdaptCairo1Class(cls.Cairo1)
+		cairoClass, err := AdaptSierraClass(cls.Cairo1)
 		return &cairoClass, err
 	default:
 		return nil, fmt.Errorf("unsupported class %T", cls)
@@ -83,14 +84,14 @@ func adaptSierra(e *class.SierraEntryPoint) core.SierraEntryPoint {
 	}
 }
 
-func adaptEntryPoint(e *class.EntryPoint) core.EntryPoint {
-	return core.EntryPoint{
+func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
+	return core.DeprecatedEntryPoint{
 		Selector: AdaptFelt(e.Selector),
 		Offset:   new(felt.Felt).SetUint64(e.Offset),
 	}
 }
 
-func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CompiledClass, error) {
+func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
 	if cairo1 == nil {
 		return nil, nil
 	}
@@ -102,7 +103,7 @@ func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CompiledClass, error)
 		}
 	}
 	ep := cairo1.EntryPoints
-	def := &starknet.SierraDefinition{
+	def := &starknet.SierraClass{
 		Abi: cairo1.Abi,
 		EntryPoints: starknet.SierraEntryPoints{
 			// WARNING: usage of utils.NonNilSlice is essential, otherwise compilation will finish with errors

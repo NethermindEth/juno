@@ -13,41 +13,85 @@ func AdaptSegmentLengths(l core.SegmentLengths) starknet.SegmentLengths {
 	}
 }
 
-func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.CompiledClass {
-	var feederCompiledClass starknet.CompiledClass
-	feederCompiledClass.Bytecode = coreCompiledClass.Bytecode
-	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
-	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
-	feederCompiledClass.Hints = coreCompiledClass.Hints
-	feederCompiledClass.Prime = utils.ToHex(coreCompiledClass.Prime)
-	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCompiledClass.BytecodeSegmentLengths)
-
-	adapt := func(ep core.CompiledEntryPoint) starknet.CompiledEntryPoint {
-		return starknet.CompiledEntryPoint{
-			Selector: ep.Selector,
-			Builtins: ep.Builtins,
-			Offset:   ep.Offset,
-		}
+func AdaptCasmEntryPoint(ep *core.CasmEntryPoint) starknet.CompiledEntryPoint {
+	return starknet.CompiledEntryPoint{
+		Selector: ep.Selector,
+		Builtins: ep.Builtins,
+		Offset:   ep.Offset,
 	}
-	feederCompiledClass.EntryPoints.External = utils.Map(utils.NonNilSlice(coreCompiledClass.External), adapt)
-	feederCompiledClass.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(coreCompiledClass.L1Handler), adapt)
-	feederCompiledClass.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(coreCompiledClass.Constructor), adapt)
+}
+
+func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
+	var feederCompiledClass starknet.CasmClass
+	feederCompiledClass.Bytecode = coreCasmClass.Bytecode
+	feederCompiledClass.PythonicHints = coreCasmClass.PythonicHints
+	feederCompiledClass.CompilerVersion = coreCasmClass.CompilerVersion
+	feederCompiledClass.Hints = coreCasmClass.Hints
+	feederCompiledClass.Prime = utils.ToHex(coreCasmClass.Prime)
+
+	if coreCasmClass.BytecodeSegmentLengths.Length != 0 ||
+		len(coreCasmClass.BytecodeSegmentLengths.Children) != 0 {
+		segmentLengths := AdaptSegmentLengths(coreCasmClass.BytecodeSegmentLengths)
+		feederCompiledClass.BytecodeSegmentLengths = &segmentLengths
+	}
+
+	feederCompiledClass.EntryPoints.External = make(
+		[]starknet.CompiledEntryPoint,
+		len(coreCasmClass.External),
+	)
+	for index := range coreCasmClass.External {
+		feederCompiledClass.EntryPoints.External[index] = AdaptCasmEntryPoint(
+			&coreCasmClass.External[index],
+		)
+	}
+
+	feederCompiledClass.EntryPoints.L1Handler = make(
+		[]starknet.CompiledEntryPoint,
+		len(coreCasmClass.L1Handler),
+	)
+	for index := range coreCasmClass.L1Handler {
+		feederCompiledClass.EntryPoints.L1Handler[index] = AdaptCasmEntryPoint(
+			&coreCasmClass.L1Handler[index],
+		)
+	}
+
+	feederCompiledClass.EntryPoints.Constructor = make(
+		[]starknet.CompiledEntryPoint,
+		len(coreCasmClass.Constructor),
+	)
+	for index := range coreCasmClass.Constructor {
+		feederCompiledClass.EntryPoints.Constructor[index] = AdaptCasmEntryPoint(
+			&coreCasmClass.Constructor[index],
+		)
+	}
 
 	return feederCompiledClass
 }
 
-func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
-	adapt := func(ep core.SierraEntryPoint) starknet.SierraEntryPoint {
-		return starknet.SierraEntryPoint{
-			Selector: ep.Selector,
-			Index:    ep.Index,
-		}
+func AdaptSierraEntryPoint(ep *core.SierraEntryPoint) starknet.SierraEntryPoint {
+	return starknet.SierraEntryPoint{
+		Selector: ep.Selector,
+		Index:    ep.Index,
 	}
-	constructors := utils.Map(utils.NonNilSlice(class.EntryPoints.Constructor), adapt)
-	external := utils.Map(utils.NonNilSlice(class.EntryPoints.External), adapt)
-	handlers := utils.Map(utils.NonNilSlice(class.EntryPoints.L1Handler), adapt)
+}
 
-	return &starknet.SierraDefinition{
+func AdaptSierraClass(class *core.SierraClass) starknet.SierraClass {
+	constructors := make([]starknet.SierraEntryPoint, len(class.EntryPoints.Constructor))
+	for index := range class.EntryPoints.Constructor {
+		constructors[index] = AdaptSierraEntryPoint(&class.EntryPoints.Constructor[index])
+	}
+
+	external := make([]starknet.SierraEntryPoint, len(class.EntryPoints.External))
+	for index := range class.EntryPoints.External {
+		external[index] = AdaptSierraEntryPoint(&class.EntryPoints.External[index])
+	}
+
+	handlers := make([]starknet.SierraEntryPoint, len(class.EntryPoints.L1Handler))
+	for index := range class.EntryPoints.L1Handler {
+		handlers[index] = AdaptSierraEntryPoint(&class.EntryPoints.L1Handler[index])
+	}
+
+	return starknet.SierraClass{
 		Abi:     class.Abi,
 		Version: class.SemanticVersion,
 		Program: class.Program,
@@ -59,23 +103,37 @@ func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
 	}
 }
 
-func AdaptCairo0Class(class *core.Cairo0Class) (*starknet.Cairo0Definition, error) {
+func AdaptDeprecatedEntryPoint(ep *core.DeprecatedEntryPoint) starknet.EntryPoint {
+	return starknet.EntryPoint{
+		Selector: ep.Selector,
+		Offset:   ep.Offset,
+	}
+}
+
+func AdaptDeprecatedCairoClass(
+	class *core.DeprecatedCairoClass,
+) (starknet.DeprecatedCairoClass, error) {
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
-		return nil, err
+		return starknet.DeprecatedCairoClass{}, err
 	}
 
-	adapt := func(ep core.EntryPoint) starknet.EntryPoint {
-		return starknet.EntryPoint{
-			Selector: ep.Selector,
-			Offset:   ep.Offset,
-		}
+	constructors := make([]starknet.EntryPoint, len(class.Constructors))
+	for index := range class.Constructors {
+		constructors[index] = AdaptDeprecatedEntryPoint(&class.Constructors[index])
 	}
-	constructors := utils.Map(utils.NonNilSlice(class.Constructors), adapt)
-	external := utils.Map(utils.NonNilSlice(class.Externals), adapt)
-	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), adapt)
 
-	return &starknet.Cairo0Definition{
+	external := make([]starknet.EntryPoint, len(class.Externals))
+	for index := range class.Externals {
+		external[index] = AdaptDeprecatedEntryPoint(&class.Externals[index])
+	}
+
+	handlers := make([]starknet.EntryPoint, len(class.L1Handlers))
+	for index := range class.L1Handlers {
+		handlers[index] = AdaptDeprecatedEntryPoint(&class.L1Handlers[index])
+	}
+
+	return starknet.DeprecatedCairoClass{
 		Program: decompressedProgram,
 		Abi:     class.Abi,
 		EntryPoints: starknet.EntryPoints{

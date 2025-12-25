@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
@@ -86,6 +87,18 @@ func BlockIDFromHash(blockHash *felt.Felt) BlockID {
 func BlockIDPreConfirmed() BlockID {
 	return BlockID{
 		typeID: preConfirmed,
+	}
+}
+
+func BlockIDLatest() BlockID {
+	return BlockID{
+		typeID: latest,
+	}
+}
+
+func BlockIDL1Accepted() BlockID {
+	return BlockID{
+		typeID: l1Accepted,
 	}
 }
 
@@ -245,7 +258,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: AdaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -266,12 +279,19 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 	}
 
 	var finalityStatus TxnFinalityStatus
-	if blockStatus == BlockAcceptedL1 {
+	switch s := blockStatus; s {
+	case BlockAcceptedL1:
 		finalityStatus = TxnAcceptedOnL1
-	} else if blockStatus == BlockAcceptedL2 {
+	case BlockAcceptedL2:
 		finalityStatus = TxnAcceptedOnL2
-	} else {
-		finalityStatus = h.PendingBlockFinalityStatus()
+	case BlockPreConfirmed:
+		finalityStatus = TxnPreConfirmed
+		// legacy pending block
+		if block.ParentHash != nil {
+			finalityStatus = TxnAcceptedOnL2
+		}
+	default:
+		return nil, rpccore.ErrInternal.CloneWithData(fmt.Errorf("unknown block status '%v'", s))
 	}
 
 	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
@@ -282,14 +302,13 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 		t.Hash = nil
 		txsWithReceipts[index] = TransactionWithReceipt{
 			Transaction: t,
-			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
+			Receipt:     AdaptReceipt(r, txn, finalityStatus),
 		}
 	}
 
 	return &BlockWithReceipts{
 		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txsWithReceipts,
 	}, nil
 }
@@ -316,7 +335,7 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
@@ -337,7 +356,7 @@ func (h *Handler) blockStatus(id *BlockID, block *core.Block) (BlockStatus, *jso
 	return status, nil
 }
 
-func adaptBlockHeader(header *core.Header) BlockHeader {
+func AdaptBlockHeader(header *core.Header) BlockHeader {
 	blockNumber := &header.Number
 
 	sequencerAddress := header.SequencerAddress

@@ -2,17 +2,24 @@ package trieutils
 
 import (
 	"encoding/binary"
+	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 )
 
-func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) ([]byte, error) {
+func GetNodeByPath(
+	r db.KeyValueReader,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	isLeaf bool,
+) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
 		func(value []byte) error {
-			res = value
+			res = slices.Clone(value)
 			return nil
 		},
 	); err != nil {
@@ -21,26 +28,39 @@ func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	return res, nil
 }
 
-func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool, blob []byte) error {
+func WriteNodeByPath(
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	isLeaf bool,
+	blob []byte,
+) error {
 	return w.Put(nodeKeyByPath(bucket, owner, path, isLeaf), blob)
 }
 
-func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) error {
+func DeleteNodeByPath(
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	isLeaf bool,
+) error {
 	return w.Delete(nodeKeyByPath(bucket, owner, path, isLeaf))
 }
 
-func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner felt.Felt) error {
+func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner *felt.Address) error {
 	prefix := db.ContractTrieStorage.Key(owner.Marshal())
 	return w.DeleteRange(prefix, dbutils.UpperBound(prefix))
 }
 
-func WriteStateID(w db.KeyValueWriter, root *felt.Felt, id uint64) error {
+func WriteStateID(w db.KeyValueWriter, root *felt.StateRootHash, id uint64) error {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], id)
 	return w.Put(db.StateIDKey(root), buf[:])
 }
 
-func ReadStateID(r db.KeyValueReader, root *felt.Felt) (uint64, error) {
+func ReadStateID(r db.KeyValueReader, root *felt.StateRootHash) (uint64, error) {
 	key := db.StateIDKey(root)
 
 	var id uint64
@@ -54,7 +74,7 @@ func ReadStateID(r db.KeyValueReader, root *felt.Felt) (uint64, error) {
 	return id, nil
 }
 
-func DeleteStateID(w db.KeyValueWriter, root *felt.Felt) error {
+func DeleteStateID(w db.KeyValueWriter, root *felt.StateRootHash) error {
 	return w.Delete(db.StateIDKey(root))
 }
 
@@ -78,7 +98,7 @@ func WritePersistedStateID(w db.KeyValueWriter, id uint64) error {
 func ReadTrieJournal(r db.KeyValueReader) ([]byte, error) {
 	var journal []byte
 	if err := r.Get(db.TrieJournal.Key(), func(value []byte) error {
-		journal = value
+		journal = slices.Clone(value)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -97,7 +117,7 @@ func WriteTrieJournal(w db.KeyValueWriter, journal []byte) error {
 //
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
-func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) []byte {
+func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf bool) []byte {
 	var (
 		prefixBytes = prefix.Key()
 		ownerBytes  []byte
@@ -105,7 +125,7 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 		pathBytes   = path.EncodedBytes()
 	)
 
-	if !owner.IsZero() {
+	if !felt.IsZero(owner) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}
@@ -125,11 +145,18 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 	return key
 }
 
-func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func GetNodeByHash(
+	r db.KeyValueReader,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	hash *felt.Hash,
+	isLeaf bool,
+) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByHash(bucket, owner, path, hash, isLeaf),
 		func(value []byte) error {
-			res = value
+			res = slices.Clone(value)
 			return nil
 		},
 	); err != nil {
@@ -138,7 +165,15 @@ func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	return res, nil
 }
 
-func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool, blob []byte) error {
+func WriteNodeByHash(
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	hash *felt.Hash,
+	isLeaf bool,
+	blob []byte,
+) error {
 	return w.Put(nodeKeyByHash(bucket, owner, path, hash, isLeaf), blob)
 }
 
@@ -156,7 +191,13 @@ func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, pa
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
-func nodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) []byte {
+func nodeKeyByHash(
+	prefix db.Bucket,
+	owner *felt.Address,
+	path *Path,
+	hash *felt.Hash,
+	isLeaf bool,
+) []byte {
 	const pathSignificantBytes = 8
 	var (
 		prefixBytes = prefix.Key()
@@ -166,7 +207,7 @@ func nodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Fe
 		hashBytes   = hash.Bytes()
 	)
 
-	if !owner.IsZero() {
+	if !felt.IsZero(owner) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}

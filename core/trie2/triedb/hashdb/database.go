@@ -13,6 +13,8 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+var _ database.TrieDB = (*Database)(nil)
+
 type Config struct {
 	CleanCacheSize uint64 // Maximum size (in bytes) for caching clean nodes
 }
@@ -46,7 +48,13 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	}
 }
 
-func (d *Database) insert(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+func (d *Database) insert(
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Hash,
+	isClass bool,
+	node trienode.TrieNode,
+) {
 	_, found := d.dirtyCache.getNode(owner, path, hash, isClass)
 	if found {
 		return
@@ -54,7 +62,13 @@ func (d *Database) insert(owner *felt.Felt, path *trieutils.Path, hash *felt.Fel
 	d.dirtyCache.putNode(owner, path, hash, isClass, node)
 }
 
-func (d *Database) readNode(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (d *Database) readNode(
+	bucket db.Bucket,
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Hash,
+	isLeaf bool,
+) ([]byte, error) {
 	if blob := d.cleanCache.getNode(path, hash); blob != nil {
 		return blob, nil
 	}
@@ -80,7 +94,7 @@ func (d *Database) readNode(bucket db.Bucket, owner *felt.Felt, path *trieutils.
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	key := id.Bucket().Key()
 	owner := id.Owner()
-	if !owner.Equal(&felt.Zero) {
+	if !felt.IsZero(&owner) {
 		oBytes := owner.Bytes()
 		key = append(key, oBytes[:]...)
 	}
@@ -88,7 +102,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (d *Database) Commit(_ *felt.Felt) error {
+func (d *Database) Commit(_ *felt.StateRootHash) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
@@ -99,7 +113,16 @@ func (d *Database) Commit(_ *felt.Felt) error {
 		if err != nil {
 			return err
 		}
-		if err := trieutils.WriteNodeByHash(batch, db.ClassTrie, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+		err = trieutils.WriteNodeByHash(
+			batch,
+			db.ClassTrie,
+			&felt.Address{},
+			&path,
+			&hash,
+			node.IsLeaf(),
+			node.Blob(),
+		)
+		if err != nil {
 			return err
 		}
 		d.cleanCache.putNode(&path, &hash, node.Blob())
@@ -110,7 +133,16 @@ func (d *Database) Commit(_ *felt.Felt) error {
 		if err != nil {
 			return err
 		}
-		if err := trieutils.WriteNodeByHash(batch, db.ContractTrieContract, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+		err = trieutils.WriteNodeByHash(
+			batch,
+			db.ContractTrieContract,
+			&felt.Address{},
+			&path,
+			&hash,
+			node.IsLeaf(),
+			node.Blob(),
+		)
+		if err != nil {
 			return err
 		}
 		d.cleanCache.putNode(&path, &hash, node.Blob())
@@ -122,7 +154,16 @@ func (d *Database) Commit(_ *felt.Felt) error {
 			if err != nil {
 				return err
 			}
-			if err := trieutils.WriteNodeByHash(batch, db.ContractTrieStorage, &owner, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+			err = trieutils.WriteNodeByHash(
+				batch,
+				db.ContractTrieStorage,
+				&owner,
+				&path,
+				&hash,
+				node.IsLeaf(),
+				node.Blob(),
+			)
+			if err != nil {
 				return err
 			}
 			d.cleanCache.putNode(&path, &hash, node.Blob())
@@ -146,7 +187,7 @@ func (d *Database) Commit(_ *felt.Felt) error {
 
 func (d *Database) Update(
 	root,
-	parent *felt.Felt,
+	parent *felt.StateRootHash,
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
@@ -156,7 +197,7 @@ func (d *Database) Update(
 
 	var classNodes map[trieutils.Path]trienode.TrieNode
 	var contractNodes map[trieutils.Path]trienode.TrieNode
-	var contractStorageNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode
+	var contractStorageNodes map[felt.Address]map[trieutils.Path]trienode.TrieNode
 
 	if mergedClassNodes != nil {
 		classNodes, _ = mergedClassNodes.Flatten()
@@ -168,7 +209,7 @@ func (d *Database) Update(
 		contractNodes, contractStorageNodes = mergedContractNodes.Flatten()
 	} else {
 		contractNodes = make(map[trieutils.Path]trienode.TrieNode)
-		contractStorageNodes = make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
+		contractStorageNodes = make(map[felt.Address]map[trieutils.Path]trienode.TrieNode)
 	}
 
 	for path, node := range classNodes {
@@ -176,7 +217,7 @@ func (d *Database) Update(
 			continue // Since the hashdb is used for archive node only, there is no need to remove nodes
 		} else {
 			nodeHash := node.Hash()
-			d.insert(&felt.Zero, &path, &nodeHash, true, node)
+			d.insert(&felt.Address{}, &path, (*felt.Hash)(&nodeHash), true, node)
 		}
 	}
 
@@ -185,7 +226,7 @@ func (d *Database) Update(
 			continue
 		} else {
 			nodeHash := node.Hash()
-			d.insert(&felt.Zero, &path, &nodeHash, false, node)
+			d.insert(&felt.Address{}, &path, (*felt.Hash)(&nodeHash), false, node)
 		}
 	}
 
@@ -195,7 +236,7 @@ func (d *Database) Update(
 				continue
 			} else {
 				nodeHash := node.Hash()
-				d.insert(&owner, &path, &nodeHash, false, node)
+				d.insert(&owner, &path, (*felt.Hash)(&nodeHash), false, node)
 			}
 		}
 	}
@@ -207,7 +248,12 @@ type reader struct {
 	d  *Database
 }
 
-func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Hash,
+	isLeaf bool,
+) ([]byte, error) {
 	return r.d.readNode(r.id.Bucket(), owner, path, hash, isLeaf)
 }
 
@@ -223,10 +269,20 @@ func (d *Database) Close() error {
 // with the state commitment are present in the db, if not, the lost data needs to be recovered
 // This will be integrated during the state refactor integration, if there is a node crash,
 // the chain needs to be reverted to the last state commitment with the trie roots present in the db
-func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) (trienode.Node, trienode.Node, error) {
+func (d *Database) GetTrieRootNodes(
+	classRootHash,
+	contractRootHash *felt.Hash,
+) (trienode.Node, trienode.Node, error) {
 	const contractClassTrieHeight = 251
 
-	classRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ClassTrie, &felt.Zero, &trieutils.Path{}, classRootHash, false)
+	classRootBlob, err := trieutils.GetNodeByHash(
+		d.disk,
+		db.ClassTrie,
+		&felt.Address{},
+		&trieutils.Path{},
+		classRootHash,
+		false,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("class root node not found: %w", err)
 	}
@@ -234,7 +290,14 @@ func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) 
 		return nil, nil, fmt.Errorf("class root node not found")
 	}
 
-	contractRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ContractTrieContract, &felt.Zero, &trieutils.Path{}, contractRootHash, false)
+	contractRootBlob, err := trieutils.GetNodeByHash(
+		d.disk,
+		db.ContractTrieContract,
+		&felt.Address{},
+		&trieutils.Path{},
+		contractRootHash,
+		false,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("contract root node not found: %w", err)
 	}
@@ -242,15 +305,31 @@ func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) 
 		return nil, nil, fmt.Errorf("contract root node not found")
 	}
 
-	classRootNode, err := trienode.DecodeNode(classRootBlob, classRootHash, 0, contractClassTrieHeight)
+	classRootNode, err := trienode.DecodeNode(
+		classRootBlob,
+		(*felt.Felt)(classRootHash),
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode class root node: %w", err)
 	}
 
-	contractRootNode, err := trienode.DecodeNode(contractRootBlob, contractRootHash, 0, contractClassTrieHeight)
+	// TODO(maksym): update to make contractRootHash
+	// use felt.Hash instead of felt.Felt
+	contractRootNode, err := trienode.DecodeNode(
+		contractRootBlob,
+		(*felt.Felt)(contractRootHash),
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode contract root node: %w", err)
 	}
 
 	return classRootNode, contractRootNode, nil
+}
+
+func (d *Database) Scheme() database.TrieDBScheme {
+	return database.HashScheme
 }

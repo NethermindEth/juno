@@ -22,7 +22,7 @@ type Trie struct {
 	height uint8
 
 	// The owner of the trie, only used for contract trie. If not empty, this is a storage trie.
-	owner felt.Felt
+	owner felt.Address
 
 	// The root node of the trie
 	root trienode.Node
@@ -71,7 +71,7 @@ func New(
 	}
 
 	stateComm := id.StateComm()
-	if stateComm.IsZero() {
+	if felt.IsZero(&stateComm) {
 		return tr, nil
 	}
 
@@ -107,7 +107,7 @@ func NewFromRootHash(
 	}
 
 	stateComm := id.StateComm()
-	if stateComm.IsZero() {
+	if felt.IsZero(&stateComm) {
 		return tr, nil
 	}
 
@@ -191,10 +191,12 @@ func (t *Trie) Delete(key *felt.Felt) error {
 }
 
 // Returns the root hash of the trie. Calling this method will also cache the hash of each node in the trie.
-func (t *Trie) Hash() felt.Felt {
+func (t *Trie) Hash() (felt.Felt, error) {
 	hash, cached := t.hashRoot()
 	t.root = cached
-	return felt.Felt(*hash.(*trienode.HashNode))
+	// TODO: return of error added to comply with common trie interface.
+	// Should be removed after integration.
+	return felt.Felt(*hash.(*trienode.HashNode)), nil
 }
 
 // Collapses the trie into a single hash node and flush the node changes to the database.
@@ -220,7 +222,7 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 	}
 
 	// If the root node is not dirty, that means we don't actually need to commit
-	rootHash := t.Hash()
+	rootHash, _ := t.Hash()
 	if hashedNode, dirty := t.root.Cache(); !dirty {
 		t.root = hashedNode
 		return rootHash, nil
@@ -531,7 +533,7 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 		hash = felt.Felt(*hn)
 	}
 
-	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
+	blob, err := t.nodeReader.node(path, (*felt.Hash)(&hash), path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +544,7 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 // Resolves the node at the given path from the database
 func (t *Trie) resolveNodeWithHash(path *Path, hash *felt.Felt) (trienode.Node, error) {
 	isLeaf := path.Len() == t.height
-	blob, err := t.nodeReader.node(*path, hash, isLeaf)
+	blob, err := t.nodeReader.node(*path, (*felt.Hash)(hash), isLeaf)
 	if err != nil {
 		return nil, err
 	}
@@ -578,15 +580,30 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	return New(
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
+		contractClassTrieHeight,
+		crypto.Pedersen,
+		triedb.NewEmptyNodeDatabase(),
+	)
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	return New(
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
+		contractClassTrieHeight,
+		crypto.Poseidon,
+		triedb.NewEmptyNodeDatabase(),
+	)
 }
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	trie, err := New(
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
+		height,
+		crypto.Pedersen,
+		triedb.NewEmptyNodeDatabase(),
+	)
 	if err != nil {
 		return err
 	}
@@ -594,7 +611,12 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	trie, err := New(
+		trieutils.NewEmptyTrieID(felt.StateRootHash{}),
+		height,
+		crypto.Poseidon,
+		triedb.NewEmptyNodeDatabase(),
+	)
 	if err != nil {
 		return err
 	}

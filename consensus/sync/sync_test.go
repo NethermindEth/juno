@@ -16,7 +16,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
@@ -46,7 +46,7 @@ func TestSync(t *testing.T) {
 	logger := utils.NewNopZapLogger()
 
 	dbPath := t.TempDir()
-	testDB, err := pebble.New(dbPath)
+	testDB, err := pebblev2.New(dbPath)
 	require.NoError(t, err)
 
 	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB)
@@ -128,7 +128,7 @@ func getCommittedBlock(allNodes nodes) sync.BlockBody {
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &core.StateDiff{},
 		},
-		NewClasses:  make(map[felt.Felt]core.Class),
+		NewClasses:  make(map[felt.Felt]core.ClassDefinition),
 		Commitments: &core.BlockCommitments{},
 	}
 }

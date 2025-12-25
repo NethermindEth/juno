@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/sync"
 )
 
 /****************************************************
@@ -22,7 +21,7 @@ import (
 func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return rpcv6.StateUpdate{}, rpccore.ErrBlockNotFound
 		}
 		return rpcv6.StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)
@@ -87,7 +86,7 @@ func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
 
 	return rpcv6.StateUpdate{
 		BlockHash: update.BlockHash,
-		OldRoot:   update.OldRoot,
+		OldRoot:   nilToZero(update.OldRoot),
 		NewRoot:   update.NewRoot,
 		StateDiff: &rpcv6.StateDiff{
 			DeprecatedDeclaredClasses: update.StateDiff.DeclaredV0Classes,

@@ -68,39 +68,44 @@ func DeleteContract(w db.KeyValueWriter, addr *felt.Felt) error {
 }
 
 func WriteNonceHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, nonce *felt.Felt) error {
-	key := db.ContractHistoryNonceKey(addr, blockNum)
+	key := db.ContractNonceHistoryAtBlockKey(addr, blockNum)
 	return w.Put(key, nonce.Marshal())
 }
 
 func WriteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, classHash *felt.Felt) error {
-	key := db.ContractHistoryClassHashKey(addr, blockNum)
+	key := db.ContractClassHashHistoryAtBlockKey(addr, blockNum)
 	return w.Put(key, classHash.Marshal())
 }
 
 func WriteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64, value *felt.Felt) error {
-	dbKey := db.ContractHistoryStorageKey(addr, key, blockNum)
+	dbKey := db.ContractStorageHistoryAtBlockKey(addr, key, blockNum)
 	return w.Put(dbKey, value.Marshal())
 }
 
 func DeleteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64) error {
-	dbKey := db.ContractHistoryStorageKey(addr, key, blockNum)
+	dbKey := db.ContractStorageHistoryAtBlockKey(addr, key, blockNum)
 	return w.Delete(dbKey)
 }
 
 func DeleteNonceHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64) error {
-	dbKey := db.ContractHistoryNonceKey(addr, blockNum)
+	dbKey := db.ContractNonceHistoryAtBlockKey(addr, blockNum)
 	return w.Delete(dbKey)
 }
 
 func DeleteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64) error {
-	dbKey := db.ContractHistoryClassHashKey(addr, blockNum)
+	dbKey := db.ContractClassHashHistoryAtBlockKey(addr, blockNum)
 	return w.Delete(dbKey)
 }
 
-func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class core.Class, declaredAt uint64) error {
+func WriteClass(
+	w db.KeyValueWriter,
+	classHash *felt.Felt,
+	class core.ClassDefinition,
+	declaredAt uint64,
+) error {
 	key := db.ClassKey(classHash)
 
-	dc := core.DeclaredClass{
+	dc := core.DeclaredClassDefinition{
 		At:    declaredAt,
 		Class: class,
 	}
@@ -117,10 +122,10 @@ func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
 	return w.Delete(key)
 }
 
-func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClass, error) {
+func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	key := db.ClassKey(classHash)
 
-	var class core.DeclaredClass
+	var class core.DeclaredClassDefinition
 	if err := r.Get(key, class.UnmarshalBinary); err != nil {
 		return nil, err
 	}

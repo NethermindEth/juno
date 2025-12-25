@@ -20,13 +20,6 @@ type EventFilter struct {
 	Keys      [][]felt.Felt `json:"keys"`
 }
 
-type SubscriptionID string
-
-func (h *Handler) unsubscribe(sub *subscription, id string) {
-	sub.cancel()
-	h.subscriptions.Delete(id)
-}
-
 func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, latestHeight uint64) error {
 	set := func(filterRange blockchain.EventFilterRange, blockID *BlockID) error {
 		if blockID == nil {
@@ -35,7 +28,7 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 
 		switch blockID.Type() {
 		case preConfirmed:
-			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
+			return filter.SetRangeEndBlockByNumber(filterRange, ^uint64(0))
 		case latest:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
 		case hash:
@@ -84,7 +77,11 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(
+		args.EventFilter.Address,
+		args.EventFilter.Keys,
+		h.PendingData,
+	)
 	if err != nil {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
@@ -99,23 +96,24 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 		}
 	}
 
-	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
+	if err = setEventFilterRange(
+		filter,
+		args.EventFilter.FromBlock,
+		args.EventFilter.ToBlock,
+		height,
+	); err != nil {
 		return rpcv6.EventsChunk{}, rpccore.ErrBlockNotFound
 	}
 
-	filteredEvents, cToken, err := filter.Events(cToken, args.ChunkSize)
+	filteredEvents, cTokenValue, err := filter.Events(cToken, args.ChunkSize)
 	if err != nil {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
-	emittedEvents := make([]*rpcv6.EmittedEvent, len(filteredEvents))
+	emittedEvents := make([]rpcv6.EmittedEvent, len(filteredEvents))
 	for i, fEvent := range filteredEvents {
-		var blockNumber *uint64
-		if fEvent.BlockHash != nil {
-			blockNumber = fEvent.BlockNumber
-		}
-		emittedEvents[i] = &rpcv6.EmittedEvent{
-			BlockNumber:     blockNumber,
+		emittedEvents[i] = rpcv6.EmittedEvent{
+			BlockNumber:     fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
 			Event: &rpcv6.Event{
@@ -127,8 +125,8 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 	}
 
 	cTokenStr := ""
-	if cToken != nil {
-		cTokenStr = cToken.String()
+	if !cTokenValue.IsEmpty() {
+		cTokenStr = cTokenValue.String()
 	}
 	return rpcv6.EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
 }

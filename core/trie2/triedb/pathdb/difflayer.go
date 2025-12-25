@@ -5,23 +5,30 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
 )
 
 var _ layer = (*diffLayer)(nil)
 
 // Represents an in-memory layer which contains the diff nodes for a specific state root hash
 type diffLayer struct {
-	root  felt.Felt // State root hash where this diff layer is applied
-	id    uint64    // Corresponding state id
-	block uint64    // Associated block number
-	nodes *nodeSet  // Cached trie nodes
+	root  felt.StateRootHash // State root hash where this diff layer is applied
+	id    uint64             // Corresponding state id
+	block uint64             // Associated block number
+	nodes *nodeSet           // Cached trie nodes
 
 	parent layer // Parent layer
 	lock   sync.RWMutex
 }
 
-func newDiffLayer(parent layer, root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {
+func newDiffLayer(
+	parent layer,
+	root *felt.StateRootHash,
+	id, block uint64,
+	nodes *nodeSet,
+) diffLayer {
 	return diffLayer{
 		root:   *root,
 		id:     id,
@@ -31,20 +38,28 @@ func newDiffLayer(parent layer, root *felt.Felt, id, block uint64, nodes *nodeSe
 	}
 }
 
-func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diffLayer) node(
+	id trieutils.TrieID,
+	owner *felt.Address,
+	path *trieutils.Path,
+	isLeaf bool,
+) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
 	isClass := id.Type() == trieutils.Class
 	n, ok := dl.nodes.node(owner, path, isClass)
 	if ok {
+		if _, deleted := n.(*trienode.DeletedNode); deleted {
+			return nil, db.ErrKeyNotFound
+		}
 		return n.Blob(), nil
 	}
 
-	return dl.parent.node(id, owner, path, isClass)
+	return dl.parent.node(id, owner, path, isLeaf)
 }
 
-func (dl *diffLayer) rootHash() *felt.Felt {
+func (dl *diffLayer) rootHash() *felt.StateRootHash {
 	return &dl.root
 }
 
@@ -52,7 +67,7 @@ func (dl *diffLayer) stateID() uint64 {
 	return dl.id
 }
 
-func (dl *diffLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {
+func (dl *diffLayer) update(root *felt.StateRootHash, id, block uint64, nodes *nodeSet) diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 

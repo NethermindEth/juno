@@ -120,18 +120,18 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(number any) *gomock.Call {
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (blockchain.EventFilterer, error) {
+func (m *MockReader) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingDataFn func() (core.PendingData, error)) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EventFilter", from, keys, pendingBlockFn)
+	ret := m.ctrl.Call(m, "EventFilter", from, keys, pendingDataFn)
 	ret0, _ := ret[0].(blockchain.EventFilterer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EventFilter indicates an expected call of EventFilter.
-func (mr *MockReaderMockRecorder) EventFilter(from, keys, pendingBlockFn any) *gomock.Call {
+func (mr *MockReaderMockRecorder) EventFilter(from, keys, pendingDataFn any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), from, keys, pendingBlockFn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), from, keys, pendingDataFn)
 }
 
 // Head mocks base method.
@@ -196,10 +196,10 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 }
 
 // L1HandlerTxnHash mocks base method.
-func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
+func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1HandlerTxnHash", msgHash)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -211,10 +211,10 @@ func (mr *MockReaderMockRecorder) L1HandlerTxnHash(msgHash any) *gomock.Call {
 }
 
 // L1Head mocks base method.
-func (m *MockReader) L1Head() (*core.L1Head, error) {
+func (m *MockReader) L1Head() (core.L1Head, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1Head")
-	ret0, _ := ret[0].(*core.L1Head)
+	ret0, _ := ret[0].(core.L1Head)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

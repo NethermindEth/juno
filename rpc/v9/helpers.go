@@ -12,20 +12,19 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync"
 )
 
-func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
+func (h *Handler) l1Head() (core.L1Head, *jsonrpc.Error) {
 	l1Head, err := h.bcReader.L1Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return core.L1Head{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
-	// nil is returned if l1 head doesn't exist
+	// empty L1Head is returned if l1 head doesn't exist
 	return l1Head, nil
 }
 
-func isL1Verified(n uint64, l1 *core.L1Head) bool {
-	if l1 != nil && l1.BlockNumber >= n {
+func isL1Verified(n uint64, l1 core.L1Head) bool {
+	if l1 != (core.L1Head{}) && l1.BlockNumber >= n {
 		return true
 	}
 	return false
@@ -47,7 +46,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	case hash:
 		block, err = h.bcReader.BlockByHash(blockID.Hash())
 	case l1Accepted:
-		var l1Head *core.L1Head
+		var l1Head core.L1Head
 		l1Head, err = h.bcReader.L1Head()
 		if err != nil {
 			break
@@ -58,7 +57,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -86,7 +85,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	case number:
 		header, err = h.bcReader.BlockHeaderByNumber(blockID.Number())
 	case l1Accepted:
-		var l1Head *core.L1Head
+		var l1Head core.L1Head
 		l1Head, err = h.bcReader.L1Head()
 		if err != nil {
 			break
@@ -97,7 +96,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -165,7 +164,7 @@ func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain
 	case number:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(blockID.Number())
 	case l1Accepted:
-		var l1Head *core.L1Head
+		var l1Head core.L1Head
 		l1Head, err = h.bcReader.L1Head()
 		if err != nil {
 			break
@@ -176,7 +175,7 @@ func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

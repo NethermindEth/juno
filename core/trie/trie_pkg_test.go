@@ -5,13 +5,16 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTrieKeys(t *testing.T) {
 	t.Run("put to empty trie", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
+		memoryDB := memory.New()
+		txn := memoryDB.NewIndexedBatch()
+		tempTrie, err := NewTriePedersen(txn, nil, 251)
 		require.NoError(t, err)
 		keyNum, err := strconv.ParseUint("1101", 2, 64)
 		require.NoError(t, err)
@@ -25,12 +28,14 @@ func TestTrieKeys(t *testing.T) {
 		value, err := tempTrie.Get(key)
 		require.NoError(t, err)
 
-		assert.Equal(t, val, value, "key-val not match")
+		assert.Equal(t, val, &value, "key-val not match")
 		assert.Equal(t, tempTrie.FeltToKey(key), *tempTrie.rootKey, "root key not match single node's key")
 	})
 
 	t.Run("put a left then a right node", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
+		memoryDB := memory.New()
+		txn := memoryDB.NewIndexedBatch()
+		tempTrie, err := NewTriePedersen(txn, nil, 251)
 		require.NoError(t, err)
 		// First put a left node
 		leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
@@ -75,7 +80,9 @@ func TestTrieKeys(t *testing.T) {
 	})
 
 	t.Run("put a right node then a left node", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
+		memoryDB := memory.New()
+		txn := memoryDB.NewIndexedBatch()
+		tempTrie, err := NewTriePedersen(txn, nil, 251)
 		require.NoError(t, err)
 		// First put a right node
 		rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
@@ -114,7 +121,9 @@ func TestTrieKeys(t *testing.T) {
 	})
 
 	t.Run("Add new key to different branches", func(t *testing.T) {
-		tempTrie, err := NewTriePedersen(newMemStorage(), 251)
+		memoryDB := memory.New()
+		txn := memoryDB.NewIndexedBatch()
+		tempTrie, err := NewTriePedersen(txn, nil, 251)
 		require.NoError(t, err)
 		// left branch
 		leftKey := new(felt.Felt).SetUint64(0b100)
@@ -222,7 +231,9 @@ func TestTrieKeysAfterDeleteSubtree(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tempTrie, err := NewTriePedersen(newMemStorage(), 251)
+			memoryDB := memory.New()
+			txn := memoryDB.NewIndexedBatch()
+			tempTrie, err := NewTriePedersen(txn, nil, 251)
 			require.NoError(t, err)
 			// Build a basic trie
 			_, err = tempTrie.Put(leftLeftKey, leftLeftVal)

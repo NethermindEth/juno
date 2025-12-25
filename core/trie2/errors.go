@@ -15,14 +15,14 @@ var (
 
 type MissingNodeError struct {
 	tt    trieutils.TrieType
-	owner felt.Felt
+	owner felt.Address
 	path  trieutils.Path
-	hash  felt.Felt
+	hash  felt.Hash
 	err   error
 }
 
 func (e *MissingNodeError) Error() string {
-	if e.owner.Equal(&felt.Zero) {
+	if felt.IsZero(&e.owner) {
 		return fmt.Sprintf("%s: missing trie node (path %v, hash %v) %v", e.tt, e.path, e.hash, e.err)
 	}
 	return fmt.Sprintf("%s: missing trie node (owner %v, path %v, hash %v) %v", e.tt, e.owner, e.path, e.hash, e.err)

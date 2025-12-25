@@ -19,11 +19,17 @@ func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
 	}
 }
 
+// todo(rdr): this is function definition is twice wrong:
+//   - the parameters should be received by reference
+//   - the output param should be return by value
 func AdaptOrderedMessageToL1(message vm.OrderedL2toL1Message) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
 		From:    message.From,
 		Payload: message.Payload,
-		To:      common.HexToAddress(message.To),
+		// todo(rdr): this is not correct because it implies the L1 is always Ethereum
+		// 			  and from Starknet 0.14.1 that is no longer a strong assumption.
+		//            we should have a `felt.L1Address` (or similar)
+		To: common.HexToAddress(message.To.String()),
 	}
 }
 
@@ -49,12 +55,18 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 
 	// Preallocate all maps with known sizes from fromStateDiff
 	toStateDiff = core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs)),
+		StorageDiffs: make(
+			map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs),
+		),
 		Nonces:            make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces)),
 		DeployedContracts: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts)),
 		DeclaredV0Classes: make([]*felt.Felt, len(fromStateDiff.DeprecatedDeclaredClasses)),
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeclaredClasses)),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses)),
+		MigratedClasses: make(
+			map[felt.SierraClassHash]felt.CasmClassHash,
+			len(fromStateDiff.MigratedCompiledClasses),
+		),
+		ReplacedClasses: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses)),
 	}
 
 	for _, sd := range fromStateDiff.StorageDiffs {
@@ -85,6 +97,11 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 		ch := rc.ClassHash
 		toStateDiff.ReplacedClasses[rc.ContractAddress] = &ch
 	}
+
+	for _, mc := range fromStateDiff.MigratedCompiledClasses {
+		toStateDiff.MigratedClasses[mc.ClassHash] = mc.CompiledClassHash
+	}
+
 	return toStateDiff
 }
 

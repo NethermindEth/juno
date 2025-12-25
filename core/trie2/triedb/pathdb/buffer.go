@@ -27,7 +27,11 @@ func newBuffer(limit int, nodes *nodeSet, layer uint64) *buffer {
 	}
 }
 
-func (b *buffer) node(owner *felt.Felt, path *trieutils.Path, isClass bool) (trienode.TrieNode, bool) {
+func (b *buffer) node(
+	owner *felt.Address,
+	path *trieutils.Path,
+	isClass bool,
+) (trienode.TrieNode, bool) {
 	return b.nodes.node(owner, path, isClass)
 }
 
@@ -39,7 +43,6 @@ func (b *buffer) commit(nodes *nodeSet) *buffer {
 
 func (b *buffer) reset() {
 	b.layers = 0
-	b.limit = 0
 	b.nodes.reset()
 }
 
@@ -48,7 +51,15 @@ func (b *buffer) isFull() bool {
 }
 
 func (b *buffer) flush(kvs db.KeyValueStore, cleans *cleanCache, id uint64) error {
-	latestPersistedID, _ := trieutils.ReadPersistedStateID(kvs)
+	latestPersistedID, err := trieutils.ReadPersistedStateID(kvs)
+	if err != nil {
+		if err == db.ErrKeyNotFound {
+			latestPersistedID = 0
+		} else {
+			return err
+		}
+	}
+
 	if latestPersistedID+b.layers != id {
 		return fmt.Errorf(
 			"mismatch buffer layers applied: latest state id (%d) + buffer layers (%d) != target state id (%d)",
@@ -58,10 +69,14 @@ func (b *buffer) flush(kvs db.KeyValueStore, cleans *cleanCache, id uint64) erro
 		)
 	}
 
-	batch := kvs.NewBatchWithSize(b.nodes.dbSize())
+	dbSize := b.nodes.dbSize()
+
+	batch := kvs.NewBatchWithSize(dbSize)
+
 	if err := b.nodes.write(batch, cleans); err != nil {
 		return err
 	}
+
 	if err := trieutils.WritePersistedStateID(batch, id); err != nil {
 		return err
 	}

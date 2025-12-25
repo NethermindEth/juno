@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -82,6 +83,7 @@ var defaultMigrations = []Migration{
 	MigrationFunc(calculateL1MsgHashes2),
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
+	MigrationFunc(calculateCasmClassHashesV2),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -116,7 +118,7 @@ func migrateIfNeeded(
 		new ones. It will be able to do this since the schema version it reads from the database will be
 		non-zero and that is what we use to initialise the i loop variable.
 	*/
-	metadata, err := SchemaMetadata(targetDB)
+	metadata, err := SchemaMetadata(log, targetDB)
 	if err != nil {
 		return err
 	}
@@ -181,35 +183,33 @@ func closeMigrationServer(srv *http.Server, log utils.SimpleLogger) {
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
-func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
+func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMetadata, error) {
 	metadata := schemaMetadata{}
 	txn := targetDB
 
-	var sv []byte
 	err := txn.Get(db.SchemaVersion.Key(), func(data []byte) error {
-		sv = data
+		metadata.Version = binary.BigEndian.Uint64(data)
 		return nil
 	})
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}
 
-	if sv != nil {
-		metadata.Version = binary.BigEndian.Uint64(sv)
-	}
-
-	var is []byte
 	err = txn.Get(db.SchemaIntermediateState.Key(), func(data []byte) error {
-		is = data
+		err := cbor.Unmarshal(data, &metadata.IntermediateState)
+		if err != nil {
+			// TODO: Instead of returning nil, we log the error for now to debug the issue
+			log.Errorw(
+				"Failed to unmarshal intermediate state",
+				"version", metadata.Version,
+				"state", hex.EncodeToString(data),
+				"err", err,
+			)
+		}
 		return nil
 	})
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
-	}
-	if is != nil {
-		if err := cbor.Unmarshal(is, &metadata.IntermediateState); err != nil {
-			return metadata, err
-		}
 	}
 
 	return metadata, nil
@@ -751,13 +751,9 @@ type declaredClass struct {
 }
 
 type oldCairo1Class struct {
-	Abi         string
-	AbiHash     *felt.Felt
-	EntryPoints struct {
-		Constructor []core.SierraEntryPoint
-		External    []core.SierraEntryPoint
-		L1Handler   []core.SierraEntryPoint
-	}
+	Abi             string
+	AbiHash         *felt.Felt
+	EntryPoints     core.SierraEntryPointsByType
 	Program         []*felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string
@@ -785,30 +781,30 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 		return err
 	}
 
-	var coreCompiledClass *core.CompiledClass
+	var casmClass *core.CasmClass
 	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(class.Class.Compiled); !deprecated {
-		var starknetCompiledClass starknet.CompiledClass
+		var starknetCompiledClass starknet.CasmClass
 		err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
 		if err != nil {
 			return err
 		}
 
-		coreCompiledClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
+		casmClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
 		if err != nil {
 			return err
 		}
 	}
 
-	declaredClass := core.DeclaredClass{
+	declaredClass := core.DeclaredClassDefinition{
 		At: class.At,
-		Class: &core.Cairo1Class{
+		Class: &core.SierraClass{
 			Abi:             class.Class.Abi,
 			AbiHash:         class.Class.AbiHash,
 			EntryPoints:     class.Class.EntryPoints,
 			Program:         class.Class.Program,
 			ProgramHash:     class.Class.ProgramHash,
 			SemanticVersion: class.Class.SemanticVersion,
-			Compiled:        coreCompiledClass,
+			Compiled:        casmClass,
 		},
 	}
 
@@ -925,4 +921,75 @@ func startMigrationStatusServer(log utils.SimpleLogger, host string, port uint16
 		}
 	}()
 	return srv
+}
+
+func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) error {
+	classPrefix := db.Class.Key()
+	it, err := txn.NewIterator(classPrefix, false)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := it.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	maxWorkers := runtime.GOMAXPROCS(0)
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(maxWorkers)
+	var writeMu sync.Mutex
+
+	for it.Seek(classPrefix); it.Valid(); it.Next() {
+		key := it.Key()
+		if !bytes.HasPrefix(key, classPrefix) {
+			break
+		}
+
+		// Extract and validate class hash from key
+		classHashBytes := key[len(classPrefix):]
+		if len(classHashBytes) != felt.Bytes {
+			continue // Skip invalid keys
+		}
+		classHash := felt.FromBytes[felt.Felt](classHashBytes)
+		sierraClassHash := felt.SierraClassHash(classHash)
+
+		value, err := it.Value()
+		if err != nil {
+			_ = workerPool.Wait()
+			return err
+		}
+
+		workerPool.Go(
+			func() error {
+				var declaredClass core.DeclaredClassDefinition
+				if err := encoder.Unmarshal(value, &declaredClass); err != nil {
+					return err
+				}
+
+				sierraClass, ok := declaredClass.Class.(*core.SierraClass)
+				if !ok {
+					return nil // Skip non-Sierra classes
+				}
+
+				if sierraClass.Compiled == nil {
+					return nil // Skip if Compiled field is nil
+				}
+
+				casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
+
+				writeMu.Lock()
+				err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2)
+				writeMu.Unlock()
+				if err != nil {
+					return fmt.Errorf("failed to write CASM hash V2 for class %s: %w",
+						sierraClassHash.String(),
+						err,
+					)
+				}
+
+				return nil
+			})
+	}
+
+	return workerPool.Wait()
 }

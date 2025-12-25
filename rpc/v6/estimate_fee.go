@@ -49,6 +49,7 @@ func (h *Handler) EstimateFee(
 		broadcastedTxns.Data,
 		append(simulationFlags, SkipFeeChargeFlag),
 		true,
+		true,
 	)
 	if err != nil {
 		return nil, err

@@ -1,0 +1,317 @@
+[
+    {
+        "trace_root": {
+            "type": "INVOKE",
+            "validate_invocation": {
+                "contract_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3",
+                "entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775",
+                "calldata": [
+                    "0x2",
+                    "0x4d0b88ace5705bb7825f91ee95557d906600b7e7762f5615e6a4f407185a43a",
+                    "0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3",
+                    "0x2",
+                    "0x4e946d49fca553930846e35533342f88e59a841c24d9cf507ef28dd6b67cb9b",
+                    "0x3ea9c575cfdaa875f3fecaf7db4acdb536ee6b38b8d8a4c769c63d044f942dc",
+                    "0x6359ed638df79b82f2f9dbf92abbcb41b57f9dd91ead86b1c85d2dee192c",
+                    "0x1a8e87e9d2008fcd3ce423ae5219c21e49be18d05d72825feb7e2bb687ba35c",
+                    "0x2",
+                    "0x44cd44ad7abf35b9dbe1e17de3610d21",
+                    "0x9f806c191aa2a3d47f2b8efc4c412d2f"
+                ],
+                "caller_address": "0x0",
+                "class_hash": "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738",
+                "entry_point_type": "EXTERNAL",
+                "call_type": "CALL",
+                "result": [
+                    "0x56414c4944"
+                ],
+                "calls": [],
+                "events": [],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "execute_invocation": {
+                "contract_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3",
+                "entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad",
+                "calldata": [
+                    "0x2",
+                    "0x4d0b88ace5705bb7825f91ee95557d906600b7e7762f5615e6a4f407185a43a",
+                    "0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3",
+                    "0x2",
+                    "0x4e946d49fca553930846e35533342f88e59a841c24d9cf507ef28dd6b67cb9b",
+                    "0x3ea9c575cfdaa875f3fecaf7db4acdb536ee6b38b8d8a4c769c63d044f942dc",
+                    "0x6359ed638df79b82f2f9dbf92abbcb41b57f9dd91ead86b1c85d2dee192c",
+                    "0x1a8e87e9d2008fcd3ce423ae5219c21e49be18d05d72825feb7e2bb687ba35c",
+                    "0x2",
+                    "0x44cd44ad7abf35b9dbe1e17de3610d21",
+                    "0x9f806c191aa2a3d47f2b8efc4c412d2f"
+                ],
+                "caller_address": "0x0",
+                "class_hash": "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738",
+                "entry_point_type": "EXTERNAL",
+                "call_type": "CALL",
+                "result": [
+                    "0x2",
+                    "0x0",
+                    "0x0"
+                ],
+                "calls": [
+                    {
+                        "contract_address": "0x4d0b88ace5705bb7825f91ee95557d906600b7e7762f5615e6a4f407185a43a",
+                        "entry_point_selector": "0x3d7905601c217734671143d457f0db37f7f8883112abd34b92c4abfeafde0c3",
+                        "calldata": [
+                            "0x4e946d49fca553930846e35533342f88e59a841c24d9cf507ef28dd6b67cb9b",
+                            "0x3ea9c575cfdaa875f3fecaf7db4acdb536ee6b38b8d8a4c769c63d044f942dc"
+                        ],
+                        "caller_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3",
+                        "class_hash": "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+                        "entry_point_type": "EXTERNAL",
+                        "call_type": "CALL",
+                        "result": [],
+                        "calls": [],
+                        "events": [],
+                        "messages": [],
+                        "execution_resources": {
+                            "l1_gas": 0,
+                            "l2_gas": 0
+                        },
+                        "is_reverted": false
+                    },
+                    {
+                        "contract_address": "0x6359ed638df79b82f2f9dbf92abbcb41b57f9dd91ead86b1c85d2dee192c",
+                        "entry_point_selector": "0x1a8e87e9d2008fcd3ce423ae5219c21e49be18d05d72825feb7e2bb687ba35c",
+                        "calldata": [
+                            "0x44cd44ad7abf35b9dbe1e17de3610d21",
+                            "0x9f806c191aa2a3d47f2b8efc4c412d2f"
+                        ],
+                        "caller_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3",
+                        "class_hash": "0x5a1a156fd2af56bb992ce31fd2a4765e9b65b84efce45f3063974decaa339a2",
+                        "entry_point_type": "EXTERNAL",
+                        "call_type": "CALL",
+                        "result": [],
+                        "calls": [],
+                        "events": [],
+                        "messages": [],
+                        "execution_resources": {
+                            "l1_gas": 0,
+                            "l2_gas": 0
+                        },
+                        "is_reverted": false
+                    }
+                ],
+                "events": [],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "fee_transfer_invocation": {
+                "contract_address": "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+                "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+                "calldata": [
+                    "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+                    "0x11ecef7f251258",
+                    "0x0"
+                ],
+                "caller_address": "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3",
+                "class_hash": "0x5327164fa21dca89a92e8eae8a5b7ab90f58373e71f0a16d285e5a4abe5a3cf",
+                "entry_point_type": "EXTERNAL",
+                "call_type": "CALL",
+                "result": [
+                    "0x1"
+                ],
+                "calls": [],
+                "events": [
+                    {
+                        "order": 0,
+                        "keys": [
+                            "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+                        ],
+                        "data": [
+                            "0x35acd6dd6c5045d18ca6d0192af46b335a5402c02d41f46e4e77ea2c951d9a3",
+                            "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+                            "0x11ecef7f251258",
+                            "0x0"
+                        ]
+                    }
+                ],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "execution_resources": {
+                "l1_gas": 5,
+                "l2_gas": 10,
+                "l1_data_gas": 15
+            }
+        },
+        "transaction_hash": "0x6aa7ec89f36e918c9a168ebc9818e9dd19515a2a4bef87d73e1decbd8a7d131"
+    },
+    {
+        "trace_root": {
+            "type": "DEPLOY_ACCOUNT",
+            "validate_invocation": {
+                "contract_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a",
+                "entry_point_selector": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895",
+                "calldata": [
+                    "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+                    "0x13e91b7ca4192672",
+                    "0x1a3bd006d99712e91bd3fd2eb5fafb0f379d9d594125bb527ec7fc5e133122a"
+                ],
+                "caller_address": "0x0",
+                "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+                "entry_point_type": "EXTERNAL",
+                "call_type": "CALL",
+                "result": [],
+                "calls": [],
+                "events": [],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "constructor_invocation": {
+                "contract_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a",
+                "entry_point_selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+                "calldata": [
+                    "0x1a3bd006d99712e91bd3fd2eb5fafb0f379d9d594125bb527ec7fc5e133122a"
+                ],
+                "caller_address": "0x0",
+                "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+                "entry_point_type": "CONSTRUCTOR",
+                "call_type": "CALL",
+                "result": [],
+                "calls": [],
+                "events": [],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "fee_transfer_invocation": {
+                "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+                "calldata": [
+                    "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+                    "0xe5e432c83b4f",
+                    "0x0"
+                ],
+                "caller_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a",
+                "class_hash": "0x5ffbcfeb50d200a0677c48a129a11245a3fc519d1d98d76882d1c9a1b19c6ed",
+                "entry_point_type": "EXTERNAL",
+                "call_type": "CALL",
+                "result": [
+                    "0x1"
+                ],
+                "calls": [],
+                "events": [
+                    {
+                        "order": 0,
+                        "keys": [
+                            "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+                        ],
+                        "data": [
+                            "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a",
+                            "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+                            "0xe5e432c83b4f",
+                            "0x0"
+                        ]
+                    }
+                ],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "execution_resources": {
+                "l1_gas": 5,
+                "l2_gas": 10,
+                "l1_data_gas": 15
+            }
+        },
+        "transaction_hash": "0x97468f6928d72808b23fe775e7c71893087600792fb36e0d62ec191363bd34"
+    },
+    {
+        "trace_root": {
+            "type": "DECLARE",
+            "validate_invocation": {
+                "contract_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a",
+                "entry_point_selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3",
+                "calldata": [
+                    "0x1e7c85ba9d58309d1f257ba201523e1a7b695bfeb6523759da24effd8dc6c0f"
+                ],
+                "caller_address": "0x0",
+                "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+                "entry_point_type": "EXTERNAL",
+                "call_type": "CALL",
+                "result": [],
+                "calls": [],
+                "events": [],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "fee_transfer_invocation": {
+                "contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+                "calldata": [
+                    "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+                    "0xbf730c7e8f2b",
+                    "0x0"
+                ],
+                "caller_address": "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a",
+                "class_hash": "0x5ffbcfeb50d200a0677c48a129a11245a3fc519d1d98d76882d1c9a1b19c6ed",
+                "entry_point_type": "EXTERNAL",
+                "call_type": "CALL",
+                "result": [
+                    "0x1"
+                ],
+                "calls": [],
+                "events": [
+                    {
+                        "order": 0,
+                        "keys": [
+                            "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+                        ],
+                        "data": [
+                            "0x5f7a835be8a4f03c5d98287713e20e4cc5697fd03552493dfbc38430f5ea38a",
+                            "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+                            "0xbf730c7e8f2b",
+                            "0x0"
+                        ]
+                    }
+                ],
+                "messages": [],
+                "execution_resources": {
+                    "l1_gas": 0,
+                    "l2_gas": 0
+                },
+                "is_reverted": false
+            },
+            "execution_resources": {
+                "l1_gas": 5,
+                "l2_gas": 10,
+                "l1_data_gas": 15
+            }
+        },
+        "transaction_hash": "0x6a2df1337b09691711a66fca7e93e9f9fbc04c70dc6a17b9284b7af39c1a6a1"
+    }
+]

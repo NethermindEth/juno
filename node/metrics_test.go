@@ -45,7 +45,7 @@ func TestMakeL1Metrics(t *testing.T) {
 		reg := prometheus.NewRegistry()
 		prometheus.DefaultRegisterer = reg
 
-		head := &core.L1Head{BlockNumber: 42}
+		head := core.L1Head{BlockNumber: 42}
 		mockBCReader.EXPECT().L1Head().Return(head, nil).AnyTimes()
 		mockSubscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(100), nil).AnyTimes()
 		mockSubscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(101), nil).AnyTimes()
@@ -69,7 +69,7 @@ func TestMakeL1Metrics(t *testing.T) {
 		reg := prometheus.NewRegistry()
 		prometheus.DefaultRegisterer = reg
 
-		mockBCReader.EXPECT().L1Head().Return(nil, errors.New("err")).AnyTimes()
+		mockBCReader.EXPECT().L1Head().Return(core.L1Head{}, errors.New("err")).AnyTimes()
 		mockSubscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
 		mockSubscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
 

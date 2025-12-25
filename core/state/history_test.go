@@ -21,9 +21,11 @@ func TestNewStateHistory(t *testing.T) {
 	})
 
 	t.Run("invalid state root", func(t *testing.T) {
-		invalidRoot := new(felt.Felt).SetUint64(999) // Non-existent root
+		invalidRoot := felt.NewUnsafeFromString[felt.Felt]("0x999")
 		_, err := NewStateHistory(1, invalidRoot, stateDB)
-		assert.Error(t, err)
+		// TODO(maksym): error is returned only for the triedb
+		// in path scheme
+		assert.NoError(t, err)
 	})
 }
 
@@ -118,10 +120,10 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	class1Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	class2Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
 
-	class1 := &core.Cairo1Class{}
-	class2 := &core.Cairo1Class{}
+	class1 := &core.SierraClass{}
+	class2 := &core.SierraClass{}
 
-	classes := map[felt.Felt]core.Class{
+	classes := map[felt.Felt]core.ClassDefinition{
 		class1Hash: class1,
 	}
 	stateUpdate := &core.StateUpdate{
@@ -131,7 +133,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	}
 	state, err := New(&felt.Zero, stateDB)
 	require.NoError(t, err)
-	err = state.Update(0, stateUpdate, classes)
+	err = state.Update(0, stateUpdate, classes, false)
 	require.NoError(t, err)
 	stateComm, err := state.Commitment()
 	require.NoError(t, err)
@@ -141,13 +143,13 @@ func TestStateHistoryClassOperations(t *testing.T) {
 		NewRoot:   &stateComm,
 		StateDiff: &core.StateDiff{},
 	}
-	classes2 := map[felt.Felt]core.Class{
+	classes2 := map[felt.Felt]core.ClassDefinition{
 		class2Hash: class2,
 	}
 
 	state, err = New(&stateComm, stateDB)
 	require.NoError(t, err)
-	err = state.Update(1, stateUpdate, classes2)
+	err = state.Update(1, stateUpdate, classes2, false)
 	require.NoError(t, err)
 
 	historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)

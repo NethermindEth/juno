@@ -258,28 +258,28 @@ func TestClassV0(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt](hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
-			classGeneric, err := sn2core.AdaptCairo0Class(response.V0)
+			classGeneric, err := sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo)
 			require.NoError(t, err)
-			class, ok := classGeneric.(*core.Cairo0Class)
+			class, ok := classGeneric.(*core.DeprecatedCairoClass)
 			require.True(t, ok)
 
-			for i, v := range response.V0.EntryPoints.External {
+			for i, v := range response.DeprecatedCairo.EntryPoints.External {
 				assert.Equal(t, v.Selector, class.Externals[i].Selector)
 				assert.Equal(t, v.Offset, class.Externals[i].Offset)
 			}
-			assert.Equal(t, len(response.V0.EntryPoints.External), len(class.Externals))
+			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.External), len(class.Externals))
 
-			for i, v := range response.V0.EntryPoints.L1Handler {
+			for i, v := range response.DeprecatedCairo.EntryPoints.L1Handler {
 				assert.Equal(t, v.Selector, class.L1Handlers[i].Selector)
 				assert.Equal(t, v.Offset, class.L1Handlers[i].Offset)
 			}
-			assert.Equal(t, len(response.V0.EntryPoints.L1Handler), len(class.L1Handlers))
+			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.L1Handler), len(class.L1Handlers))
 
-			for i, v := range response.V0.EntryPoints.Constructor {
+			for i, v := range response.DeprecatedCairo.EntryPoints.Constructor {
 				assert.Equal(t, v.Selector, class.Constructors[i].Selector)
 				assert.Equal(t, v.Offset, class.Constructors[i].Offset)
 			}
-			assert.Equal(t, len(response.V0.EntryPoints.Constructor), len(class.Constructors))
+			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.Constructor), len(class.Constructors))
 
 			assert.NotEmpty(t, class.Program)
 		})
@@ -559,15 +559,15 @@ func TestClassV1(t *testing.T) {
 
 			feederClass, err := client.ClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
-			compiled, err := client.CompiledClassDefinition(t.Context(), classHash)
+			compiled, err := client.CasmClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
 
-			v1Class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+			v1Class, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiled)
 			require.NoError(t, err)
 
-			assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
-			assert.Equal(t, feederClass.V1.Program, v1Class.Program)
-			assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
+			assert.Equal(t, feederClass.Sierra.Abi, v1Class.Abi)
+			assert.Equal(t, feederClass.Sierra.Program, v1Class.Program)
+			assert.Equal(t, feederClass.Sierra.Version, v1Class.SemanticVersion)
 			assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
 			assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
 			assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
@@ -576,20 +576,28 @@ func TestClassV1(t *testing.T) {
 			assert.Equal(t, len(compiled.EntryPoints.Constructor), len(v1Class.Compiled.Constructor))
 			assert.Equal(t, len(compiled.EntryPoints.L1Handler), len(v1Class.Compiled.L1Handler))
 
-			assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
-			for i, v := range feederClass.V1.EntryPoints.External {
+			assert.Equal(t, len(feederClass.Sierra.EntryPoints.External), len(v1Class.EntryPoints.External))
+			for i, v := range feederClass.Sierra.EntryPoints.External {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.External[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.External[i].Index)
 			}
 
-			assert.Equal(t, len(feederClass.V1.EntryPoints.Constructor), len(v1Class.EntryPoints.Constructor))
-			for i, v := range feederClass.V1.EntryPoints.Constructor {
+			assert.Equal(
+				t,
+				len(feederClass.Sierra.EntryPoints.Constructor),
+				len(v1Class.EntryPoints.Constructor),
+			)
+			for i, v := range feederClass.Sierra.EntryPoints.Constructor {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.Constructor[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.Constructor[i].Index)
 			}
 
-			assert.Equal(t, len(feederClass.V1.EntryPoints.L1Handler), len(v1Class.EntryPoints.L1Handler))
-			for i, v := range feederClass.V1.EntryPoints.L1Handler {
+			assert.Equal(
+				t,
+				len(feederClass.Sierra.EntryPoints.L1Handler),
+				len(v1Class.EntryPoints.L1Handler),
+			)
+			for i, v := range feederClass.Sierra.EntryPoints.L1Handler {
 				assert.Equal(t, v.Selector, v1Class.EntryPoints.L1Handler[i].Selector)
 				assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
 			}
@@ -599,20 +607,20 @@ func TestClassV1(t *testing.T) {
 	}
 
 	t.Run("sierra class is empty", func(t *testing.T) {
-		snClass := starknet.SierraDefinition{}
-		class, err := sn2core.AdaptCairo1Class(&snClass, nil)
+		snClass := starknet.SierraClass{}
+		class, err := sn2core.AdaptSierraClass(&snClass, nil)
 		require.Nil(t, class)
 		require.Contains(t, "sierra program size is too small", err.Error())
 	})
 
 	t.Run("sierra class doesn't have the minimum size", func(t *testing.T) {
-		snClass := starknet.SierraDefinition{
+		snClass := starknet.SierraClass{
 			Program: []*felt.Felt{
 				new(felt.Felt), // this value doesn't matter as long as their different from `SierraVersion010`
 				new(felt.Felt),
 			},
 		}
-		class, err := sn2core.AdaptCairo1Class(&snClass, nil)
+		class, err := sn2core.AdaptSierraClass(&snClass, nil)
 		require.Nil(t, class)
 		require.Contains(t, "sierra program size is too small", err.Error())
 	})
@@ -631,6 +639,7 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	blockWithCandidates := uint64(1204672)
 	blockWithNoCandidates := uint64(1204673)
 	blockFullOfCandidates := uint64(1204674)
+	blocksWithRandomCandidateOrder := uint64(1204675)
 
 	type preConfirmedTest struct {
 		description string
@@ -654,6 +663,10 @@ func TestAdaptPreConfirmed(t *testing.T) {
 			description: "PreConfirmedBlock when empty",
 			blockNumber: emptyPreConfirmedBlock,
 		},
+		{
+			description: "PreConfirmedBlock with candidate in between preconfirmed txns",
+			blockNumber: blocksWithRandomCandidateOrder,
+		},
 	}
 
 	for _, test := range tests {
@@ -662,16 +675,41 @@ func TestAdaptPreConfirmed(t *testing.T) {
 
 		expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
 		expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
+		expectedReceipts := getPreconfirmedReceipts(response.Receipts)
 
 		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
 		require.NoError(t, err)
 
-		assertPreConfirmedBlockBasics(t, &adapted, test.blockNumber, response, expectedPreConfirmedTxCount, expectedCandidateCount, expectedEventCount)
-		assertPreConfirmedBlockReceipts(t, response.Receipts, adapted.Block.Receipts, expectedPreConfirmedTxCount)
+		assertPreConfirmedBlockBasics(t,
+			&adapted,
+			test.blockNumber,
+			response,
+			expectedPreConfirmedTxCount,
+			expectedCandidateCount,
+			expectedEventCount,
+		)
+		assertPreConfirmedBlockReceipts(
+			t,
+			expectedReceipts,
+			adapted.Block.Receipts,
+			expectedPreConfirmedTxCount,
+		)
 		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
-		assertCandidateTxs(t, response.Transactions, adapted.CandidateTxs, expectedPreConfirmedTxCount)
-		assert.Equal(t, len(adapted.TransactionStateDiffs), expectedPreConfirmedTxCount)
+		assertCandidateTxs(t, response, adapted.CandidateTxs)
+		assertStateDiffs(t, response, adapted.TransactionStateDiffs)
 	}
+}
+
+func getPreconfirmedReceipts(
+	receipts []*starknet.TransactionReceipt,
+) []*starknet.TransactionReceipt {
+	var filtered []*starknet.TransactionReceipt
+	for _, r := range receipts {
+		if r != nil {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
 }
 
 func assertPreConfirmedBlockBasics(
@@ -703,17 +741,40 @@ func assertPreConfirmedBlockBasics(
 
 func assertCandidateTxs(
 	t *testing.T,
-	transactions []starknet.Transaction,
+	response *starknet.PreConfirmedBlock,
 	candidateTxs []core.Transaction,
-	offset int,
 ) {
 	t.Helper()
 
-	for i, txn := range candidateTxs {
-		adaptedTx, err := sn2core.AdaptTransaction(&transactions[offset+i])
-		require.NoError(t, err)
-		assert.Equal(t, adaptedTx, txn)
+	candID := 0
+	for i := range response.Transactions {
+		if sn2core.IsCandidateTx(response, i) {
+			adaptedTx, err := sn2core.AdaptTransaction(&response.Transactions[i])
+			require.NoError(t, err)
+			assert.Equal(t, adaptedTx, candidateTxs[candID])
+			candID++
+		}
 	}
+	assert.Equal(t, len(candidateTxs), candID)
+}
+
+func assertStateDiffs(
+	t *testing.T,
+	response *starknet.PreConfirmedBlock,
+	stateDiffs []*core.StateDiff,
+) {
+	t.Helper()
+
+	preID := 0
+	for i := range response.Transactions {
+		if !sn2core.IsCandidateTx(response, i) {
+			adaptedStateDiff, err := sn2core.AdaptStateDiff(response.TransactionStateDiffs[i])
+			require.NoError(t, err)
+			assert.Equal(t, &adaptedStateDiff, stateDiffs[preID])
+			preID++
+		}
+	}
+	assert.Equal(t, len(stateDiffs), preID)
 }
 
 func assertPreConfirmedBlockGasPrices(t *testing.T, response *starknet.PreConfirmedBlock, block *core.Block) {
@@ -729,7 +790,7 @@ func countEventsAndTxs(receipts []*starknet.TransactionReceipt) (uint64, int) {
 	txCount := 0
 	for _, r := range receipts {
 		if r == nil {
-			break
+			continue
 		}
 		evCount += uint64(len(r.Events))
 		txCount++

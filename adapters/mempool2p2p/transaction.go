@@ -30,12 +30,12 @@ func AdaptTransaction(tx *mempool.BroadcastedTransaction) (*mempooltransaction.M
 		}
 
 		switch class := tx.DeclaredClass.(type) {
-		case *core.Cairo1Class:
+		case *core.SierraClass:
 			return &mempooltransaction.MempoolTransaction{
 				Txn: &mempooltransaction.MempoolTransaction_DeclareV3{
 					DeclareV3: &transaction.DeclareV3WithClass{
 						Common: core2p2p.AdaptDeclareV3Common(t),
-						Class:  core2p2p.AdaptCairo1Class(class),
+						Class:  core2p2p.AdaptSierraClass(class),
 					},
 				},
 				TransactionHash: toHash(t.TransactionHash),

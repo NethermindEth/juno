@@ -41,8 +41,8 @@ type EmittedEvent struct {
 }
 
 type EventsChunk struct {
-	Events            []*EmittedEvent `json:"events"`
-	ContinuationToken string          `json:"continuation_token,omitempty"`
+	Events            []EmittedEvent `json:"events"`
+	ContinuationToken string         `json:"continuation_token,omitempty"`
 }
 
 /****************************************************
@@ -71,7 +71,11 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(
+		args.EventFilter.Address,
+		args.EventFilter.Keys,
+		h.PendingData,
+	)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}
@@ -86,22 +90,27 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		}
 	}
 
-	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
+	if err = setEventFilterRange(
+		filter,
+		args.EventFilter.FromBlock,
+		args.EventFilter.ToBlock,
+		height,
+	); err != nil {
 		return nil, rpccore.ErrBlockNotFound
 	}
 
-	filteredEvents, cToken, err := filter.Events(cToken, args.ChunkSize)
+	filteredEvents, cTokenValue, err := filter.Events(cToken, args.ChunkSize)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}
 
-	emittedEvents := make([]*EmittedEvent, len(filteredEvents))
+	emittedEvents := make([]EmittedEvent, len(filteredEvents))
 	for i, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
 			blockNumber = fEvent.BlockNumber
 		}
-		emittedEvents[i] = &EmittedEvent{
+		emittedEvents[i] = EmittedEvent{
 			BlockNumber:     blockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
@@ -114,13 +123,18 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	}
 
 	cTokenStr := ""
-	if cToken != nil {
-		cTokenStr = cToken.String()
+	if !cTokenValue.IsEmpty() {
+		cTokenStr = cTokenValue.String()
 	}
 	return &EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
 }
 
-func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID, latestHeight uint64) error {
+func setEventFilterRange(
+	filter blockchain.EventFilterer,
+	fromID,
+	toID *BlockID,
+	latestHeight uint64,
+) error {
 	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
 		if id == nil {
 			return nil
@@ -135,7 +149,10 @@ func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID,
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
 		default:
 			if filterRange == blockchain.EventFilterTo {
-				return filter.SetRangeEndBlockByNumber(filterRange, min(id.Number, latestHeight))
+				return filter.SetRangeEndBlockByNumber(
+					filterRange,
+					min(id.Number, latestHeight),
+				)
 			}
 			return filter.SetRangeEndBlockByNumber(filterRange, id.Number)
 		}

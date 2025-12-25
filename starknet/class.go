@@ -18,7 +18,7 @@ type SierraEntryPoints struct {
 	L1Handler   []SierraEntryPoint `json:"L1_HANDLER"`
 }
 
-type SierraDefinition struct {
+type SierraClass struct {
 	Abi         string            `json:"abi,omitempty"`
 	EntryPoints SierraEntryPoints `json:"entry_points_by_type"`
 	Program     []*felt.Felt      `json:"sierra_program"`
@@ -36,15 +36,15 @@ type EntryPoints struct {
 	L1Handler   []EntryPoint `json:"L1_HANDLER"`
 }
 
-type Cairo0Definition struct {
+type DeprecatedCairoClass struct {
 	Abi         json.RawMessage `json:"abi"`
 	EntryPoints EntryPoints     `json:"entry_points_by_type"`
 	Program     json.RawMessage `json:"program"`
 }
 
 type ClassDefinition struct {
-	V0 *Cairo0Definition
-	V1 *SierraDefinition
+	DeprecatedCairo *DeprecatedCairoClass
+	Sierra          *SierraClass
 }
 
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
@@ -54,11 +54,11 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	}
 
 	if _, found := jsonMap["sierra_program"]; found {
-		c.V1 = new(SierraDefinition)
-		return json.Unmarshal(data, c.V1)
+		c.Sierra = new(SierraClass)
+		return json.Unmarshal(data, c.Sierra)
 	}
-	c.V0 = new(Cairo0Definition)
-	return json.Unmarshal(data, c.V0)
+	c.DeprecatedCairo = new(DeprecatedCairoClass)
+	return json.Unmarshal(data, c.DeprecatedCairo)
 }
 
 type SegmentLengths struct {
@@ -82,13 +82,13 @@ func (n SegmentLengths) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.Length)
 }
 
-type CompiledClass struct {
+type CasmClass struct {
 	Prime                  string          `json:"prime"`
 	Bytecode               []*felt.Felt    `json:"bytecode"`
 	Hints                  json.RawMessage `json:"hints"`
 	PythonicHints          json.RawMessage `json:"pythonic_hints"`
 	CompilerVersion        string          `json:"compiler_version"`
-	BytecodeSegmentLengths SegmentLengths  `json:"bytecode_segment_lengths"`
+	BytecodeSegmentLengths *SegmentLengths `json:"bytecode_segment_lengths,omitempty"`
 	EntryPoints            struct {
 		External    []CompiledEntryPoint `json:"EXTERNAL"`
 		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`

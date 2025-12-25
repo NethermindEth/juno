@@ -78,14 +78,24 @@ mkdir -p $HOME/snapshots
   --db-path $HOME/snapshots/juno_mainnet
 ```
 
+You should replace `<YOUR-ETH-NODE>` with your actual Ethereum node address.
+If you're using Infura, your Ethereum node address might look something like: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`.
+Make sure you are using the WebSockets URL `ws`/`wss` and not the http URL `http`/`https`.
+
+To view logs from the Docker container, use the following command:
+
+```shell
+docker logs -f juno
+```
+
 ## Building from source
 
 You can build the Juno binary or Docker image from the source code to access the latest updates or specific versions.
 
 ### Prerequisites
 
-- [Golang 1.23](https://go.dev/doc/install) or later
-- [Rust](https://www.rust-lang.org/tools/install)
+- [Golang 1.25](https://go.dev/doc/install) or later
+- [Rust](https://www.rust-lang.org/tools/install) 1.87.0 or higher.
 - C compiler: `gcc` or `clang`
 - [jemalloc](https://github.com/jemalloc/jemalloc)
 
@@ -98,14 +108,14 @@ import TabItem from "@theme/TabItem";
 <TabItem value="ubuntu" label="Ubuntu">
 
 ```bash
-sudo apt-get install -y libjemalloc-dev
+sudo apt-get install -y build-essential make libjemalloc-dev libjemalloc2 pkg-config libbz2-dev
 ```
 
 </TabItem>
 <TabItem value="mac" label="MacOS (Homebrew)">
 
 ```bash
-brew install jemalloc
+brew install jemalloc pkg-config
 ```
 
 </TabItem>
@@ -127,6 +137,9 @@ You can use `git tag -l` to view specific version tags.
 ### 2. Build the binary or Docker image
 
 ```bash
+# Install juno dependencies
+make install-deps
+
 # Build the binary
 make juno
 
@@ -154,3 +167,4 @@ mkdir -p $HOME/snapshots
 :::tip
 To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
 :::
+

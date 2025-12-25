@@ -22,6 +22,6 @@ func TestNodeHash(t *testing.T) {
 		Value: new(felt.Felt).SetBytes(valueBytes),
 	}
 	path := trie.NewBitArray(6, 42)
-
-	assert.Equal(t, expected, node.Hash(&path, crypto.Pedersen), "TestTrieNode_Hash failed")
+	hash := node.Hash(&path, crypto.Pedersen)
+	assert.Equal(t, expected, &hash, "TestTrieNode_Hash failed")
 }

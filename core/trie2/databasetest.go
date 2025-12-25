@@ -26,7 +26,12 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 	return &testNodeReader{id: id, nodes: nodes, db: db, scheme: scheme}
 }
 
-func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (n *testNodeReader) Node(
+	owner *felt.Address,
+	path *trieutils.Path,
+	hash *felt.Hash,
+	isLeaf bool,
+) ([]byte, error) {
 	for _, nodes := range n.nodes {
 		var (
 			node trienode.TrieNode
@@ -37,7 +42,8 @@ func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt
 			continue
 		}
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			return nil, &MissingNodeError{owner: *owner, path: *path, hash: node.Hash()}
+			hash := node.Hash()
+			return nil, &MissingNodeError{owner: *owner, path: *path, hash: felt.Hash(hash)}
 		}
 		return node.Blob(), nil
 	}
@@ -49,7 +55,7 @@ func readNode(
 	id trieutils.TrieID,
 	scheme dbScheme,
 	path *trieutils.Path,
-	hash *felt.Felt,
+	hash *felt.Hash,
 	isLeaf bool,
 ) ([]byte, error) {
 	owner := id.Owner()
@@ -63,20 +69,21 @@ func readNode(
 }
 
 type TestNodeDatabase struct {
-	disk      db.KeyValueStore
-	root      felt.Felt
-	scheme    dbScheme
-	nodes     map[felt.Felt]*trienode.MergeNodeSet
-	rootLinks map[felt.Felt]felt.Felt // map[child_root]parent_root - keep track of the parent root for each child root
+	disk   db.KeyValueStore
+	root   felt.StateRootHash
+	scheme dbScheme
+	nodes  map[felt.StateRootHash]*trienode.MergeNodeSet
+	// map[child_root]parent_root - keep track of the parent root for each child root
+	rootLinks map[felt.StateRootHash]felt.StateRootHash
 }
 
 func NewTestNodeDatabase(disk db.KeyValueStore, scheme dbScheme) TestNodeDatabase {
 	return TestNodeDatabase{
 		disk:      disk,
-		root:      felt.Zero,
+		root:      felt.StateRootHash{},
 		scheme:    scheme,
-		nodes:     make(map[felt.Felt]*trienode.MergeNodeSet),
-		rootLinks: make(map[felt.Felt]felt.Felt),
+		nodes:     make(map[felt.StateRootHash]*trienode.MergeNodeSet),
+		rootLinks: make(map[felt.StateRootHash]felt.StateRootHash),
 	}
 }
 
@@ -85,8 +92,8 @@ func (d *TestNodeDatabase) Update(root, parent *felt.Felt, nodes *trienode.Merge
 		return nil
 	}
 
-	rootVal := *root
-	parentVal := *parent
+	rootVal := felt.StateRootHash(*root)
+	parentVal := felt.StateRootHash(*parent)
 
 	if _, ok := d.nodes[rootVal]; ok { // already exists
 		return nil
@@ -104,10 +111,13 @@ func (d *TestNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader,
 	return newTestNodeReader(id, nodes, d.disk, d.scheme), nil
 }
 
-func (d *TestNodeDatabase) dirties(root *felt.Felt, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Felt) {
+func (d *TestNodeDatabase) dirties(
+	root *felt.StateRootHash,
+	newerFirst bool,
+) ([]*trienode.MergeNodeSet, []felt.StateRootHash) {
 	var (
 		pending []*trienode.MergeNodeSet
-		roots   []felt.Felt
+		roots   []felt.StateRootHash
 	)
 
 	rootVal := *root
@@ -123,7 +133,7 @@ func (d *TestNodeDatabase) dirties(root *felt.Felt, newerFirst bool) ([]*trienod
 			roots = append(roots, rootVal)
 		} else {
 			pending = append([]*trienode.MergeNodeSet{nodes}, pending...)
-			roots = append([]felt.Felt{rootVal}, roots...)
+			roots = append([]felt.StateRootHash{rootVal}, roots...)
 		}
 
 		rootVal = d.rootLinks[rootVal]

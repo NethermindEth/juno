@@ -27,10 +27,11 @@ type TransactionReceipt struct {
 	RevertReason       string
 }
 
-func (r *TransactionReceipt) hash() *felt.Felt {
+func (r *TransactionReceipt) hash() felt.Felt {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {
-		revertReasonHash = crypto.StarknetKeccak([]byte(r.RevertReason))
+		hash := crypto.StarknetKeccak([]byte(r.RevertReason))
+		revertReasonHash = &hash
 	}
 
 	var totalGasConsumed GasConsumed
@@ -39,36 +40,39 @@ func (r *TransactionReceipt) hash() *felt.Felt {
 		totalGasConsumed = *r.ExecutionResources.TotalGasConsumed
 	}
 
+	sentMessageHash := messagesSentHash(r.L2ToL1Message)
+	l1GasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1Gas)
+	l1DataGasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1DataGas)
 	return crypto.PoseidonArray(
 		r.TransactionHash,
 		r.Fee,
-		messagesSentHash(r.L2ToL1Message),
+		&sentMessageHash,
 		revertReasonHash,
 		&felt.Zero, // L2 gas consumed
-		new(felt.Felt).SetUint64(totalGasConsumed.L1Gas),
-		new(felt.Felt).SetUint64(totalGasConsumed.L1DataGas),
+		&l1GasFelt,
+		&l1DataGasFelt,
 	)
 }
 
-func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
+func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 	chain := []*felt.Felt{
 		new(felt.Felt).SetUint64(uint64(len(messages))),
 	}
 	for _, msg := range messages {
-		msgTo := new(felt.Felt).SetBytes(msg.To.Bytes())
-		payloadSize := new(felt.Felt).SetUint64(uint64(len(msg.Payload)))
-		chain = append(chain, msg.From, msgTo, payloadSize)
+		msgTo := felt.FromBytes[felt.Felt](msg.To.Bytes())
+		payloadSize := felt.FromUint64[felt.Felt](uint64(len(msg.Payload)))
+		chain = append(chain, msg.From, &msgTo, &payloadSize)
 		chain = append(chain, msg.Payload...)
 	}
 
 	return crypto.PoseidonArray(chain...)
 }
 
-func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+func receiptCommitment(receipts []*TransactionReceipt) (felt.Felt, error) {
 	return calculateCommitment(
 		receipts,
 		trie.RunOnTempTriePoseidon,
-		func(receipt *TransactionReceipt) *felt.Felt {
+		func(receipt *TransactionReceipt) felt.Felt {
 			return receipt.hash()
 		},
 	)
@@ -76,15 +80,19 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 
 type (
 	onTempTrieFunc     func(uint8, func(*trie.Trie) error) error
-	processFunc[T any] func(T) *felt.Felt
+	processFunc[T any] func(T) felt.Felt
 )
 
 // General function for parallel processing of items and calculation of a commitment
-func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process processFunc[T]) (*felt.Felt, error) {
+func calculateCommitment[T any](
+	items []T,
+	runOnTempTrie onTempTrieFunc,
+	process processFunc[T],
+) (felt.Felt, error) {
 	var commitment *felt.Felt
-	return commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return *commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(items))
-		results := make([]*felt.Felt, len(items))
+		results := make([]felt.Felt, len(items))
 		var wg sync.WaitGroup
 		wg.Add(numWorkers)
 
@@ -106,17 +114,17 @@ func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process
 		wg.Wait()
 
 		for i, res := range results {
-			key := new(felt.Felt).SetUint64(uint64(i))
-			if _, err := trie.Put(key, res); err != nil {
+			key := felt.FromUint64[felt.Felt](uint64(i))
+			if _, err := trie.Put(&key, &res); err != nil {
 				return err
 			}
 		}
 
-		root, err := trie.Root()
+		root, err := trie.Hash()
 		if err != nil {
 			return err
 		}
-		commitment = root
+		commitment = &root
 
 		return nil
 	})

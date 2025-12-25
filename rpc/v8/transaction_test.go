@@ -19,7 +19,6 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +34,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+	mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 	mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -620,7 +619,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
@@ -708,7 +707,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			txHash := block0.Transactions[test.index].Hash()
 			mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[test.index], nil)
 			mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[test.index], block0.Hash, block0.Number, nil)
-			mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 			checkTxReceipt(t, txHash, test.expected)
 		})
@@ -781,7 +780,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
 		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], block0.Hash, block0.Number, nil)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: block0.Number,
 			BlockHash:   block0.Hash,
 			StateRoot:   block0.GlobalStateRoot,
@@ -820,7 +819,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().TransactionByHash(revertedTxnHash).Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
 		mockReader.EXPECT().Receipt(revertedTxnHash).Return(blockWithRevertedTxn.Receipts[revertedTxnIdx],
 			blockWithRevertedTxn.Hash, blockWithRevertedTxn.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, revertedTxnHash, expected)
 	})
@@ -884,7 +883,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
 		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
 			block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)
 	})
@@ -934,7 +933,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
 		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
 			block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)
 	})
@@ -1366,7 +1365,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-					mockReader.EXPECT().L1Head().Return(nil, nil)
+					mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 					handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -1382,7 +1381,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-					mockReader.EXPECT().L1Head().Return(&core.L1Head{
+					mockReader.EXPECT().L1Head().Return(core.L1Head{
 						BlockNumber: block.Number + 1,
 					}, nil)
 
@@ -1400,7 +1399,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-					mockReader.EXPECT().L1Head().Return(&core.L1Head{
+					mockReader.EXPECT().L1Head().Return(core.L1Head{
 						BlockNumber: block.Number + 1,
 					}, nil)
 
@@ -1435,7 +1434,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+						mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).Times(2)
 						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 						handler := rpc.New(mockReader, mockSyncReader, nil, log)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
@@ -1454,7 +1453,7 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 				handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
 
@@ -1474,7 +1473,7 @@ func TestTransactionStatus(t *testing.T) {
 
 		handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 		status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
@@ -1943,7 +1942,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Nil(t, err)
@@ -1968,7 +1967,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		// Expire cache entry
 		for range rpccore.NumTimeBuckets {

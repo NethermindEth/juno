@@ -61,7 +61,8 @@ extern void cairoVMExecute(
 	unsigned char err_on_revert,
 	unsigned char concurrency_mode, 
 	unsigned char err_stack,
-	unsigned char allow_binary_search
+	unsigned char allow_binary_search,
+	unsigned char is_estimate_fee
 );
 
 extern char* setVersionedConstants(char* json);

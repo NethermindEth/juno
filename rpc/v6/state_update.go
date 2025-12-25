@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909
@@ -87,7 +86,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 		update, err = h.bcReader.StateUpdateByNumber(id.Number)
 	}
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)

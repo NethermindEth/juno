@@ -56,11 +56,11 @@ func (mr *MockEventFiltererMockRecorder) Close() *gomock.Call {
 }
 
 // Events mocks base method.
-func (m *MockEventFilterer) Events(cToken *blockchain.ContinuationToken, chunkSize uint64) ([]*blockchain.FilteredEvent, *blockchain.ContinuationToken, error) {
+func (m *MockEventFilterer) Events(cToken *blockchain.ContinuationToken, chunkSize uint64) ([]blockchain.FilteredEvent, blockchain.ContinuationToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Events", cToken, chunkSize)
-	ret0, _ := ret[0].([]*blockchain.FilteredEvent)
-	ret1, _ := ret[1].(*blockchain.ContinuationToken)
+	ret0, _ := ret[0].([]blockchain.FilteredEvent)
+	ret1, _ := ret[1].(blockchain.ContinuationToken)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

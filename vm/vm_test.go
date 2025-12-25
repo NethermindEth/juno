@@ -36,7 +36,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
+	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 
@@ -117,7 +117,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
+	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 
@@ -149,85 +149,98 @@ func TestCallCairo(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Goerli)
 	gw := adaptfeeder.New(client)
 
-	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	contractAddr := felt.NewFromUint64[felt.Felt](0xdeadbeef)
+
+	// todo(rdr): change this tests with obscure contracts for tests with out own written
+	// and compiled contracts
 	// https://goerli.voyager.online/class/0x01338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292
-	classHash := felt.NewUnsafeFromString[felt.Felt]("0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
+	classHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292",
+	)
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
-	require.NoError(t, testState.Update(0, &core.StateUpdate{
+	state := core.NewState(txn)
+	firstStateUpdate := core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
+		),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
-		*classHash: simpleClass,
-	}, false))
+	}
+	declaredClass := map[felt.Felt]core.ClassDefinition{*classHash: simpleClass}
+	require.NoError(t, state.Update(0, &firstStateUpdate, declaredClass, false))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)
 	require.NoError(t, err)
 
 	// test_storage_read
-	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
-	storageLocation := felt.NewUnsafeFromString[felt.Felt]("0x44")
+	entryPoint := felt.NewUnsafeFromString[felt.Felt](
+		"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
+	)
+	storageLocation := felt.NewFromUint64[felt.Felt](0x44)
 
 	feeTokens := utils.DefaultFeeTokenAddresses
 	chainInfo := ChainInfo{
 		ChainID:           utils.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	ret, err := New(&chainInfo, false, log).Call(
-		&CallInfo{
-			ContractAddress: contractAddr,
-			Selector:        entryPoint,
-			Calldata: []felt.Felt{
-				*storageLocation,
-			},
+	vm := New(&chainInfo, false, log)
+
+	callInfo := CallInfo{
+		ContractAddress: contractAddr,
+		Selector:        entryPoint,
+		Calldata: []felt.Felt{
+			*storageLocation,
 		},
+	}
+
+	ret, err := vm.Call(
+		&callInfo,
 		&BlockInfo{Header: &core.Header{}},
-		testState,
+		state,
 		DefaultMaxSteps,
 		DefaultMaxGas,
 		false,
 		false,
 	)
+
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
-	require.NoError(t, testState.Update(1, &core.StateUpdate{
-		OldRoot: felt.NewUnsafeFromString[felt.Felt]("0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552"),
+	secondStateUpdate := core.StateUpdate{
+		OldRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
+		),
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552",
+		),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
-					*storageLocation: new(felt.Felt).SetUint64(37),
+					*storageLocation: felt.NewFromUint64[felt.Felt](37),
 				},
 			},
 		},
-	}, nil, false))
+	}
+	require.NoError(t, state.Update(1, &secondStateUpdate, nil, false))
 
-	ret, err = New(&chainInfo, false, log).Call(
-		&CallInfo{
-			ContractAddress: contractAddr,
-			Selector:        entryPoint,
-			Calldata: []felt.Felt{
-				*storageLocation,
-			},
-		},
+	ret, err = vm.Call(
+		&callInfo,
 		&BlockInfo{Header: &core.Header{Number: 1}},
-		testState,
+		state,
 		DefaultMaxSteps,
 		DefaultMaxGas,
 		false,
 		false,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret.Result)
+	assert.Equal(t, []*felt.Felt{felt.NewFromUint64[felt.Felt](37)}, ret.Result)
 }
 
 func TestCallInfoErrorHandling(t *testing.T) {
@@ -250,7 +263,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.Class{
+	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 
@@ -319,15 +332,18 @@ func TestExecute(t *testing.T) {
 			ChainID:           utils.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		_, err := New(&chainInfo, false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
-			Header: &core.Header{
-				Timestamp:        1666877926,
-				SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
-				L1GasPriceETH:    &felt.Zero,
-				L1GasPriceSTRK:   &felt.Zero,
-			},
-		}, state,
-			false, false, false, false, false)
+		_, err := New(&chainInfo, false, nil).
+			Execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
+				Header: &core.Header{
+					Timestamp: 1666877926,
+					SequencerAddress: felt.NewUnsafeFromString[felt.Felt](
+						"0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+					),
+					L1GasPriceETH:  &felt.Zero,
+					L1GasPriceSTRK: &felt.Zero,
+				},
+			}, state,
+				false, false, false, false, false, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
@@ -342,7 +358,7 @@ func TestExecute(t *testing.T) {
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
-		}, state, false, false, false, false, false)
+		}, state, false, false, false, false, false, false)
 		require.NoError(t, err)
 	})
 }

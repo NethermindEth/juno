@@ -3,31 +3,31 @@ package state
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie2"
+	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/db"
 )
 
-var _ StateReader = (*StateHistory)(nil)
+var _ StateReader = (*stateHistory)(nil)
 
 // StateHistory represents a snapshot of the blockchain state at a specific block number.
-type StateHistory struct {
+type stateHistory struct {
 	blockNum uint64
 	state    *State
 }
 
-func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (StateHistory, error) {
+func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (stateHistory, error) {
 	state, err := New(stateRoot, db)
 	if err != nil {
-		return StateHistory{}, err
+		return stateHistory{}, err
 	}
 
-	return StateHistory{
+	return stateHistory{
 		blockNum: blockNum,
 		state:    state,
 	}, nil
 }
 
-func (s *StateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -38,7 +38,7 @@ func (s *StateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return ret, nil
 }
 
-func (s *StateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -49,7 +49,7 @@ func (s *StateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return ret, nil
 }
 
-func (s *StateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -61,7 +61,7 @@ func (s *StateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 }
 
 // Checks if the contract is deployed at the given block number.
-func (s *StateHistory) checkDeployed(addr *felt.Felt) error {
+func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNum)
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (s *StateHistory) checkDeployed(addr *felt.Felt) error {
 	return nil
 }
 
-func (s *StateHistory) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (s *stateHistory) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
 		return nil, err
@@ -89,14 +89,14 @@ func (s *StateHistory) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	return declaredClass, nil
 }
 
-func (s *StateHistory) ClassTrie() (*trie2.Trie, error) {
+func (s *stateHistory) ClassTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *StateHistory) ContractTrie() (*trie2.Trie, error) {
+func (s *stateHistory) ContractTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *StateHistory) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
+func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

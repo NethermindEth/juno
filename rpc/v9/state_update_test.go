@@ -13,7 +13,6 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +37,7 @@ func TestStateUpdate(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 			log := utils.NewNopZapLogger()
 			handler := rpcv9.New(chain, mockSyncReader, nil, log)
@@ -148,7 +147,7 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("l1_accepted", func(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(
-			&core.L1Head{
+			core.L1Head{
 				BlockNumber: uint64(21656),
 				BlockHash:   update21656.BlockHash,
 				StateRoot:   update21656.NewRoot,
