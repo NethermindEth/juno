@@ -28,6 +28,15 @@ type Iterator interface {
 	// Value returns the value at the current position.
 	Value() ([]byte, error)
 
+	// DO NOT USE this unless the value is consumed immediately.
+	//
+	// UncopiedValue returns the value at the current position without copying it.
+	// The returned slice is invalidated by the next call to [Next], [Prev], or [Seek].
+	// Callers must copy the value if it needs to outlive the current iteration.
+	//
+	// This is intended for immediate unmarshalling to avoid an extra allocation.
+	UncopiedValue() ([]byte, error)
+
 	// Seek would seek to the provided key if present. If absent, it would seek to the next
 	// key in lexicographical order
 	Seek(key []byte) bool

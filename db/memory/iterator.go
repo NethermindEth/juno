@@ -3,6 +3,7 @@ package memory
 import (
 	"bytes"
 	"errors"
+	"slices"
 
 	"github.com/NethermindEth/juno/db"
 )
@@ -51,6 +52,16 @@ func (i *iterator) Key() []byte {
 }
 
 func (i *iterator) Value() ([]byte, error) {
+	bytes, err := i.UncopiedValue()
+	if err != nil {
+		return nil, err
+	}
+	return slices.Clone(bytes), nil
+}
+
+// DO NOT USE this if you don't unmarshal the value immediately.
+// See [db.Iterator] for more details.
+func (i *iterator) UncopiedValue() ([]byte, error) {
 	if !i.Valid() {
 		return nil, errors.New("iterator is not valid")
 	}
