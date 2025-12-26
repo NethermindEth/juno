@@ -311,7 +311,7 @@ func openDB(path string) (db.KeyValueStore, error) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	database, err := pebblev2.New(path)
+	database, err := pebblev2.New(path, pebblev2.WithCompression(&pebblev2.Zstd1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
