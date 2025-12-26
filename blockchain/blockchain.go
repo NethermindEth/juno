@@ -184,13 +184,7 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
-	return core.TransactionsByBlockNumberAndIndexBucket.Get(
-		b.database,
-		db.BlockNumIndexKey{
-			Number: blockNumber,
-			Index:  index,
-		},
-	)
+	return core.GetTxByBlockNumberAndIndex(b.database, blockNumber, index)
 }
 
 // TransactionByHash gets the transaction for a given hash.
@@ -209,7 +203,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		return nil, nil, 0, err
 	}
 
-	receipt, err := core.GetReceiptByHash(b.database, txHash)
+	receipt, err := core.GetReceiptByBlockNumberAndIndex(b.database, bnIndex.Number, bnIndex.Index)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -256,11 +250,14 @@ func (b *Blockchain) Store(
 			return err
 		}
 
-		for i, tx := range block.Transactions {
-			if err := core.WriteTxAndReceipt(txn, block.Number, uint64(i), tx,
-				block.Receipts[i]); err != nil {
-				return err
-			}
+		err := core.WriteTransactionsAndReceipts(
+			txn,
+			block.Number,
+			block.Transactions,
+			block.Receipts,
+		)
+		if err != nil {
+			return err
 		}
 
 		if err := core.WriteStateUpdateByBlockNum(txn, block.Number, stateUpdate); err != nil {
@@ -275,7 +272,7 @@ func (b *Blockchain) Store(
 			return err
 		}
 
-		err := storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
 		if err != nil {
 			return err
 		}
@@ -725,11 +722,14 @@ func (b *Blockchain) storeBlockData(
 		return err
 	}
 
-	// Store transactions and receipts
-	for i, tx := range block.Transactions {
-		if err := core.WriteTxAndReceipt(txn, block.Number, uint64(i), tx, block.Receipts[i]); err != nil {
-			return err
-		}
+	err := core.WriteTransactionsAndReceipts(
+		txn,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	)
+	if err != nil {
+		return err
 	}
 
 	// Store state update
