@@ -34,6 +34,10 @@ func newBatch(db *Database) *batch {
 }
 
 func (b *batch) Get(key []byte, cb func(value []byte) error) error {
+	if b.db == nil {
+		return errBatchClosed
+	}
+
 	b.db.lock.RLock()
 	defer b.db.lock.RUnlock()
 
@@ -53,6 +57,10 @@ func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 }
 
 func (b *batch) Has(key []byte) (bool, error) {
+	if b.db == nil {
+		return false, errBatchClosed
+	}
+
 	b.db.lock.RLock()
 	defer b.db.lock.RUnlock()
 
@@ -72,6 +80,10 @@ func (b *batch) Has(key []byte) (bool, error) {
 }
 
 func (b *batch) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	if b.db == nil {
+		return nil, errBatchClosed
+	}
+
 	// create a temporary db
 	tempDB := b.db.Copy()
 
@@ -92,6 +104,10 @@ func (b *batch) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, er
 }
 
 func (b *batch) Put(key, value []byte) error {
+	if b.db == nil {
+		return errBatchClosed
+	}
+
 	kv := keyValue{key: string(key), value: slices.Clone(value)}
 	b.writes = append(b.writes, kv)
 	b.writeMap[string(key)] = kv
@@ -100,6 +116,10 @@ func (b *batch) Put(key, value []byte) error {
 }
 
 func (b *batch) Delete(key []byte) error {
+	if b.db == nil {
+		return errBatchClosed
+	}
+
 	kv := keyValue{key: string(key), delete: true}
 	b.writes = append(b.writes, kv)
 	b.writeMap[string(key)] = kv
@@ -108,6 +128,10 @@ func (b *batch) Delete(key []byte) error {
 }
 
 func (b *batch) DeleteRange(start, end []byte) error {
+	if b.db == nil {
+		return errBatchClosed
+	}
+
 	it, err := b.NewIterator(start, false)
 	if err != nil {
 		return err
@@ -131,6 +155,10 @@ func (b *batch) Size() int {
 }
 
 func (b *batch) Write() error {
+	if b.db == nil {
+		return errBatchClosed
+	}
+
 	b.db.lock.Lock()
 	defer b.db.lock.Unlock()
 
@@ -146,12 +174,15 @@ func (b *batch) Write() error {
 		}
 	}
 
-	b.Reset()
-	return nil
+	return b.Close()
 }
 
-func (b *batch) Reset() {
-	b.size = 0
-	b.writes = b.writes[:0] // reuse the memory
-	b.writeMap = make(map[string]keyValue)
+func (b *batch) Close() error {
+	if b.db == nil {
+		return errBatchClosed
+	}
+
+	// Clear all the fields to prevent any further use of the batch.
+	*b = batch{}
+	return nil
 }

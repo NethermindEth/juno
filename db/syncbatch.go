@@ -42,12 +42,6 @@ func (s *SyncBatch) Write() error {
 	return s.batch.Write()
 }
 
-func (s *SyncBatch) Reset() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.batch.Reset()
-}
-
 func (s *SyncBatch) Get(key []byte, cb func(value []byte) error) error {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
@@ -70,4 +64,10 @@ func (s *SyncBatch) Size() int {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.batch.Size()
+}
+
+func (s *SyncBatch) Close() error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.batch.Close()
 }
