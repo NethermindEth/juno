@@ -791,8 +791,13 @@ func (t *Trie) Hash() (felt.Felt, error) {
 	}
 
 	storage := t.storage
-	t.storage = storage.SyncedStorage()
-	defer func() { t.storage = storage }()
+	syncedStorage := storage.SyncedStorage()
+	t.storage = syncedStorage
+	t.readStorage = syncedStorage.ReadStorage
+	defer func() {
+		t.storage = storage
+		t.readStorage = storage.ReadStorage
+	}()
 	root, err := t.updateValueIfDirty(t.rootKey)
 	if err != nil {
 		return felt.Zero, err
