@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -442,8 +443,10 @@ func BenchmarkTriePut(b *testing.B) {
 // can handle concurrent reads when updateChildTriesConcurrently
 // is called.
 func TestTrie_Hash_ConcurrentReadsWithinHash(t *testing.T) {
-	memDB := memory.New()
-	txn := memDB.NewIndexedBatch()
+	db, err := pebblev2.New(t.TempDir())
+	require.NoError(t, err)
+
+	txn := db.NewIndexedBatch()
 	prefix := []byte("test")
 
 	trieInstance, err := trie.NewTriePedersen(txn, prefix, 8)
