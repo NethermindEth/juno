@@ -246,48 +246,40 @@ func DeleteBlockHeaderByNumber(w db.KeyValueWriter, number uint64) error {
 	return w.Delete(db.BlockHeaderByNumberKey(number))
 }
 
-// TODO: Return TransactionReceipt instead of *TransactionReceipt.
-func GetReceiptByHash(
+func GetReceiptByBlockNumberAndIndex(
 	r db.KeyValueReader,
-	hash *felt.TransactionHash,
+	blockNumber uint64,
+	index uint64,
 ) (*TransactionReceipt, error) {
-	val, err := TransactionBlockNumbersAndIndicesByHashBucket.RawValue().Get(r, hash)
+	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}
 
-	receipt, err := ReceiptsByBlockNumberAndIndexBucket.RawKey().Get(r, val)
-	if err != nil {
-		return nil, err
+	if index >= uint64(len(blockTransactions.Receipts)) {
+		return nil, db.ErrKeyNotFound
 	}
-	return &receipt, nil
+
+	return blockTransactions.Receipts[index], nil
 }
 
 func DeleteTxsAndReceipts(batch db.IndexedBatch, blockNum, numTxs uint64) error {
-	// remove txs and receipts
-	for i := range numTxs {
-		key := db.BlockNumIndexKey{
-			Number: blockNum,
-			Index:  i,
-		}
-		txn, err := TransactionsByBlockNumberAndIndexBucket.Get(batch, key)
-		if err != nil {
-			return err
-		}
+	blockTransactions, err := BlockTransactionsBucket.Get(batch, blockNum)
+	if err != nil {
+		return err
+	}
 
-		if err := TransactionsByBlockNumberAndIndexBucket.Delete(batch, key); err != nil {
-			return err
-		}
-		if err := ReceiptsByBlockNumberAndIndexBucket.Delete(batch, key); err != nil {
-			return err
-		}
+	if err := BlockTransactionsBucket.Delete(batch, blockNum); err != nil {
+		return err
+	}
 
-		txHash := (*felt.TransactionHash)(txn.Hash())
+	for _, tx := range blockTransactions.Transactions {
+		txHash := (*felt.TransactionHash)(tx.Hash())
 		if err := TransactionBlockNumbersAndIndicesByHashBucket.Delete(batch, txHash); err != nil {
 			return err
 		}
 
-		if l1handler, ok := txn.(*L1HandlerTransaction); ok {
+		if l1handler, ok := tx.(*L1HandlerTransaction); ok {
 			if err := DeleteL1HandlerTxnHashByMsgHash(batch, l1handler.MessageHash()); err != nil {
 				return err
 			}
@@ -391,32 +383,25 @@ func WriteBlockHeader(w db.KeyValueWriter, header *Header) error {
 
 // Returns all transactions in a given block
 func GetTxsByBlockNum(r db.KeyValueReader, blockNum uint64) ([]Transaction, error) {
-	txs := []Transaction{}
-	txSeq := TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
-
-	for tx, err := range txSeq {
-		if err != nil {
-			return nil, err
-		}
-		txs = append(txs, tx.Value)
+	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNum)
+	if err != nil {
+		return nil, err
 	}
 
-	return txs, nil
+	return blockTransactions.Transactions, nil
 }
 
 // Returns all receipts in a given block
-func GetReceiptsByBlockNum(r db.KeyValueReader, blockNum uint64) ([]*TransactionReceipt, error) {
-	receipts := []*TransactionReceipt{}
-	receiptSeq := ReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
-
-	for receipt, err := range receiptSeq {
-		if err != nil {
-			return nil, err
-		}
-		receipts = append(receipts, &receipt.Value)
+func GetReceiptsByBlockNum(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]*TransactionReceipt, error) {
+	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNum)
+	if err != nil {
+		return nil, err
 	}
 
-	return receipts, nil
+	return blockTransactions.Receipts, nil
 }
 
 func GetBlockByNumber(r db.KeyValueReader, blockNum uint64) (*Block, error) {
@@ -425,57 +410,71 @@ func GetBlockByNumber(r db.KeyValueReader, blockNum uint64) (*Block, error) {
 		return nil, err
 	}
 
-	txs, err := GetTxsByBlockNum(r, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	receipts, err := GetReceiptsByBlockNum(r, blockNum)
+	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNum)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Block{
 		Header:       header,
-		Transactions: txs,
-		Receipts:     receipts,
+		Transactions: blockTransactions.Transactions,
+		Receipts:     blockTransactions.Receipts,
 	}, nil
 }
 
-func WriteTxAndReceipt(
+func WriteTransactionsAndReceipts(
 	w db.KeyValueWriter,
-	num, index uint64,
-	tx Transaction,
-	receipt *TransactionReceipt,
+	blockNumber uint64,
+	transactions []Transaction,
+	receipts []*TransactionReceipt,
 ) error {
-	txHash := (*felt.TransactionHash)(tx.Hash())
-	key := db.BlockNumIndexKey{
-		Number: num,
-		Index:  index,
+	for index, tx := range transactions {
+		txHash := (*felt.TransactionHash)(tx.Hash())
+		key := db.BlockNumIndexKey{
+			Number: blockNumber,
+			Index:  uint64(index),
+		}
+
+		if err := TransactionBlockNumbersAndIndicesByHashBucket.Put(w, txHash, &key); err != nil {
+			return err
+		}
 	}
 
-	if err := TransactionBlockNumbersAndIndicesByHashBucket.Put(w, txHash, &key); err != nil {
-		return err
+	blockTransactions := BlockTransactions{
+		Transactions: transactions,
+		Receipts:     receipts,
 	}
-
-	if err := TransactionsByBlockNumberAndIndexBucket.Put(w, key, &tx); err != nil {
-		return err
-	}
-
-	if err := ReceiptsByBlockNumberAndIndexBucket.Put(w, key, receipt); err != nil {
+	if err := BlockTransactionsBucket.Put(w, blockNumber, &blockTransactions); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func GetTxByHash(r db.KeyValueReader, hash *felt.TransactionHash) (Transaction, error) {
-	val, err := TransactionBlockNumbersAndIndicesByHashBucket.RawValue().Get(r, hash)
+func GetTxByBlockNumberAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (Transaction, error) {
+	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}
 
-	return TransactionsByBlockNumberAndIndexBucket.RawKey().Get(r, val)
+	if index >= uint64(len(blockTransactions.Transactions)) {
+		return nil, db.ErrKeyNotFound
+	}
+
+	return blockTransactions.Transactions[index], nil
+}
+
+func GetTxByHash(r db.KeyValueReader, hash *felt.TransactionHash) (Transaction, error) {
+	blockNumIndex, err := TransactionBlockNumbersAndIndicesByHashBucket.Get(r, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetTxByBlockNumberAndIndex(r, blockNumIndex.Number, blockNumIndex.Index)
 }
 
 func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
