@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -103,10 +103,12 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 }
 
 type Logger interface {
-	SimpleLogger
 	pebble.Logger
+	SimpleLogger
+	StructuredLogger
 }
 
+// Deprecated: use StructuredLogger interface instead
 type SimpleLogger interface {
 	Debugw(msg string, keysAndValues ...any)
 	Infow(msg string, keysAndValues ...any)
@@ -115,12 +117,51 @@ type SimpleLogger interface {
 	Tracew(msg string, keysAndValues ...any)
 }
 
-type ZapLogger struct {
-	*zap.SugaredLogger
+type StructuredLogger interface {
+	Debug(msg string, fields ...zap.Field)
+	Info(msg string, fields ...zap.Field)
+	Warn(msg string, fields ...zap.Field)
+	Error(msg string, fields ...zap.Field)
 }
 
-func (l *ZapLogger) IsTraceEnabled() bool {
-	return l.Desugar().Core().Enabled(TRACE)
+var _ Logger = (*ZapLogger)(nil)
+
+type ZapLogger struct {
+	Structured *zap.Logger
+	// Deprecated logger
+	Sugared *zap.SugaredLogger
+}
+
+func (l *ZapLogger) Infof(msg string, args ...any) {
+	l.Sugared.Infof(msg, args)
+}
+
+func (l *ZapLogger) Errorf(msg string, args ...any) {
+	l.Sugared.Infof(msg, args)
+}
+
+func (l *ZapLogger) Fatalf(msg string, args ...any) {
+	l.Sugared.Fatalf(msg, args)
+}
+
+// Deprecated: use Debug with structured fields instead
+func (l *ZapLogger) Debugw(msg string, keysAndValues ...any) {
+	l.Sugared.Debugw(msg, keysAndValues...)
+}
+
+// Deprecated: use Info with structured fields instead
+func (l *ZapLogger) Infow(msg string, keysAndValues ...any) {
+	l.Sugared.Infow(msg, keysAndValues...)
+}
+
+// Deprecated: use Warn with structured fields instead
+func (l *ZapLogger) Warnw(msg string, keysAndValues ...any) {
+	l.Sugared.Warnw(msg, keysAndValues...)
+}
+
+// Deprecated: use Error with structured fields instead
+func (l *ZapLogger) Errorw(msg string, keysAndValues ...any) {
+	l.Sugared.Errorw(msg, keysAndValues...)
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
@@ -131,14 +172,36 @@ func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
 		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
 
 		// AddCallerSkip(1) is necessary to skip the caller of this function
-		l.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
+		l.Sugared.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
 	}
 }
 
-var _ Logger = (*ZapLogger)(nil)
+func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {
+	l.Structured.Debug(msg, fields...)
+}
+
+func (l *ZapLogger) Info(msg string, fields ...zap.Field) {
+	l.Structured.Info(msg, fields...)
+}
+
+func (l *ZapLogger) Warn(msg string, fields ...zap.Field) {
+	l.Structured.Warn(msg, fields...)
+}
+
+func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
+	l.Structured.Error(msg, fields...)
+}
+
+func (l *ZapLogger) IsTraceEnabled() bool {
+	return l.Structured.Core().Enabled(TRACE)
+}
 
 func NewNopZapLogger() *ZapLogger {
-	return &ZapLogger{zap.NewNop().Sugar()}
+	noop := zap.NewNop()
+	return &ZapLogger{
+		noop,
+		noop.Sugar(),
+	}
 }
 
 func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
@@ -159,20 +222,12 @@ func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
 		return nil, err
 	}
 
-	return &ZapLogger{log.Sugar()}, nil
+	return &ZapLogger{log, log.Sugar()}, nil
 }
-
-func (l *ZapLogger) Warningf(msg string, args ...any) {
-	l.Warnf(msg, args)
-}
-
-// colour (originally color) type with methods were extracted from go.uber.org/zap/internal/color
-// because it's internal it's not possible to import it directly
-//
-//nolint:misspell
-const cyan colour = 36
 
 // colour represents a text colour.
+//
+//nolint:misspell //colour type with methods were extracted from go.uber.org/zap/internal/color
 type colour uint8
 
 // Add adds the colouring to the given string.
@@ -182,6 +237,7 @@ func (c colour) Add(s string) string {
 
 // capitalColorLevelEncoder adds support for TRACE log level to the default CapitalColorLevelEncoder
 func capitalColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	const cyan colour = 36
 	if l == TRACE {
 		enc.AppendString(cyan.Add("TRACE"))
 	} else {
