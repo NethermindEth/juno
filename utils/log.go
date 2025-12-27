@@ -163,12 +163,11 @@ func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
 }
 
 // colour (originally color) type with methods were extracted from go.uber.org/zap/internal/color
-// because it's internal it's not possible to import it directly
+// because it's internal making it impossible to import it directly
+//
+// colour represents a text colour.
 //
 //nolint:misspell
-const cyan colour = 36
-
-// colour represents a text colour.
 type colour uint8
 
 // Add adds the colouring to the given string.
@@ -178,6 +177,7 @@ func (c colour) Add(s string) string {
 
 // capitalColorLevelEncoder adds support for TRACE log level to the default CapitalColorLevelEncoder
 func capitalColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	const cyan colour = 36
 	if l == TRACE {
 		enc.AppendString(cyan.Add("TRACE"))
 	} else {
