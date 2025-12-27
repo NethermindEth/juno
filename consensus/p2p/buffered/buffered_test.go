@@ -69,7 +69,9 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 
 		go func() {
 			iterator.ForEachIdx(topics, func(i int, destination **pubsub.Topic) {
-				logger := &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprintf("destination-%d", i))}
+				logger := &utils.ZapLogger{
+					Sugared: logger.Sugared.Named(fmt.Sprintf("destination-%d", i)),
+				}
 				pending := maps.Clone(allMessages)
 
 				// Ignore the messages we are broadcasting

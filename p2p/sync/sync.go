@@ -106,8 +106,8 @@ func (s *Service) logError(msg string, err error) {
 	if !errors.Is(err, context.Canceled) {
 		var log utils.SimpleLogger
 		if v, ok := s.log.(*utils.ZapLogger); ok {
-			enhancedLogger := v.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
-			log = &utils.ZapLogger{SugaredLogger: enhancedLogger}
+			enhancedLogger := v.Structured.WithOptions(zap.AddCallerSkip(1))
+			log = &utils.ZapLogger{Structured: enhancedLogger, Sugared: enhancedLogger.Sugar()}
 		} else {
 			log = s.log
 		}
