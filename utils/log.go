@@ -162,10 +162,6 @@ func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
 	return &ZapLogger{log.Sugar()}, nil
 }
 
-func (l *ZapLogger) Warningf(msg string, args ...any) {
-	l.Warnf(msg, args)
-}
-
 // colour (originally color) type with methods were extracted from go.uber.org/zap/internal/color
 // because it's internal it's not possible to import it directly
 //
