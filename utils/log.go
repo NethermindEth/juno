@@ -103,10 +103,12 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 }
 
 type Logger interface {
-	SimpleLogger
 	pebble.Logger
+	SimpleLogger
+	StructuredLogger
 }
 
+// Deprecated: use StructuredLogger interface instead
 type SimpleLogger interface {
 	Debugw(msg string, keysAndValues ...any)
 	Infow(msg string, keysAndValues ...any)
@@ -115,12 +117,47 @@ type SimpleLogger interface {
 	Tracew(msg string, keysAndValues ...any)
 }
 
-type ZapLogger struct {
-	*zap.SugaredLogger
+type StructuredLogger interface {
+	Debug(msg string, fields ...zap.Field)
+	Info(msg string, fields ...zap.Field)
+	Warn(msg string, fields ...zap.Field)
+	Error(msg string, fields ...zap.Field)
 }
 
-func (l *ZapLogger) IsTraceEnabled() bool {
-	return l.Desugar().Core().Enabled(TRACE)
+var _ Logger = (*ZapLogger)(nil)
+
+type ZapLogger struct {
+	logger *zap.Logger
+	// Deprecated logger
+	sugaredLogger *zap.SugaredLogger
+}
+
+func (l *ZapLogger) Infof(msg string, args ...any) {
+	l.sugaredLogger.Infof(msg, args)
+}
+
+func (l *ZapLogger) Fatalf(msg string, args ...any) {
+	l.sugaredLogger.Fatalf(msg, args)
+}
+
+// Deprecated: use Debug with structured fields instead
+func (l *ZapLogger) Debugw(msg string, keysAndValues ...any) {
+	l.sugaredLogger.Debugw(msg, keysAndValues...)
+}
+
+// Deprecated: use Info with structured fields instead
+func (l *ZapLogger) Infow(msg string, keysAndValues ...any) {
+	l.sugaredLogger.Infow(msg, keysAndValues...)
+}
+
+// Deprecated: use Warn with structured fields instead
+func (l *ZapLogger) Warnw(msg string, keysAndValues ...any) {
+	l.sugaredLogger.Warnw(msg, keysAndValues...)
+}
+
+// Deprecated: use Error with structured fields instead
+func (l *ZapLogger) Errorw(msg string, keysAndValues ...any) {
+	l.sugaredLogger.Errorw(msg, keysAndValues...)
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
@@ -131,14 +168,36 @@ func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
 		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
 
 		// AddCallerSkip(1) is necessary to skip the caller of this function
-		l.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
+		l.sugaredLogger.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
 	}
 }
 
-var _ Logger = (*ZapLogger)(nil)
+func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {
+	l.logger.Debug(msg, fields...)
+}
+
+func (l *ZapLogger) Info(msg string, fields ...zap.Field) {
+	l.logger.Info(msg, fields...)
+}
+
+func (l *ZapLogger) Warn(msg string, fields ...zap.Field) {
+	l.logger.Warn(msg, fields...)
+}
+
+func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
+	l.logger.Error(msg, fields...)
+}
+
+func (l *ZapLogger) IsTraceEnabled() bool {
+	return l.logger.Core().Enabled(TRACE)
+}
 
 func NewNopZapLogger() *ZapLogger {
-	return &ZapLogger{zap.NewNop().Sugar()}
+	noop := zap.NewNop()
+	return &ZapLogger{
+		noop,
+		noop.Sugar(),
+	}
 }
 
 func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
@@ -159,7 +218,7 @@ func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
 		return nil, err
 	}
 
-	return &ZapLogger{log.Sugar()}, nil
+	return &ZapLogger{log, log.Sugar()}, nil
 }
 
 // colour (originally color) type with methods were extracted from go.uber.org/zap/internal/color
