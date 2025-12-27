@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -127,37 +127,41 @@ type StructuredLogger interface {
 var _ Logger = (*ZapLogger)(nil)
 
 type ZapLogger struct {
-	logger *zap.Logger
+	Structured *zap.Logger
 	// Deprecated logger
-	sugaredLogger *zap.SugaredLogger
+	Sugared *zap.SugaredLogger
 }
 
 func (l *ZapLogger) Infof(msg string, args ...any) {
-	l.sugaredLogger.Infof(msg, args)
+	l.Sugared.Infof(msg, args)
+}
+
+func (l *ZapLogger) Errorf(msg string, args ...any) {
+	l.Sugared.Infof(msg, args)
 }
 
 func (l *ZapLogger) Fatalf(msg string, args ...any) {
-	l.sugaredLogger.Fatalf(msg, args)
+	l.Sugared.Fatalf(msg, args)
 }
 
 // Deprecated: use Debug with structured fields instead
 func (l *ZapLogger) Debugw(msg string, keysAndValues ...any) {
-	l.sugaredLogger.Debugw(msg, keysAndValues...)
+	l.Sugared.Debugw(msg, keysAndValues...)
 }
 
 // Deprecated: use Info with structured fields instead
 func (l *ZapLogger) Infow(msg string, keysAndValues ...any) {
-	l.sugaredLogger.Infow(msg, keysAndValues...)
+	l.Sugared.Infow(msg, keysAndValues...)
 }
 
 // Deprecated: use Warn with structured fields instead
 func (l *ZapLogger) Warnw(msg string, keysAndValues ...any) {
-	l.sugaredLogger.Warnw(msg, keysAndValues...)
+	l.Sugared.Warnw(msg, keysAndValues...)
 }
 
 // Deprecated: use Error with structured fields instead
 func (l *ZapLogger) Errorw(msg string, keysAndValues ...any) {
-	l.sugaredLogger.Errorw(msg, keysAndValues...)
+	l.Sugared.Errorw(msg, keysAndValues...)
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
@@ -168,28 +172,28 @@ func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
 		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
 
 		// AddCallerSkip(1) is necessary to skip the caller of this function
-		l.sugaredLogger.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
+		l.Sugared.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
 	}
 }
 
 func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {
-	l.logger.Debug(msg, fields...)
+	l.Structured.Debug(msg, fields...)
 }
 
 func (l *ZapLogger) Info(msg string, fields ...zap.Field) {
-	l.logger.Info(msg, fields...)
+	l.Structured.Info(msg, fields...)
 }
 
 func (l *ZapLogger) Warn(msg string, fields ...zap.Field) {
-	l.logger.Warn(msg, fields...)
+	l.Structured.Warn(msg, fields...)
 }
 
 func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
-	l.logger.Error(msg, fields...)
+	l.Structured.Error(msg, fields...)
 }
 
 func (l *ZapLogger) IsTraceEnabled() bool {
-	return l.logger.Core().Enabled(TRACE)
+	return l.Structured.Core().Enabled(TRACE)
 }
 
 func NewNopZapLogger() *ZapLogger {
@@ -221,12 +225,9 @@ func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
 	return &ZapLogger{log, log.Sugar()}, nil
 }
 
-// colour (originally color) type with methods were extracted from go.uber.org/zap/internal/color
-// because it's internal making it impossible to import it directly
-//
 // colour represents a text colour.
 //
-//nolint:misspell
+//nolint:misspell //colour type with methods were extracted from go.uber.org/zap/internal/color
 type colour uint8
 
 // Add adds the colouring to the given string.

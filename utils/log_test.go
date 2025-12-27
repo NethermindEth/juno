@@ -234,11 +234,10 @@ func TestIsTraceEnabled(t *testing.T) {
 }
 
 func TestTracew(t *testing.T) {
-	var buf bytes.Buffer
-
 	t.Run("Tracew with trace level enabled", func(t *testing.T) {
 		logLevel := utils.NewLogLevel(utils.TRACE)
 
+		var buf bytes.Buffer
 		core := zapcore.NewCore(
 			zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 			zapcore.AddSync(&buf),
@@ -246,7 +245,7 @@ func TestTracew(t *testing.T) {
 		)
 
 		logger := zap.New(core).Sugar()
-		zapLogger := &utils.ZapLogger{SugaredLogger: logger}
+		zapLogger := &utils.ZapLogger{Sugared: logger}
 		expectedMessage := "trace message"
 		zapLogger.Tracew(expectedMessage)
 
@@ -255,10 +254,9 @@ func TestTracew(t *testing.T) {
 	})
 
 	t.Run("Tracew with trace level disabled", func(t *testing.T) {
-		buf.Reset()
-
 		logLevel := utils.NewLogLevel(utils.INFO)
 
+		var buf bytes.Buffer
 		core := zapcore.NewCore(
 			zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 			zapcore.AddSync(&buf),
@@ -266,7 +264,7 @@ func TestTracew(t *testing.T) {
 		)
 
 		logger := zap.New(core).Sugar()
-		zapLogger := &utils.ZapLogger{SugaredLogger: logger}
+		zapLogger := &utils.ZapLogger{Sugared: logger}
 		expectedMessage := "trace message"
 		zapLogger.Tracew(expectedMessage)
 
