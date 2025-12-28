@@ -353,3 +353,13 @@ func StripCompilerFields(t *testing.T, class core.ClassDefinition) {
 		return
 	}
 }
+
+// Allows to ignore the conversion function if it's nil. This is useful when we just want the core
+// type generators.
+func ConvertToP2P[P, I any](f func(I, *common.Hash) P, inner I, hash *common.Hash) P {
+	var p P
+	if f != nil {
+		p = f(inner, hash)
+	}
+	return p
+}
