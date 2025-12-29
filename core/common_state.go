@@ -13,11 +13,11 @@ type CommonState interface {
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
 
-	Update(
-		blockNum uint64,
+	Update(blockNum uint64,
 		update *StateUpdate,
 		declaredClasses map[felt.Felt]ClassDefinition,
 		skipVerifyNewRoot bool,
+		flushChanges bool,
 	) error
 	Revert(blockNum uint64, update *StateUpdate) error
 	Commitment() (felt.Felt, error)

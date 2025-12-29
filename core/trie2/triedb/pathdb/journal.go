@@ -284,6 +284,7 @@ func (d *Database) getStateRoot() felt.Felt {
 	}
 
 	encStorageRoot, err := trieutils.GetNodeByPath(
+
 		d.disk,
 		db.ClassTrie,
 		&felt.Zero,

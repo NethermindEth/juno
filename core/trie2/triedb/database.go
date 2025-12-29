@@ -81,7 +81,9 @@ func (d *Database) Journal(root *felt.Felt) error {
 }
 
 func (d *Database) Scheme() string {
-	if d.config.PathConfig != nil {
+	if d.config == nil {
+		return RawScheme
+	} else if d.config.PathConfig != nil {
 		return PathScheme
 	} else if d.config.HashConfig != nil {
 		return HashScheme

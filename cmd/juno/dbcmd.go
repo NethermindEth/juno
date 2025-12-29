@@ -45,12 +45,14 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 }
 
 func DBInfoCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "info",
 		Short: "Retrieve database information",
 		Long:  `This subcommand retrieves and displays blockchain information stored in the database.`,
 		RunE:  dbInfo,
 	}
+	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
+	return cmd
 }
 
 func DBSizeCmd() *cobra.Command {
@@ -70,6 +72,7 @@ func DBRevertCmd() *cobra.Command {
 		RunE:  dbRevert,
 	}
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
+	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 
 	return cmd
 }
@@ -80,13 +83,18 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	newState, err := cmd.Flags().GetBool(newStateF)
+	if err != nil {
+		return err
+	}
+
 	database, err := openDB(dbPath)
 	if err != nil {
 		return err
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil)
+	chain := blockchain.New(database, nil, newState)
 	var info DBInfo
 
 	// Get the latest block information
@@ -146,6 +154,11 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--%v cannot be 0", dbRevertToBlockF)
 	}
 
+	newState, err := cmd.Flags().GetBool(newStateF)
+	if err != nil {
+		return err
+	}
+
 	database, err := openDB(dbPath)
 	if err != nil {
 		return err
@@ -153,7 +166,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New(database, nil)
+		chain := blockchain.New(database, nil, newState)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)

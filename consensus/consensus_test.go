@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
@@ -60,7 +61,7 @@ func getBlockchain(
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
 	return bc
 }
