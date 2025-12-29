@@ -62,7 +62,7 @@ func NewStateFactory(
 	}, nil
 }
 
-func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (State, error) {
+func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.SnapshotBatch) (State, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
 		return deprecatedState, nil
@@ -77,7 +77,7 @@ func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (Sta
 
 func (sf *StateFactory) NewStateReader(
 	stateRoot *felt.Felt,
-	txn db.IndexedBatch,
+	txn db.SnapshotBatch,
 	blockNumber uint64,
 ) (StateReader, error) {
 	if !sf.UseNewState {
@@ -96,7 +96,9 @@ func (sf *StateFactory) NewStateReader(
 func (sf *StateFactory) EmptyState() (StateReader, error) {
 	if !sf.UseNewState {
 		memDB := memory.New()
-		txn := memDB.NewIndexedBatch()
+		snapshot := memDB.NewSnapshot()
+		txn := db.NewSnapshotBatch(nil, snapshot)
+		defer snapshot.Close()
 		emptyState := core.NewState(txn)
 		return emptyState, nil
 	}

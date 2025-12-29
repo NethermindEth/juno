@@ -109,8 +109,6 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry wal.Entry[V, H, A]) error {
 func (s *tendermintDB[V, H, A]) LoadAllEntries() iter.Seq2[wal.Entry[V, H, A], error] {
 	return func(yield func(wal.Entry[V, H, A], error) bool) {
 		err := s.db.View(func(snap db.Snapshot) error {
-			defer snap.Close()
-
 			iter, err := snap.NewIterator(WALEntryBucket.Key(), true)
 			if err != nil {
 				return fmt.Errorf("failed to create iter: %w", err)

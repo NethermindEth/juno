@@ -180,6 +180,7 @@ func (d *Database) View(fn func(db.Snapshot) error) error {
 	}
 
 	snap := d.NewSnapshot()
+	defer snap.Close()
 	return fn(snap)
 }
 
