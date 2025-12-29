@@ -61,7 +61,7 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 	transactionWait := conc.NewWaitGroup()
 	peerWait := conc.NewWaitGroup()
 	for index, node := range nodes {
-		logger := &utils.ZapLogger{Sugared: logger.Sugared.Named(fmt.Sprint(index))}
+		logger := logger.Named(fmt.Sprint(index))
 
 		received := make(chan *mempool.BroadcastedTransaction, txCount)
 		pool := mockMempool(received)

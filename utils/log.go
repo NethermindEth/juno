@@ -237,10 +237,25 @@ func (l *ZapLogger) IsTraceEnabled() bool {
 	return l.Structured.Core().Enabled(TRACE)
 }
 
+// Name returns the logger name. Logger is unamed by default
+func (l *ZapLogger) Name() string {
+	return l.Structured.Name()
 }
 
+// Named clones the logger and re-names it.
+func (l *ZapLogger) Named(name string) *ZapLogger {
+	newLogger := l.Structured.Named(name)
+	return &ZapLogger{
+		Structured: newLogger,
+		Sugared:    newLogger.Sugar(),
 	}
+}
 
+func (l *ZapLogger) WithOptions(opts ...zap.Option) *ZapLogger {
+	newLogger := l.Structured.WithOptions(opts...)
+	return &ZapLogger{
+		Structured: newLogger,
+		Sugared:    newLogger.Sugar(),
 	}
 }
 
