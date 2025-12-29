@@ -36,11 +36,6 @@ func (b *BufferBatch) Write() error {
 	return b.txn.Write()
 }
 
-func (b *BufferBatch) Reset() {
-	b.updates = make(map[string][]byte)
-	b.txn.Reset()
-}
-
 func (b *BufferBatch) Get(key []byte, cb func(value []byte) error) error {
 	if val, ok := b.updates[string(key)]; ok {
 		if val == nil {
@@ -64,6 +59,10 @@ func (b *BufferBatch) Flush() error {
 		}
 	}
 	return nil
+}
+
+func (b *BufferBatch) Close() error {
+	return b.txn.Close()
 }
 
 func (b *BufferBatch) Has(key []byte) (bool, error) {
