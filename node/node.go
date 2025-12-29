@@ -125,6 +125,7 @@ type Config struct {
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
 
 	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
+	NewState                  bool `mapstructure:"new-state"`
 }
 
 type Node struct {
@@ -173,7 +174,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network).
+	chain := blockchain.New(database, &cfg.Network, cfg.NewState).
 		WithTransactionLayout(cfg.TransactionCombinedLayout)
 
 	// Verify that cfg.Network is compatible with the database.
@@ -513,6 +514,13 @@ func (n *Node) Run(ctx context.Context) {
 		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
 			n.log.Error("Error while storing running event filter", zap.Error(dbErr))
 		}
+	}()
+
+	defer func() {
+		if err := n.blockchain.Stop(); err != nil {
+			n.log.Errorw("Error while stopping the blockchain", "err", err)
+		}
+		n.log.Infow("TrieDB Journal saved")
 	}()
 
 	cfg := make(map[string]any)

@@ -40,11 +40,11 @@ func (sf *StateFactory) NewState(
 		return deprecatedState, nil
 	}
 
-	stateState, err := state.New(stateRoot, sf.stateDB)
+	state, err := state.New(stateRoot, sf.stateDB)
 	if err != nil {
 		return nil, err
 	}
-	return stateState, nil
+	return state, nil
 }
 
 func (sf *StateFactory) NewStateReader(

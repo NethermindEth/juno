@@ -152,12 +152,14 @@ const (
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
+	defaultNewState                           = false
 	defaultDisableRPCBatchRequests            = false
 	defaultDBCompactionConcurrency            = ""
 	defaultDBMemtableSize                     = 256
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "snappy"
 	defaultTransactionCombinedLayout          = false
+	newStateF                                 = "new-state"
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -238,6 +240,7 @@ const (
 		"Use zstd for low storage."
 	transactionCombinedLayoutUsage = "EXPERIMENTAL: Enable combined (per-block) transaction " +
 		"storage layout. Once enabled, cannot be disabled."
+	newStateUsage = "EXPERIMENTAL: Use the new state package implementation"
 )
 
 var Version string
@@ -452,6 +455,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
 	)
+	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)

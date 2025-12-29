@@ -51,6 +51,12 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 }
 
 func (d *Database) Close() error {
+	diskLayerHash := d.tree.diskLayer().rootHash()
+	err := d.Journal(diskLayerHash)
+	if err != nil {
+		return err
+	}
+
 	d.lock.Lock()
 	defer d.lock.Unlock()
 

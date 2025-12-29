@@ -57,6 +57,7 @@ func DBInfoCmd() *cobra.Command {
 		defaultTransactionCombinedLayout,
 		transactionCombinedLayoutUsage,
 	)
+	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 	return cmd
 }
 
@@ -82,6 +83,8 @@ func DBRevertCmd() *cobra.Command {
 		defaultTransactionCombinedLayout,
 		transactionCombinedLayoutUsage,
 	)
+	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
+
 	return cmd
 }
 
@@ -96,13 +99,18 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	newState, err := cmd.Flags().GetBool(newStateF)
+	if err != nil {
+		return err
+	}
+
 	database, err := openDB(dbPath)
 	if err != nil {
 		return err
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil).WithTransactionLayout(transactionCombinedLayout)
+	chain := blockchain.New(database, nil, newState).WithTransactionLayout(transactionCombinedLayout)
 	var info DBInfo
 
 	// Get the latest block information
@@ -182,6 +190,11 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--%v cannot be 0", dbRevertToBlockF)
 	}
 
+	newState, err := cmd.Flags().GetBool(newStateF)
+	if err != nil {
+		return err
+	}
+
 	database, err := openDB(dbPath)
 	if err != nil {
 		return err
@@ -189,7 +202,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New(database, nil).WithTransactionLayout(transactionCombinedLayout)
+		chain := blockchain.New(database, nil, newState).WithTransactionLayout(transactionCombinedLayout)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)

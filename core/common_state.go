@@ -17,11 +17,11 @@ type CommonState interface {
 		blockNumber uint64,
 	) (felt.CasmClassHash, error)
 
-	Update(
-		blockNum uint64,
+	Update(blockNum uint64,
 		update *StateUpdate,
 		declaredClasses map[felt.Felt]ClassDefinition,
 		skipVerifyNewRoot bool,
+		flushChanges bool,
 	) error
 	Revert(blockNum uint64, update *StateUpdate) error
 	Commitment() (felt.Felt, error)

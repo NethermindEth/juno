@@ -38,7 +38,8 @@ func (p *PendingState) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	} else if classHash, ok = p.stateDiff.DeployedContracts[*addr]; ok {
 		return *classHash, nil
 	}
-	return p.head.ContractClassHash(addr)
+	classHash, err := p.head.ContractClassHash(addr)
+	return classHash, err
 }
 
 func (p *PendingState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
@@ -47,7 +48,8 @@ func (p *PendingState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
 		return felt.Felt{}, nil
 	}
-	return p.head.ContractNonce(addr)
+	nonce, err := p.head.ContractNonce(addr)
+	return nonce, err
 }
 
 func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
@@ -59,7 +61,8 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
 		return felt.Felt{}, nil
 	}
-	return p.head.ContractStorage(addr, key)
+	value, err := p.head.ContractStorage(addr, key)
+	return value, err
 }
 
 func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
