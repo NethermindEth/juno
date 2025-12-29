@@ -127,9 +127,8 @@ type StructuredLogger interface {
 var _ Logger = (*ZapLogger)(nil)
 
 type ZapLogger struct {
-	Structured *zap.Logger
-	// Deprecated logger
-	Sugared *zap.SugaredLogger
+	structured *zap.Logger
+	sugared    *zap.SugaredLogger
 }
 
 func NewNopZapLogger() *ZapLogger {
@@ -168,41 +167,41 @@ func NewZapLoggerWithConfig(config *zap.Config) (*ZapLogger, error) {
 func NewZapLoggerWithCore(core zapcore.Core) *ZapLogger {
 	logger := zap.New(core)
 	return &ZapLogger{
-		Structured: logger,
-		Sugared:    logger.Sugar(),
+		structured: logger,
+		sugared:    logger.Sugar(),
 	}
 }
 
 func (l *ZapLogger) Infof(msg string, args ...any) {
-	l.Sugared.Infof(msg, args)
+	l.sugared.Infof(msg, args)
 }
 
 func (l *ZapLogger) Errorf(msg string, args ...any) {
-	l.Sugared.Infof(msg, args)
+	l.sugared.Infof(msg, args)
 }
 
 func (l *ZapLogger) Fatalf(msg string, args ...any) {
-	l.Sugared.Fatalf(msg, args)
+	l.sugared.Fatalf(msg, args)
 }
 
 // Deprecated: use Debug with structured fields instead
 func (l *ZapLogger) Debugw(msg string, keysAndValues ...any) {
-	l.Sugared.Debugw(msg, keysAndValues...)
+	l.sugared.Debugw(msg, keysAndValues...)
 }
 
 // Deprecated: use Info with structured fields instead
 func (l *ZapLogger) Infow(msg string, keysAndValues ...any) {
-	l.Sugared.Infow(msg, keysAndValues...)
+	l.sugared.Infow(msg, keysAndValues...)
 }
 
 // Deprecated: use Warn with structured fields instead
 func (l *ZapLogger) Warnw(msg string, keysAndValues ...any) {
-	l.Sugared.Warnw(msg, keysAndValues...)
+	l.sugared.Warnw(msg, keysAndValues...)
 }
 
 // Deprecated: use Error with structured fields instead
 func (l *ZapLogger) Errorw(msg string, keysAndValues ...any) {
-	l.Sugared.Errorw(msg, keysAndValues...)
+	l.sugared.Errorw(msg, keysAndValues...)
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
@@ -213,49 +212,49 @@ func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
 		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
 
 		// AddCallerSkip(1) is necessary to skip the caller of this function
-		l.Sugared.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
+		l.sugared.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
 	}
 }
 
 func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {
-	l.Structured.Debug(msg, fields...)
+	l.structured.Debug(msg, fields...)
 }
 
 func (l *ZapLogger) Info(msg string, fields ...zap.Field) {
-	l.Structured.Info(msg, fields...)
+	l.structured.Info(msg, fields...)
 }
 
 func (l *ZapLogger) Warn(msg string, fields ...zap.Field) {
-	l.Structured.Warn(msg, fields...)
+	l.structured.Warn(msg, fields...)
 }
 
 func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
-	l.Structured.Error(msg, fields...)
+	l.structured.Error(msg, fields...)
 }
 
 func (l *ZapLogger) IsTraceEnabled() bool {
-	return l.Structured.Core().Enabled(TRACE)
+	return l.structured.Core().Enabled(TRACE)
 }
 
 // Name returns the logger name. Logger is unamed by default
 func (l *ZapLogger) Name() string {
-	return l.Structured.Name()
+	return l.structured.Name()
 }
 
 // Named clones the logger and re-names it.
 func (l *ZapLogger) Named(name string) *ZapLogger {
-	newLogger := l.Structured.Named(name)
+	newLogger := l.structured.Named(name)
 	return &ZapLogger{
-		Structured: newLogger,
-		Sugared:    newLogger.Sugar(),
+		structured: newLogger,
+		sugared:    newLogger.Sugar(),
 	}
 }
 
 func (l *ZapLogger) WithOptions(opts ...zap.Option) *ZapLogger {
-	newLogger := l.Structured.WithOptions(opts...)
+	newLogger := l.structured.WithOptions(opts...)
 	return &ZapLogger{
-		Structured: newLogger,
-		Sugared:    newLogger.Sugar(),
+		structured: newLogger,
+		sugared:    newLogger.Sugar(),
 	}
 }
 
