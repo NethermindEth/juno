@@ -1,6 +1,8 @@
 package remote
 
 import (
+	"slices"
+
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -49,6 +51,12 @@ func (i *iterator) Key() []byte {
 }
 
 func (i *iterator) Value() ([]byte, error) {
+	return slices.Clone(i.currentV), nil
+}
+
+// DO NOT USE this if you don't unmarshal the value immediately.
+// See [db.Iterator] for more details.
+func (i *iterator) UncopiedValue() ([]byte, error) {
 	return i.currentV, nil
 }
 

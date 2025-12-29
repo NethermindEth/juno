@@ -36,6 +36,12 @@ func (i *iterator) Value() ([]byte, error) {
 	return buf, nil
 }
 
+// DO NOT USE this if you don't unmarshal the value immediately.
+// See [db.Iterator] for more details.
+func (i *iterator) UncopiedValue() ([]byte, error) {
+	return i.iter.ValueAndErr()
+}
+
 func (i *iterator) First() bool {
 	i.positioned = true
 	return i.iter.First()
