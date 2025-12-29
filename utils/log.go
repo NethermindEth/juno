@@ -132,6 +132,47 @@ type ZapLogger struct {
 	Sugared *zap.SugaredLogger
 }
 
+func NewNopZapLogger() *ZapLogger {
+	noop := zap.NewNop()
+	return &ZapLogger{
+		noop,
+		noop.Sugar(),
+	}
+}
+
+func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
+	config := zap.NewProductionConfig()
+	config.Sampling = nil
+	config.Encoding = "console"
+	config.EncoderConfig.EncodeLevel = capitalColorLevelEncoder
+	if !colour {
+		config.EncoderConfig.EncodeLevel = capitalLevelEncoder
+	}
+	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
+	}
+	config.Level = logLevel.atomicLevel
+
+	return NewZapLoggerWithConfig(&config)
+}
+
+func NewZapLoggerWithConfig(config *zap.Config) (*ZapLogger, error) {
+	log, err := config.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ZapLogger{log, log.Sugar()}, nil
+}
+
+func NewZapLoggerWithCore(core zapcore.Core) *ZapLogger {
+	logger := zap.New(core)
+	return &ZapLogger{
+		Structured: logger,
+		Sugared:    logger.Sugar(),
+	}
+}
+
 func (l *ZapLogger) Infof(msg string, args ...any) {
 	l.Sugared.Infof(msg, args)
 }
@@ -196,33 +237,11 @@ func (l *ZapLogger) IsTraceEnabled() bool {
 	return l.Structured.Core().Enabled(TRACE)
 }
 
-func NewNopZapLogger() *ZapLogger {
-	noop := zap.NewNop()
-	return &ZapLogger{
-		noop,
-		noop.Sugar(),
-	}
 }
 
-func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
-	config := zap.NewProductionConfig()
-	config.Sampling = nil
-	config.Encoding = "console"
-	config.EncoderConfig.EncodeLevel = capitalColorLevelEncoder
-	if !colour {
-		config.EncoderConfig.EncodeLevel = capitalLevelEncoder
-	}
-	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
 
-	config.Level = logLevel.atomicLevel
-	log, err := config.Build()
-	if err != nil {
-		return nil, err
 	}
-
-	return &ZapLogger{log, log.Sugar()}, nil
 }
 
 // colour represents a text colour.
