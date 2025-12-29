@@ -175,7 +175,3 @@ func uint64ToBytes(num uint64) [8]byte {
 func StateHashToTrieRootsKey(stateCommitment *felt.Felt) []byte {
 	return StateHashToTrieRoots.Key(stateCommitment.Marshal())
 }
-
-func ClassHashToCasmHashV2Key(classHash *felt.SierraClassHash) []byte {
-	return ClassHashToCasmHashV2.Key(classHash.Marshal())
-}

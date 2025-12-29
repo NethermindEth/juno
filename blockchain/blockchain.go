@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/state/statefactory"
+
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
@@ -251,11 +252,8 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
-func (b *Blockchain) Store(
-	block *core.Block,
-	blockCommitments *core.BlockCommitments,
-	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
+	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	// old state
 	// TODO(maksymmalick): remove this once we have a new state implementation
@@ -301,11 +299,6 @@ func (b *Blockchain) deprecatedStore(
 		}
 
 		if err := core.WriteL1HandlerMsgHashes(txn, block.Transactions); err != nil {
-			return err
-		}
-
-		err := storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
-		if err != nil {
 			return err
 		}
 
@@ -369,63 +362,6 @@ func (b *Blockchain) store(
 	}
 
 	return b.runningFilter.Insert(block.EventsBloom, block.Number)
-}
-
-// storeCasmClassHashesV2ForBlock stores CASM class hashes V2 based on the block version.
-// For versions < 0.14.1, it computes hashes from class definitions.
-// For versions >= 0.14.1, it uses pre-computed hashes from the state update.
-func storeCasmClassHashesV2ForBlock(
-	txn db.KeyValueWriter,
-	protocolVersion string,
-	newClasses map[felt.Felt]core.ClassDefinition,
-	stateUpdate *core.StateUpdate,
-) error {
-	ver, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return err
-	}
-	if ver.LessThan(core.Ver0_14_1) {
-		// Pre-compute blake2s CASM class hashes of declared classes in this block and
-		// store them in order to avoid computing them during simulation.
-		return computeAndStoreCasmClassHashesV2(txn, newClasses)
-	}
-	return storeCasmClassHashesV2(txn, stateUpdate.StateDiff.DeclaredV1Classes)
-}
-
-// computeAndStoreCasmClassHashesV2 computes and stores CASM class hashes V2 from class definitions.
-func computeAndStoreCasmClassHashesV2(
-	txn db.KeyValueWriter,
-	declaredClasses map[felt.Felt]core.ClassDefinition,
-) error {
-	for classHash, classDefinition := range declaredClasses {
-		sierraClass, ok := classDefinition.(*core.SierraClass)
-		if !ok {
-			// We don't have CASM classes for deprecated Cairo class
-			continue
-		}
-
-		casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
-		sierraClassHash := felt.SierraClassHash(classHash)
-		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// storeCasmClassHashesV2 stores pre-computed CASM class hashes V2 from the state update.
-func storeCasmClassHashesV2(
-	txn db.KeyValueWriter,
-	declaredV1Classes map[felt.Felt]*felt.Felt,
-) error {
-	for classHash, casmClassHashV2 := range declaredV1Classes {
-		casmHashV2 := felt.CasmClassHash(*casmClassHashV2)
-		sierraClassHash := felt.SierraClassHash(classHash)
-		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -850,10 +786,6 @@ func (b *Blockchain) Finalise(
 			if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
 				return err
 			}
-			err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
-			if err != nil {
-				return err
-			}
 			return core.WriteChainHeight(txn, block.Number)
 		})
 		if err != nil {
@@ -874,10 +806,6 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 		if err := b.storeBlockData(batch, block, stateUpdate, commitments); err != nil {
-			return err
-		}
-		err = storeCasmClassHashesV2ForBlock(batch, block.ProtocolVersion, newClasses, stateUpdate)
-		if err != nil {
 			return err
 		}
 		if err := core.WriteChainHeight(batch, block.Number); err != nil {

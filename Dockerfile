@@ -3,7 +3,7 @@
 # --- Builder stage ---
 FROM golang:1.25-bookworm AS builder
 
-ARG RUST_VERSION=1.87.0
+ARG RUST_VERSION=1.86.0
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

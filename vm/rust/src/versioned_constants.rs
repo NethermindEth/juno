@@ -16,10 +16,10 @@ impl VersionedConstantsMap {
 
         for (version, path) in version_with_path {
             let constants = VersionedConstants::from_path(Path::new(&path))
-                .with_context(|| format!("Failed to parse JSON in file: {path}"))?;
+                .with_context(|| format!("Failed to parse JSON in file: {}", path))?;
 
             let parsed_version = StarknetVersion::try_from(version.as_str())
-                .with_context(|| format!("Failed to parse version string: {version}"))?;
+                .with_context(|| format!("Failed to parse version string: {}", version))?;
 
             result.insert(parsed_version, constants);
         }

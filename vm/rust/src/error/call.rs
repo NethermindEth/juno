@@ -24,7 +24,7 @@ impl CallError {
         entry_point: EntryPointSelector,
     ) -> Self {
         TransactionExecutionError::ExecutionError {
-            error: Box::new(error),
+            error,
             class_hash,
             storage_address: contract_address,
             selector: entry_point,
