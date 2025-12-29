@@ -134,7 +134,9 @@ func TestHTTPLogSettings(t *testing.T) {
 	})
 
 	t.Run("PUT update log level", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/log/level?level=debug", http.NoBody)
+		req, err := http.NewRequestWithContext(
+			ctx, http.MethodPut, "/log/level?level=debug", http.NoBody,
+		)
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()
@@ -243,9 +245,8 @@ func TestTracew(t *testing.T) {
 			zapcore.AddSync(&buf),
 			logLevel.Level(),
 		)
+		zapLogger := utils.NewZapLoggerWithCore(core)
 
-		logger := zap.New(core).Sugar()
-		zapLogger := &utils.ZapLogger{Sugared: logger}
 		expectedMessage := "trace message"
 		zapLogger.Tracew(expectedMessage)
 
@@ -262,9 +263,8 @@ func TestTracew(t *testing.T) {
 			zapcore.AddSync(&buf),
 			logLevel.Level(),
 		)
+		zapLogger := utils.NewZapLoggerWithCore(core)
 
-		logger := zap.New(core).Sugar()
-		zapLogger := &utils.ZapLogger{Sugared: logger}
 		expectedMessage := "trace message"
 		zapLogger.Tracew(expectedMessage)
 
