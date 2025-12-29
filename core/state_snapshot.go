@@ -94,18 +94,6 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClassDefinition, e
 	return declaredClass, nil
 }
 
-func (s *stateSnapshot) CompiledClassHash(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	return s.state.CompiledClassHash(classHash)
-}
-
-func (s *stateSnapshot) CompiledClassHashV2(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	return s.state.CompiledClassHashV2(classHash)
-}
-
 func (s *stateSnapshot) ClassTrie() (CommonTrie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

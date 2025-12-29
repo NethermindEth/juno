@@ -47,7 +47,7 @@ func TestMempool(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 
 	require.NoError(t, err)
 	defer dbCloser()
@@ -122,7 +122,7 @@ func TestRestoreMempool(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 	chain := mocks.NewMockReader(mockCtrl)
 	testDB, dbDeleter, err := setupDatabase("testrestoremempool", true)
 	require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestPopBatch(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 
 	require.NoError(t, err)
 	defer dbCloser()

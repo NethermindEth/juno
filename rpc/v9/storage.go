@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
+
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -218,7 +219,7 @@ func getClassProof(tr core.CommonTrie, classes []felt.Felt) ([]*HashToNode, erro
 	case *trie.Trie:
 		classProof := trie.NewProofNodeSet()
 		for _, class := range classes {
-			if err := t.Prove(&class, classProof); err != nil {
+			if err := (*trie.Trie)(t).Prove(&class, classProof); err != nil {
 				return nil, err
 			}
 		}
@@ -226,7 +227,7 @@ func getClassProof(tr core.CommonTrie, classes []felt.Felt) ([]*HashToNode, erro
 	case *trie2.Trie:
 		classProof := trie2.NewProofNodeSet()
 		for _, class := range classes {
-			if err := t.Prove(&class, classProof); err != nil {
+			if err := (*trie2.Trie)(t).Prove(&class, classProof); err != nil {
 				return nil, err
 			}
 		}
@@ -245,9 +246,9 @@ func getContractProof(
 	// care about which trie implementation is being used and the output format should be the same
 	switch t := tr.(type) {
 	case *trie.Trie:
-		return getContractProofWithDeprecatedTrie(t, state, contracts)
+		return getContractProofWithDeprecatedTrie((*trie.Trie)(t), state, contracts)
 	case *trie2.Trie:
-		return getContractProofWithTrie(t, state, contracts)
+		return getContractProofWithTrie((*trie2.Trie)(t), state, contracts)
 	default:
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
 	}

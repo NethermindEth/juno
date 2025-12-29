@@ -15,7 +15,7 @@ func TestPendingState(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	mockState := mocks.NewMockCommonState(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	deployedAddr := felt.NewRandom[felt.Felt]()
 	deployedAddr2 := felt.NewRandom[felt.Felt]()

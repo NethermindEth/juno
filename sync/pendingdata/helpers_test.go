@@ -16,7 +16,7 @@ func TestResolvePendingDataBaseState(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockStateReader := mocks.NewMockCommonState(mockCtrl)
+	mockStateReader := mocks.NewMockStateHistoryReader(mockCtrl)
 	t.Run("PendingBlockVariant", func(t *testing.T) {
 		// Create a pending block
 		pending := &core.Pending{

@@ -86,36 +86,6 @@ func (mr *MockStateHistoryReaderMockRecorder) ClassTrie() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClassTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).ClassTrie))
 }
 
-// CompiledClassHash mocks base method.
-func (m *MockStateHistoryReader) CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompiledClassHash", classHash)
-	ret0, _ := ret[0].(felt.CasmClassHash)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CompiledClassHash indicates an expected call of CompiledClassHash.
-func (mr *MockStateHistoryReaderMockRecorder) CompiledClassHash(classHash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHash", reflect.TypeOf((*MockStateHistoryReader)(nil).CompiledClassHash), classHash)
-}
-
-// CompiledClassHashV2 mocks base method.
-func (m *MockStateHistoryReader) CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompiledClassHashV2", classHash)
-	ret0, _ := ret[0].(felt.CasmClassHash)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CompiledClassHashV2 indicates an expected call of CompiledClassHashV2.
-func (mr *MockStateHistoryReaderMockRecorder) CompiledClassHashV2(classHash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHashV2", reflect.TypeOf((*MockStateHistoryReader)(nil).CompiledClassHashV2), classHash)
-}
-
 // ContractClassHash mocks base method.
 func (m *MockStateHistoryReader) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()

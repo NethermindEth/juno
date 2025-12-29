@@ -23,14 +23,4 @@ extern "C" {
         reader_handle: usize,
         class_hash: *const c_uchar,
     ) -> *const c_char;
-    pub fn JunoStateGetCompiledClassHash(
-        reader_handle: usize,
-        class_hash: *const c_uchar,
-        buffer: *mut c_uchar,
-    ) -> c_int;
-    pub fn JunoStateGetCompiledClassHashV2(
-        reader_handle: usize,
-        class_hash: *const c_uchar,
-        buffer: *mut c_uchar,
-    ) -> c_int;
 }

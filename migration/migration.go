@@ -82,7 +82,6 @@ var defaultMigrations = []Migration{
 	MigrationFunc(calculateL1MsgHashes2),
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
-	MigrationFunc(calculateCasmClassHashesV2),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -922,75 +921,4 @@ func startMigrationStatusServer(log utils.SimpleLogger, host string, port uint16
 		}
 	}()
 	return srv
-}
-
-func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) error {
-	classPrefix := db.Class.Key()
-	it, err := txn.NewIterator(classPrefix, false)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if closeErr := it.Close(); closeErr != nil {
-			_ = closeErr
-		}
-	}()
-
-	maxWorkers := runtime.GOMAXPROCS(0)
-	workerPool := pool.New().WithErrors().WithMaxGoroutines(maxWorkers)
-	var writeMu sync.Mutex
-
-	for it.Seek(classPrefix); it.Valid(); it.Next() {
-		key := it.Key()
-		if !bytes.HasPrefix(key, classPrefix) {
-			break
-		}
-
-		// Extract and validate class hash from key
-		classHashBytes := key[len(classPrefix):]
-		if len(classHashBytes) != felt.Bytes {
-			continue // Skip invalid keys
-		}
-		classHash := felt.FromBytes[felt.Felt](classHashBytes)
-		sierraClassHash := felt.SierraClassHash(classHash)
-
-		value, err := it.Value()
-		if err != nil {
-			_ = workerPool.Wait()
-			return err
-		}
-
-		workerPool.Go(
-			func() error {
-				var declaredClass core.DeclaredClassDefinition
-				if err := encoder.Unmarshal(value, &declaredClass); err != nil {
-					return err
-				}
-
-				sierraClass, ok := declaredClass.Class.(*core.SierraClass)
-				if !ok {
-					return nil // Skip non-Sierra classes
-				}
-
-				if sierraClass.Compiled == nil {
-					return nil // Skip if Compiled field is nil
-				}
-
-				casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
-
-				writeMu.Lock()
-				err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2)
-				writeMu.Unlock()
-				if err != nil {
-					return fmt.Errorf("failed to write CASM hash V2 for class %s: %w",
-						sierraClassHash.String(),
-						err,
-					)
-				}
-
-				return nil
-			})
-	}
-
-	return workerPool.Wait()
 }

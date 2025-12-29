@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -46,7 +47,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		Timestamp:     456,
 		L1GasPriceETH: new(felt.Felt).SetUint64(42),
 	}
-	mockState := mocks.NewMockCommonState(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)

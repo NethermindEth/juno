@@ -8,13 +8,13 @@ edition = "2021"
 [dependencies]
 serde = "1.0.208"
 serde_json = { version = "1.0.125", features = ["raw_value"] }
-blockifier = { version = "0.16.0-rc.1", features = ["node_api"] }
-cairo-lang-casm = "=2.12.3"
-cairo-lang-starknet-classes = "=2.12.3"
-cairo-lang-runner = { version =  "=2.12.3" }
-starknet_api = "0.16.0-rc.1"
-cairo-vm = "=2.5.0"
-starknet-types-core = { version = "=0.2.3", features = ["hash", "prime-bigint"] }
+blockifier = { version = "0.15.0-rc.4", features = ["node_api"] }
+cairo-lang-casm = "=2.12.0-dev.1"
+cairo-lang-starknet-classes = "=2.12.0-dev.1"
+cairo-lang-runner = { version =  "=2.12.0-dev.1" }
+starknet_api = "0.15.0-rc.4"
+cairo-vm = "=2.3.1"
+starknet-types-core = { version = "0.1.8", features = ["hash", "prime-bigint"] }
 indexmap = "2.1.0"
 cached = "0.55.1"
 once_cell = "1.19.0"

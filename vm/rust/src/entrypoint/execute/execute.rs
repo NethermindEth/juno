@@ -180,7 +180,7 @@ pub fn cairo_vm_execute(
         )
         .map_err(|err| {
             JunoError::tx_non_execution_error(
-                format!("failed building txn state diff reason: {err:?}"),
+                format!("failed building txn state diff reason: {:?}", err),
                 txn_index,
             )
         })?;

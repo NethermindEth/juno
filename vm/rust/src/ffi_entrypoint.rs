@@ -152,7 +152,8 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
                 CString::new("").unwrap().into_raw()
             },
             Err(e) => CString::new(format!(
-                "Failed to load versioned constants from paths: {e}",
+                "Failed to load versioned constants from paths: {}",
+                e
             ))
             .unwrap()
             .into_raw(),

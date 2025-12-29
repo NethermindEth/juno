@@ -31,10 +31,7 @@ func NewStateFactory(
 	}, nil
 }
 
-func (sf *StateFactory) NewState(
-	stateRoot *felt.Felt,
-	txn db.IndexedBatch,
-) (core.CommonState, error) {
+func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (core.CommonState, error) {
 	if !sf.UseNewState {
 		deprecatedState := core.NewState(txn)
 		return deprecatedState, nil

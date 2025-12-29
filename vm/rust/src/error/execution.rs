@@ -18,7 +18,7 @@ impl From<StateError> for ExecutionError {
     fn from(e: StateError) -> Self {
         match e {
             StateError::StateReadError(_) => Self::Internal(e.to_string()),
-            _ => Self::Custom(format!("State error: {e}")),
+            _ => Self::Custom(format!("State error: {}", e)),
         }
     }
 }

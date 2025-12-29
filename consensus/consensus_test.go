@@ -61,6 +61,7 @@ func getBlockchain(
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
+
 	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
 	return bc

@@ -4,7 +4,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-//go:generate mockgen -destination=../mocks/mock_common_state.go -package=mocks github.com/NethermindEth/juno/core CommonState
+//go:generate mockgen -destination=../../mocks/mock_commonstate_reader.go -package=mocks github.com/NethermindEth/juno/core CommonStateReader
 type CommonState interface {
 	CommonStateReader
 
@@ -32,6 +32,4 @@ type CommonStateReader interface {
 	ClassTrie() (CommonTrie, error)
 	ContractTrie() (CommonTrie, error)
 	ContractStorageTrie(addr *felt.Felt) (CommonTrie, error)
-	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
 }

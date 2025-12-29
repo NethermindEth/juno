@@ -47,13 +47,15 @@ pub fn transaction_from_api(
     match tx {
         StarknetApiTransaction::Deploy(_) => {
             return Err(format!(
-                "Unsupported deploy transaction in the traced block (transaction_hash={tx_hash})",
+                "Unsupported deploy transaction in the traced block (transaction_hash={})",
+                tx_hash,
             ))
         }
         StarknetApiTransaction::Declare(_) if class_info.is_none() => {
             return Err(format!(
-            "Declare transaction must be created with a ContractClass (transaction_hash={tx_hash})",
-        ))
+                "Declare transaction must be created with a ContractClass (transaction_hash={})",
+                tx_hash,
+            ))
         }
         _ => {} // all ok
     };
@@ -66,7 +68,7 @@ pub fn transaction_from_api(
         None,
         execution_flags,
     )
-    .map_err(|err| format!("failed to create transaction from api: {err:?}"))
+    .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
 pub fn adjust_fee_calculation_result(
@@ -79,9 +81,9 @@ pub fn adjust_fee_calculation_result(
     let (minimal_gas_vector, fee_type) = match &txn {
         Transaction::Account(t) => (
             Some(gas_usage::estimate_minimal_gas_vector(
-                block_context,
+                &block_context,
                 t,
-                gas_vector_computation_mode,
+                &gas_vector_computation_mode,
             )),
             t.fee_type(),
         ),
@@ -95,7 +97,7 @@ pub fn adjust_fee_calculation_result(
         .l1_gas
         .max(minimal_gas_vector.l1_gas);
 
-    let adjusted_l1_data_gas_consumed = tx_execution_info
+    let mut adjusted_l1_data_gas_consumed = tx_execution_info
         .receipt
         .gas
         .l1_data_gas
@@ -107,8 +109,9 @@ pub fn adjust_fee_calculation_result(
         .l2_gas
         .max(minimal_gas_vector.l2_gas);
 
-    if *gas_vector_computation_mode == GasVectorComputationMode::NoL2Gas {
-        adjusted_l1_gas_consumed = adjusted_l1_gas_consumed
+    match gas_vector_computation_mode {
+        GasVectorComputationMode::NoL2Gas => {
+            adjusted_l1_gas_consumed = adjusted_l1_gas_consumed
                 .checked_add(
                     block_context
                         .versioned_constants()
@@ -117,15 +120,18 @@ pub fn adjust_fee_calculation_result(
                 .ok_or_else(|| {
                     JunoError::tx_non_execution_error(
                         format!(
-                            "addition of L2 gas ({adjusted_l2_gas_consumed}) to L1 gas ({adjusted_l1_gas_consumed}) conversion overflowed.",
+                            "addition of L2 gas ({}) to L1 gas ({}) conversion overflowed.",
+                            adjusted_l2_gas_consumed, adjusted_l1_gas_consumed,
                         ),
                         txn_index,
                     )
                 })?;
 
-        adjusted_l2_gas_consumed = GasAmount(0);
+            adjusted_l1_data_gas_consumed = adjusted_l1_data_gas_consumed;
+            adjusted_l2_gas_consumed = GasAmount(0);
+        }
+        _ => {}
     };
-
     let tip = if block_context.versioned_constants().enable_tip {
         match txn {
             Transaction::Account(txn) => txn.tip(),
