@@ -109,7 +109,7 @@ func initNode(
 
 	mockServices := consensus.InitMockServices(0, 0, index, cfg.nodeCount)
 
-	logger = &utils.ZapLogger{Sugared: logger.Sugared.Named(fmt.Sprint(index))}
+	logger = logger.Named(fmt.Sprint(index))
 	consensusDB := memory.New()
 	bc := getBlockchain(t, genesisDiff, genesisClasses)
 
