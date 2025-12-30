@@ -72,7 +72,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 	consensusDeclareTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
-		b.ToP2PDeclareV0(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PDeclareV0, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
@@ -121,7 +121,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
 	consensusDeclareTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
-		b.ToP2PDeclareV1(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PDeclareV1, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
@@ -172,7 +172,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	)
 	consensusDeclareTransaction.TransactionHash = &transactionHash
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
-		b.ToP2PDeclareV2(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PDeclareV2, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
@@ -233,7 +233,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	)
 	consensusDeclareTransaction.TransactionHash = &transactionHash
 	return b.ToCore(&consensusDeclareTransaction, nil, nil),
-		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PDeclareV3, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
@@ -275,7 +275,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	)
 	consensusDeployTransaction.TransactionHash = &transactionHash
 	return b.ToCore(&consensusDeployTransaction, nil, nil),
-		b.ToP2PDeployV0(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PDeployV0, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
@@ -334,7 +334,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 	consensusDeployAccountTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
-		b.ToP2PDeployV1(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PDeployV1, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
@@ -401,7 +401,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 	consensusDeployAccountTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
-		b.ToP2PDeployV3(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PDeployV3, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
@@ -452,7 +452,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 	consensusDeployAccountTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
-		b.ToP2PInvokeV0(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PInvokeV0, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
@@ -503,7 +503,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 	consensusDeployAccountTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
-		b.ToP2PInvokeV1(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PInvokeV1, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
@@ -563,7 +563,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 	consensusDeployAccountTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil),
-		b.ToP2PInvokeV3(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PInvokeV3, &p2pTransaction, p2pHash)
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
@@ -603,5 +603,5 @@ func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 	consensusL1HandlerTransaction.TransactionHash = &transactionHash
 
 	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()),
-		b.ToP2PL1Handler(&p2pTransaction, p2pHash)
+		ConvertToP2P(b.ToP2PL1Handler, &p2pTransaction, p2pHash)
 }
