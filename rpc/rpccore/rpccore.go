@@ -21,7 +21,7 @@ const (
 	ErrEPSNotFound                = "Entry point EntryPointSelector(%s) not found in contract."
 )
 
-//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
+//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc/rpccore Gateway
 type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
 }
