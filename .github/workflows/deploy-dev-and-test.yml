@@ -53,3 +53,4 @@ jobs:
       TEST_ACCOUNT_PRIVATE_KEY_3: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_3 }}
       TEST_ACCOUNT_PUBLIC_KEY_3: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       AUTH_TOKEN: ${{ secrets.DEV_AUTH_TOKEN }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

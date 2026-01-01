@@ -45,6 +45,8 @@ on:
         required: true
       AUTH_TOKEN:
         required: true
+      APP_PRIVATE_KEY:
+        required: true
 
 concurrency:
   group: shared_${{ inputs.environment }}_environment
@@ -177,3 +179,35 @@ jobs:
       STARKNET_PUBLIC_KEY: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       STARKNET_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS_3 }}
 
+  rpc-performance:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "starknet-rpc-tests"
+
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          repository: NethermindEth/starknet-rpc-tests
+          ref: "fix/load-tests"
+          token: ${{ steps.generate-token.outputs.token }}
+          path: starknet-rpc-tests
+
+      - name: Setup K6
+        uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
+
+      - name: Run k6 (bash)
+        env:
+          NODE_URL: "${{ secrets.RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }}"
+          NETWORK: "sepolia"
+          LOAD_FACTOR: 10
+          DURATION: "60s"
+        run: |
+          k6 run ./starknet-rpc-tests/load-tests/test_cases.js
