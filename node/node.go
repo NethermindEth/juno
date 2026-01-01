@@ -151,6 +151,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pebblev2.WithCacheSize(cfg.DBCacheSize),
 			pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
 			pebblev2.WithLogger(cfg.Colour),
+			pebblev2.WithCompression(&pebblev2.Zstd1),
 		)
 	}
 
