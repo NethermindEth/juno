@@ -263,6 +263,18 @@ func GetReceiptByHash(
 	return &receipt, nil
 }
 
+func GetReceiptByBlockNumIndex(
+	r db.KeyValueReader,
+	num,
+	index uint64,
+) (TransactionReceipt, error) {
+	numIdxKey := db.BlockNumIndexKey{
+		Number: num,
+		Index:  index,
+	}
+	return ReceiptsByBlockNumberAndIndexBucket.Get(r, numIdxKey)
+}
+
 func DeleteTxsAndReceipts(batch db.IndexedBatch, blockNum, numTxs uint64) error {
 	// remove txs and receipts
 	for i := range numTxs {
