@@ -21,6 +21,7 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		// In the first round, validator 0 sent us a different (valid) value from all the other peers
 		firstRound.start()
 		firstRound.validator(0).proposal(wrongValue, -1).expectActions(
+			firstRound.action().writeWALProposal(0, wrongValue, -1),
 			firstRound.action().broadcastPrevote(&wrongValue),
 		)
 		firstRound.validator(0).prevote(&correctValue)
@@ -36,6 +37,7 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		// In the 2nd round, validator 1 proposes the correct value with valid round set to the 1st round.
 		// We accept and prevote it because we receive quorum of prevotes in the 1st round.
 		secondRound.validator(1).proposal(correctValue, 0).expectActions(
+			secondRound.action().writeWALProposal(1, correctValue, 0),
 			secondRound.action().broadcastPrevote(&correctValue),
 		)
 	})
@@ -72,6 +74,7 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		// In the first round, validator 0 "tricked" us to lock to a value but sent a different value to validator 2.
 		firstRound.start()
 		firstRound.validator(0).proposal(firstValue, -1).expectActions(
+			firstRound.action().writeWALProposal(0, firstValue, -1),
 			firstRound.action().broadcastPrevote(&firstValue),
 		)
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
@@ -82,6 +85,7 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 
 		// Line 36 is triggered
 		firstRound.validator(1).prevote(&firstValue).expectActions(
+			firstRound.action().writeWALPrevote(1, &firstValue),
 			firstRound.action().broadcastPrecommit(&firstValue),
 		)
 		assert.Equal(t, stateMachine.state.lockedValue, &firstValue)
@@ -98,13 +102,16 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		// In the second round, validator 1 proposes a different value, because it didn't lock to the previous value.
 		// We reject it because we locked to the previous value.
 		secondRound.validator(1).proposal(secondValue, -1).expectActions(
+			secondRound.action().writeWALProposal(1, secondValue, -1),
 			secondRound.action().broadcastPrevote(nil),
 		)
 		secondRound.validator(1).prevote(&secondValue)
 		secondRound.validator(2).prevote(&secondValue).expectActions(
+			secondRound.action().writeWALPrevote(2, &secondValue),
 			secondRound.action().scheduleTimeout(types.StepPrevote),
 		)
 		secondRound.processTimeout(types.StepPrevote).expectActions(
+			secondRound.action().writeWALTimeout(types.StepPrevote),
 			secondRound.action().broadcastPrecommit(nil),
 		)
 		// Validator 0 delays sending the prevote so we can only receives after timeout.
@@ -120,6 +127,7 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 
 		// In the third round, validator 2 proposes value from second round. We accept it
 		thirdRound.validator(2).proposal(secondValue, 1).expectActions(
+			thirdRound.action().writeWALProposal(2, secondValue, 1),
 			thirdRound.action().broadcastPrevote(&secondValue),
 		)
 	})
