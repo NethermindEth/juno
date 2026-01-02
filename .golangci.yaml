@@ -110,6 +110,8 @@ linters:
         # note(rdr): doesn't allow the use of optional embedded fields in structs. . I am not sure
         #            if it is beneficial
         - "-QF1008"
+        # note: this disables deprecation warning because it is active for .golangci_diff.yaml
+        - "-SA1019"
   exclusions:
     generated: lax
     presets:
