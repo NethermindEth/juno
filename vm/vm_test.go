@@ -193,10 +193,7 @@ func TestCallCairo(t *testing.T) {
 	triedb, err := triedb.New(testDB, nil)
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
-	stateFactory, err := commonstate.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	require.NoError(t, err)
-	batch := testDB.NewBatch()
-	testState, err := stateFactory.NewState(&felt.Zero, txn, batch)
+	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	require.NoError(t, err)
 	batch := testDB.NewBatch()
 	state, err := stateFactory.NewState(&felt.Zero, txn, batch)
@@ -276,11 +273,7 @@ func TestCallCairo(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, state.Update(1, &secondStateUpdate, nil, false, true))
-	if statetestutils.UseNewState() {
-		require.NoError(t, batch.Write())
-	}
-
+	require.NoError(t, state.Update(1, &secondStateUpdate, nil, false))
 	if statetestutils.UseNewState() {
 		require.NoError(t, batch.Write())
 	}

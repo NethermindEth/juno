@@ -899,7 +899,6 @@ func (b *Blockchain) updateStateRoots(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
-	flushChanges bool,
 ) error {
 	var height uint64
 	var err error

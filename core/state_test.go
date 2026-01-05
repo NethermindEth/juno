@@ -43,7 +43,7 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
-		require.NoError(t, state.Update(0, su0, nil, false, true))
+		require.NoError(t, state.Update(0, su0, nil, false))
 		gotNewRoot, rerr := state.Commitment()
 		require.NoError(t, rerr)
 		assert.Equal(t, su0.NewRoot, &gotNewRoot)
@@ -60,7 +60,7 @@ func TestUpdate(t *testing.T) {
 				su0.NewRoot,
 				oldRoot,
 			)
-			require.EqualError(t, state.Update(1, su, nil, false, true), expectedErr)
+			require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
 		})
 
 	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
@@ -72,16 +72,16 @@ func TestUpdate(t *testing.T) {
 		}
 		expectedErr := fmt.Sprintf(
 			"state's current root: %s does not match the expected root: %s", su0.NewRoot, newRoot)
-		require.EqualError(t, state.Update(1, su, nil, false, true), expectedErr)
+		require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
 	})
 
 	t.Run("non-empty state updated multiple times", func(t *testing.T) {
-		require.NoError(t, state.Update(1, su1, nil, false, true))
+		require.NoError(t, state.Update(1, su1, nil, false))
 		gotNewRoot, rerr := state.Commitment()
 		require.NoError(t, rerr)
 		assert.Equal(t, su1.NewRoot, &gotNewRoot)
 
-		require.NoError(t, state.Update(2, su2, nil, false, true))
+		require.NoError(t, state.Update(2, su2, nil, false))
 		gotNewRoot, err = state.Commitment()
 		require.NoError(t, err)
 		assert.Equal(t, su2.NewRoot, &gotNewRoot)
@@ -105,7 +105,7 @@ func TestUpdate(t *testing.T) {
 		})
 		require.NoError(t, state.Update(3, su3, map[felt.Felt]core.ClassDefinition{
 			*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): &core.SierraClass{},
-		}, false, true))
+		}, false))
 		assert.NotEqual(t, su3.NewRoot, su3.OldRoot)
 	})
 
@@ -397,7 +397,7 @@ func TestClass(t *testing.T) {
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,
-	}, false, true))
+	}, false))
 
 	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)

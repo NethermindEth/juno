@@ -541,7 +541,8 @@ func (s *State) flush(
 			}
 
 			// TODO(weiihann): handle hash-based, and there should be better ways of doing this
-			if err := trieutils.DeleteStorageNodesByPath(s.batch, addr); err != nil {
+			err := trieutils.DeleteStorageNodesByPath(s.batch, addr)
+			if err != nil {
 				return err
 			}
 		} else { // updated
@@ -555,8 +556,6 @@ func (s *State) flush(
 						return err
 					}
 				}
-			}
-		}
 
 				if err := WriteNonceHistory(s.batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
 					return err
@@ -567,6 +566,7 @@ func (s *State) flush(
 				}
 			}
 		}
+	}
 
 	for classHash, class := range classes {
 		if class == nil { // mark as deleted
