@@ -12,17 +12,26 @@ import (
 // Contains a set of nodes, which are indexed by their path in the trie.
 // It is not thread safe.
 type NodeSet struct {
-	Owner   felt.Felt // The owner (i.e. contract address)
-	Nodes   map[trieutils.Path]TrieNode
-	updates int // the count of updated and inserted nodes
-	deletes int // the count of deleted nodes
+	Owner        felt.Felt // The owner (i.e. contract address)
+	Nodes        map[trieutils.Path]TrieNode
+	orderedPaths []trieutils.Path // Paths in the order they were added
+	updates      int              // the count of updated and inserted nodes
+	deletes      int              // the count of deleted nodes
 }
 
 func NewNodeSet(owner felt.Felt) NodeSet {
-	return NodeSet{Owner: owner, Nodes: make(map[trieutils.Path]TrieNode)}
+	return NodeSet{
+		Owner:        owner,
+		Nodes:        make(map[trieutils.Path]TrieNode),
+		orderedPaths: make([]trieutils.Path, 0),
+	}
 }
 
 func (ns *NodeSet) Add(key *trieutils.Path, node TrieNode) {
+	_, exists := ns.Nodes[*key]
+	if !exists {
+		ns.orderedPaths = append(ns.orderedPaths, *key)
+	}
 	if _, ok := node.(*DeletedNode); ok {
 		ns.deletes += 1
 	} else {
@@ -63,6 +72,12 @@ func (ns *NodeSet) MergeSet(other *NodeSet) error {
 	if ns.Owner != other.Owner {
 		return fmt.Errorf("cannot merge node sets with different owners %x-%x", ns.Owner, other.Owner)
 	}
+	// Add paths from other in order, but only if they don't already exist
+	for _, path := range other.orderedPaths {
+		if _, exists := ns.Nodes[path]; !exists {
+			ns.orderedPaths = append(ns.orderedPaths, path)
+		}
+	}
 	maps.Copy(ns.Nodes, other.Nodes)
 	ns.updates += other.updates
 	ns.deletes += other.deletes
@@ -83,6 +98,9 @@ func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.Path]TrieNode) err
 			} else {
 				ns.updates -= 1
 			}
+		} else {
+			// Only add to orderedPaths if it's a new path
+			ns.orderedPaths = append(ns.orderedPaths, path)
 		}
 		// overwrite the existing node (if it exists)
 		if _, ok := node.(*DeletedNode); ok {
@@ -103,7 +121,7 @@ type MergeNodeSet struct {
 
 func NewMergeNodeSet(nodes *NodeSet) *MergeNodeSet {
 	ns := &MergeNodeSet{
-		OwnerSet:  &NodeSet{Nodes: make(map[trieutils.Path]TrieNode)},
+		OwnerSet:  &NodeSet{Nodes: make(map[trieutils.Path]TrieNode), orderedPaths: make([]trieutils.Path, 0)},
 		ChildSets: make(map[felt.Felt]*NodeSet),
 	}
 	if nodes == nil {
@@ -137,4 +155,15 @@ func (m *MergeNodeSet) Flatten() (map[trieutils.Path]TrieNode, map[felt.Felt]map
 		childFlat[owner] = set.Nodes
 	}
 	return m.OwnerSet.Nodes, childFlat
+}
+
+// FlattenWithOrder returns the nodes along with their ordered paths
+func (m *MergeNodeSet) FlattenWithOrder() (map[trieutils.Path]TrieNode, []trieutils.Path, map[felt.Felt]map[trieutils.Path]TrieNode, map[felt.Felt][]trieutils.Path) {
+	childFlat := make(map[felt.Felt]map[trieutils.Path]TrieNode, len(m.ChildSets))
+	childOrderedPaths := make(map[felt.Felt][]trieutils.Path, len(m.ChildSets))
+	for owner, set := range m.ChildSets {
+		childFlat[owner] = set.Nodes
+		childOrderedPaths[owner] = set.orderedPaths
+	}
+	return m.OwnerSet.Nodes, m.OwnerSet.orderedPaths, childFlat, childOrderedPaths
 }
