@@ -288,7 +288,12 @@ func runRandTest(rt randTest) error {
 		db := memory.New()
 		curRoot := felt.Zero
 		trieDB := NewTestNodeDatabase(db, scheme)
-		tr, err := New(trieutils.NewContractTrieID(curRoot), contractClassTrieHeight, crypto.Pedersen, &trieDB)
+		tr, err := New(
+			trieutils.NewContractTrieID(felt.StateRootHash(curRoot)),
+			contractClassTrieHeight,
+			crypto.Pedersen,
+			&trieDB,
+		)
 		if err != nil {
 			return err
 		}
@@ -345,7 +350,12 @@ func runRandTest(rt randTest) error {
 					}
 				}
 
-				newtr, err := New(trieutils.NewContractTrieID(root), contractClassTrieHeight, crypto.Pedersen, &trieDB)
+				newtr, err := New(
+					trieutils.NewContractTrieID(felt.StateRootHash(root)),
+					contractClassTrieHeight,
+					crypto.Pedersen,
+					&trieDB,
+				)
 				if err != nil {
 					rt[i].err = fmt.Errorf("new trie failed: %w", err)
 				}

@@ -16,11 +16,11 @@ type layer interface {
 	// Returns the encoded node bytes for a given trie id, owner, path and isLeaf flag
 	node(id trieutils.TrieID, owner *felt.Address, path *trieutils.Path, isLeaf bool) ([]byte, error)
 	// Updates the layer with a new root hash, state id and block number
-	update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer
+	update(root *felt.StateRootHash, id, block uint64, nodes *nodeSet) diffLayer
 	// Writes the journal to the given writer
 	journal(w io.Writer) error
 	// Returns the root hash of the layer
-	rootHash() *felt.Felt
+	rootHash() *felt.StateRootHash
 	// Returns the state id of the layer
 	stateID() uint64
 	// Returns the parent layer of the current layer
@@ -30,7 +30,7 @@ type layer interface {
 // Represents a layer tree which contains multiple in-memory diff layers and a single disk layer.
 // The disk layer must be at the bottom of the tree and there can only be one.
 type layerTree struct {
-	layers map[felt.Felt]layer
+	layers map[felt.StateRootHash]layer
 	lock   sync.RWMutex
 }
 
@@ -41,7 +41,7 @@ func newLayerTree(head layer) *layerTree {
 }
 
 // Returns the layer for a given root hash
-func (tree *layerTree) get(root *felt.Felt) layer {
+func (tree *layerTree) get(root *felt.StateRootHash) layer {
 	tree.lock.RLock()
 	defer tree.lock.RUnlock()
 
@@ -49,7 +49,13 @@ func (tree *layerTree) get(root *felt.Felt) layer {
 }
 
 // Adds a new layer to the layer tree
-func (tree *layerTree) add(root, parentRoot *felt.Felt, block uint64, mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet) error {
+func (tree *layerTree) add(
+	root,
+	parentRoot *felt.StateRootHash,
+	block uint64,
+	mergeClassNodes,
+	mergeContractNodes *trienode.MergeNodeSet,
+) error {
 	if root == parentRoot {
 		return errors.New("cyclic layer detected, root and parent root cannot be the same")
 	}
@@ -83,7 +89,7 @@ func (tree *layerTree) add(root, parentRoot *felt.Felt, block uint64, mergeClass
 // If it does, the bottom-most layer will be merged to the disk layer.
 //
 //nolint:gocyclo
-func (tree *layerTree) cap(root *felt.Felt, layers int) error {
+func (tree *layerTree) cap(root *felt.StateRootHash, layers int) error {
 	l := tree.get(root)
 	if l == nil {
 		return fmt.Errorf("layer %v not found", root)
@@ -104,7 +110,7 @@ func (tree *layerTree) cap(root *felt.Felt, layers int) error {
 		}
 
 		rootHash := base.rootHash()
-		tree.layers = map[felt.Felt]layer{*rootHash: base}
+		tree.layers = map[felt.StateRootHash]layer{*rootHash: base}
 		return nil
 	}
 
@@ -140,7 +146,7 @@ func (tree *layerTree) cap(root *felt.Felt, layers int) error {
 	}
 
 	// Remove layers that are stale
-	children := make(map[felt.Felt][]felt.Felt)
+	children := make(map[felt.StateRootHash][]felt.StateRootHash)
 	for root, layer := range tree.layers {
 		if dl, ok := layer.(*diffLayer); ok {
 			parent := dl.parentLayer().rootHash()
@@ -148,8 +154,8 @@ func (tree *layerTree) cap(root *felt.Felt, layers int) error {
 		}
 	}
 
-	var removeLinks func(root *felt.Felt)
-	removeLinks = func(root *felt.Felt) {
+	var removeLinks func(root *felt.StateRootHash)
+	removeLinks = func(root *felt.StateRootHash) {
 		delete(tree.layers, *root)
 		for _, child := range children[*root] {
 			removeLinks(&child)
@@ -170,7 +176,7 @@ func (tree *layerTree) reset(head layer) {
 	tree.lock.Lock()
 	defer tree.lock.Unlock()
 
-	layers := make(map[felt.Felt]layer)
+	layers := make(map[felt.StateRootHash]layer)
 	for head != nil {
 		headRootHash := head.rootHash()
 		layers[*headRootHash] = head

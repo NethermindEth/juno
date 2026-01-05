@@ -3,6 +3,7 @@ package pebblev2_test
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
@@ -10,7 +11,9 @@ import (
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/encoder"
 	_ "github.com/NethermindEth/juno/encoder/registry"
+	pebblev2lib "github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/sstable/block"
+	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/stretchr/testify/require"
 )
 
@@ -136,6 +139,17 @@ func runScenario(t *testing.T, scenario scenario) {
 				entries.validateEntries(t, database)
 			})
 		}
+
+		expectedFormatVersion := pebblev2.TargetNewV2Version
+		if scenario.v1 {
+			expectedFormatVersion = pebblev2.TargetUpgradedV1Version
+		}
+
+		t.Run(fmt.Sprintf("check format version %v", expectedFormatVersion), func(t *testing.T) {
+			desc, err := pebblev2lib.Peek(path, vfs.Default)
+			require.NoError(t, err)
+			require.Equal(t, expectedFormatVersion, desc.FormatMajorVersion)
+		})
 	})
 }
 

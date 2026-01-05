@@ -24,9 +24,9 @@ type Header struct {
 	GlobalStateRoot *felt.Felt
 	// The Starknet address of the sequencer who created this block
 	SequencerAddress *felt.Felt
-	// The amount Transactions and Receipts stored in this block
+	// Number of transactions in this block
 	TransactionCount uint64
-	// The amount of events stored in transaction receipts
+	// Number of events stored in transaction receipts
 	EventCount uint64
 	// The time the sequencer created this block before executing transactions
 	Timestamp uint64
@@ -35,17 +35,18 @@ type Header struct {
 	ProtocolVersion string
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
-	// Amount of WEI charged per Gas spent on L1
+	// L1 gas price in WEI (ETH), amount charged per unit of L1 gas
 	L1GasPriceETH *felt.Felt `cbor:"gasprice"`
-	// Amount of STRK charged per Gas spent on L2
+	// Consensus signatures on this block header (not account/transaction signatures)
 	Signatures [][]*felt.Felt
-	// Amount of STRK charged per Gas spent on L1
+	// L1 gas price in FRI (STRK), amount charged per unit of L1 gas
 	L1GasPriceSTRK *felt.Felt `cbor:"gaspricestrk"`
-	// Amount of STRK charged per Gas spent on L2
+	// L1 data availability mode for this block (CALLDATA or BLOB)
 	L1DAMode L1DAMode
 	// The gas price for L1 data availability
 	L1DataGasPrice *GasPrice
-	L2GasPrice     *GasPrice
+	// The gas price for L2 execution
+	L2GasPrice *GasPrice
 }
 
 type L1DAMode uint

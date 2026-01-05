@@ -14,7 +14,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
@@ -137,7 +137,7 @@ func waitAndAssertBroadcaster[M any](
 func newTendermintDB(t *testing.T) tendermintDB {
 	t.Helper()
 	dbPath := t.TempDir()
-	pebbleDB, err := pebble.New(dbPath)
+	pebbleDB, err := pebblev2.New(dbPath)
 	require.NoError(t, err)
 
 	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB)

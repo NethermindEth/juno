@@ -65,13 +65,16 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 
 		// New entry exists.
-		var val []byte
 		err := txn.Get(db.ContractStorage.Key(exampleBytes[:]), func(data []byte) error {
-			val = data
+			require.Equal(
+				t,
+				exampleBytes[:],
+				data,
+				"the correct value was not transferred to the new location",
+			)
 			return nil
 		})
 		require.NoError(t, err)
-		require.Equal(t, exampleBytes[:], val, "the correct value was not transferred to the new location")
 
 		// Old entry does not exist.
 		oldKey := db.Peer.Key(exampleBytes[:])
@@ -400,7 +403,7 @@ func TestSchemaMetadata(t *testing.T) {
 	t.Run("conversion", func(t *testing.T) {
 		t.Run("version not set", func(t *testing.T) {
 			testDB := memory.New()
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(0), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -414,7 +417,7 @@ func TestSchemaMetadata(t *testing.T) {
 				return txn.Put(db.SchemaVersion.Key(), version[:])
 			}))
 
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -430,7 +433,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: nil,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -448,7 +451,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
@@ -466,7 +469,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)

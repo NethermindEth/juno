@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
@@ -100,7 +100,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	schemaMeta, err := migration.SchemaMetadata(database)
+	schemaMeta, err := migration.SchemaMetadata(utils.NewNopZapLogger(), database)
 	if err != nil {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
@@ -207,7 +207,12 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	items := make([][]string, 0, len(buckets)+3)
 	for _, b := range buckets {
 		fmt.Fprintf(cmd.OutOrStdout(), "Calculating size of %s, remaining buckets: %d\n", b, len(db.BucketValues())-int(b)-1)
-		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)}, true)
+		bucketItem, err := pebblev2.CalculatePrefixSize(
+			cmd.Context(),
+			pebbleDB.(*pebblev2.DB),
+			[]byte{byte(b)},
+			true,
+		)
 		if err != nil {
 			return err
 		}
@@ -233,7 +238,12 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	// check if there is any data left in the db
 	lastBucket := buckets[len(buckets)-1]
 	fmt.Fprintln(cmd.OutOrStdout(), "Calculating remaining data in the db")
-	lastBucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(lastBucket + 1)}, false)
+	lastBucketItem, err := pebblev2.CalculatePrefixSize(
+		cmd.Context(),
+		pebbleDB.(*pebblev2.DB),
+		[]byte{byte(lastBucket + 1)},
+		false,
+	)
 	if err != nil {
 		return err
 	}
@@ -301,7 +311,7 @@ func openDB(path string) (db.KeyValueStore, error) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	database, err := pebble.New(path)
+	database, err := pebblev2.New(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}

@@ -53,7 +53,6 @@ func (b *PrefixedBucket[T, K, V, KS, VS]) scan( //nolint:unused // False positiv
 		}
 
 		isExited, err := iterate[V, VS](it, yield)
-		err = utils.RunAndWrapOnError(it.Close, err)
 		if err := utils.RunAndWrapOnError(it.Close, err); !isExited && err != nil {
 			yield(Entry[V]{}, err)
 		}
@@ -68,7 +67,8 @@ func iterate[V any, VS value.Serializer[V]]( //nolint:unused // False positive, 
 		var entry Entry[V]
 		entry.Key = it.Key()
 
-		valueBytes, err := it.Value()
+		// VS is in charge of copying the value to a new slice if necessary
+		valueBytes, err := it.UncopiedValue()
 		if err != nil {
 			return false, err
 		}

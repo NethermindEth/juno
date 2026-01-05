@@ -589,7 +589,7 @@ func (b *Blockchain) Simulate(
 ) (SimulateResult, error) {
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
-	defer txn.Reset()
+	defer txn.Close()
 
 	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 		return SimulateResult{}, err

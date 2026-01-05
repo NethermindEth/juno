@@ -28,12 +28,24 @@ func (i *iterator) Key() []byte {
 }
 
 func (i *iterator) Value() ([]byte, error) {
+	if i.iter == nil {
+		return nil, pebble.ErrClosed
+	}
 	val, err := i.iter.ValueAndErr()
 	if err != nil || val == nil {
 		return nil, err
 	}
 	buf := slices.Clone(val)
 	return buf, nil
+}
+
+// DO NOT USE this if you don't unmarshal the value immediately.
+// See [db.Iterator] for more details.
+func (i *iterator) UncopiedValue() ([]byte, error) {
+	if i.iter == nil {
+		return nil, pebble.ErrClosed
+	}
+	return i.iter.ValueAndErr()
 }
 
 func (i *iterator) First() bool {
@@ -63,5 +75,12 @@ func (i *iterator) Seek(key []byte) bool {
 }
 
 func (i *iterator) Close() error {
-	return i.iter.Close()
+	if i.iter == nil {
+		return pebble.ErrClosed
+	}
+	if err := i.iter.Close(); err != nil {
+		return err
+	}
+	*i = iterator{}
+	return nil
 }

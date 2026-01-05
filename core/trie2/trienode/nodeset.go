@@ -132,7 +132,8 @@ func (m *MergeNodeSet) Merge(other *NodeSet) error {
 }
 
 func (m *MergeNodeSet) Flatten() (
-	map[trieutils.Path]TrieNode, map[felt.Address]map[trieutils.Path]TrieNode,
+	map[trieutils.Path]TrieNode,
+	map[felt.Address]map[trieutils.Path]TrieNode,
 ) {
 	childFlat := make(map[felt.Address]map[trieutils.Path]TrieNode, len(m.ChildSets))
 	for owner, set := range m.ChildSets {
