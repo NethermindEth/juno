@@ -51,3 +51,14 @@ func WithCompression(compression *block.CompressionProfile) Option {
 		return nil
 	}
 }
+
+var Zstd1 = func() block.CompressionProfile {
+	zstd1 := block.BalancedCompression.ValueBlocks
+	return block.CompressionProfile{
+		Name:                "ZSTD",
+		DataBlocks:          zstd1,
+		ValueBlocks:         zstd1,
+		OtherBlocks:         zstd1,
+		MinReductionPercent: 12,
+	}
+}()
