@@ -99,6 +99,9 @@ func (h *Handler) TransactionReceiptByHash(
 
 	receipt, blockHash, err := h.bcReader.ReceiptByBlockNumberAndIndex(blockNumber, idx)
 	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
