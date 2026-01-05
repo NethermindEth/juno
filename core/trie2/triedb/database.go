@@ -35,7 +35,7 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	var err error
 	// Default to raw config if not provided
 	if config == nil {
-		triedb = rawdb.New(disk)
+		triedb = rawdb.New(disk, nil)
 	} else if config.PathConfig != nil {
 		triedb, err = pathdb.New(disk, config.PathConfig)
 		if err != nil {
@@ -44,7 +44,7 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	} else if config.HashConfig != nil {
 		triedb = hashdb.New(disk, config.HashConfig)
 	} else if config.RawConfig != nil {
-		triedb = rawdb.New(disk)
+		triedb = rawdb.New(disk, config.RawConfig)
 	}
 
 	return &Database{
