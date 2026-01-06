@@ -49,6 +49,7 @@ const (
 	AggregatedBloomFilters // maps block range to AggregatedBloomFilter
 	RunningEventFilter     // aggregated filter not full yet
 	ClassHashToCasmHashV2  // blake2s casm class hashes of the all sierra classes
+	BlockTransactions      // maps block number to transactions and receipts
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
