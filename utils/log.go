@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -103,10 +103,12 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 }
 
 type Logger interface {
-	SimpleLogger
 	pebble.Logger
+	SimpleLogger
+	StructuredLogger
 }
 
+// Deprecated: use StructuredLogger interface instead
 type SimpleLogger interface {
 	Debugw(msg string, keysAndValues ...any)
 	Infow(msg string, keysAndValues ...any)
@@ -115,30 +117,26 @@ type SimpleLogger interface {
 	Tracew(msg string, keysAndValues ...any)
 }
 
-type ZapLogger struct {
-	*zap.SugaredLogger
-}
-
-func (l *ZapLogger) IsTraceEnabled() bool {
-	return l.Desugar().Core().Enabled(TRACE)
-}
-
-func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
-	if l.IsTraceEnabled() {
-		// l.WithOptions() clones logger every time there is a Tracew() call
-		// which may be inefficient, one possible improvement is to create
-		// special logger just for traces in ZapLogger with AddCallerSkip(1)
-		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
-
-		// AddCallerSkip(1) is necessary to skip the caller of this function
-		l.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
-	}
+type StructuredLogger interface {
+	Debug(msg string, fields ...zap.Field)
+	Info(msg string, fields ...zap.Field)
+	Warn(msg string, fields ...zap.Field)
+	Error(msg string, fields ...zap.Field)
 }
 
 var _ Logger = (*ZapLogger)(nil)
 
+type ZapLogger struct {
+	structured *zap.Logger
+	sugared    *zap.SugaredLogger
+}
+
 func NewNopZapLogger() *ZapLogger {
-	return &ZapLogger{zap.NewNop().Sugar()}
+	noop := zap.NewNop()
+	return &ZapLogger{
+		noop,
+		noop.Sugar(),
+	}
 }
 
 func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
@@ -152,27 +150,117 @@ func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
-
 	config.Level = logLevel.atomicLevel
+
+	return NewZapLoggerWithConfig(&config)
+}
+
+func NewZapLoggerWithConfig(config *zap.Config) (*ZapLogger, error) {
 	log, err := config.Build()
 	if err != nil {
 		return nil, err
 	}
 
-	return &ZapLogger{log.Sugar()}, nil
+	return &ZapLogger{log, log.Sugar()}, nil
 }
 
-func (l *ZapLogger) Warningf(msg string, args ...any) {
-	l.Warnf(msg, args)
+func NewZapLoggerWithCore(core zapcore.Core) *ZapLogger {
+	logger := zap.New(core)
+	return &ZapLogger{
+		structured: logger,
+		sugared:    logger.Sugar(),
+	}
 }
 
-// colour (originally color) type with methods were extracted from go.uber.org/zap/internal/color
-// because it's internal it's not possible to import it directly
-//
-//nolint:misspell
-const cyan colour = 36
+func (l *ZapLogger) Infof(msg string, args ...any) {
+	l.sugared.Infof(msg, args)
+}
+
+func (l *ZapLogger) Errorf(msg string, args ...any) {
+	l.sugared.Infof(msg, args)
+}
+
+func (l *ZapLogger) Fatalf(msg string, args ...any) {
+	l.sugared.Fatalf(msg, args)
+}
+
+// Deprecated: use Debug with structured fields instead
+func (l *ZapLogger) Debugw(msg string, keysAndValues ...any) {
+	l.sugared.Debugw(msg, keysAndValues...)
+}
+
+// Deprecated: use Info with structured fields instead
+func (l *ZapLogger) Infow(msg string, keysAndValues ...any) {
+	l.sugared.Infow(msg, keysAndValues...)
+}
+
+// Deprecated: use Warn with structured fields instead
+func (l *ZapLogger) Warnw(msg string, keysAndValues ...any) {
+	l.sugared.Warnw(msg, keysAndValues...)
+}
+
+// Deprecated: use Error with structured fields instead
+func (l *ZapLogger) Errorw(msg string, keysAndValues ...any) {
+	l.sugared.Errorw(msg, keysAndValues...)
+}
+
+func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
+	if l.IsTraceEnabled() {
+		// l.WithOptions() clones logger every time there is a Tracew() call
+		// which may be inefficient, one possible improvement is to create
+		// special logger just for traces in ZapLogger with AddCallerSkip(1)
+		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
+
+		// AddCallerSkip(1) is necessary to skip the caller of this function
+		l.sugared.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
+	}
+}
+
+func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {
+	l.structured.Debug(msg, fields...)
+}
+
+func (l *ZapLogger) Info(msg string, fields ...zap.Field) {
+	l.structured.Info(msg, fields...)
+}
+
+func (l *ZapLogger) Warn(msg string, fields ...zap.Field) {
+	l.structured.Warn(msg, fields...)
+}
+
+func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
+	l.structured.Error(msg, fields...)
+}
+
+func (l *ZapLogger) IsTraceEnabled() bool {
+	return l.structured.Core().Enabled(TRACE)
+}
+
+// Name returns the logger name. Logger is unamed by default
+func (l *ZapLogger) Name() string {
+	return l.structured.Name()
+}
+
+// Named clones the logger and re-names it.
+func (l *ZapLogger) Named(name string) *ZapLogger {
+	newLogger := l.structured.Named(name)
+	return &ZapLogger{
+		structured: newLogger,
+		sugared:    newLogger.Sugar(),
+	}
+}
+
+func (l *ZapLogger) WithOptions(opts ...zap.Option) *ZapLogger {
+	newLogger := l.structured.WithOptions(opts...)
+	return &ZapLogger{
+		structured: newLogger,
+		sugared:    newLogger.Sugar(),
+	}
+}
 
 // colour represents a text colour.
+//
+//nolint:misspell //colour type with methods were extracted from go.uber.org/zap/internal/color
 type colour uint8
 
 // Add adds the colouring to the given string.
@@ -182,6 +270,7 @@ func (c colour) Add(s string) string {
 
 // capitalColorLevelEncoder adds support for TRACE log level to the default CapitalColorLevelEncoder
 func capitalColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	const cyan colour = 36
 	if l == TRACE {
 		enc.AppendString(cyan.Add("TRACE"))
 	} else {

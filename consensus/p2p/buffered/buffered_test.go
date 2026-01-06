@@ -18,6 +18,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 )
@@ -40,96 +41,118 @@ type origin struct {
 }
 
 func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
-	t.Run(fmt.Sprintf("%d nodes, each sending %d messages", nodeCount, messageCount), func(t *testing.T) {
-		logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
-		require.NoError(t, err)
+	t.Run(
+		fmt.Sprintf("%d nodes, each sending %d messages", nodeCount, messageCount),
+		func(t *testing.T) {
+			logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
+			require.NoError(t, err)
 
-		nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(nodeCount))
-		topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
+			nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(nodeCount))
+			topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
 
-		messages := make([][]*TestMessage, nodeCount)
-		allMessages := make(map[string]origin)
+			messages := make([][]*TestMessage, nodeCount)
+			allMessages := make(map[string]origin)
 
-		for i := range messages {
-			messages[i] = make([]*TestMessage, messageCount)
-			for j := range messages[i] {
-				msg := getTestMessage(i, j)
-				messages[i][j] = msg
+			for i := range messages {
+				messages[i] = make([]*TestMessage, messageCount)
+				for j := range messages[i] {
+					msg := getTestMessage(i, j)
+					messages[i][j] = msg
 
-				msgBytes, err := proto.Marshal(msg)
-				require.NoError(t, err)
-
-				allMessages[string(msgBytes)] = origin{Source: i, Index: j}
-			}
-		}
-
-		iterator := iter.Iterator[*pubsub.Topic]{MaxGoroutines: nodeCount}
-		finished := make(chan struct{}, nodeCount)
-		liveness := make(chan struct{}, 1)
-
-		go func() {
-			iterator.ForEachIdx(topics, func(i int, destination **pubsub.Topic) {
-				logger := &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprintf("destination-%d", i))}
-				pending := maps.Clone(allMessages)
-
-				// Ignore the messages we are broadcasting
-				for _, message := range messages[i] {
-					msgBytes, err := proto.Marshal(message)
+					msgBytes, err := proto.Marshal(msg)
 					require.NoError(t, err)
-					delete(pending, string(msgBytes))
+
+					allMessages[string(msgBytes)] = origin{Source: i, Index: j}
 				}
+			}
 
-				subscription := buffered.NewTopicSubscription(logger, nodeCount*messageCount, func(ctx context.Context, msg *pubsub.Message) {
-					msgStr := string(msg.Message.Data)
-					if _, ok := pending[msgStr]; !ok {
-						return
+			iterator := iter.Iterator[*pubsub.Topic]{MaxGoroutines: nodeCount}
+			finished := make(chan struct{}, nodeCount)
+			liveness := make(chan struct{}, 1)
+
+			go func() {
+				iterator.ForEachIdx(topics, func(i int, destination **pubsub.Topic) {
+					logger := logger.Named(fmt.Sprintf("destination-%d", i))
+					pending := maps.Clone(allMessages)
+
+					// Ignore the messages we are broadcasting
+					for _, message := range messages[i] {
+						msgBytes, err := proto.Marshal(message)
+						require.NoError(t, err)
+						delete(pending, string(msgBytes))
 					}
 
-					select {
-					case liveness <- struct{}{}:
-					default:
-					}
+					subscription := buffered.NewTopicSubscription(
+						logger,
+						nodeCount*messageCount,
+						func(ctx context.Context, msg *pubsub.Message) {
+							msgStr := string(msg.Message.Data)
+							if _, ok := pending[msgStr]; !ok {
+								return
+							}
 
-					delete(pending, msgStr)
+							select {
+							case liveness <- struct{}{}:
+							default:
+							}
 
-					if len(pending) == 0 {
-						finished <- struct{}{}
-						logger.Info("all messages received")
+							delete(pending, msgStr)
+
+							if len(pending) == 0 {
+								finished <- struct{}{}
+								logger.Info("all messages received")
+							}
+							logger.Debug(
+								"received",
+								zap.String("message", string(msg.Message.Data)),
+								zap.Int("pending", len(pending)),
+							)
+						})
+
+					subscription.Loop(t.Context(), *destination)
+					if len(pending) > 0 {
+						logger.Info(
+							"missing messages",
+							zap.Any("pending", slices.Collect(maps.Values(pending))),
+						)
 					}
-					logger.Debugw("received", "message", string(msg.Message.Data), "pending", len(pending))
 				})
+			}()
 
-				subscription.Loop(t.Context(), *destination)
-				if len(pending) > 0 {
-					logger.Infow("missing messages", "pending", slices.Collect(maps.Values(pending)))
-				}
-			})
-		}()
+			go func() {
+				iterator.ForEachIdx(
+					topics,
+					func(i int, source **pubsub.Topic) {
+						logger := logger.Named(fmt.Sprintf("source-%d", i))
+						rebroadcastInterval := config.DefaultBufferSizes.RebroadcastInterval
 
-		go func() {
-			iterator.ForEachIdx(topics, func(i int, source **pubsub.Topic) {
-				logger := &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprintf("source-%d", i))}
-				rebroadcastInterval := config.DefaultBufferSizes.RebroadcastInterval
-
-				var rebroadcastStrategy buffered.RebroadcastStrategy[*TestMessage]
-				if i%2 == 0 {
-					rebroadcastStrategy = buffered.NewRebroadcastStrategy(rebroadcastInterval, func(msg *TestMessage) uint64 {
-						return msg.BlockNumber
+						var rebroadcastStrategy buffered.RebroadcastStrategy[*TestMessage]
+						if i%2 == 0 {
+							rebroadcastStrategy = buffered.NewRebroadcastStrategy(
+								rebroadcastInterval,
+								func(msg *TestMessage) uint64 {
+									return msg.BlockNumber
+								},
+							)
+						}
+						broadcaster := buffered.NewProtoBroadcaster(
+							logger, messageCount, rebroadcastInterval, rebroadcastStrategy,
+						)
+						go broadcaster.Loop(t.Context(), *source)
+						for _, message := range messages[i] {
+							logger.Debug(
+								"publishing",
+								zap.Any("message", message),
+							)
+							broadcaster.Broadcast(t.Context(), message)
+						}
 					})
-				}
-				broadcaster := buffered.NewProtoBroadcaster(logger, messageCount, rebroadcastInterval, rebroadcastStrategy)
-				go broadcaster.Loop(t.Context(), *source)
-				for _, message := range messages[i] {
-					logger.Debugw("publishing", "message", message)
-					broadcaster.Broadcast(t.Context(), message)
-				}
-			})
-		}()
+			}()
 
-		for range nodeCount {
-			wait(t, liveness, finished)
-		}
-	})
+			for range nodeCount {
+				wait(t, liveness, finished)
+			}
+		})
 
 	t.Run("canceled context", func(t *testing.T) {
 		logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)

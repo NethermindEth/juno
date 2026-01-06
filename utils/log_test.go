@@ -134,7 +134,9 @@ func TestHTTPLogSettings(t *testing.T) {
 	})
 
 	t.Run("PUT update log level", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/log/level?level=debug", http.NoBody)
+		req, err := http.NewRequestWithContext(
+			ctx, http.MethodPut, "/log/level?level=debug", http.NoBody,
+		)
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()
@@ -234,19 +236,17 @@ func TestIsTraceEnabled(t *testing.T) {
 }
 
 func TestTracew(t *testing.T) {
-	var buf bytes.Buffer
-
 	t.Run("Tracew with trace level enabled", func(t *testing.T) {
 		logLevel := utils.NewLogLevel(utils.TRACE)
 
+		var buf bytes.Buffer
 		core := zapcore.NewCore(
 			zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 			zapcore.AddSync(&buf),
 			logLevel.Level(),
 		)
+		zapLogger := utils.NewZapLoggerWithCore(core)
 
-		logger := zap.New(core).Sugar()
-		zapLogger := &utils.ZapLogger{SugaredLogger: logger}
 		expectedMessage := "trace message"
 		zapLogger.Tracew(expectedMessage)
 
@@ -255,18 +255,16 @@ func TestTracew(t *testing.T) {
 	})
 
 	t.Run("Tracew with trace level disabled", func(t *testing.T) {
-		buf.Reset()
-
 		logLevel := utils.NewLogLevel(utils.INFO)
 
+		var buf bytes.Buffer
 		core := zapcore.NewCore(
 			zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 			zapcore.AddSync(&buf),
 			logLevel.Level(),
 		)
+		zapLogger := utils.NewZapLoggerWithCore(core)
 
-		logger := zap.New(core).Sugar()
-		zapLogger := &utils.ZapLogger{SugaredLogger: logger}
 		expectedMessage := "trace message"
 		zapLogger.Tracew(expectedMessage)
 
