@@ -53,21 +53,7 @@ func makeDBMetrics() db.EventListener {
 	commitLatency := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "db",
 		Name:      "commit_latency",
-		Help:      "Database transaction commit latency in microseconds",
-		Buckets: []float64{
-			5000,
-			10000,
-			20000,
-			30000,
-			40000,
-			50000,
-			100000, // 100ms
-			200000,
-			300000,
-			500000,
-			1000000,
-			math.Inf(0),
-		},
+		Help:      "Database transaction commit latency in seconds",
 	})
 
 	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency)
@@ -80,7 +66,7 @@ func makeDBMetrics() db.EventListener {
 			}
 		},
 		OnCommitCb: func(duration time.Duration) {
-			commitLatency.Observe(float64(duration.Microseconds()))
+			commitLatency.Observe(duration.Seconds())
 		},
 	}
 }

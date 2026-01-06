@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
@@ -88,6 +89,8 @@ func (d *DB) Impl() any {
 }
 
 func (d *DB) Has(key []byte) (bool, error) {
+	defer d.listener.OnIO(false, time.Now())
+
 	d.closeLock.RLock()
 	defer d.closeLock.RUnlock()
 
@@ -107,6 +110,8 @@ func (d *DB) Has(key []byte) (bool, error) {
 }
 
 func (d *DB) Get(key []byte, cb func(value []byte) error) error {
+	defer d.listener.OnIO(false, time.Now())
+
 	d.closeLock.RLock()
 	defer d.closeLock.RUnlock()
 
@@ -130,6 +135,9 @@ func (d *DB) Get(key []byte, cb func(value []byte) error) error {
 }
 
 func (d *DB) Put(key, val []byte) error {
+	// Direct write to database also pays the cost of commit.
+	defer d.listener.OnCommit(time.Now())
+
 	d.closeLock.RLock()
 	defer d.closeLock.RUnlock()
 
@@ -141,6 +149,9 @@ func (d *DB) Put(key, val []byte) error {
 }
 
 func (d *DB) Delete(key []byte) error {
+	// Direct write to database also pays the cost of commit.
+	defer d.listener.OnCommit(time.Now())
+
 	d.closeLock.RLock()
 	defer d.closeLock.RUnlock()
 
@@ -152,6 +163,9 @@ func (d *DB) Delete(key []byte) error {
 }
 
 func (d *DB) DeleteRange(start, end []byte) error {
+	// Direct write to database also pays the cost of commit.
+	defer d.listener.OnCommit(time.Now())
+
 	d.closeLock.RLock()
 	defer d.closeLock.RUnlock()
 

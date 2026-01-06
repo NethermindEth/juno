@@ -7,8 +7,8 @@ type Listener interface {
 }
 
 type EventListener interface {
-	OnIO(write bool, duration time.Duration)
-	OnCommit(duration time.Duration)
+	OnIO(write bool, start time.Time)
+	OnCommit(start time.Time)
 }
 
 type SelectiveListener struct {
@@ -16,14 +16,14 @@ type SelectiveListener struct {
 	OnCommitCb func(duration time.Duration)
 }
 
-func (l *SelectiveListener) OnIO(write bool, duration time.Duration) {
+func (l *SelectiveListener) OnIO(write bool, start time.Time) {
 	if l.OnIOCb != nil {
-		l.OnIOCb(write, duration)
+		l.OnIOCb(write, time.Since(start))
 	}
 }
 
-func (l *SelectiveListener) OnCommit(duration time.Duration) {
+func (l *SelectiveListener) OnCommit(start time.Time) {
 	if l.OnCommitCb != nil {
-		l.OnCommitCb(duration)
+		l.OnCommitCb(time.Since(start))
 	}
 }
