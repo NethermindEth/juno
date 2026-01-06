@@ -142,7 +142,7 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-go-tests.yml
     with:
-      ref: 3bdcf49394b665b5e544ac506d280d55282ee56d
+      ref: 0936f67d7dd2864a635fa41e4ad090f6cbd6acd0
       rpc_version: v0_8
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
@@ -153,7 +153,7 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-go-tests.yml
     with:
-      ref: e3d75a940bb08658539f707cfe21dd2a7134ce45
+      ref: de07570bda91aabd15b0b4c7b59722b4244dd96f
       rpc_version: v0_9
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
@@ -176,4 +176,3 @@ jobs:
       STARKNET_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_3 }}
       STARKNET_PUBLIC_KEY: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       STARKNET_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS_3 }}
-
