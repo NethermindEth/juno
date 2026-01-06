@@ -210,7 +210,7 @@ func (d *DB) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error
 		return nil, err
 	}
 
-	return &iterator{iter: it}, nil
+	return &iterator{iter: it, listener: d.listener}, nil
 }
 
 func (d *DB) NewSnapshot() db.Snapshot {

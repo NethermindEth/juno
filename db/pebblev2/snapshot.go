@@ -60,7 +60,7 @@ func (s *snapshot) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator,
 		return nil, err
 	}
 
-	return &iterator{iter: it}, nil
+	return &iterator{iter: it, listener: s.listener}, nil
 }
 
 func (s *snapshot) Close() error {
