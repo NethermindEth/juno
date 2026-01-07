@@ -142,6 +142,14 @@ func (b *batch) Write() error {
 		return err
 	}
 
+	metrics := b.batch.CommitStats()
+	if metrics.L0ReadAmpWriteStallDuration > 0 {
+		b.listener.OnWriteStall(true, metrics.L0ReadAmpWriteStallDuration)
+	}
+	if metrics.MemTableWriteStallDuration > 0 {
+		b.listener.OnWriteStall(false, metrics.MemTableWriteStallDuration)
+	}
+
 	return b.Close()
 }
 
