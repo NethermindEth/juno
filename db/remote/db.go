@@ -44,14 +44,12 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 }
 
 func (d *DB) NewTransaction(write bool) (*transaction, error) {
-	start := time.Now()
+	defer d.listener.OnIO(write, time.Now())
 
 	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
 	if err != nil {
 		return nil, err
 	}
-
-	d.listener.OnIO(write, time.Since(start))
 
 	return &transaction{client: txClient, log: d.log}, nil
 }
@@ -67,11 +65,7 @@ func (d *DB) View(fn func(txn db.Snapshot) error) error {
 }
 
 func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
-	start := time.Now()
-
-	defer func() {
-		d.listener.OnCommit(time.Since(start))
-	}()
+	defer d.listener.OnCommit(time.Now())
 
 	txn, err := d.NewTransaction(true)
 	if err != nil {
@@ -125,14 +119,12 @@ func (d *DB) Put(key, val []byte) error {
 }
 
 func (d *DB) NewBatch() db.Batch {
-	start := time.Now()
+	defer d.listener.OnIO(false, time.Now())
 
 	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
 	if err != nil {
 		panic(err)
 	}
-
-	d.listener.OnIO(false, time.Since(start))
 
 	return &transaction{client: txClient, log: d.log}
 }
@@ -142,14 +134,12 @@ func (d *DB) NewBatchWithSize(size int) db.Batch {
 }
 
 func (d *DB) NewIndexedBatch() db.IndexedBatch {
-	start := time.Now()
+	defer d.listener.OnIO(true, time.Now())
 
 	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
 	if err != nil {
 		panic(err)
 	}
-
-	d.listener.OnIO(true, time.Since(start))
 
 	return &transaction{client: txClient, log: d.log}
 }
@@ -168,14 +158,12 @@ func (d *DB) NewIterator(start []byte, withUpperBound bool) (db.Iterator, error)
 }
 
 func (d *DB) NewSnapshot() db.Snapshot {
-	start := time.Now()
+	defer d.listener.OnIO(false, time.Now())
 
 	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
 	if err != nil {
 		panic(err)
 	}
-
-	d.listener.OnIO(false, time.Since(start))
 
 	return &transaction{client: txClient, log: d.log}
 }

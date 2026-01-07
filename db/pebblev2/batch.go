@@ -31,9 +31,7 @@ func (b *batch) Delete(key []byte) error {
 	if b.batch == nil {
 		return pebble.ErrClosed
 	}
-
-	start := time.Now()
-	defer func() { b.listener.OnIO(true, time.Since(start)) }()
+	defer b.listener.OnIO(true, time.Now())
 
 	if err := b.batch.Delete(key, pebble.Sync); err != nil {
 		return err
@@ -46,6 +44,7 @@ func (b *batch) DeleteRange(start, end []byte) error {
 	if b.batch == nil {
 		return pebble.ErrClosed
 	}
+	defer b.listener.OnIO(true, time.Now())
 
 	return b.batch.DeleteRange(start, end, pebble.Sync)
 }
@@ -54,9 +53,7 @@ func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 	if b.batch == nil {
 		return pebble.ErrClosed
 	}
-
-	start := time.Now()
-	defer func() { b.listener.OnIO(false, time.Since(start)) }()
+	defer b.listener.OnIO(false, time.Now())
 
 	val, closer, err := b.batch.Get(key)
 	if err != nil {
@@ -77,6 +74,7 @@ func (b *batch) Has(key []byte) (bool, error) {
 	if b.batch == nil {
 		return false, pebble.ErrClosed
 	}
+	defer b.listener.OnIO(false, time.Now())
 
 	_, closer, err := b.batch.Get(key)
 	if err != nil {
@@ -114,6 +112,7 @@ func (b *batch) Put(key, value []byte) error {
 	if b.batch == nil {
 		return pebble.ErrClosed
 	}
+	defer b.listener.OnIO(true, time.Now())
 
 	if err := b.batch.Set(key, value, pebble.Sync); err != nil {
 		return err
@@ -130,6 +129,7 @@ func (b *batch) Write() error {
 	if b.batch == nil {
 		return pebble.ErrClosed
 	}
+	defer b.listener.OnCommit(time.Now())
 
 	b.db.closeLock.RLock()
 	defer b.db.closeLock.RUnlock()
