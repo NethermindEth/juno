@@ -6,6 +6,8 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/vfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,26 +15,23 @@ import (
 func TestPebbleDB(t *testing.T) {
 	t.Run("test suite", func(t *testing.T) {
 		db.TestKeyValueStoreSuite(t, func() db.KeyValueStore {
-			db, err := New(t.TempDir())
-			require.NoError(t, err)
-			return db
+			return newPebbleMem(t)
 		})
 	})
 }
 
-func newPebbleMem(t *testing.T) (*DB, error) {
-	db, err := New(t.TempDir())
-	if err != nil {
-		return nil, err
-	}
-	return db.(*DB), nil
+func newPebbleMem(t *testing.T) *DB {
+	db, err := New(t.TempDir(), func(opts *pebble.Options) error {
+		opts.FS = vfs.NewMem()
+		return nil
+	})
+	require.NoError(t, err)
+	return db.(*DB)
 }
 
 func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("empty db", func(t *testing.T) {
-		testDB, err := newPebbleMem(t)
-		require.NoError(t, err)
-
+		testDB := newPebbleMem(t)
 		s, err := CalculatePrefixSize(t.Context(), testDB, []byte("0"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
@@ -40,8 +39,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 	})
 
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
-		testDB, err := newPebbleMem(t)
-		require.NoError(t, err)
+		testDB := newPebbleMem(t)
 		require.NoError(t, testDB.Put(append([]byte("0"), []byte("randomKey")...), []byte("someValue")))
 		s, err := CalculatePrefixSize(t.Context(), testDB, []byte("1"), true)
 		require.NoError(t, err)
@@ -56,8 +54,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 		k3, v3 := append(p, []byte("key3")...), []byte("value3") //nolint: gocritic
 		expectedSize := uint(len(k1) + len(v1) + len(k2) + len(v2) + len(k3) + len(v3))
 
-		testDB, err := newPebbleMem(t)
-		require.NoError(t, err)
+		testDB := newPebbleMem(t)
 		require.NoError(t, testDB.Put(k1, v1))
 		require.NoError(t, testDB.Put(k2, v2))
 		require.NoError(t, testDB.Put(k3, v3))

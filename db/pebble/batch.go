@@ -105,7 +105,7 @@ func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator
 		return nil, err
 	}
 
-	return &iterator{iter: iter}, nil
+	return &iterator{iter: iter, listener: b.listener}, nil
 }
 
 func (b *batch) Put(key, value []byte) error {
