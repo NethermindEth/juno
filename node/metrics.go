@@ -54,8 +54,13 @@ func makeDBMetrics() db.EventListener {
 		Name:      "commit_latency",
 		Help:      "Database transaction commit latency in seconds",
 	})
+	writeStall := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "db",
+		Name:      "write_stall",
+		Help:      "Database write stall latency in seconds",
+	}, []string{"type"})
 
-	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency)
+	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency, writeStall)
 	return &db.SelectiveListener{
 		OnIOCb: func(write bool, duration time.Duration) {
 			if write {
@@ -66,6 +71,13 @@ func makeDBMetrics() db.EventListener {
 		},
 		OnCommitCb: func(duration time.Duration) {
 			commitLatency.Observe(duration.Seconds())
+		},
+		OnWriteStallCb: func(isL0 bool, duration time.Duration) {
+			if isL0 {
+				writeStall.WithLabelValues("l0").Observe(duration.Seconds())
+			} else {
+				writeStall.WithLabelValues("memtable").Observe(duration.Seconds())
+			}
 		},
 	}
 }
