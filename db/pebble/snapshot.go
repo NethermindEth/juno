@@ -21,6 +21,8 @@ func NewSnapshot(db *pebble.DB, listener db.EventListener) *snapshot {
 }
 
 func (s *snapshot) Has(key []byte) (bool, error) {
+	defer s.listener.OnIO(false, time.Now())
+
 	_, closer, err := s.snapshot.Get(key)
 	if err != nil {
 		return false, err
@@ -30,11 +32,8 @@ func (s *snapshot) Has(key []byte) (bool, error) {
 }
 
 func (s *snapshot) Get(key []byte, cb func(value []byte) error) error {
-	start := time.Now()
+	defer s.listener.OnIO(false, time.Now())
 
-	defer func() {
-		s.listener.OnIO(false, time.Since(start))
-	}()
 	data, closer, err := s.snapshot.Get(key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
@@ -60,7 +59,7 @@ func (s *snapshot) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator,
 	if err != nil {
 		return nil, err
 	}
-	return &iterator{iter: it}, nil
+	return &iterator{iter: it, listener: s.listener}, nil
 }
 
 func (s *snapshot) Close() error {
