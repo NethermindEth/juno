@@ -66,7 +66,13 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 	for i, msgHash := range msgHashes {
 		hash, err := h.bcReader.L1HandlerTxnHash(msgHash)
 		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("failed to retrieve L1 handler txn %v", err))
+			return nil, jsonrpc.Err(
+				jsonrpc.InternalError,
+				fmt.Sprintf("failed to retrieve L1 handler txn. msgHash %s, err %v",
+					msgHash.Hex(),
+					err,
+				),
+			)
 		}
 		status, rpcErr := h.TransactionStatus(ctx, &hash)
 		if rpcErr != nil {
@@ -107,7 +113,10 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		var event logMessageToL2
 		err = h.coreContractABI.UnpackIntoInterface(&event, "LogMessageToL2", vLog.Data)
 		if err != nil {
-			return nil, jsonrpc.Err(rpccore.ErrInternal.Code, fmt.Errorf("failed to unpack log %v", err))
+			return nil, jsonrpc.Err(
+				rpccore.ErrInternal.Code,
+				fmt.Sprintf("failed to unpack log %v", err),
+			)
 		}
 		// Extract indexed fields from topics
 		fromAddress := common.HexToAddress(vLog.Topics[1].Hex())
