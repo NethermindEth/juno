@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -53,24 +52,15 @@ func makeDBMetrics() db.EventListener {
 	commitLatency := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "db",
 		Name:      "commit_latency",
-		Help:      "Database transaction commit latency in microseconds",
-		Buckets: []float64{
-			5000,
-			10000,
-			20000,
-			30000,
-			40000,
-			50000,
-			100000, // 100ms
-			200000,
-			300000,
-			500000,
-			1000000,
-			math.Inf(0),
-		},
+		Help:      "Database transaction commit latency in seconds",
 	})
+	writeStall := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "db",
+		Name:      "write_stall",
+		Help:      "Database write stall latency in seconds",
+	}, []string{"type"})
 
-	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency)
+	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency, writeStall)
 	return &db.SelectiveListener{
 		OnIOCb: func(write bool, duration time.Duration) {
 			if write {
@@ -80,7 +70,14 @@ func makeDBMetrics() db.EventListener {
 			}
 		},
 		OnCommitCb: func(duration time.Duration) {
-			commitLatency.Observe(float64(duration.Microseconds()))
+			commitLatency.Observe(duration.Seconds())
+		},
+		OnWriteStallCb: func(isL0 bool, duration time.Duration) {
+			if isL0 {
+				writeStall.WithLabelValues("l0").Observe(duration.Seconds())
+			} else {
+				writeStall.WithLabelValues("memtable").Observe(duration.Seconds())
+			}
 		},
 	}
 }
@@ -322,46 +319,11 @@ func makeGatewayMetrics() gateway.EventListener {
 }
 
 func makePebbleMetrics(nodeDB db.KeyValueStore) {
-	pebbleDB, ok := nodeDB.Impl().(*pebble.DB)
-	if !ok {
+	collector := newPebbleCollector(nodeDB)
+	if collector == nil {
 		return
 	}
-
-	blockCacheSize := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "block_cache",
-		Name:      "size",
-		Help:      "Current size of Pebble block cache in bytes",
-	}, func() float64 {
-		return float64(pebbleDB.Metrics().BlockCache.Size)
-	})
-	blockHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "block_cache",
-		Name:      "hit_rate",
-		Help:      "Hit rate of Pebble block cache (hits / (hits + misses))",
-	}, func() float64 {
-		metrics := pebbleDB.Metrics()
-		return float64(metrics.BlockCache.Hits) / float64(metrics.BlockCache.Hits+metrics.BlockCache.Misses)
-	})
-	tableCacheSize := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "table_cache",
-		Name:      "size",
-		Help:      "Current size of Pebble table cache in bytes",
-	}, func() float64 {
-		return float64(pebbleDB.Metrics().TableCache.Size)
-	})
-	tableHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "table_cache",
-		Name:      "hit_rate",
-		Help:      "Hit rate of Pebble table cache (hits / (hits + misses))",
-	}, func() float64 {
-		metrics := pebbleDB.Metrics()
-		return float64(metrics.TableCache.Hits) / float64(metrics.TableCache.Hits+metrics.TableCache.Misses)
-	})
-	prometheus.MustRegister(blockCacheSize, blockHitRate, tableCacheSize, tableHitRate)
+	prometheus.MustRegister(collector)
 }
 
 func makeJeMallocMetrics() {

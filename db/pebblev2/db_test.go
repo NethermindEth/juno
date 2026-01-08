@@ -2,9 +2,7 @@ package pebblev2
 
 import (
 	"context"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
@@ -17,53 +15,23 @@ import (
 func TestPebbleDB(t *testing.T) {
 	t.Run("test suite", func(t *testing.T) {
 		db.TestKeyValueStoreSuite(t, func() db.KeyValueStore {
-			db, err := pebble.Open("", &pebble.Options{
-				FS: vfs.NewMem(),
-			})
-			require.NoError(t, err)
-			return &DB{
-				db:        db,
-				closeLock: new(sync.RWMutex),
-				listener:  &eventListener{},
-			}
+			return newPebbleMem(t)
 		})
 	})
 }
 
-type eventListener struct {
-	WriteCount int
-	ReadCount  int
-}
-
-func (l *eventListener) OnIO(write bool, _ time.Duration) {
-	if write {
-		l.WriteCount++
-	} else {
-		l.ReadCount++
-	}
-}
-
-func (l *eventListener) OnCommit(_ time.Duration) {}
-
-func newPebbleMem() (*DB, error) {
-	db, err := pebble.Open("", &pebble.Options{
-		FS: vfs.NewMem(),
+func newPebbleMem(t *testing.T) *DB {
+	db, err := New(t.TempDir(), func(opts *pebble.Options) error {
+		opts.FS = vfs.NewMem()
+		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &DB{
-		db:        db,
-		closeLock: new(sync.RWMutex),
-	}, nil
+	require.NoError(t, err)
+	return db.(*DB)
 }
 
 func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("empty db", func(t *testing.T) {
-		testDB, err := newPebbleMem()
-		require.NoError(t, err)
-
+		testDB := newPebbleMem(t)
 		s, err := CalculatePrefixSize(t.Context(), testDB, []byte("0"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
@@ -71,8 +39,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 	})
 
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
-		testDB, err := newPebbleMem()
-		require.NoError(t, err)
+		testDB := newPebbleMem(t)
 		require.NoError(t, testDB.Put(append([]byte("0"), []byte("randomKey")...), []byte("someValue")))
 		s, err := CalculatePrefixSize(t.Context(), testDB, []byte("1"), true)
 		require.NoError(t, err)
@@ -87,8 +54,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 		k3, v3 := append(p, []byte("key3")...), []byte("value3") //nolint: gocritic
 		expectedSize := uint(len(k1) + len(v1) + len(k2) + len(v2) + len(k3) + len(v3))
 
-		testDB, err := newPebbleMem()
-		require.NoError(t, err)
+		testDB := newPebbleMem(t)
 		require.NoError(t, testDB.Put(k1, v1))
 		require.NoError(t, testDB.Put(k2, v2))
 		require.NoError(t, testDB.Put(k3, v3))

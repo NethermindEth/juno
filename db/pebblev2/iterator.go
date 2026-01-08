@@ -2,6 +2,7 @@ package pebblev2
 
 import (
 	"slices"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble/v2"
@@ -12,6 +13,7 @@ var _ db.Iterator = (*iterator)(nil)
 type iterator struct {
 	iter       *pebble.Iterator
 	positioned bool
+	listener   db.EventListener
 }
 
 func (i *iterator) Valid() bool {
@@ -31,6 +33,8 @@ func (i *iterator) Value() ([]byte, error) {
 	if i.iter == nil {
 		return nil, pebble.ErrClosed
 	}
+	defer i.listener.OnIO(false, time.Now())
+
 	val, err := i.iter.ValueAndErr()
 	if err != nil || val == nil {
 		return nil, err
@@ -45,31 +49,33 @@ func (i *iterator) UncopiedValue() ([]byte, error) {
 	if i.iter == nil {
 		return nil, pebble.ErrClosed
 	}
+	defer i.listener.OnIO(false, time.Now())
+
 	return i.iter.ValueAndErr()
 }
 
 func (i *iterator) First() bool {
+	defer i.listener.OnIO(false, time.Now())
 	i.positioned = true
 	return i.iter.First()
 }
 
 func (i *iterator) Prev() bool {
 	if !i.positioned {
-		i.positioned = true
-		return i.iter.First()
+		return i.First()
 	}
 	return i.iter.Prev()
 }
 
 func (i *iterator) Next() bool {
 	if !i.positioned {
-		i.positioned = true
-		return i.iter.First()
+		return i.First()
 	}
 	return i.iter.Next()
 }
 
 func (i *iterator) Seek(key []byte) bool {
+	defer i.listener.OnIO(false, time.Now())
 	i.positioned = true
 	return i.iter.SeekGE(key)
 }

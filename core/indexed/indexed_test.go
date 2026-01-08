@@ -19,14 +19,14 @@ func generate[T any](
 	random func() T,
 	count int,
 	err error,
-) ([]T, iter.Seq2[any, error]) {
+) ([]T, iter.Seq2[T, error]) {
 	t.Helper()
 	items := make([]T, count)
 	for i := range items {
 		items[i] = random()
 	}
 
-	return items, func(yield func(any, error) bool) {
+	return items, func(yield func(T, error) bool) {
 		for _, item := range items {
 			if !yield(item, err) {
 				return
@@ -34,15 +34,15 @@ func generate[T any](
 		}
 
 		if err != nil {
-			yield(nil, err)
+			yield(*new(T), err)
 		}
 	}
 }
 
-func writeToBufferedEncoderSuccessfully(
+func writeToBufferedEncoderSuccessfully[T any](
 	t *testing.T,
 	bufferedEncoder indexed.BufferedEncoder,
-	items iter.Seq2[any, error],
+	items iter.Seq2[T, error],
 	count int,
 ) []int {
 	t.Helper()
@@ -58,9 +58,9 @@ func writeToBufferedEncoderSuccessfully(
 	return indexes
 }
 
-func writeUnsuccessfully(
+func writeUnsuccessfully[T any](
 	t *testing.T,
-	items iter.Seq2[any, error],
+	items iter.Seq2[T, error],
 	expectedError error,
 ) {
 	t.Helper()

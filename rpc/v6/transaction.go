@@ -484,11 +484,16 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(
+	id BlockID,
+	txIndex int,
+) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
+	var blockNumber uint64
+	var err error
 	if id.Pending {
 		pending, err := h.PendingData()
 		if err != nil {
@@ -500,14 +505,22 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		}
 
 		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
+	} else if id.Latest {
+		header, err := h.bcReader.HeadsHeader()
+		if err != nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		blockNumber = header.Number
+	} else if id.Hash != nil {
+		blockNumber, err = h.bcReader.BlockNumberByHash(id.Hash)
+		if err != nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+	} else {
+		blockNumber = id.Number
 	}
 
-	header, rpcErr := h.blockHeaderByID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint64(txIndex))
+	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, uint64(txIndex))
 	if err != nil {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
