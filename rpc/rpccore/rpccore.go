@@ -52,7 +52,7 @@ var (
 	ErrTxnHashNotFound                  = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
 	ErrPageSizeTooBig                   = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
 	ErrNoBlock                          = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidContinuationToken         = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
+	ErrInvalidContinuationToken         = &jsonrpc.Error{Code: 33, Message: "The supplied continuation token is invalid or unknown"}
 	ErrTooManyKeysInFilter              = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
 	ErrContractError                    = &jsonrpc.Error{Code: 40, Message: "Contract error"}
 	ErrTransactionExecutionError        = &jsonrpc.Error{Code: 41, Message: "Transaction execution error"}
