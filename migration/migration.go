@@ -1007,6 +1007,7 @@ func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) err
 
 // recalculateL1HandlerMsgHashes recalculates L1Handler message hash to txn hash mappings.
 // Needed because calculateL1MsgHashes2 ran with a buggy WriteL1HandlerMsgHashes.
+// Functionally same as calculateL1MsgHashes2, but optimised for concurrent reads.
 type recalculateL1HandlerMsgHashesToTxnHashes struct{}
 
 func (m recalculateL1HandlerMsgHashesToTxnHashes) Before(_ []byte) error {
