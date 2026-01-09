@@ -11,6 +11,6 @@ const (
 	leaf
 )
 
-func (l leafType) Bytes() []byte {
-	return []byte{byte(l)}
+func (l leafType) Byte() byte {
+	return byte(l)
 }
