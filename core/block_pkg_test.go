@@ -17,7 +17,8 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 	})
 
 	t.Run("txs with signature", func(t *testing.T) {
-		// actual tx hash is irrelevant so it's ok to have different transactions with the same hash
+		// actual tx hash is irrelevant so it's ok to have different transactions with
+		// the same hash
 		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
 
 		// nil signature, empty signature and signature with some non-empty value
@@ -26,23 +27,24 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 			{},
 			{felt.NewFromUint64[felt.Felt](3)},
 		}
-		txs := make([]Transaction, len(signatures)*3)
+		txs := make([]Transaction, 0, len(signatures)*3)
 
-		for i, sign := range signatures {
-			txs[i] = &InvokeTransaction{
+		for _, sign := range signatures {
+			invoke := &InvokeTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
-			txs[i+1] = &DeployAccountTransaction{
+			deployAccount := &DeployAccountTransaction{
 				DeployTransaction: DeployTransaction{
 					TransactionHash: txHash,
 				},
 				TransactionSignature: sign,
 			}
-			txs[i+2] = &DeclareTransaction{
+			declare := &DeclareTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
+			txs = append(txs, invoke, deployAccount, declare)
 		}
 
 		c, err := transactionCommitmentPoseidon0134(txs)
@@ -80,7 +82,8 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 	})
 
 	t.Run("txs with signature", func(t *testing.T) {
-		// actual tx hash is irrelevant so it's ok to have different transactions with the same hash
+		// actual tx hash is irrelevant so it's ok to have different transactions with the
+		// same hash
 		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
 
 		// nil signature, empty signature and signature with some non-empty value
@@ -89,23 +92,25 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 			{},
 			{felt.NewFromUint64[felt.Felt](3)},
 		}
-		txs := make([]Transaction, len(signatures)*3)
+		txs := make([]Transaction, 0, len(signatures)*3)
 
-		for i, sign := range signatures {
-			txs[i] = &InvokeTransaction{
+		// nil signature, empty signature and signature with some non-empty value
+		for _, sign := range signatures {
+			invoke := &InvokeTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
-			txs[i+1] = &DeployAccountTransaction{
+			deployAccount := &DeployAccountTransaction{
 				DeployTransaction: DeployTransaction{
 					TransactionHash: txHash,
 				},
 				TransactionSignature: sign,
 			}
-			txs[i+2] = &DeclareTransaction{
+			declare := &DeclareTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
+			txs = append(txs, invoke, deployAccount, declare)
 		}
 
 		c, err := transactionCommitmentPoseidon0132(txs)
