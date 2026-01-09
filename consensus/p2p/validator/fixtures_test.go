@@ -162,14 +162,16 @@ func buildBlockInfo(height types.Height, proposer *common.Address, block *core.B
 	}
 }
 
-func buildTransactions(t *testing.T, gw *adaptfeeder.Feeder, block *core.Block, txBatchCount int) []*consensus.ProposalPart {
-	txBatchSize := (len(block.Transactions)-1)/txBatchCount + 1
-	txBatches := []*consensus.ProposalPart{}
+func buildTransactions(
+	t *testing.T, gw *adaptfeeder.Feeder, block *core.Block, txBatchCount int,
+) []*consensus.ProposalPart {
+	proposalCount := (len(block.Transactions)-1)/txBatchCount + 1
+	proposals := make([]*consensus.ProposalPart, 0, proposalCount)
 
-	for txs := range slices.Chunk(block.Transactions, txBatchSize) {
-		transactions := make([]types.Transaction, len(txs))
+	for coreTransactions := range slices.Chunk(block.Transactions, proposalCount) {
+		transactions := make([]types.Transaction, len(coreTransactions))
 
-		for i, tx := range txs {
+		for i, tx := range coreTransactions {
 			var class core.ClassDefinition
 			var paidFeeOnL1 *felt.Felt
 			switch tx := tx.(type) {
@@ -190,14 +192,14 @@ func buildTransactions(t *testing.T, gw *adaptfeeder.Feeder, block *core.Block, 
 		batch, err := consensus2p2p.AdaptProposalTransaction(transactions)
 		require.NoError(t, err)
 
-		txBatches = append(txBatches, &consensus.ProposalPart{
+		proposals = append(proposals, &consensus.ProposalPart{
 			Messages: &consensus.ProposalPart_Transactions{
 				Transactions: &batch,
 			},
 		})
 	}
 
-	return txBatches
+	return proposals
 }
 
 func buildProposalCommitment(
