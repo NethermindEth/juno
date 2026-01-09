@@ -67,7 +67,7 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 		if err != nil {
 			return nil, jsonrpc.Err(
 				jsonrpc.InternalError,
-				fmt.Sprintf("failed to retrieve L1 handler txn hash. msgHash %s, err %v",
+				fmt.Sprintf("failed to retrieve L1 handler txn hash. msgHash %s, err: %v",
 					msgHash.Hex(),
 					err,
 				),
@@ -106,7 +106,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		if err != nil {
 			return nil, jsonrpc.Err(
 				jsonrpc.InternalError,
-				fmt.Sprintf("failed to unpack log, l1 txn hash %s, logIndex %d err %v",
+				fmt.Sprintf("failed to unpack log, l1 txn hash %s, logIndex %d err: %v",
 					txHash.Hex(),
 					i,
 					err,
