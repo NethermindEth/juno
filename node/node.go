@@ -38,6 +38,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/cockroachdb/pebble/v2/sstable/block"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
@@ -151,6 +152,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pebblev2.WithCacheSize(cfg.DBCacheSize),
 			pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
 			pebblev2.WithLogger(cfg.Colour),
+			pebblev2.WithCompression(block.ZstdCompression),
 		)
 	}
 
