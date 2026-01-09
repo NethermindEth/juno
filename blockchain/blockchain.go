@@ -35,7 +35,15 @@ type Reader interface {
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
+	BlockNumberAndIndexByTxHash(
+		hash *felt.TransactionHash,
+	) (blockNumber uint64, index uint64, err error)
+
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
+	ReceiptByBlockNumberAndIndex(
+		blockNumber, index uint64,
+	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
+
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
@@ -206,6 +214,15 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 	return core.GetTxByHash(b.database, (*felt.TransactionHash)(hash))
 }
 
+// BlockNumberAndIndexByTxHash gets transaction block number and index by Tx hash
+func (b *Blockchain) BlockNumberAndIndexByTxHash(
+	hash *felt.TransactionHash,
+) (blockNumber, txIndex uint64, returnedErr error) {
+	b.listener.OnRead("BlockNumberAndIndexByTxHash")
+	data, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, hash)
+	return data.Number, data.Index, err
+}
+
 // Receipt gets the transaction receipt for a given transaction hash.
 // TODO: Return TransactionReceipt instead of *TransactionReceipt.
 func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
@@ -227,6 +244,24 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	}
 
 	return receipt, header.Hash, header.Number, nil
+}
+
+func (b *Blockchain) ReceiptByBlockNumberAndIndex(
+	blockNumber, index uint64,
+) (core.TransactionReceipt, *felt.Felt, error) {
+	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
+
+	receipt, err := core.GetReceiptByBlockNumIndex(b.database, blockNumber, index)
+	if err != nil {
+		return receipt, nil, err
+	}
+
+	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+	if err != nil {
+		return receipt, nil, err
+	}
+
+	return receipt, header.Hash, nil
 }
 
 func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {

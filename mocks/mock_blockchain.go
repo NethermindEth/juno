@@ -269,6 +269,31 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), hash)
 }
 
+func (m *MockReader) ReceiptByBlockNumberAndIndex(
+	blockNumber, index uint64,
+) (core.TransactionReceipt, *felt.Felt, error) {
+	m.ctrl.T.Helper()
+
+	ret := m.ctrl.Call(m, "ReceiptByBlockNumberAndIndex", blockNumber, index)
+	ret0, _ := ret[0].(core.TransactionReceipt)
+	ret1, _ := ret[1].(*felt.Felt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (mr *MockReaderMockRecorder) ReceiptByBlockNumberAndIndex(
+	blockNumber any, index any,
+) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(
+		mr.mock,
+		"ReceiptByBlockNumberAndIndex",
+		reflect.TypeOf((*MockReader)(nil).ReceiptByBlockNumberAndIndex),
+		blockNumber,
+		index,
+	)
+}
+
 // StateAtBlockHash mocks base method.
 func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
@@ -373,4 +398,23 @@ func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), hash)
+}
+
+func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.TransactionHash) (uint64, uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockNumberAndIndexByTxHash", hash)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (mr *MockReaderMockRecorder) BlockNumberAndIndexByTxHash(hash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(
+		mr.mock,
+		"BlockNumberAndIndexByTxHash",
+		reflect.TypeOf((*MockReader)(nil).BlockNumberAndIndexByTxHash),
+		hash,
+	)
 }

@@ -40,8 +40,8 @@ func TestGetMessageStatus(t *testing.T) {
 		msgs           []rpc.MsgStatus
 		msgHashes      []common.Hash
 		l1TxnReceipt   types.Receipt
-		blockNum       uint
-		l1HeadBlockNum uint
+		blockNum       uint64
+		l1HeadBlockNum uint64
 	}{
 		"mainnet 0.13.2.1": {
 			network:   utils.Mainnet,
@@ -77,7 +77,7 @@ func TestGetMessageStatus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			client := feeder.NewTestClient(t, &test.network)
 			gw := adaptfeeder.New(client)
-			block, err := gw.BlockByNumber(t.Context(), uint64(test.blockNum))
+			block, err := gw.BlockByNumber(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
 			preConfirmed := &core.PreConfirmed{
@@ -103,9 +103,16 @@ func TestGetMessageStatus(t *testing.T) {
 					nil,
 				)
 				// Expects for h.TransactionStatus()
-				mockReader.EXPECT().TransactionByHash(msg.L1HandlerHash).Return(l1handlerTxns[i], nil)
-				mockReader.EXPECT().Receipt(msg.L1HandlerHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: uint64(test.l1HeadBlockNum)}, nil)
+				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+					(*felt.TransactionHash)(msg.L1HandlerHash),
+				).Return(block.Number, uint64(i), nil)
+				mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+					block.Number, uint64(i),
+				).Return(l1handlerTxns[i], nil)
+				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
+					block.Number, uint64(i),
+				).Return(*block.Receipts[i], block.Hash, nil)
+				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: test.l1HeadBlockNum}, nil)
 			}
 			msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &test.l1TxnHash)
 			require.Nil(t, rpcErr)
