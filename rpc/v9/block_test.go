@@ -684,7 +684,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		header := resp.BlockHeader
 
-		var txsWithReceipt []rpcv9.TransactionWithReceipt
+		txsWithReceipt := make([]rpcv9.TransactionWithReceipt, 0, len(block0.Transactions))
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpcv9.AdaptTransaction(tx)

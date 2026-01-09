@@ -97,7 +97,6 @@ func adaptDeprecatedCairoClass(
 		return nil, err
 	}
 
-	//nolint:prealloc
 	var hints [][2]any // slice of 2-element tuples where first value is pc, and second value is slice of hints
 	for pc, hintItems := range utils.SortedMap(classHints) {
 		hints = append(hints, [2]any{pc, hintItems})

@@ -21,7 +21,8 @@ func TestKey(t *testing.T) {
 
 		for _, k := range keys {
 			t.Run(string(rune(len(k))), func(t *testing.T) {
-				expectedKey := []byte{byte(db.StateTrie)}
+				expectedKey := make([]byte, 0, 1+len(k))
+				expectedKey = append(expectedKey, byte(db.StateTrie))
 				expectedKey = append(expectedKey, k...)
 				assert.Equal(t, expectedKey, db.StateTrie.Key(k))
 			})

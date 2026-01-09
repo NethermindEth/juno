@@ -42,15 +42,20 @@ func TestPipeline(t *testing.T) {
 		t.Run("Bridge", func(t *testing.T) {
 			out := make(chan int)
 			chOfInts := make(chan (<-chan int))
-			Bridge[int](ctx, out, chOfInts) // non-blocking
+			Bridge(ctx, out, chOfInts) // non-blocking
 		})
 	})
 
 	t.Run("sort numbers in pipeline", func(t *testing.T) {
 		// map is being used because ranging over a map is random
-		nums := map[string]struct{}{"0": {}, "1": {}, "2": {}, "3": {}, "4": {}, "5": {}, "6": {}, "7": {}, "8": {}, "9": {}}
+		nums := map[string]struct{}{
+			"0": {}, "1": {}, "2": {},
+			"3": {}, "4": {}, "5": {},
+			"6": {}, "7": {}, "8": {},
+			"9": {},
+		}
 
-		var chs []<-chan string
+		chs := make([]<-chan string, 0, len(nums))
 
 		for n := range nums {
 			strCh := make(chan string)

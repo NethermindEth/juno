@@ -162,23 +162,21 @@ func TestPutZero(t *testing.T) {
 	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 		emptyRoot, err := tempTrie.Hash()
 		require.NoError(t, err)
-		var roots []*felt.Felt
-		var keys []*felt.Felt
 
 		// put random 64 keys and record roots
-		for range 64 {
+		const amount = 64
+		roots := make([]*felt.Felt, 0, amount)
+		keys := make([]*felt.Felt, 0, amount)
+		for range amount {
 			key := felt.NewRandom[felt.Felt]()
 			value := felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, value)
 			require.NoError(t, err)
-
 			keys = append(keys, key)
 
-			var root felt.Felt
-			root, err = tempTrie.Hash()
+			root, err := tempTrie.Hash()
 			require.NoError(t, err)
-
 			roots = append(roots, &root)
 		}
 
@@ -227,23 +225,21 @@ func TestTrie(t *testing.T) {
 	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 		emptyRoot, err := tempTrie.Hash()
 		require.NoError(t, err)
-		var roots []*felt.Felt
-		var keys []*felt.Felt
 
 		// put random 64 keys and record roots
-		for range 64 {
+		const amount = 64
+		roots := make([]*felt.Felt, 0, amount)
+		keys := make([]*felt.Felt, 0, amount)
+		for range amount {
 			key := felt.NewRandom[felt.Felt]()
 			value := felt.NewRandom[felt.Felt]()
 
 			_, err = tempTrie.Put(key, value)
 			require.NoError(t, err)
-
 			keys = append(keys, key)
 
-			var root felt.Felt
-			root, err = tempTrie.Hash()
+			root, err := tempTrie.Hash()
 			require.NoError(t, err)
-
 			roots = append(roots, &root)
 		}
 
@@ -418,7 +414,7 @@ var benchTriePutR *felt.Felt
 
 func BenchmarkTriePut(b *testing.B) {
 	keys := make([]*felt.Felt, 0, b.N)
-	for range b.N {
+	for b.Loop() {
 		rnd := felt.NewRandom[felt.Felt]()
 		keys = append(keys, rnd)
 	}

@@ -710,8 +710,9 @@ func transactionCommitmentPedersen(
 	return calculateCommitment(transactions, trie.RunOnTempTriePedersen, hashFunc)
 }
 
-// transactionCommitmentPoseidon0134 handles empty signatures compared to transactionCommitmentPoseidon0132:
-// empty signatures are interpreted as [] instead of [0]
+// transactionCommitmentPoseidon0134 handles empty signatures compared to
+// transactionCommitmentPoseidon0132.
+// Empty signatures are interpreted as [] instead of [0]
 func transactionCommitmentPoseidon0134(transactions []Transaction) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,
@@ -728,7 +729,8 @@ func transactionCommitmentPoseidon0134(transactions []Transaction) (felt.Felt, e
 		})
 }
 
-// transactionCommitmentPoseidon0132 is used to calculate tx commitment for 0.13.2 <= block.version < 0.13.4
+// transactionCommitmentPoseidon0132 is used to calculate tx commitment for
+// 0.13.2 <= block.version < 0.13.4
 func transactionCommitmentPoseidon0132(transactions []Transaction) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,

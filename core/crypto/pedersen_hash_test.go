@@ -103,11 +103,11 @@ func TestPedersenArray(t *testing.T) {
 	}
 	for _, test := range tests {
 		var digest, digestWhole crypto.PedersenDigest
-		var data []*felt.Felt
-		for _, item := range test.input {
+		data := make([]*felt.Felt, len(test.input))
+		for i, item := range test.input {
 			elem := felt.NewUnsafeFromString[felt.Felt](item)
 			digest.Update(elem)
-			data = append(data, elem)
+			data[i] = elem
 		}
 		digestWhole.Update(data...)
 		want := felt.UnsafeFromString[felt.Felt](test.want)

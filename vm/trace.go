@@ -235,6 +235,7 @@ func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
 	for i := range invocation.Calls {
 		events = append(events, invocation.Calls[i].allEvents()...)
 	}
+	// todo(rdr): remove this Map
 	return append(events, utils.Map(invocation.Events, func(e OrderedEvent) OrderedEvent {
 		e.From = &invocation.ContractAddress
 		return e
@@ -246,10 +247,13 @@ func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
 	for i := range invocation.Calls {
 		messages = append(messages, invocation.Calls[i].allMessages()...)
 	}
-	return append(messages, utils.Map(invocation.Messages, func(e OrderedL2toL1Message) OrderedL2toL1Message {
-		e.From = &invocation.ContractAddress
-		return e
-	})...)
+	return append(
+		messages,
+		// todo(rdr): remove this Map
+		utils.Map(invocation.Messages, func(e OrderedL2toL1Message) OrderedL2toL1Message {
+			e.From = &invocation.ContractAddress
+			return e
+		})...)
 }
 
 type ExecuteInvocation struct {
