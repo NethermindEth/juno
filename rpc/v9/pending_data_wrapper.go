@@ -33,7 +33,7 @@ func (h *Handler) PendingBlock() *core.Block {
 	return pending.GetBlock()
 }
 
-func (h *Handler) PendingState() (core.StateReader, func() error, error) {
+func (h *Handler) PendingState() (core.CommonStateReader, func() error, error) {
 	pendingData, err := h.syncReader.PendingData()
 	if err != nil {
 		if errors.Is(err, core.ErrPendingDataNotFound) {
