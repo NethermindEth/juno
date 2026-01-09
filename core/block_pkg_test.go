@@ -15,29 +15,34 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, c)
 	})
-	t.Run("txs with signature", func(t *testing.T) {
-		var txs []Transaction
 
-		type signature = []*felt.Felt
+	t.Run("txs with signature", func(t *testing.T) {
 		// actual tx hash is irrelevant so it's ok to have different transactions with the same hash
-		txHash := felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE")
+		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
+
 		// nil signature, empty signature and signature with some non-empty value
-		for _, sign := range []signature{nil, make(signature, 0), {new(felt.Felt).SetUint64(uint64(3))}} {
-			invoke := &InvokeTransaction{
+		signatures := [][]*felt.Felt{
+			nil,
+			{},
+			{felt.NewFromUint64[felt.Felt](3)},
+		}
+		txs := make([]Transaction, len(signatures)*3)
+
+		for i, sign := range signatures {
+			txs[i] = &InvokeTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
-			deployAccount := &DeployAccountTransaction{
+			txs[i+1] = &DeployAccountTransaction{
 				DeployTransaction: DeployTransaction{
 					TransactionHash: txHash,
 				},
 				TransactionSignature: sign,
 			}
-			declare := &DeclareTransaction{
+			txs[i+2] = &DeclareTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
-			txs = append(txs, invoke, deployAccount, declare)
 		}
 
 		c, err := transactionCommitmentPoseidon0134(txs)
@@ -47,6 +52,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 		)
 		assert.Equal(t, expected, c, "expected: %s, got: %s", expected, c)
 	})
+
 	t.Run("txs without signature", func(t *testing.T) {
 		txs := []Transaction{
 			&L1HandlerTransaction{
@@ -72,29 +78,34 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, c)
 	})
-	t.Run("txs with signature", func(t *testing.T) {
-		var txs []Transaction
 
-		type signature = []*felt.Felt
+	t.Run("txs with signature", func(t *testing.T) {
 		// actual tx hash is irrelevant so it's ok to have different transactions with the same hash
-		txHash := felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE")
+		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
+
 		// nil signature, empty signature and signature with some non-empty value
-		for _, sign := range []signature{nil, make(signature, 0), {new(felt.Felt).SetUint64(uint64(3))}} {
-			invoke := &InvokeTransaction{
+		signatures := [][]*felt.Felt{
+			nil,
+			{},
+			{felt.NewFromUint64[felt.Felt](3)},
+		}
+		txs := make([]Transaction, len(signatures)*3)
+
+		for i, sign := range signatures {
+			txs[i] = &InvokeTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
-			deployAccount := &DeployAccountTransaction{
+			txs[i+1] = &DeployAccountTransaction{
 				DeployTransaction: DeployTransaction{
 					TransactionHash: txHash,
 				},
 				TransactionSignature: sign,
 			}
-			declare := &DeclareTransaction{
+			txs[i+2] = &DeclareTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
-			txs = append(txs, invoke, deployAccount, declare)
 		}
 
 		c, err := transactionCommitmentPoseidon0132(txs)
