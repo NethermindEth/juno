@@ -81,7 +81,7 @@ func (h *Handler) TransactionReceiptByHash(
 		return adaptedReceipt, nil
 	}
 
-	txn, err := h.bcReader.TransactionByHash(hash)
+	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash))
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -89,8 +89,19 @@ func (h *Handler) TransactionReceiptByHash(
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(hash)
+	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, idx)
 	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	receipt, blockHash, err := h.bcReader.ReceiptByBlockNumberAndIndex(blockNumber, idx)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
@@ -105,7 +116,7 @@ func (h *Handler) TransactionReceiptByHash(
 	}
 
 	return rpcv9.AdaptReceiptWithBlockInfo(
-		receipt,
+		&receipt,
 		txn,
 		status,
 		blockHash,
