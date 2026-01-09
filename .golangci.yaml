@@ -101,6 +101,10 @@ linters:
       allow-unused: false
       require-explanation: false # todo(rdr): this should be switched to true for non test files
       require-specific: true
+    prealloc:
+      simple: true
+      range-loops: false
+      for-loops: false
     staticcheck:
       checks:
         - "all"
