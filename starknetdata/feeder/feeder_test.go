@@ -32,7 +32,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 			require.NoError(t, err)
-			assert.Equal(t, adaptedResponse, block)
+			assert.Equal(t, &adaptedResponse, block)
 		})
 	}
 }
@@ -50,7 +50,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 	require.NoError(t, err)
-	assert.Equal(t, adaptedResponse, block)
+	assert.Equal(t, &adaptedResponse, block)
 }
 
 func TestStateUpdate(t *testing.T) {
@@ -70,7 +70,7 @@ func TestStateUpdate(t *testing.T) {
 
 			adaptedResponse, err := sn2core.AdaptStateUpdate(response)
 			require.NoError(t, err)
-			assert.Equal(t, adaptedResponse, feederUpdate)
+			assert.Equal(t, &adaptedResponse, feederUpdate)
 		})
 	}
 }
@@ -215,7 +215,7 @@ func TestClassV1(t *testing.T) {
 		if test.hasCompiledClass {
 			assert.NotNil(t, adaptedResponse.Compiled)
 		} else {
-			assert.Nil(t, adaptedResponse.Compiled)
+			assert.Empty(t, adaptedResponse.Compiled)
 		}
 	}
 }
@@ -240,8 +240,8 @@ func TestStateUpdateWithBlock(t *testing.T) {
 			require.NoError(t, err)
 			adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
 			require.NoError(t, err)
-			assert.Equal(t, block, adaptedBlock)
-			assert.Equal(t, stateUpdate, adaptedStateUpdate)
+			assert.Equal(t, block, &adaptedBlock)
+			assert.Equal(t, stateUpdate, &adaptedStateUpdate)
 		})
 	}
 }
@@ -259,8 +259,8 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 	require.NoError(t, err)
 	stateUpdate, block, err := adapter.StateUpdatePendingWithBlock(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, block, adaptedBlock)
-	assert.Equal(t, stateUpdate, adaptedStateUpdate)
+	assert.Equal(t, block, &adaptedBlock)
+	assert.Equal(t, stateUpdate, &adaptedStateUpdate)
 }
 
 func TestPreConfirmedBlock(t *testing.T) {
