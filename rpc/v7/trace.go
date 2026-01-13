@@ -196,7 +196,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
 	var (
-		headState       core.StateReader
+		headState       core.CommonStateReader
 		headStateCloser blockchain.StateCloser
 	)
 	if isPending {
