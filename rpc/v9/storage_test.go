@@ -240,6 +240,7 @@ func TestStorageProof(t *testing.T) {
 	_, _ = tempTrie.Put(key2, value2)
 	_ = tempTrie.Commit()
 	trieRoot, _ := tempTrie.Hash()
+	tempTrieReader := &tempTrie.TrieReader
 
 	headBlock := &core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}
 
@@ -249,8 +250,8 @@ func TestStorageProof(t *testing.T) {
 	mockReader.EXPECT().Head().Return(headBlock, nil).AnyTimes()
 	mockReader.EXPECT().BlockByNumber(blockNumber).Return(headBlock, nil).AnyTimes()
 	mockReader.EXPECT().Height().Return(blockNumber, nil).AnyTimes()
-	mockState.EXPECT().ClassTrie().Return(tempTrie, nil).AnyTimes()
-	mockState.EXPECT().ContractTrie().Return(tempTrie, nil).AnyTimes()
+	mockState.EXPECT().ClassTrie().Return(tempTrieReader, nil).AnyTimes()
+	mockState.EXPECT().ContractTrie().Return(tempTrieReader, nil).AnyTimes()
 
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, nil, log)
@@ -388,7 +389,7 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
 		arityTest(t, proof, 3, 0, 0, 0)
-		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ClassesProof, tempTrie.HashFn())
+		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ClassesProof, tempTrieReader.HashFn())
 	})
 	t.Run("class trie hash exists in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -398,7 +399,7 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
 		arityTest(t, proof, 3, 0, 0, 0)
-		verifyIf(t, &trieRoot, key, value, proof.ClassesProof, tempTrie.HashFn())
+		verifyIf(t, &trieRoot, key, value, proof.ClassesProof, tempTrieReader.HashFn())
 	})
 	t.Run("only unique proof nodes are returned", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -414,8 +415,8 @@ func TestStorageProof(t *testing.T) {
 		require.Len(t, rootNodes, 1)
 
 		// verify we can still prove any of the keys in query
-		verifyIf(t, &trieRoot, key, value, proof.ClassesProof, tempTrie.HashFn())
-		verifyIf(t, &trieRoot, key2, value2, proof.ClassesProof, tempTrie.HashFn())
+		verifyIf(t, &trieRoot, key, value, proof.ClassesProof, tempTrieReader.HashFn())
+		verifyIf(t, &trieRoot, key2, value2, proof.ClassesProof, tempTrieReader.HashFn())
 	})
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -430,7 +431,7 @@ func TestStorageProof(t *testing.T) {
 		arityTest(t, proof, 0, 3, 1, 0)
 		require.Nil(t, proof.ContractsProof.LeavesData[0])
 
-		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ContractsProof.Nodes, tempTrie.HashFn())
+		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ContractsProof.Nodes, tempTrieReader.HashFn())
 	})
 	t.Run("storage trie address exists in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -451,14 +452,14 @@ func TestStorageProof(t *testing.T) {
 		require.Equal(t, nonce, ld.Nonce)
 		require.Equal(t, classHash, ld.ClassHash)
 
-		verifyIf(t, &trieRoot, key, value, proof.ContractsProof.Nodes, tempTrie.HashFn())
+		verifyIf(t, &trieRoot, key, value, proof.ContractsProof.Nodes, tempTrieReader.HashFn())
 	})
 	t.Run("contract storage trie address does not exist in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
 
 		contract := felt.NewFromUint64[felt.Felt](0xdead)
-		mockState.EXPECT().ContractStorageTrie(contract).Return(emptyTrie(t), nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(contract).Return(&emptyTrie(t).TrieReader, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
@@ -473,7 +474,7 @@ func TestStorageProof(t *testing.T) {
 			Return(headBlock.Header, nil)
 
 		contract := felt.NewFromUint64[felt.Felt](0xabcd)
-		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrie, nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrieReader, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*noSuchKey}}}
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
@@ -482,7 +483,7 @@ func TestStorageProof(t *testing.T) {
 		arityTest(t, proof, 0, 0, 0, 1)
 		require.Len(t, proof.ContractsStorageProofs[0], 3)
 
-		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ContractsStorageProofs[0], tempTrie.HashFn())
+		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ContractsStorageProofs[0], tempTrieReader.HashFn())
 	})
 	//nolint:dupl
 	t.Run("contract storage trie address/key exists in a trie", func(t *testing.T) {
@@ -490,7 +491,7 @@ func TestStorageProof(t *testing.T) {
 			Return(headBlock.Header, nil)
 
 		contract := felt.NewUnsafeFromString[felt.Felt]("0xadd0")
-		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrie, nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrieReader, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
@@ -499,7 +500,7 @@ func TestStorageProof(t *testing.T) {
 		arityTest(t, proof, 0, 0, 0, 1)
 		require.Len(t, proof.ContractsStorageProofs[0], 3)
 
-		verifyIf(t, &trieRoot, key, value, proof.ContractsStorageProofs[0], tempTrie.HashFn())
+		verifyIf(t, &trieRoot, key, value, proof.ContractsStorageProofs[0], tempTrieReader.HashFn())
 	})
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
