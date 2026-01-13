@@ -106,8 +106,9 @@ type Config struct {
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
 
-	DBCacheSize  uint `mapstructure:"db-cache-size"`
-	DBMaxHandles int  `mapstructure:"db-max-handles"`
+	DBCacheSize             uint   `mapstructure:"db-cache-size"`
+	DBMaxHandles            int    `mapstructure:"db-max-handles"`
+	DBCompactionConcurrency string `mapstructure:"db-compaction-concurrency"`
 
 	GatewayAPIKey   string `mapstructure:"gw-api-key"`
 	GatewayTimeouts string `mapstructure:"gw-timeouts"`
@@ -151,6 +152,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pebblev2.WithCacheSize(cfg.DBCacheSize),
 			pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
 			pebblev2.WithLogger(cfg.Colour),
+			pebblev2.WithCompactionConcurrency(cfg.DBCompactionConcurrency),
 		)
 	}
 
