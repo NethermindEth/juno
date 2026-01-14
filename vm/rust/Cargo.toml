@@ -12,7 +12,7 @@ blockifier = { version = "0.16.0-rc.3", features = ["node_api"] }
 cairo-lang-casm = "=2.12.3"
 cairo-lang-starknet-classes = "=2.12.3"
 cairo-lang-runner = { version = "=2.12.3" }
-starknet_api = "0.16.0-rc.2"
+starknet_api = "0.16.0-rc.3"
 cairo-vm = "=2.5.0"
 starknet-types-core = { version = "0.2.4", features = ["hash", "prime-bigint"] }
 indexmap = "2.1.0"
