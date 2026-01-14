@@ -164,10 +164,10 @@ func TestPutZero(t *testing.T) {
 		require.NoError(t, err)
 
 		// put random 64 keys and record roots
-		const amount = 64
-		roots := make([]*felt.Felt, 0, amount)
-		keys := make([]*felt.Felt, 0, amount)
-		for range amount {
+		const numKeys = 64
+		roots := make([]*felt.Felt, 0, numKeys)
+		keys := make([]*felt.Felt, 0, numKeys)
+		for range numKeys {
 			key := felt.NewRandom[felt.Felt]()
 			value := felt.NewRandom[felt.Felt]()
 

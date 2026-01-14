@@ -676,7 +676,7 @@ func (b *BitArray) Copy() BitArray {
 func (b *BitArray) EncodedString() string {
 	bt := b.Bytes()
 
-	// 1 byte to accomoaate the length and the other 32 for the data
+	// 1 byte to accommodate the length and the other 32 for the data
 	res := make([]byte, 1+32)
 	res[0] = b.len
 	copy(res[1:33], bt[0:32])
