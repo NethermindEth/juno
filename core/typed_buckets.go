@@ -153,7 +153,7 @@ var RunningEventFilterBucket = typed.NewBucket(
 var ClassCasmHashMetadataBucket = typed.NewBucket(
 	db.ClassCasmHashMetadata,
 	key.SierraClassHash,
-	value.Cbor[ClassCasmHashMetadata](),
+	value.Binary[ClassCasmHashMetadata](),
 )
 
 // Bucket 40: Block number (uint64) -> Block transactions (BlockTransactions)
