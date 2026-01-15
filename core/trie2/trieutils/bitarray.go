@@ -463,10 +463,9 @@ func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 
 // Returns the encoded bytes of the bit array.
 func (b *BitArray) EncodedBytes() []byte {
-	var res []byte
-	res = append(res, b.ActiveBytes()...)
-	res = append(res, b.len)
-	return res
+	encode := b.ActiveBytes()
+	encode = append(encode, b.len)
+	return encode
 }
 
 // Deserialises the BitArray from a bytes buffer in the following format:

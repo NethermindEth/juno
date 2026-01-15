@@ -44,16 +44,13 @@ func BuildNetworks(
 	wg = conc.NewWaitGroup()
 	for i := range nodes {
 		wg.Go(func() {
-			peers := make([]peer.AddrInfo, 0)
-
+			peers := make([]peer.AddrInfo, 0, len(adjacentNodes[i]))
 			for j := range adjacentNodes[i] {
-				other := peer.AddrInfo{
+				peers = append(peers, peer.AddrInfo{
 					ID:    nodes[j].Host.ID(),
 					Addrs: nodes[j].Host.Addrs(),
-				}
-				peers = append(peers, other)
+				})
 			}
-
 			nodes[i].GetBootstrapPeers = func() []peer.AddrInfo {
 				return peers
 			}

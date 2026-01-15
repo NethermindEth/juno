@@ -56,7 +56,7 @@ func (r *TransactionReceipt) hash() felt.Felt {
 
 func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 	chain := []*felt.Felt{
-		new(felt.Felt).SetUint64(uint64(len(messages))),
+		felt.NewFromUint64[felt.Felt](uint64(len(messages))),
 	}
 	for _, msg := range messages {
 		msgTo := felt.FromBytes[felt.Felt](msg.To.Bytes())
