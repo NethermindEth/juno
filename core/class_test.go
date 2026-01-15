@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -347,5 +348,133 @@ func TestSierraVersion(t *testing.T) {
 		}
 		sierraVersion := class.SierraVersion()
 		require.Equal(t, "7.3.11", sierraVersion)
+	})
+}
+
+func TestClassCasmHashMetadata(t *testing.T) {
+	declaredAt := uint64(100)
+	v1Hash := felt.UnsafeFromString[felt.CasmClassHash]("0x1")
+	v2Hash := felt.UnsafeFromString[felt.CasmClassHash]("0x2")
+
+	t.Run("NewCasmHashMetadataDeclaredV1", func(t *testing.T) {
+		record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+
+		t.Run("CasmHash", func(t *testing.T) {
+			require.Equal(t, v1Hash, record.CasmHash())
+		})
+
+		t.Run("before declaration", func(t *testing.T) {
+			_, err := record.CasmHashAt(declaredAt - 1)
+			require.Error(t, err)
+			require.ErrorIs(t, err, db.ErrKeyNotFound)
+		})
+
+		t.Run("at declaration", func(t *testing.T) {
+			hash, err := record.CasmHashAt(declaredAt)
+			require.NoError(t, err)
+			require.Equal(t, v1Hash, hash)
+		})
+
+		t.Run("after declaration", func(t *testing.T) {
+			hash, err := record.CasmHashAt(declaredAt + 1)
+			require.NoError(t, err)
+			require.Equal(t, v1Hash, hash)
+		})
+	})
+
+	t.Run("NewCasmHashMetadataDeclaredV2", func(t *testing.T) {
+		record := core.NewCasmHashMetadataDeclaredV2(declaredAt, &v2Hash)
+
+		t.Run("CasmHash", func(t *testing.T) {
+			assert.Equal(t, v2Hash, record.CasmHash())
+		})
+
+		t.Run("before declaration", func(t *testing.T) {
+			_, err := record.CasmHashAt(declaredAt - 1)
+			require.Error(t, err)
+			require.ErrorIs(t, err, db.ErrKeyNotFound)
+		})
+
+		t.Run("at declaration", func(t *testing.T) {
+			hash, err := record.CasmHashAt(declaredAt)
+			require.NoError(t, err)
+			require.Equal(t, v2Hash, hash)
+		})
+
+		t.Run("after declaration", func(t *testing.T) {
+			hash, err := record.CasmHashAt(declaredAt + 1)
+			require.NoError(t, err)
+			require.Equal(t, v2Hash, hash)
+		})
+	})
+
+	t.Run("Migrate V1 class", func(t *testing.T) {
+		record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+		require.NoError(t, record.Migrate(150))
+
+		t.Run("CasmHash", func(t *testing.T) {
+			assert.Equal(t, v2Hash, record.CasmHash())
+		})
+
+		t.Run("CasmHashAt", func(t *testing.T) {
+			t.Run("before migration", func(t *testing.T) {
+				hash, err := record.CasmHashAt(149)
+				require.NoError(t, err)
+				assert.Equal(t, v1Hash, hash)
+			})
+
+			t.Run("at migration", func(t *testing.T) {
+				hash, err := record.CasmHashAt(150)
+				require.NoError(t, err)
+				assert.Equal(t, v2Hash, hash)
+			})
+
+			t.Run("after migration", func(t *testing.T) {
+				hash, err := record.CasmHashAt(200)
+				require.NoError(t, err)
+				assert.Equal(t, v2Hash, hash)
+			})
+		})
+	})
+
+	t.Run("MarshalBinary and UnmarshalBinary", func(t *testing.T) {
+		original := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+		require.NoError(t, original.Migrate(150))
+
+		data, err := original.MarshalBinary()
+		require.NoError(t, err)
+
+		var unmarshaled core.ClassCasmHashMetadata
+		err = unmarshaled.UnmarshalBinary(data)
+		require.NoError(t, err)
+
+		assert.Equal(t, v2Hash, unmarshaled.CasmHash()) // Should return V2 since migrated
+
+		// Test at different heights
+		hash, err := unmarshaled.CasmHashAt(declaredAt)
+		require.NoError(t, err)
+		assert.Equal(t, v1Hash, hash) // Before migration
+
+		hash, err = unmarshaled.CasmHashAt(150)
+		require.NoError(t, err)
+		assert.Equal(t, v2Hash, hash) // At migration
+	})
+
+	t.Run("MarshalBinary and UnmarshalBinary for V2-only", func(t *testing.T) {
+		original := core.NewCasmHashMetadataDeclaredV2(declaredAt, &v2Hash)
+
+		data, err := original.MarshalBinary()
+		require.NoError(t, err)
+
+		var unmarshaled core.ClassCasmHashMetadata
+		err = unmarshaled.UnmarshalBinary(data)
+		require.NoError(t, err)
+
+		hash := unmarshaled.CasmHash()
+		assert.Equal(t, v2Hash, hash)
+
+		hash, err = unmarshaled.CasmHashAt(declaredAt)
+		require.NoError(t, err)
+		assert.Equal(t, v2Hash, hash)
 	})
 }

@@ -795,3 +795,52 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	_, err = state.Class(sierraHash)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 }
+
+func TestCompiledClassHashAt(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
+	state := core.NewState(txn)
+
+	sierraClassHash := felt.NewFromUint64[felt.SierraClassHash](123)
+	casmHash1 := felt.NewFromUint64[felt.CasmClassHash](456)
+	casmHash2 := felt.NewFromUint64[felt.CasmClassHash](789)
+	declaredAt := uint64(5)
+	migratedAt := uint64(10)
+
+	record := core.NewCasmHashMetadataDeclaredV1(declaredAt, casmHash1, casmHash2)
+	require.NoError(t, record.Migrate(migratedAt))
+	require.NoError(t, core.WriteClassCasmHashMetadata(txn, sierraClassHash, &record))
+
+	t.Run("non-existent class hash", func(t *testing.T) {
+		nonExistentHash := felt.NewFromUint64[felt.SierraClassHash](999)
+		_, err := state.CompiledClassHashAt(nonExistentHash, 13)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("get value before declared height", func(t *testing.T) {
+		_, err := state.CompiledClassHashAt(sierraClassHash, declaredAt-1)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("get value between declared height and migrated height", func(t *testing.T) {
+		got, err := state.CompiledClassHashAt(sierraClassHash, declaredAt+1)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash1, got)
+	})
+
+	t.Run("get value on height that change happened", func(t *testing.T) {
+		got, err := state.CompiledClassHashAt(sierraClassHash, declaredAt)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash1, got)
+
+		got, err = state.CompiledClassHashAt(sierraClassHash, migratedAt)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash2, got)
+	})
+
+	t.Run("get value after migration", func(t *testing.T) {
+		got, err := state.CompiledClassHashAt(sierraClassHash, migratedAt+1)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash2, got)
+	})
+}
