@@ -99,6 +99,7 @@ const (
 	submittedTransactionsCacheEntryTTLF = "submitted-transactions-cache-entry-ttl"
 	disableRPCBatchRequestsF            = "disable-rpc-batch-requests"
 	dbCompactionConcurrencyF            = "db-compaction-concurrency"
+	dbMemtableSizeF                     = "db-memtable-size"
 
 	defaultConfig                             = ""
 	defaultHost                               = "localhost"
@@ -150,6 +151,7 @@ const (
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
 	defaultDisableRPCBatchRequests            = false
 	defaultDBCompactionConcurrency            = ""
+	defaultDBMemtableSize                     = 4
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -223,6 +225,7 @@ const (
 	disableRPCBatchRequestsUsage       = "Disables handling of batched RPC requests."
 	dbCompactionConcurrencyUsage       = "DB compaction concurrency range. " +
 		"Format: N (lower=1, upper=N) or M,N (lower=M, upper=N). Default: 1,GOMAXPROCS/2"
+	dbMemtableSizeUsage = "Determines the amount of memory (in MBs) allocated for database memtables."
 )
 
 var Version string
@@ -412,6 +415,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(
 		dbCompactionConcurrencyF, defaultDBCompactionConcurrency, dbCompactionConcurrencyUsage,
 	)
+	junoCmd.Flags().Uint(dbMemtableSizeF, defaultDBMemtableSize, dbMemtableSizeUsage)
 	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)

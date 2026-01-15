@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	testCacheSizeMB  = 2048
-	testMaxOpenFiles = 200
+	testCacheSizeMB    = 2048
+	testMemtableSizeMB = 1024
+	testMaxOpenFiles   = 200
 )
 
 func TestOptions(t *testing.T) {
@@ -21,6 +22,7 @@ func TestOptions(t *testing.T) {
 		pebblev2.WithCacheSize(testCacheSizeMB),
 		pebblev2.WithMaxOpenFiles(testMaxOpenFiles),
 		pebblev2.WithLogger(true),
+		pebblev2.WithMemtableSize(testMemtableSizeMB),
 	}
 
 	opt := pebbledb.Options{}
@@ -29,6 +31,7 @@ func TestOptions(t *testing.T) {
 	}
 
 	assert.Equal(t, opt.Cache.MaxSize(), int64(testCacheSizeMB*1024*1024))
+	assert.Equal(t, opt.MemTableSize, uint64(testMemtableSizeMB*1024*1024))
 	assert.Equal(t, opt.MaxOpenFiles, testMaxOpenFiles)
 	assert.NotNil(t, opt.Logger)
 	assert.IsType(t, &utils.ZapLogger{}, opt.Logger)

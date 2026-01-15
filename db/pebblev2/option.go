@@ -76,6 +76,13 @@ func WithCompactionConcurrency(concurrency string) Option {
 	}
 }
 
+func WithMemtableSize(memtableSizeMB uint) Option {
+	return func(opts *pebble.Options) error {
+		opts.MemTableSize = uint64(memtableSizeMB) * utils.Megabyte
+		return nil
+	}
+}
+
 func parseCompactionConcurrency(s string) (lower, upper int, err error) {
 	parts := strings.Split(s, ",")
 	switch len(parts) {
