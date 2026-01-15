@@ -47,6 +47,7 @@ func (m *CasmHashMetadataMigration) Migrate(
 	network *utils.Network,
 	log utils.SimpleLogger, //nolint:staticcheck,nolintlint
 ) ([]byte, error) {
+	startTime := time.Now()
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -75,7 +76,13 @@ func (m *CasmHashMetadataMigration) Migrate(
 	)
 	maxWorkers := runtime.GOMAXPROCS(0)
 
-	stopProgressLogger := startProgressLogger(ctx, log, &blocksProcessed, chainHeight+1)
+	stopProgressLogger := startProgressLogger(
+		ctx,
+		log,
+		startTime,
+		&blocksProcessed,
+		chainHeight+1,
+	)
 	defer stopProgressLogger()
 
 	// Phase 1: Process blocks before 0.14.1
@@ -101,6 +108,7 @@ func (m *CasmHashMetadataMigration) Migrate(
 		if ctx.Err() != nil {
 			log.Infow("Class CASM hash metadata migration interrupted",
 				"blocks_processed", blocksProcessed.Load(),
+				"time_elapsed", time.Since(startTime).Seconds(),
 			)
 			return encodeIntermediateState(blocksProcessed.Load()), ctx.Err()
 		}
@@ -129,6 +137,7 @@ func (m *CasmHashMetadataMigration) Migrate(
 		if ctx.Err() != nil {
 			log.Infow("Class CASM hash metadata migration interrupted",
 				"blocks_processed", blocksProcessed.Load(),
+				"time_elapsed", time.Since(startTime).Seconds(),
 			)
 			return encodeIntermediateState(blocksProcessed.Load()), ctx.Err()
 		}
@@ -136,6 +145,7 @@ func (m *CasmHashMetadataMigration) Migrate(
 
 	log.Infow("Class CASM hash metadata migration completed",
 		"blocks_processed", blocksProcessed.Load(),
+		"time_elapsed", time.Since(startTime).Seconds(),
 	)
 
 	return nil, nil
@@ -194,6 +204,7 @@ func encodeIntermediateState(nextBlock uint64) []byte {
 func startProgressLogger(
 	ctx context.Context,
 	log utils.SimpleLogger, //nolint:staticcheck,nolintlint
+	startTime time.Time,
 	blocksProcessed *atomic.Uint64,
 	totalBlocks uint64,
 ) func() {
@@ -220,6 +231,7 @@ func startProgressLogger(
 					"blocks_processed", current,
 					"blocks_remaining", remaining,
 					"percentage", fmt.Sprintf("%.2f%%", percentage),
+					"time_elapsed", time.Since(startTime).Seconds(),
 				)
 			}
 		}
