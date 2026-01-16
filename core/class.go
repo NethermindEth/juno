@@ -437,7 +437,7 @@ func (c *ClassCasmHashMetadata) CasmHashAt(height uint64) (felt.CasmClassHash, e
 // Migrate marks a V1 casm hash as migrated to V2 at the given height.
 // casmHashV2 is already precomputed, so we only need to set migratedAt.
 func (c *ClassCasmHashMetadata) Migrate(migratedAt uint64) error {
-	if c.casmHashV1 == nil {
+	if c.IsDeclaredWithV2() {
 		return ErrCannotMigrateV2Declared
 	}
 	if migratedAt <= c.declaredAt {
@@ -453,7 +453,7 @@ func (c *ClassCasmHashMetadata) Migrate(migratedAt uint64) error {
 // Unmigrate clears the migration status, reverting the class to use V1 hash.
 // This is used when the block where migration happened is reorged.
 func (c *ClassCasmHashMetadata) Unmigrate() error {
-	if c.migratedAt == 0 {
+	if !c.IsMigrated() {
 		return ErrCannotUnmigrateNotMigrated
 	}
 	c.migratedAt = 0

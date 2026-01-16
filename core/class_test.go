@@ -559,12 +559,39 @@ func TestClassCasmHashMetadata(t *testing.T) {
 		require.True(t, record.IsMigratedAt(migratedAt+1))
 	})
 
-	t.Run("MarshalBinary and UnmarshalBinary", func(t *testing.T) {
+	t.Run("MarshalBinary and UnmarshalBinary not migrated V1 class", func(t *testing.T) {
+		original := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+
+		data, err := original.MarshalBinary()
+		require.NoError(t, err)
+		// 8 bytes for declaredAt
+		// 32 bytes for casmHashV2
+		// 1 byte for migratedAt flag
+		// 1 byte for casmHashV1 flag, 32 bytes for casmHashV1
+		require.Equal(t, 8+32+1+1+32, len(data))
+
+		var unmarshaled core.ClassCasmHashMetadata
+		err = unmarshaled.UnmarshalBinary(data)
+		require.NoError(t, err)
+
+		assert.Equal(t, v1Hash, unmarshaled.CasmHash())
+
+		hash, err := unmarshaled.CasmHashAt(declaredAt)
+		require.NoError(t, err)
+		assert.Equal(t, v1Hash, hash)
+	})
+
+	t.Run("MarshalBinary and UnmarshalBinary migrated V1 class", func(t *testing.T) {
 		original := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
 		require.NoError(t, original.Migrate(migratedAt))
 
 		data, err := original.MarshalBinary()
 		require.NoError(t, err)
+		// 8 bytes for declaredAt
+		// 32 bytes for casmHashV2
+		// 1 byte for migratedAt flag, 8 bytes for migratedAt
+		// 1 byte for casmHashV1 flag, 32 bytes for casmHashV1
+		require.Equal(t, 8+32+1+1+8+32, len(data))
 
 		var unmarshaled core.ClassCasmHashMetadata
 		err = unmarshaled.UnmarshalBinary(data)
@@ -587,7 +614,11 @@ func TestClassCasmHashMetadata(t *testing.T) {
 
 		data, err := original.MarshalBinary()
 		require.NoError(t, err)
-
+		// 8 bytes for declaredAt
+		// 32 bytes for casmHashV2
+		// 1 byte for migratedAt flag
+		// 1 byte for casmHashV1 flag
+		require.Equal(t, 8+32+1+1, len(data))
 		var unmarshaled core.ClassCasmHashMetadata
 		err = unmarshaled.UnmarshalBinary(data)
 		require.NoError(t, err)
