@@ -88,7 +88,7 @@ var defaultMigrations = []Migration{
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
-	&casmhashmetadata.CasmHashMetadataMigration{},
+	&casmhashmetadata.Migrator{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
