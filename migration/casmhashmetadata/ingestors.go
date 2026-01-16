@@ -2,47 +2,40 @@ package casmhashmetadata
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
+	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
-	"github.com/NethermindEth/juno/utils"
 )
 
 // pre0141Ingestor processes pre-0.14.1 blocks.
 type pre0141Ingestor struct {
-	database       db.KeyValueReader
-	chainHeight    uint64
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
-	batches        []db.Batch
-	logger         utils.SimpleLogger //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
-	startTime      time.Time
+	database        db.KeyValueReader
+	batchSemaphore  semaphore.ResourceSemaphore[db.Batch]
+	batches         []db.Batch
+	progressTracker *progresslogger.BlockNumberProgressTracker
 }
 
 var _ pipeline.State[uint64, db.Batch] = (*pre0141Ingestor)(nil)
 
 func newPre0141Ingestor(
-	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
 	database db.KeyValueReader,
-	chainHeight uint64,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	maxWorkers int,
-	startTime time.Time,
+	progressTracker *progresslogger.BlockNumberProgressTracker,
 ) *pre0141Ingestor {
 	batches := make([]db.Batch, maxWorkers)
 	for i := range batches {
 		batches[i] = batchSemaphore.GetBlocking()
 	}
 	return &pre0141Ingestor{
-		logger:         logger,
-		database:       database,
-		chainHeight:    chainHeight,
-		batchSemaphore: batchSemaphore,
-		batches:        batches,
-		startTime:      startTime,
+		database:        database,
+		batchSemaphore:  batchSemaphore,
+		batches:         batches,
+		progressTracker: progressTracker,
 	}
 }
 
@@ -92,14 +85,7 @@ func (p *pre0141Ingestor) Run(index int, blockNumber uint64, outputs chan<- db.B
 		p.batches[index] = p.batchSemaphore.GetBlocking()
 	}
 
-	if blockNumber > 0 && blockNumber%logRate == 0 {
-		elapsed := time.Since(p.startTime)
-		percentage := float64(blockNumber) / float64(p.chainHeight) * 100
-		p.logger.Infow("L1 handler message hash migration progress",
-			"percentage", fmt.Sprintf("%.2f%%", percentage),
-			"elapsed", fmt.Sprintf("%.2fs", elapsed.Seconds()),
-		)
-	}
+	p.progressTracker.IncrementCompletedBlocks(1)
 	return nil
 }
 
@@ -110,35 +96,29 @@ func (p *pre0141Ingestor) Done(index int, outputs chan<- db.Batch) error {
 
 // post0141Ingestor processes blocks from 0.14.1 onwards.
 type post0141Ingestor struct {
-	database       db.KeyValueReader
-	chainHeight    uint64
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
-	batches        []db.Batch
-	logger         utils.SimpleLogger //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
-	startTime      time.Time
+	database        db.KeyValueReader
+	batchSemaphore  semaphore.ResourceSemaphore[db.Batch]
+	batches         []db.Batch
+	progressTracker *progresslogger.BlockNumberProgressTracker
 }
 
 var _ pipeline.State[uint64, db.Batch] = (*post0141Ingestor)(nil)
 
 func newPost0141Ingestor(
-	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
 	database db.KeyValueReader,
-	chainHeight uint64,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	maxWorkers int,
-	startTime time.Time,
+	progressTracker *progresslogger.BlockNumberProgressTracker,
 ) *post0141Ingestor {
 	batches := make([]db.Batch, maxWorkers)
 	for i := range batches {
 		batches[i] = batchSemaphore.GetBlocking()
 	}
 	return &post0141Ingestor{
-		logger:         logger,
-		database:       database,
-		chainHeight:    chainHeight,
-		batchSemaphore: batchSemaphore,
-		batches:        batches,
-		startTime:      startTime,
+		database:        database,
+		batchSemaphore:  batchSemaphore,
+		batches:         batches,
+		progressTracker: progressTracker,
 	}
 }
 
@@ -208,14 +188,7 @@ func (p *post0141Ingestor) Run(index int, blockNumber uint64, outputs chan<- db.
 		p.batches[index] = p.batchSemaphore.GetBlocking()
 	}
 
-	if blockNumber > 0 && blockNumber%logRate == 0 {
-		elapsed := time.Since(p.startTime)
-		percentage := float64(blockNumber) / float64(p.chainHeight) * 100
-		p.logger.Infow("Casm hash metadata migration progress",
-			"percentage", fmt.Sprintf("%.2f%%", percentage),
-			"elapsed", fmt.Sprintf("%.2fs", elapsed.Seconds()),
-		)
-	}
+	p.progressTracker.IncrementCompletedBlocks(1)
 	return nil
 }
 

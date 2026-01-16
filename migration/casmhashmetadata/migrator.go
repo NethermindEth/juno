@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/migration/pipeline"
+	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -27,8 +28,8 @@ const (
 	// targetBatchByteSize is the threshold at which a batch is written to the database.
 	targetBatchByteSize = 96 * utils.Megabyte
 
-	// logRate is the rate at which we log the progress in block numbers.
-	logRate = 100_000
+	// timeLogRate is the rate at which we log the progress.
+	timeLogRate = 10 * time.Second
 )
 
 type Migrator struct {
@@ -83,6 +84,10 @@ func (m *Migrator) Migrate(
 		chainHeight,
 	)
 	maxWorkers := runtime.GOMAXPROCS(0)
+	// setup progress tracker and logger
+	progressTracker := progresslogger.NewBlockNumberProgressTracker(log, chainHeight, m.startFrom)
+	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
+	defer loggerCancel()
 
 	batchSemaphore := semaphore.New(maxWorkers, func() db.Batch {
 		return database.NewBatchWithSize(int(batchByteSize))
@@ -91,12 +96,10 @@ func (m *Migrator) Migrate(
 	if m.startFrom < cutoff {
 		toBlock := cutoff - 1
 		processor := newPre0141Ingestor(
-			log,
 			database,
-			chainHeight+1,
 			batchSemaphore,
 			maxWorkers,
-			startTime,
+			progressTracker,
 		)
 
 		resumeFrom, err := migrateRange(
@@ -127,12 +130,10 @@ func (m *Migrator) Migrate(
 	phase2Start := max(cutoff, m.startFrom)
 	if phase2Start <= chainHeight {
 		processor := newPost0141Ingestor(
-			log,
 			database,
-			chainHeight+1,
 			batchSemaphore,
 			maxWorkers,
-			startTime,
+			progressTracker,
 		)
 		resumeFrom, err := migrateRange(
 			ctx,
