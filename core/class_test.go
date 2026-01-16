@@ -353,16 +353,13 @@ func TestSierraVersion(t *testing.T) {
 
 func TestClassCasmHashMetadata(t *testing.T) {
 	declaredAt := uint64(100)
+	migratedAt := uint64(150)
 	v1Hash := felt.UnsafeFromString[felt.CasmClassHash]("0x1")
 	v2Hash := felt.UnsafeFromString[felt.CasmClassHash]("0x2")
+	record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+	require.NoError(t, record.Migrate(migratedAt))
 
 	t.Run("NewCasmHashMetadataDeclaredV1", func(t *testing.T) {
-		record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
-
-		t.Run("CasmHash", func(t *testing.T) {
-			require.Equal(t, v1Hash, record.CasmHash())
-		})
-
 		t.Run("before declaration", func(t *testing.T) {
 			_, err := record.CasmHashAt(declaredAt - 1)
 			require.Error(t, err)
@@ -437,9 +434,134 @@ func TestClassCasmHashMetadata(t *testing.T) {
 		})
 	})
 
+	t.Run("Migrate error cases", func(t *testing.T) {
+		t.Run("cannot migrate V2-declared class", func(t *testing.T) {
+			record := core.NewCasmHashMetadataDeclaredV2(declaredAt, &v2Hash)
+			err := record.Migrate(migratedAt)
+			require.Error(t, err)
+			require.ErrorIs(t, err, core.ErrCannotMigrateV2Declared)
+		})
+
+		t.Run("cannot migrate to block before declaration", func(t *testing.T) {
+			record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+
+			t.Run("migrate to same block as declaration", func(t *testing.T) {
+				err := record.Migrate(declaredAt)
+				require.Error(t, err)
+				require.ErrorIs(t, err, core.ErrCannotMigrateBeforeDeclared)
+			})
+
+			t.Run("migrate to block before declaration", func(t *testing.T) {
+				err := record.Migrate(declaredAt - 1)
+				require.Error(t, err)
+				require.ErrorIs(t, err, core.ErrCannotMigrateBeforeDeclared)
+			})
+		})
+
+		t.Run("cannot migrate already migrated class", func(t *testing.T) {
+			record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+			require.NoError(t, record.Migrate(migratedAt))
+
+			err := record.Migrate(migratedAt + 1)
+			require.Error(t, err)
+			require.ErrorIs(t, err, core.ErrCannotMigrateAlreadyMigrated)
+		})
+	})
+
+	t.Run("Unmigrate", func(t *testing.T) {
+		t.Run("error: cannot unmigrate non-migrated class", func(t *testing.T) {
+			record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+			err := record.Unmigrate()
+			require.Error(t, err)
+			require.ErrorIs(t, err, core.ErrCannotUnmigrateNotMigrated)
+		})
+
+		t.Run("success: unmigrate migrated class", func(t *testing.T) {
+			record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+			require.NoError(t, record.Migrate(migratedAt))
+
+			// Verify it's migrated
+			require.True(t, record.IsMigrated())
+			require.True(t, record.IsMigratedAt(migratedAt))
+			require.True(t, record.IsMigratedAt(migratedAt+1))
+			require.False(t, record.IsMigratedAt(migratedAt-1))
+			assert.Equal(t, v2Hash, record.CasmHash())
+
+			// Unmigrate
+			require.NoError(t, record.Unmigrate())
+
+			// Verify it's no longer migrated
+			require.False(t, record.IsMigrated())
+			require.False(t, record.IsMigratedAt(migratedAt))
+			require.False(t, record.IsMigratedAt(migratedAt+1))
+			assert.Equal(t, v1Hash, record.CasmHash())
+
+			// Verify CasmHashAt returns V1 at all heights after declaration
+			hash, err := record.CasmHashAt(migratedAt - 1)
+			require.NoError(t, err)
+			assert.Equal(t, v1Hash, hash)
+
+			hash, err = record.CasmHashAt(migratedAt)
+			require.NoError(t, err)
+			assert.Equal(t, v1Hash, hash)
+
+			hash, err = record.CasmHashAt(migratedAt + 1)
+			require.NoError(t, err)
+			assert.Equal(t, v1Hash, hash)
+		})
+
+		t.Run("unmigrate then remigrate", func(t *testing.T) {
+			record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+			require.NoError(t, record.Migrate(migratedAt))
+			require.NoError(t, record.Unmigrate())
+
+			// Should be able to migrate again
+			require.NoError(t, record.Migrate(migratedAt+1))
+			require.True(t, record.IsMigrated())
+			assert.Equal(t, v2Hash, record.CasmHash())
+
+			// Verify migration happened at new block
+			hash, err := record.CasmHashAt(migratedAt - 1)
+			require.NoError(t, err)
+			assert.Equal(t, v1Hash, hash)
+
+			hash, err = record.CasmHashAt(migratedAt + 1)
+			require.NoError(t, err)
+			assert.Equal(t, v2Hash, hash)
+		})
+	})
+
+	t.Run("IsDeclaredWithV2", func(t *testing.T) {
+		v1Record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+		require.False(t, v1Record.IsDeclaredWithV2())
+
+		v2Record := core.NewCasmHashMetadataDeclaredV2(declaredAt, &v2Hash)
+		require.True(t, v2Record.IsDeclaredWithV2())
+	})
+
+	t.Run("IsMigrated", func(t *testing.T) {
+		record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+		require.False(t, record.IsMigrated())
+
+		require.NoError(t, record.Migrate(migratedAt))
+		require.True(t, record.IsMigrated())
+	})
+
+	t.Run("IsMigratedAt", func(t *testing.T) {
+		record := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
+		require.False(t, record.IsMigratedAt(declaredAt))
+		require.False(t, record.IsMigratedAt(migratedAt))
+		require.False(t, record.IsMigratedAt(migratedAt+1))
+
+		require.NoError(t, record.Migrate(migratedAt))
+		require.False(t, record.IsMigratedAt(migratedAt-1))
+		require.True(t, record.IsMigratedAt(migratedAt))
+		require.True(t, record.IsMigratedAt(migratedAt+1))
+	})
+
 	t.Run("MarshalBinary and UnmarshalBinary", func(t *testing.T) {
 		original := core.NewCasmHashMetadataDeclaredV1(declaredAt, &v1Hash, &v2Hash)
-		require.NoError(t, original.Migrate(150))
+		require.NoError(t, original.Migrate(migratedAt))
 
 		data, err := original.MarshalBinary()
 		require.NoError(t, err)
@@ -455,7 +577,7 @@ func TestClassCasmHashMetadata(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, v1Hash, hash) // Before migration
 
-		hash, err = unmarshaled.CasmHashAt(150)
+		hash, err = unmarshaled.CasmHashAt(migratedAt)
 		require.NoError(t, err)
 		assert.Equal(t, v2Hash, hash) // At migration
 	})

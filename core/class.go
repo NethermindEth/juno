@@ -355,13 +355,36 @@ func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 	return encoder.Unmarshal(data[8:], &d.Class)
 }
 
+// ClassCasmHashMetadata tracks the CASM (Compiled Sierra) hash metadata for a class.
+// It supports both hash versions for historical queries:
+//
+//   - CasmHashV1: Uses Poseidon hash (HashVersionV1). Used for classes declared before
+//     protocol version 0.14.1. These classes can be migrated to CasmHashV2 at a later block.
+//
+//   - CasmHashV2: Uses Blake2s hash (HashVersionV2). Used for classes declared from
+//     protocol version 0.14.1 onwards.
+//
+// Protocol version 0.14.1 switch:
+//   - Before 0.14.1: Classes are declared with V1 hash (Poseidon). The V2 hash is
+//     pre-computed and stored for future migration.
+//   - From 0.14.1: Classes are declared directly with V2 hash (Blake2s). No V1 hash exists.
+//   - Migration: Classes declared before 0.14.1 can be migrated to V2 at a specific block
+//     (recorded in migratedAt). After migration, V2 hash is used for all queries.
+//
+// The metadata structure ensures correct hash retrieval at any historical block height
 type ClassCasmHashMetadata struct {
 	declaredAt uint64
-
 	casmHashV2 felt.CasmClassHash // always there either set or pre_computed
-	migratedAt *uint64
+	migratedAt uint64
 	casmHashV1 *felt.CasmClassHash // will be absent for classes declared with casm hash v2
 }
+
+var (
+	ErrCannotMigrateV2Declared      = errors.New("cannot migrate a class that was declared with V2")
+	ErrCannotMigrateBeforeDeclared  = errors.New("cannot migrate a class to a block before it was declared")
+	ErrCannotMigrateAlreadyMigrated = errors.New("cannot migrate a class that was already migrated")
+	ErrCannotUnmigrateNotMigrated   = errors.New("cannot unmigrate a class that was not migrated")
+)
 
 // NewCasmHashMetadataDeclaredV1 creates metadata for a class declared with V1 hash.
 // Both casmHashV1 and casmHashV2 are required.
@@ -391,16 +414,10 @@ func NewCasmHashMetadataDeclaredV2(
 
 // CasmHash returns the CASM hash for a class at most recent height.
 func (c *ClassCasmHashMetadata) CasmHash() felt.CasmClassHash {
-	// If declared with V2 directly (no V1), return V2
-	if c.casmHashV1 == nil {
-		return c.casmHashV2
-	}
-	// If migrated, always return V2
-	if c.migratedAt != nil {
+	if c.IsDeclaredWithV2() || c.IsMigrated() {
 		return c.casmHashV2
 	}
 
-	// Otherwise return V1
 	return *c.casmHashV1
 }
 
@@ -409,17 +426,11 @@ func (c *ClassCasmHashMetadata) CasmHashAt(height uint64) (felt.CasmClassHash, e
 	if c.declaredAt > height {
 		return felt.CasmClassHash{}, db.ErrKeyNotFound
 	}
-	// If declared with V2 directly, always use V2
-	if c.casmHashV1 == nil {
+
+	if c.IsDeclaredWithV2() || c.IsMigratedAt(height) {
 		return c.casmHashV2, nil
 	}
 
-	// If migrated and height is at or after migration, use V2
-	if c.migratedAt != nil && height >= *c.migratedAt {
-		return c.casmHashV2, nil
-	}
-
-	// Otherwise use V1
 	return *c.casmHashV1, nil
 }
 
@@ -427,19 +438,25 @@ func (c *ClassCasmHashMetadata) CasmHashAt(height uint64) (felt.CasmClassHash, e
 // casmHashV2 is already precomputed, so we only need to set migratedAt.
 func (c *ClassCasmHashMetadata) Migrate(migratedAt uint64) error {
 	if c.casmHashV1 == nil {
-		return errors.New("cannot migrate a class that was declared with V2")
+		return ErrCannotMigrateV2Declared
 	}
-	c.migratedAt = &migratedAt
+	if migratedAt <= c.declaredAt {
+		return ErrCannotMigrateBeforeDeclared
+	}
+	if c.IsMigrated() {
+		return ErrCannotMigrateAlreadyMigrated
+	}
+	c.migratedAt = migratedAt
 	return nil
 }
 
 // Unmigrate clears the migration status, reverting the class to use V1 hash.
 // This is used when the block where migration happened is reorged.
 func (c *ClassCasmHashMetadata) Unmigrate() error {
-	if c.migratedAt == nil {
-		return errors.New("cannot unmigrate a class that was not migrated")
+	if c.migratedAt == 0 {
+		return ErrCannotUnmigrateNotMigrated
 	}
-	c.migratedAt = nil
+	c.migratedAt = 0
 	return nil
 }
 
@@ -447,12 +464,24 @@ func (c *ClassCasmHashMetadata) CasmHashV2() felt.CasmClassHash {
 	return c.casmHashV2
 }
 
+func (c *ClassCasmHashMetadata) IsMigrated() bool {
+	return c.migratedAt > 0
+}
+
+func (c *ClassCasmHashMetadata) IsMigratedAt(height uint64) bool {
+	return c.migratedAt > 0 && c.migratedAt <= height
+}
+
+func (c *ClassCasmHashMetadata) IsDeclaredWithV2() bool {
+	return c.casmHashV1 == nil
+}
+
 func (c *ClassCasmHashMetadata) MarshalBinary() ([]byte, error) {
 	// Structure:
 	// declaredAt (8) + casmHashV2 (32) +
 	// migratedAt flag (1) + migratedAt (8 if present) +
 	// casmHashV1 flag (1) + casmHashV1 (32 if present)
-	hasMigratedAt := c.migratedAt != nil
+	hasMigratedAt := c.migratedAt > 0
 	hasCasmHashV1 := c.casmHashV1 != nil
 
 	size := 8 + 32 + 1 + 1 // declaredAt + casmHashV2 + migratedAt flag + casmHashV1 flag
@@ -478,7 +507,7 @@ func (c *ClassCasmHashMetadata) MarshalBinary() ([]byte, error) {
 	if hasMigratedAt {
 		buf[offset] = 1
 		offset++
-		binary.BigEndian.PutUint64(buf[offset:offset+8], *c.migratedAt)
+		binary.BigEndian.PutUint64(buf[offset:offset+8], c.migratedAt)
 		offset += 8
 	} else {
 		buf[offset] = 0
@@ -520,11 +549,11 @@ func (c *ClassCasmHashMetadata) UnmarshalBinary(data []byte) error {
 			return errors.New("data too short for migratedAt")
 		}
 		migratedAt := binary.BigEndian.Uint64(data[offset : offset+8])
-		c.migratedAt = &migratedAt
+		c.migratedAt = migratedAt
 		offset += 8
 	} else {
 		offset++
-		c.migratedAt = nil
+		c.migratedAt = 0
 	}
 
 	// casmHashV1 flag and value

@@ -341,6 +341,7 @@ func (b *Blockchain) Store(
 }
 
 // storeCasmHashMetadata stores CASM hash metadata for declared and migrated classes.
+// See [core.ClassCasmHashMetadata]
 func storeCasmHashMetadata(
 	txn db.IndexedBatch,
 	blockNumber uint64,
