@@ -381,7 +381,7 @@ type ClassCasmHashMetadata struct {
 
 var (
 	ErrCannotMigrateV2Declared      = errors.New("cannot migrate a class that was declared with V2")
-	ErrCannotMigrateBeforeDeclared  = errors.New("cannot migrate a class to a block before it was declared")
+	ErrCannotMigrateBeforeDeclared  = errors.New("cannot migrate the class before it was declared")
 	ErrCannotMigrateAlreadyMigrated = errors.New("cannot migrate a class that was already migrated")
 	ErrCannotUnmigrateNotMigrated   = errors.New("cannot unmigrate a class that was not migrated")
 )
