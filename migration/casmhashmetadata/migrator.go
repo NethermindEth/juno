@@ -29,7 +29,7 @@ const (
 	targetBatchByteSize = 96 * utils.Megabyte
 
 	// timeLogRate is the rate at which we log the progress.
-	timeLogRate = 10 * time.Second
+	timeLogRate = 30 * time.Second
 )
 
 type Migrator struct {
