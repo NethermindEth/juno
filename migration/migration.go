@@ -26,6 +26,7 @@ import (
 	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/migration/casmhashmetadata"
+	"github.com/NethermindEth/juno/migration/l1handlermapping"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -89,7 +90,7 @@ var defaultMigrations = []Migration{
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
 	&casmhashmetadata.Migrator{},
-	recalculateL1HandlerMsgHashesToTxnHashes{},
+	&l1handlermapping.Migrator{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -1003,71 +1004,4 @@ func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) err
 	}
 
 	return workerPool.Wait()
-}
-
-// recalculateL1HandlerMsgHashes recalculates L1Handler message hash to txn hash mappings.
-// Needed because calculateL1MsgHashes2 ran with a buggy WriteL1HandlerMsgHashes.
-// Functionally same as calculateL1MsgHashes2, but optimised for concurrent reads.
-type recalculateL1HandlerMsgHashesToTxnHashes struct{}
-
-func (m recalculateL1HandlerMsgHashesToTxnHashes) Before(_ []byte) error {
-	return nil
-}
-
-func (m recalculateL1HandlerMsgHashesToTxnHashes) Migrate(
-	ctx context.Context,
-	database db.KeyValueStore,
-	_ *utils.Network,
-	_ utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // Ignore staticcheck it follow Migration interface, nolintlint because main config doesn't check staticcheck
-) ([]byte, error) {
-	chainHeight, err := core.GetChainHeight(database)
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return nil, nil // Empty DB, nothing to migrate
-		}
-		return nil, err
-	}
-
-	// Channel to distribute block numbers to workers
-	blockNumbers := make(chan uint64)
-	go func() {
-		for blockNum := range chainHeight + 1 {
-			blockNumbers <- blockNum
-		}
-		close(blockNumbers)
-	}()
-
-	var writeMu sync.Mutex
-	numWorkers := runtime.GOMAXPROCS(0)
-	workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
-	batch := database.NewBatch()
-
-	for range numWorkers {
-		workerPool.Go(func() error {
-			for blockNum := range blockNumbers {
-				txns, err := core.GetTxsByBlockNum(database, blockNum)
-				if err != nil {
-					return err
-				}
-
-				writeMu.Lock()
-				err = core.WriteL1HandlerMsgHashes(batch, txns)
-				writeMu.Unlock()
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-	}
-
-	if err := workerPool.Wait(); err != nil {
-		return nil, err
-	}
-
-	if err := batch.Write(); err != nil {
-		return nil, err
-	}
-
-	return nil, nil
 }

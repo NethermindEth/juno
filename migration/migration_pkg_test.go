@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/migration/l1handlermapping"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -742,7 +743,7 @@ func randSlice(t *testing.T) []*felt.Felt {
 func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 	t.Run("empty DB", func(t *testing.T) {
 		testdb := memory.New()
-		m := recalculateL1HandlerMsgHashesToTxnHashes{}
+		m := l1handlermapping.Migrator{}
 		require.NoError(t, m.Before(nil))
 		intermediateState, err := m.Migrate(t.Context(), testdb, &utils.Sepolia, nil)
 		require.NoError(t, err)
@@ -817,7 +818,7 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 		)
 
 		// Run migration
-		m := recalculateL1HandlerMsgHashesToTxnHashes{}
+		m := l1handlermapping.Migrator{}
 		require.NoError(t, m.Before(nil))
 		intermediateState, err := m.Migrate(t.Context(), testdb, &utils.Sepolia, nil)
 		require.NoError(t, err)
