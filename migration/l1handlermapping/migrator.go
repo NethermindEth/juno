@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
+	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -23,7 +24,7 @@ const (
 	targetBatchByteSize = 96 * utils.Megabyte
 
 	// logRate is the rate at which we log the progress in block numbers.
-	logRate = 100_000
+	timeLogRate = 30 * time.Second
 )
 
 // Migrator recalculates L1 message hash to L2 transaction hash mapping from transactions
@@ -100,10 +101,14 @@ func migrateBlockRange(
 	ctx context.Context,
 	database db.KeyValueStore,
 	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
-	firstBlock,
+	startFrom uint64,
 	chainHeight uint64,
 	maxWorkers int,
 ) (uint64, error) {
+	progressTracker := progresslogger.NewBlockNumberProgressTracker(logger, chainHeight, startFrom)
+	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
+	defer loggerCancel()
+
 	batchSemaphore := semaphore.New(
 		maxWorkers+1,
 		func() db.Batch {
@@ -117,11 +122,10 @@ func migrateBlockRange(
 		blockNumberCh,
 		maxWorkers,
 		newIngestor(
-			logger,
 			database,
-			chainHeight,
 			batchSemaphore,
 			maxWorkers,
+			progressTracker,
 		),
 	)
 
@@ -131,7 +135,7 @@ func migrateBlockRange(
 		newCommitter(logger, batchSemaphore),
 	)
 
-	nextBlockNumber := firstBlock
+	nextBlockNumber := startFrom
 outerLoop:
 	for ; nextBlockNumber <= chainHeight; nextBlockNumber++ {
 		select {
