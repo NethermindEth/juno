@@ -14,14 +14,14 @@ type ingestor struct {
 	database        db.KeyValueReader
 	batchSemaphore  semaphore.ResourceSemaphore[db.Batch]
 	batches         []db.Batch
-	progressTracker *progresslogger.BlockNumberProgressTracker
+	progressTracker *progresslogger.BlockProgressTracker
 }
 
 func newIngestor(
 	database db.KeyValueReader,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	maxWorkers int,
-	progressTracker *progresslogger.BlockNumberProgressTracker,
+	progressTracker *progresslogger.BlockProgressTracker,
 ) *ingestor {
 	batches := make([]db.Batch, maxWorkers)
 	for i := range batches {

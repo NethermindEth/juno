@@ -53,13 +53,10 @@ func (m *Migrator) Migrate(
 		return nil, err
 	}
 
-	startFrom := m.startFrom
-	startTime := time.Now()
-
-	if startFrom > 0 {
+	if m.startFrom > 0 {
 		log.Infow("Resuming L1 handler message hash migration",
 			"chain_height", chainHeight,
-			"from_block", startFrom,
+			"from_block", m.startFrom,
 		)
 	} else {
 		log.Infow("Starting L1 handler message hash migration",
@@ -69,30 +66,30 @@ func (m *Migrator) Migrate(
 	}
 
 	numWorkers := runtime.GOMAXPROCS(0)
+	progressTracker := progresslogger.NewBlockProgressTracker(log, chainHeight, m.startFrom)
 	resumeFrom, err := migrateBlockRange(
 		ctx,
 		database,
 		log,
-		startFrom,
+		m.startFrom,
 		chainHeight,
 		numWorkers,
+		progressTracker,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	elapsed := time.Since(startTime)
-
 	if shouldResume := resumeFrom <= chainHeight; shouldResume {
 		log.Infow("L1 handler message hash migration interrupted",
 			"resume_from", resumeFrom,
-			"elapsed", fmt.Sprintf("%.2fs", elapsed.Seconds()),
+			"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
 		)
 		return encodeIntermediateState(resumeFrom), nil
 	}
 
 	log.Infow("L1 handler message hash migration completed",
-		"elapsed", fmt.Sprintf("%.2fs", elapsed.Seconds()),
+		"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
 	)
 	return nil, nil
 }
@@ -102,10 +99,10 @@ func migrateBlockRange(
 	database db.KeyValueStore,
 	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
 	startFrom uint64,
-	chainHeight uint64,
+	rangeEnd uint64,
 	maxWorkers int,
+	progressTracker *progresslogger.BlockProgressTracker,
 ) (uint64, error) {
-	progressTracker := progresslogger.NewBlockNumberProgressTracker(logger, chainHeight, startFrom)
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
 
@@ -137,7 +134,7 @@ func migrateBlockRange(
 
 	nextBlockNumber := startFrom
 outerLoop:
-	for ; nextBlockNumber <= chainHeight; nextBlockNumber++ {
+	for ; nextBlockNumber <= rangeEnd; nextBlockNumber++ {
 		select {
 		case <-ctx.Done():
 			break outerLoop
