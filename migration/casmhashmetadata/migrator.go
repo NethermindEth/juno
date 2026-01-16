@@ -68,7 +68,7 @@ func (m *Migrator) Migrate(
 	if m.startFrom > 0 {
 		log.Infow("Resuming Casm hash metadata migration",
 			"chain_height", chainHeight,
-			"from_block", m.startFrom,
+			"resuming_from", m.startFrom,
 		)
 	} else {
 		log.Infow("Starting Casm hash metadata migration",
