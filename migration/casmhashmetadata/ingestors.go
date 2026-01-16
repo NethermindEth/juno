@@ -16,7 +16,7 @@ type pre0141Ingestor struct {
 	database        db.KeyValueReader
 	batchSemaphore  semaphore.ResourceSemaphore[db.Batch]
 	batches         []db.Batch
-	progressTracker *progresslogger.BlockNumberProgressTracker
+	progressTracker *progresslogger.BlockProgressTracker
 }
 
 var _ pipeline.State[uint64, db.Batch] = (*pre0141Ingestor)(nil)
@@ -25,7 +25,7 @@ func newPre0141Ingestor(
 	database db.KeyValueReader,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	maxWorkers int,
-	progressTracker *progresslogger.BlockNumberProgressTracker,
+	progressTracker *progresslogger.BlockProgressTracker,
 ) *pre0141Ingestor {
 	batches := make([]db.Batch, maxWorkers)
 	for i := range batches {
@@ -99,7 +99,7 @@ type post0141Ingestor struct {
 	database        db.KeyValueReader
 	batchSemaphore  semaphore.ResourceSemaphore[db.Batch]
 	batches         []db.Batch
-	progressTracker *progresslogger.BlockNumberProgressTracker
+	progressTracker *progresslogger.BlockProgressTracker
 }
 
 var _ pipeline.State[uint64, db.Batch] = (*post0141Ingestor)(nil)
@@ -108,7 +108,7 @@ func newPost0141Ingestor(
 	database db.KeyValueReader,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	maxWorkers int,
-	progressTracker *progresslogger.BlockNumberProgressTracker,
+	progressTracker *progresslogger.BlockProgressTracker,
 ) *post0141Ingestor {
 	batches := make([]db.Batch, maxWorkers)
 	for i := range batches {

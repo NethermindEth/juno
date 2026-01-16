@@ -57,7 +57,6 @@ func (m *Migrator) Migrate(
 	network *utils.Network,
 	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
 ) ([]byte, error) {
-	startTime := time.Now()
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -85,7 +84,7 @@ func (m *Migrator) Migrate(
 	)
 	maxWorkers := runtime.GOMAXPROCS(0)
 	// setup progress tracker and logger
-	progressTracker := progresslogger.NewBlockNumberProgressTracker(log, chainHeight, m.startFrom)
+	progressTracker := progresslogger.NewBlockProgressTracker(log, chainHeight, m.startFrom)
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
 
@@ -115,12 +114,11 @@ func (m *Migrator) Migrate(
 			return nil, err
 		}
 
-		elapsed := time.Since(startTime)
 		// Check for cancellation after processing
 		if shouldResume := resumeFrom <= toBlock; shouldResume {
 			log.Infow("Casm hash metadata migration interrupted",
 				"resume_from", resumeFrom,
-				"elapsed", fmt.Sprintf("%.2fs", elapsed.Seconds()),
+				"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
@@ -148,18 +146,17 @@ func (m *Migrator) Migrate(
 			return nil, err
 		}
 
-		elapsed := time.Since(startTime)
 		if shouldResume := resumeFrom <= chainHeight; shouldResume {
 			log.Infow("Casm hash metadata migration interrupted",
 				"resume_from", resumeFrom,
-				"elapsed", fmt.Sprintf("%.2fs", elapsed.Seconds()),
+				"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
 	}
 
 	log.Infow("Casm hash metadata migration completed",
-		"elapsed", fmt.Sprintf("%.2fs", time.Since(startTime).Seconds()),
+		"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
 	)
 
 	return nil, nil
