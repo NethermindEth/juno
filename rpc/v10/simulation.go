@@ -30,7 +30,7 @@ type TracedBlockTransaction struct {
 }
 
 type BroadcastedTransactionInputs = rpccore.LimitSlice[
-	rpcv9.BroadcastedTransaction,
+	BroadcastedTransaction,
 	rpccore.SimulationLimit,
 ]
 
@@ -48,7 +48,7 @@ func (h *Handler) SimulateTransactions(
 
 func (h *Handler) simulateTransactions(
 	id *rpcv9.BlockID,
-	transactions []rpcv9.BroadcastedTransaction,
+	transactions []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
@@ -116,14 +116,14 @@ func isVersion3(version *felt.Felt) bool {
 	return version != nil && version.Equal(&rpcv6.RPCVersion3Value)
 }
 
-func checkTxHasSenderAddress(tx *rpcv9.BroadcastedTransaction) bool {
+func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {
 	return (tx.Transaction.Type == rpcv9.TxnDeclare ||
 		tx.Transaction.Type == rpcv9.TxnInvoke) &&
 		isVersion3(tx.Transaction.Version) &&
 		tx.Transaction.SenderAddress == nil
 }
 
-func checkTxHasResourceBounds(tx *rpcv9.BroadcastedTransaction) bool {
+func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 	return (tx.Transaction.Type == rpcv9.TxnInvoke ||
 		tx.Transaction.Type == rpcv9.TxnDeployAccount ||
 		tx.Transaction.Type == rpcv9.TxnDeclare) &&
@@ -132,7 +132,7 @@ func checkTxHasResourceBounds(tx *rpcv9.BroadcastedTransaction) bool {
 }
 
 func prepareTransactions(
-	transactions []rpcv9.BroadcastedTransaction,
+	transactions []BroadcastedTransaction,
 	network *utils.Network,
 ) ([]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
 	txns := make([]core.Transaction, len(transactions))
@@ -160,7 +160,7 @@ func prepareTransactions(
 			)
 		}
 
-		txn, declaredClass, paidFeeOnL1, aErr := rpcv9.AdaptBroadcastedTransaction(
+		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(
 			&transactions[idx],
 			network,
 		)
