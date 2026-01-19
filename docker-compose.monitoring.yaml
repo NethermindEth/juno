@@ -1,0 +1,106 @@
+# run "docker-compose up --build -d"
+services:
+  node:
+    image: nethermind/juno:main
+    volumes:
+      - ./snapshots/monitoring/db:/db
+    environment:
+      - JUNO_GW_API_KEY=${JUNO_GW_API_KEY}
+    command:
+      - --disable-l1-verification
+      - --db-path
+      - /db
+      - --log-level
+      - debug
+      - --http
+      - --http-host
+      - "0.0.0.0"
+      - --metrics
+      - --metrics-host
+      - "0.0.0.0"
+
+  loki:
+    image: grafana/loki:latest
+    configs:
+      - source: loki_config
+        target: /etc/loki/loki.yml
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./snapshots/monitoring/loki:/loki
+    ports:
+      - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:latest
+    configs:
+      - source: promtail_config
+        target: /etc/promtail/promtail.yml
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    pid: host
+    volumes:
+      - '/proc:/host/proc:ro'
+      - '/sys:/host/sys:ro'
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+
+  prometheus:
+    image: prom/prometheus:latest
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    volumes:
+      - ./snapshots/monitoring/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - node
+
+  grafana:
+    image: grafana/grafana:latest
+    configs:
+      - source: grafana_datasources
+        target: /etc/grafana/provisioning/datasources/datasources.yml
+      - source: grafana_dashboards
+        target: /etc/grafana/provisioning/dashboards/dashboards.yml
+      - source: juno_dashboard
+        target: /etc/grafana/dashboards/juno.json
+    volumes:
+      - ./snapshots/monitoring/grafana:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+configs:
+  prometheus_config:
+    file: ./monitoring/prometheus/prometheus.yml
+  loki_config:
+    file: ./monitoring/loki/loki.yml
+  promtail_config:
+    file: ./monitoring/promtail/promtail.yml
+  grafana_datasources:
+    file: ./monitoring/grafana/datasources.yml
+  grafana_dashboards:
+    file: ./monitoring/grafana/dashboards.yml
+  juno_dashboard:
+    file: ./docs/static/juno_grafana.json

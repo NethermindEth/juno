@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'Juno Dashboards'
+    orgId: 1
+    folder: ''
+    folderUid: ''
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/dashboards

@@ -1,0 +1,43 @@
+# Local dev stuff
+.vscode/
+.DS_Store
+docker-compose.yml
+juno/
+p2p-dbs/
+
+# Build artifacts
+build/
+coverage/
+**/target/debug
+**/target/release
+
+# GitHub metadata 
+.github/
+
+# Docs & metadata
+docs/
+README.md
+LICENSE
+SECURITY.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+
+# Scripts
+scripts/
+
+/.plugins
+/.devbox
+devbox.*
+.env
+.envrc
+
+/snapshots
+/monitoring
+/tmp
+
+/build
+/target
+
+CLAUDE.md
+Dockerfile.dockerignore
+docker-compose.*.yaml
