@@ -349,7 +349,14 @@ func DeleteL1HandlerTxnHashByMsgHash(w db.KeyValueWriter, msgHash []byte) error 
 func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []Transaction) error {
 	for _, txn := range txns {
 		if l1Handler, ok := txn.(*L1HandlerTransaction); ok {
-			return WriteL1HandlerTxnHashByMsgHash(w, l1Handler.MessageHash(), l1Handler.Hash())
+			err := WriteL1HandlerTxnHashByMsgHash(
+				w,
+				l1Handler.MessageHash(),
+				l1Handler.Hash(),
+			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

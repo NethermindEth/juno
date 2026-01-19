@@ -26,6 +26,7 @@ import (
 	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/migration/casmhashmetadata"
+	"github.com/NethermindEth/juno/migration/l1handlermapping"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -89,6 +90,7 @@ var defaultMigrations = []Migration{
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
 	&casmhashmetadata.Migrator{},
+	&l1handlermapping.Migrator{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
