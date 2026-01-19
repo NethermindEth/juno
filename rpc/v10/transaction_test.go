@@ -1,6 +1,7 @@
 package rpcv10_test
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"testing"
@@ -599,5 +600,286 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		status, err := handler.TransactionStatus(ctx, res.TransactionHash)
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
 		require.Empty(t, status)
+	})
+}
+
+func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	proofFact1 := felt.NewFromUint64[felt.Felt](100)
+	proofFact2 := felt.NewFromUint64[felt.Felt](200)
+
+	baseTxnToAdd := &core.InvokeTransaction{
+		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
+		Version:         new(core.TransactionVersion).SetUint64(3),
+		TransactionSignature: []*felt.Felt{
+			felt.NewFromUint64[felt.Felt](0x1),
+			felt.NewFromUint64[felt.Felt](0x1),
+		},
+		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
+		NonceDAMode: core.DAModeL1,
+		FeeDAMode:   core.DAModeL1,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
+			},
+			core.ResourceL1DataGas: {
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       0,
+				MaxPricePerUnit: &felt.Zero,
+			},
+		},
+		Tip:           0,
+		PaymasterData: []*felt.Felt{},
+		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+		CallData:      []*felt.Felt{},
+	}
+
+	handler := rpcv10.New(nil, nil, nil, utils.NewNopZapLogger())
+
+	t.Run("WithProofAndProofFacts", func(t *testing.T) {
+		txnToAdd := *baseTxnToAdd
+		txnToAdd.ProofFacts = []*felt.Felt{proofFact1, proofFact2}
+
+		broadcastedTxn := &rpcv10.BroadcastedTransaction{
+			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+				Transaction: *rpcv9.AdaptTransaction(&txnToAdd),
+			},
+			Proof:      []uint64{1, 2, 3},
+			ProofFacts: []*felt.Felt{proofFact1, proofFact2},
+		}
+
+		mockGateway := mocks.NewMockGateway(mockCtrl)
+		mockGateway.
+			EXPECT().
+			AddTransaction(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, txnJSON json.RawMessage) {
+				var txStruct struct {
+					Proof      []uint64     `json:"proof,omitempty"`
+					ProofFacts []*felt.Felt `json:"proof_facts,omitempty"`
+				}
+				require.NoError(t, json.Unmarshal(txnJSON, &txStruct))
+				require.NotNil(t, txStruct.Proof)
+				require.Equal(t, []uint64{1, 2, 3}, txStruct.Proof)
+				require.NotNil(t, txStruct.ProofFacts)
+				require.Equal(t, 2, len(txStruct.ProofFacts))
+				require.Equal(t, proofFact1, txStruct.ProofFacts[0])
+				require.Equal(t, proofFact2, txStruct.ProofFacts[1])
+			}).
+			Return(json.RawMessage(`{
+				"transaction_hash": "0x1",
+				"address": "0x2",
+				"class_hash": "0x3"
+			}`), nil).
+			Times(1)
+
+		h := handler.WithGateway(mockGateway)
+		got, rpcErr := h.AddTransaction(t.Context(), broadcastedTxn)
+		require.Nil(t, rpcErr)
+		require.Equal(t, rpcv10.AddTxResponse{
+			TransactionHash: felt.NewFromUint64[felt.Felt](0x1),
+			ContractAddress: felt.NewFromUint64[felt.Felt](0x2),
+			ClassHash:       felt.NewFromUint64[felt.Felt](0x3),
+		}, got)
+	})
+
+	t.Run("WithoutProofAndProofFacts", func(t *testing.T) {
+		broadcastedTxn := &rpcv10.BroadcastedTransaction{
+			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+				Transaction: *rpcv9.AdaptTransaction(baseTxnToAdd),
+			},
+		}
+
+		mockGateway := mocks.NewMockGateway(mockCtrl)
+		mockGateway.
+			EXPECT().
+			AddTransaction(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, txnJSON json.RawMessage) {
+				var txStruct struct {
+					Proof      []uint64     `json:"proof,omitempty"`
+					ProofFacts []*felt.Felt `json:"proof_facts,omitempty"`
+				}
+				require.NoError(t, json.Unmarshal(txnJSON, &txStruct))
+				require.Nil(t, txStruct.Proof)
+				require.Nil(t, txStruct.ProofFacts)
+			}).
+			Return(json.RawMessage(`{
+				"transaction_hash": "0x1",
+				"address": "0x2",
+				"class_hash": "0x3"
+			}`), nil).
+			Times(1)
+
+		h := handler.WithGateway(mockGateway)
+		got, rpcErr := h.AddTransaction(t.Context(), broadcastedTxn)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, got.TransactionHash)
+	})
+}
+
+func TestTransactionByHashWithResponseFlags(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	network := &utils.Sepolia
+	client := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(client)
+
+	txnHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x435f87f1eecd5968ba8190744fee1f3ef69f17471f8902ce1e7d444c4e0c8cb",
+	)
+
+	invokeTx, err := gw.Transaction(t.Context(), txnHash)
+	require.NoError(t, err)
+	require.IsType(t, &core.InvokeTransaction{}, invokeTx)
+
+	invokeTxCore := invokeTx.(*core.InvokeTransaction)
+	require.NotNil(t, invokeTxCore.ProofFacts)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+	mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).AnyTimes()
+	mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 0}, nil).AnyTimes()
+	mockReader.EXPECT().TransactionByHash(txnHash).Return(invokeTxCore, nil).AnyTimes()
+	mockReader.EXPECT().Network().Return(network).AnyTimes()
+
+	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
+
+	t.Run("WithResponseFlag", func(t *testing.T) {
+		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		tx, rpcErr := handler.TransactionByHash(txnHash, responseFlags)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, tx)
+		require.NotNil(t, tx.ProofFacts)
+		require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
+	})
+
+	t.Run("WithoutResponseFlag", func(t *testing.T) {
+		tx, rpcErr := handler.TransactionByHash(txnHash, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, tx)
+		require.Nil(t, tx.ProofFacts)
+	})
+}
+
+func TestTransactionByBlockIDAndIndexWithResponseFlags(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	network := &utils.Sepolia
+	client := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(client)
+
+	txnHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x435f87f1eecd5968ba8190744fee1f3ef69f17471f8902ce1e7d444c4e0c8cb",
+	)
+
+	invokeTx, err := gw.Transaction(t.Context(), txnHash)
+	require.NoError(t, err)
+	require.IsType(t, &core.InvokeTransaction{}, invokeTx)
+
+	invokeTxCore := invokeTx.(*core.InvokeTransaction)
+	require.NotNil(t, invokeTxCore.ProofFacts)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+	blockID := rpcv9.BlockIDFromNumber(1)
+	mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(1), uint64(0)).Return(invokeTxCore, nil).AnyTimes()
+	mockReader.EXPECT().Network().Return(network).AnyTimes()
+
+	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
+
+	t.Run("WithResponseFlag", func(t *testing.T) {
+		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		tx, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, 0, responseFlags)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, tx)
+		require.NotNil(t, tx.ProofFacts)
+		require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
+	})
+
+	t.Run("WithoutResponseFlag", func(t *testing.T) {
+		tx, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, 0, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, tx)
+		require.Nil(t, tx.ProofFacts)
+	})
+}
+
+func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
+	network := &utils.Sepolia
+
+	t.Run("RejectProofFactsForNonV3Invoke", func(t *testing.T) {
+		proofFact := felt.NewFromUint64[felt.Felt](100)
+		broadcastedTxn := &rpcv10.BroadcastedTransaction{
+			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+				Transaction: rpcv9.Transaction{
+					Type:    rpcv9.TxnInvoke,
+					Version: felt.NewFromUint64[felt.Felt](1),
+					Signature: &[]*felt.Felt{
+						felt.NewFromUint64[felt.Felt](0x1),
+					},
+					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
+					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+					CallData:      &[]*felt.Felt{},
+				},
+			},
+			ProofFacts: []*felt.Felt{proofFact},
+		}
+
+		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
+	})
+
+	t.Run("RejectProofForNonV3Invoke", func(t *testing.T) {
+		broadcastedTxn := &rpcv10.BroadcastedTransaction{
+			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+				Transaction: rpcv9.Transaction{
+					Type:    rpcv9.TxnInvoke,
+					Version: felt.NewFromUint64[felt.Felt](1),
+					Signature: &[]*felt.Felt{
+						felt.NewFromUint64[felt.Felt](0x1),
+					},
+					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
+					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+					CallData:      &[]*felt.Felt{},
+				},
+			},
+			Proof: []uint64{1, 2, 3},
+		}
+
+		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "proof can only be included in invoke v3 transactions")
+	})
+
+	t.Run("RejectProofFactsForNonInvoke", func(t *testing.T) {
+		proofFact := felt.NewFromUint64[felt.Felt](100)
+		broadcastedTxn := &rpcv10.BroadcastedTransaction{
+			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+				Transaction: rpcv9.Transaction{
+					Type:    rpcv9.TxnDeclare,
+					Version: felt.NewFromUint64[felt.Felt](3),
+					Signature: &[]*felt.Felt{
+						felt.NewFromUint64[felt.Felt](0x1),
+					},
+					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
+					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+				},
+			},
+			ProofFacts: []*felt.Felt{proofFact},
+		}
+
+		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
 	})
 }

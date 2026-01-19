@@ -46,7 +46,7 @@ func TestThrottledVMError(t *testing.T) {
 		_, httpHeader, rpcErr := handler.SimulateTransactions(
 			t.Context(),
 			&blockID,
-			rpcv9.BroadcastedTransactionInputs{},
+			rpcv10.BroadcastedTransactionInputs{},
 			[]rpcv10.SimulationFlag{rpcv10.SkipFeeChargeFlag},
 		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
