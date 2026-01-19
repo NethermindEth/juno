@@ -1,6 +1,7 @@
 name: "Tag Official Docker Image as Latest"
 
 on:
+  push:
   workflow_dispatch: {}
   release:
     types: [published]
@@ -28,7 +29,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Tag and push as latest using buildx
-        run: docker buildx imagetools create --tag nethermind/juno:latest nethermind/juno:${{ env.TAG }}
+        run: docker buildx imagetools create --tag nethermind/juno:latest nethermind/juno:v0.15.17
 
       - name: Clean up Docker config
         if: always()
