@@ -48,7 +48,7 @@ const (
 	TrieJournal            // TrieJournal -> journal
 	AggregatedBloomFilters // maps block range to AggregatedBloomFilter
 	RunningEventFilter     // aggregated filter not full yet
-	ClassHashToCasmHashV2  // blake2s casm class hashes of the all sierra classes
+	ClassCasmHashMetadata  // Class CASM hash metadata (declaration and migration info)
 	BlockTransactions      // maps block number to transactions and receipts
 )
 

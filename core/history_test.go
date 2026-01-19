@@ -145,4 +145,30 @@ func TestStateHistory(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, declareHeight, declared.At)
 	})
+
+	sierraClassHash := felt.NewFromUint64[felt.SierraClassHash](123)
+	casmHashV1 := felt.NewFromUint64[felt.CasmClassHash](456)
+	casmHashV2 := felt.NewFromUint64[felt.CasmClassHash](789)
+	mockState.EXPECT().
+		CompiledClassHashAt(sierraClassHash, declareHeight).
+		Return(*casmHashV1, nil).
+		AnyTimes()
+	mockState.EXPECT().
+		CompiledClassHashAt(sierraClassHash, changeHeight+1).
+		Return(*casmHashV2, nil).
+		AnyTimes()
+
+	t.Run("CompiledClassHash", func(t *testing.T) {
+		t.Run("before migration", func(t *testing.T) {
+			got, err := snapshotBeforeChange.CompiledClassHash(sierraClassHash)
+			require.NoError(t, err)
+			require.Equal(t, *casmHashV1, got)
+		})
+
+		t.Run("after migration", func(t *testing.T) {
+			got, err := snapshotAfterChange.CompiledClassHash(sierraClassHash)
+			require.NoError(t, err)
+			require.Equal(t, *casmHashV2, got)
+		})
+	})
 }

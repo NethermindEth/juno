@@ -101,7 +101,7 @@ func (s *deprecatedStateHistory) Class(classHash *felt.Felt) (*DeclaredClassDefi
 func (s *deprecatedStateHistory) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	return s.state.CompiledClassHash(classHash)
+	return s.state.CompiledClassHashAt(classHash, s.blockNumber)
 }
 
 func (s *deprecatedStateHistory) CompiledClassHashV2(

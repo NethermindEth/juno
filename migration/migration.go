@@ -21,7 +21,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/typed"
+	"github.com/NethermindEth/juno/db/typed/key"
+	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/migration/casmhashmetadata"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -84,6 +88,7 @@ var defaultMigrations = []Migration{
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
+	&casmhashmetadata.Migrator{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -924,6 +929,11 @@ func startMigrationStatusServer(log utils.SimpleLogger, host string, port uint16
 }
 
 func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) error {
+	deprecatedCasmClassHashesV2Bucket := typed.NewBucket(
+		db.ClassCasmHashMetadata,
+		key.SierraClassHash,
+		value.CasmClassHash,
+	)
 	classPrefix := db.Class.Key()
 	it, err := txn.NewIterator(classPrefix, false)
 	if err != nil {
@@ -978,7 +988,7 @@ func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) err
 				casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
 
 				writeMu.Lock()
-				err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2)
+				err := deprecatedCasmClassHashesV2Bucket.Put(txn, &sierraClassHash, &casmHashV2)
 				writeMu.Unlock()
 				if err != nil {
 					return fmt.Errorf("failed to write CASM hash V2 for class %s: %w",

@@ -38,6 +38,10 @@ type StateHistoryReader interface {
 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
+	CompiledClassHashAt(
+		classHash *felt.SierraClassHash,
+		blockNumber uint64,
+	) (felt.CasmClassHash, error)
 }
 
 type StateReader interface {
@@ -360,32 +364,21 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 func (s *State) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	classTrie, closer, err := s.classesTrie()
+	metadata, err := GetClassCasmHashMetadata(s.txn, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			_ = closeErr
-		}
-	}()
-
-	casmHash, err := classTrie.Get((*felt.Felt)(classHash))
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-
-	if casmHash.IsZero() {
-		return felt.CasmClassHash{}, errors.New("casm hash not found")
-	}
-
-	return felt.CasmClassHash(casmHash), nil
+	return metadata.CasmHash(), nil
 }
 
 func (s *State) CompiledClassHashV2(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	return GetCasmClassHashV2(s.txn, classHash)
+	metadata, err := GetClassCasmHashMetadata(s.txn, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashV2(), nil
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
@@ -734,8 +727,8 @@ func (s *State) removeDeclaredClasses(
 			}
 
 			sierraClassHash := felt.SierraClassHash(*cHash)
-			if err = DeleteCasmClassHashV2(s.txn, &sierraClassHash); err != nil {
-				return fmt.Errorf("delete CASM class hash V2 for class %s: %v", cHash, err)
+			if err = DeleteClassCasmHashMetadata(s.txn, &sierraClassHash); err != nil {
+				return fmt.Errorf("delete CASM class hash metadata for class %s: %v", cHash, err)
 			}
 		}
 	}
@@ -920,6 +913,17 @@ func (s *State) ContractClassHashAt(
 	return felt.FromBytes[felt.Felt](value), nil
 }
 
+func (s *State) CompiledClassHashAt(
+	classHash *felt.SierraClassHash,
+	blockNumber uint64,
+) (felt.CasmClassHash, error) {
+	metadata, err := GetClassCasmHashMetadata(s.txn, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(blockNumber)
+}
+
 func (s *State) revertMigratedCasmClasses(
 	migratedCasmClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
@@ -943,6 +947,20 @@ func (s *State) revertMigratedCasmClasses(
 
 		if _, err = classesTrie.Put(classHashFelt, deprecatedCasmHash); err != nil {
 			return fmt.Errorf("revert class %s in trie: %w", classHashFelt, err)
+		}
+
+		casmHashMetadata, err := GetClassCasmHashMetadata(s.txn, &classHash)
+		if err != nil {
+			return err
+		}
+
+		if err := casmHashMetadata.Unmigrate(); err != nil {
+			return err
+		}
+
+		err = WriteClassCasmHashMetadata(s.txn, &classHash, &casmHashMetadata)
+		if err != nil {
+			return err
 		}
 	}
 

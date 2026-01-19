@@ -317,7 +317,13 @@ func (b *Blockchain) Store(
 			return err
 		}
 
-		err := storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		err := storeCasmHashMetadata(
+			txn,
+			block.Number,
+			block.ProtocolVersion,
+			stateUpdate,
+			newClasses,
+		)
 		if err != nil {
 			return err
 		}
@@ -334,57 +340,112 @@ func (b *Blockchain) Store(
 	)
 }
 
-// storeCasmClassHashesV2ForBlock stores CASM class hashes V2 based on the block version.
-// For versions < 0.14.1, it computes hashes from class definitions.
-// For versions >= 0.14.1, it uses pre-computed hashes from the state update.
-func storeCasmClassHashesV2ForBlock(
+// storeCasmHashMetadata stores CASM hash metadata for declared and migrated classes.
+// See [core.ClassCasmHashMetadata]
+func storeCasmHashMetadata(
 	txn db.IndexedBatch,
+	blockNumber uint64,
 	protocolVersion string,
-	newClasses map[felt.Felt]core.ClassDefinition,
 	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	ver, err := core.ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return err
 	}
-	if ver.LessThan(core.Ver0_14_1) {
-		// Pre-compute blake2s CASM class hashes of declared classes in this block and
-		// store them in order to avoid computing them during simulation.
-		return computeAndStoreCasmClassHashesV2(txn, newClasses)
+
+	isV2Protocol := ver.GreaterThanEqual(core.Ver0_14_1)
+
+	if isV2Protocol {
+		return storeCasmHashMetadataV2(txn, blockNumber, stateUpdate)
 	}
-	return storeCasmClassHashesV2(txn, stateUpdate.StateDiff.DeclaredV1Classes)
+
+	return storeCasmHashMetadataV1(txn, blockNumber, stateUpdate, newClasses)
 }
 
-// computeAndStoreCasmClassHashesV2 computes and stores CASM class hashes V2 from class definitions.
-func computeAndStoreCasmClassHashesV2(
+// storeCasmHashMetadataV2 stores metadata for classes declared with casm hash v2 or
+// migrated from v1. casm hash v2 is after protocol version >= 0.14.1.
+func storeCasmHashMetadataV2(
 	txn db.IndexedBatch,
-	declaredClasses map[felt.Felt]core.ClassDefinition,
+	blockNumber uint64,
+	stateUpdate *core.StateUpdate,
 ) error {
-	for classHash, classDefinition := range declaredClasses {
-		sierraClass, ok := classDefinition.(*core.SierraClass)
-		if !ok {
-			// We don't have CASM classes for deprecated Cairo class
-			continue
+	for sierraClassHash, casmHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		metadata := core.NewCasmHashMetadataDeclaredV2(
+			blockNumber,
+			(*felt.CasmClassHash)(casmHash),
+		)
+		err := core.WriteClassCasmHashMetadata(
+			txn,
+			(*felt.SierraClassHash)(&sierraClassHash),
+			&metadata,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	for sierraClassHash := range stateUpdate.StateDiff.MigratedClasses {
+		metadata, err := core.GetClassCasmHashMetadata(txn, &sierraClassHash)
+		if err != nil {
+			return fmt.Errorf("cannot migrate class %s: metadata not found",
+				sierraClassHash.String(),
+			)
 		}
 
-		casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
-		sierraClassHash := felt.SierraClassHash(classHash)
-		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
+		if err := metadata.Migrate(blockNumber); err != nil {
+			return fmt.Errorf("failed to migrate class %s at block %d: %w",
+				sierraClassHash.String(),
+				blockNumber,
+				err,
+			)
+		}
+
+		err = core.WriteClassCasmHashMetadata(txn, &sierraClassHash, &metadata)
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// storeCasmClassHashesV2 stores pre-computed CASM class hashes V2 from the state update.
-func storeCasmClassHashesV2(
+// storeDeclaredV1Classes stores metadata for classes declared with V1 hash (protocol < 0.14.1).
+// It computes the V2 hash from the class definition.
+func storeCasmHashMetadataV1(
 	txn db.IndexedBatch,
-	declaredV1Classes map[felt.Felt]*felt.Felt,
+	blockNumber uint64,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	for classHash, casmClassHashV2 := range declaredV1Classes {
-		casmHashV2 := felt.CasmClassHash(*casmClassHashV2)
-		sierraClassHash := felt.SierraClassHash(classHash)
-		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
+	for sierraClassHash, casmHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		casmHashV1 := (*felt.CasmClassHash)(casmHash)
+
+		classDef, ok := newClasses[sierraClassHash]
+		if !ok {
+			return fmt.Errorf("class %s not available in newClasses at block %d",
+				sierraClassHash.String(),
+				blockNumber,
+			)
+		}
+
+		sierraClass, ok := classDef.(*core.SierraClass)
+		if !ok {
+			return fmt.Errorf("class %s must be a SierraClass at block %d",
+				sierraClassHash.String(),
+				blockNumber,
+			)
+		}
+
+		v2Hash := sierraClass.Compiled.Hash(core.HashVersionV2)
+		casmHashV2 := felt.CasmClassHash(v2Hash)
+
+		metadata := core.NewCasmHashMetadataDeclaredV1(blockNumber, casmHashV1, &casmHashV2)
+		err := core.WriteClassCasmHashMetadata(
+			txn,
+			(*felt.SierraClassHash)(&sierraClassHash),
+			&metadata,
+		)
+		if err != nil {
 			return err
 		}
 	}
@@ -672,7 +733,13 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 
-		err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		err = storeCasmHashMetadata(
+			txn,
+			block.Number,
+			block.ProtocolVersion,
+			stateUpdate,
+			newClasses,
+		)
 		if err != nil {
 			return err
 		}
