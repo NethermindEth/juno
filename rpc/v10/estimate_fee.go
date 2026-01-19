@@ -74,24 +74,26 @@ func (h *Handler) EstimateMessageFee(
 		return rpcv9.FeeEstimate{}, nil, rpccore.ErrContractNotFound
 	}
 
-	tx := rpcv9.BroadcastedTransaction{
-		Transaction: rpcv9.Transaction{
-			Type:               rpcv9.TxnL1Handler,
-			ContractAddress:    &msg.To,
-			EntryPointSelector: &msg.Selector,
-			CallData:           &calldata,
-			Version:            &felt.Zero, // Needed for transaction hash calculation.
-			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+	tx := BroadcastedTransaction{
+		BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+			Transaction: rpcv9.Transaction{
+				Type:               rpcv9.TxnL1Handler,
+				ContractAddress:    &msg.To,
+				EntryPointSelector: &msg.Selector,
+				CallData:           &calldata,
+				Version:            &felt.Zero, // Needed for transaction hash calculation.
+				Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+			},
+			// Needed to marshal to blockifier type.
+			// Must be greater than zero to successfully execute transaction.
+			PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 		},
-		// Needed to marshal to blockifier type.
-		// Must be greater than zero to successfully execute transaction.
-		PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 	}
 
-	bcTxn := [1]rpcv9.BroadcastedTransaction{tx}
+	bcTxn := [1]BroadcastedTransaction{tx}
 	estimates, httpHeader, err := h.EstimateFee(
 		ctx,
-		rpccore.LimitSlice[rpcv9.BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
+		rpccore.LimitSlice[BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
 		nil,
 		id,
 	)
