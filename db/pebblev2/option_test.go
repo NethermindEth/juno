@@ -2,6 +2,7 @@ package pebblev2_test
 
 import (
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/db/pebblev2"
@@ -35,6 +36,69 @@ func TestOptions(t *testing.T) {
 	assert.Equal(t, opt.MaxOpenFiles, testMaxOpenFiles)
 	assert.NotNil(t, opt.Logger)
 	assert.IsType(t, &utils.ZapLogger{}, opt.Logger)
+}
+
+func TestWithCompression(t *testing.T) {
+	tests := []struct {
+		compression   string
+		expectedName  string
+		expectedLevel uint8
+		expectedErr   string
+	}{
+		{
+			compression:   "snappy",
+			expectedName:  "Snappy",
+			expectedLevel: 0,
+		},
+		{
+			compression:   "zstd",
+			expectedName:  "ZSTD",
+			expectedLevel: 3,
+		},
+		{
+			compression:   "minlz",
+			expectedName:  "MinLZ",
+			expectedLevel: 1,
+		},
+		{
+			compression:   "zstd1",
+			expectedName:  "ZSTD",
+			expectedLevel: 1,
+		},
+		{
+			compression: "invalid",
+			expectedErr: "unknown compression profile",
+		},
+	}
+
+	for _, tt := range tests {
+		for _, compression := range []string{tt.compression, strings.ToUpper(tt.compression)} {
+			t.Run(compression, func(t *testing.T) {
+				opt := pebbledb.Options{}
+				err := pebblev2.WithCompression(compression)(&opt)
+
+				if tt.expectedErr != "" {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), tt.expectedErr)
+					return
+				}
+
+				require.NoError(t, err)
+				for i := range opt.Levels {
+					require.NotNil(t, opt.Levels[i].Compression)
+					profile := opt.Levels[i].Compression()
+					require.NotNil(t, profile)
+					assert.Equal(t, tt.expectedName, profile.Name)
+					assert.Equal(t, tt.expectedName, profile.DataBlocks.Algorithm.String())
+					assert.Equal(t, tt.expectedLevel, profile.DataBlocks.Level)
+					assert.Equal(t, tt.expectedName, profile.ValueBlocks.Algorithm.String())
+					assert.Equal(t, tt.expectedLevel, profile.ValueBlocks.Level)
+					assert.Equal(t, tt.expectedName, profile.OtherBlocks.Algorithm.String())
+					assert.Equal(t, tt.expectedLevel, profile.OtherBlocks.Level)
+				}
+			})
+		}
+	}
 }
 
 func TestWithCompactionConcurrency(t *testing.T) {
