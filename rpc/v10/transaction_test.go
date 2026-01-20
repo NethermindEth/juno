@@ -1950,3 +1950,35 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 		AccountDeploymentData: []*felt.Felt{},
 	}
 }
+
+func createBaseInvokeTransactionV3() *core.InvokeTransaction {
+	return &core.InvokeTransaction{
+		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
+		Version:         new(core.TransactionVersion).SetUint64(3),
+		TransactionSignature: []*felt.Felt{
+			felt.NewFromUint64[felt.Felt](0x1),
+			felt.NewFromUint64[felt.Felt](0x1),
+		},
+		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
+		NonceDAMode: core.DAModeL1,
+		FeeDAMode:   core.DAModeL1,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
+			},
+			core.ResourceL1DataGas: {
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       0,
+				MaxPricePerUnit: &felt.Zero,
+			},
+		},
+		Tip:           0,
+		PaymasterData: []*felt.Felt{},
+		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+		CallData:      []*felt.Felt{},
+	}
+}
