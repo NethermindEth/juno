@@ -131,8 +131,8 @@ func TestSubscribeEvents(t *testing.T) {
 	pending1 := createTestPendingBlock(t, b2, 3)
 	pending2 := createTestPendingBlock(t, b2, 6)
 
-	fromAddr := new(felt.Felt).SetBytes([]byte("some address"))
-	keys := [][]felt.Felt{{*new(felt.Felt).SetBytes([]byte("key1"))}}
+	fromAddr := felt.NewFromBytes[felt.Felt]([]byte("some address"))
+	keys := [][]felt.Felt{{felt.FromBytes[felt.Felt]([]byte("key1"))}}
 
 	b1Filtered, b1Emitted := createTestEvents(t, b1)
 	b2Filtered, b2Emitted := createTestEvents(t, b2)
@@ -180,7 +180,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter([]*felt.Felt{fromAddr}, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
@@ -203,7 +203,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter([]*felt.Felt{fromAddr}, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		cToken := blockchain.ContinuationToken{}
 		require.NoError(t, cToken.FromString(fmt.Sprintf("%d-0", b2.Number)))
@@ -229,7 +229,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		handler := New(mockChain, mockSyncer, nil, log)
 
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().EventFilter([]*felt.Felt{fromAddr}, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 

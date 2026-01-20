@@ -244,7 +244,11 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
-	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
+	var addresses []*felt.Felt
+	if fromAddr != nil {
+		addresses = []*felt.Felt{fromAddr}
+	}
+	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := BlockIDFromNumber(requestedHeader.Number)
@@ -345,7 +349,11 @@ func (h *Handler) processHistoricalEvents(
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
+	var addresses []*felt.Felt
+	if fromAddr != nil {
+		addresses = []*felt.Felt{fromAddr}
+	}
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
