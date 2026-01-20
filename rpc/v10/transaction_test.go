@@ -473,35 +473,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 
-	txnToAdd := &core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
-		Version:         new(core.TransactionVersion).SetUint64(3),
-		TransactionSignature: []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](0x1),
-			felt.NewFromUint64[felt.Felt](0x1),
-		},
-		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
-		NonceDAMode: core.DAModeL1,
-		FeeDAMode:   core.DAModeL1,
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas: {
-				MaxAmount:       0x1,
-				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
-			},
-			core.ResourceL1DataGas: {
-				MaxAmount:       0x1,
-				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
-			},
-			core.ResourceL2Gas: {
-				MaxAmount:       0,
-				MaxPricePerUnit: &felt.Zero,
-			},
-		},
-		Tip:           0,
-		PaymasterData: []*felt.Felt{},
-		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
-		CallData:      []*felt.Felt{},
-	}
+	txnToAdd := createBaseInvokeTransactionV3()
 
 	broadcastedTxn := &rpcv9.BroadcastedTransaction{
 		Transaction: *rpcv9.AdaptTransaction(txnToAdd),
@@ -607,51 +579,24 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	proofFact1 := felt.NewFromUint64[felt.Felt](100)
-	proofFact2 := felt.NewFromUint64[felt.Felt](200)
-
-	baseTxnToAdd := &core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
-		Version:         new(core.TransactionVersion).SetUint64(3),
-		TransactionSignature: []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](0x1),
-			felt.NewFromUint64[felt.Felt](0x1),
-		},
-		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
-		NonceDAMode: core.DAModeL1,
-		FeeDAMode:   core.DAModeL1,
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas: {
-				MaxAmount:       0x1,
-				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
-			},
-			core.ResourceL1DataGas: {
-				MaxAmount:       0x1,
-				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
-			},
-			core.ResourceL2Gas: {
-				MaxAmount:       0,
-				MaxPricePerUnit: &felt.Zero,
-			},
-		},
-		Tip:           0,
-		PaymasterData: []*felt.Felt{},
-		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
-		CallData:      []*felt.Felt{},
-	}
+	baseTxnToAdd := createBaseInvokeTransactionV3()
 
 	handler := rpcv10.New(nil, nil, nil, utils.NewNopZapLogger())
 
 	t.Run("WithProofAndProofFacts", func(t *testing.T) {
+		proofFacts := []*felt.Felt{
+			felt.NewFromUint64[felt.Felt](100),
+			felt.NewFromUint64[felt.Felt](200),
+		}
 		txnToAdd := *baseTxnToAdd
-		txnToAdd.ProofFacts = []*felt.Felt{proofFact1, proofFact2}
+		txnToAdd.ProofFacts = proofFacts
 
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
 			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
 				Transaction: *rpcv9.AdaptTransaction(&txnToAdd),
 			},
 			Proof:      []uint64{1, 2, 3},
-			ProofFacts: []*felt.Felt{proofFact1, proofFact2},
+			ProofFacts: proofFacts,
 		}
 
 		mockGateway := mocks.NewMockGateway(mockCtrl)
@@ -668,8 +613,8 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 				require.Equal(t, []uint64{1, 2, 3}, txStruct.Proof)
 				require.NotNil(t, txStruct.ProofFacts)
 				require.Equal(t, 2, len(txStruct.ProofFacts))
-				require.Equal(t, proofFact1, txStruct.ProofFacts[0])
-				require.Equal(t, proofFact2, txStruct.ProofFacts[1])
+				require.Equal(t, proofFacts[0], txStruct.ProofFacts[0])
+				require.Equal(t, proofFacts[1], txStruct.ProofFacts[1])
 			}).
 			Return(json.RawMessage(`{
 				"transaction_hash": "0x1",
@@ -882,4 +827,36 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
 	})
+}
+
+func createBaseInvokeTransactionV3() *core.InvokeTransaction {
+	return &core.InvokeTransaction{
+		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
+		Version:         new(core.TransactionVersion).SetUint64(3),
+		TransactionSignature: []*felt.Felt{
+			felt.NewFromUint64[felt.Felt](0x1),
+			felt.NewFromUint64[felt.Felt](0x1),
+		},
+		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
+		NonceDAMode: core.DAModeL1,
+		FeeDAMode:   core.DAModeL1,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
+			},
+			core.ResourceL1DataGas: {
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       0,
+				MaxPricePerUnit: &felt.Zero,
+			},
+		},
+		Tip:           0,
+		PaymasterData: []*felt.Felt{},
+		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+		CallData:      []*felt.Felt{},
+	}
 }
