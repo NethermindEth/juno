@@ -141,7 +141,7 @@ func (h *Handler) BlockWithReceipts(id *rpcv9.BlockID, responseFlags *ResponseFl
 		adaptedTx := AdaptTransaction(txn, includeProofFacts)
 		adaptedTx.Hash = nil
 		txsWithReceipts[index] = TransactionWithReceipt{
-			Transaction: adaptedTx,
+			Transaction: &adaptedTx,
 			// block_hash, block_number are optional in BlockWithReceipts response
 			Receipt: rpcv9.AdaptReceipt(r, txn, finalityStatus),
 		}
@@ -202,7 +202,8 @@ func (h *Handler) BlockWithTxs(blockID *rpcv9.BlockID, responseFlags *ResponseFl
 
 	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = AdaptTransaction(txn, includeProofFacts)
+		adaptedTx := AdaptTransaction(txn, includeProofFacts)
+		txs[index] = &adaptedTx
 	}
 
 	status, rpcErr := h.blockStatus(blockID, block)

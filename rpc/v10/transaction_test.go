@@ -627,9 +627,9 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 		got, rpcErr := h.AddTransaction(t.Context(), broadcastedTxn)
 		require.Nil(t, rpcErr)
 		require.Equal(t, rpcv10.AddTxResponse{
-			TransactionHash: felt.NewFromUint64[felt.Felt](0x1),
-			ContractAddress: felt.NewFromUint64[felt.Felt](0x2),
-			ClassHash:       felt.NewFromUint64[felt.Felt](0x3),
+			TransactionHash: (*felt.TransactionHash)(felt.NewFromUint64[felt.Felt](0x1)),
+			ContractAddress: (*felt.Address)(felt.NewFromUint64[felt.Felt](0x2)),
+			ClassHash:       (*felt.ClassHash)(felt.NewFromUint64[felt.Felt](0x3)),
 		}, got)
 	})
 
@@ -697,7 +697,7 @@ func TestTransactionByHashWithResponseFlags(t *testing.T) {
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
 		tx, rpcErr := handler.TransactionByHash(txnHash, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, tx)
@@ -706,7 +706,7 @@ func TestTransactionByHashWithResponseFlags(t *testing.T) {
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		tx, rpcErr := handler.TransactionByHash(txnHash, nil)
+		tx, rpcErr := handler.TransactionByHash(txnHash, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.NotNil(t, tx)
 		require.Nil(t, tx.ProofFacts)

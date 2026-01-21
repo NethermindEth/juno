@@ -25,15 +25,15 @@ type Transaction struct {
 	ProofFacts *[]*felt.Felt `json:"proof_facts,omitempty"`
 }
 
-func AdaptTransaction(t core.Transaction, includeProofFacts bool) *Transaction {
-	v9Tx := rpcv9.AdaptTransaction(t)
-	tx := &Transaction{
+func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transaction {
+	v9Tx := rpcv9.AdaptTransaction(coreTx)
+	tx := Transaction{
 		Transaction: *v9Tx,
 	}
 
 	if includeProofFacts {
-		if invokeTx, ok := t.(*core.InvokeTransaction); ok {
-			if invokeTx.Version != nil && invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
+		if invokeTx, ok := coreTx.(*core.InvokeTransaction); ok {
+			if invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
 				tx.ProofFacts = &invokeTx.ProofFacts
 			}
 		}
@@ -53,7 +53,6 @@ func AdaptBroadcastedTransaction(
 	network *utils.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	isInvokeV3 := broadcastedTxn.Transaction.Type == rpcv9.TxnInvoke &&
-		broadcastedTxn.Transaction.Version != nil &&
 		broadcastedTxn.Transaction.Version.Cmp(felt.NewFromUint64[felt.Felt](3)) == 0
 
 	if !isInvokeV3 {
@@ -74,10 +73,8 @@ func AdaptBroadcastedTransaction(
 	}
 
 	if invokeTx, ok := txn.(*core.InvokeTransaction); ok {
-		if invokeTx.Version != nil && invokeTx.Version.Is(3) {
-			if len(broadcastedTxn.ProofFacts) > 0 {
-				invokeTx.ProofFacts = broadcastedTxn.ProofFacts
-			}
+		if invokeTx.Version.Is(3) && len(broadcastedTxn.ProofFacts) > 0 {
+			invokeTx.ProofFacts = broadcastedTxn.ProofFacts
 		}
 	}
 
@@ -85,9 +82,9 @@ func AdaptBroadcastedTransaction(
 }
 
 type AddTxResponse struct {
-	TransactionHash *felt.Felt `json:"transaction_hash"`
-	ContractAddress *felt.Felt `json:"contract_address,omitempty"`
-	ClassHash       *felt.Felt `json:"class_hash,omitempty"`
+	TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+	ContractAddress *felt.Address         `json:"contract_address,omitempty"`
+	ClassHash       *felt.ClassHash       `json:"class_hash,omitempty"`
 }
 
 // AddTransaction adds a transaction to the mempool or forwards it to the feeder gateway.
@@ -107,7 +104,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 	}
 
 	if h.submittedTransactionsCache != nil {
-		h.submittedTransactionsCache.Add(res.TransactionHash)
+		h.submittedTransactionsCache.Add((*felt.Felt)(res.TransactionHash))
 	}
 
 	return res, nil
@@ -125,7 +122,8 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	}); err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	res := AddTxResponse{TransactionHash: userTxn.Hash()}
+	userTxnHash := (*felt.TransactionHash)(userTxn.Hash())
+	res := AddTxResponse{TransactionHash: userTxnHash}
 	switch tx.Type {
 	case rpcv9.TxnDeployAccount:
 		contractAddress := core.ContractAddress(
@@ -134,13 +132,13 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 			tx.ContractAddressSalt,
 			*tx.ConstructorCallData,
 		)
-		res.ContractAddress = &contractAddress
+		res.ContractAddress = (*felt.Address)(&contractAddress)
 	case rpcv9.TxnDeclare:
 		classHash, err := userClass.Hash()
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 		}
-		res.ClassHash = &classHash
+		res.ClassHash = (*felt.ClassHash)(&classHash)
 	}
 	return res, nil
 }
@@ -178,13 +176,14 @@ func (h *Handler) pushToFeederGateway(
 		v9Tx.ContractClass = newContractClass
 	}
 
+	feederTx := adaptRPCTxToFeederTx(&v9Tx.Transaction)
 	txStruct := struct {
 		*starknet.Transaction
 		ContractClass json.RawMessage `json:"contract_class,omitempty"`
 		Proof         []uint64        `json:"proof,omitempty"`
 		ProofFacts    []*felt.Felt    `json:"proof_facts,omitempty"`
 	}{
-		Transaction:   adaptRPCTxToFeederTx(&v9Tx.Transaction),
+		Transaction:   &feederTx,
 		ContractClass: v9Tx.ContractClass,
 	}
 
@@ -204,13 +203,14 @@ func (h *Handler) pushToFeederGateway(
 
 	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
 	if err != nil {
-		return AddTxResponse{}, makeJSONErrorFromGatewayError(err)
+		jsonErr := makeJSONErrorFromGatewayError(err)
+		return AddTxResponse{}, &jsonErr
 	}
 
 	var gatewayResponse struct {
-		TransactionHash *felt.Felt `json:"transaction_hash"`
-		ContractAddress *felt.Felt `json:"address"`
-		ClassHash       *felt.Felt `json:"class_hash"`
+		TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+		ContractAddress *felt.Address         `json:"address"`
+		ClassHash       *felt.ClassHash       `json:"class_hash"`
 	}
 	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
 		return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
@@ -223,7 +223,7 @@ func (h *Handler) pushToFeederGateway(
 	}, nil
 }
 
-func adaptToFeederResourceBounds(rb *rpcv9.ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(rb *rpcv9.ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
@@ -248,11 +248,12 @@ func adaptToFeederDAMode(mode *rpcv9.DataAvailabilityMode) *starknet.DataAvailab
 	if mode == nil {
 		return nil
 	}
-	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
+	dataAvailabilityMode := starknet.DataAvailabilityMode(*mode)
+	return &dataAvailabilityMode
 }
 
-func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) *starknet.Transaction {
-	return &starknet.Transaction{
+func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
+	return starknet.Transaction{
 		Hash:                  rpcTx.Hash,
 		Version:               rpcTx.Version,
 		ContractAddress:       rpcTx.ContractAddress,
@@ -276,49 +277,49 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) *starknet.Transaction {
 	}
 }
 
-func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error { //nolint:gocyclo
+func makeJSONErrorFromGatewayError(err error) jsonrpc.Error { //nolint:gocyclo
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
-		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return *jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
 	switch gatewayErr.Code {
 	case gateway.InvalidContractClass:
-		return rpccore.ErrInvalidContractClass
+		return *rpccore.ErrInvalidContractClass
 	case gateway.UndeclaredClass:
-		return rpccore.ErrClassHashNotFound
+		return *rpccore.ErrClassHashNotFound
 	case gateway.ClassAlreadyDeclared:
-		return rpccore.ErrClassAlreadyDeclared
+		return *rpccore.ErrClassAlreadyDeclared
 	case gateway.InsufficientResourcesForValidate:
-		return rpccore.ErrInsufficientResourcesForValidate
+		return *rpccore.ErrInsufficientResourcesForValidate
 	case gateway.InsufficientAccountBalance:
-		return rpccore.ErrInsufficientAccountBalanceV0_8
+		return *rpccore.ErrInsufficientAccountBalanceV0_8
 	case gateway.ValidateFailure:
 		if strings.Contains(gatewayErr.Message, rpccore.ErrInvalidTransactionNonce.Message) {
-			return rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
+			return *rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
 		} else {
-			return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
+			return *rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
 		}
 	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
-		return rpccore.ErrContractClassSizeTooLarge
+		return *rpccore.ErrContractClassSizeTooLarge
 	case gateway.DuplicatedTransaction:
-		return rpccore.ErrDuplicateTx
+		return *rpccore.ErrDuplicateTx
 	case gateway.InvalidTransactionNonce:
-		return rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
+		return *rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
 	case gateway.CompilationFailed:
-		return rpccore.ErrCompilationFailed.CloneWithData(gatewayErr.Message)
+		return *rpccore.ErrCompilationFailed.CloneWithData(gatewayErr.Message)
 	case gateway.InvalidCompiledClassHash:
-		return rpccore.ErrCompiledClassHashMismatch
+		return *rpccore.ErrCompiledClassHashMismatch
 	case gateway.InvalidTransactionVersion:
-		return rpccore.ErrUnsupportedTxVersion
+		return *rpccore.ErrUnsupportedTxVersion
 	case gateway.InvalidContractClassVersion:
-		return rpccore.ErrUnsupportedContractClassVersion
+		return *rpccore.ErrUnsupportedContractClassVersion
 	case gateway.ReplacementTransactionUnderPriced:
-		return rpccore.ErrReplacementTransactionUnderPriced
+		return *rpccore.ErrReplacementTransactionUnderPriced
 	case gateway.FeeBelowMinimum:
-		return rpccore.ErrFeeBelowMinimum
+		return *rpccore.ErrFeeBelowMinimum
 	default:
-		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
+		return *rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}
 }
 
@@ -386,13 +387,12 @@ func (h *Handler) TransactionStatus(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
-func (h *Handler) TransactionByHash(hash *felt.Felt, responseFlags *ResponseFlags) (*Transaction, *jsonrpc.Error) {
-	includeProofFacts := responseFlags != nil && responseFlags.IncludeProofFacts
-
+func (h *Handler) TransactionByHash(hash *felt.Felt, responseFlags ResponseFlags) (*Transaction, *jsonrpc.Error) {
 	// Check pending data
 	if pending, err := h.PendingData(); err == nil {
 		if txn, err := pending.TransactionByHash(hash); err == nil {
-			return AdaptTransaction(txn, includeProofFacts), nil
+			adaptedTxn := AdaptTransaction(txn, responseFlags.IncludeProofFacts)
+			return &adaptedTxn, nil
 		}
 	}
 
@@ -403,7 +403,8 @@ func (h *Handler) TransactionByHash(hash *felt.Felt, responseFlags *ResponseFlag
 		}
 		return nil, rpccore.ErrTxnHashNotFound
 	}
-	return AdaptTransaction(txn, includeProofFacts), nil
+	adaptedTxn := AdaptTransaction(txn, responseFlags.IncludeProofFacts)
+	return &adaptedTxn, nil
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
@@ -433,7 +434,8 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.GetBlock().Transactions[txIndex], includeProofFacts), nil
+		adaptedTxn := AdaptTransaction(pending.GetBlock().Transactions[txIndex], includeProofFacts)
+		return &adaptedTxn, nil
 	case blockID.IsLatest():
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
@@ -463,8 +465,8 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	if err != nil {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
-
-	return AdaptTransaction(txn, includeProofFacts), nil
+	adaptedTxn := AdaptTransaction(txn, includeProofFacts)
+	return &adaptedTxn, nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.

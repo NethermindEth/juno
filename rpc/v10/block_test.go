@@ -836,7 +836,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	var invokeV3Count int
 	for _, tx := range block.Transactions {
 		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version != nil && invokeTx.Version.Is(3) {
+			if invokeTx.Version.Is(3) {
 				invokeV3Count++
 				if invokeTx.ProofFacts != nil {
 					invokeV3WithProofFactsCount++
@@ -920,7 +920,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	var invokeV3WithProofFactsCount int
 	for _, tx := range block.Transactions {
 		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version != nil && invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
+			if invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
 				invokeV3WithProofFactsCount++
 			}
 		}
