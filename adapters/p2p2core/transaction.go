@@ -272,6 +272,7 @@ func AdaptInvokeV0TxnCommon(
 		AccountDeploymentData: nil,
 		NonceDAMode:           0,
 		FeeDAMode:             0,
+		ProofFacts:            nil,
 	}
 }
 
@@ -296,6 +297,7 @@ func AdaptInvokeV1TxnCommon(
 		AccountDeploymentData: nil,
 		NonceDAMode:           0,
 		FeeDAMode:             0,
+		ProofFacts:            nil,
 	}
 }
 
