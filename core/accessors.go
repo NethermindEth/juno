@@ -349,7 +349,14 @@ func DeleteL1HandlerTxnHashByMsgHash(w db.KeyValueWriter, msgHash []byte) error 
 func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []Transaction) error {
 	for _, txn := range txns {
 		if l1Handler, ok := txn.(*L1HandlerTransaction); ok {
-			return WriteL1HandlerTxnHashByMsgHash(w, l1Handler.MessageHash(), l1Handler.Hash())
+			err := WriteL1HandlerTxnHashByMsgHash(
+				w,
+				l1Handler.MessageHash(),
+				l1Handler.Hash(),
+			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -533,29 +540,31 @@ func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) er
 	return w.Put(db.RunningEventFilter.Key(), enc)
 }
 
-func GetCasmClassHashV2(
+func GetClassCasmHashMetadata(
 	r db.KeyValueReader,
 	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	var casmClassHash felt.CasmClassHash
-	err := r.Get(db.ClassHashToCasmHashV2Key(classHash), func(data []byte) error {
-		casmClassHash.Unmarshal(data)
-		return nil
-	})
-	return casmClassHash, err
+) (ClassCasmHashMetadata, error) {
+	return ClassCasmHashMetadataBucket.Get(r, classHash)
 }
 
-func WriteCasmClassHashV2(
+func WriteClassCasmHashMetadata(
 	w db.KeyValueWriter,
 	classHash *felt.SierraClassHash,
-	casmClassHash *felt.CasmClassHash,
+	metadata *ClassCasmHashMetadata,
 ) error {
-	return w.Put(db.ClassHashToCasmHashV2Key(classHash), casmClassHash.Marshal())
+	return ClassCasmHashMetadataBucket.Put(
+		w,
+		classHash,
+		metadata,
+	)
 }
 
-func DeleteCasmClassHashV2(
+func DeleteClassCasmHashMetadata(
 	w db.KeyValueWriter,
 	classHash *felt.SierraClassHash,
 ) error {
-	return w.Delete(db.ClassHashToCasmHashV2Key(classHash))
+	return ClassCasmHashMetadataBucket.Delete(
+		w,
+		classHash,
+	)
 }

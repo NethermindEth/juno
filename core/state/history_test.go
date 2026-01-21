@@ -206,3 +206,68 @@ func TestStateHistoryTrieOperations(t *testing.T) {
 		assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
 	})
 }
+
+func TestStateHistoryCompiledClassHash(t *testing.T) {
+	stateDB := newTestStateDB()
+	sierraClassHash := felt.NewFromUint64[felt.SierraClassHash](123)
+	casmHash1 := felt.NewFromUint64[felt.CasmClassHash](456)
+	casmHash2 := felt.NewFromUint64[felt.CasmClassHash](789)
+	declaredAt := uint64(5)
+	migratedAt := uint64(10)
+
+	record := core.NewCasmHashMetadataDeclaredV1(declaredAt, casmHash1, casmHash2)
+	require.NoError(t, record.Migrate(migratedAt))
+	require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, sierraClassHash, &record))
+
+	nonExistentHash := felt.NewFromUint64[felt.SierraClassHash](999)
+
+	t.Run("non-existent class hash", func(t *testing.T) {
+		state, err := NewStateHistory(declaredAt, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		_, err = state.CompiledClassHash(nonExistentHash)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("get value before declared height", func(t *testing.T) {
+		state, err := NewStateHistory(declaredAt-1, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		_, err = state.CompiledClassHash(sierraClassHash)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("get value between declared height and migrated height", func(t *testing.T) {
+		state, err := NewStateHistory(declaredAt+1, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		got, err := state.CompiledClassHash(sierraClassHash)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash1, got)
+	})
+
+	t.Run("get value on height that change happened", func(t *testing.T) {
+		state, err := NewStateHistory(declaredAt, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		got, err := state.CompiledClassHash(sierraClassHash)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash1, got)
+
+		state, err = NewStateHistory(migratedAt, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		got, err = state.CompiledClassHash(sierraClassHash)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash2, got)
+	})
+
+	t.Run("get value after migration", func(t *testing.T) {
+		state, err := NewStateHistory(migratedAt+1, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		got, err := state.CompiledClassHash(sierraClassHash)
+		require.NoError(t, err)
+		assert.Equal(t, *casmHash2, got)
+	})
+}

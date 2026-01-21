@@ -89,6 +89,16 @@ func (s *stateHistory) Class(classHash *felt.Felt) (*core.DeclaredClassDefinitio
 	return declaredClass, nil
 }
 
+func (s *stateHistory) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.state.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(s.blockNum)
+}
+
 func (s *stateHistory) ClassTrie() (commontrie.Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

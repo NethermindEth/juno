@@ -149,12 +149,11 @@ var RunningEventFilterBucket = typed.NewBucket(
 	value.Cbor[RunningEventFilter](),
 )
 
-// Bucket 39: Class hash (SierraClassHash) -> CASM hash (CasmCasmHash)
-// TODO: Integrate this bucket
-var ClassHashToCasmHashV2Bucket = typed.NewBucket(
-	db.ClassHashToCasmHashV2,
+// Bucket 39: Sierra Class Hash -> Class CASM hash metadata
+var ClassCasmHashMetadataBucket = typed.NewBucket(
+	db.ClassCasmHashMetadata,
 	key.SierraClassHash,
-	value.CasmClassHash,
+	value.Binary[ClassCasmHashMetadata](),
 )
 
 // Bucket 40: Block number (uint64) -> Block transactions (BlockTransactions)

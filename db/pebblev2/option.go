@@ -2,6 +2,9 @@ package pebblev2
 
 import (
 	"fmt"
+	"runtime"
+	"strconv"
+	"strings"
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble/v2"
@@ -43,11 +46,92 @@ func WithLogger(colouredLogger bool) Option {
 	}
 }
 
-func WithCompression(compression *block.CompressionProfile) Option {
+// WithCompression sets the compression profile by name.
+// Valid options: snappy (default), zstd (recommended for low storage), minlz.
+func WithCompression(name string) Option {
 	return func(opts *pebble.Options) error {
+		var profile *block.CompressionProfile
+		if strings.EqualFold(name, "zstd1") {
+			zstd1 := block.BalancedCompression.ValueBlocks
+			profile = &block.CompressionProfile{
+				Name:                "ZSTD",
+				DataBlocks:          zstd1,
+				ValueBlocks:         zstd1,
+				OtherBlocks:         zstd1,
+				MinReductionPercent: 12,
+			}
+		} else {
+			profile = block.CompressionProfileByName(name)
+			if profile == nil {
+				return fmt.Errorf("unknown compression profile: %q (valid options: snappy, zstd, minlz)", name)
+			}
+		}
+
 		opts.ApplyCompressionSettings(func() pebble.DBCompressionSettings {
-			return pebble.UniformDBCompressionSettings(compression)
+			return pebble.UniformDBCompressionSettings(profile)
 		})
 		return nil
 	}
+}
+
+// WithCompactionConcurrency sets the compaction concurrency range.
+// Format: "N" sets lower=1, upper=N; "M,N" sets lower=M, upper=N.
+// Empty string uses the default (1, GOMAXPROCS/2).
+func WithCompactionConcurrency(concurrency string) Option {
+	return func(opts *pebble.Options) error {
+		lower, upper := 1, runtime.GOMAXPROCS(0)/2
+		if concurrency != "" {
+			var err error
+			lower, upper, err = parseCompactionConcurrency(concurrency)
+			if err != nil {
+				return err
+			}
+		}
+
+		opts.CompactionConcurrencyRange = func() (int, int) {
+			return lower, upper
+		}
+		return nil
+	}
+}
+
+func WithMemtableSize(memtableSizeMB uint) Option {
+	return func(opts *pebble.Options) error {
+		opts.MemTableSize = uint64(memtableSizeMB) * utils.Megabyte
+		return nil
+	}
+}
+
+func parseCompactionConcurrency(s string) (lower, upper int, err error) {
+	parts := strings.Split(s, ",")
+	switch len(parts) {
+	case 1:
+		upper, err = strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid compaction concurrency upper value: %w", err)
+		}
+		lower = 1
+	case 2:
+		lower, err = strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid compaction concurrency lower value: %w", err)
+		}
+		upper, err = strconv.Atoi(strings.TrimSpace(parts[1]))
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid compaction concurrency upper value: %w", err)
+		}
+	default:
+		return 0, 0, fmt.Errorf("invalid compaction concurrency format: expected N or M,N, got %q", s)
+	}
+
+	if lower < 1 {
+		return 0, 0, fmt.Errorf("compaction concurrency lower bound must be >= 1, got %d", lower)
+	}
+	if upper < lower {
+		return 0, 0, fmt.Errorf(
+			"compaction concurrency upper bound (%d) must be >= lower bound (%d)", upper, lower,
+		)
+	}
+
+	return lower, upper, nil
 }

@@ -138,9 +138,9 @@ func TestStateCache(t *testing.T) {
 			deployedContracts: make(map[felt.Felt]*felt.Felt),
 		}
 
-		var roots []*felt.Felt
-		for i := range 3 {
-			roots = append(roots, new(felt.Felt).SetUint64(uint64(1)))
+		roots := make([]*felt.Felt, 0, 3)
+		for i := range roots {
+			roots = append(roots, felt.NewFromUint64[felt.Felt](1))
 			if i == 0 {
 				cache.PushLayer(roots[i], parent, emptyDiff)
 			} else {
