@@ -39,16 +39,13 @@ func (i *iterator) Prev() bool {
 		panic(errIteratorClosed)
 	}
 
-	if i.curInd == 0 {
-		return false
-	}
-
 	if i.curInd == -1 {
-		return i.First()
+		i.curInd = 0
+		return i.Valid()
 	}
 
 	i.curInd--
-	return true
+	return i.Valid()
 }
 
 func (i *iterator) Next() bool {
