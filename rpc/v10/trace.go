@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
@@ -130,7 +131,7 @@ func (h *Handler) Call(
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) TraceBlockTransactions(
-	ctx context.Context, id *rpcv9.BlockID,
+	ctx context.Context, id *rpcv9.BlockID, traceFlags []rpcv6.SimulationFlag,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	if id.IsPreConfirmed() {
 		return nil, defaultExecutionHeader(), rpccore.ErrCallOnPreConfirmed
@@ -141,7 +142,8 @@ func (h *Handler) TraceBlockTransactions(
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	return h.traceBlockTransactions(ctx, block)
+	returnInitialReads := slices.Contains(traceFlags, rpcv6.ReturnInitialReadsFlag)
+	return h.traceBlockTransactions(ctx, block, returnInitialReads)
 }
 
 /****************************************************
@@ -162,12 +164,15 @@ func (h *Handler) TraceBlockTransactions(
 //     This should be at least the state that includes the target block or transaction.
 //
 //   - blockInfo: Block context for execution
+//
+//   - returnInitialReads: Whether to return initial reads in the response
 func traceTransactionsWithState(
 	vm vm.VM,
 	transactions []core.Transaction,
 	executionState core.StateReader,
 	classLookupState core.StateReader,
 	blockInfo *vm.BlockInfo,
+	returnInitialReads bool,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
@@ -192,6 +197,7 @@ func traceTransactionsWithState(
 		true,  // allowZeroMaxFee
 		false, // allowNoSignature
 		false, // isEstimateFee
+		returnInitialReads,
 	)
 
 	httpHeader.Set(rpcv9.ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
@@ -216,9 +222,16 @@ func traceTransactionsWithState(
 			},
 			L1DataGas: executionResult.GasConsumed[index].L1DataGas,
 		}
+
+		var initialReads InitialReads
+		if returnInitialReads && len(executionResult.InitialReads) > index {
+			initialReads = adaptVMInitialReads(&executionResult.InitialReads[index])
+		}
+
 		traces[index] = TracedBlockTransaction{
 			TraceRoot:       &trace,
 			TransactionHash: transactions[index].Hash(),
+			InitialReads:    &initialReads,
 		}
 	}
 
@@ -281,7 +294,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 	}
 
-	blockTraces, httpHeader, rpcErr := h.traceBlockTransactions(ctx, block)
+	blockTraces, httpHeader, rpcErr := h.traceBlockTransactions(ctx, block, false)
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpcErr
 	}
@@ -327,7 +340,7 @@ func (h *Handler) findAndTraceInPendingBlock(
 		return h.traceInPreConfirmedBlock(pendingData, txIndex)
 	case core.PendingBlockVariant:
 		// TODO: remove pending when its will be no longer supported
-		blockTraces, httpHeader, rpcErr := h.traceBlockWithVM(block)
+		blockTraces, httpHeader, rpcErr := h.traceBlockWithVM(block, false)
 		if rpcErr != nil {
 			return TransactionTrace{}, nil, rpcErr
 		}
@@ -382,6 +395,7 @@ func (h *Handler) traceInPrelatestBlock(
 		state,
 		preLatestState,
 		&blockInfo,
+		false, // returnInitialReads
 	)
 	if rpcErr != nil {
 		return TransactionTrace{}, httpHeader, rpcErr
@@ -413,6 +427,7 @@ func (h *Handler) traceInPreConfirmedBlock(
 		state, // execution state
 		state, // class lookup state (same for preconfirmed)
 		&blockInfo,
+		false, // returnInitialReads
 	)
 	if rpcErr != nil {
 		return TransactionTrace{}, httpHeader, rpcErr
@@ -428,7 +443,7 @@ func (h *Handler) traceInPreConfirmedBlock(
 // traceBlockTransactions gets the trace for a block. The block will always be traced locally except
 // on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
 func (h *Handler) traceBlockTransactions(
-	ctx context.Context, block *core.Block,
+	ctx context.Context, block *core.Block, returnInitialReads bool,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	// Check if it was already traced
 	traces, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{BlockHash: *block.Hash})
@@ -450,11 +465,11 @@ func (h *Handler) traceBlockTransactions(
 		return traces, defaultExecutionHeader(), nil
 	}
 
-	return h.traceBlockWithVM(block)
+	return h.traceBlockWithVM(block, returnInitialReads)
 }
 
 // traceBlockWithVM traces a block using the local VM and stores the result in the block cache.
-func (h *Handler) traceBlockWithVM(block *core.Block) (
+func (h *Handler) traceBlockWithVM(block *core.Block, returnInitialReads bool) (
 	[]TracedBlockTransaction, http.Header, *jsonrpc.Error,
 ) {
 	// Prepare execution state
@@ -493,6 +508,7 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 		state,
 		headState,
 		&blockInfo,
+		returnInitialReads,
 	)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr

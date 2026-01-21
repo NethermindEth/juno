@@ -167,7 +167,7 @@ func AssertTracedBlockTransactions(
 			handler := rpcv10.New(mockReader, nil, nil, nil)
 			handler = handler.WithFeeder(client)
 			blockID := rpcv9.BlockIDFromNumber(test.blockNumber)
-			traces, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
+			traces, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 			if n == &utils.Sepolia && description == "newer block" {
 				// For the newer block test, we test 3 of the block traces (INVOKE, DEPLOY_ACCOUNT, DECLARE)
 				traces = []rpcv10.TracedBlockTransaction{traces[0], traces[7], traces[11]}
@@ -201,7 +201,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		handler := rpcv10.New(mockReader, nil, nil, nil)
 
 		blockID := rpcv9.BlockIDFromNumber(blockNumber)
-		tracedBlocks, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
+		tracedBlocks, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 
 		require.Nil(t, tracedBlocks)
 		require.Equal(t, rpccore.ErrInternal.Code, err.Code)
@@ -412,6 +412,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			true,
 			false,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
@@ -493,6 +494,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			true,
 			false,
+			false,
 			false).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -569,6 +571,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			true,
+			false,
 			false,
 			false,
 		).
@@ -664,6 +667,7 @@ func TestTraceTransaction(t *testing.T) {
 			true,
 			false,
 			false,
+			false,
 		).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -742,12 +746,12 @@ func TestTraceBlockTransactions(t *testing.T) {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
-				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 				assert.Nil(t, update)
 				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
 			} else {
-				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 				assert.Nil(t, update)
 				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -816,6 +820,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			false,
 			true,
 			false,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
@@ -833,7 +838,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 
 		blockID := rpcv9.BlockIDFromHash(blockHash)
-		result, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+		result, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result)

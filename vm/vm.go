@@ -36,6 +36,7 @@ type ExecutionResults struct {
 	Traces           []TransactionTrace
 	NumSteps         uint64
 	Receipts         []TransactionReceipt
+	InitialReads     []InitialReads
 }
 
 type CallResult struct {
@@ -67,6 +68,7 @@ type VM interface {
 		errStack,
 		allowBinarySearch bool,
 		isEstimateFee bool,
+		returnInitialReads bool,
 	) (ExecutionResults, error)
 }
 
@@ -103,6 +105,7 @@ type callContext struct {
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
 	receipts        []json.RawMessage
+	initialReads    []InitialReads
 	declaredClasses map[felt.Felt]core.ClassDefinition
 	executionFailed bool
 }
@@ -180,6 +183,16 @@ func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2, ptr3 unsafe.Poin
 func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.ulonglong) {
 	context := unwrapContext(readerHandle)
 	context.executionSteps += uint64(execSteps)
+}
+
+//export JunoAppendInitialReads
+func JunoAppendInitialReads(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	var initialReads InitialReads
+	if err := json.Unmarshal(byteSlice, &initialReads); err == nil {
+		context.initialReads = append(context.initialReads, initialReads)
+	}
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -344,10 +357,12 @@ func (v *vm) Execute(
 	errorStack,
 	allowBinarySearch bool,
 	isEstimateFee bool,
+	returnInitialReads bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
-		state: state,
-		log:   v.log,
+		state:        state,
+		log:          v.log,
+		initialReads: []InitialReads{},
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
@@ -381,6 +396,7 @@ func (v *vm) Execute(
 		toUchar(errorStack),
 		toUchar(allowBinarySearch),
 		toUchar(isEstimateFee), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(returnInitialReads),
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -418,6 +434,7 @@ func (v *vm) Execute(
 		Traces:           traces,
 		NumSteps:         context.executionSteps,
 		Receipts:         receipts,
+		InitialReads:     context.initialReads,
 	}, nil
 }
 
