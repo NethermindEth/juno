@@ -3,8 +3,8 @@ use crate::{
         execute::{
             process::{determine_gas_vector_mode, process_transaction},
             utils::{
-                adjust_fee_calculation_result, append_gas_and_fee, append_receipt, append_trace,
-                parse_json, transaction_from_api,
+                adjust_fee_calculation_result, append_gas_and_fee, append_initial_reads,
+                append_receipt, append_trace, parse_json, transaction_from_api,
             },
         },
         utils::build_block_context,
@@ -12,8 +12,8 @@ use crate::{
     error::{execution::ExecutionError, juno::JunoError, stack::error_stack_frames_to_json},
     ffi_entrypoint::{BlockInfo, ChainInfo},
     ffi_type::{
-        class_info::class_info_from_json_str, transaction_receipt::TransactionReceipt,
-        transaction_trace::new_transaction_trace,
+        class_info::class_info_from_json_str, initial_reads::InitialReads,
+        transaction_receipt::TransactionReceipt, transaction_trace::new_transaction_trace,
     },
     state_reader::{state_reader::BlockHeight, JunoStateReader},
 };
@@ -43,6 +43,7 @@ pub fn cairo_vm_execute(
     err_stack: c_uchar,
     allow_binary_search: c_uchar,
     is_estimate_fee: c_uchar,
+    return_initial_reads: c_uchar,
 ) -> Result<(), JunoError> {
     let block_info = unsafe { *block_info_ptr };
     let chain_info = unsafe { *chain_info_ptr };
@@ -75,6 +76,7 @@ pub fn cairo_vm_execute(
     let err_on_revert = err_on_revert == 1;
     let allow_binary_search = allow_binary_search == 1;
     let is_estimate_fee = is_estimate_fee == 1;
+    let return_initial_reads = return_initial_reads == 1;
 
     let mut writer_buffer = Vec::with_capacity(10_000);
 
@@ -185,6 +187,22 @@ pub fn cairo_vm_execute(
 
         append_trace(reader_handle, &trace, &mut writer_buffer)
             .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
+
+        if return_initial_reads {
+            let state_maps = txn_state
+                .state
+                .get_initial_reads()
+                .map_err(|err| {
+                    JunoError::tx_non_execution_error(
+                        format!("failed to get initial reads: {err:?}"),
+                        txn_index,
+                    )
+                })?;
+            let initial_reads_ffi: InitialReads = state_maps.into();
+            append_initial_reads(reader_handle, &initial_reads_ffi, &mut writer_buffer)
+                .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
+        }
+
         txn_state.commit();
     }
     Ok(())

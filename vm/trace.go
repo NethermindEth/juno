@@ -55,6 +55,34 @@ type DeclaredClass struct {
 	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
 }
 
+type InitialReadsStorageEntry struct {
+	ContractAddress felt.Address `json:"contract_address"`
+	Key             felt.Felt    `json:"key"`
+	Value           felt.Felt    `json:"value"`
+}
+
+type InitialReadsNonceEntry struct {
+	ContractAddress felt.Address `json:"contract_address"`
+	Nonce           felt.Felt    `json:"nonce"`
+}
+
+type InitialReadsClassHashEntry struct {
+	ContractAddress felt.Address   `json:"contract_address"`
+	ClassHash       felt.ClassHash `json:"class_hash"`
+}
+
+type InitialReadsDeclaredContractEntry struct {
+	ClassHash  felt.ClassHash `json:"class_hash"`
+	IsDeclared bool           `json:"is_declared"`
+}
+
+type InitialReads struct {
+	Storage           []InitialReadsStorageEntry          `json:"storage"`
+	Nonces            []InitialReadsNonceEntry            `json:"nonces"`
+	ClassHashes       []InitialReadsClassHashEntry        `json:"class_hashes"`
+	DeclaredContracts []InitialReadsDeclaredContractEntry `json:"declared_contracts"`
+}
+
 type TransactionType uint8
 
 const (

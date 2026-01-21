@@ -22,11 +22,41 @@ const ExecutionStepsHeader string = "X-Cairo-Steps"
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
 	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`
+	InitialReads     *InitialReads     `json:"initial_reads,omitempty"`
 }
 
 type TracedBlockTransaction struct {
 	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
 	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
+	InitialReads    *InitialReads     `json:"initial_reads,omitempty"`
+}
+
+type StorageEntry struct {
+	ContractAddress *felt.Address `json:"contract_address"`
+	Key             *felt.Felt    `json:"key"`
+	Value           *felt.Felt    `json:"value"`
+}
+
+type NonceEntry struct {
+	ContractAddress *felt.Address `json:"contract_address"`
+	Nonce           *felt.Felt    `json:"nonce"`
+}
+
+type ClassHashEntry struct {
+	ContractAddress *felt.Address   `json:"contract_address"`
+	ClassHash       *felt.ClassHash `json:"class_hash"`
+}
+
+type DeclaredContractEntry struct {
+	ClassHash  *felt.ClassHash `json:"class_hash"`
+	IsDeclared bool            `json:"is_declared"`
+}
+
+type InitialReads struct {
+	Storage           []StorageEntry          `json:"storage"`
+	Nonces            []NonceEntry            `json:"nonces"`
+	ClassHashes       []ClassHashEntry        `json:"class_hashes"`
+	DeclaredContracts []DeclaredContractEntry `json:"declared_contracts"`
 }
 
 type BroadcastedTransactionInputs = rpccore.LimitSlice[
@@ -55,6 +85,7 @@ func (h *Handler) simulateTransactions(
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
+	returnInitialReads := slices.Contains(simulationFlags, rpcv6.ReturnInitialReadsFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
@@ -97,6 +128,7 @@ func (h *Handler) simulateTransactions(
 		true,
 		true,
 		isEstimateFee,
+		returnInitialReads,
 	)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
@@ -104,7 +136,7 @@ func (h *Handler) simulateTransactions(
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
 
-	simulatedTransactions, err := createSimulatedTransactions(&executionResults, txns, header)
+	simulatedTransactions, err := createSimulatedTransactions(&executionResults, txns, header, returnInitialReads)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -193,7 +225,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 }
 
 func createSimulatedTransactions(
-	executionResults *vm.ExecutionResults, txns []core.Transaction, header *core.Header,
+	executionResults *vm.ExecutionResults, txns []core.Transaction, header *core.Header, returnInitialReads bool,
 ) ([]SimulatedTransaction, error) {
 	overallFees := executionResults.OverallFees
 	traces := executionResults.Traces
@@ -269,7 +301,11 @@ func createSimulatedTransactions(
 			l1DataGasPrice = l1DataGasPriceStrk
 		}
 
-		// Append simulated transaction (trace + fee estimate)
+		var initialReads InitialReads
+		if returnInitialReads && len(executionResults.InitialReads) > i {
+			initialReads = adaptVMInitialReads(&executionResults.InitialReads[i])
+		}
+
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: rpcv9.FeeEstimate{
@@ -282,6 +318,7 @@ func createSimulatedTransactions(
 				OverallFee:        overallFee,
 				Unit:              &feeUnit,
 			},
+			InitialReads: &initialReads,
 		}
 	}
 	return simulatedTransactions, nil
