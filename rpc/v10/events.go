@@ -119,7 +119,7 @@ func setEventFilterRange(
 // https://github.com/starkware-libs/starknet-specs/blob/785257f27cdc4ea0ca3b62a21b0f7bf51000f9b1/api/starknet_api_openrpc.json#L810 //nolint:lll
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
-func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > rpccore.MaxEventChunkSize {
 		return EventsChunk{}, rpccore.ErrPageSizeTooBig
 	} else {
