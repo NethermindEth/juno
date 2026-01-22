@@ -1,4 +1,4 @@
-package migration
+package deprecatedmigration
 
 import (
 	"bytes"
@@ -414,7 +414,7 @@ func TestSchemaMetadata(t *testing.T) {
 			var version [8]byte
 			binary.BigEndian.PutUint64(version[:], 1)
 			require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
-				return txn.Put(db.SchemaVersion.Key(), version[:])
+				return txn.Put(db.DeprecatedSchemaVersion.Key(), version[:])
 			}))
 
 			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)

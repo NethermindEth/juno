@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/deprecatedmigration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -100,7 +100,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	schemaMeta, err := migration.SchemaMetadata(utils.NewNopZapLogger(), database)
+	schemaMeta, err := deprecatedmigration.SchemaMetadata(utils.NewNopZapLogger(), database)
 	if err != nil {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}

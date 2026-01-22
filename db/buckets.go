@@ -28,11 +28,11 @@ const (
 	ContractClassHashHistory
 	ContractDeploymentHeight
 	L1Height
-	SchemaVersion
+	DeprecatedSchemaVersion
 	Unused // Previously used for storing Pending Block
 	BlockCommitments
 	Temporary // used temporarily for migrations
-	SchemaIntermediateState
+	DeprecatedSchemaIntermediateState
 	L1HandlerTxnHashByMsgHash // maps l1 handler msg hash to l1 handler txn hash
 	MempoolHead               // key of the head node
 	MempoolTail               // key of the tail node

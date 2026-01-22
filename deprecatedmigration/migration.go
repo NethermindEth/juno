@@ -1,4 +1,4 @@
-package migration
+package deprecatedmigration
 
 import (
 	"bytes"
@@ -194,7 +194,7 @@ func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMe
 	metadata := schemaMetadata{}
 	txn := targetDB
 
-	err := txn.Get(db.SchemaVersion.Key(), func(data []byte) error {
+	err := txn.Get(db.DeprecatedSchemaVersion.Key(), func(data []byte) error {
 		metadata.Version = binary.BigEndian.Uint64(data)
 		return nil
 	})
@@ -202,7 +202,7 @@ func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMe
 		return metadata, err
 	}
 
-	err = txn.Get(db.SchemaIntermediateState.Key(), func(data []byte) error {
+	err = txn.Get(db.DeprecatedSchemaIntermediateState.Key(), func(data []byte) error {
 		err := cbor.Unmarshal(data, &metadata.IntermediateState)
 		if err != nil {
 			// TODO: Instead of returning nil, we log the error for now to debug the issue
@@ -235,10 +235,10 @@ func updateSchemaMetadata(txn db.KeyValueWriter, schema schemaMetadata) error {
 		return err
 	}
 
-	if err := txn.Put(db.SchemaVersion.Key(), version[:]); err != nil {
+	if err := txn.Put(db.DeprecatedSchemaVersion.Key(), version[:]); err != nil {
 		return err
 	}
-	return txn.Put(db.SchemaIntermediateState.Key(), state)
+	return txn.Put(db.DeprecatedSchemaIntermediateState.Key(), state)
 }
 
 // migration0000 makes sure the targetDB is empty
