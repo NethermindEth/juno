@@ -1,3 +1,7 @@
+// Package deprecatedmigration contains the legacy migration system.
+//
+// Deprecated: This package is deprecated and will be removed in a future version.
+// Use the migration package instead for new migrations.
 package deprecatedmigration
 
 import (
