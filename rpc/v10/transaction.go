@@ -304,7 +304,7 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 	}
 }
 
-func makeJSONErrorFromGatewayError(err error) jsonrpc.Error {
+func makeJSONErrorFromGatewayError(err error) jsonrpc.Error { //nolint:gocyclo
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return *jsonrpc.Err(jsonrpc.InternalError, err.Error())
