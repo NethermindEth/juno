@@ -222,7 +222,7 @@ func (h *Handler) pushToFeederGateway(
 	}, nil
 }
 
-func adaptToFeederResourceBounds(rb *rpcv9.ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds {
+func adaptToFeederResourceBounds(rb *rpcv9.ResourceBoundsMap) map[starknet.Resource]starknet.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
@@ -240,7 +240,7 @@ func adaptToFeederResourceBounds(rb *rpcv9.ResourceBoundsMap) *map[starknet.Reso
 		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
 	}
 
-	return &feederResourceBounds
+	return feederResourceBounds
 }
 
 func adaptToFeederDAMode(mode *rpcv9.DataAvailabilityMode) *starknet.DataAvailabilityMode {
@@ -252,6 +252,12 @@ func adaptToFeederDAMode(mode *rpcv9.DataAvailabilityMode) *starknet.DataAvailab
 }
 
 func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
+	resourceBounds := adaptToFeederResourceBounds(rpcTx.ResourceBounds)
+	var resourceBoundsPtr *map[starknet.Resource]starknet.ResourceBounds
+	if resourceBounds != nil {
+		resourceBoundsPtr = &resourceBounds
+	}
+
 	return starknet.Transaction{
 		Hash:                  rpcTx.Hash,
 		Version:               rpcTx.Version,
@@ -267,7 +273,7 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
+		ResourceBounds:        resourceBoundsPtr,
 		Tip:                   rpcTx.Tip,
 		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
 		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
