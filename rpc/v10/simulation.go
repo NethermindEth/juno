@@ -48,7 +48,11 @@ func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
 		return json.Marshal(r.SimulatedTransactions)
 	}
-	return json.Marshal(SimulateTransactionsResponse{
+	type simulateTransactionsResponse struct {
+		SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
+		InitialReads          *InitialReads          `json:"initial_reads"`
+	}
+	return json.Marshal(simulateTransactionsResponse{
 		SimulatedTransactions: r.SimulatedTransactions,
 		InitialReads:          r.InitialReads,
 	})
@@ -63,8 +67,8 @@ type TracedBlockTransaction struct {
 // When RETURN_INITIAL_READS flag is not set, it marshals as an array.
 // When RETURN_INITIAL_READS flag is set, it marshals as an object with traces and initial_reads.
 type TraceBlockTransactionsResponse struct {
-	Traces       []TracedBlockTransaction `json:"traces"`
-	InitialReads *InitialReads            `json:"initial_reads"`
+	Traces       []TracedBlockTransaction
+	InitialReads *InitialReads
 }
 
 func NewTraceBlockTransactionsResponse(
@@ -81,7 +85,11 @@ func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
 		return json.Marshal(r.Traces)
 	}
-	return json.Marshal(TraceBlockTransactionsResponse{
+	type traceBlockTransactionsResponse struct {
+		Traces       []TracedBlockTransaction `json:"traces"`
+		InitialReads *InitialReads            `json:"initial_reads"`
+	}
+	return json.Marshal(traceBlockTransactionsResponse{
 		Traces:       r.Traces,
 		InitialReads: r.InitialReads,
 	})
