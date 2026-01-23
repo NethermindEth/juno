@@ -23,7 +23,7 @@ use std::{
     ffi::{c_char, c_uchar},
 };
 
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, StateMaps};
 use blockifier::transaction::account_transaction::ExecutionFlags as AccountExecutionFlags;
 use starknet_api::transaction::{
     fields::Fee, Transaction as StarknetApiTransaction, TransactionHash,
@@ -79,6 +79,7 @@ pub fn cairo_vm_execute(
     let return_initial_reads = return_initial_reads == 1;
 
     let mut writer_buffer = Vec::with_capacity(10_000);
+    let mut aggregated_initial_reads: Option<StateMaps> = None;
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
         let class_info = match txn_and_query_bit.txn.clone() {
@@ -190,7 +191,6 @@ pub fn cairo_vm_execute(
 
         if return_initial_reads {
             let state_maps = txn_state
-                .state
                 .get_initial_reads()
                 .map_err(|err| {
                     JunoError::tx_non_execution_error(
@@ -198,12 +198,30 @@ pub fn cairo_vm_execute(
                         txn_index,
                     )
                 })?;
-            let initial_reads_ffi: InitialReads = state_maps.into();
-            append_initial_reads(reader_handle, &initial_reads_ffi, &mut writer_buffer)
-                .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
+            
+            match &mut aggregated_initial_reads {
+                Some(aggregated) => {
+                    aggregated.storage.extend(state_maps.storage);
+                    aggregated.nonces.extend(state_maps.nonces);
+                    aggregated.class_hashes.extend(state_maps.class_hashes);
+                    aggregated.declared_contracts.extend(state_maps.declared_contracts);
+                }
+                None => {
+                    aggregated_initial_reads = Some(state_maps);
+                }
+            }
         }
 
         txn_state.commit();
     }
+
+    if return_initial_reads {
+        if let Some(initial_reads) = aggregated_initial_reads {
+            let initial_reads_ffi: InitialReads = initial_reads.into();
+            append_initial_reads(reader_handle, &initial_reads_ffi, &mut writer_buffer)
+                .map_err(|err| JunoError::tx_non_execution_error(err, 0))?;
+        }
+    }
+
     Ok(())
 }

@@ -273,8 +273,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.SimulateTransactions,
 		},
 		{
-			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_traceBlockTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "trace_flags", Optional: true},
+			},
 			Handler: h.rpcv10Handler.TraceBlockTransactions,
 		},
 		{

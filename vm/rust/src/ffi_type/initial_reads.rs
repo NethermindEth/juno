@@ -1,8 +1,6 @@
 use blockifier::state::cached_state::StateMaps;
 use starknet_api::{
     core::{ClassHash, ContractAddress},
-    hash::StarkFelt,
-    state::StorageKey,
 };
 use starknet_types_core::felt::Felt;
 
@@ -17,14 +15,14 @@ pub struct InitialReads {
 #[derive(serde::Serialize, Debug, PartialEq)]
 pub struct StorageEntry {
     pub contract_address: ContractAddress,
-    pub key: StarkFelt,
-    pub value: StarkFelt,
+    pub key: Felt,
+    pub value: Felt,
 }
 
 #[derive(serde::Serialize, Debug, PartialEq)]
 pub struct NonceEntry {
     pub contract_address: ContractAddress,
-    pub nonce: StarkFelt,
+    pub nonce: Felt,
 }
 
 #[derive(serde::Serialize, Debug, PartialEq)]
@@ -46,7 +44,7 @@ impl From<StateMaps> for InitialReads {
             .into_iter()
             .map(|((contract_address, storage_key), value)| StorageEntry {
                 contract_address,
-                key: storage_key.0,
+                key: storage_key.into(),
                 value: value.into(),
             })
             .collect();
@@ -56,7 +54,7 @@ impl From<StateMaps> for InitialReads {
             .into_iter()
             .map(|(contract_address, nonce)| NonceEntry {
                 contract_address,
-                nonce: nonce.0,
+                nonce: (*nonce).into(),
             })
             .collect();
 
@@ -65,7 +63,7 @@ impl From<StateMaps> for InitialReads {
             .into_iter()
             .map(|(contract_address, class_hash)| ClassHashEntry {
                 contract_address,
-                class_hash: *class_hash,
+                class_hash,
             })
             .collect();
 
@@ -73,7 +71,7 @@ impl From<StateMaps> for InitialReads {
             .declared_contracts
             .into_iter()
             .map(|(class_hash, is_declared)| DeclaredContractEntry {
-                class_hash: *class_hash,
+                class_hash,
                 is_declared,
             })
             .collect();

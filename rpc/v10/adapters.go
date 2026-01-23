@@ -162,7 +162,12 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
 
 func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
 	if vmInitialReads == nil {
-		return InitialReads{}
+		return InitialReads{
+			Storage:           []StorageEntry{},
+			Nonces:            []NonceEntry{},
+			ClassHashes:       []ClassHashEntry{},
+			DeclaredContracts: []DeclaredContractEntry{},
+		}
 	}
 
 	storage := make([]StorageEntry, len(vmInitialReads.Storage))
