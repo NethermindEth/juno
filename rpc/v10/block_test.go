@@ -844,7 +844,12 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 			}
 		}
 	}
-	require.Greater(t, invokeV3WithProofFactsCount, 0, "Block should contain at least one invoke v3 transaction with proof_facts")
+	require.Greater(
+		t,
+		invokeV3WithProofFactsCount,
+		0,
+		"Block should contain at least one invoke v3 transaction with proof_facts",
+	)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
@@ -884,7 +889,12 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 		}
 
 		// Verify number of transactions with proof_facts matches expected
-		require.Equal(t, invokeV3WithProofFactsCount, txsWithProofFactsCount, "Number of transactions with proof_facts should match")
+		require.Equal(
+			t,
+			invokeV3WithProofFactsCount,
+			txsWithProofFactsCount,
+			"Number of transactions with proof_facts should match",
+		)
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
@@ -914,7 +924,12 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, block)
 	require.Greater(t, len(block.Transactions), 0)
-	require.Equal(t, len(block.Transactions), len(block.Receipts), "Block should have receipts for all transactions")
+	require.Equal(
+		t,
+		len(block.Transactions),
+		len(block.Receipts),
+		"Block should have receipts for all transactions",
+	)
 
 	// Count invoke v3 transactions with proof_facts
 	var invokeV3WithProofFactsCount int
@@ -925,7 +940,11 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 			}
 		}
 	}
-	require.Greater(t, invokeV3WithProofFactsCount, 0, "Block should contain at least one invoke v3 transaction with proof_facts")
+	require.Greater(
+		t,
+		invokeV3WithProofFactsCount, 0,
+		"Block should contain at least one invoke v3 transaction with proof_facts",
+	)
 
 	// Count all transactions
 	totalTxCount := len(block.Transactions)
@@ -968,7 +987,12 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		}
 
 		// Verify number of transactions with proof_facts matches expected
-		require.Equal(t, invokeV3WithProofFactsCount, txsWithProofFactsCount, "Number of transactions with proof_facts should match")
+		require.Equal(
+			t,
+			invokeV3WithProofFactsCount,
+			txsWithProofFactsCount,
+			"Number of transactions with proof_facts should match",
+		)
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
@@ -982,7 +1006,11 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 
 			// Verify no transactions have proof_facts when flag is not set
 			for _, tx := range blockWithReceipts.Transactions {
-				require.Nil(t, tx.Transaction.ProofFacts, "proof_facts should not be included when flag is not set")
+				require.Nil(
+					t,
+					tx.Transaction.ProofFacts,
+					"proof_facts should not be included when flag is not set",
+				)
 			}
 		})
 	})

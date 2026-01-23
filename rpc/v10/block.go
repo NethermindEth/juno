@@ -105,7 +105,10 @@ func (h *Handler) BlockWithTxHashes(id *rpcv9.BlockID) (*BlockWithTxHashes, *jso
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L99
-func (h *Handler) BlockWithReceipts(id *rpcv9.BlockID, responseFlags *ResponseFlags) (*BlockWithReceipts, *jsonrpc.Error) {
+func (h *Handler) BlockWithReceipts(
+	id *rpcv9.BlockID,
+	responseFlags *ResponseFlags,
+) (*BlockWithReceipts, *jsonrpc.Error) {
 	includeProofFacts := responseFlags != nil && responseFlags.IncludeProofFacts
 
 	block, rpcErr := h.blockByID(id)
@@ -192,7 +195,10 @@ func (r *ResponseFlags) UnmarshalJSON(data []byte) error {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L62
-func (h *Handler) BlockWithTxs(blockID *rpcv9.BlockID, responseFlags *ResponseFlags) (*BlockWithTxs, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxs(
+	blockID *rpcv9.BlockID,
+	responseFlags *ResponseFlags,
+) (*BlockWithTxs, *jsonrpc.Error) {
 	includeProofFacts := responseFlags != nil && responseFlags.IncludeProofFacts
 
 	block, rpcErr := h.blockByID(blockID)

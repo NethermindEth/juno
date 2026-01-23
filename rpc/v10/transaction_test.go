@@ -736,7 +736,10 @@ func TestTransactionByBlockIDAndIndexWithResponseFlags(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	blockID := rpcv9.BlockIDFromNumber(1)
-	mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(1), uint64(0)).Return(invokeTxCore, nil).AnyTimes()
+	mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		uint64(1),
+		uint64(0),
+	).Return(invokeTxCore, nil).AnyTimes()
 	mockReader.EXPECT().Network().Return(network).AnyTimes()
 
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
