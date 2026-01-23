@@ -38,7 +38,7 @@ jobs:
         with:
           script: |
             const msrv = '${{ steps.rust-version.outputs.highest-msrv }}'
-            const previous_msrv = '1.87.0'
+            const previous_msrv = '1.88.0'
 
             if (msrv != previous_msrv) {
               github.rest.issues.createComment({
