@@ -15,8 +15,15 @@ type EventMatcher struct {
 }
 
 func NewEventMatcher(contractAddresses []*felt.Felt, keys [][]felt.Felt) EventMatcher {
+	// Filter out nil addresses
+	filteredAddresses := make([]*felt.Felt, 0, len(contractAddresses))
+	for _, addr := range contractAddresses {
+		if addr != nil {
+			filteredAddresses = append(filteredAddresses, addr)
+		}
+	}
 	return EventMatcher{
-		contractAddresses: contractAddresses,
+		contractAddresses: filteredAddresses,
 		keysMap:           makeKeysMaps(keys),
 	}
 }

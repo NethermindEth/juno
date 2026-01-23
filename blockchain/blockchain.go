@@ -569,9 +569,17 @@ func (b *Blockchain) EventFilter(
 		return nil, err
 	}
 
+	// Filter out nil addresses
+	filteredAddresses := make([]*felt.Felt, 0, len(addresses))
+	for _, addr := range addresses {
+		if addr != nil {
+			filteredAddresses = append(filteredAddresses, addr)
+		}
+	}
+
 	return newEventFilter(
 		b.database,
-		addresses,
+		filteredAddresses,
 		keys,
 		0,
 		latest,
