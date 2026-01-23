@@ -141,7 +141,11 @@ func TestEstimateFee(t *testing.T) {
 			ContractClass: json.RawMessage(`{}`),
 		}
 		_, _, err := handler.EstimateFee(
-			rpcv10.BroadcastedTransactionInputs{Data: []rpcv10.BroadcastedTransaction{{BroadcastedTransaction: invalidTx}}},
+			rpcv10.BroadcastedTransactionInputs{
+				Data: []rpcv10.BroadcastedTransaction{
+					{BroadcastedTransaction: invalidTx},
+				},
+			},
 			[]rpcv6.SimulationFlag{},
 			&blockID,
 		)
