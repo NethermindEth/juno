@@ -23,7 +23,6 @@ func TestMigrateIfNeeded(t *testing.T) {
 				testDB,
 				&utils.Mainnet,
 				utils.NewNopZapLogger(),
-				&deprecatedmigration.HTTPConfig{},
 			),
 			ctx.Err())
 	})
@@ -41,7 +40,6 @@ func TestMigrateIfNeeded(t *testing.T) {
 				testDB,
 				&utils.Mainnet,
 				utils.NewNopZapLogger(),
-				&deprecatedmigration.HTTPConfig{},
 			),
 		)
 	})
@@ -59,7 +57,6 @@ func TestMigrateIfNeeded(t *testing.T) {
 				testDB,
 				&utils.Mainnet,
 				utils.NewNopZapLogger(),
-				&deprecatedmigration.HTTPConfig{},
 			),
 		)
 		postVersion, postErr := deprecatedmigration.SchemaMetadata(utils.NewNopZapLogger(), testDB)

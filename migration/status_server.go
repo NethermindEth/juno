@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const ShutdownTimeout = 5 * time.Second
+
 // RunWithServer starts a status HTTP server and runs the provided function.
 // The server exposes health check endpoints:
 //   - /live: Always returns 200 OK (liveness probe)
@@ -71,7 +73,7 @@ func closeMigrationServer(srv *http.Server, log utils.StructuredLogger) {
 	log.Debug("Shutting down migration status server...")
 
 	// Create a context with timeout for graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {

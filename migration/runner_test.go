@@ -134,7 +134,7 @@ func TestNewRunner(t *testing.T) {
 		require.Contains(t, err.Error(), "entries length mismatch")
 	})
 
-	t.Run("Error on opt-out attempt", func(t *testing.T) {
+	t.Run("Error on opt-out attempt", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with version downgrade, tests different error message, nolintlint because main config does not check lll in tests
 		testDB := setupTestDB(t)
 		existingMetadata := migration.SchemaMetadata{
 			CurrentVersion:    migration.SchemaVersion(0b011), // Migrations 0 and 1 applied
@@ -157,7 +157,7 @@ func TestNewRunner(t *testing.T) {
 		require.Contains(t, err.Error(), "cannot opt out of previously enabled migrations:")
 	})
 
-	t.Run("Error on version downgrade", func(t *testing.T) {
+	t.Run("Error on version downgrade", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with opt-out attempt, tests different error message, nolintlint because main config does not check lll in tests
 		testDB := setupTestDB(t)
 		// Database has migration 2 applied, but codebase only has migrations 0 and 1
 		existingMetadata := migration.SchemaMetadata{

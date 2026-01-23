@@ -22,7 +22,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/remote"
-	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint // deprecated package will be removed later
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
@@ -528,25 +527,13 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	migrationHTTPConfig := deprecatedmigration.HTTPConfig{
-		Enabled: n.cfg.HTTP,
-		Host:    n.cfg.HTTPHost,
-		Port:    n.cfg.HTTPPort,
-	}
-
-	err = deprecatedmigration.MigrateIfNeeded(
-		ctx,
-		n.db,
-		&n.cfg.Network,
-		n.log,
-		&migrationHTTPConfig,
-	)
+	err = migrateIfNeeded(ctx, n.db, n.cfg, n.log)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
 		}
-		n.log.Errorw("Error while migrating the DB", "err", err)
+		n.log.Errorw("Error while running migrations", "err", err)
 		return
 	}
 

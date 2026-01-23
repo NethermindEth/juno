@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/NethermindEth/juno/deprecatedmigration/pipeline"
+	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/stretchr/testify/require"
 )
 

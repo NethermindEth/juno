@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"runtime"
 	"sort"
 	"time"
@@ -15,10 +14,12 @@ import (
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
+	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -35,6 +36,8 @@ const (
 type Migrator struct {
 	startFrom uint64
 }
+
+var _ migration.Migration = (*Migrator)(nil)
 
 // This migration migrates from the old CASM hash V2 bucket format to the new metadata format.
 // deprecatedCasmHashV2Bucket is the old accessor used to read pre-migration data.
@@ -55,7 +58,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *utils.Network,
-	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
+	log utils.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -66,14 +69,13 @@ func (m *Migrator) Migrate(
 	}
 
 	if m.startFrom > 0 {
-		log.Infow("Resuming Casm hash metadata migration",
-			"chain_height", chainHeight,
-			"resuming_from", m.startFrom,
+		log.Info("Resuming Casm hash metadata migration",
+			zap.Uint64("chain_height", chainHeight),
+			zap.Uint64("resuming_from", m.startFrom),
 		)
 	} else {
-		log.Infow("Starting Casm hash metadata migration",
-			"chain_height",
-			chainHeight,
+		log.Info("Starting Casm hash metadata migration",
+			zap.Uint64("chain_height", chainHeight),
 		)
 	}
 
@@ -116,9 +118,9 @@ func (m *Migrator) Migrate(
 
 		// Check for cancellation after processing
 		if shouldResume := resumeFrom <= toBlock; shouldResume {
-			log.Infow("Casm hash metadata migration interrupted",
-				"resume_from", resumeFrom,
-				"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
+			log.Info("Casm hash metadata migration interrupted",
+				zap.Uint64("resume_from", resumeFrom),
+				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
@@ -147,16 +149,16 @@ func (m *Migrator) Migrate(
 		}
 
 		if shouldResume := resumeFrom <= chainHeight; shouldResume {
-			log.Infow("Casm hash metadata migration interrupted",
-				"resume_from", resumeFrom,
-				"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
+			log.Info("Casm hash metadata migration interrupted",
+				zap.Uint64("resume_from", resumeFrom),
+				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
 	}
 
-	log.Infow("Casm hash metadata migration completed",
-		"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
+	log.Info("Casm hash metadata migration completed",
+		zap.Duration("elapsed", progressTracker.Elapsed()),
 	)
 
 	return nil, nil
@@ -164,7 +166,7 @@ func (m *Migrator) Migrate(
 
 func migrateRange(
 	ctx context.Context,
-	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
+	log utils.StructuredLogger,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	fromBlock, toBlock uint64,
 	maxWorkers int,

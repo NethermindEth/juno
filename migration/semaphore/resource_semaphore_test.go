@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/NethermindEth/juno/deprecatedmigration/semaphore"
+	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/stretchr/testify/require"
 )
 
