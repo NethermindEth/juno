@@ -304,7 +304,8 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 	}
 }
 
-func makeJSONErrorFromGatewayError(err error) jsonrpc.Error { //nolint:gocyclo // complex error mapping logic with many cases
+//nolint:gocyclo // complex error mapping logic with many cases
+func makeJSONErrorFromGatewayError(err error) jsonrpc.Error {
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return *jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -414,6 +415,8 @@ func (h *Handler) TransactionStatus(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315 //nolint:lll
+//
+//nolint:lll // URL exceeds line
 func (h *Handler) TransactionByHash(
 	hash *felt.Felt,
 	responseFlags ResponseFlags,
@@ -442,6 +445,8 @@ func (h *Handler) TransactionByHash(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L342 //nolint:lll
+//
+//nolint:lll // URL exceeds line limit
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *rpcv9.BlockID, txIndex int, responseFlags *ResponseFlags,
 ) (*Transaction, *jsonrpc.Error) {
