@@ -59,7 +59,6 @@ type MigrationRunner struct {
 }
 
 // NewRunner creates a migration runner that executes pending migrations.
-// It merges the base target version (from registry) with saved preferences from the database.
 //
 // Parameters:
 //   - entries: All registered migrations

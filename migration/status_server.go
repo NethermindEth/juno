@@ -16,7 +16,7 @@ const ShutdownTimeout = 5 * time.Second
 // RunWithServer starts a status HTTP server and runs the provided function.
 // The server exposes health check endpoints:
 //   - /live: Always returns 200 OK (liveness probe)
-//   - /ready: Returns 503 Service Unavailable with message "Operation in progress."
+//   - /ready: Returns 503 Service Unavailable with message "Database migration in progress."
 //     (readiness probe - indicates operation is running)
 //
 // The server is started in a goroutine, the function is executed, and then
@@ -27,15 +27,15 @@ func RunWithServer(
 	port uint16,
 	fn func() error,
 ) error {
-	srv := startStatusServer(log, host, port)
+	srv := startMigrationServer(log, host, port)
 	defer closeMigrationServer(srv, log)
 
 	return fn()
 }
 
-// startStatusServer starts an HTTP server that provides health check endpoints.
-// The server runs in a goroutine and should be closed using closeStatusServer.
-func startStatusServer(log utils.StructuredLogger, host string, port uint16) *http.Server {
+// startMigrationServer starts an HTTP server that provides health check endpoints.
+// The server runs in a goroutine and should be closed using closeMigrationServer.
+func startMigrationServer(log utils.StructuredLogger, host string, port uint16) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
