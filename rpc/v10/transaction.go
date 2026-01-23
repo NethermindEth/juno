@@ -224,9 +224,9 @@ func (h *Handler) pushToFeederGateway(
 	}
 
 	var gatewayResponse struct {
-		TransactionHash *felt.TransactionHash `json:"transaction_hash"`
-		ContractAddress *felt.Address         `json:"address"`
-		ClassHash       *felt.ClassHash       `json:"class_hash"`
+		TransactionHash felt.TransactionHash `json:"transaction_hash"`
+		ContractAddress *felt.Address        `json:"address"`
+		ClassHash       *felt.ClassHash      `json:"class_hash"`
 	}
 	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
 		return AddTxResponse{}, jsonrpc.Err(
@@ -236,7 +236,7 @@ func (h *Handler) pushToFeederGateway(
 	}
 
 	return AddTxResponse{
-		TransactionHash: gatewayResponse.TransactionHash,
+		TransactionHash: &gatewayResponse.TransactionHash,
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil
@@ -304,7 +304,7 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 	}
 }
 
-func makeJSONErrorFromGatewayError(err error) jsonrpc.Error { //nolint:gocyclo
+func makeJSONErrorFromGatewayError(err error) jsonrpc.Error { //nolint:gocyclo // complex error mapping logic with many cases
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return *jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -413,7 +413,7 @@ func (h *Handler) TransactionStatus(
 // TransactionByHash returns the details of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315 //nolint:lll
 func (h *Handler) TransactionByHash(
 	hash *felt.Felt,
 	responseFlags ResponseFlags,
@@ -441,7 +441,7 @@ func (h *Handler) TransactionByHash(
 // BlockID and index.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L342
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L342 //nolint:lll
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *rpcv9.BlockID, txIndex int, responseFlags *ResponseFlags,
 ) (*Transaction, *jsonrpc.Error) {
