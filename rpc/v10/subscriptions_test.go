@@ -1113,12 +1113,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 
 		var tempGatewayResponse struct {
-			TransactionHash felt.TransactionHash `json:"transaction_hash"`
-			ContractAddress *felt.Address        `json:"address"`
-			ClassHash       *felt.ClassHash      `json:"class_hash"`
+			TransactionHash *felt.Felt `json:"transaction_hash"`
+			ContractAddress *felt.Felt `json:"address"`
+			ClassHash       *felt.Felt `json:"class_hash"`
 		}
 
-		tempGatewayResponse.TransactionHash = felt.TransactionHash(*txToBroadcast.Hash)
+		tempGatewayResponse.TransactionHash = txToBroadcast.Hash
 		resRaw, err := json.Marshal(tempGatewayResponse)
 		require.NoError(t, err)
 		mockGateway.
