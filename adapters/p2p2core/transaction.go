@@ -341,6 +341,7 @@ func AdaptInvokeV3TxnCommon(
 		NonceDAMode:           nDAMode,
 		FeeDAMode:             fDAMode,
 		AccountDeploymentData: nil, // todo(kirill) recheck
+		ProofFacts:            nil,
 	}, nil
 }
 
