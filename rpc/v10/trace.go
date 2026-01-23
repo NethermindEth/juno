@@ -449,7 +449,9 @@ func (h *Handler) traceBlockTransactions(
 
 	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(block, h.bcReader.Network())
 	if err != nil {
-		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+		return TraceBlockTransactionsResponse{},
+			defaultExecutionHeader(),
+			rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	if fetchFromFeederGW {
@@ -488,7 +490,9 @@ func (h *Handler) traceBlockWithVM(block *core.Block, returnInitialReads bool) (
 		headState, headStateCloser, err = h.bcReader.HeadState()
 	}
 	if err != nil {
-		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return TraceBlockTransactionsResponse{},
+			defaultExecutionHeader(),
+			jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 

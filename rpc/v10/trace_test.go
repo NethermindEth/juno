@@ -1476,7 +1476,9 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			name:       "with flag and non-empty initial reads",
 			traceFlags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
-				Storage:           []vm.InitialReadsStorageEntry{{ContractAddress: addr, Key: key, Value: value}},
+				Storage: []vm.InitialReadsStorageEntry{
+					{ContractAddress: addr, Key: key, Value: value},
+				},
 				Nonces:            []vm.InitialReadsNonceEntry{},
 				ClassHashes:       []vm.InitialReadsClassHashEntry{},
 				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
@@ -1505,9 +1507,16 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			},
 		},
 		{
-			name:                 "without flag",
-			traceFlags:           []rpcv6.SimulationFlag{},
-			initialReads:         &vm.InitialReads{Storage: []vm.InitialReadsStorageEntry{{ContractAddress: addr, Key: key, Value: value}}, Nonces: []vm.InitialReadsNonceEntry{}, ClassHashes: []vm.InitialReadsClassHashEntry{}, DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{}},
+			name:       "without flag",
+			traceFlags: []rpcv6.SimulationFlag{},
+			initialReads: &vm.InitialReads{
+				Storage: []vm.InitialReadsStorageEntry{
+					{ContractAddress: addr, Key: key, Value: value},
+				},
+				Nonces:            []vm.InitialReadsNonceEntry{},
+				ClassHashes:       []vm.InitialReadsClassHashEntry{},
+				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
+			},
 			expectedInitialReads: nil,
 		},
 		{

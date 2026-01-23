@@ -27,13 +27,17 @@ type SimulatedTransaction struct {
 
 // SimulateTransactionsResponse represents the response for simulateTransactions.
 // When RETURN_INITIAL_READS flag is not set, it marshals as an array.
-// When RETURN_INITIAL_READS flag is set, it marshals as an object with simulated_transactions and initial_reads.
+// When RETURN_INITIAL_READS flag is set, it marshals as an object
+// with simulated_transactions and initial_reads.
 type SimulateTransactionsResponse struct {
 	SimulatedTransactions []SimulatedTransaction
 	InitialReads          *InitialReads
 }
 
-func NewSimulateTransactionsResponse(simulatedTransactions []SimulatedTransaction, initialReads *InitialReads) SimulateTransactionsResponse {
+func NewSimulateTransactionsResponse(
+	simulatedTransactions []SimulatedTransaction,
+	initialReads *InitialReads,
+) SimulateTransactionsResponse {
 	return SimulateTransactionsResponse{
 		SimulatedTransactions: simulatedTransactions,
 		InitialReads:          initialReads,
@@ -63,7 +67,10 @@ type TraceBlockTransactionsResponse struct {
 	InitialReads *InitialReads            `json:"initial_reads"`
 }
 
-func NewTraceBlockTransactionsResponse(traces []TracedBlockTransaction, initialReads *InitialReads) TraceBlockTransactionsResponse {
+func NewTraceBlockTransactionsResponse(
+	traces []TracedBlockTransaction,
+	initialReads *InitialReads,
+) TraceBlockTransactionsResponse {
 	return TraceBlockTransactionsResponse{
 		Traces:       traces,
 		InitialReads: initialReads,

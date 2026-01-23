@@ -345,7 +345,9 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			name:            "with flag and non-empty initial reads",
 			simulationFlags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
-				Storage:           []vm.InitialReadsStorageEntry{{ContractAddress: addr, Key: key, Value: value}},
+				Storage: []vm.InitialReadsStorageEntry{
+					{ContractAddress: addr, Key: key, Value: value},
+				},
 				Nonces:            []vm.InitialReadsNonceEntry{},
 				ClassHashes:       []vm.InitialReadsClassHashEntry{},
 				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
@@ -374,9 +376,13 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			},
 		},
 		{
-			name:                 "without flag",
-			simulationFlags:      []rpcv6.SimulationFlag{},
-			initialReads:         &vm.InitialReads{Storage: []vm.InitialReadsStorageEntry{{ContractAddress: addr, Key: key, Value: value}}},
+			name:            "without flag",
+			simulationFlags: []rpcv6.SimulationFlag{},
+			initialReads: &vm.InitialReads{
+				Storage: []vm.InitialReadsStorageEntry{
+					{ContractAddress: addr, Key: key, Value: value},
+				},
+			},
 			expectedInitialReads: nil,
 		},
 		{
@@ -416,9 +422,15 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 					CallData:      &[]*felt.Felt{},
 					Signature:     &[]*felt.Felt{&felt.Zero},
 					ResourceBounds: &rpcv9.ResourceBoundsMap{
-						L1Gas:     &rpcv9.ResourceBounds{MaxAmount: felt.NewFromUint64[felt.Felt](1000), MaxPricePerUnit: &felt.Zero},
-						L1DataGas: &rpcv9.ResourceBounds{MaxAmount: felt.NewFromUint64[felt.Felt](1000), MaxPricePerUnit: &felt.Zero},
-						L2Gas:     &rpcv9.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
+						L1Gas: &rpcv9.ResourceBounds{
+							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
+							MaxPricePerUnit: &felt.Zero,
+						},
+						L1DataGas: &rpcv9.ResourceBounds{
+							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
+							MaxPricePerUnit: &felt.Zero,
+						},
+						L2Gas: &rpcv9.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
 					},
 				},
 			}}
