@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"runtime"
 	"time"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -26,6 +27,8 @@ const (
 	// logRate is the rate at which we log the progress in block numbers.
 	timeLogRate = 30 * time.Second
 )
+
+var _ migration.Migration = (*Migrator)(nil)
 
 // Migrator recalculates L1 message hash to L2 transaction hash mapping from transactions
 type Migrator struct {
@@ -43,7 +46,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	_ *utils.Network,
-	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
+	log utils.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -54,14 +57,13 @@ func (m *Migrator) Migrate(
 	}
 
 	if m.startFrom > 0 {
-		log.Infow("Resuming L1 handler message hash migration",
-			"chain_height", chainHeight,
-			"from_block", m.startFrom,
+		log.Info("Resuming L1 handler message hash migration",
+			zap.Uint64("chain_height", chainHeight),
+			zap.Uint64("from_block", m.startFrom),
 		)
 	} else {
-		log.Infow("Starting L1 handler message hash migration",
-			"chain_height",
-			chainHeight,
+		log.Info("Starting L1 handler message hash migration",
+			zap.Uint64("chain_height", chainHeight),
 		)
 	}
 
@@ -81,15 +83,15 @@ func (m *Migrator) Migrate(
 	}
 
 	if shouldResume := resumeFrom <= chainHeight; shouldResume {
-		log.Infow("L1 handler message hash migration interrupted",
-			"resume_from", resumeFrom,
-			"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
+		log.Info("L1 handler message hash migration interrupted",
+			zap.Uint64("resume_from", resumeFrom),
+			zap.Duration("elapsed", progressTracker.Elapsed()),
 		)
 		return encodeIntermediateState(resumeFrom), nil
 	}
 
-	log.Infow("L1 handler message hash migration completed",
-		"elapsed", fmt.Sprintf("%.2fs", progressTracker.Elapsed().Seconds()),
+	log.Info("L1 handler message hash migration completed",
+		zap.Duration("elapsed", progressTracker.Elapsed()),
 	)
 	return nil, nil
 }
@@ -97,7 +99,7 @@ func (m *Migrator) Migrate(
 func migrateBlockRange(
 	ctx context.Context,
 	database db.KeyValueStore,
-	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
+	logger utils.StructuredLogger,
 	startFrom uint64,
 	rangeEnd uint64,
 	maxWorkers int,

@@ -25,7 +25,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
@@ -528,18 +527,13 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	migrationHTTPConfig := migration.HTTPConfig{
-		Enabled: n.cfg.HTTP,
-		Host:    n.cfg.HTTPHost,
-		Port:    n.cfg.HTTPPort,
-	}
-
-	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log, &migrationHTTPConfig); err != nil {
+	err = migrateIfNeeded(ctx, n.db, n.cfg, n.log)
+	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
 		}
-		n.log.Errorw("Error while migrating the DB", "err", err)
+		n.log.Errorw("Error while running migrations", "err", err)
 		return
 	}
 
