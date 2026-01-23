@@ -159,10 +159,10 @@ func TestNewRunner(t *testing.T) {
 
 	t.Run("Error on version downgrade", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with opt-out attempt, tests different error message, nolintlint because main config does not check lll in tests
 		testDB := setupTestDB(t)
-		// Database has migration 2 applied, but codebase only has migrations 0 and 1
+		// Database has migration 3 applied, but target only has 2 migrations
 		existingMetadata := migration.SchemaMetadata{
-			CurrentVersion:    migration.SchemaVersion(0b100), // Migration 2 applied
-			LastTargetVersion: migration.SchemaVersion(0b100),
+			CurrentVersion:    migration.SchemaVersion(0b111),
+			LastTargetVersion: migration.SchemaVersion(0b111),
 		}
 		require.NoError(t, migration.WriteSchemaMetadata(testDB, existingMetadata))
 

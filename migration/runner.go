@@ -95,7 +95,7 @@ func NewRunner(
 	}
 
 	// Validate: check if database was migrated with a newer version of Juno (version downgrade)
-	if err := validateNoVersionDowngrade(metadata.CurrentVersion, entries); err != nil {
+	if err := validateNoVersionDowngrade(metadata.CurrentVersion, targetVersion); err != nil {
 		return nil, err
 	}
 
@@ -197,12 +197,9 @@ func (mr *MigrationRunner) runMigration(ctx context.Context, migrationIndex uint
 
 // validateNoVersionDowngrade checks if the database was migrated with a newer version of Juno
 // that has migrations not present in the current codebase.
-// Returns an error if current has migrations beyond what's available in entries, nil otherwise.
-func validateNoVersionDowngrade(current SchemaVersion, entries []Migration) error {
-	maxAvailableIndex := len(entries) - 1
-
-	// Check if current has any migrations beyond what's available in the codebase
-	if current.HighestBit() > maxAvailableIndex {
+// Returns an error if current has migrations that target doesn't have, nil otherwise.
+func validateNoVersionDowngrade(current, target SchemaVersion) error {
+	if !target.Contains(current) {
 		return errors.New(
 			"database is from a newer, incompatible version of Juno; upgrade to use this database",
 		)
