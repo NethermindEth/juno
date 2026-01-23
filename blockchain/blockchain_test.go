@@ -515,18 +515,26 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 	}
 
 	from := []*felt.Felt{
-		felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+		felt.NewUnsafeFromString[felt.Felt](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		),
 	}
 
 	t.Run("filter with keys", func(t *testing.T) {
-		key := felt.NewUnsafeFromString[felt.Felt]("0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+		key := felt.NewUnsafeFromString[felt.Felt](
+			"0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533",
+		)
 		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, pendingDataFunc)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
-			felt.NewUnsafeFromString[felt.Felt]("0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
+			felt.NewUnsafeFromString[felt.Felt](
+				"0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14",
+			)))
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterTo,
-			felt.NewUnsafeFromString[felt.Felt]("0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
+			felt.NewUnsafeFromString[felt.Felt](
+				"0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14",
+			)))
 
 		events, cToken, err := filter.Events(nil, 10)
 		require.Empty(t, cToken)
@@ -557,8 +565,12 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 	})
 
 	t.Run("filter with multiple addresses from test data", func(t *testing.T) {
-		address1 := felt.NewUnsafeFromString[felt.Felt]("0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82")
-		address2 := felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+		address1 := felt.NewUnsafeFromString[felt.Felt](
+			"0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82",
+		)
+		address2 := felt.NewUnsafeFromString[felt.Felt](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		)
 
 		addresses := []*felt.Felt{address1, address2}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
@@ -588,8 +600,12 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 	})
 
 	t.Run("filter with one existing and one non-existing address", func(t *testing.T) {
-		existingAddr := felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
-		nonExistingAddr := felt.NewUnsafeFromString[felt.Felt]("0x0000000000000000000000000000000000000000000000000000000000000000")
+		existingAddr := felt.NewUnsafeFromString[felt.Felt](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		)
+		nonExistingAddr := felt.NewUnsafeFromString[felt.Felt](
+			"0x0000000000000000000000000000000000000000000000000000000000000000",
+		)
 
 		addresses := []*felt.Felt{existingAddr, nonExistingAddr}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
@@ -659,7 +675,9 @@ func TestEvents(t *testing.T) {
 	})
 
 	from := []*felt.Felt{
-		felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+		felt.NewUnsafeFromString[felt.Felt](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		),
 	}
 	t.Run("filter with no keys", func(t *testing.T) {
 		filter, err := chain.EventFilter(from, nil, pendingDataFunc)
@@ -714,7 +732,9 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with duplicate addresses", func(t *testing.T) {
-		address1 := felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+		address1 := felt.NewUnsafeFromString[felt.Felt](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		)
 
 		addresses := []*felt.Felt{address1, address1, address1}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)

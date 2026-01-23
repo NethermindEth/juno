@@ -180,7 +180,9 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter([]*felt.Felt{fromAddr}, keys, gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(
+			[]*felt.Felt{fromAddr}, keys, gomock.Any(),
+		).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
@@ -203,7 +205,9 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter([]*felt.Felt{fromAddr}, keys, gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(
+			[]*felt.Felt{fromAddr}, keys, gomock.Any(),
+		).Return(mockEventFilterer, nil)
 
 		cToken := blockchain.ContinuationToken{}
 		require.NoError(t, cToken.FromString(fmt.Sprintf("%d-0", b2.Number)))
@@ -229,7 +233,9 @@ func TestSubscribeEvents(t *testing.T) {
 
 		handler := New(mockChain, mockSyncer, nil, log)
 
-		mockChain.EXPECT().EventFilter([]*felt.Felt{fromAddr}, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().EventFilter(
+			[]*felt.Felt{fromAddr}, keys, gomock.Any(),
+		).Return(mockEventFilterer, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
