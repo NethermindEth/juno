@@ -88,7 +88,10 @@ type AddTxResponse struct {
 }
 
 // AddTransaction adds a transaction to the mempool or forwards it to the feeder gateway.
-func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
+func (h *Handler) AddTransaction(
+	ctx context.Context,
+	tx *BroadcastedTransaction,
+) (AddTxResponse, *jsonrpc.Error) {
 	var (
 		res AddTxResponse
 		err *jsonrpc.Error
@@ -110,7 +113,10 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 	return res, nil
 }
 
-func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
+func (h *Handler) addToMempool(
+	ctx context.Context,
+	tx *BroadcastedTransaction,
+) (AddTxResponse, *jsonrpc.Error) {
 	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
@@ -148,14 +154,20 @@ func (h *Handler) pushToFeederGateway(
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
 	v9Tx := &tx.BroadcastedTransaction
-	if v9Tx.Transaction.Type == rpcv9.TxnDeclare && v9Tx.Transaction.Version.Cmp(felt.NewFromUint64[felt.Felt](2)) != -1 {
+	if v9Tx.Transaction.Type == rpcv9.TxnDeclare &&
+		v9Tx.Transaction.Version.Cmp(felt.NewFromUint64[felt.Felt](2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(v9Tx.ContractClass, &contractClass); err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+				fmt.Sprintf("unmarshal contract class: %v", err),
+			)
 		}
 		sierraProg, ok := contractClass["sierra_program"]
 		if !ok {
-			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
+			return AddTxResponse{}, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"{'sierra_program': ['Missing data for required field.']}",
+			)
 		}
 
 		sierraProgBytes, errIn := json.Marshal(sierraProg)
@@ -171,7 +183,9 @@ func (h *Handler) pushToFeederGateway(
 		contractClass["sierra_program"] = gwSierraProg
 		newContractClass, err := json.Marshal(contractClass)
 		if err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+				fmt.Sprintf("marshal revised contract class: %v", err),
+			)
 		}
 		v9Tx.ContractClass = newContractClass
 	}
@@ -194,7 +208,9 @@ func (h *Handler) pushToFeederGateway(
 
 	txJSON, err := json.Marshal(&txStruct)
 	if err != nil {
-		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+			fmt.Sprintf("marshal transaction: %v", err),
+		)
 	}
 
 	if h.gatewayClient == nil {
@@ -213,7 +229,10 @@ func (h *Handler) pushToFeederGateway(
 		ClassHash       *felt.ClassHash       `json:"class_hash"`
 	}
 	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
-		return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
+		return AddTxResponse{}, jsonrpc.Err(
+			jsonrpc.InternalError,
+			fmt.Sprintf("unmarshal gateway response: %v", err),
+		)
 	}
 
 	return AddTxResponse{
@@ -223,7 +242,9 @@ func (h *Handler) pushToFeederGateway(
 	}, nil
 }
 
-func adaptToFeederResourceBounds(rb *rpcv9.ResourceBoundsMap) map[starknet.Resource]starknet.ResourceBounds {
+func adaptToFeederResourceBounds(
+	rb *rpcv9.ResourceBoundsMap,
+) map[starknet.Resource]starknet.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
@@ -283,7 +304,7 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 	}
 }
 
-func makeJSONErrorFromGatewayError(err error) jsonrpc.Error { //nolint:gocyclo
+func makeJSONErrorFromGatewayError(err error) jsonrpc.Error {
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return *jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -393,7 +414,10 @@ func (h *Handler) TransactionStatus(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
-func (h *Handler) TransactionByHash(hash *felt.Felt, responseFlags ResponseFlags) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByHash(
+	hash *felt.Felt,
+	responseFlags ResponseFlags,
+) (*Transaction, *jsonrpc.Error) {
 	// Check pending data
 	if pending, err := h.PendingData(); err == nil {
 		if txn, err := pending.TransactionByHash(hash); err == nil {
