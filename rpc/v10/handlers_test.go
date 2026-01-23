@@ -86,7 +86,11 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
 		blockID := rpcv9.BlockIDFromHash(blockHash)
-		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, []rpcv6.SimulationFlag{})
+		_, httpHeader, rpcErr := handler.TraceBlockTransactions(
+			t.Context(),
+			&blockID,
+			[]rpcv6.SimulationFlag{},
+		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv9.ExecutionStepsHeader))
 	})
