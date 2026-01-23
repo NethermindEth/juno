@@ -52,10 +52,7 @@ func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
 		SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
 		InitialReads          *InitialReads          `json:"initial_reads"`
 	}
-	response := simulateTransactionsResponse{
-		SimulatedTransactions: r.SimulatedTransactions,
-		InitialReads:          r.InitialReads,
-	}
+	response := simulateTransactionsResponse(r)
 	return json.Marshal(response)
 }
 
@@ -90,10 +87,7 @@ func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 		Traces       []TracedBlockTransaction `json:"traces"`
 		InitialReads *InitialReads            `json:"initial_reads"`
 	}
-	response := traceBlockTransactionsResponse{
-		Traces:       r.Traces,
-		InitialReads: r.InitialReads,
-	}
+	response := traceBlockTransactionsResponse(r)
 	return json.Marshal(response)
 }
 

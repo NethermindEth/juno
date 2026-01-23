@@ -322,7 +322,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 // initialReadsTestCases returns the shared test cases for testing RETURN_INITIAL_READS flag.
 // These test cases are used by both TestSimulateTransactionsWithReturnInitialReads
 // and TestTraceBlockTransactionsWithReturnInitialReads since they test the same
-// initial reads behavior.
+// initial reads behaviour.
 func initialReadsTestCases() []struct {
 	name                 string
 	flags                []rpcv6.SimulationFlag
