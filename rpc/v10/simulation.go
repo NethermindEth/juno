@@ -52,10 +52,11 @@ func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
 		SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
 		InitialReads          *InitialReads          `json:"initial_reads"`
 	}
-	return json.Marshal(simulateTransactionsResponse{
+	response := simulateTransactionsResponse{
 		SimulatedTransactions: r.SimulatedTransactions,
 		InitialReads:          r.InitialReads,
-	})
+	}
+	return json.Marshal(response)
 }
 
 type TracedBlockTransaction struct {
@@ -89,10 +90,11 @@ func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 		Traces       []TracedBlockTransaction `json:"traces"`
 		InitialReads *InitialReads            `json:"initial_reads"`
 	}
-	return json.Marshal(traceBlockTransactionsResponse{
+	response := traceBlockTransactionsResponse{
 		Traces:       r.Traces,
 		InitialReads: r.InitialReads,
-	})
+	}
+	return json.Marshal(response)
 }
 
 type StorageEntry struct {
