@@ -265,12 +265,11 @@ func adaptToFeederResourceBounds(
 	return feederResourceBounds
 }
 
-func adaptToFeederDAMode(mode *rpcv9.DataAvailabilityMode) *starknet.DataAvailabilityMode {
+func adaptToFeederDAMode(mode *rpcv9.DataAvailabilityMode) starknet.DataAvailabilityMode {
 	if mode == nil {
-		return nil
+		return 0
 	}
-	dataAvailabilityMode := starknet.DataAvailabilityMode(*mode)
-	return &dataAvailabilityMode
+	return starknet.DataAvailabilityMode(*mode)
 }
 
 func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
@@ -278,6 +277,18 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 	var resourceBoundsPtr *map[starknet.Resource]starknet.ResourceBounds
 	if resourceBounds != nil {
 		resourceBoundsPtr = &resourceBounds
+	}
+
+	var nonceDAModePtr *starknet.DataAvailabilityMode
+	if rpcTx.NonceDAMode != nil {
+		nonceDAMode := adaptToFeederDAMode(rpcTx.NonceDAMode)
+		nonceDAModePtr = &nonceDAMode
+	}
+
+	var feeDAModePtr *starknet.DataAvailabilityMode
+	if rpcTx.FeeDAMode != nil {
+		feeDAMode := adaptToFeederDAMode(rpcTx.FeeDAMode)
+		feeDAModePtr = &feeDAMode
 	}
 
 	return starknet.Transaction{
@@ -297,8 +308,8 @@ func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 		CompiledClassHash:     rpcTx.CompiledClassHash,
 		ResourceBounds:        resourceBoundsPtr,
 		Tip:                   rpcTx.Tip,
-		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
-		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		NonceDAMode:           nonceDAModePtr,
+		FeeDAMode:             feeDAModePtr,
 		AccountDeploymentData: rpcTx.AccountDeploymentData,
 		PaymasterData:         rpcTx.PaymasterData,
 	}

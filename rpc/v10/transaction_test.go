@@ -476,7 +476,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	txnToAdd := createBaseInvokeTransactionV3()
 
 	broadcastedTxn := &rpcv9.BroadcastedTransaction{
-		Transaction: *rpcv9.AdaptTransaction(txnToAdd),
+		Transaction: *rpcv9.AdaptTransaction(&txnToAdd),
 	}
 
 	var gatewayResponse struct {
@@ -588,7 +588,7 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 			felt.NewFromUint64[felt.Felt](100),
 			felt.NewFromUint64[felt.Felt](200),
 		}
-		txnToAdd := *baseTxnToAdd
+		txnToAdd := baseTxnToAdd
 		txnToAdd.ProofFacts = proofFacts
 
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
@@ -636,7 +636,7 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 	t.Run("WithoutProofAndProofFacts", func(t *testing.T) {
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
 			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-				Transaction: *rpcv9.AdaptTransaction(baseTxnToAdd),
+				Transaction: *rpcv9.AdaptTransaction(&baseTxnToAdd),
 			},
 		}
 
@@ -832,8 +832,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 }
 
-func createBaseInvokeTransactionV3() *core.InvokeTransaction {
-	return &core.InvokeTransaction{
+func createBaseInvokeTransactionV3() core.InvokeTransaction {
+	return core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
