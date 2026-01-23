@@ -1,16 +1,16 @@
 package progresslogger
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 // BlockProgressTracker tracks the progress of a migration by block number.
 type BlockProgressTracker struct {
-	logger          utils.SimpleLogger //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
+	logger          utils.StructuredLogger
 	totalBlocks     uint64
 	completedBlocks atomic.Uint64
 	startTimestamp  time.Time
@@ -19,7 +19,7 @@ type BlockProgressTracker struct {
 // NewBlockProgressTracker creates a new progress tracker for block-based migrations.
 // initialCompletedBlocks allows resuming from a previous migration state.
 func NewBlockProgressTracker(
-	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck we are complying with the Migration interface, nolintlint because main config does not checks
+	logger utils.StructuredLogger,
 	totalBlocks uint64,
 	initialCompletedBlocks uint64,
 ) *BlockProgressTracker {
@@ -43,10 +43,10 @@ func (t *BlockProgressTracker) IncrementCompletedBlocks(amount uint64) {
 // LogProgress logs the progress of the migration.
 func (t *BlockProgressTracker) LogProgress() {
 	percentage := float64(t.completedBlocks.Load()) / float64(t.totalBlocks) * 100
-	t.logger.Infow(
+	t.logger.Info(
 		"Migration progress",
-		"percentage", fmt.Sprintf("%.2f%%", percentage),
-		"elapsed", fmt.Sprintf("%.2fs", t.Elapsed().Seconds()),
+		zap.Float64("percentage", percentage),
+		zap.Duration("elapsed", t.Elapsed()),
 	)
 }
 

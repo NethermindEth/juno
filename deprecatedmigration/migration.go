@@ -1,4 +1,8 @@
-package migration
+// Package deprecatedmigration contains the legacy migration system.
+//
+// Deprecated: This package is deprecated and will be removed in a future version.
+// Use the migration package instead for new migrations.
+package deprecatedmigration
 
 import (
 	"bytes"
@@ -9,12 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net"
-	"net/http"
 	"runtime"
-	"strconv"
 	"sync"
-	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
@@ -25,8 +25,6 @@ import (
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/NethermindEth/juno/migration/casmhashmetadata"
-	"github.com/NethermindEth/juno/migration/l1handlermapping"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -89,16 +87,17 @@ var defaultMigrations = []Migration{
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
-	&casmhashmetadata.Migrator{},
-	&l1handlermapping.Migrator{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
-func MigrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *utils.Network,
-	log utils.SimpleLogger, httpConfig *HTTPConfig,
+func MigrateIfNeeded(
+	ctx context.Context,
+	targetDB db.KeyValueStore,
+	network *utils.Network,
+	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck complies with interface, nolinlint because main config does not check
 ) error {
-	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations, httpConfig)
+	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
 }
 
 func migrateIfNeeded(
@@ -107,7 +106,6 @@ func migrateIfNeeded(
 	network *utils.Network,
 	log utils.SimpleLogger,
 	migrations []Migration,
-	httpConfig *HTTPConfig,
 ) error {
 	/*
 		Schema metadata of the targetDB determines which set of migrations need to be applied to the database.
@@ -133,11 +131,6 @@ func migrateIfNeeded(
 	currentVersion := uint64(len(migrations))
 	if metadata.Version > currentVersion {
 		return errors.New("db is from a newer, incompatible version of Juno; upgrade to use this database")
-	}
-
-	if httpConfig.Enabled {
-		migrationSrv := startMigrationStatusServer(log, httpConfig.Host, httpConfig.Port)
-		defer closeMigrationServer(migrationSrv, log)
 	}
 
 	for i := metadata.Version; i < currentVersion; i++ {
@@ -179,14 +172,7 @@ func migrateIfNeeded(
 		}
 	}
 
-	return nil
-}
-
-func closeMigrationServer(srv *http.Server, log utils.SimpleLogger) {
-	log.Debugw("Closing migration status server immediately...")
-	if err := srv.Close(); err != nil {
-		log.Errorw("Migration status server close failed", "err", err)
-	}
+	return ctx.Err()
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
@@ -194,7 +180,7 @@ func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMe
 	metadata := schemaMetadata{}
 	txn := targetDB
 
-	err := txn.Get(db.SchemaVersion.Key(), func(data []byte) error {
+	err := txn.Get(db.DeprecatedSchemaVersion.Key(), func(data []byte) error {
 		metadata.Version = binary.BigEndian.Uint64(data)
 		return nil
 	})
@@ -202,7 +188,7 @@ func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMe
 		return metadata, err
 	}
 
-	err = txn.Get(db.SchemaIntermediateState.Key(), func(data []byte) error {
+	err = txn.Get(db.DeprecatedSchemaIntermediateState.Key(), func(data []byte) error {
 		err := cbor.Unmarshal(data, &metadata.IntermediateState)
 		if err != nil {
 			// TODO: Instead of returning nil, we log the error for now to debug the issue
@@ -235,10 +221,10 @@ func updateSchemaMetadata(txn db.KeyValueWriter, schema schemaMetadata) error {
 		return err
 	}
 
-	if err := txn.Put(db.SchemaVersion.Key(), version[:]); err != nil {
+	if err := txn.Put(db.DeprecatedSchemaVersion.Key(), version[:]); err != nil {
 		return err
 	}
-	return txn.Put(db.SchemaIntermediateState.Key(), state)
+	return txn.Put(db.DeprecatedSchemaIntermediateState.Key(), state)
 }
 
 // migration0000 makes sure the targetDB is empty
@@ -896,38 +882,6 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 	}
 
 	return core.WriteRunningEventFilter(txn, runningFilter)
-}
-
-func startMigrationStatusServer(log utils.SimpleLogger, host string, port uint16) *http.Server {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, err := w.Write([]byte("Database migration in progress."))
-		if err != nil {
-			log.Errorw("Failed to write migration status response", "err", err)
-		}
-	})
-
-	portStr := strconv.FormatUint(uint64(port), 10)
-	addr := net.JoinHostPort(host, portStr)
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
-		ReadHeaderTimeout: 30 * time.Second,
-	}
-
-	go func() {
-		log.Debugw("Starting migration status server on " + addr)
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			log.Errorw("Migration status server failed", "err", err)
-		}
-	}()
-	return srv
 }
 
 func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) error {

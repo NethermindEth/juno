@@ -11,6 +11,8 @@ var Empty = emptySerializer{}
 
 var Bytes = BytesSerializer{}
 
+var Uint8 = uint8Serializer{}
+
 var Uint64 = uint64Serializer{}
 
 func Cbor[K any]() cborSerializer[K] {
