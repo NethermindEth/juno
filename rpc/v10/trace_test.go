@@ -1460,74 +1460,11 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 		Number:           100,
 	}
 
-	addr := felt.FromUint64[felt.Address](123)
-	key := felt.FromUint64[felt.Felt](456)
-	value := felt.FromUint64[felt.Felt](789)
+	testCases := initialReadsTestCases()
 	blockHash := felt.FromUint64[felt.Felt](999)
 	txHash := felt.FromUint64[felt.Felt](888)
 
-	tests := []struct {
-		name                 string
-		traceFlags           []rpcv6.SimulationFlag
-		initialReads         *vm.InitialReads
-		expectedInitialReads *rpcv10.InitialReads
-	}{
-		{
-			name:       "with flag and non-empty initial reads",
-			traceFlags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
-			initialReads: &vm.InitialReads{
-				Storage: []vm.InitialReadsStorageEntry{
-					{ContractAddress: addr, Key: key, Value: value},
-				},
-				Nonces:            []vm.InitialReadsNonceEntry{},
-				ClassHashes:       []vm.InitialReadsClassHashEntry{},
-				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
-			},
-			expectedInitialReads: &rpcv10.InitialReads{
-				Storage:           []rpcv10.StorageEntry{{ContractAddress: &addr, Key: &key, Value: &value}},
-				Nonces:            []rpcv10.NonceEntry{},
-				ClassHashes:       []rpcv10.ClassHashEntry{},
-				DeclaredContracts: []rpcv10.DeclaredContractEntry{},
-			},
-		},
-		{
-			name:       "with flag but empty initial reads",
-			traceFlags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
-			initialReads: &vm.InitialReads{
-				Storage:           []vm.InitialReadsStorageEntry{},
-				Nonces:            []vm.InitialReadsNonceEntry{},
-				ClassHashes:       []vm.InitialReadsClassHashEntry{},
-				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
-			},
-			expectedInitialReads: &rpcv10.InitialReads{
-				Storage:           []rpcv10.StorageEntry{},
-				Nonces:            []rpcv10.NonceEntry{},
-				ClassHashes:       []rpcv10.ClassHashEntry{},
-				DeclaredContracts: []rpcv10.DeclaredContractEntry{},
-			},
-		},
-		{
-			name:       "without flag",
-			traceFlags: []rpcv6.SimulationFlag{},
-			initialReads: &vm.InitialReads{
-				Storage: []vm.InitialReadsStorageEntry{
-					{ContractAddress: addr, Key: key, Value: value},
-				},
-				Nonces:            []vm.InitialReadsNonceEntry{},
-				ClassHashes:       []vm.InitialReadsClassHashEntry{},
-				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
-			},
-			expectedInitialReads: nil,
-		},
-		{
-			name:                 "with flag but VM returns no initial reads",
-			traceFlags:           []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
-			initialReads:         nil,
-			expectedInitialReads: nil,
-		},
-	}
-
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			mockCtrl := gomock.NewController(t)
@@ -1559,7 +1496,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 			mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil)
 
-			returnInitialReads := slices.Contains(test.traceFlags, rpcv6.ReturnInitialReadsFlag)
+			returnInitialReads := slices.Contains(test.flags, rpcv6.ReturnInitialReadsFlag)
 
 			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
 				false, false, false, true, false, false, returnInitialReads,
@@ -1578,13 +1515,12 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			traces, _, err := handler.TraceBlockTransactions(
 				t.Context(),
 				&blockID,
-				test.traceFlags,
+				test.flags,
 			)
 
 			require.Nil(t, err)
 
 			require.Equal(t, test.expectedInitialReads, traces.InitialReads)
-
 		})
 	}
 }

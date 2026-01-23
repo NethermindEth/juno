@@ -319,31 +319,29 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 	}
 }
 
-func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
-	t.Parallel()
-	n := &utils.Mainnet
-	headsHeader := &core.Header{
-		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    &felt.Zero,
-		L1GasPriceSTRK:   &felt.Zero,
-		L1DAMode:         0,
-		L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
-		L2GasPrice:       &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
-	}
-
+// initialReadsTestCases returns the shared test cases for testing RETURN_INITIAL_READS flag.
+// These test cases are used by both TestSimulateTransactionsWithReturnInitialReads
+// and TestTraceBlockTransactionsWithReturnInitialReads since they test the same
+// initial reads behavior.
+func initialReadsTestCases() []struct {
+	name                 string
+	flags                []rpcv6.SimulationFlag
+	initialReads         *vm.InitialReads
+	expectedInitialReads *rpcv10.InitialReads
+} {
 	addr := felt.FromUint64[felt.Address](123)
 	key := felt.FromUint64[felt.Felt](456)
 	value := felt.FromUint64[felt.Felt](789)
 
-	tests := []struct {
+	return []struct {
 		name                 string
-		simulationFlags      []rpcv6.SimulationFlag
+		flags                []rpcv6.SimulationFlag
 		initialReads         *vm.InitialReads
 		expectedInitialReads *rpcv10.InitialReads
 	}{
 		{
-			name:            "with flag and non-empty initial reads",
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
+			name:  "with flag and non-empty initial reads",
+			flags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
 				Storage: []vm.InitialReadsStorageEntry{
 					{ContractAddress: addr, Key: key, Value: value},
@@ -360,8 +358,8 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			},
 		},
 		{
-			name:            "with flag but empty initial reads",
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
+			name:  "with flag but empty initial reads",
+			flags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
 				Storage:           []vm.InitialReadsStorageEntry{},
 				Nonces:            []vm.InitialReadsNonceEntry{},
@@ -376,21 +374,58 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			},
 		},
 		{
-			name:            "without flag",
-			simulationFlags: []rpcv6.SimulationFlag{},
+			name:  "without flag",
+			flags: []rpcv6.SimulationFlag{},
 			initialReads: &vm.InitialReads{
 				Storage: []vm.InitialReadsStorageEntry{
 					{ContractAddress: addr, Key: key, Value: value},
 				},
+				Nonces:            []vm.InitialReadsNonceEntry{},
+				ClassHashes:       []vm.InitialReadsClassHashEntry{},
+				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
 			},
 			expectedInitialReads: nil,
 		},
 		{
 			name:                 "with flag but VM returns no initial reads",
-			simulationFlags:      []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
+			flags:                []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
 			initialReads:         nil,
 			expectedInitialReads: nil,
 		},
+	}
+}
+
+func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
+	t.Parallel()
+	n := &utils.Mainnet
+	headsHeader := &core.Header{
+		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
+		L1GasPriceETH:    &felt.Zero,
+		L1GasPriceSTRK:   &felt.Zero,
+		L1DAMode:         0,
+		L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+		L2GasPrice:       &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+	}
+
+	testCases := initialReadsTestCases()
+	tests := make([]struct {
+		name                 string
+		simulationFlags      []rpcv6.SimulationFlag
+		initialReads         *vm.InitialReads
+		expectedInitialReads *rpcv10.InitialReads
+	}, len(testCases))
+	for i, tc := range testCases {
+		tests[i] = struct {
+			name                 string
+			simulationFlags      []rpcv6.SimulationFlag
+			initialReads         *vm.InitialReads
+			expectedInitialReads *rpcv10.InitialReads
+		}{
+			name:                 tc.name,
+			simulationFlags:      tc.flags,
+			initialReads:         tc.initialReads,
+			expectedInitialReads: tc.expectedInitialReads,
+		}
 	}
 
 	for _, test := range tests {
@@ -457,7 +492,6 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			require.Nil(t, err)
 
 			require.Equal(t, test.expectedInitialReads, simulatedTxs.InitialReads)
-
 		})
 	}
 }
