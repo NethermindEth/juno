@@ -115,7 +115,7 @@ name = "apollo_config"
 version = "0.0.0"
 source = "git+https://github.com/starkware-libs/sequencer?rev=be54aeea510ddfe1190c742e902acbd8103ff941#be54aeea510ddfe1190c742e902acbd8103ff941"
 dependencies = [
- "apollo_infra_utils 0.0.0",
+ "apollo_infra_utils",
  "clap",
  "const_format",
  "itertools 0.12.1",
@@ -133,7 +133,7 @@ name = "apollo_infra_utils"
 version = "0.0.0"
 source = "git+https://github.com/starkware-libs/sequencer?rev=be54aeea510ddfe1190c742e902acbd8103ff941#be54aeea510ddfe1190c742e902acbd8103ff941"
 dependencies = [
- "apollo_proc_macros 0.0.0",
+ "apollo_proc_macros",
  "num_enum",
  "serde",
  "serde_json",
@@ -141,22 +141,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "url",
-]
-
-[[package]]
-name = "apollo_infra_utils"
-version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef50783135b0289f491e738fb3ea57ffccde51e68b12be4d96b8a74db252532c"
-dependencies = [
- "apollo_proc_macros 0.16.0-rc.3",
- "num_enum",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
  "url",
 ]
 
@@ -184,33 +168,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "apollo_proc_macros"
-version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b177fec2f66debebbe1d39bf5e4c8680037f58f877c9527fb9a1885f7300135"
-dependencies = [
- "lazy_static",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
 name = "apollo_sizeof"
 version = "0.0.0"
 source = "git+https://github.com/starkware-libs/sequencer?rev=be54aeea510ddfe1190c742e902acbd8103ff941#be54aeea510ddfe1190c742e902acbd8103ff941"
 dependencies = [
- "apollo_sizeof_macros 0.0.0",
- "starknet-types-core",
-]
-
-[[package]]
-name = "apollo_sizeof"
-version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b230dd6ebc0c6cfe7ef87c9c3bbf760063b40b6b7b469b43fb216994033569f"
-dependencies = [
- "apollo_sizeof_macros 0.16.0-rc.3",
+ "apollo_sizeof_macros",
  "starknet-types-core",
 ]
 
@@ -218,17 +180,6 @@ dependencies = [
 name = "apollo_sizeof_macros"
 version = "0.0.0"
 source = "git+https://github.com/starkware-libs/sequencer?rev=be54aeea510ddfe1190c742e902acbd8103ff941#be54aeea510ddfe1190c742e902acbd8103ff941"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "apollo_sizeof_macros"
-version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6b83d9b1feea5e65bccc822427caf564f5fc85cdcae116b2a87b72f1fd606c6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -520,7 +471,7 @@ dependencies = [
  "anyhow",
  "apollo_compile_to_native_types",
  "apollo_config",
- "apollo_infra_utils 0.0.0",
+ "apollo_infra_utils",
  "apollo_metrics",
  "ark-ec",
  "ark-ff",
@@ -531,9 +482,9 @@ dependencies = [
  "cairo-lang-runner",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
- "cairo-vm 3.1.0",
+ "cairo-vm",
  "dashmap",
- "derive_more 2.1.1",
+ "derive_more",
  "indexmap",
  "itertools 0.12.1",
  "keccak",
@@ -550,7 +501,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "starknet-types-core",
- "starknet_api 0.0.0",
+ "starknet_api",
  "strum",
  "strum_macros",
  "thiserror 1.0.69",
@@ -916,7 +867,7 @@ dependencies = [
  "cairo-lang-sierra-to-casm",
  "cairo-lang-sierra-type-size",
  "cairo-lang-utils",
- "cairo-vm 3.1.0",
+ "cairo-vm",
  "itertools 0.14.0",
  "thiserror 2.0.12",
 ]
@@ -938,7 +889,7 @@ dependencies = [
  "cairo-lang-sierra-to-casm",
  "cairo-lang-starknet",
  "cairo-lang-utils",
- "cairo-vm 3.1.0",
+ "cairo-vm",
  "clap",
  "itertools 0.14.0",
  "keccak",
@@ -991,7 +942,7 @@ dependencies = [
  "anyhow",
  "cairo-lang-utils",
  "const-fnv1a-hash",
- "convert_case 0.10.0",
+ "convert_case",
  "derivative",
  "itertools 0.14.0",
  "lalrpop",
@@ -1138,7 +1089,7 @@ dependencies = [
  "cairo-lang-sierra-to-casm",
  "cairo-lang-sierra-type-size",
  "cairo-lang-utils",
- "convert_case 0.10.0",
+ "convert_case",
  "itertools 0.14.0",
  "num-bigint",
  "num-integer",
@@ -1214,38 +1165,6 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "vector-map",
-]
-
-[[package]]
-name = "cairo-vm"
-version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c21cacdf4e290ab5f0018f24d6bf97f8d3a8809bd09568550669270e7f9ed534"
-dependencies = [
- "anyhow",
- "bincode",
- "bitvec",
- "generic-array",
- "hashbrown 0.15.2",
- "hex",
- "indoc",
- "keccak",
- "lazy_static",
- "nom",
- "num-bigint",
- "num-integer",
- "num-prime",
- "num-traits",
- "rand 0.8.5",
- "rust_decimal",
- "serde",
- "serde_json",
- "sha2",
- "sha3",
- "starknet-crypto",
- "starknet-types-core",
- "thiserror 2.0.12",
- "zip",
 ]
 
 [[package]]
@@ -1381,12 +1300,6 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
-
-[[package]]
-name = "convert_case"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "convert_case"
@@ -1617,19 +1530,6 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
-version = "0.99.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3da29a38df43d6f156149c9b43ded5e018ddff2a855cf2cfd62e8cd7d079c69f"
-dependencies = [
- "convert_case 0.4.0",
- "proc-macro2",
- "quote",
- "rustc_version",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "derive_more"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d751e9e49156b02b44f9c1815bcb94b984cdcc4396ecc32521c739452808b134"
@@ -1643,7 +1543,7 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
 dependencies = [
- "convert_case 0.10.0",
+ "convert_case",
  "proc-macro2",
  "quote",
  "rustc_version",
@@ -2380,7 +2280,7 @@ dependencies = [
  "cairo-lang-casm",
  "cairo-lang-runner",
  "cairo-lang-starknet-classes",
- "cairo-vm 2.5.0",
+ "cairo-vm",
  "indexmap",
  "lazy_static",
  "once_cell",
@@ -2388,7 +2288,7 @@ dependencies = [
  "serde",
  "serde_json",
  "starknet-types-core",
- "starknet_api 0.16.0-rc.3",
+ "starknet_api",
 ]
 
 [[package]]
@@ -3636,15 +3536,15 @@ name = "starknet_api"
 version = "0.0.0"
 source = "git+https://github.com/starkware-libs/sequencer?rev=be54aeea510ddfe1190c742e902acbd8103ff941#be54aeea510ddfe1190c742e902acbd8103ff941"
 dependencies = [
- "apollo_infra_utils 0.0.0",
- "apollo_sizeof 0.0.0",
+ "apollo_infra_utils",
+ "apollo_sizeof",
  "base64 0.13.1",
  "bitvec",
  "cached 0.44.0",
  "cairo-lang-runner",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
- "derive_more 2.1.1",
+ "derive_more",
  "flate2",
  "hex",
  "indexmap",
@@ -3666,43 +3566,6 @@ dependencies = [
  "thiserror 1.0.69",
  "time",
  "tokio",
-]
-
-[[package]]
-name = "starknet_api"
-version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d1b32bfe0c7d92604633fe2a6beafc732e6517e07203f0c5c3be1ec06d90d99"
-dependencies = [
- "apollo_infra_utils 0.16.0-rc.3",
- "apollo_sizeof 0.16.0-rc.3",
- "base64 0.13.1",
- "bitvec",
- "cached 0.44.0",
- "cairo-lang-runner",
- "cairo-lang-starknet-classes",
- "cairo-lang-utils",
- "derive_more 0.99.19",
- "flate2",
- "hex",
- "indexmap",
- "itertools 0.12.1",
- "num-bigint",
- "num-traits",
- "pretty_assertions",
- "primitive-types",
- "rand 0.8.5",
- "semver",
- "serde",
- "serde_json",
- "sha3",
- "starknet-core",
- "starknet-crypto",
- "starknet-types-core",
- "strum",
- "strum_macros",
- "thiserror 1.0.69",
- "time",
 ]
 
 [[package]]

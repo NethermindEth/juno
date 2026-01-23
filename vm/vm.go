@@ -36,7 +36,7 @@ type ExecutionResults struct {
 	Traces           []TransactionTrace
 	NumSteps         uint64
 	Receipts         []TransactionReceipt
-	InitialReads     []InitialReads
+	InitialReads     *InitialReads
 }
 
 type CallResult struct {
@@ -105,7 +105,7 @@ type callContext struct {
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
 	receipts        []json.RawMessage
-	initialReads    []InitialReads
+	initialReads    *InitialReads
 	declaredClasses map[felt.Felt]core.ClassDefinition
 	executionFailed bool
 }
@@ -191,7 +191,7 @@ func JunoAppendInitialReads(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLe
 	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
 	var initialReads InitialReads
 	if err := json.Unmarshal(byteSlice, &initialReads); err == nil {
-		context.initialReads = append(context.initialReads, initialReads)
+		context.initialReads = &initialReads
 	}
 }
 
@@ -362,7 +362,7 @@ func (v *vm) Execute(
 	context := &callContext{
 		state:        state,
 		log:          v.log,
-		initialReads: []InitialReads{},
+		initialReads: nil,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()

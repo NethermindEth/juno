@@ -96,6 +96,12 @@ pub fn build_block_context(
         constants.invoke_tx_max_n_steps = max_steps as u32;
     }
 
+    let starknet_version = unsafe { CStr::from_ptr(block_info.version) }
+        .to_str()
+        .ok()
+        .and_then(|version_str| StarknetVersion::try_from(version_str).ok())
+        .unwrap_or_else(|| StarknetVersion::default());
+
     let block_info = BlockifierBlockInfo {
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
@@ -113,6 +119,7 @@ pub fn build_block_context(
             },
         },
         use_kzg_da: block_info.use_blob_data == 1,
+        starknet_version,
     };
     let chain_id_str = unsafe { CStr::from_ptr(chain_info.chain_id) }.to_str()?;
     let eth_fee_token_felt = Felt::from_bytes_be(&chain_info.eth_fee_token_address);
