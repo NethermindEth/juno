@@ -1951,8 +1951,8 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	}
 }
 
-func createBaseInvokeTransactionV3() *core.InvokeTransaction {
-	return &core.InvokeTransaction{
+func createBaseInvokeTransactionV3() core.InvokeTransaction {
+	return core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
