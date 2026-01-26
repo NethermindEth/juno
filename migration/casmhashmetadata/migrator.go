@@ -179,7 +179,7 @@ func migrateRange(
 
 	ingestorPipeline := pipeline.New(ctx, blockNumbers, maxWorkers, processor)
 	committerPipeline := pipeline.New(
-		ctx,
+		ingestorPipeline.Context(),
 		ingestorPipeline.Outputs(),
 		maxWorkers,
 		newCommitter(log, batchSemaphore),
@@ -189,7 +189,7 @@ func migrateRange(
 outerLoop:
 	for ; nextBlockNumber <= toBlock; nextBlockNumber++ {
 		select {
-		case <-ingestorPipeline.Context().Done():
+		case <-committerPipeline.Context().Done():
 			break outerLoop
 		case blockNumbers <- nextBlockNumber:
 		}
