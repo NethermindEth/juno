@@ -121,7 +121,7 @@ func TestPipeline_WorkerErrorCancelsContext(t *testing.T) {
 		}
 	})
 
-	timeout, cancel := context.WithTimeout(context.Background(), 10000*time.Millisecond)
+	timeout, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 outerloop:
 	for i := range 100 {
