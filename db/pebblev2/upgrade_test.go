@@ -139,9 +139,9 @@ func runScenario(t *testing.T, scenario scenario) {
 			})
 		}
 
-		expectedFormatVersion := pebblev2.TargetNewV2Version
+		expectedFormatVersion := pebblev2.TargetV2Version
 		if scenario.v1 {
-			expectedFormatVersion = pebblev2.TargetUpgradedV1Version
+			expectedFormatVersion = pebblev2.TargetV2Version
 		}
 
 		t.Run(fmt.Sprintf("check format version %v", expectedFormatVersion), func(t *testing.T) {
