@@ -2296,9 +2296,86 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeNewTransactions(subCtx, nil, addresses)
+		id, rpcErr := handler.SubscribeNewTransactions(subCtx, nil, addresses, SubscriptionTags{})
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyAddressesInFilter, rpcErr)
+	})
+}
+
+func TestSubscribeNewTransactions_IncludeProofFactsTag(t *testing.T) {
+	t.Parallel()
+
+	newInvokeV3 := func() *core.InvokeTransaction {
+		var v core.TransactionVersion
+		v.SetUint64(3)
+
+		return &core.InvokeTransaction{
+			TransactionHash: felt.NewFromUint64[felt.Felt](123),
+			Version:         &v,
+			SenderAddress:   felt.NewFromUint64[felt.Felt](456),
+			Nonce:           felt.NewFromUint64[felt.Felt](1),
+			ResourceBounds: map[core.Resource]core.ResourceBounds{
+				core.ResourceL1Gas: {
+					MaxAmount:       1,
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
+				},
+				core.ResourceL2Gas: {
+					MaxAmount:       1,
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
+				},
+			},
+			ProofFacts: []*felt.Felt{
+				felt.NewFromUint64[felt.Felt](999),
+			},
+		}
+	}
+
+	t.Run("Includes proof_facts when tag passed", func(t *testing.T) {
+		t.Parallel()
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		w := &fakeConn{Conn: serverConn, w: serverConn}
+
+		sentCache := rpccore.NewSubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1]()
+		finalityStatus := rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2)
+		txn := newInvokeV3()
+
+		require.NoError(t, sendTransactionWithoutDuplicate(w, sentCache, 1, txn, finalityStatus, "sub", true))
+
+		expected := &SubscriptionNewTransaction{
+			Transaction:    AdaptTransaction(txn, true),
+			FinalityStatus: finalityStatus,
+		}
+		assertNextMessage(t, clientConn, SubscriptionID("sub"), "starknet_subscriptionNewTransaction", expected)
+	})
+
+	t.Run("Omits proof_facts when tag not passed", func(t *testing.T) {
+		t.Parallel()
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		w := &fakeConn{Conn: serverConn, w: serverConn}
+
+		sentCache := rpccore.NewSubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1]()
+		finalityStatus := rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2)
+		txn := newInvokeV3()
+
+		require.NoError(t, sendTransactionWithoutDuplicate(w, sentCache, 1, txn, finalityStatus, "sub", false))
+
+		expected := &SubscriptionNewTransaction{
+			Transaction:    AdaptTransaction(txn, false),
+			FinalityStatus: finalityStatus,
+		}
+		assertNextMessage(t, clientConn, SubscriptionID("sub"), "starknet_subscriptionNewTransaction", expected)
 	})
 }
 
@@ -3262,7 +3339,7 @@ func createTestNewTransactionsWebsocket(
 	t.Helper()
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
-		return h.SubscribeNewTransactions(ctx, finalityStatus, senderAddress)
+		return h.SubscribeNewTransactions(ctx, finalityStatus, senderAddress, SubscriptionTags{})
 	})
 }
 

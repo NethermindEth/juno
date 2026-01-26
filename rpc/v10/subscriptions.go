@@ -1021,8 +1021,11 @@ func processBlockReceipts(
 func (h *Handler) SubscribeNewTransactions(
 	ctx context.Context,
 	finalityStatus []rpcv9.TxnStatusWithoutL1,
-	senderAddr []felt.Address,
+	senderAddr []felt.Felt,
+	tags SubscriptionTags,
 ) (SubscriptionID, *jsonrpc.Error) {
+	includeProofFacts := tags.IncludeProofFacts
+
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -1057,6 +1060,7 @@ func (h *Handler) SubscribeNewTransactions(
 				head,
 				sentCache,
 				rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+				includeProofFacts,
 			)
 		},
 		onPreLatest: func(
@@ -1075,6 +1079,7 @@ func (h *Handler) SubscribeNewTransactions(
 				preLatest.Block,
 				sentCache,
 				rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+				includeProofFacts,
 			)
 		},
 		onPendingData: func(
@@ -1097,6 +1102,7 @@ func (h *Handler) SubscribeNewTransactions(
 						pending.GetBlock(),
 						sentCache,
 						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						includeProofFacts,
 					)
 				}
 
@@ -1109,6 +1115,7 @@ func (h *Handler) SubscribeNewTransactions(
 						pending.GetBlock(),
 						sentCache,
 						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						includeProofFacts,
 					)
 					if err != nil {
 						return err
@@ -1116,13 +1123,18 @@ func (h *Handler) SubscribeNewTransactions(
 				}
 
 				if slices.Contains(finalityStatus, rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate)) {
-					return processCandidateTransactions(id, w, senderAddr, pending, sentCache)
+					return processCandidateTransactions(id, w, senderAddr, pending, sentCache, includeProofFacts)
 				}
 			}
 			return nil
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)
+}
+
+type SubscriptionNewTransaction struct {
+	Transaction
+	FinalityStatus rpcv9.TxnStatusWithoutL1 `json:"finality_status"`
 }
 
 // processBlockTransactions streams given block transactions without duplicates
@@ -1133,6 +1145,7 @@ func processBlockTransactions(
 	b *core.Block,
 	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1],
 	status rpcv9.TxnStatusWithoutL1,
+	includeProofFacts bool,
 ) error {
 	for _, txn := range b.Transactions {
 		if !filterTxBySender(txn, senderAddr) {
@@ -1146,6 +1159,7 @@ func processBlockTransactions(
 			txn,
 			status,
 			id,
+			includeProofFacts,
 		); err != nil {
 			return err
 		}
@@ -1160,6 +1174,7 @@ func processCandidateTransactions(
 	senderAddr []felt.Address,
 	preConfirmed core.PendingData,
 	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1],
+	includeProofFacts bool,
 ) error {
 	for _, txn := range preConfirmed.GetCandidateTransaction() {
 		if !filterTxBySender(txn, senderAddr) {
@@ -1173,6 +1188,7 @@ func processCandidateTransactions(
 			txn,
 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
 			id,
+			includeProofFacts,
 		); err != nil {
 			return err
 		}
@@ -1189,6 +1205,7 @@ func sendTransactionWithoutDuplicate(
 	txn core.Transaction,
 	finalityStatus rpcv9.TxnStatusWithoutL1,
 	id string,
+	includeProofFacts bool,
 ) error {
 	txHash := felt.TransactionHash(*txn.Hash())
 	if !sentCache.ShouldSend(
@@ -1202,8 +1219,8 @@ func sendTransactionWithoutDuplicate(
 	// Add to cache
 	sentCache.Put(blockNumber, &txHash, &finalityStatus)
 
-	response := rpcv9.SubscriptionNewTransaction{
-		Transaction:    *rpcv9.AdaptTransaction(txn),
+	response := SubscriptionNewTransaction{
+		Transaction:    AdaptTransaction(txn, includeProofFacts),
 		FinalityStatus: finalityStatus,
 	}
 
@@ -1211,7 +1228,7 @@ func sendTransactionWithoutDuplicate(
 }
 
 // sendTransaction creates a response and sends it to the client
-func sendTransaction(w jsonrpc.Conn, result *rpcv9.SubscriptionNewTransaction, id string) error {
+func sendTransaction(w jsonrpc.Conn, result *SubscriptionNewTransaction, id string) error {
 	return sendResponse("starknet_subscriptionNewTransaction", w, id, result)
 }
 
