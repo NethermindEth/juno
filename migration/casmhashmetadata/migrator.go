@@ -90,9 +90,12 @@ func (m *Migrator) Migrate(
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
 
-	batchSemaphore := semaphore.New(maxWorkers, func() db.Batch {
-		return database.NewBatchWithSize(int(batchByteSize))
-	})
+	batchSemaphore := semaphore.New(
+		maxWorkers+1,
+		func() db.Batch {
+			return database.NewBatchWithSize(int(batchByteSize))
+		},
+	)
 	// Phase 1: Process blocks before 0.14.1
 	if m.startFrom < cutoff {
 		toBlock := cutoff - 1
@@ -174,8 +177,9 @@ func migrateRange(
 ) (uint64, error) {
 	blockNumbers := make(chan uint64)
 
-	ingestorPipeline := pipeline.New(blockNumbers, maxWorkers, processor)
+	ingestorPipeline := pipeline.New(ctx, blockNumbers, maxWorkers, processor)
 	committerPipeline := pipeline.New(
+		ctx,
 		ingestorPipeline.Outputs(),
 		maxWorkers,
 		newCommitter(log, batchSemaphore),
@@ -185,7 +189,7 @@ func migrateRange(
 outerLoop:
 	for ; nextBlockNumber <= toBlock; nextBlockNumber++ {
 		select {
-		case <-ctx.Done():
+		case <-ingestorPipeline.Context().Done():
 			break outerLoop
 		case blockNumbers <- nextBlockNumber:
 		}

@@ -1,9 +1,13 @@
 package pipeline_test
 
 import (
+	"context"
+	"errors"
 	"math/rand/v2"
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/stretchr/testify/require"
@@ -56,7 +60,7 @@ func TestPipeline(t *testing.T) {
 		count: make([]int, concurrency),
 		done:  make([]bool, concurrency),
 	}
-	p := pipeline.New(inputs, concurrency, &s)
+	p := pipeline.New(context.Background(), inputs, concurrency, &s)
 
 	inputData := generateInputs()
 	go func() {
@@ -87,4 +91,53 @@ func TestPipeline(t *testing.T) {
 
 		require.Equal(t, slices.Repeat([]bool{true}, concurrency), s.done)
 	})
+}
+
+type errorState struct {
+	errorOnInput int
+}
+
+func (e *errorState) Run(index, input int, outputs chan<- uint64) error {
+	if input == e.errorOnInput {
+		return errors.New("test error")
+	}
+	outputs <- testTransform(input)
+	return nil
+}
+
+func (e *errorState) Done(index int, outputs chan<- uint64) error {
+	return nil
+}
+
+func TestPipeline_WorkerErrorCancelsContext(t *testing.T) {
+	inputs := make(chan int)
+	errorState := &errorState{errorOnInput: 5}
+	p := pipeline.New(context.Background(), inputs, 2, errorState)
+
+	// Consume output channel
+	wg := sync.WaitGroup{}
+	wg.Go(func() {
+		for range p.Outputs() {
+		}
+	})
+
+	timeout, cancel := context.WithTimeout(context.Background(), 10000*time.Millisecond)
+	defer cancel()
+outerloop:
+	for i := range 100 {
+		select {
+		case <-p.Context().Done():
+			break outerloop
+		case <-timeout.Done():
+			t.Fatal("timeout: generator did not stop after pipeline context was cancelled")
+			break outerloop
+		case inputs <- i:
+		}
+	}
+	close(inputs)
+
+	err := p.Wait()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "test error")
+	wg.Wait()
 }
