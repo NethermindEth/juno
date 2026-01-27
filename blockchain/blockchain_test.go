@@ -514,8 +514,8 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 		}
 	}
 
-	from := []*felt.Felt{
-		felt.NewUnsafeFromString[felt.Felt](
+	from := []felt.Felt{
+		felt.UnsafeFromString[felt.Felt](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		),
 	}
@@ -565,14 +565,14 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 	})
 
 	t.Run("filter with multiple addresses from test data", func(t *testing.T) {
-		address1 := felt.NewUnsafeFromString[felt.Felt](
+		address1 := felt.UnsafeFromString[felt.Felt](
 			"0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82",
 		)
-		address2 := felt.NewUnsafeFromString[felt.Felt](
+		address2 := felt.UnsafeFromString[felt.Felt](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		)
 
-		addresses := []*felt.Felt{address1, address2}
+		addresses := []felt.Felt{address1, address2}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
 		require.NoError(t, err)
 
@@ -588,7 +588,7 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 			require.NotNil(t, event.From)
 			found := false
 			for _, addr := range addresses {
-				if addr != nil && *addr == *event.From {
+				if addr == *event.From {
 					found = true
 					break
 				}
@@ -600,14 +600,14 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 	})
 
 	t.Run("filter with one existing and one non-existing address", func(t *testing.T) {
-		existingAddr := felt.NewUnsafeFromString[felt.Felt](
+		existingAddr := felt.UnsafeFromString[felt.Felt](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		)
-		nonExistingAddr := felt.NewUnsafeFromString[felt.Felt](
+		nonExistingAddr := felt.UnsafeFromString[felt.Felt](
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 		)
 
-		addresses := []*felt.Felt{existingAddr, nonExistingAddr}
+		addresses := []felt.Felt{existingAddr, nonExistingAddr}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
 		require.NoError(t, err)
 
@@ -621,7 +621,7 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 		require.Len(t, events, 3)
 		for _, event := range events {
 			require.NotNil(t, event.From)
-			assert.Equal(t, *existingAddr, *event.From, "all events should be from existingAddr")
+			assert.Equal(t, existingAddr, *event.From, "all events should be from existingAddr")
 		}
 
 		require.NoError(t, filter.Close())
@@ -674,8 +674,8 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, filter.Close())
 	})
 
-	from := []*felt.Felt{
-		felt.NewUnsafeFromString[felt.Felt](
+	from := []felt.Felt{
+		felt.UnsafeFromString[felt.Felt](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		),
 	}
@@ -696,7 +696,7 @@ func TestEvents(t *testing.T) {
 				require.NotNil(t, event.From)
 				found := false
 				for _, addr := range from {
-					if addr != nil && *addr == *event.From {
+					if addr == *event.From {
 						found = true
 						break
 					}
@@ -732,11 +732,11 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with duplicate addresses", func(t *testing.T) {
-		address1 := felt.NewUnsafeFromString[felt.Felt](
+		address1 := felt.UnsafeFromString[felt.Felt](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		)
 
-		addresses := []*felt.Felt{address1, address1, address1}
+		addresses := []felt.Felt{address1, address1, address1}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
 		require.NoError(t, err)
 
@@ -750,7 +750,7 @@ func TestEvents(t *testing.T) {
 
 		for _, event := range events {
 			require.NotNil(t, event.From)
-			assert.Equal(t, *address1, *event.From)
+			assert.Equal(t, address1, *event.From)
 		}
 
 		require.NoError(t, filter.Close())
@@ -773,7 +773,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with empty addresses", func(t *testing.T) {
-		addresses := []*felt.Felt{}
+		addresses := []felt.Felt{}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
 		require.NoError(t, err)
 

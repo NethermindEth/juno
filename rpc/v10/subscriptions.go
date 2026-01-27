@@ -198,11 +198,7 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus]()
-	addresses := []*felt.Felt(fromAddress)
-	if len(addresses) == 0 {
-		addresses = nil
-	}
-	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
+	eventMatcher := blockchain.NewEventMatcher(fromAddress, keys)
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := rpcv9.BlockIDFromNumber(requestedHeader.Number)
@@ -219,7 +215,7 @@ func (h *Handler) SubscribeEvents(
 				id,
 				&fromBlock,
 				&toBlock,
-				addresses,
+				fromAddress,
 				keys,
 				sentCache,
 				headHeader.Number,
@@ -246,7 +242,7 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				head,
-				addresses,
+				fromAddress,
 				&eventMatcher,
 				sentCache,
 				rpcv9.TxnAcceptedOnL2,
@@ -264,7 +260,7 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				preLatest.Block,
-				addresses,
+				fromAddress,
 				&eventMatcher,
 				sentCache,
 				rpcv9.TxnAcceptedOnL2,
@@ -295,7 +291,7 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				pending.GetBlock(),
-				addresses,
+				fromAddress,
 				&eventMatcher,
 				sentCache,
 				blockFinalityStatus,
@@ -312,7 +308,7 @@ func (h *Handler) processHistoricalEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *rpcv9.BlockID,
-	addresses []*felt.Felt,
+	addresses []felt.Felt,
 	keys [][]felt.Felt,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	height uint64,
@@ -354,7 +350,7 @@ func (h *Handler) processHistoricalEvents(
 	return nil
 }
 
-func matchesAddress(eventFrom *felt.Felt, addresses []*felt.Felt) bool {
+func matchesAddress(eventFrom *felt.Felt, addresses []felt.Felt) bool {
 	if len(addresses) == 0 {
 		return true
 	}
@@ -362,7 +358,7 @@ func matchesAddress(eventFrom *felt.Felt, addresses []*felt.Felt) bool {
 		return false
 	}
 	for _, addr := range addresses {
-		if addr != nil && eventFrom.Equal(addr) {
+		if eventFrom.Equal(&addr) {
 			return true
 		}
 	}
@@ -375,7 +371,7 @@ func processBlockEvents(
 	w jsonrpc.Conn,
 	id string,
 	block *core.Block,
-	addresses []*felt.Felt,
+	addresses []felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	finalityStatus rpcv9.TxnFinalityStatus,

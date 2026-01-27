@@ -23,17 +23,17 @@ type EventFilter struct {
 	Keys      [][]felt.Felt  `json:"keys"`
 }
 
-type addressOrList []*felt.Felt
+type addressOrList []felt.Felt
 
 func (a *addressOrList) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" || string(data) == "[]" {
-		*a = nil
+		*a = make([]felt.Felt, 0)
 		return nil
 	}
 
 	var single felt.Felt
 	if err := json.Unmarshal(data, &single); err == nil {
-		*a = []*felt.Felt{&single}
+		*a = []felt.Felt{single}
 		return nil
 	}
 
@@ -46,12 +46,12 @@ func (a *addressOrList) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	seen := make(map[felt.Felt]struct{}, len(list))
-	unique := make([]*felt.Felt, 0, len(list))
+	unique := make([]felt.Felt, 0, len(list))
 	for _, addr := range list {
 		if addr != nil {
 			if _, exists := seen[*addr]; !exists {
 				seen[*addr] = struct{}{}
-				unique = append(unique, addr)
+				unique = append(unique, *addr)
 			}
 		}
 	}
@@ -137,12 +137,8 @@ func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 		return EventsChunk{}, rpccore.ErrInternal
 	}
 
-	addresses := []*felt.Felt(args.EventFilter.Address)
-	if len(addresses) == 0 {
-		addresses = nil
-	}
 	filter, err := h.bcReader.EventFilter(
-		addresses,
+		args.EventFilter.Address,
 		args.EventFilter.Keys,
 		h.PendingData,
 	)

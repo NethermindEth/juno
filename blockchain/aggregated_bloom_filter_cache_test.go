@@ -177,7 +177,7 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, runningFilterStart)
 	for _, test := range events {
 		// Create iterator for event
-		contractAddresses := []*felt.Felt{test.contractAddress}
+		contractAddresses := []felt.Felt{*test.contractAddress}
 		matcher := blockchain.NewEventMatcher(contractAddresses, test.keys)
 
 		iterator, err := cache.NewMatchedBlockIterator(0, chainHeight, 0, &matcher, runningFilter)
@@ -212,7 +212,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 
 	testDB := memory.New()
 	var maxScannedLimit uint64 = 0
-	contractAddresses := []*felt.Felt{test.contractAddress}
+	contractAddresses := []felt.Felt{*test.contractAddress}
 	eventMatcher := blockchain.NewEventMatcher(contractAddresses, test.keys)
 	innerFilter := core.NewAggregatedFilter(chainHeight + 1)
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, chainHeight+1)

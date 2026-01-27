@@ -244,9 +244,19 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
-	eventMatcher := blockchain.NewEventMatcher([]*felt.Felt{fromAddr}, keys)
+	addresses := make([]felt.Felt, 0, 1)
+	if fromAddr != nil {
+		addresses = append(addresses, *fromAddr)
+	}
+	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
 	subscriber := h.createEventSubscriber(
-		w, fromAddr, keys, &eventMatcher, sentCache, requestedHeader, headHeader,
+		w,
+		fromAddr,
+		keys,
+		&eventMatcher,
+		sentCache,
+		requestedHeader,
+		headHeader,
 		l1HeadNumber, finalityStatus,
 	)
 	return h.subscribe(ctx, w, subscriber)
@@ -258,7 +268,8 @@ func (h *Handler) createEventSubscriber(
 	keys [][]felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
-	requestedHeader, headHeader *core.Header,
+	requestedHeader,
+	headHeader *core.Header,
 	l1HeadNumber uint64,
 	finalityStatus *TxnFinalityStatusWithoutL1,
 ) subscriber {
@@ -361,7 +372,11 @@ func (h *Handler) processHistoricalEvents(
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter([]*felt.Felt{fromAddr}, keys, h.PendingData)
+	addresses := make([]felt.Felt, 0, 1)
+	if fromAddr != nil {
+		addresses = append(addresses, *fromAddr)
+	}
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}

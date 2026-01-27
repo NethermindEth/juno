@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"encoding/binary"
+	"slices"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -10,20 +11,13 @@ import (
 )
 
 type EventMatcher struct {
-	contractAddresses []*felt.Felt
+	contractAddresses []felt.Felt
 	keysMap           []map[felt.Felt]struct{}
 }
 
-func NewEventMatcher(contractAddresses []*felt.Felt, keys [][]felt.Felt) EventMatcher {
-	// Filter out nil addresses
-	filteredAddresses := make([]*felt.Felt, 0, len(contractAddresses))
-	for _, addr := range contractAddresses {
-		if addr != nil {
-			filteredAddresses = append(filteredAddresses, addr)
-		}
-	}
+func NewEventMatcher(contractAddresses []felt.Felt, keys [][]felt.Felt) EventMatcher {
 	return EventMatcher{
-		contractAddresses: filteredAddresses,
+		contractAddresses: contractAddresses,
 		keysMap:           makeKeysMaps(keys),
 	}
 }
@@ -124,10 +118,10 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 
 	innerMatch := bitset.New(uint(core.NumBlocksPerFilter))
 	if len(e.contractAddresses) > 0 {
-		addrBytesList := make([][]byte, 0, len(e.contractAddresses))
-		for _, addr := range e.contractAddresses {
+		addrBytesList := make([][]byte, len(e.contractAddresses))
+		for i, addr := range e.contractAddresses {
 			addrBytes := addr.Bytes()
-			addrBytesList = append(addrBytesList, addrBytes[:])
+			addrBytesList[i] = addrBytes[:]
 		}
 		if err := filter.BlocksForKeysInto(addrBytesList, innerMatch); err != nil {
 			return err
@@ -192,14 +186,9 @@ func (e *EventMatcher) AppendBlockEvents(
 					processedEvents++
 					continue
 				}
-				found := false
-				for _, addr := range e.contractAddresses {
-					if addr != nil && *addr == *event.From {
-						found = true
-						break
-					}
-				}
-				if !found {
+				if !slices.ContainsFunc(e.contractAddresses, func(addr felt.Felt) bool {
+					return addr == *event.From
+				}) {
 					processedEvents++
 					continue
 				}

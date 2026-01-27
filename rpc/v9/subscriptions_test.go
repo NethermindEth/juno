@@ -2930,7 +2930,11 @@ func createTestEvents(
 	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
 		blockNumber = &b.Number
 	}
-	eventMatcher := blockchain.NewEventMatcher([]*felt.Felt{fromAddress}, keys)
+	addresses := make([]felt.Felt, 0, 1)
+	if fromAddress != nil {
+		addresses = append(addresses, *fromAddress)
+	}
+	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
 	var filtered []blockchain.FilteredEvent
 	var responses []SubscriptionEmittedEvent
 	for _, receipt := range b.Receipts {

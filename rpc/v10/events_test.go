@@ -297,7 +297,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	// Test address and key for filtering
-	testAddress := []*felt.Felt{felt.NewUnsafeFromString[felt.Felt](
+	testAddress := []felt.Felt{felt.UnsafeFromString[felt.Felt](
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 	)}
 	testKey := felt.NewUnsafeFromString[felt.Felt](
@@ -474,7 +474,7 @@ func TestEvents(t *testing.T) {
 			expectedEvents: func() []rpc.EmittedEvent {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
-					if event.From.Equal(testAddress[0]) {
+					if event.From.Equal(&testAddress[0]) {
 						filtered = append(filtered, event)
 					}
 				}
@@ -487,9 +487,9 @@ func TestEvents(t *testing.T) {
 				EventFilter: rpc.EventFilter{
 					FromBlock: &blockIDZero,
 					ToBlock:   &latestID,
-					Address: []*felt.Felt{
+					Address: []felt.Felt{
 						testAddress[0],
-						felt.NewUnsafeFromString[felt.Felt](
+						felt.UnsafeFromString[felt.Felt](
 							"0x0000000000000000000000000000000000000000000000000000000000000000",
 						), // non-existent address
 					},
@@ -499,7 +499,7 @@ func TestEvents(t *testing.T) {
 			expectedEvents: func() []rpc.EmittedEvent {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
-					if event.From != nil && event.From.Equal(testAddress[0]) {
+					if event.From != nil && event.From.Equal(&testAddress[0]) {
 						filtered = append(filtered, event)
 					}
 				}
@@ -520,7 +520,7 @@ func TestEvents(t *testing.T) {
 			expectedEvents: func() []rpc.EmittedEvent {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
-					if event.From.Equal(testAddress[0]) &&
+					if event.From.Equal(&testAddress[0]) &&
 						len(event.Keys) > 0 && event.Keys[0].Equal(testKey) {
 						filtered = append(filtered, event)
 					}
@@ -664,7 +664,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 
 	handler := rpc.New(chain, nil, nil, utils.NewNopZapLogger())
 
-	from := []*felt.Felt{felt.NewUnsafeFromString[felt.Felt](
+	from := []felt.Felt{felt.UnsafeFromString[felt.Felt](
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 	)}
 	blockNumber := rpcv9.BlockIDFromNumber(0)

@@ -373,7 +373,11 @@ func (h *Handler) processEvents(
 	eventsPreviouslySent map[SentEvent]struct{},
 	height uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter([]*felt.Felt{fromAddr}, keys, h.PendingData)
+	addresses := make([]felt.Felt, 0, 1)
+	if fromAddr != nil {
+		addresses = append(addresses, *fromAddr)
+	}
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
