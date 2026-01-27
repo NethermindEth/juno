@@ -354,6 +354,21 @@ func (h *Handler) processHistoricalEvents(
 	return nil
 }
 
+func matchesAddress(eventFrom *felt.Felt, addresses []*felt.Felt) bool {
+	if len(addresses) == 0 {
+		return true
+	}
+	if eventFrom == nil {
+		return false
+	}
+	for _, addr := range addresses {
+		if addr != nil && eventFrom.Equal(addr) {
+			return true
+		}
+	}
+	return false
+}
+
 // processBlockEvents, extract events from block and stream filtered events.
 func processBlockEvents(
 	ctx context.Context,
@@ -386,20 +401,8 @@ func processBlockEvents(
 			default:
 			}
 
-			if len(addresses) > 0 {
-				if event.From == nil {
-					continue
-				}
-				found := false
-				for _, addr := range addresses {
-					if addr != nil && event.From.Equal(addr) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					continue
-				}
+			if !matchesAddress(event.From, addresses) {
+				continue
 			}
 
 			if !eventMatcher.MatchesEventKeys(event.Keys) {
