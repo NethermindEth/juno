@@ -1,48 +1,73 @@
 package pipeline
 
 import (
+	"context"
+	"errors"
+	"iter"
+
+	"github.com/sourcegraph/conc/pool"
 	"golang.org/x/sync/errgroup"
 )
+
+type Pipeline[I any] func(*pool.ContextPool, context.CancelFunc) <-chan I
+
+func (p Pipeline[I]) Run(ctx context.Context) (<-chan I, func() error) {
+	ctx, cancel := context.WithCancel(ctx)
+	g := pool.New().WithContext(ctx)
+	return p(g, cancel), g.Wait
+}
 
 type State[I, O any] interface {
 	Run(index int, input I, outputs chan<- O) error
 	Done(index int, outputs chan<- O) error
 }
 
-type pipeline[I, O any, S State[I, O]] struct {
-	g       *errgroup.Group
-	outputs chan O
-}
-
 func New[I, O any, S State[I, O]](
-	inputs <-chan I,
+	inputs Pipeline[I],
 	concurrency int,
 	state S,
-) pipeline[I, O, S] {
-	p := pipeline[I, O, S]{
-		g:       &errgroup.Group{},
-		outputs: make(chan O),
-	}
+) Pipeline[O] {
+	return func(g *pool.ContextPool, cancel context.CancelFunc) <-chan O {
+		inputs := inputs(g, cancel)
+		outputs := make(chan O)
+		g.Go(func(context.Context) error {
+			defer close(outputs)
 
-	for i := range concurrency {
-		p.g.Go(func() error {
-			for input := range inputs {
-				if err := state.Run(i, input, p.outputs); err != nil {
-					return err
+			g := errgroup.Group{}
+			for i := range concurrency {
+				g.Go(func() error {
+					var allErr error
+					for input := range inputs {
+						if err := state.Run(i, input, outputs); err != nil {
+							allErr = errors.Join(allErr, err)
+							cancel()
+						}
+					}
+					return errors.Join(allErr, state.Done(i, outputs))
+				})
+			}
+
+			return g.Wait()
+		})
+
+		return outputs
+	}
+}
+
+func Source[I any](it iter.Seq[I]) Pipeline[I] {
+	return func(g *pool.ContextPool, cancel context.CancelFunc) <-chan I {
+		outputs := make(chan I)
+		g.Go(func(ctx context.Context) error {
+			defer close(outputs)
+			for input := range it {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case outputs <- input:
 				}
 			}
-			return state.Done(i, p.outputs)
+			return nil
 		})
+		return outputs
 	}
-
-	return p
-}
-
-func (p *pipeline[I, O, S]) Wait() error {
-	defer close(p.outputs)
-	return p.g.Wait()
-}
-
-func (p *pipeline[I, O, S]) Outputs() <-chan O {
-	return p.outputs
 }

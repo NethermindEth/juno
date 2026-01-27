@@ -115,10 +115,17 @@ func migrateBlockRange(
 		},
 	)
 
-	blockNumberCh := make(chan uint64)
+	nextBlockNumber := startFrom
+	blockNumberSource := pipeline.Source(func(yield func(uint64) bool) {
+		for ; nextBlockNumber <= rangeEnd; nextBlockNumber++ {
+			if !yield(nextBlockNumber) {
+				return
+			}
+		}
+	})
 
 	ingestorPipeline := pipeline.New(
-		blockNumberCh,
+		blockNumberSource,
 		maxWorkers,
 		newIngestor(
 			database,
@@ -129,31 +136,13 @@ func migrateBlockRange(
 	)
 
 	committerPipeline := pipeline.New(
-		ingestorPipeline.Outputs(),
+		ingestorPipeline,
 		1,
 		newCommitter(logger, batchSemaphore),
 	)
 
-	nextBlockNumber := startFrom
-outerLoop:
-	for ; nextBlockNumber <= rangeEnd; nextBlockNumber++ {
-		select {
-		case <-ctx.Done():
-			break outerLoop
-		case blockNumberCh <- nextBlockNumber:
-		}
-	}
-	close(blockNumberCh)
-
-	// Wait for all ingestors to finish, because we closed their inputs [blockNumberCh].
-	// Then their output channel is closed
-	if err := ingestorPipeline.Wait(); err != nil {
-		return 0, err
-	}
-
-	// Wait for the committer to finish, because we closed its input [ingestorPipeline.outputs].
-	// Then its output channel is closed
-	if err := committerPipeline.Wait(); err != nil {
+	_, wait := committerPipeline.Run(ctx)
+	if err := wait(); err != nil {
 		return 0, err
 	}
 
