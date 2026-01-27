@@ -172,30 +172,24 @@ func migrateRange(
 	maxWorkers int,
 	processor pipeline.State[uint64, db.Batch],
 ) (uint64, error) {
-	blockNumbers := make(chan uint64)
+	nextBlockNumber := fromBlock
+	blockNumberSource := pipeline.Source(func(yield func(uint64) bool) {
+		for ; nextBlockNumber <= toBlock; nextBlockNumber++ {
+			if !yield(nextBlockNumber) {
+				return
+			}
+		}
+	})
 
-	ingestorPipeline := pipeline.New(blockNumbers, maxWorkers, processor)
+	ingestorPipeline := pipeline.New(blockNumberSource, maxWorkers, processor)
 	committerPipeline := pipeline.New(
-		ingestorPipeline.Outputs(),
+		ingestorPipeline,
 		maxWorkers,
 		newCommitter(log, batchSemaphore),
 	)
 
-	nextBlockNumber := fromBlock
-outerLoop:
-	for ; nextBlockNumber <= toBlock; nextBlockNumber++ {
-		select {
-		case <-ctx.Done():
-			break outerLoop
-		case blockNumbers <- nextBlockNumber:
-		}
-	}
-	close(blockNumbers)
-
-	if err := ingestorPipeline.Wait(); err != nil {
-		return 0, err
-	}
-	if err := committerPipeline.Wait(); err != nil {
+	_, wait := committerPipeline.Run(ctx)
+	if err := wait(); err != nil {
 		return 0, err
 	}
 
