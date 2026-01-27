@@ -7,8 +7,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/migration/casmhashmetadata"
-	"github.com/NethermindEth/juno/migration/l1handlermapping"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -19,9 +17,7 @@ func registerMigrations(cfg *Config) *migration.Registry {
 	// cfg parameter is reserved for future optional migrations based on config
 	_ = cfg
 
-	registry := migration.NewRegistry().
-		With(&casmhashmetadata.Migrator{}).
-		With(&l1handlermapping.Migrator{})
+	registry := migration.NewRegistry()
 
 	return registry
 }

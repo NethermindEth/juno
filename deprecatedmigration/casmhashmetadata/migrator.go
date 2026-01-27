@@ -14,7 +14,8 @@ import (
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
-	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
+	deprecatedprogresslogger "github.com/NethermindEth/juno/deprecatedmigration/progresslogger"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
@@ -37,7 +38,7 @@ type Migrator struct {
 	startFrom uint64
 }
 
-var _ migration.Migration = (*Migrator)(nil)
+var _ deprecatedmigration.Migration = (*Migrator)(nil)
 
 // This migration migrates from the old CASM hash V2 bucket format to the new metadata format.
 // deprecatedCasmHashV2Bucket is the old accessor used to read pre-migration data.
@@ -58,7 +59,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *utils.Network,
-	log utils.StructuredLogger,
+	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -69,12 +70,12 @@ func (m *Migrator) Migrate(
 	}
 
 	if m.startFrom > 0 {
-		log.Info("Resuming Casm hash metadata migration",
-			zap.Uint64("chain_height", chainHeight),
-			zap.Uint64("resuming_from", m.startFrom),
+		log.Infow("Resuming Casm hash metadata migration",
+			"chain_height", chainHeight,
+			"resuming_from", m.startFrom,
 		)
 	} else {
-		log.Info("Starting Casm hash metadata migration",
+		log.Infow("Starting Casm hash metadata migration",
 			zap.Uint64("chain_height", chainHeight),
 		)
 	}
@@ -86,13 +87,16 @@ func (m *Migrator) Migrate(
 	)
 	maxWorkers := runtime.GOMAXPROCS(0)
 	// setup progress tracker and logger
-	progressTracker := progresslogger.NewBlockProgressTracker(log, chainHeight, m.startFrom)
+	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(log, chainHeight, m.startFrom)
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
 
-	batchSemaphore := semaphore.New(maxWorkers, func() db.Batch {
-		return database.NewBatchWithSize(int(batchByteSize))
-	})
+	batchSemaphore := semaphore.New(
+		maxWorkers+1,
+		func() db.Batch {
+			return database.NewBatchWithSize(int(batchByteSize))
+		},
+	)
 	// Phase 1: Process blocks before 0.14.1
 	if m.startFrom < cutoff {
 		toBlock := cutoff - 1
@@ -118,9 +122,9 @@ func (m *Migrator) Migrate(
 
 		// Check for cancellation after processing
 		if shouldResume := resumeFrom <= toBlock; shouldResume {
-			log.Info("Casm hash metadata migration interrupted",
-				zap.Uint64("resume_from", resumeFrom),
-				zap.Duration("elapsed", progressTracker.Elapsed()),
+			log.Infow("Casm hash metadata migration interrupted",
+				"resume_from", resumeFrom,
+				"elapsed", progressTracker.Elapsed(),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
@@ -149,16 +153,16 @@ func (m *Migrator) Migrate(
 		}
 
 		if shouldResume := resumeFrom <= chainHeight; shouldResume {
-			log.Info("Casm hash metadata migration interrupted",
-				zap.Uint64("resume_from", resumeFrom),
-				zap.Duration("elapsed", progressTracker.Elapsed()),
+			log.Infow("Casm hash metadata migration interrupted",
+				"resume_from", resumeFrom,
+				"elapsed", progressTracker.Elapsed(),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
 	}
 
-	log.Info("Casm hash metadata migration completed",
-		zap.Duration("elapsed", progressTracker.Elapsed()),
+	log.Infow("Casm hash metadata migration completed",
+		"elapsed", progressTracker.Elapsed(),
 	)
 
 	return nil, nil
@@ -166,7 +170,7 @@ func (m *Migrator) Migrate(
 
 func migrateRange(
 	ctx context.Context,
-	log utils.StructuredLogger,
+	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	fromBlock, toBlock uint64,
 	maxWorkers int,

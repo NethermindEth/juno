@@ -6,8 +6,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/deprecatedmigration/progresslogger"
 	"github.com/NethermindEth/juno/migration/pipeline"
-	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 

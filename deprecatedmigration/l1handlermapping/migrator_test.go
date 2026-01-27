@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/migration/l1handlermapping"
+	"github.com/NethermindEth/juno/deprecatedmigration/l1handlermapping"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
