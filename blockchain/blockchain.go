@@ -32,12 +32,13 @@ type Reader interface {
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
 
 	BlockNumberByHash(hash *felt.Felt) (uint64, error)
+  BlockNumberAndIndexByTxHash(
+		hash *felt.TransactionHash,
+	) (blockNumber uint64, index uint64, err error)
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
-	BlockNumberAndIndexByTxHash(
-		hash *felt.TransactionHash,
-	) (blockNumber uint64, index uint64, err error)
+	TransactionsByBlockNumber(blockNumber uint64) (transactions []core.Transaction, err error)
 
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	ReceiptByBlockNumberAndIndex(
@@ -212,6 +213,13 @@ func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64)
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
 	return core.GetTxByHash(b.database, (*felt.TransactionHash)(hash))
+}
+
+// TransactionsByBlockNumber gets all transactions for a given block number
+func (b *Blockchain) TransactionsByBlockNumber(number uint64) ([]core.Transaction, error) {
+	b.listener.OnRead("TransactionsByBlockNumber")
+	txn := b.database.NewIndexedBatch()
+	return core.GetTxsByBlockNum(txn, number)
 }
 
 // BlockNumberAndIndexByTxHash gets transaction block number and index by Tx hash
