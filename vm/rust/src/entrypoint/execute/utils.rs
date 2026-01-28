@@ -25,7 +25,7 @@ use starknet_types_core::felt::Felt;
 
 use crate::entrypoint::execute::ffi::{
     JunoAddExecutionSteps, JunoAppendActualFee, JunoAppendDAGas, JunoAppendGasConsumed,
-    JunoAppendReceipt, JunoAppendTrace,
+    JunoAppendInitialReads, JunoAppendReceipt, JunoAppendTrace,
 };
 use crate::error::juno::JunoError;
 use crate::ffi_type::transaction_receipt::TransactionReceipt;
@@ -214,6 +214,23 @@ pub fn append_receipt(
 
     unsafe {
         JunoAppendReceipt(reader_handle, ptr as *const c_void, len);
+    };
+    Ok(())
+}
+
+pub fn append_initial_reads(
+    reader_handle: usize,
+    initial_reads: &crate::ffi_type::initial_reads::InitialReads,
+    writer_buffer: &mut Vec<u8>,
+) -> Result<(), serde_json::Error> {
+    writer_buffer.clear();
+    serde_json::to_writer(&mut *writer_buffer, initial_reads)?;
+
+    let ptr = writer_buffer.as_ptr();
+    let len = writer_buffer.len();
+
+    unsafe {
+        JunoAppendInitialReads(reader_handle, ptr as *const c_void, len);
     };
     Ok(())
 }

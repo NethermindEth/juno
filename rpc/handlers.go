@@ -133,7 +133,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	return g.Wait()
 }
 
-//nolint:funlen,dupl // just registering methods for rpc v10, shares many methods with rpcv9
+//nolint:funlen // just registering methods for rpc v10, shares many methods with rpcv9
 func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
 		{
@@ -273,8 +273,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.SimulateTransactions,
 		},
 		{
-			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_traceBlockTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "trace_flags", Optional: true},
+			},
 			Handler: h.rpcv10Handler.TraceBlockTransactions,
 		},
 		{
@@ -350,7 +353,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 	}, "/v0_10"
 }
 
-//nolint:funlen,dupl // just registering methods for rpc v9, shares many methods with rpcv10
+//nolint:funlen // just registering methods for rpc v9, shares many methods with rpcv10
 func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
 		{
