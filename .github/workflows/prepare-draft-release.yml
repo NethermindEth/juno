@@ -3,7 +3,7 @@ name: Prepare Draft Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -20,8 +20,17 @@ jobs:
     if: github.repository_owner == 'NethermindEth'
     uses: ./.github/workflows/docker-image-build-push.yml
     with:
-      repo_type: 'official'
+      repo_type: "official"
     secrets: inherit
+
+  docker-latest-tag:
+    name: Mark the docker image as latest
+    if: github.repository_owner == 'NethermindEth'
+    needs: [docker-image]
+    uses: ./.github/workflows/docker-image-tag-latest.yml
+    with:
+      repo_type: "non-official"
+      tag_name: ${{ needs.docker-image.outputs.tag }}
 
   create-release:
     name: Create Draft Release
@@ -47,3 +56,4 @@ jobs:
             binaries/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
