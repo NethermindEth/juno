@@ -142,8 +142,8 @@ func migrateBlockRange(
 	)
 
 	_, wait := committerPipeline.Run(ctx)
-	if err := wait(); err != nil {
-		return 0, err
+	if res := wait(); res.Err != nil {
+		return 0, res.Err
 	}
 
 	return nextBlockNumber, nil
