@@ -9,12 +9,12 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
+	deprecatedprogresslogger "github.com/NethermindEth/juno/deprecatedmigration/progresslogger"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils"
-	"go.uber.org/zap"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 	timeLogRate = 30 * time.Second
 )
 
-var _ migration.Migration = (*Migrator)(nil)
+var _ deprecatedmigration.Migration = (*Migrator)(nil)
 
 // Migrator recalculates L1 message hash to L2 transaction hash mapping from transactions
 type Migrator struct {
@@ -46,7 +46,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	_ *utils.Network,
-	log utils.StructuredLogger,
+	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -57,18 +57,18 @@ func (m *Migrator) Migrate(
 	}
 
 	if m.startFrom > 0 {
-		log.Info("Resuming L1 handler message hash migration",
-			zap.Uint64("chain_height", chainHeight),
-			zap.Uint64("from_block", m.startFrom),
+		log.Infow("Resuming L1 handler message hash migration",
+			"chain_height", chainHeight,
+			"from_block", m.startFrom,
 		)
 	} else {
-		log.Info("Starting L1 handler message hash migration",
-			zap.Uint64("chain_height", chainHeight),
+		log.Infow("Starting L1 handler message hash migration",
+			"chain_height", chainHeight,
 		)
 	}
 
 	numWorkers := runtime.GOMAXPROCS(0)
-	progressTracker := progresslogger.NewBlockProgressTracker(log, chainHeight, m.startFrom)
+	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(log, chainHeight, m.startFrom)
 	resumeFrom, err := migrateBlockRange(
 		ctx,
 		database,
@@ -83,15 +83,15 @@ func (m *Migrator) Migrate(
 	}
 
 	if shouldResume := resumeFrom <= chainHeight; shouldResume {
-		log.Info("L1 handler message hash migration interrupted",
-			zap.Uint64("resume_from", resumeFrom),
-			zap.Duration("elapsed", progressTracker.Elapsed()),
+		log.Infow("L1 handler message hash migration interrupted",
+			"resume_from", resumeFrom,
+			"elapsed", progressTracker.Elapsed(),
 		)
 		return encodeIntermediateState(resumeFrom), nil
 	}
 
-	log.Info("L1 handler message hash migration completed",
-		zap.Duration("elapsed", progressTracker.Elapsed()),
+	log.Infow("L1 handler message hash migration completed",
+		"elapsed", progressTracker.Elapsed(),
 	)
 	return nil, nil
 }
@@ -99,11 +99,11 @@ func (m *Migrator) Migrate(
 func migrateBlockRange(
 	ctx context.Context,
 	database db.KeyValueStore,
-	logger utils.StructuredLogger,
+	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
 	startFrom uint64,
 	rangeEnd uint64,
 	maxWorkers int,
-	progressTracker *progresslogger.BlockProgressTracker,
+	progressTracker *deprecatedprogresslogger.BlockProgressTracker,
 ) (uint64, error) {
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()

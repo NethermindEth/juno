@@ -98,6 +98,15 @@ func assertLazySlice[T any](t *testing.T, expected []T, lazySlice indexed.LazySl
 		require.NoError(t, err)
 		require.Equal(t, expected, items)
 	})
+
+	t.Run("Iter", func(t *testing.T) {
+		items := make([]T, 0, len(expected))
+		for item, err := range lazySlice.Iter() {
+			require.NoError(t, err)
+			items = append(items, item)
+		}
+		require.Equal(t, expected, items)
+	})
 }
 
 func TestIndexed(t *testing.T) {
