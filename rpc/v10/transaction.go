@@ -278,7 +278,7 @@ func (h *Handler) pushToFeederGateway(
 	}
 
 	return AddTxResponse{
-		TransactionHash: &gatewayResponse.TransactionHash,
+		TransactionHash: gatewayResponse.TransactionHash,
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil

@@ -946,7 +946,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithTxs)
@@ -972,7 +972,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, nil)
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithTxs)
 
@@ -1044,7 +1044,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
 		blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithReceipts)
@@ -1071,7 +1071,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
 		t.Run("WithoutResponseFlag", func(t *testing.T) {
-			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, nil)
+			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 			require.Nil(t, rpcErr)
 			require.NotNil(t, blockWithReceipts)
 
