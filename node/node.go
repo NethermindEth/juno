@@ -120,6 +120,8 @@ type Config struct {
 	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
 
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
+
+	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
 }
 
 type Node struct {
@@ -167,7 +169,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network)
+	chain := blockchain.New(database, &cfg.Network).
+		WithTransactionLayout(cfg.TransactionCombinedLayout)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()

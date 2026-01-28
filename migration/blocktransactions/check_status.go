@@ -1,6 +1,7 @@
 package blocktransactions
 
 import (
+	"errors"
 	"iter"
 
 	"github.com/NethermindEth/juno/core"
@@ -29,8 +30,13 @@ func getFirstBlockToMigrate(
 		return 0, false, nil
 	}
 
-	minBlock := min(transactions, receipts)
-	minBlock -= minBlock % batchSize
+	if hasTransactions != hasReceipts || transactions != receipts {
+		return 0, false, errors.New("transactions and receipts have different first block")
+	}
+
+	// We want to start from the first block that is a multiple of [batchSize] to make
+	// the workload more predictable.
+	minBlock := transactions - transactions%batchSize
 	return minBlock, true, nil
 }
 

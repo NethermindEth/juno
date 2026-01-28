@@ -157,8 +157,12 @@ var ClassCasmHashMetadataBucket = typed.NewBucket(
 )
 
 // Bucket 40: Block number (uint64) -> Block transactions (BlockTransactions)
-var BlockTransactionsBucket = typed.NewBucket(
-	db.BlockTransactions,
-	key.Cbor[uint64](),
-	BlockTransactionsSerializer{},
+
+var BlockTransactionsBucket = prefix.NewPrefixedBucket(
+	typed.NewBucket(
+		db.BlockTransactions,
+		key.Cbor[uint64](),
+		BlockTransactionsSerializer{},
+	),
+	prefix.Prefix(key.Uint64, prefix.End[BlockTransactions]()),
 )

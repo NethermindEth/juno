@@ -55,17 +55,14 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 			// Generate transactions with weighted sampling
 			txs, receipts := generateWeightedTestTxs(t, &utils.Sepolia, numTxs, weights)
 
-			// Write transactions and track L1Handlers
-			for txIndex, tx := range txs {
-				require.NoError(t, core.WriteTxAndReceipt(
-					batch,
-					blockNum,
-					uint64(txIndex),
-					tx,
-					receipts[txIndex],
-				))
+			// Write transactions using per-tx layout (migration reads from per-tx layout)
+			require.NoError(
+				t,
+				core.TransactionLayoutPerTx.WriteTransactionsAndReceipts(batch, blockNum, txs, receipts),
+			)
 
-				// Track L1Handler transactions for verification
+			// Track L1Handler transactions for verification
+			for _, tx := range txs {
 				if l1Handler, ok := tx.(*core.L1HandlerTransaction); ok {
 					allL1Handlers = append(allL1Handlers, l1HandlerInfo{
 						msgHash: l1Handler.MessageHash(),

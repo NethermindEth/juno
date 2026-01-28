@@ -101,6 +101,7 @@ const (
 	dbCompactionConcurrencyF            = "db-compaction-concurrency"
 	dbMemtableSizeF                     = "db-memtable-size"
 	dbCompressionF                      = "db-compression"
+	transactionCombinedLayoutF          = "transaction-combined-layout"
 
 	defaultConfig                             = ""
 	defaultHost                               = "localhost"
@@ -154,6 +155,7 @@ const (
 	defaultDBCompactionConcurrency            = ""
 	defaultDBMemtableSize                     = 4
 	defaultDBCompression                      = "snappy"
+	defaultTransactionCombinedLayout          = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -230,6 +232,8 @@ const (
 	dbMemtableSizeUsage = "Determines the amount of memory (in MBs) allocated for database memtables."
 	dbCompressionUsage  = "Database compression profile. Options: snappy, zstd, minlz. " +
 		"Use zstd for low storage."
+	transactionCombinedLayoutUsage = "EXPERIMENTAL: Enable combined (per-block) transaction " +
+		"storage layout. Once enabled, cannot be disabled."
 )
 
 var Version string
@@ -445,6 +449,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
+	)
+	junoCmd.Flags().Bool(
+		transactionCombinedLayoutF, defaultTransactionCombinedLayout, transactionCombinedLayoutUsage,
 	)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 

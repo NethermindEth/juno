@@ -28,14 +28,8 @@ const (
 )
 
 func TestBlockTransactionsMigration(t *testing.T) {
-	counts := make([]int, chainHeight+1)
-	allTransactions := make([][]core.Transaction, chainHeight+1)
-	allReceipts := make([][]*core.TransactionReceipt, chainHeight+1)
-
 	t.Run("Empty database", func(t *testing.T) {
-		database, err := pebblev2.New(t.TempDir())
-		require.NoError(t, err)
-		defer database.Close()
+		database := openDatabase(t, t.TempDir())
 
 		state, err := blocktransactions.Migrator{}.Migrate(
 			t.Context(),
@@ -47,33 +41,44 @@ func TestBlockTransactionsMigration(t *testing.T) {
 		require.Nil(t, state)
 	})
 
-	t.Run("Generate data", func(t *testing.T) {
-		conciter.ForEachIdx(counts, func(blockNumber int, count *int) {
-			*count = rand.IntN(maxTransactions-minTransactions) + minTransactions
-			allTransactions[blockNumber] = testutils.GetCoreTransactions(t, *count)
-			allReceipts[blockNumber] = testutils.GetCoreReceipts(t, *count)
+	t.Run("Existing database", func(t *testing.T) {
+		counts, allTransactions, allReceipts := generateFixtures(t)
+
+		t.Run("No cancellation", func(t *testing.T) {
+			runTestBlockTransactionsMigration(
+				t,
+				counts,
+				allTransactions,
+				allReceipts,
+				[]bool{false, false},
+			)
+		})
+
+		t.Run("With cancellation", func(t *testing.T) {
+			runTestBlockTransactionsMigration(
+				t,
+				counts,
+				allTransactions,
+				allReceipts,
+				[]bool{true, true, false, false},
+			)
 		})
 	})
+}
 
-	t.Run("No cancellation", func(t *testing.T) {
-		runTestBlockTransactionsMigration(
-			t,
-			counts,
-			allTransactions,
-			allReceipts,
-			[]bool{false, false},
-		)
+func generateFixtures(t *testing.T) ([]int, [][]core.Transaction, [][]*core.TransactionReceipt) {
+	t.Helper()
+	counts := make([]int, chainHeight+1)
+	allTransactions := make([][]core.Transaction, chainHeight+1)
+	allReceipts := make([][]*core.TransactionReceipt, chainHeight+1)
+
+	conciter.ForEachIdx(counts, func(blockNumber int, count *int) {
+		*count = rand.IntN(maxTransactions-minTransactions) + minTransactions
+		allTransactions[blockNumber] = testutils.GetCoreTransactions(t, *count)
+		allReceipts[blockNumber] = testutils.GetCoreReceipts(t, *count)
 	})
 
-	t.Run("With cancellation", func(t *testing.T) {
-		runTestBlockTransactionsMigration(
-			t,
-			counts,
-			allTransactions,
-			allReceipts,
-			[]bool{true, true, false, false},
-		)
-	})
+	return counts, allTransactions, allReceipts
 }
 
 func runTestBlockTransactionsMigration(
@@ -86,9 +91,7 @@ func runTestBlockTransactionsMigration(
 	dir := t.TempDir()
 
 	t.Run("Init", func(t *testing.T) {
-		database, err := pebblev2.New(dir)
-		require.NoError(t, err)
-		defer database.Close()
+		database := openDatabase(t, dir)
 
 		require.NoError(
 			t,
@@ -109,69 +112,33 @@ func runTestBlockTransactionsMigration(
 				t,
 				core.BlockHeadersByNumberBucket.Put(batch, uint64(blockNumber), &blockHeader),
 			)
-
-			for i := range *count {
-				key := db.BlockNumIndexKey{
-					Number: uint64(blockNumber),
-					Index:  uint64(i),
-				}
-				require.NoError(
-					t,
-					core.TransactionsByBlockNumberAndIndexBucket.Put(
-						batch,
-						key,
-						&allTransactions[blockNumber][i],
-					),
-				)
-				require.NoError(
-					t,
-					core.ReceiptsByBlockNumberAndIndexBucket.Put(
-						batch,
-						key,
-						allReceipts[blockNumber][i],
-					),
-				)
-			}
+			require.NoError(
+				t,
+				core.TransactionLayoutPerTx.WriteTransactionsAndReceipts(
+					batch,
+					uint64(blockNumber),
+					allTransactions[blockNumber],
+					allReceipts[blockNumber],
+				),
+			)
 		})
 	})
 
 	t.Run("Read old data", func(t *testing.T) {
-		database, err := pebblev2.New(dir)
-		require.NoError(t, err)
-		defer database.Close()
+		snapshot := openSnapshot(t, dir)
 
-		t.Run("Transactions", func(t *testing.T) {
-			assertOldEntries(
+		t.Run("PerTx layout should contain data", func(t *testing.T) {
+			assertData(
 				t,
-				db.TransactionsByBlockNumberAndIndex,
-				counts,
-				func(blockNumber int) iter.Seq2[prefix.Entry[core.Transaction], error] {
-					return core.TransactionsByBlockNumberAndIndexBucket.
-						Prefix().
-						Add(uint64(blockNumber)).
-						Scan(database)
-				},
-				func(t *testing.T, blockNumber, index int, value *core.Transaction) {
-					require.Equal(t, allTransactions[blockNumber][index], *value)
-				},
+				snapshot,
+				allTransactions,
+				allReceipts,
+				core.TransactionLayoutPerTx,
 			)
 		})
 
-		t.Run("Receipts", func(t *testing.T) {
-			assertOldEntries(
-				t,
-				db.ReceiptsByBlockNumberAndIndex,
-				counts,
-				func(blockNumber int) iter.Seq2[prefix.Entry[core.TransactionReceipt], error] {
-					return core.ReceiptsByBlockNumberAndIndexBucket.
-						Prefix().
-						Add(uint64(blockNumber)).
-						Scan(database)
-				},
-				func(t *testing.T, blockNumber, index int, value *core.TransactionReceipt) {
-					require.Equal(t, allReceipts[blockNumber][index], value)
-				},
-			)
+		t.Run("Combined layout should be empty", func(t *testing.T) {
+			assertEmptyBucket(t, core.BlockTransactionsBucket.Prefix().Scan(snapshot))
 		})
 	})
 
@@ -183,9 +150,7 @@ func runTestBlockTransactionsMigration(
 				name += " (cancelled)"
 			}
 			t.Run(name, func(t *testing.T) {
-				database, err := pebblev2.New(dir)
-				require.NoError(t, err)
-				defer database.Close()
+				database := openDatabase(t, dir)
 
 				logger, err := utils.NewZapLogger(utils.NewLogLevel(zapcore.InfoLevel), true)
 				require.NoError(t, err)
@@ -220,21 +185,27 @@ func runTestBlockTransactionsMigration(
 
 			if finished {
 				t.Run(fmt.Sprintf("Verify after run %d", i), func(t *testing.T) {
-					database, err := pebblev2.New(dir)
-					require.NoError(t, err)
-					defer database.Close()
+					snapshot := openSnapshot(t, dir)
 
-					conciter.ForEachIdx(counts, func(blockNumber int, count *int) {
-						blockTransactions, err := core.BlockTransactionsBucket.Get(database, uint64(blockNumber))
-						require.NoError(t, err)
+					t.Run("Combined layout should contain data", func(t *testing.T) {
+						assertData(
+							t,
+							snapshot,
+							allTransactions,
+							allReceipts,
+							core.TransactionLayoutCombined,
+						)
+					})
 
-						transactions, err := blockTransactions.Transactions().All()
-						require.NoError(t, err)
-						require.Equal(t, allTransactions[blockNumber], transactions)
-
-						receipts, err := blockTransactions.Receipts().All()
-						require.NoError(t, err)
-						require.Equal(t, allReceipts[blockNumber], receipts)
+					t.Run("PerTx layout should be empty", func(t *testing.T) {
+						assertEmptyBucket(
+							t,
+							core.TransactionsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
+						)
+						assertEmptyBucket(
+							t,
+							core.ReceiptsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
+						)
 					})
 				})
 			}
@@ -242,28 +213,95 @@ func runTestBlockTransactionsMigration(
 	})
 }
 
-func assertOldEntries[T any](
+func assertData(
 	t *testing.T,
-	bucket db.Bucket,
-	counts []int,
-	scan func(blockNumber int) iter.Seq2[prefix.Entry[T], error],
-	assertValue func(t *testing.T, blockNumber, index int, value *T),
+	snapshot db.KeyValueReader,
+	allTransactions [][]core.Transaction,
+	allReceipts [][]*core.TransactionReceipt,
+	layout core.TransactionLayout,
 ) {
 	t.Helper()
 
-	conciter.ForEachIdx(counts, func(blockNumber int, count *int) {
-		index := 0
-		for entry, err := range scan(blockNumber) {
-			require.NoError(t, err)
-			require.Less(t, index, *count)
-			key := db.BlockNumIndexKey{
-				Number: uint64(blockNumber),
-				Index:  uint64(index),
-			}
-			require.Equal(t, bucket.Key(key.Marshal()), entry.Key)
-			assertValue(t, blockNumber, index, &entry.Value)
-			index++
-		}
-		require.Equal(t, *count, index)
+	t.Run("Transactions", func(t *testing.T) {
+		assertCurrentLayout(
+			t,
+			snapshot,
+			allTransactions,
+			layout.TransactionsByBlockNumber,
+			layout.TransactionByBlockAndIndex,
+		)
 	})
+
+	t.Run("Receipts", func(t *testing.T) {
+		assertCurrentLayout(
+			t,
+			snapshot,
+			allReceipts,
+			layout.ReceiptsByBlockNumber,
+			layout.ReceiptByBlockAndIndex,
+		)
+	})
+}
+
+func assertCurrentLayout[T any](
+	t *testing.T,
+	snapshot db.KeyValueReader,
+	expected [][]T,
+	getByBlock func(database db.KeyValueReader, blockNumber uint64) ([]T, error),
+	getByBlockAndIndex func(database db.KeyValueReader, blockNumber uint64, index uint64) (T, error),
+) {
+	t.Run("All", func(t *testing.T) {
+		conciter.ForEachIdx(expected, func(blockNumber int, expected *[]T) {
+			actual, err := getByBlock(snapshot, uint64(blockNumber))
+			require.NoError(t, err)
+			require.Len(t, actual, len(*expected))
+			if len(*expected) > 0 {
+				require.Equal(t, *expected, actual)
+			}
+		})
+	})
+	t.Run("Per index", func(t *testing.T) {
+		conciter.ForEachIdx(expected, func(blockNumber int, expected *[]T) {
+			conciter.ForEachIdx(*expected, func(index int, expected *T) {
+				actual, err := getByBlockAndIndex(
+					snapshot,
+					uint64(blockNumber),
+					uint64(index),
+				)
+				require.NoError(t, err)
+				require.Equal(t, *expected, actual)
+			})
+		})
+	})
+}
+
+func openDatabase(t *testing.T, dir string) db.KeyValueStore {
+	t.Helper()
+	database, err := pebblev2.New(dir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, database.Close())
+	})
+	return database
+}
+
+func openSnapshot(t *testing.T, dir string) db.Snapshot {
+	t.Helper()
+	database := openDatabase(t, dir)
+	snapshot := database.NewSnapshot()
+	t.Cleanup(func() {
+		require.NoError(t, snapshot.Close())
+	})
+	return snapshot
+}
+
+func assertEmptyBucket[T any](
+	t *testing.T,
+	bucket iter.Seq2[prefix.Entry[T], error],
+) {
+	t.Helper()
+	next, stop := iter.Pull2(bucket)
+	defer stop()
+	_, _, ok := next()
+	require.False(t, ok)
 }
