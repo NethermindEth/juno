@@ -2381,7 +2381,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		proofFactsWithTag,
 		proofFactsWithoutTag,
 	}
-	//nolint:dupl // Shares similar structure with other tests but tests different method
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			subID, conn := createTestNewTransactionsWebsocket(
@@ -2960,7 +2959,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		reorgEvent,
 	}
 
-	//nolint:dupl // Shares similar structure with other tests but tests different method
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			subID, conn := createTestTransactionReceiptsWebsocket(t, handler, tc.senderAddress, tc.statuses)
