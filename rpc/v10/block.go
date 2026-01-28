@@ -106,9 +106,9 @@ func (h *Handler) BlockWithTxHashes(id *rpcv9.BlockID) (*BlockWithTxHashes, *jso
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L99
 func (h *Handler) BlockWithReceipts(
 	id *rpcv9.BlockID,
-	responseFlags *ResponseFlags,
+	responseFlags ResponseFlags,
 ) (*BlockWithReceipts, *jsonrpc.Error) {
-	includeProofFacts := responseFlags != nil && responseFlags.IncludeProofFacts
+	includeProofFacts := responseFlags.IncludeProofFacts
 
 	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
@@ -172,9 +172,9 @@ func (h *Handler) BlockWithReceipts(
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L62
 func (h *Handler) BlockWithTxs(
 	blockID *rpcv9.BlockID,
-	responseFlags *ResponseFlags,
+	responseFlags ResponseFlags,
 ) (*BlockWithTxs, *jsonrpc.Error) {
-	includeProofFacts := responseFlags != nil && responseFlags.IncludeProofFacts
+	includeProofFacts := responseFlags.IncludeProofFacts
 
 	block, rpcErr := h.blockByID(blockID)
 	if rpcErr != nil {

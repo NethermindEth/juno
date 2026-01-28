@@ -82,9 +82,9 @@ func AdaptBroadcastedTransaction(
 }
 
 type AddTxResponse struct {
-	TransactionHash *felt.TransactionHash `json:"transaction_hash"`
-	ContractAddress *felt.Address         `json:"contract_address,omitempty"`
-	ClassHash       *felt.ClassHash       `json:"class_hash,omitempty"`
+	TransactionHash felt.TransactionHash `json:"transaction_hash"`
+	ContractAddress *felt.Address        `json:"contract_address,omitempty"`
+	ClassHash       *felt.ClassHash      `json:"class_hash,omitempty"`
 }
 
 // AddTransaction adds a transaction to the mempool or forwards it to the feeder gateway.
@@ -107,7 +107,7 @@ func (h *Handler) AddTransaction(
 	}
 
 	if h.submittedTransactionsCache != nil {
-		h.submittedTransactionsCache.Add((*felt.Felt)(res.TransactionHash))
+		h.submittedTransactionsCache.Add((*felt.Felt)(&res.TransactionHash))
 	}
 
 	return res, nil
@@ -128,7 +128,7 @@ func (h *Handler) addToMempool(
 	}); err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	userTxnHash := (*felt.TransactionHash)(userTxn.Hash())
+	userTxnHash := felt.TransactionHash(*userTxn.Hash())
 	res := AddTxResponse{TransactionHash: userTxnHash}
 	switch tx.Type {
 	case rpcv9.TxnDeployAccount:
@@ -236,7 +236,7 @@ func (h *Handler) pushToFeederGateway(
 	}
 
 	return AddTxResponse{
-		TransactionHash: &gatewayResponse.TransactionHash,
+		TransactionHash: gatewayResponse.TransactionHash,
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil
@@ -459,9 +459,9 @@ func (h *Handler) TransactionByHash(
 //
 //nolint:lll // URL exceeds line limit
 func (h *Handler) TransactionByBlockIDAndIndex(
-	blockID *rpcv9.BlockID, txIndex int, responseFlags *ResponseFlags,
+	blockID *rpcv9.BlockID, txIndex int, responseFlags ResponseFlags,
 ) (*Transaction, *jsonrpc.Error) {
-	includeProofFacts := responseFlags != nil && responseFlags.IncludeProofFacts
+	includeProofFacts := responseFlags.IncludeProofFacts
 
 	if txIndex < 0 {
 		return nil, rpccore.ErrInvalidTxIndex

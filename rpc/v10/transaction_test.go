@@ -627,9 +627,9 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 		got, rpcErr := h.AddTransaction(t.Context(), broadcastedTxn)
 		require.Nil(t, rpcErr)
 		require.Equal(t, rpcv10.AddTxResponse{
-			TransactionHash: (*felt.TransactionHash)(felt.NewFromUint64[felt.Felt](0x1)),
-			ContractAddress: (*felt.Address)(felt.NewFromUint64[felt.Felt](0x2)),
-			ClassHash:       (*felt.ClassHash)(felt.NewFromUint64[felt.Felt](0x3)),
+			TransactionHash: *felt.NewFromUint64[felt.TransactionHash](0x1),
+			ContractAddress: felt.NewFromUint64[felt.Address](0x2),
+			ClassHash:       felt.NewFromUint64[felt.ClassHash](0x3),
 		}, got)
 	})
 
@@ -663,7 +663,7 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 		h := handler.WithGateway(mockGateway)
 		got, rpcErr := h.AddTransaction(t.Context(), broadcastedTxn)
 		require.Nil(t, rpcErr)
-		require.NotNil(t, got.TransactionHash)
+		require.NotZero(t, got.TransactionHash)
 	})
 }
 
@@ -745,7 +745,7 @@ func TestTransactionByBlockIDAndIndexWithResponseFlags(t *testing.T) {
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
 		tx, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, 0, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, tx)
@@ -754,7 +754,7 @@ func TestTransactionByBlockIDAndIndexWithResponseFlags(t *testing.T) {
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		tx, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, 0, nil)
+		tx, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, 0, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.NotNil(t, tx)
 		require.Nil(t, tx.ProofFacts)

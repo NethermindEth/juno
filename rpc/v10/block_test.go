@@ -434,7 +434,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID, nil)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -506,7 +506,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
-			block, rpcErr := handler.BlockWithTxs(&id, nil)
+			block, rpcErr := handler.BlockWithTxs(&id, rpcv10.ResponseFlags{})
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -529,7 +529,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID, nil)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -562,7 +562,7 @@ func TestBlockWithTxs(t *testing.T) {
 				tc.l1Head,
 			)
 
-			block, rpcErr := handler.BlockWithTxs(tc.blockID, nil)
+			block, rpcErr := handler.BlockWithTxs(tc.blockID, rpcv10.ResponseFlags{})
 			require.Nil(t, rpcErr)
 			assertBlockWithTxs(
 				t,
@@ -600,7 +600,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
-			block, rpcErr := handler.BlockWithReceipts(&id, nil)
+			block, rpcErr := handler.BlockWithReceipts(&id, rpcv10.ResponseFlags{})
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -623,7 +623,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID, nil)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -656,7 +656,7 @@ func TestBlockWithReceipts(t *testing.T) {
 				tc.l1Head,
 			)
 
-			block, rpcErr := handler.BlockWithReceipts(tc.blockID, nil)
+			block, rpcErr := handler.BlockWithReceipts(tc.blockID, rpcv10.ResponseFlags{})
 			require.Nil(t, rpcErr)
 			assertBlockWithReceipts(
 				t,
@@ -695,7 +695,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil).Times(2)
 
 		blockID := rpcv9.BlockIDLatest()
-		actual, rpcErr := handler.BlockWithTxs(&blockID, nil)
+		actual, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &felt.Zero, actual.BlockHeader.SequencerAddress)
 
@@ -726,7 +726,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	require.True(t, ok)
 
 	blockID := rpcv9.BlockIDFromNumber(blockNumber)
-	got, rpcErr := handler.BlockWithTxs(&blockID, nil)
+	got, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
 	require.Nil(t, rpcErr)
 	got.Transactions = got.Transactions[:1]
 
@@ -872,7 +872,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithTxs)
@@ -898,7 +898,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, nil)
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithTxs)
 
@@ -970,7 +970,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := &rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
 		blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithReceipts)
@@ -997,7 +997,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
 		t.Run("WithoutResponseFlag", func(t *testing.T) {
-			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, nil)
+			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 			require.Nil(t, rpcErr)
 			require.NotNil(t, blockWithReceipts)
 
