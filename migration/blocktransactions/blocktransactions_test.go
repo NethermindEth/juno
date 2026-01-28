@@ -209,12 +209,11 @@ func runTestBlockTransactionsMigration(
 					logger,
 				)
 
+				require.NoError(t, err)
 				if shouldCancel {
 					require.Equal(t, []byte{}, state)
-					require.ErrorIs(t, err, context.Canceled)
 				} else {
 					require.Nil(t, state)
-					require.NoError(t, err)
 					finished = true
 				}
 			})
