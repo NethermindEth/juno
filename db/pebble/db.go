@@ -127,11 +127,8 @@ func (d *DB) Get(key []byte, cb func(value []byte) error) error {
 		return err
 	}
 
-	if err := cb(val); err != nil {
-		return err
-	}
-
-	return closer.Close()
+	err = cb(val)
+	return errors.Join(err, closer.Close())
 }
 
 func (d *DB) Put(key, val []byte) error {
