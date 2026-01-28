@@ -117,7 +117,7 @@ func TestNewRunner(t *testing.T) {
 		require.NotNil(t, runner)
 	})
 
-	t.Run("Error on entries length mismatch", func(t *testing.T) {
+	t.Run("Error on insufficient entries", func(t *testing.T) {
 		testDB := setupTestDB(t)
 		entries := []migration.Migration{&mockMigration{}}
 		targetVersion := createTargetVersion(0, 1) // Target has 2 migrations, but entries has only 1
@@ -131,7 +131,7 @@ func TestNewRunner(t *testing.T) {
 		)
 		require.Error(t, err)
 		require.Nil(t, runner)
-		require.Contains(t, err.Error(), "entries length mismatch")
+		require.Contains(t, err.Error(), "insufficient entries")
 	})
 
 	t.Run("Error on opt-out attempt", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with version downgrade, tests different error message, nolintlint because main config does not check lll in tests
