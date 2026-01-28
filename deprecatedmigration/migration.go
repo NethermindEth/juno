@@ -24,6 +24,8 @@ import (
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
+	"github.com/NethermindEth/juno/deprecatedmigration/casmhashmetadata"
+	"github.com/NethermindEth/juno/deprecatedmigration/l1handlermapping"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -87,6 +89,8 @@ var defaultMigrations = []Migration{
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
+	&casmhashmetadata.Migrator{},
+	&l1handlermapping.Migrator{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")

@@ -9,7 +9,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
 	deprecatedprogresslogger "github.com/NethermindEth/juno/deprecatedmigration/progresslogger"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
@@ -27,8 +26,6 @@ const (
 	// logRate is the rate at which we log the progress in block numbers.
 	timeLogRate = 30 * time.Second
 )
-
-var _ deprecatedmigration.Migration = (*Migrator)(nil)
 
 // Migrator recalculates L1 message hash to L2 transaction hash mapping from transactions
 type Migrator struct {
