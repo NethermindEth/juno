@@ -164,7 +164,7 @@ func TestSimulateTransactions(t *testing.T) {
 			blockID := rpcv9.BlockIDLatest()
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
 				&blockID,
-				rpcv9.BroadcastedTransactionInputs{},
+				rpcv10.BroadcastedTransactionInputs{},
 				test.simulationFlags,
 			)
 			if test.err != nil {
@@ -205,16 +205,18 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 	tests := []struct {
 		name         string
-		transactions []rpcv9.BroadcastedTransaction
+		transactions []rpcv10.BroadcastedTransaction
 		err          *jsonrpc.Error
 	}{
 		{
 			name: "declare transaction without sender address",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version: &version3,
-						Type:    rpcv9.TxnDeclare,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version: &version3,
+							Type:    rpcv9.TxnDeclare,
+						},
 					},
 				},
 			},
@@ -225,12 +227,14 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "declare transaction without resource bounds",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version:       &version3,
-						Type:          rpcv9.TxnDeclare,
-						SenderAddress: &felt.Zero,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version:       &version3,
+							Type:          rpcv9.TxnDeclare,
+							SenderAddress: &felt.Zero,
+						},
 					},
 				},
 			},
@@ -241,11 +245,13 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "invoke transaction without sender address",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version: &version3,
-						Type:    rpcv9.TxnInvoke,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version: &version3,
+							Type:    rpcv9.TxnInvoke,
+						},
 					},
 				},
 			},
@@ -256,12 +262,14 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "invoke transaction without resource bounds",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version:       &version3,
-						Type:          rpcv9.TxnInvoke,
-						SenderAddress: &felt.Zero,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version:       &version3,
+							Type:          rpcv9.TxnInvoke,
+							SenderAddress: &felt.Zero,
+						},
 					},
 				},
 			},
@@ -272,11 +280,13 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "deploy account transaction without resource bounds",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version: &version3,
-						Type:    rpcv9.TxnDeployAccount,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version: &version3,
+							Type:    rpcv9.TxnDeployAccount,
+						},
 					},
 				},
 			},
@@ -306,7 +316,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			blockID := rpcv9.BlockIDLatest()
 			_, _, err := handler.SimulateTransactions(
 				&blockID,
-				rpcv9.BroadcastedTransactionInputs{Data: test.transactions},
+				rpcv10.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpcv6.SimulationFlag{},
 			)
 			if test.err != nil {

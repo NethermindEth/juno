@@ -40,7 +40,7 @@ type BlockHeader struct {
 type BlockWithTxs struct {
 	Status rpcv9.BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	Transactions []*rpcv9.Transaction `json:"transactions"`
+	Transactions []*Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L1769
@@ -50,11 +50,17 @@ type BlockWithTxHashes struct {
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
 
+// TransactionWithReceipt represents a transaction with its receipt
+type TransactionWithReceipt struct {
+	Transaction *Transaction              `json:"transaction"`
+	Receipt     *rpcv9.TransactionReceipt `json:"receipt"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L1819
 type BlockWithReceipts struct {
 	Status rpcv9.BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	Transactions []rpcv9.TransactionWithReceipt `json:"transactions"`
+	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.
@@ -98,7 +104,12 @@ func (h *Handler) BlockWithTxHashes(id *rpcv9.BlockID) (*BlockWithTxHashes, *jso
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L99
-func (h *Handler) BlockWithReceipts(id *rpcv9.BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
+func (h *Handler) BlockWithReceipts(
+	id *rpcv9.BlockID,
+	responseFlags ResponseFlags,
+) (*BlockWithReceipts, *jsonrpc.Error) {
+	includeProofFacts := responseFlags.IncludeProofFacts
+
 	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -125,14 +136,14 @@ func (h *Handler) BlockWithReceipts(id *rpcv9.BlockID) (*BlockWithReceipts, *jso
 		return nil, rpccore.ErrInternal.CloneWithData(fmt.Errorf("unknown block status '%v'", s))
 	}
 
-	txsWithReceipts := make([]rpcv9.TransactionWithReceipt, len(block.Transactions))
+	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
 	for index, txn := range block.Transactions {
 		r := block.Receipts[index]
 
-		t := rpcv9.AdaptTransaction(txn)
-		t.Hash = nil
-		txsWithReceipts[index] = rpcv9.TransactionWithReceipt{
-			Transaction: t,
+		adaptedTx := AdaptTransaction(txn, includeProofFacts)
+		adaptedTx.Hash = nil
+		txsWithReceipts[index] = TransactionWithReceipt{
+			Transaction: &adaptedTx,
 			// block_hash, block_number are optional in BlockWithReceipts response
 			Receipt: rpcv9.AdaptReceipt(r, txn, finalityStatus),
 		}
@@ -159,15 +170,21 @@ func (h *Handler) BlockWithReceipts(id *rpcv9.BlockID) (*BlockWithReceipts, *jso
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L62
-func (h *Handler) BlockWithTxs(blockID *rpcv9.BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxs(
+	blockID *rpcv9.BlockID,
+	responseFlags ResponseFlags,
+) (*BlockWithTxs, *jsonrpc.Error) {
+	includeProofFacts := responseFlags.IncludeProofFacts
+
 	block, rpcErr := h.blockByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	txs := make([]*rpcv9.Transaction, len(block.Transactions))
+	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = rpcv9.AdaptTransaction(txn)
+		adaptedTx := AdaptTransaction(txn, includeProofFacts)
+		txs[index] = &adaptedTx
 	}
 
 	status, rpcErr := h.blockStatus(blockID, block)
