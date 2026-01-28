@@ -167,7 +167,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil, nil)
+		id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Felt{*fromAddr}, keys, nil, nil)
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyKeysInFilter, rpcErr)
 	})
@@ -200,7 +200,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
+			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Felt{*fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -210,7 +210,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
+			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Felt{*fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -3187,7 +3187,11 @@ func createTestEvents(
 	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
 		blockNumber = &b.Number
 	}
-	eventMatcher := blockchain.NewEventMatcher(fromAddress, keys)
+	addresses := make([]felt.Felt, 0, 1)
+	if fromAddress != nil {
+		addresses = append(addresses, *fromAddress)
+	}
+	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
 	var filtered []blockchain.FilteredEvent
 	var responses []SubscriptionEmittedEvent
 	for txIndex, receipt := range b.Receipts {
@@ -3240,7 +3244,11 @@ func createTestEventsWebsocket(
 	t.Helper()
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
-		return h.SubscribeEvents(ctx, fromAddr, keys, blockID, finalityStatus)
+		addresses := make([]felt.Felt, 0, 1)
+		if fromAddr != nil {
+			addresses = append(addresses, *fromAddr)
+		}
+		return h.SubscribeEvents(ctx, addresses, keys, blockID, finalityStatus)
 	})
 }
 
