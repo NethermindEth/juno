@@ -1,6 +1,8 @@
 package db
 
 import (
+	"errors"
+	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -653,6 +655,29 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 		expectedKeys := []string{"key1", "key2", "key3"}
 		require.Equal(t, expectedKeys, keys, "snapshot iterator keys mismatch")
+	})
+
+	t.Run("Get leak", func(t *testing.T) {
+		key := []byte("key")
+		value := []byte("value")
+		t.Run("Database", func(t *testing.T) {
+			database := newDB()
+			require.NoError(t, database.Put(slices.Clone(key), slices.Clone(value)))
+			require.Error(t, database.Get(slices.Clone(key), func([]byte) error {
+				return errors.New("test")
+			}))
+			require.NoError(t, database.Close())
+		})
+
+		t.Run("Batch", func(t *testing.T) {
+			database := newDB()
+			require.NoError(t, database.Put(slices.Clone(key), slices.Clone(value)))
+			batch := database.NewIndexedBatch()
+			require.Error(t, batch.Get(slices.Clone(key), func([]byte) error {
+				return errors.New("test")
+			}))
+			require.NoError(t, database.Close())
+		})
 	})
 
 	t.Run("OperationsAfterClose", func(t *testing.T) {
