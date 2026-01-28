@@ -1,4 +1,4 @@
-name: "Tag Official Docker Image as Latest"
+name: "Tag Docker Image as Latest"
 
 on:
   workflow_call:
@@ -6,7 +6,7 @@ on:
       tag_name:
         description: "Git tag to mark as latest"
         required: true
-        default: ""
+
         type: string
       repo_type:
         description: "Repository type (official or non-official)"
