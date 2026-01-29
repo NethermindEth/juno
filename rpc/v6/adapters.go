@@ -53,8 +53,15 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		stateDiff = utils.HeapPtr(AdaptVMStateDiff(trace.StateDiff))
 	}
 
+	traceType := TransactionType(trace.Type)
+	if traceType == TxnDeploy {
+		// There is no DEPLOY_TXN_TRACE thus we need to convert the type to `DEPLOY_ACCOUNT`
+		// see https://github.com/starkware-libs/starknet-specs/blob/49665932a97f8fdef7ac5869755d2858c5e3a687/api/starknet_trace_api_openrpc.json#L150 //nolint:lll // url exceeds line limit
+		traceType = TxnDeployAccount
+	}
+
 	return TransactionTrace{
-		Type:                  TransactionType(trace.Type),
+		Type:                  traceType,
 		ValidateInvocation:    validateInvocation,
 		ExecuteInvocation:     executeInvocation,
 		FeeTransferInvocation: feeTransferInvocation,
