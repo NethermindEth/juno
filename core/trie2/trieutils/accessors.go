@@ -118,29 +118,37 @@ func WriteTrieJournal(w db.KeyValueWriter, journal []byte) error {
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
 func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf bool) []byte {
-	var (
-		prefixBytes = prefix.Key()
-		ownerBytes  []byte
-		nodeType    []byte
-		pathBytes   = path.EncodedBytes()
-	)
+	prefixBytes := prefix.Key()
 
+	const ownerByteSize = 32
+	var ownerBytes [32]byte
 	if !felt.IsZero(owner) {
-		ob := owner.Bytes()
-		ownerBytes = ob[:]
+		ownerBytes = owner.Bytes()
 	}
 
+	const nodeTypeSize = 1
+	var nodeType byte
 	if isLeaf {
-		nodeType = leaf.Bytes()
+		nodeType = leaf.Byte()
 	} else {
-		nodeType = nonLeaf.Bytes()
+		nodeType = nonLeaf.Byte()
 	}
 
-	key := make([]byte, 0, len(prefixBytes)+len(ownerBytes)+len(nodeType)+len(pathBytes))
-	key = append(key, prefixBytes...)
-	key = append(key, ownerBytes...)
-	key = append(key, nodeType...)
-	key = append(key, pathBytes...)
+	pathBytes := path.EncodedBytes()
+
+	key := make([]byte, len(prefixBytes)+ownerByteSize+nodeTypeSize+len(pathBytes))
+	dst := key
+
+	copy(dst, prefixBytes)
+	dst = dst[len(prefixBytes):]
+
+	copy(dst, ownerBytes[:])
+	dst = dst[ownerByteSize:]
+
+	dst[0] = nodeType
+	dst = dst[nodeTypeSize:]
+
+	copy(dst, pathBytes)
 
 	return key
 }
@@ -198,50 +206,50 @@ func nodeKeyByHash(
 	hash *felt.Hash,
 	isLeaf bool,
 ) []byte {
-	const pathSignificantBytes = 8
-	var (
-		prefixBytes = prefix.Key()
-		ownerBytes  []byte
-		nodeType    []byte
-		pathBytes   = path.ActiveBytes()
-		hashBytes   = hash.Bytes()
-	)
+	prefixBytes := prefix.Key()
 
+	var ownerBytes []byte
 	if !felt.IsZero(owner) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}
 
+	var nodeType byte
+	nodeTypeSize := 1
 	if isLeaf {
-		nodeType = leaf.Bytes()
+		nodeType = leaf.Byte()
 	} else {
-		nodeType = nonLeaf.Bytes()
+		nodeType = nonLeaf.Byte()
 	}
 
-	keySize := len(prefixBytes) + len(ownerBytes) + len(nodeType) + len(hashBytes)
-	if len(pathBytes) < pathSignificantBytes {
-		keySize += pathSignificantBytes
-	} else {
-		keySize += len(pathBytes)
-	}
+	hashBytes := hash.Bytes()
 
-	key := make([]byte, 0, keySize)
-	key = append(key, prefixBytes...)
-	key = append(key, ownerBytes...)
-	key = append(key, nodeType...)
+	const pathSignificantBytes = 8
+	pathSize := max(pathSignificantBytes, path.len)
 
-	if len(pathBytes) > 0 {
-		if len(pathBytes) < pathSignificantBytes {
-			key = append(key, pathBytes...)
-			key = append(key, make([]byte, pathSignificantBytes-len(pathBytes))...)
-		} else {
-			key = append(key, pathBytes...)
-		}
-	} else {
-		key = append(key, make([]byte, pathSignificantBytes)...)
-	}
+	keySize := len(prefixBytes) +
+		len(ownerBytes) +
+		nodeTypeSize +
+		int(pathSize) +
+		len(hashBytes)
 
-	key = append(key, hashBytes[:]...)
+	key := make([]byte, keySize)
+	dst := key
+
+	copy(dst, prefixBytes)
+	dst = dst[len(prefixBytes):]
+
+	copy(dst, ownerBytes)
+	dst = dst[len(ownerBytes):]
+
+	dst[0] = nodeType
+	dst = dst[nodeTypeSize:]
+
+	pathBytes := path.Bytes()
+	copy(dst, pathBytes[0:pathSize])
+	dst = dst[pathSize:]
+
+	copy(dst, hashBytes[:])
 
 	return key
 }
