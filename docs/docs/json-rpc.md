@@ -1,4 +1,3 @@
-
 ---
 title: JSON-RPC Interface
 ---
@@ -201,6 +200,7 @@ async fn main() {
 
 Juno supports the following Starknet API versions:
 
+- **v0.10.0**: Accessible via endpoints `/v0_10`, `/rpc/v0_10`
 - **v0.9.0**: Accessible via endpoints `/v0_9`, `/rpc/v0_9`
 - **v0.8.1**: Accessible via endpoints `/v0_8` or `/rpc/v0_8`, or the default `/`
 - **v0.7.0**: Accessible via endpoints `/v0_7`, `/rpc/v0_7`
@@ -209,6 +209,22 @@ Juno supports the following Starknet API versions:
 To use a specific API version, specify the version endpoint in your RPC calls:
 
 <Tabs>
+
+<TabItem value="v10" label="v0.10.0">
+
+```bash
+curl --location 'http://localhost:6060/v0_10' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+</TabItem>
+
 
 <TabItem value="v9" label="v0.9.0">
 

@@ -12,9 +12,10 @@ const sidebars = {
         "hardware-requirements",
         "running-juno",
         "configuring",
-        "plugins",
-        "running-on-gcp",
         "updating",
+        "tuning",
+        "running-on-gcp",
+        "plugins",
       ],
     },
     {
