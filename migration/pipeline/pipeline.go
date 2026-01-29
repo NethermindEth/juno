@@ -5,16 +5,39 @@ import (
 	"errors"
 	"iter"
 
-	"github.com/sourcegraph/conc/pool"
 	"golang.org/x/sync/errgroup"
 )
 
-type Pipeline[I any] func(*pool.ContextPool, context.CancelFunc) <-chan I
+type resources struct {
+	g      errgroup.Group
+	ctx    context.Context
+	cancel context.CancelFunc
+	isDone bool
+}
 
-func (p Pipeline[I]) Run(ctx context.Context) (<-chan I, func() error) {
+type Result struct {
+	IsDone bool
+	Err    error
+}
+
+type Pipeline[I any] func(*resources) <-chan I
+
+func (p Pipeline[I]) Run(ctx context.Context) (<-chan I, func() Result) {
 	ctx, cancel := context.WithCancel(ctx)
-	g := pool.New().WithContext(ctx)
-	return p(g, cancel), g.Wait
+	r := resources{
+		g:      errgroup.Group{},
+		ctx:    ctx,
+		cancel: cancel,
+		isDone: false,
+	}
+	wait := func() Result {
+		err := r.g.Wait()
+		return Result{
+			IsDone: r.isDone,
+			Err:    err,
+		}
+	}
+	return p(&r), wait
 }
 
 type State[I, O any] interface {
@@ -27,10 +50,10 @@ func New[I, O any, S State[I, O]](
 	concurrency int,
 	state S,
 ) Pipeline[O] {
-	return func(g *pool.ContextPool, cancel context.CancelFunc) <-chan O {
-		inputs := inputs(g, cancel)
+	return func(r *resources) <-chan O {
+		inputs := inputs(r)
 		outputs := make(chan O)
-		g.Go(func(context.Context) error {
+		r.g.Go(func() error {
 			defer close(outputs)
 
 			g := errgroup.Group{}
@@ -40,7 +63,7 @@ func New[I, O any, S State[I, O]](
 					for input := range inputs {
 						if err := state.Run(i, input, outputs); err != nil {
 							allErr = errors.Join(allErr, err)
-							cancel()
+							r.cancel()
 						}
 					}
 					return errors.Join(allErr, state.Done(i, outputs))
@@ -55,17 +78,18 @@ func New[I, O any, S State[I, O]](
 }
 
 func Source[I any](it iter.Seq[I]) Pipeline[I] {
-	return func(g *pool.ContextPool, cancel context.CancelFunc) <-chan I {
+	return func(r *resources) <-chan I {
 		outputs := make(chan I)
-		g.Go(func(ctx context.Context) error {
+		r.g.Go(func() error {
 			defer close(outputs)
 			for input := range it {
 				select {
-				case <-ctx.Done():
-					return ctx.Err()
+				case <-r.ctx.Done():
+					return nil
 				case outputs <- input:
 				}
 			}
+			r.isDone = true
 			return nil
 		})
 		return outputs

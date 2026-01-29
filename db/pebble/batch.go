@@ -63,11 +63,8 @@ func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 		return err
 	}
 
-	if err := cb(val); err != nil {
-		return err
-	}
-
-	return closer.Close()
+	err = cb(val)
+	return errors.Join(err, closer.Close())
 }
 
 func (b *batch) Has(key []byte) (bool, error) {

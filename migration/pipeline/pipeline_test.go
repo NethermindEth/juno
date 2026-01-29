@@ -16,6 +16,12 @@ const (
 	concurrency = 16
 	itemCount   = 50000
 	failRange   = concurrency * 10
+
+	immediately = 0
+	early       = 10
+	late        = 1000
+	success     = itemCount + 1
+	aLotOfParts = 100
 )
 
 type state[I, O any] struct {
@@ -95,7 +101,9 @@ func TestPipeline(t *testing.T) {
 		}
 
 		require.ElementsMatch(t, expectedOutputs, actualOutputs)
-		require.NoError(t, wait())
+		result := wait()
+		require.True(t, result.IsDone)
+		require.NoError(t, result.Err)
 	})
 
 	t.Run("Assert state", func(t *testing.T) {
@@ -123,21 +131,37 @@ func source(itemCount int) iter.Seq[int] {
 	}
 }
 
+func cancelAfterN(n int, cancel func()) iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for i := range itemCount {
+			if !yield(i) {
+				return
+			}
+			if i >= n {
+				cancel()
+			}
+		}
+	}
+}
+
 type failTestCase struct {
-	name          string
-	source        iter.Seq[int]
-	parts         []int
-	expectedError error
+	name           string
+	source         iter.Seq[int]
+	parts          []int
+	expectedResult pipeline.Result
 }
 
 var errFailedExecution = errors.New("test error")
 
 func testCase(name string, parts ...int) failTestCase {
 	return failTestCase{
-		name:          name,
-		source:        source(itemCount),
-		parts:         parts,
-		expectedError: errFailedExecution,
+		name:   name,
+		source: source(itemCount),
+		parts:  parts,
+		expectedResult: pipeline.Result{
+			IsDone: false,
+			Err:    errFailedExecution,
+		},
 	}
 }
 
@@ -159,22 +183,23 @@ func assertFailureState(
 			outputs, wait := last.Run(ctx)
 			for range outputs {
 			}
-			err := wait()
-			if testCase.expectedError != nil {
-				require.Error(t, err)
-				require.ErrorIs(t, err, testCase.expectedError)
+			result := wait()
+			require.False(t, result.IsDone)
+			if testCase.expectedResult.Err != nil {
+				require.Error(t, result.Err)
+				require.ErrorIs(t, result.Err, testCase.expectedResult.Err)
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, result.Err)
 			}
 		})
 
 		t.Run("Assert state", func(t *testing.T) {
 			for _, state := range states {
 				require.Equal(t, state.done, slices.Repeat([]bool{true}, concurrency))
-				if testCase.expectedError != nil {
-					require.Less(t, state.Count(), itemCount)
-				} else {
+				if testCase.expectedResult.IsDone {
 					require.Equal(t, state.Count(), itemCount)
+				} else {
+					require.Less(t, state.Count(), itemCount)
 				}
 			}
 		})
@@ -188,12 +213,11 @@ func runTestPipelineError(t *testing.T, testCases ...failTestCase) {
 	}
 }
 
+func uniformParts(part int) []int {
+	return slices.Repeat([]int{part}, aLotOfParts)
+}
+
 func TestPipelineError(t *testing.T) {
-	const (
-		early   = 10
-		late    = 1000
-		success = itemCount + 1
-	)
 	t.Run("2 parts", func(t *testing.T) {
 		runTestPipelineError(
 			t,
@@ -234,36 +258,43 @@ func TestPipelineError(t *testing.T) {
 		})
 	})
 	t.Run("Multiple parts", func(t *testing.T) {
-		const parts = 100
-		oneFailure := slices.Repeat([]int{success}, parts)
-		oneFailure[rand.IntN(parts)] = late
+		oneFailure := uniformParts(success)
+		oneFailure[rand.IntN(aLotOfParts)] = late
 		runTestPipelineError(
 			t,
-			testCase("all fail", slices.Repeat([]int{late}, parts)...),
+			testCase("all fail", uniformParts(late)...),
+			testCase("all fail immediately", uniformParts(immediately)...),
 			testCase("one fails", oneFailure...),
 		)
 	})
 	t.Run("Source cancel", func(t *testing.T) {
-		const parts = 100
 		ctx, cancel := context.WithCancel(t.Context())
-		source := func(yield func(int) bool) {
-			for i := range itemCount {
-				if !yield(i) {
-					return
-				}
-				if i == early {
-					cancel()
-				}
-			}
-		}
 		assertFailureState(
 			t,
 			ctx,
 			failTestCase{
-				name:          "Source cancel",
-				source:        source,
-				parts:         slices.Repeat([]int{success}, parts),
-				expectedError: context.Canceled,
+				name:   "graceful cancel",
+				source: cancelAfterN(early, cancel),
+				parts:  uniformParts(success),
+				expectedResult: pipeline.Result{
+					IsDone: false,
+					Err:    nil,
+				},
+			},
+		)
+
+		ctx, cancel = context.WithCancel(t.Context())
+		assertFailureState(
+			t,
+			ctx,
+			failTestCase{
+				name:   "immediate failure",
+				source: cancelAfterN(immediately, cancel),
+				parts:  uniformParts(immediately),
+				expectedResult: pipeline.Result{
+					IsDone: false,
+					Err:    errFailedExecution,
+				},
 			},
 		)
 	})

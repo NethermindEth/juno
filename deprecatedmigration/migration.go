@@ -24,6 +24,8 @@ import (
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
+	"github.com/NethermindEth/juno/deprecatedmigration/casmhashmetadata"
+	"github.com/NethermindEth/juno/deprecatedmigration/l1handlermapping"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -87,6 +89,8 @@ var defaultMigrations = []Migration{
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
 	MigrationFunc(calculateCasmClassHashesV2),
+	&casmhashmetadata.Migrator{},
+	&l1handlermapping.Migrator{},
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -303,7 +307,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
 func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := core.GetBlockByNumber(txn, blockNumber)
+		block, err := core.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
@@ -531,7 +535,7 @@ func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) e
 func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		block, err := core.GetBlockByNumber(txn, blockNumber)
+		block, err := core.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
@@ -552,7 +556,7 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) erro
 func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		txns, err := core.GetTxsByBlockNum(txn, blockNumber)
+		txns, err := core.TransactionLayoutPerTx.TransactionsByBlockNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err

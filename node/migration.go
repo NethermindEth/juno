@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -14,10 +15,8 @@ import (
 // This is where all migrations should be registered. Optional migrations can use
 // config variables from cfg to determine if they should be enabled.
 func registerMigrations(cfg *Config) *migration.Registry {
-	// cfg parameter is reserved for future optional migrations based on config
-	_ = cfg
-
-	registry := migration.NewRegistry()
+	registry := migration.NewRegistry().
+		WithOptional(&blocktransactions.Migrator{}, cfg.TransactionCombinedLayout)
 
 	return registry
 }

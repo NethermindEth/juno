@@ -75,7 +75,7 @@ func migrateBlockRange(
 	logger utils.StructuredLogger,
 	firstBlock,
 	chainHeight uint64,
-) error {
+) pipeline.Result {
 	batchSemaphore := semaphore.New(
 		ingestorCount+1,
 		func() db.Batch {
@@ -146,8 +146,9 @@ func (Migrator) Migrate(
 			return shouldNotRerun, clearOldBuckets(database)
 		}
 
-		if err := migrateBlockRange(ctx, database, logger, firstBlock, chainHeight); err != nil {
-			return shouldRerun, err
+		res := migrateBlockRange(ctx, database, logger, firstBlock, chainHeight)
+		if res.Err != nil || !res.IsDone {
+			return shouldRerun, res.Err
 		}
 	}
 }

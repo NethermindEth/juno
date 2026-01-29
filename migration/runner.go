@@ -73,11 +73,12 @@ func NewRunner(
 	network *utils.Network,
 	log utils.StructuredLogger,
 ) (*MigrationRunner, error) {
-	// Validate that entries length matches the highest migration index + 1
+	// Validate that we have entries for all migrations up to the highest index in targetVersion.
+	// Having more entries is acceptable (optional migrations may be registered but not enabled).
 	// If targetVersion is empty (no migrations), HighestBit() returns -1
 	expectedLen := targetVersion.HighestBit() + 1
-	if len(entries) != expectedLen {
-		return nil, fmt.Errorf("entries length mismatch: %d != %d",
+	if len(entries) < expectedLen {
+		return nil, fmt.Errorf("insufficient entries: have %d, need at least %d",
 			len(entries),
 			expectedLen,
 		)

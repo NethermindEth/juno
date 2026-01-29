@@ -240,6 +240,9 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	network *utils.Network,
 ) (C, P) {
 	t.Helper()
+	// DeployTransaction is a special case because we don't verify the transaction hash
+	// so we can set it to a random value
+	txHash, txHashBytes := getRandomFelt(t)
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
@@ -259,7 +262,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	}
 
 	consensusDeployTransaction := core.DeployTransaction{
-		TransactionHash:     nil, // this field is populated later
+		TransactionHash:     &txHash,
 		ContractAddress:     &contractAddress,
 		ContractAddressSalt: &contractAddressSalt,
 		ClassHash:           &classHash,
@@ -267,14 +270,8 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 		Version:             version,
 	}
 
-	transactionHash, p2pHash := getTransactionHash(
-		t,
-		&consensusDeployTransaction,
-		network,
-	)
-	consensusDeployTransaction.TransactionHash = &transactionHash
 	return b.ToCore(&consensusDeployTransaction, nil, nil),
-		convertToP2P(b.ToP2PDeployV0, &p2pTransaction, p2pHash)
+		convertToP2P(b.ToP2PDeployV0, &p2pTransaction, &common.Hash{Elements: txHashBytes})
 }
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(

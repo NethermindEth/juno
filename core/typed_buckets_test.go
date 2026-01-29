@@ -148,7 +148,7 @@ func TestTypedBuckets(t *testing.T) {
 	)
 	runTest(
 		t,
-		core.BlockTransactionsBucket,
+		core.BlockTransactionsBucket.Bucket,
 		testCase( // Contains Deploy
 			uint64(0),
 			"2800",
