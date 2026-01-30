@@ -1,5 +1,5 @@
 ---
-title: Running Juno on GCP
+title: Deploy on GCP
 ---
 
 # Running Juno on GCP :cloud:
