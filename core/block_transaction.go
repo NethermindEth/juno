@@ -1,12 +1,9 @@
 package core
 
 import (
-	"bytes"
 	"iter"
-	"slices"
 
 	"github.com/NethermindEth/juno/core/indexed"
-	"github.com/NethermindEth/juno/encoder"
 )
 
 type BlockTransactionsIndexes struct {
@@ -93,23 +90,4 @@ func (b *BlockTransactions) Transactions() indexed.LazySlice[Transaction] {
 
 func (b *BlockTransactions) Receipts() indexed.LazySlice[*TransactionReceipt] {
 	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.Data)
-}
-
-type BlockTransactionsSerializer struct{}
-
-func (BlockTransactionsSerializer) Marshal(value *BlockTransactions) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := encoder.NewEncoder(&buf).Encode(value.Indexes); err != nil {
-		return nil, err
-	}
-	if _, err := buf.Write(value.Data); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (BlockTransactionsSerializer) Unmarshal(data []byte, value *BlockTransactions) error {
-	remaining, err := encoder.UnmarshalFirst(data, &value.Indexes)
-	value.Data = slices.Clone(remaining)
-	return err
 }

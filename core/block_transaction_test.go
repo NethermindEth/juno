@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/testutils"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/indexed"
+	"github.com/NethermindEth/juno/db/typed/partial"
 	"github.com/NethermindEth/juno/encoder"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/fxamacker/cbor/v2"
@@ -77,6 +78,19 @@ func TestNewBlockTransactionsFromIterators(t *testing.T) {
 	assertBlockTransactions(t, blockTransactions, transactions, receipts)
 }
 
+func assertPartialSerializer[E partial.PartialSerializer[S, T], S, T any](
+	t *testing.T,
+	serializer E,
+	subKey S,
+	expected T,
+	serialised []byte,
+) {
+	t.Helper()
+	var deserialized T
+	require.NoError(t, serializer.UnmarshalPartial(subKey, serialised, &deserialized))
+	require.Equal(t, expected, deserialized)
+}
+
 func TestBlockTransactionsSerializer(t *testing.T) {
 	transactions := testutils.GetCoreTransactions(t, transactionCount)
 	receipts := testutils.GetCoreReceipts(t, transactionCount)
@@ -90,4 +104,48 @@ func TestBlockTransactionsSerializer(t *testing.T) {
 	require.NoError(t, core.BlockTransactionsSerializer{}.Unmarshal(serialised, &deserialized))
 
 	assertBlockTransactions(t, deserialized, transactions, receipts)
+
+	t.Run("BlockTransactionsTransactionPartialSerializer", func(t *testing.T) {
+		for i := range transactionCount {
+			assertPartialSerializer(
+				t,
+				core.BlockTransactionsTransactionPartialSerializer,
+				i,
+				transactions[i],
+				serialised,
+			)
+		}
+	})
+
+	t.Run("BlockTransactionsReceiptPartialSerializer", func(t *testing.T) {
+		for i := range transactionCount {
+			assertPartialSerializer(
+				t,
+				core.BlockTransactionsReceiptPartialSerializer,
+				i,
+				receipts[i],
+				serialised,
+			)
+		}
+	})
+
+	t.Run("BlockTransactionsAllTransactionsPartialSerializer", func(t *testing.T) {
+		assertPartialSerializer(
+			t,
+			core.BlockTransactionsAllTransactionsPartialSerializer,
+			struct{}{},
+			transactions,
+			serialised,
+		)
+	})
+
+	t.Run("BlockTransactionsAllReceiptsPartialSerializer", func(t *testing.T) {
+		assertPartialSerializer(
+			t,
+			core.BlockTransactionsAllReceiptsPartialSerializer,
+			struct{}{},
+			receipts,
+			serialised,
+		)
+	})
 }
