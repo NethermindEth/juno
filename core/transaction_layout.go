@@ -28,11 +28,7 @@ func (l TransactionLayout) TransactionByBlockAndIndex(
 ) (Transaction, error) {
 	switch l {
 	case TransactionLayoutCombined:
-		blockTransactions, err := BlockTransactionsBucket.Get(r, blockNumber)
-		if err != nil {
-			return nil, err
-		}
-		return blockTransactions.Transactions().Get(int(index))
+		return BlockTransactionsTransactionPartialBucket.Get(r, blockNumber, int(index))
 
 	case TransactionLayoutPerTx:
 		key := db.BlockNumIndexKey{
@@ -54,11 +50,7 @@ func (l TransactionLayout) ReceiptByBlockAndIndex(
 ) (*TransactionReceipt, error) {
 	switch l {
 	case TransactionLayoutCombined:
-		blockTransactions, err := BlockTransactionsBucket.Get(r, blockNumber)
-		if err != nil {
-			return nil, err
-		}
-		return blockTransactions.Receipts().Get(int(index))
+		return BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
 
 	case TransactionLayoutPerTx:
 		key := db.BlockNumIndexKey{
@@ -83,11 +75,7 @@ func (l TransactionLayout) TransactionsByBlockNumber(
 ) ([]Transaction, error) {
 	switch l {
 	case TransactionLayoutCombined:
-		blockTransactions, err := BlockTransactionsBucket.Get(r, blockNum)
-		if err != nil {
-			return nil, err
-		}
-		return blockTransactions.Transactions().All()
+		return BlockTransactionsAllTransactionsPartialBucket.Get(r, blockNum, struct{}{})
 
 	case TransactionLayoutPerTx:
 		var transactions []Transaction
@@ -144,11 +132,7 @@ func (l TransactionLayout) ReceiptsByBlockNumber(
 ) ([]*TransactionReceipt, error) {
 	switch l {
 	case TransactionLayoutCombined:
-		blockTransactions, err := BlockTransactionsBucket.Get(r, blockNum)
-		if err != nil {
-			return nil, err
-		}
-		return blockTransactions.Receipts().All()
+		return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNum, struct{}{})
 
 	case TransactionLayoutPerTx:
 		var receipts []*TransactionReceipt

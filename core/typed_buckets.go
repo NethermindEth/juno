@@ -4,6 +4,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
+	"github.com/NethermindEth/juno/db/typed/partial"
 	"github.com/NethermindEth/juno/db/typed/prefix"
 	"github.com/NethermindEth/juno/db/typed/value"
 )
@@ -157,7 +158,6 @@ var ClassCasmHashMetadataBucket = typed.NewBucket(
 )
 
 // Bucket 40: Block number (uint64) -> Block transactions (BlockTransactions)
-
 var BlockTransactionsBucket = prefix.NewPrefixedBucket(
 	typed.NewBucket(
 		db.BlockTransactions,
@@ -165,4 +165,24 @@ var BlockTransactionsBucket = prefix.NewPrefixedBucket(
 		BlockTransactionsSerializer{},
 	),
 	prefix.Prefix(key.Uint64, prefix.End[BlockTransactions]()),
+)
+
+var BlockTransactionsTransactionPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsTransactionPartialSerializer,
+)
+
+var BlockTransactionsReceiptPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsReceiptPartialSerializer,
+)
+
+var BlockTransactionsAllTransactionsPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsAllTransactionsPartialSerializer,
+)
+
+var BlockTransactionsAllReceiptsPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsAllReceiptsPartialSerializer,
 )
