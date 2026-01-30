@@ -62,7 +62,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
-	defaultDBMemtableSize := uint(4)
+	defaultDBMemtableSize := uint(256)
 	defaultDBCompression := "snappy"
 	defaultCallMaxSteps := uint64(4_000_000)
 	defaultCallMaxGas := uint64(100_000_000)

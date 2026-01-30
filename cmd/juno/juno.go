@@ -153,7 +153,7 @@ const (
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
 	defaultDisableRPCBatchRequests            = false
 	defaultDBCompactionConcurrency            = ""
-	defaultDBMemtableSize                     = 4
+	defaultDBMemtableSize                     = 256
 	defaultDBCompression                      = "snappy"
 	defaultTransactionCombinedLayout          = false
 
