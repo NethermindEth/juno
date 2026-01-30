@@ -709,7 +709,8 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
-	if tx.Type == TxnDeployAccount {
+	switch tx.Type {
+	case TxnDeployAccount:
 		contractAddress := core.ContractAddress(
 			&felt.Zero,
 			tx.ClassHash,
@@ -717,7 +718,7 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 			*tx.ConstructorCallData,
 		)
 		res.ContractAddress = &contractAddress
-	} else if tx.Type == TxnDeclare {
+	case TxnDeclare:
 		classHash, err := userClass.Hash()
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
