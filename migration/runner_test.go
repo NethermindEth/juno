@@ -64,26 +64,15 @@ func setupTestDB(t *testing.T) db.KeyValueStore {
 	return testDB
 }
 
-// createTargetVersion creates a SchemaVersion with the specified bits set.
-func createTargetVersion(indices ...uint8) migration.SchemaVersion {
-	var sv migration.SchemaVersion
-	for _, idx := range indices {
-		sv.Set(idx)
-	}
-	return sv
-}
-
-// createRunner creates a MigrationRunner with the given entries and target version.
+// createRunner creates a MigrationRunner with the given registry.
 func createRunner(
 	t *testing.T,
 	testDB db.KeyValueStore,
-	entries []migration.Migration,
-	targetVersion migration.SchemaVersion,
+	registry *migration.Registry,
 ) *migration.MigrationRunner {
 	t.Helper()
 	runner, err := migration.NewRunner(
-		entries,
-		targetVersion,
+		registry,
 		testDB,
 		&utils.Mainnet,
 		utils.NewNopZapLogger(),
@@ -95,10 +84,9 @@ func createRunner(
 func TestNewRunner(t *testing.T) {
 	t.Run("Success with empty database", func(t *testing.T) {
 		testDB := setupTestDB(t)
-		entries := []migration.Migration{&mockMigration{}}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(&mockMigration{})
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NotNil(t, runner)
 	})
 
@@ -110,28 +98,12 @@ func TestNewRunner(t *testing.T) {
 		}
 		require.NoError(t, migration.WriteSchemaMetadata(testDB, existingMetadata))
 
-		entries := []migration.Migration{&mockMigration{}, &mockMigration{}}
-		targetVersion := createTargetVersion(0, 1)
+		registry := migration.NewRegistry().
+			With(&mockMigration{}).
+			With(&mockMigration{})
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NotNil(t, runner)
-	})
-
-	t.Run("Error on insufficient entries", func(t *testing.T) {
-		testDB := setupTestDB(t)
-		entries := []migration.Migration{&mockMigration{}}
-		targetVersion := createTargetVersion(0, 1) // Target has 2 migrations, but entries has only 1
-
-		runner, err := migration.NewRunner(
-			entries,
-			targetVersion,
-			testDB,
-			&utils.Mainnet,
-			utils.NewNopZapLogger(),
-		)
-		require.Error(t, err)
-		require.Nil(t, runner)
-		require.Contains(t, err.Error(), "insufficient entries")
 	})
 
 	t.Run("Error on opt-out attempt", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with version downgrade, tests different error message, nolintlint because main config does not check lll in tests
@@ -142,12 +114,14 @@ func TestNewRunner(t *testing.T) {
 		}
 		require.NoError(t, migration.WriteSchemaMetadata(testDB, existingMetadata))
 
-		entries := []migration.Migration{&mockMigration{}, &mockMigration{}}
-		targetVersion := createTargetVersion(0, 1)
+		// Create registry with migrations 0 and 1 (but not 2, which was previously enabled)
+		registry := migration.NewRegistry().
+			With(&mockMigration{}).
+			With(&mockMigration{}).
+			WithOptional(&mockMigration{}, false, "migration-2")
 
 		runner, err := migration.NewRunner(
-			entries,
-			targetVersion,
+			registry,
 			testDB,
 			&utils.Mainnet,
 			utils.NewNopZapLogger(),
@@ -155,6 +129,7 @@ func TestNewRunner(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, runner)
 		require.Contains(t, err.Error(), "cannot opt out of previously enabled migrations:")
+		require.Contains(t, err.Error(), "--migration-2")
 	})
 
 	t.Run("Error on version downgrade", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with opt-out attempt, tests different error message, nolintlint because main config does not check lll in tests
@@ -166,12 +141,13 @@ func TestNewRunner(t *testing.T) {
 		}
 		require.NoError(t, migration.WriteSchemaMetadata(testDB, existingMetadata))
 
-		entries := []migration.Migration{&mockMigration{}, &mockMigration{}} // Only migrations 0 and 1
-		targetVersion := createTargetVersion(0, 1)
+		// Create registry with only migrations 0 and 1, but database has migration 2 applied
+		registry := migration.NewRegistry().
+			With(&mockMigration{}).
+			With(&mockMigration{})
 
 		runner, err := migration.NewRunner(
-			entries,
-			targetVersion,
+			registry,
 			testDB,
 			&utils.Mainnet,
 			utils.NewNopZapLogger(),
@@ -185,8 +161,9 @@ func TestNewRunner(t *testing.T) {
 func TestMigrationRunner_Run(t *testing.T) {
 	t.Run("No pending migrations", func(t *testing.T) {
 		testDB := setupTestDB(t)
-		entries := []migration.Migration{&mockMigration{}}
-		targetVersion := createTargetVersion(0)
+		m := &mockMigration{}
+		registry := migration.NewRegistry().With(m)
+		targetVersion := registry.TargetVersion()
 
 		// Set current version equal to target (no pending)
 		metadata := migration.SchemaMetadata{
@@ -195,11 +172,10 @@ func TestMigrationRunner_Run(t *testing.T) {
 		}
 		require.NoError(t, migration.WriteSchemaMetadata(testDB, metadata))
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NoError(t, runner.Run(context.Background()))
 
 		// Verify migration was not called
-		m := entries[0].(*mockMigration)
 		require.False(t, m.beforeCalled)
 		require.False(t, m.migrateCalled)
 	})
@@ -207,10 +183,9 @@ func TestMigrationRunner_Run(t *testing.T) {
 	t.Run("Run single pending migration", func(t *testing.T) {
 		testDB := setupTestDB(t)
 		m := &mockMigration{}
-		entries := []migration.Migration{m}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(m)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NoError(t, runner.Run(context.Background()))
 
 		// Verify migration was called
@@ -221,17 +196,18 @@ func TestMigrationRunner_Run(t *testing.T) {
 		metadata, err := migration.GetSchemaMetadata(testDB)
 		require.NoError(t, err)
 		require.True(t, metadata.CurrentVersion.Has(0))
-		require.Equal(t, targetVersion, metadata.LastTargetVersion)
+		require.Equal(t, registry.TargetVersion(), metadata.LastTargetVersion)
 	})
 
 	t.Run("Run multiple pending migrations in order", func(t *testing.T) {
 		testDB := setupTestDB(t)
 		m0 := &mockMigration{}
 		m1 := &mockMigration{}
-		entries := []migration.Migration{m0, m1}
-		targetVersion := createTargetVersion(0, 1)
+		registry := migration.NewRegistry().
+			With(m0).
+			With(m1)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NoError(t, runner.Run(context.Background()))
 
 		// Verify both migrations were called
@@ -250,10 +226,9 @@ func TestMigrationRunner_Run(t *testing.T) {
 	t.Run("Error when Before fails", func(t *testing.T) {
 		testDB := setupTestDB(t)
 		m := &mockMigration{beforeErr: errors.New("before failed")}
-		entries := []migration.Migration{m}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(m)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		err := runner.Run(context.Background())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "before failed")
@@ -262,10 +237,9 @@ func TestMigrationRunner_Run(t *testing.T) {
 	t.Run("Error when Migrate fails", func(t *testing.T) {
 		testDB := setupTestDB(t)
 		m := &mockMigration{migrateErr: errors.New("migrate failed")}
-		entries := []migration.Migration{m}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(m)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		err := runner.Run(context.Background())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "migrate failed")
@@ -274,16 +248,15 @@ func TestMigrationRunner_Run(t *testing.T) {
 		metadata, err := migration.GetSchemaMetadata(testDB)
 		require.NoError(t, err)
 		require.False(t, metadata.CurrentVersion.Has(0))
-		require.Equal(t, targetVersion, metadata.LastTargetVersion)
+		require.Equal(t, registry.TargetVersion(), metadata.LastTargetVersion)
 	})
 
 	t.Run("Context cancellation before migration starts", func(t *testing.T) {
 		testDB := setupTestDB(t)
 		m := &mockMigration{migrateErr: context.Canceled}
-		entries := []migration.Migration{m}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(m)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
@@ -296,10 +269,9 @@ func TestMigrationRunner_Run(t *testing.T) {
 		testDB := setupTestDB(t)
 		intermediateState := []byte("test state")
 		m := &mockMigration{intermediateState: intermediateState}
-		entries := []migration.Migration{m}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(m)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NoError(t, runner.Run(context.Background()))
 
 		// Verify intermediate state was saved
@@ -311,7 +283,7 @@ func TestMigrationRunner_Run(t *testing.T) {
 		metadata, err := migration.GetSchemaMetadata(testDB)
 		require.NoError(t, err)
 		require.False(t, metadata.CurrentVersion.Has(0))
-		require.Equal(t, targetVersion, metadata.LastTargetVersion)
+		require.Equal(t, registry.TargetVersion(), metadata.LastTargetVersion)
 	})
 
 	t.Run("Resume migration from intermediate state", func(t *testing.T) {
@@ -327,10 +299,9 @@ func TestMigrationRunner_Run(t *testing.T) {
 		require.NoError(t, migration.WriteSchemaMetadata(testDB, metadata))
 
 		m := &mockMigration{}
-		entries := []migration.Migration{m}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(m)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NoError(t, runner.Run(context.Background()))
 
 		// Verify Before was called with intermediate state
@@ -345,10 +316,9 @@ func TestMigrationRunner_Run(t *testing.T) {
 
 		// Migration completes (returns nil intermediate state)
 		m := &mockMigration{intermediateState: nil}
-		entries := []migration.Migration{m}
-		targetVersion := createTargetVersion(0)
+		registry := migration.NewRegistry().With(m)
 
-		runner := createRunner(t, testDB, entries, targetVersion)
+		runner := createRunner(t, testDB, registry)
 		require.NoError(t, runner.Run(context.Background()))
 
 		// Verify intermediate state was cleared
@@ -376,16 +346,13 @@ func TestMigrationRunner_Run(t *testing.T) {
 				intermediateState: []byte("migration1-state"),
 			}
 
-			registry.WithOptional(m0, false) // Not enabled
-			registry.With(m1)                // Mandatory
+			registry.WithOptional(m0, false, "migration-0") // Not enabled
+			registry.With(m1)                               // Mandatory
 
-			entries := registry.Entries()
-			targetVersion := registry.TargetVersion()
+			require.False(t, registry.TargetVersion().Has(0))
+			require.True(t, registry.TargetVersion().Has(1))
 
-			require.False(t, targetVersion.Has(0))
-			require.True(t, targetVersion.Has(1))
-
-			runner := createRunner(t, testDB, entries, targetVersion)
+			runner := createRunner(t, testDB, registry)
 			ctx, cancel := context.WithDeadline(
 				context.Background(),
 				time.Now().Add(10*time.Millisecond),
@@ -412,16 +379,13 @@ func TestMigrationRunner_Run(t *testing.T) {
 			}
 			m1 := &mockMigration{} // Will resume from intermediate state
 
-			registry.WithOptional(m0, true) // NOW enabled
-			registry.With(m1)               // Mandatory
+			registry.WithOptional(m0, true, "migration-0") // NOW enabled
+			registry.With(m1)                              // Mandatory
 
-			entries := registry.Entries()
-			targetVersion := registry.TargetVersion()
+			require.True(t, registry.TargetVersion().Has(0))
+			require.True(t, registry.TargetVersion().Has(1))
 
-			require.True(t, targetVersion.Has(0))
-			require.True(t, targetVersion.Has(1))
-
-			runner := createRunner(t, testDB, entries, targetVersion)
+			runner := createRunner(t, testDB, registry)
 			ctx, cancel := context.WithDeadline(
 				context.Background(),
 				time.Now().Add(20*time.Millisecond),
@@ -450,13 +414,10 @@ func TestMigrationRunner_Run(t *testing.T) {
 			m0 := &mockMigration{} // Will resume from intermediate state
 			m1 := &mockMigration{} // Will resume from intermediate state
 
-			registry.WithOptional(m0, true)
+			registry.WithOptional(m0, true, "migration-0")
 			registry.With(m1)
 
-			entries := registry.Entries()
-			targetVersion := registry.TargetVersion()
-
-			runner := createRunner(t, testDB, entries, targetVersion)
+			runner := createRunner(t, testDB, registry)
 			require.NoError(t, runner.Run(context.Background()))
 
 			// Verify migration 0 resumed from its intermediate state

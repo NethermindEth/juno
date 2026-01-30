@@ -90,7 +90,7 @@ func TestRegistry_WithOptional(t *testing.T) {
 
 	t.Run("Enabled false", func(t *testing.T) {
 		r := migration.NewRegistry()
-		result := r.WithOptional(m, false)
+		result := r.WithOptional(m, false, "test-migration")
 		require.Same(t, r, result)
 		require.Equal(t, 1, r.Count())
 		require.Equal(t, migration.SchemaVersion(0), r.TargetVersion())
@@ -98,7 +98,7 @@ func TestRegistry_WithOptional(t *testing.T) {
 	})
 	t.Run("Enabled true", func(t *testing.T) {
 		r := migration.NewRegistry()
-		result := r.WithOptional(m, true)
+		result := r.WithOptional(m, true, "test-migration")
 		require.Same(t, r, result)
 		require.Equal(t, 1, r.Count())
 		require.Equal(t, migration.SchemaVersion(1), r.TargetVersion())
@@ -118,7 +118,7 @@ func TestRegistry_WithOptional_PanicOnMaxMigrations(t *testing.T) {
 	require.Panics(
 		t,
 		func() {
-			r.WithOptional(m, true)
+			r.WithOptional(m, true, "test-migration")
 		},
 		"expected panic when exceeding 64 migrations",
 	)
@@ -131,8 +131,8 @@ func TestRegistry_Entries(t *testing.T) {
 	m2 := &mockMigration{}
 
 	r.With(m0)
-	r.WithOptional(m1, false)
-	r.WithOptional(m2, false)
+	r.WithOptional(m1, false, "migration-1")
+	r.WithOptional(m2, false, "migration-2")
 
 	entries := r.Entries()
 	require.Equal(t, 3, len(entries))
@@ -148,11 +148,28 @@ func TestRegistry_TargetVersion(t *testing.T) {
 	m2 := &mockMigration{}
 
 	r.With(m0)
-	r.WithOptional(m1, true)
-	r.WithOptional(m2, false)
+	r.WithOptional(m1, true, "migration-1")
+	r.WithOptional(m2, false, "migration-2")
 
 	target := r.TargetVersion()
 	require.True(t, target.Has(0))
 	require.True(t, target.Has(1))
 	require.False(t, target.Has(2))
+}
+
+func TestRegistry_OptionalMigrationFlags(t *testing.T) {
+	r := migration.NewRegistry()
+	m0 := &mockMigration{}
+	m1 := &mockMigration{}
+	m2 := &mockMigration{}
+
+	r.With(m0)
+	r.WithOptional(m1, true, "migration-1")
+	r.WithOptional(m2, false, "migration-2")
+
+	flags := r.OptionalMigrationFlags()
+	require.Equal(t, 3, len(flags))
+	require.Equal(t, "", flags[0])
+	require.Equal(t, "migration-1", flags[1])
+	require.Equal(t, "migration-2", flags[2])
 }

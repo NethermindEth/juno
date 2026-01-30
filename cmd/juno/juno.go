@@ -101,7 +101,7 @@ const (
 	dbCompactionConcurrencyF            = "db-compaction-concurrency"
 	dbMemtableSizeF                     = "db-memtable-size"
 	dbCompressionF                      = "db-compression"
-	transactionCombinedLayoutF          = "transaction-combined-layout"
+	transactionCombinedLayoutF          = node.FlagTransactionCombinedLayout
 
 	defaultConfig                             = ""
 	defaultHost                               = "localhost"

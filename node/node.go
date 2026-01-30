@@ -46,11 +46,12 @@ import (
 )
 
 const (
-	upgraderDelay    = 5 * time.Minute
-	mempoolLimit     = 1024
-	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
-	sequencerAddress = 1337
+	upgraderDelay                 = 5 * time.Minute
+	mempoolLimit                  = 1024
+	githubAPIUrl                  = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL              = "https://github.com/NethermindEth/juno/releases/latest"
+	sequencerAddress              = 1337
+	FlagTransactionCombinedLayout = "transaction-combined-layout"
 )
 
 // Config is the top-level juno configuration.
