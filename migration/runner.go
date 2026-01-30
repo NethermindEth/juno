@@ -61,28 +61,16 @@ type MigrationRunner struct {
 // NewRunner creates a migration runner that executes pending migrations.
 //
 // Parameters:
-//   - entries: All registered migrations
-//   - targetVersion: End state to reach after running all migrations
+//   - registry: Migration registry containing all migrations
 //   - database: Database store
 //   - network: Network configuration
 //   - log: Logger for migration progress
 func NewRunner(
-	entries []Migration,
-	targetVersion SchemaVersion,
+	registry *Registry,
 	database db.KeyValueStore,
 	network *utils.Network,
 	log utils.StructuredLogger,
 ) (*MigrationRunner, error) {
-	// Validate that we have entries for all migrations up to the highest index in targetVersion.
-	// Having more entries is acceptable (optional migrations may be registered but not enabled).
-	// If targetVersion is empty (no migrations), HighestBit() returns -1
-	expectedLen := targetVersion.HighestBit() + 1
-	if len(entries) < expectedLen {
-		return nil, fmt.Errorf("insufficient entries: have %d, need at least %d",
-			len(entries),
-			expectedLen,
-		)
-	}
 	metadata, err := GetSchemaMetadata(database)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
@@ -95,18 +83,25 @@ func NewRunner(
 		}
 	}
 
+	targetVersion := registry.TargetVersion()
 	// Validate: check if database was migrated with a newer version of Juno (version downgrade)
-	if err := validateNoVersionDowngrade(metadata.CurrentVersion, targetVersion); err != nil {
+	err = validateNoVersionDowngrade(metadata.CurrentVersion, targetVersion)
+	if err != nil {
 		return nil, err
 	}
 
 	// Validate: check if any previously opted-in migrations are now missing (opt-out attempt)
-	if err := validateNoOptOut(targetVersion, metadata.LastTargetVersion); err != nil {
+	err = validateNoOptOut(
+		targetVersion,
+		metadata.LastTargetVersion,
+		registry.OptionalMigrationFlags(),
+	)
+	if err != nil {
 		return nil, err
 	}
 
 	return &MigrationRunner{
-		entries:       entries,
+		entries:       registry.Entries(),
 		targetVersion: targetVersion,
 		metadata:      metadata,
 		database:      database,
@@ -212,10 +207,30 @@ func validateNoVersionDowngrade(current, target SchemaVersion) error {
 // validateNoOptOut checks if any previously opted-in migrations (in lastTargetVersion)
 // are missing from the target version (opt-out attempt).
 // Returns an error if opt-out attempts are detected, nil otherwise.
-func validateNoOptOut(target, lastTargetVersion SchemaVersion) error {
+func validateNoOptOut(
+	target,
+	lastTargetVersion SchemaVersion,
+	optionalMigrationFlags []string,
+) error {
 	optOutAttempts := lastTargetVersion.Difference(target)
-	if optOutAttempts != 0 {
-		return fmt.Errorf("cannot opt out of previously enabled migrations: %s", optOutAttempts.String())
+	if optOutAttempts == 0 {
+		return nil
 	}
-	return nil
+	// Build a list of migration flags that cannot be opted out of
+	flagList := make([]string, optOutAttempts.Len())
+	i := 0
+	for idx := range optOutAttempts.Iter() {
+		if flag := optionalMigrationFlags[idx]; flag != "" {
+			flagList[i] = fmt.Sprintf("--%s", flag)
+		} else {
+			// Fallback to index if flag is not available
+			flagList[i] = fmt.Sprintf("--migration-%d", idx)
+		}
+		i++
+	}
+
+	return fmt.Errorf(
+		"cannot opt out of previously enabled migrations: %v (set these flags to enable)",
+		flagList,
+	)
 }

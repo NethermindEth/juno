@@ -16,7 +16,11 @@ import (
 // config variables from cfg to determine if they should be enabled.
 func registerMigrations(cfg *Config) *migration.Registry {
 	registry := migration.NewRegistry().
-		WithOptional(&blocktransactions.Migrator{}, cfg.TransactionCombinedLayout)
+		WithOptional(
+			&blocktransactions.Migrator{},
+			cfg.TransactionCombinedLayout,
+			FlagTransactionCombinedLayout,
+		)
 
 	return registry
 }
@@ -44,8 +48,7 @@ func migrateIfNeeded(
 		// Run new migrations
 		registry := registerMigrations(config)
 		runner, err := migration.NewRunner(
-			registry.Entries(),
-			registry.TargetVersion(),
+			registry,
 			db,
 			&config.Network,
 			log,

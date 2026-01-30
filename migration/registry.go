@@ -6,17 +6,19 @@ const maxMigrations = 64
 
 // Registry holds all migrations and builds the target version.
 type Registry struct {
-	entries       [maxMigrations]Migration
-	targetVersion SchemaVersion
-	nextIndex     uint8 // Next available index for registering a migration
+	entries                [maxMigrations]Migration
+	targetVersion          SchemaVersion
+	nextIndex              uint8 // Next available index for registering a migration
+	optionalMigrationFlags [maxMigrations]string
 }
 
 // NewRegistry creates a new migration registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		entries:       [maxMigrations]Migration{},
-		targetVersion: 0,
-		nextIndex:     0,
+		entries:                [maxMigrations]Migration{},
+		targetVersion:          0,
+		nextIndex:              0,
+		optionalMigrationFlags: [maxMigrations]string{},
 	}
 }
 
@@ -35,12 +37,14 @@ func (r *Registry) With(m Migration) *Registry {
 
 // WithOptional adds an optional migration to the registry.
 // If enabled is true, the migration is included in the target version.
+// name is the flag/name used to enable this migration.
 // Returns the registry for method chaining.
-func (r *Registry) WithOptional(m Migration, enabled bool) *Registry {
+func (r *Registry) WithOptional(m Migration, enabled bool, name string) *Registry {
 	if r.nextIndex >= maxMigrations {
 		panic("exceeded maximum number of 64 migrations")
 	}
 	r.entries[r.nextIndex] = m
+	r.optionalMigrationFlags[r.nextIndex] = name
 
 	if enabled {
 		r.targetVersion.Set(r.nextIndex)
@@ -63,4 +67,11 @@ func (r *Registry) Entries() []Migration {
 // Count returns the number of registered migrations.
 func (r *Registry) Count() int {
 	return int(r.nextIndex)
+}
+
+// OptionalMigrationFlags returns the array of optional migration flags.
+// The array is indexed by migration index, and the value is the flag/name
+// used to enable this migration.
+func (r *Registry) OptionalMigrationFlags() []string {
+	return r.optionalMigrationFlags[:r.nextIndex]
 }
