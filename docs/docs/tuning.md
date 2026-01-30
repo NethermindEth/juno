@@ -4,8 +4,7 @@ title: Performance Tuning
 
 It is important for full nodes to scale accordingly to the hardware where they are being executed. To unlock this, the following are a list of configurations users can update based on their hardware specs to maximize the performance of their Juno node.
 
-This specs are set targetted at the minimum requirements of Juno, set in the **Hardware Requirement** section.
-
+The default values of each of these options are set to maximize performance with a machine that matches Juno's minimum requirements – described in the **Hardware Requirement** section.
 
 ## Database Compression
 
@@ -18,18 +17,24 @@ Available options:
 
 Depending on the compression algorithm used it becomes a trade-off between **disk space** and **CPU** usage every time there is a disk operation.
 
+We recommend `zstd` because it is fast enough that it doesn't delays any process significantly while providing huge database size reduction.
+
 :::info
 Note that once the compression is changed the new database is not compressed immediately, but gradually through the node usage by writing new information.
 :::
 
+:::info
+There is a secret `zstd1` option that provides far greater performance than `zstd` but we are still testing it out and it might become the default later.
+:::
+
 ## Database Memory Table Size
 
-Set by the `--db-memtable-size` flag (default: 4 MB), this controls the amount of memory allocated for the database memtable. The memtable is an in-memory buffer where writes are stored before being flushed to disk.
+Set by the `--db-memtable-size` flag (default: 256 MB), this controls the amount of memory allocated for the database memtable. The memtable is an in-memory buffer where writes are stored before being flushed to disk.
 
-A recommended value is **256 MB** for nodes with sufficient memory. Increasing this value reduces the frequency of disk flushes, which can improve write throughput during sync.
+A sensible default is **256 MB** for nodes that satisfy the minimum requirements. Increasing this value reduces the frequency of disk flushes, which can improve write throughput during sync.
 
 :::warning
-Setting this value too high can cause **uneven write performance**. Larger memtables mean flushes happen less frequently but involve more data at once, leading to bursty I/O patterns. If writes accumulate faster than the database can flush, Pebble will stall writes entirely until flushing catches up. A moderate value like 256 MB balances flush frequency with I/O smoothness.
+Setting this value too high can cause **uneven write performance**. Larger memtables mean flushes happen less frequently but involve more data at once, leading to bursty I/O patterns. If writes accumulate faster than the database can flush, writes will stall entirely until flushing catches up. A moderate value like 256 MB balances flush frequency with I/O smoothness.
 :::
 
 ## Database Compaction Concurrency
@@ -40,7 +45,11 @@ Format options:
 - `N`: Sets the range from 1 to N workers (e.g., `--db-compaction-concurrency=4`)
 - `M,N`: Sets the range from M to N workers (e.g., `--db-compaction-concurrency=2,8`)
 
-The default is `1,GOMAXPROCS/2` (half of available CPU cores). Increasing the upper bound on systems with many cores can speed up compaction, but will use more CPU resources.
+The default is `1,GOMAXPROCS/2` (half of available CPU cores). Increasing the upper bound on systems with many cores can speed up compaction as well as increase CPU resources usage while syncing parts of the network where there was a lot of usage.
+
+:::info
+Note that this effectively improve syncing speed while behind the tip of the chain but after reaching the latest block resource usage will gradually reduce back to minimums.
+:::
 
 ## Database Cache Size
 
