@@ -56,7 +56,7 @@ func TestSimulateTransactions(t *testing.T) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, true, false, false, true, true, false).
+				}, mockState, true, false, false, true, true, false, false).
 					Return(vm.ExecutionResults{
 						OverallFees:      []*felt.Felt{},
 						DataAvailability: []core.DataAvailability{},
@@ -75,7 +75,7 @@ func TestSimulateTransactions(t *testing.T) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, false, true, false, true, true, false).
+				}, mockState, false, true, false, true, true, false, false).
 					Return(vm.ExecutionResults{
 						OverallFees:      []*felt.Felt{},
 						DataAvailability: []core.DataAvailability{},
@@ -93,7 +93,7 @@ func TestSimulateTransactions(t *testing.T) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, false, true, false, true, true, false).
+				}, mockState, false, true, false, true, true, false, false).
 					Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 						Index: 44,
 						Cause: json.RawMessage("oops"),
@@ -111,7 +111,7 @@ func TestSimulateTransactions(t *testing.T) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, false, true, false, true, true, false).
+				}, mockState, false, true, false, true, true, false, false).
 					Return(vm.ExecutionResults{
 						OverallFees:      []*felt.Felt{&felt.Zero},
 						DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},

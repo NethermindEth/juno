@@ -1,6 +1,7 @@
 package rpcv10
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -24,9 +25,98 @@ type SimulatedTransaction struct {
 	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`
 }
 
+// SimulateTransactionsResponse represents the response for simulateTransactions.
+// When RETURN_INITIAL_READS flag is not set, it marshals as an array.
+// When RETURN_INITIAL_READS flag is set, it marshals as an object
+// with simulated_transactions and initial_reads.
+type SimulateTransactionsResponse struct {
+	SimulatedTransactions []SimulatedTransaction
+	InitialReads          *InitialReads
+}
+
+func NewSimulateTransactionsResponse(
+	simulatedTransactions []SimulatedTransaction,
+	initialReads *InitialReads,
+) SimulateTransactionsResponse {
+	return SimulateTransactionsResponse{
+		SimulatedTransactions: simulatedTransactions,
+		InitialReads:          initialReads,
+	}
+}
+
+func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
+	if r.InitialReads == nil {
+		return json.Marshal(r.SimulatedTransactions)
+	}
+	type simulateTransactionsResponse struct {
+		SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
+		InitialReads          *InitialReads          `json:"initial_reads"`
+	}
+	response := simulateTransactionsResponse(r)
+	return json.Marshal(response)
+}
+
 type TracedBlockTransaction struct {
 	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
 	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
+}
+
+// TraceBlockTransactionsResponse represents the response for traceBlockTransactions.
+// When RETURN_INITIAL_READS flag is not set, it marshals as an array.
+// When RETURN_INITIAL_READS flag is set, it marshals as an object with traces and initial_reads.
+type TraceBlockTransactionsResponse struct {
+	Traces       []TracedBlockTransaction
+	InitialReads *InitialReads
+}
+
+func NewTraceBlockTransactionsResponse(
+	traces []TracedBlockTransaction,
+	initialReads *InitialReads,
+) TraceBlockTransactionsResponse {
+	return TraceBlockTransactionsResponse{
+		Traces:       traces,
+		InitialReads: initialReads,
+	}
+}
+
+func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
+	if r.InitialReads == nil {
+		return json.Marshal(r.Traces)
+	}
+	type traceBlockTransactionsResponse struct {
+		Traces       []TracedBlockTransaction `json:"traces"`
+		InitialReads *InitialReads            `json:"initial_reads"`
+	}
+	response := traceBlockTransactionsResponse(r)
+	return json.Marshal(response)
+}
+
+type StorageEntry struct {
+	ContractAddress *felt.Address `json:"contract_address"`
+	Key             *felt.Felt    `json:"key"`
+	Value           *felt.Felt    `json:"value"`
+}
+
+type NonceEntry struct {
+	ContractAddress *felt.Address `json:"contract_address"`
+	Nonce           *felt.Felt    `json:"nonce"`
+}
+
+type ClassHashEntry struct {
+	ContractAddress *felt.Address   `json:"contract_address"`
+	ClassHash       *felt.ClassHash `json:"class_hash"`
+}
+
+type DeclaredContractEntry struct {
+	ClassHash  *felt.ClassHash `json:"class_hash"`
+	IsDeclared bool            `json:"is_declared"`
+}
+
+type InitialReads struct {
+	Storage           []StorageEntry          `json:"storage"`
+	Nonces            []NonceEntry            `json:"nonces"`
+	ClassHashes       []ClassHashEntry        `json:"class_hashes"`
+	DeclaredContracts []DeclaredContractEntry `json:"declared_contracts"`
 }
 
 type BroadcastedTransactionInputs = rpccore.LimitSlice[
@@ -42,7 +132,7 @@ func (h *Handler) SimulateTransactions(
 	id *rpcv9.BlockID,
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
-) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions.Data, simulationFlags, false, false)
 }
 
@@ -52,33 +142,34 @@ func (h *Handler) simulateTransactions(
 	simulationFlags []rpcv6.SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
-) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
+	returnInitialReads := slices.Contains(simulationFlags, rpcv6.ReturnInitialReadsFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
 	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 
 	network := h.bcReader.Network()
 	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
 	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
-		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+		return SimulateTransactionsResponse{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
 	blockInfo := vm.BlockInfo{
 		Header:                header,
@@ -97,19 +188,26 @@ func (h *Handler) simulateTransactions(
 		true,
 		true,
 		isEstimateFee,
+		returnInitialReads,
 	)
 	if err != nil {
-		return nil, httpHeader, handleExecutionError(err)
+		return SimulateTransactionsResponse{}, httpHeader, handleExecutionError(err)
 	}
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
 
 	simulatedTransactions, err := createSimulatedTransactions(&executionResults, txns, header)
 	if err != nil {
-		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+		return SimulateTransactionsResponse{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	return simulatedTransactions, httpHeader, nil
+	var adaptedInitialReads *InitialReads
+	if executionResults.InitialReads != nil && returnInitialReads {
+		adapted := adaptVMInitialReads(executionResults.InitialReads)
+		adaptedInitialReads = &adapted
+	}
+
+	return NewSimulateTransactionsResponse(simulatedTransactions, adaptedInitialReads), httpHeader, nil
 }
 
 func isVersion3(version *felt.Felt) bool {
@@ -269,7 +367,6 @@ func createSimulatedTransactions(
 			l1DataGasPrice = l1DataGasPriceStrk
 		}
 
-		// Append simulated transaction (trace + fee estimate)
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: rpcv9.FeeEstimate{

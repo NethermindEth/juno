@@ -33,9 +33,10 @@ func (h *Handler) EstimateFee(
 		return nil, httpHeader, err
 	}
 
-	feeEstimates := make([]rpcv9.FeeEstimate, len(txnResults))
+	simulatedTransactions := txnResults.SimulatedTransactions
+	feeEstimates := make([]rpcv9.FeeEstimate, len(simulatedTransactions))
 	for i := range feeEstimates {
-		feeEstimates[i] = txnResults[i].FeeEstimation
+		feeEstimates[i] = simulatedTransactions[i].FeeEstimation
 	}
 
 	return feeEstimates, httpHeader, nil

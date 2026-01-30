@@ -97,6 +97,7 @@ func (h *Handler) simulateTransactions(
 		true,
 		true,
 		isEstimateFee,
+		false,
 	)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)

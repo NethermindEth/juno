@@ -54,7 +54,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), &vm.BlockInfo{
 		Header: latestHeader,
-	}, gomock.Any(), gomock.Any(), false, true, false, true, true).DoAndReturn(
+	}, gomock.Any(), gomock.Any(), false, true, false, true, true, false).DoAndReturn(
 		func(
 			txns []core.Transaction,
 			declaredClasses []core.ClassDefinition,
@@ -67,6 +67,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			errStack,
 			allowBinarySearch bool,
 			isEstimateFee bool,
+			returnInitialReads bool,
 		) (vm.ExecutionResults, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))

@@ -128,6 +128,7 @@ pub extern "C" fn cairoVMExecute(
     err_stack: c_uchar,
     allow_binary_search: c_uchar,
     is_estimate_fee: c_uchar,
+    return_initial_reads: c_uchar,
 ) {
     panic::catch_unwind(|| {
         cairo_vm_execute(
@@ -144,6 +145,7 @@ pub extern "C" fn cairoVMExecute(
             err_stack,
             allow_binary_search,
             is_estimate_fee,
+            return_initial_reads,
         )
     })
     .map_or_else(
