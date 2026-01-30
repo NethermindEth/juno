@@ -1,6 +1,8 @@
 package rpcv10
 
 import (
+	"encoding/json"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -17,8 +19,44 @@ type EventArgs struct {
 type EventFilter struct {
 	FromBlock *rpcv9.BlockID `json:"from_block"`
 	ToBlock   *rpcv9.BlockID `json:"to_block"`
-	Address   *felt.Felt     `json:"address"`
+	Address   addressOrList  `json:"address"`
 	Keys      [][]felt.Felt  `json:"keys"`
+}
+
+type addressOrList []felt.Felt
+
+func (a *addressOrList) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" || string(data) == "[]" {
+		*a = make([]felt.Felt, 0)
+		return nil
+	}
+
+	var single felt.Felt
+	if err := json.Unmarshal(data, &single); err == nil {
+		*a = []felt.Felt{single}
+		return nil
+	}
+
+	var list []*felt.Felt
+	if err := json.Unmarshal(data, &list); err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		*a = nil
+		return nil
+	}
+	seen := make(map[felt.Felt]struct{}, len(list))
+	unique := make([]felt.Felt, 0, len(list))
+	for _, addr := range list {
+		if addr != nil {
+			if _, exists := seen[*addr]; !exists {
+				seen[*addr] = struct{}{}
+				unique = append(unique, *addr)
+			}
+		}
+	}
+	*a = unique
+	return nil
 }
 
 type EmittedEvent struct {
@@ -81,7 +119,7 @@ func setEventFilterRange(
 // https://github.com/starkware-libs/starknet-specs/blob/785257f27cdc4ea0ca3b62a21b0f7bf51000f9b1/api/starknet_api_openrpc.json#L810 //nolint:lll
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
-func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > rpccore.MaxEventChunkSize {
 		return EventsChunk{}, rpccore.ErrPageSizeTooBig
 	} else {

@@ -165,7 +165,7 @@ type SentEvent struct {
 //nolint:funlen // URL exceeds line limit but should remain intact for reference
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
-	fromAddr *felt.Felt,
+	fromAddress addressOrList,
 	keys [][]felt.Felt,
 	blockID *rpcv9.SubscriptionBlockID,
 	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
@@ -198,7 +198,7 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus]()
-	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
+	eventMatcher := blockchain.NewEventMatcher(fromAddress, keys)
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := rpcv9.BlockIDFromNumber(requestedHeader.Number)
@@ -215,7 +215,7 @@ func (h *Handler) SubscribeEvents(
 				id,
 				&fromBlock,
 				&toBlock,
-				fromAddr,
+				fromAddress,
 				keys,
 				sentCache,
 				headHeader.Number,
@@ -242,7 +242,7 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				head,
-				fromAddr,
+				fromAddress,
 				&eventMatcher,
 				sentCache,
 				rpcv9.TxnAcceptedOnL2,
@@ -260,7 +260,7 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				preLatest.Block,
-				fromAddr,
+				fromAddress,
 				&eventMatcher,
 				sentCache,
 				rpcv9.TxnAcceptedOnL2,
@@ -291,7 +291,7 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				pending.GetBlock(),
-				fromAddr,
+				fromAddress,
 				&eventMatcher,
 				sentCache,
 				blockFinalityStatus,
@@ -308,13 +308,13 @@ func (h *Handler) processHistoricalEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *rpcv9.BlockID,
-	fromAddr *felt.Felt,
+	addresses []felt.Felt,
 	keys [][]felt.Felt,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
@@ -350,13 +350,28 @@ func (h *Handler) processHistoricalEvents(
 	return nil
 }
 
+func matchesAddress(eventFrom *felt.Felt, addresses []felt.Felt) bool {
+	if len(addresses) == 0 {
+		return true
+	}
+	if eventFrom == nil {
+		return false
+	}
+	for _, addr := range addresses {
+		if eventFrom.Equal(&addr) {
+			return true
+		}
+	}
+	return false
+}
+
 // processBlockEvents, extract events from block and stream filtered events.
 func processBlockEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
 	id string,
 	block *core.Block,
-	fromAddr *felt.Felt,
+	addresses []felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	finalityStatus rpcv9.TxnFinalityStatus,
@@ -382,7 +397,7 @@ func processBlockEvents(
 			default:
 			}
 
-			if fromAddr != nil && !event.From.Equal(fromAddr) {
+			if !matchesAddress(event.From, addresses) {
 				continue
 			}
 

@@ -244,8 +244,36 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
-	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
-	subscriber := subscriber{
+	addresses := make([]felt.Felt, 0, 1)
+	if fromAddr != nil {
+		addresses = append(addresses, *fromAddr)
+	}
+	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
+	subscriber := h.createEventSubscriber(
+		w,
+		fromAddr,
+		keys,
+		&eventMatcher,
+		sentCache,
+		requestedHeader,
+		headHeader,
+		l1HeadNumber, finalityStatus,
+	)
+	return h.subscribe(ctx, w, subscriber)
+}
+
+func (h *Handler) createEventSubscriber(
+	w jsonrpc.Conn,
+	fromAddr *felt.Felt,
+	keys [][]felt.Felt,
+	eventMatcher *blockchain.EventMatcher,
+	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
+	requestedHeader,
+	headHeader *core.Header,
+	l1HeadNumber uint64,
+	finalityStatus *TxnFinalityStatusWithoutL1,
+) subscriber {
+	return subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := BlockIDFromNumber(requestedHeader.Number)
 			var toBlock BlockID
@@ -279,7 +307,7 @@ func (h *Handler) SubscribeEvents(
 				id,
 				head,
 				fromAddr,
-				&eventMatcher,
+				eventMatcher,
 				sentCache,
 				TxnAcceptedOnL2,
 				false,
@@ -297,7 +325,7 @@ func (h *Handler) SubscribeEvents(
 				id,
 				preLatest.Block,
 				fromAddr,
-				&eventMatcher,
+				eventMatcher,
 				sentCache,
 				TxnAcceptedOnL2,
 				true,
@@ -323,14 +351,13 @@ func (h *Handler) SubscribeEvents(
 				id,
 				pending.GetBlock(),
 				fromAddr,
-				&eventMatcher,
+				eventMatcher,
 				sentCache,
 				blockFinalityStatus,
 				false,
 			)
 		},
 	}
-	return h.subscribe(ctx, w, subscriber)
 }
 
 // processHistoricalEvents queries database for events and stream filtered events.
@@ -345,7 +372,11 @@ func (h *Handler) processHistoricalEvents(
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
+	addresses := make([]felt.Felt, 0, 1)
+	if fromAddr != nil {
+		addresses = append(addresses, *fromAddr)
+	}
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
