@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0.208"
 serde_json = { version = "1.0.125", features = ["raw_value"] }
-blockifier = { git = "https://github.com/starkware-libs/sequencer", rev = "be54aeea510ddfe1190c742e902acbd8103ff941", features = ["node_api", "reexecution"] }
-starknet_api = { git = "https://github.com/starkware-libs/sequencer", rev = "be54aeea510ddfe1190c742e902acbd8103ff941" }
+blockifier = { version = "0.18.0-dev.0", features = ["node_api", "reexecution"] }
+starknet_api = "0.18.0-dev.0"
 cairo-vm = "3.1.0"
 cairo-lang-casm = "=2.15.0"
 cairo-lang-starknet-classes = "=2.15.0"
