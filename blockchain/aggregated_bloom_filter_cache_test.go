@@ -14,9 +14,9 @@ import (
 )
 
 // randomContractAddress generates a random contract address (felt) for testing.
-func randomContractAddress(t *testing.T) *felt.Felt {
+func randomContractAddress(t *testing.T) *felt.Address {
 	t.Helper()
-	addr := felt.NewRandom[felt.Felt]()
+	addr := felt.NewRandom[felt.Address]()
 	return addr
 }
 
@@ -37,7 +37,7 @@ func randomEventKeys(t *testing.T, keysPerEvent, subKeysPerKey int) [][]felt.Fel
 
 // EventTestCase describes an event/contract with its block mappings for assertions.
 type eventTestCase struct {
-	contractAddress *felt.Felt
+	contractAddress *felt.Address
 	keys            [][]felt.Felt
 	expectedBlocks  []uint64 // Populated by the insert routine
 }
@@ -177,7 +177,7 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, runningFilterStart)
 	for _, test := range events {
 		// Create iterator for event
-		contractAddresses := []felt.Felt{*test.contractAddress}
+		contractAddresses := []felt.Address{*test.contractAddress}
 		matcher := blockchain.NewEventMatcher(contractAddresses, test.keys)
 
 		iterator, err := cache.NewMatchedBlockIterator(0, chainHeight, 0, &matcher, runningFilter)
@@ -212,7 +212,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 
 	testDB := memory.New()
 	var maxScannedLimit uint64 = 0
-	contractAddresses := []felt.Felt{*test.contractAddress}
+	contractAddresses := []felt.Address{*test.contractAddress}
 	eventMatcher := blockchain.NewEventMatcher(contractAddresses, test.keys)
 	innerFilter := core.NewAggregatedFilter(chainHeight + 1)
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, chainHeight+1)

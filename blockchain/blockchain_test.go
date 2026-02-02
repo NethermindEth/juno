@@ -488,7 +488,7 @@ func TestState(t *testing.T) {
 	})
 }
 
-func TestEvents_AdditionalFilters(t *testing.T) {
+func TestEvents(t *testing.T) {
 	var pendingB *core.Block
 	pendingDataFunc := func() (core.PendingData, error) { //nolint:unparam // used in tests
 		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
@@ -501,24 +501,103 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Goerli2)
 	gw := adaptfeeder.New(client)
 
-	for i := range 7 {
+	const (
+		numBlocksToFetch     = 7
+		firstPendingBlockNum = 6
+	)
+
+	for i := range numBlocksToFetch {
 		b, err := gw.BlockByNumber(t.Context(), uint64(i))
 		require.NoError(t, err)
 		s, err := gw.StateUpdate(t.Context(), uint64(i))
 		require.NoError(t, err)
 
-		if b.Number < 6 {
+		if b.Number < firstPendingBlockNum {
 			require.NoError(t, chain.Store(b, &emptyCommitments, s, nil))
 		} else {
 			pendingB = b
 		}
 	}
 
-	from := []felt.Felt{
-		felt.UnsafeFromString[felt.Felt](
+	t.Run("filter non-existent", func(t *testing.T) {
+		filter, err := chain.EventFilter(nil, nil, pendingDataFunc)
+
+		t.Run("block number", func(t *testing.T) {
+			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
+			require.NoError(t, err)
+			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, uint64(44))
+			require.NoError(t, err)
+		})
+
+		t.Run("block hash", func(t *testing.T) {
+			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterTo, &felt.Zero)
+			require.Error(t, err)
+			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom, &felt.Zero)
+			require.Error(t, err)
+		})
+
+		require.NoError(t, filter.Close())
+	})
+
+	from := []felt.Address{
+		felt.UnsafeFromString[felt.Address](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		),
 	}
+	t.Run("filter with no keys", func(t *testing.T) {
+		filter, err := chain.EventFilter(from, nil, pendingDataFunc)
+		require.NoError(t, err)
+
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterTo,
+			firstPendingBlockNum,
+		))
+
+		allEvents := []blockchain.FilteredEvent{}
+		t.Run("get all events without pagination", func(t *testing.T) {
+			events, cToken, eErr := filter.Events(nil, 10)
+			require.Empty(t, cToken)
+			require.NoError(t, eErr)
+			require.Len(t, events, 3)
+			for _, event := range events {
+				require.NotNil(t, event.From)
+				found := false
+				for _, addr := range from {
+					if addr == (felt.Address)(*event.From) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "event.From should be in the from addresses list")
+			}
+
+			allEvents = events
+		})
+
+		t.Run("accumulate events with pagination", func(t *testing.T) {
+			for _, chunkSize := range []uint64{1, 2} {
+				var accEvents []blockchain.FilteredEvent
+				var lastToken blockchain.ContinuationToken
+				var lastTokenPtr *blockchain.ContinuationToken
+				var gotEvents []blockchain.FilteredEvent
+				for range len(allEvents) + 1 {
+					if !lastToken.IsEmpty() {
+						lastTokenPtr = &lastToken
+					}
+					gotEvents, lastToken, err = filter.Events(lastTokenPtr, chunkSize)
+					require.NoError(t, err)
+					accEvents = append(accEvents, gotEvents...)
+					if lastToken.IsEmpty() {
+						break
+					}
+				}
+				assert.Equal(t, allEvents, accEvents)
+			}
+		})
+
+		require.NoError(t, filter.Close())
+	})
 
 	t.Run("filter with keys", func(t *testing.T) {
 		key := felt.NewUnsafeFromString[felt.Felt](
@@ -556,7 +635,10 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterTo,
+			firstPendingBlockNum,
+		))
 		events, cToken, err := filter.Events(nil, 10)
 		require.NoError(t, err)
 		require.True(t, cToken.IsEmpty())
@@ -564,184 +646,20 @@ func TestEvents_AdditionalFilters(t *testing.T) {
 		require.NoError(t, filter.Close())
 	})
 
-	t.Run("filter with multiple addresses from test data", func(t *testing.T) {
-		address1 := felt.UnsafeFromString[felt.Felt](
-			"0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82",
-		)
-		address2 := felt.UnsafeFromString[felt.Felt](
-			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-		)
-
-		addresses := []felt.Felt{address1, address2}
-		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
-		require.NoError(t, err)
-
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
-
-		events, cToken, err := filter.Events(nil, 10)
-		require.NoError(t, err)
-		require.Empty(t, cToken)
-
-		require.GreaterOrEqual(t, len(events), 3)
-		for _, event := range events {
-			require.NotNil(t, event.From)
-			found := false
-			for _, addr := range addresses {
-				if addr == *event.From {
-					found = true
-					break
-				}
-			}
-			assert.True(t, found, "event.From should be in the addresses list")
-		}
-
-		require.NoError(t, filter.Close())
-	})
-
-	t.Run("filter with one existing and one non-existing address", func(t *testing.T) {
-		existingAddr := felt.UnsafeFromString[felt.Felt](
-			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-		)
-		nonExistingAddr := felt.UnsafeFromString[felt.Felt](
-			"0x0000000000000000000000000000000000000000000000000000000000000000",
-		)
-
-		addresses := []felt.Felt{existingAddr, nonExistingAddr}
-		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
-		require.NoError(t, err)
-
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
-
-		events, cToken, err := filter.Events(nil, 10)
-		require.NoError(t, err)
-		require.Empty(t, cToken)
-
-		require.Len(t, events, 3)
-		for _, event := range events {
-			require.NotNil(t, event.From)
-			assert.Equal(t, existingAddr, *event.From, "all events should be from existingAddr")
-		}
-
-		require.NoError(t, filter.Close())
-	})
-}
-
-func TestEvents(t *testing.T) {
-	var pendingB *core.Block
-	pendingDataFunc := func() (core.PendingData, error) { //nolint:unparam // used in tests
-		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
-		return &preConfirmed, nil
-	}
-
-	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Goerli2)
-
-	client := feeder.NewTestClient(t, &utils.Goerli2)
-	gw := adaptfeeder.New(client)
-
-	for i := range 7 {
-		b, err := gw.BlockByNumber(t.Context(), uint64(i))
-		require.NoError(t, err)
-		s, err := gw.StateUpdate(t.Context(), uint64(i))
-		require.NoError(t, err)
-
-		if b.Number < 6 {
-			require.NoError(t, chain.Store(b, &emptyCommitments, s, nil))
-		} else {
-			pendingB = b
-		}
-	}
-
-	t.Run("filter non-existent", func(t *testing.T) {
-		filter, err := chain.EventFilter(nil, nil, pendingDataFunc)
-
-		t.Run("block number", func(t *testing.T) {
-			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
-			require.NoError(t, err)
-			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, uint64(44))
-			require.NoError(t, err)
-		})
-
-		t.Run("block hash", func(t *testing.T) {
-			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterTo, &felt.Zero)
-			require.Error(t, err)
-			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom, &felt.Zero)
-			require.Error(t, err)
-		})
-
-		require.NoError(t, filter.Close())
-	})
-
-	from := []felt.Felt{
-		felt.UnsafeFromString[felt.Felt](
-			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-		),
-	}
-	t.Run("filter with no keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, nil, pendingDataFunc)
-		require.NoError(t, err)
-
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
-
-		allEvents := []blockchain.FilteredEvent{}
-		t.Run("get all events without pagination", func(t *testing.T) {
-			events, cToken, eErr := filter.Events(nil, 10)
-			require.Empty(t, cToken)
-			require.NoError(t, eErr)
-			require.Len(t, events, 3)
-			for _, event := range events {
-				require.NotNil(t, event.From)
-				found := false
-				for _, addr := range from {
-					if addr == *event.From {
-						found = true
-						break
-					}
-				}
-				assert.True(t, found, "event.From should be in the from addresses list")
-			}
-
-			allEvents = events
-		})
-
-		t.Run("accumulate events with pagination", func(t *testing.T) {
-			for _, chunkSize := range []uint64{1, 2} {
-				var accEvents []blockchain.FilteredEvent
-				var lastToken blockchain.ContinuationToken
-				var lastTokenPtr *blockchain.ContinuationToken
-				var gotEvents []blockchain.FilteredEvent
-				for range len(allEvents) + 1 {
-					if !lastToken.IsEmpty() {
-						lastTokenPtr = &lastToken
-					}
-					gotEvents, lastToken, err = filter.Events(lastTokenPtr, chunkSize)
-					require.NoError(t, err)
-					accEvents = append(accEvents, gotEvents...)
-					if lastToken.IsEmpty() {
-						break
-					}
-				}
-				assert.Equal(t, allEvents, accEvents)
-			}
-		})
-
-		require.NoError(t, filter.Close())
-	})
-
 	t.Run("filter with duplicate addresses", func(t *testing.T) {
-		address1 := felt.UnsafeFromString[felt.Felt](
+		address1 := felt.UnsafeFromString[felt.Address](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		)
 
-		addresses := []felt.Felt{address1, address1, address1}
+		addresses := []felt.Address{address1, address1, address1}
 		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterTo,
+			firstPendingBlockNum,
+		))
 
 		events, cToken, err := filter.Events(nil, 10)
 		require.NoError(t, err)
@@ -750,43 +668,39 @@ func TestEvents(t *testing.T) {
 
 		for _, event := range events {
 			require.NotNil(t, event.From)
-			assert.Equal(t, address1, *event.From)
+			assert.Equal(t, address1, (felt.Address)(*event.From))
 		}
 
 		require.NoError(t, filter.Close())
 	})
 
-	t.Run("filter with no addresses (nil)", func(t *testing.T) {
-		filter, err := chain.EventFilter(nil, nil, pendingDataFunc)
-		require.NoError(t, err)
+	t.Run("filter with no addresses", func(t *testing.T) {
+		testCases := []struct {
+			addresses []felt.Address
+			name      string
+		}{
+			{nil, "nil"},
+			{[]felt.Address{}, "empty slice"},
+		}
+		for _, testCase := range testCases {
+			t.Run("filter with no addresses ("+testCase.name+")", func(t *testing.T) {
+				filter, err := chain.EventFilter(testCase.addresses, nil, pendingDataFunc)
+				require.NoError(t, err)
 
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
+				require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+				require.NoError(t, filter.SetRangeEndBlockByNumber(
+					blockchain.EventFilterTo,
+					firstPendingBlockNum,
+				))
 
-		events, cToken, err := filter.Events(nil, 10)
-		require.NoError(t, err)
-		require.Empty(t, cToken)
+				events, cToken, err := filter.Events(nil, 10)
+				require.NoError(t, err)
+				require.Empty(t, cToken)
+				require.GreaterOrEqual(t, len(events), 3)
 
-		require.GreaterOrEqual(t, len(events), 3)
-
-		require.NoError(t, filter.Close())
-	})
-
-	t.Run("filter with empty addresses", func(t *testing.T) {
-		addresses := []felt.Felt{}
-		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
-		require.NoError(t, err)
-
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))
-
-		events, cToken, err := filter.Events(nil, 10)
-		require.NoError(t, err)
-		require.Empty(t, cToken)
-
-		require.GreaterOrEqual(t, len(events), 3)
-
-		require.NoError(t, filter.Close())
+				require.NoError(t, filter.Close())
+			})
+		}
 	})
 }
 

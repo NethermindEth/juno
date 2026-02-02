@@ -71,9 +71,9 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	addresses := make([]felt.Felt, 0, 1)
+	var addresses []felt.Address
 	if args.EventFilter.Address != nil {
-		addresses = append(addresses, *args.EventFilter.Address)
+		addresses = []felt.Address{(felt.Address)(*args.EventFilter.Address)}
 	}
 	filter, err := h.bcReader.EventFilter(
 		addresses,

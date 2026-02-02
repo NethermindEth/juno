@@ -11,11 +11,11 @@ import (
 )
 
 type EventMatcher struct {
-	contractAddresses []felt.Felt
+	contractAddresses []felt.Address
 	keysMap           []map[felt.Felt]struct{}
 }
 
-func NewEventMatcher(contractAddresses []felt.Felt, keys [][]felt.Felt) EventMatcher {
+func NewEventMatcher(contractAddresses []felt.Address, keys [][]felt.Felt) EventMatcher {
 	return EventMatcher{
 		contractAddresses: contractAddresses,
 		keysMap:           makeKeysMaps(keys),
@@ -186,9 +186,9 @@ func (e *EventMatcher) AppendBlockEvents(
 					processedEvents++
 					continue
 				}
-				if !slices.ContainsFunc(e.contractAddresses, func(addr felt.Felt) bool {
-					return addr == *event.From
-				}) {
+				// todo: remove the cast to felt.Address
+				contains := slices.Contains(e.contractAddresses, (felt.Address)(*event.From))
+				if !contains {
 					processedEvents++
 					continue
 				}

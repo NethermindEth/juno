@@ -165,7 +165,7 @@ type SentEvent struct {
 //nolint:funlen // URL exceeds line limit but should remain intact for reference
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
-	fromAddress addressOrList,
+	fromAddress addressList,
 	keys [][]felt.Felt,
 	blockID *rpcv9.SubscriptionBlockID,
 	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
@@ -308,7 +308,7 @@ func (h *Handler) processHistoricalEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *rpcv9.BlockID,
-	addresses []felt.Felt,
+	addresses []felt.Address,
 	keys [][]felt.Felt,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	height uint64,
@@ -350,7 +350,7 @@ func (h *Handler) processHistoricalEvents(
 	return nil
 }
 
-func matchesAddress(eventFrom *felt.Felt, addresses []felt.Felt) bool {
+func matchesAddress(eventFrom *felt.Felt, addresses []felt.Address) bool {
 	if len(addresses) == 0 {
 		return true
 	}
@@ -358,7 +358,8 @@ func matchesAddress(eventFrom *felt.Felt, addresses []felt.Felt) bool {
 		return false
 	}
 	for _, addr := range addresses {
-		if eventFrom.Equal(&addr) {
+		// todo: remove the cast to felt.Felt
+		if eventFrom.Equal((*felt.Felt)(&addr)) {
 			return true
 		}
 	}
@@ -371,7 +372,7 @@ func processBlockEvents(
 	w jsonrpc.Conn,
 	id string,
 	block *core.Block,
-	addresses []felt.Felt,
+	addresses []felt.Address,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	finalityStatus rpcv9.TxnFinalityStatus,
@@ -751,7 +752,7 @@ func (h *Handler) SubscribeNewHeads(
 // If the sender address list is not empty, it will check if the transaction is an Invoke or
 // Declare transaction and if the sender address is in the list.
 // For other transaction types, it will by default return false.
-func filterTxBySender(txn core.Transaction, senderAddr []felt.Felt) bool {
+func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 	if len(senderAddr) == 0 {
 		return true
 	}
@@ -759,13 +760,15 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Felt) bool {
 	switch t := txn.(type) {
 	case *core.InvokeTransaction:
 		for _, addr := range senderAddr {
-			if t.SenderAddress.Equal(&addr) {
+			// todo: remove the cast to felt.Felt
+			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
 				return true
 			}
 		}
 	case *core.DeclareTransaction:
 		for _, addr := range senderAddr {
-			if t.SenderAddress.Equal(&addr) {
+			// todo: remove the cast to felt.Felt
+			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
 				return true
 			}
 		}
@@ -870,7 +873,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 // https://github.com/starkware-libs/starknet-specs/blob/4e98e3684b50ee9e63b7eeea9412b6a2ed7494ec/api/starknet_ws_api.json#L186
 func (h *Handler) SubscribeNewTransactionReceipts(
 	ctx context.Context,
-	senderAddress []felt.Felt,
+	senderAddress []felt.Address,
 	finalityStatuses []rpcv9.TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
@@ -985,7 +988,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 func processBlockReceipts(
 	id string,
 	w jsonrpc.Conn,
-	senderAddress []felt.Felt,
+	senderAddress []felt.Address,
 	block *core.Block,
 	sentCache *rpccore.SubscriptionCache[rpcv9.SentReceipt, rpcv9.TxnFinalityStatusWithoutL1],
 	finalityStatus rpcv9.TxnFinalityStatusWithoutL1,
@@ -1037,7 +1040,7 @@ func processBlockReceipts(
 func (h *Handler) SubscribeNewTransactions(
 	ctx context.Context,
 	finalityStatus []rpcv9.TxnStatusWithoutL1,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -1145,7 +1148,7 @@ func (h *Handler) SubscribeNewTransactions(
 func processBlockTransactions(
 	id string,
 	w jsonrpc.Conn,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
 	b *core.Block,
 	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1],
 	status rpcv9.TxnStatusWithoutL1,
@@ -1173,7 +1176,7 @@ func processBlockTransactions(
 func processCandidateTransactions(
 	id string,
 	w jsonrpc.Conn,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
 	preConfirmed core.PendingData,
 	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1],
 ) error {

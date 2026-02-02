@@ -154,7 +154,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1024+1)
-		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Address]([]byte("from_address"))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -177,7 +177,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1)
-		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Address]([]byte("from_address"))
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -324,7 +324,7 @@ func TestSubscribeEvents(t *testing.T) {
 		TxnPreConfirmed,
 		false,
 	)
-	targetAddr, err := felt.NewFromString[felt.Felt](
+	targetAddr, err := felt.NewFromString[felt.Address](
 		"0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3",
 	)
 	require.NoError(t, err)
@@ -406,7 +406,7 @@ func TestSubscribeEvents(t *testing.T) {
 		blockID        *SubscriptionBlockID
 		finalityStatus *TxnFinalityStatusWithoutL1
 		keys           [][]felt.Felt
-		fromAddr       *felt.Felt
+		fromAddr       *felt.Address
 		steps          []stepInfo
 		setupMocks     func()
 	}
@@ -2918,7 +2918,7 @@ func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) 
 func createTestEvents(
 	t *testing.T,
 	b *core.Block,
-	fromAddress *felt.Felt,
+	fromAddress *felt.Address,
 	keys [][]felt.Felt,
 	finalityStatus TxnFinalityStatus,
 	isPreLatest bool,
@@ -2930,16 +2930,17 @@ func createTestEvents(
 	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
 		blockNumber = &b.Number
 	}
-	addresses := make([]felt.Felt, 0, 1)
+	var addresses []felt.Address
 	if fromAddress != nil {
-		addresses = append(addresses, *fromAddress)
+		addresses = []felt.Address{*fromAddress}
 	}
 	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
 	var filtered []blockchain.FilteredEvent
 	var responses []SubscriptionEmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
-			if fromAddress != nil && !event.From.Equal(fromAddress) {
+			// todo: remove the cast to felt.Felt
+			if fromAddress != nil && !event.From.Equal((*felt.Felt)(fromAddress)) {
 				continue
 			}
 
@@ -2976,7 +2977,7 @@ func createTestEvents(
 func createTestEventsWebsocket(
 	t *testing.T,
 	h *Handler,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,

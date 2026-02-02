@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type EventArgs struct {
@@ -19,43 +20,33 @@ type EventArgs struct {
 type EventFilter struct {
 	FromBlock *rpcv9.BlockID `json:"from_block"`
 	ToBlock   *rpcv9.BlockID `json:"to_block"`
-	Address   addressOrList  `json:"address"`
+	Address   addressList    `json:"address"`
 	Keys      [][]felt.Felt  `json:"keys"`
 }
 
-type addressOrList []felt.Felt
+type addressList []felt.Address
 
-func (a *addressOrList) UnmarshalJSON(data []byte) error {
+func (a *addressList) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" || string(data) == "[]" {
-		*a = make([]felt.Felt, 0)
+		*a = make([]felt.Address, 0)
 		return nil
 	}
 
-	var single felt.Felt
+	var single felt.Address
 	if err := json.Unmarshal(data, &single); err == nil {
-		*a = []felt.Felt{single}
+		*a = []felt.Address{single}
 		return nil
 	}
 
-	var list []*felt.Felt
+	var list []felt.Address
 	if err := json.Unmarshal(data, &list); err != nil {
 		return err
 	}
 	if len(list) == 0 {
-		*a = nil
+		*a = make([]felt.Address, 0)
 		return nil
 	}
-	seen := make(map[felt.Felt]struct{}, len(list))
-	unique := make([]felt.Felt, 0, len(list))
-	for _, addr := range list {
-		if addr != nil {
-			if _, exists := seen[*addr]; !exists {
-				seen[*addr] = struct{}{}
-				unique = append(unique, *addr)
-			}
-		}
-	}
-	*a = unique
+	*a = utils.Set(list)
 	return nil
 }
 

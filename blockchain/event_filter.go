@@ -44,7 +44,7 @@ const (
 
 func newEventFilter(
 	txn db.KeyValueStore,
-	contractAddresses []felt.Felt,
+	contractAddresses []felt.Address,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
 	pendingDataFn func() (core.PendingData, error),

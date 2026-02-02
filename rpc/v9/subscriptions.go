@@ -211,7 +211,7 @@ type SentEvent struct {
 // https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L59
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,
@@ -244,9 +244,9 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
-	addresses := make([]felt.Felt, 0, 1)
+	var addresses []felt.Address
 	if fromAddr != nil {
-		addresses = append(addresses, *fromAddr)
+		addresses = []felt.Address{*fromAddr}
 	}
 	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
 	subscriber := h.createEventSubscriber(
@@ -264,7 +264,7 @@ func (h *Handler) SubscribeEvents(
 
 func (h *Handler) createEventSubscriber(
 	w jsonrpc.Conn,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
@@ -366,15 +366,15 @@ func (h *Handler) processHistoricalEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *BlockID,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	height uint64,
 	l1Head uint64,
 ) error {
-	addresses := make([]felt.Felt, 0, 1)
+	var addresses []felt.Address
 	if fromAddr != nil {
-		addresses = append(addresses, *fromAddr)
+		addresses = []felt.Address{*fromAddr}
 	}
 	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
@@ -418,7 +418,7 @@ func processBlockEvents(
 	w jsonrpc.Conn,
 	id string,
 	block *core.Block,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	finalityStatus TxnFinalityStatus,
@@ -444,7 +444,8 @@ func processBlockEvents(
 			default:
 			}
 
-			if fromAddr != nil && !event.From.Equal(fromAddr) {
+			// todo: remove the cast to felt.Felt
+			if fromAddr != nil && !event.From.Equal((*felt.Felt)(fromAddr)) {
 				continue
 			}
 

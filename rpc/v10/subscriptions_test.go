@@ -158,7 +158,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1024+1)
-		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
+		fromAddr := felt.FromBytes[felt.Address]([]byte("from_address"))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -167,7 +167,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Felt{*fromAddr}, keys, nil, nil)
+		id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Address{fromAddr}, keys, nil, nil)
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyKeysInFilter, rpcErr)
 	})
@@ -181,7 +181,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1)
-		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
+		fromAddr := felt.FromBytes[felt.Address]([]byte("from_address"))
 
 		blockID := rpcv9.SubscriptionBlockID(rpcv9.BlockIDFromNumber(0))
 
@@ -200,7 +200,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Felt{*fromAddr}, keys, &blockID, nil)
+			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Address{fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -210,7 +210,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Felt{*fromAddr}, keys, &blockID, nil)
+			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Address{fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -328,7 +328,7 @@ func TestSubscribeEvents(t *testing.T) {
 		rpcv9.TxnPreConfirmed,
 		false,
 	)
-	targetAddr, err := felt.NewFromString[felt.Felt](
+	targetAddr, err := felt.NewFromString[felt.Address](
 		"0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3",
 	)
 	require.NoError(t, err)
@@ -411,7 +411,7 @@ func TestSubscribeEvents(t *testing.T) {
 		blockID        *rpcv9.SubscriptionBlockID
 		finalityStatus *rpcv9.TxnFinalityStatusWithoutL1
 		keys           [][]felt.Felt
-		fromAddr       *felt.Felt
+		fromAddr       *felt.Address
 		steps          []stepInfo
 		setupMocks     func()
 	}
@@ -1726,7 +1726,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	type testCase struct {
 		description   string
 		statuses      []rpcv9.TxnStatusWithoutL1
-		senderAddress []felt.Felt
+		senderAddress []felt.Address
 		steps         []stepInfo
 	}
 
@@ -2017,7 +2017,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	senderAddress := rpcv9.AdaptTransaction(newHead2.Transactions[0]).SenderAddress
-	senderFilter := []felt.Felt{*senderAddress}
+	senderFilter := []felt.Address{(felt.Address)(*senderAddress)}
 	senderTransactions := make([]core.Transaction, 0)
 	for _, txn := range newHead2.Transactions {
 		if filterTxBySender(txn, senderFilter) {
@@ -2033,7 +2033,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
 		},
-		senderAddress: []felt.Felt{*senderAddress},
+		senderAddress: []felt.Address{(felt.Address)(*senderAddress)},
 		steps: []stepInfo{
 			// {
 			// 	description: "on receiving new transaction",
@@ -2288,7 +2288,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
-		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
+		addresses := make([]felt.Address, rpccore.MaxEventFilterKeys+1)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -2344,13 +2344,13 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	type testCase struct {
 		description   string
 		statuses      []rpcv9.TxnFinalityStatusWithoutL1
-		senderAddress []felt.Felt
+		senderAddress []felt.Address
 		steps         []stepInfo
 	}
 
 	toAdaptedReceiptsWithFilter := func(
 		b *core.Block,
-		senderAddress []felt.Felt,
+		senderAddress []felt.Address,
 		finalityStatus rpcv9.TxnFinalityStatus,
 		isPreLatest bool,
 	) []*rpcv9.TransactionReceipt {
@@ -2594,7 +2594,9 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	}
 
 	senderAddress := rpcv9.AdaptTransaction(newHead2.Transactions[0]).SenderAddress
-	senderFilter := []felt.Felt{*senderAddress}
+	senderFilter := []felt.Address{
+		(felt.Address)(*senderAddress),
+	}
 	b2PreConfirmedPartialFilteredReceipts := toAdaptedReceiptsWithFilter(
 		b2PreConfirmedPartial.Block,
 		senderFilter,
@@ -2861,7 +2863,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	}
 
 	t.Run("Returns error if to many address in filter", func(t *testing.T) {
-		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
+		addresses := make([]felt.Address, rpccore.MaxEventFilterKeys+1)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -3175,7 +3177,7 @@ func CreateTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) 
 func createTestEvents(
 	t *testing.T,
 	b *core.Block,
-	fromAddress *felt.Felt,
+	fromAddress *felt.Address,
 	keys [][]felt.Felt,
 	finalityStatus rpcv9.TxnFinalityStatus,
 	isPreLatest bool,
@@ -3187,7 +3189,7 @@ func createTestEvents(
 	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
 		blockNumber = &b.Number
 	}
-	addresses := make([]felt.Felt, 0, 1)
+	var addresses []felt.Address
 	if fromAddress != nil {
 		addresses = append(addresses, *fromAddress)
 	}
@@ -3196,7 +3198,8 @@ func createTestEvents(
 	var responses []SubscriptionEmittedEvent
 	for txIndex, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
-			if fromAddress != nil && !event.From.Equal(fromAddress) {
+			// todo: remove the cast to felt.Felt
+			if fromAddress != nil && !event.From.Equal((*felt.Felt)(fromAddress)) {
 				continue
 			}
 
@@ -3236,7 +3239,7 @@ func createTestEvents(
 func createTestEventsWebsocket(
 	t *testing.T,
 	h *Handler,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	blockID *rpcv9.SubscriptionBlockID,
 	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
@@ -3244,9 +3247,9 @@ func createTestEventsWebsocket(
 	t.Helper()
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
-		addresses := make([]felt.Felt, 0, 1)
+		var addresses []felt.Address
 		if fromAddr != nil {
-			addresses = append(addresses, *fromAddr)
+			addresses = []felt.Address{*fromAddr}
 		}
 		return h.SubscribeEvents(ctx, addresses, keys, blockID, finalityStatus)
 	})
@@ -3263,7 +3266,7 @@ func createTestTxStatusWebsocket(
 }
 
 func createTestNewTransactionsWebsocket(
-	t *testing.T, h *Handler, finalityStatus []rpcv9.TxnStatusWithoutL1, senderAddress []felt.Felt,
+	t *testing.T, h *Handler, finalityStatus []rpcv9.TxnStatusWithoutL1, senderAddress []felt.Address,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
@@ -3275,7 +3278,7 @@ func createTestNewTransactionsWebsocket(
 func createTestTransactionReceiptsWebsocket(
 	t *testing.T,
 	h *Handler,
-	senderAddress []felt.Felt,
+	senderAddress []felt.Address,
 	finalityStatus []rpcv9.TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
