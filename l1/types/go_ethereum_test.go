@@ -107,7 +107,12 @@ func TestCBORBackwardCompatibility(t *testing.T) {
 		expectedCompact, err := cbor.Marshal(ethAddr[:])
 		require.NoError(t, err)
 
-		assert.Equal(t, expectedCompact, newCBOR, "Should encode Ethereum address as compact 20-byte format")
+		assert.Equal(
+			t,
+			expectedCompact,
+			newCBOR,
+			"Should encode Ethereum address as compact 20-byte format",
+		)
 	})
 
 	t.Run("Can decode old 32-byte format", func(t *testing.T) {
