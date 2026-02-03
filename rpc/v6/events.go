@@ -73,7 +73,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 
 	var addresses []felt.Address
 	if args.EventFilter.Address != nil {
-		addresses = []felt.Address{(felt.Address)(*args.EventFilter.Address)}
+		addresses = []felt.Address{felt.Address(*args.EventFilter.Address)}
 	}
 	filter, err := h.bcReader.EventFilter(
 		addresses,

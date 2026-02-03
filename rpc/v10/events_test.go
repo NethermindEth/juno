@@ -300,7 +300,8 @@ func TestEvents(t *testing.T) {
 	testAddress := []felt.Address{
 		felt.UnsafeFromString[felt.Address](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-		)}
+		),
+	}
 	testKey := felt.NewUnsafeFromString[felt.Felt](
 		"0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e",
 	)
@@ -671,7 +672,8 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	from := []felt.Address{
 		felt.UnsafeFromString[felt.Address](
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-		)}
+		),
+	}
 	blockNumber := rpcv9.BlockIDFromNumber(0)
 	latest := rpcv9.BlockIDLatest()
 
