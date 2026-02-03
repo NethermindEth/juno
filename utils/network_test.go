@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -141,13 +141,13 @@ func TestNetworkType(t *testing.T) {
 }
 
 func TestCoreContractAddress(t *testing.T) {
-	addresses := map[utils.Network]common.Address{
-		utils.Mainnet:            common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		utils.Goerli:             common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		utils.Goerli2:            common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		utils.Integration:        common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
-		utils.Sepolia:            common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
-		utils.SepoliaIntegration: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
+	addresses := map[utils.Network]types.L1Address{
+		utils.Mainnet:            types.UnsafeFromString[types.L1Address]("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+		utils.Goerli:             types.UnsafeFromString[types.L1Address]("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+		utils.Goerli2:            types.UnsafeFromString[types.L1Address]("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		utils.Integration:        types.UnsafeFromString[types.L1Address]("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
+		utils.Sepolia:            types.UnsafeFromString[types.L1Address]("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
+		utils.SepoliaIntegration: types.UnsafeFromString[types.L1Address]("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 	}
 
 	for n := range networkStrings {

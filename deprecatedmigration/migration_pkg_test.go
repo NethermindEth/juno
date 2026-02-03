@@ -17,10 +17,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/l1/types"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -226,15 +226,16 @@ func TestL1HandlerTxns(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
-	msgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	msgHash, err := types.NewFromString[types.L1Hash]("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	require.NoError(t, err)
 
 	// Delete the L1 handler txn hash from the database
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
-		return txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(msgHash.Bytes()))
+		return txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(msgHash.Marshal()))
 	}))
 
 	// Ensure the key has been deleted
-	_, err := chain.L1HandlerTxnHash(&msgHash)
+	_, err = chain.L1HandlerTxnHash(msgHash)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	// Recalculate and store the L1 message hashes
@@ -242,8 +243,9 @@ func TestL1HandlerTxns(t *testing.T) {
 		return calculateL1MsgHashes2(txn, &utils.Sepolia)
 	}))
 
-	msgHash = common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
-	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&msgHash)
+	msgHash, err = types.NewFromString[types.L1Hash]("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	require.NoError(t, err)
+	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(msgHash)
 	require.NoError(t, err)
 	assert.Equal(t, l1HandlerTxnHash.String(), "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5")
 }

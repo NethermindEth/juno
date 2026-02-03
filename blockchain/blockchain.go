@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type L1HeadSubscription struct {
@@ -46,7 +46,7 @@ type Reader interface {
 
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
-	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
+	L1HandlerTxnHash(msgHash *types.L1Hash) (l1HandlerTxnHash felt.Felt, err error)
 
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
@@ -209,9 +209,9 @@ func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, erro
 	return core.GetStateUpdateByHash(b.database, hash)
 }
 
-func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
+func (b *Blockchain) L1HandlerTxnHash(msgHash *types.L1Hash) (felt.Felt, error) {
 	b.listener.OnRead("L1HandlerTxnHash")
-	return core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
+	return core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Marshal())
 }
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.

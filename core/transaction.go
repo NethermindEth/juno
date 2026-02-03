@@ -11,9 +11,9 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/sha3"
 )
@@ -85,21 +85,17 @@ type Event struct {
 }
 
 type L1ToL2Message struct {
-	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
-	//            here. We should change this to felt.Address
-	From     common.Address
+	From     *types.L1Address
 	Nonce    *felt.Felt
 	Payload  []*felt.Felt
 	Selector *felt.Felt
-	To       *felt.Felt
+	To       *felt.Address
 }
 
 type L2ToL1Message struct {
-	From    *felt.Felt
+	From    *felt.Address
 	Payload []*felt.Felt
-	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
-	//            here. We should change this to felt.Address
-	To common.Address
+	To      *types.L1Address
 }
 
 type ExecutionResources struct {

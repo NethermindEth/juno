@@ -14,12 +14,12 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
@@ -300,9 +300,9 @@ type TransactionStatus struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt     `json:"from_address,omitempty"`
-	To      common.Address `json:"to_address"`
-	Payload []*felt.Felt   `json:"payload"`
+	From    *felt.Address   `json:"from_address,omitempty"`
+	To      types.L1Address `json:"to_address"`
+	Payload []*felt.Felt    `json:"payload"`
 }
 
 type ComputationResources struct {
@@ -975,7 +975,7 @@ func AdaptReceipt(
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = &MsgToL1{
-			To:      msg.To,
+			To:      *msg.To,
 			Payload: msg.Payload,
 			From:    msg.From,
 		}

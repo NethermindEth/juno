@@ -15,8 +15,8 @@ import (
 	reflect "reflect"
 
 	contract "github.com/NethermindEth/juno/l1/contract"
-	common "github.com/ethereum/go-ethereum/common"
-	types "github.com/ethereum/go-ethereum/core/types"
+	types "github.com/NethermindEth/juno/l1/types"
+	types0 "github.com/ethereum/go-ethereum/core/types"
 	event "github.com/ethereum/go-ethereum/event"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -103,10 +103,10 @@ func (mr *MockSubscriberMockRecorder) LatestHeight(ctx any) *gomock.Call {
 }
 
 // TransactionReceipt mocks base method.
-func (m *MockSubscriber) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+func (m *MockSubscriber) TransactionReceipt(ctx context.Context, txHash *types.L1Hash) (*types0.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionReceipt", ctx, txHash)
-	ret0, _ := ret[0].(*types.Receipt)
+	ret0, _ := ret[0].(*types0.Receipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

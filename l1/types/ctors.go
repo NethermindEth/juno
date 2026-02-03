@@ -1,6 +1,8 @@
 package types
 
 import (
+	"crypto/rand"
+
 	"github.com/holiman/uint256"
 )
 
@@ -58,5 +60,16 @@ func UnsafeFromString[T U256Like](value string) T {
 	if err != nil {
 		panic(err)
 	}
+	return T(*u)
+}
+
+// Creates a new random U256 based type
+func Random[T U256Like]() T {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	u := new(U256)
+	(*uint256.Int)(u).SetBytes(b[:])
 	return T(*u)
 }

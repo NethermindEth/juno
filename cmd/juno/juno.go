@@ -15,10 +15,10 @@ import (
 
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	_ "github.com/NethermindEth/juno/jemalloc"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -353,7 +353,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				GatewayURL:          v.GetString(cnGatewayURLF),
 				L1ChainID:           l1ChainID,
 				L2ChainID:           v.GetString(cnL2ChainIDF),
-				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
+				CoreContractAddress: types.UnsafeFromString[types.L1Address](v.GetString(cnCoreContractAddressF)),
 				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
 					First07Block:      0,
 					UnverifiableRange: []uint64{uint64(unverifRange[0]), uint64(unverifRange[1])},

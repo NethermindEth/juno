@@ -3,6 +3,7 @@ package p2p2core
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/receipt"
@@ -73,9 +74,14 @@ func adaptExecutionResources(er *receipt.Receipt_ExecutionResources) *core.Execu
 }
 
 func adaptMessageToL1(m *receipt.MessageToL1) *core.L2ToL1Message {
+	from := (*felt.Address)(AdaptFelt(m.FromAddress))
+	var to *types.L1Address
+	if m.ToAddress != nil {
+		to = types.NewFromBytes[types.L1Address](m.ToAddress.GetElements())
+	}
 	return &core.L2ToL1Message{
-		From:    AdaptFelt(m.FromAddress),
-		To:      AdaptEthAddress(m.ToAddress),
+		From:    from,
+		To:      to,
 		Payload: utils.Map(m.Payload, AdaptFelt),
 	}
 }

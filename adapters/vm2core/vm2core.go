@@ -6,9 +6,9 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
@@ -22,14 +22,18 @@ func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
 // todo(rdr): this is function definition is twice wrong:
 //   - the parameters should be received by reference
 //   - the output param should be return by value
-func AdaptOrderedMessageToL1(message *vm.OrderedL2toL1Message) core.L2ToL1Message {
-	return core.L2ToL1Message{
-		From:    message.From,
+func AdaptOrderedMessageToL1(message vm.OrderedL2toL1Message) *core.L2ToL1Message {
+	var to *types.L1Address
+	if message.To != nil {
+		bits := (*felt.Felt)(message.To).Bits()
+		u256 := types.U256(bits)
+		to = (*types.L1Address)(&u256)
+	}
+	return &core.L2ToL1Message{
+		// todo: remove this cast
+		From:    (*felt.Address)(message.From),
 		Payload: message.Payload,
-		// todo(rdr): this is not correct because it implies the L1 is always Ethereum
-		// 			  and from Starknet 0.14.1 that is no longer a strong assumption.
-		//            we should have a `felt.L1Address` (or similar)
-		To: common.HexToAddress(message.To.String()),
+		To:      to,
 	}
 }
 

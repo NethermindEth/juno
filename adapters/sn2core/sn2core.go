@@ -8,9 +8,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block, error) {
@@ -128,11 +128,11 @@ func AdaptL1ToL2Message(response *starknet.L1ToL2Message) *core.L1ToL2Message {
 	}
 
 	return &core.L1ToL2Message{
-		From:     common.HexToAddress(response.From),
+		From:     types.NewUnsafeFromString[types.L1Address](response.From),
 		Nonce:    response.Nonce,
 		Payload:  response.Payload,
 		Selector: response.Selector,
-		To:       response.To,
+		To:       (*felt.Address)(response.To),
 	}
 }
 
@@ -142,9 +142,9 @@ func AdaptL2ToL1Message(response *starknet.L2ToL1Message) *core.L2ToL1Message {
 	}
 
 	return &core.L2ToL1Message{
-		From:    response.From,
+		From:    (*felt.Address)(response.From),
 		Payload: response.Payload,
-		To:      common.HexToAddress(response.To),
+		To:      types.NewUnsafeFromString[types.L1Address](response.To),
 	}
 }
 

@@ -7,15 +7,15 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/crypto/sha3"
 )
 
-var logMsgToL2SigHash = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
+var logMsgToL2SigHash = types.UnsafeFromString[types.L1Hash]("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
 
 type logMessageToL2 struct {
-	FromAddress *common.Address
+	FromAddress *types.L1Address
 	ToAddress   *big.Int
 	Nonce       *big.Int
 	Selector    *big.Int
@@ -23,7 +23,7 @@ type logMessageToL2 struct {
 	Fee         *big.Int
 }
 
-func (l *logMessageToL2) hashMessage() *common.Hash {
+func (l *logMessageToL2) hashMessage() types.L1Hash {
 	hash := sha3.NewLegacyKeccak256()
 
 	writeUint256 := func(value *big.Int) {
@@ -32,9 +32,8 @@ func (l *logMessageToL2) hashMessage() *common.Hash {
 		hash.Write(bytes)
 	}
 
-	// Pad FromAddress to 32 bytes
-	hash.Write(make([]byte, 12)) //nolint:mnd
-	hash.Write(l.FromAddress.Bytes())
+	fromBytes := l.FromAddress.Bytes()
+	hash.Write(fromBytes[:])
 	writeUint256(l.ToAddress)
 	writeUint256(l.Nonce)
 	writeUint256(l.Selector)
@@ -44,8 +43,8 @@ func (l *logMessageToL2) hashMessage() *common.Hash {
 		writeUint256(elem)
 	}
 
-	tmp := common.BytesToHash(hash.Sum(nil))
-	return &tmp
+	eventHash := hash.Sum(nil)
+	return types.FromBytes[types.L1Hash](eventHash)
 }
 
 type MsgStatus struct {
@@ -55,7 +54,7 @@ type MsgStatus struct {
 	FailureReason   string             `json:"failure_reason,omitempty"`
 }
 
-func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) ([]MsgStatus, *jsonrpc.Error) {
+func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *types.L1Hash) ([]MsgStatus, *jsonrpc.Error) {
 	// l1 txn hash -> (l1 handler) msg hashes
 	msgHashes, rpcErr := h.messageToL2Logs(ctx, l1TxnHash)
 	if rpcErr != nil {
@@ -66,13 +65,7 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 	for i, msgHash := range msgHashes {
 		hash, err := h.bcReader.L1HandlerTxnHash(msgHash)
 		if err != nil {
-			return nil, jsonrpc.Err(
-				jsonrpc.InternalError,
-				fmt.Sprintf("failed to retrieve L1 handler txn hash. msgHash %s, err: %v",
-					msgHash.Hex(),
-					err,
-				),
-			)
+			return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("failed to retrieve L1 handler txn %v", err))
 		}
 		status, rpcErr := h.TransactionStatus(ctx, &hash)
 		if rpcErr != nil {
@@ -95,19 +88,23 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 	return results, nil
 }
 
-func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*common.Hash, *jsonrpc.Error) {
+func (h *Handler) messageToL2Logs(ctx context.Context, txHash *types.L1Hash) ([]*types.L1Hash, *jsonrpc.Error) {
 	if h.l1Client == nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, "L1 client not found")
 	}
 
-	receipt, err := h.l1Client.TransactionReceipt(ctx, *txHash)
+	receipt, err := h.l1Client.TransactionReceipt(ctx, txHash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	messageHashes := make([]*common.Hash, 0, len(receipt.Logs))
+	messageHashes := make([]*types.L1Hash, 0, len(receipt.Logs))
 	for i, vLog := range receipt.Logs {
-		if common.HexToHash(vLog.Topics[0].Hex()).Cmp(logMsgToL2SigHash) != 0 {
+		topic0Hash, err := types.FromString[types.L1Hash](vLog.Topics[0].Hex())
+		if err != nil {
+			return nil, jsonrpc.Err(rpccore.ErrInternal.Code, fmt.Errorf("failed to parse topic 0 hash %v", err))
+		}
+		if !types.Equal(&topic0Hash, &logMsgToL2SigHash) {
 			continue
 		}
 		var event logMessageToL2
@@ -116,19 +113,23 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 			return nil, jsonrpc.Err(
 				jsonrpc.InternalError,
 				fmt.Sprintf("failed to unpack log, l1 txn hash %s, logIndex %d err: %v",
-					txHash.Hex(),
+					txHash.String(),
 					i,
 					err,
 				),
 			)
 		}
 		// Extract indexed fields from topics
-		fromAddress := common.HexToAddress(vLog.Topics[1].Hex())
+		fromAddress, err := types.FromString[types.L1Address](vLog.Topics[1].Hex())
+		if err != nil {
+			return nil, jsonrpc.Err(rpccore.ErrInternal.Code, fmt.Errorf("failed to parse from address %v", err))
+		}
 		event.ToAddress = new(big.Int).SetBytes(vLog.Topics[2].Bytes())
 		selector := new(big.Int).SetBytes(vLog.Topics[3].Bytes())
 		event.FromAddress = &fromAddress
 		event.Selector = selector
-		messageHashes = append(messageHashes, event.hashMessage())
+		eventHash := event.hashMessage()
+		messageHashes = append(messageHashes, &eventHash)
 	}
 	return messageHashes, nil
 }

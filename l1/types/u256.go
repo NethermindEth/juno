@@ -1,7 +1,6 @@
 package types
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -134,15 +133,4 @@ func u256FromDecimal(s string) (*U256, error) {
 		return nil, fmt.Errorf("%w: %v", errU256BadHex, err)
 	}
 	return (*U256)(val), nil
-}
-
-// RandomU256 returns a random U256 value.
-func RandomU256() (*U256, error) {
-	var b [32]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return nil, err
-	}
-	u := new(U256)
-	(*uint256.Int)(u).SetBytes(b[:])
-	return u, nil
 }

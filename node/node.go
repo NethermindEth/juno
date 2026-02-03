@@ -486,7 +486,7 @@ func newL1Client(
 	network := chain.Network()
 
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
+	ethSubscriber, err = l1.NewEthSubscriber(ethNode, &network.CoreContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}

@@ -80,14 +80,14 @@ func (h *Handler) estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimate
 ) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
-	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
+	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Marshal()))
 	for payloadIdx := range msg.Payload {
 		calldata = append(calldata, &msg.Payload[payloadIdx])
 	}
 	tx := BroadcastedTransaction{
 		Transaction: Transaction{
 			Type:               TxnL1Handler,
-			ContractAddress:    &msg.To,
+			ContractAddress:    (*felt.Felt)(&msg.To),
 			EntryPointSelector: &msg.Selector,
 			CallData:           &calldata,
 			Version:            &felt.Zero, // Needed for transaction hash calculation.
