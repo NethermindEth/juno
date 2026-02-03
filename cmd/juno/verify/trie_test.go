@@ -315,7 +315,8 @@ func TestRunTrieVerify_AddressFlagValidation(t *testing.T) {
 					assert.Contains(t, err.Error(), tt.expectedErrMsg)
 				}
 			} else if err != nil {
-				assert.NotContains(t, err.Error(), "--address flag can only be used with --type contract-storage")
+				addrFlagErr := "--address flag can only be used with --type contract-storage"
+				assert.NotContains(t, err.Error(), addrFlagErr)
 			}
 		})
 	}
