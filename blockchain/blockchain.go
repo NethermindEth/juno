@@ -37,7 +37,9 @@ type Reader interface {
 	) (blockNumber uint64, index uint64, err error)
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
-	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
+	TransactionByBlockNumberAndIndex(
+		blockNumber, index uint64,
+	) (transaction core.Transaction, err error)
 	TransactionsByBlockNumber(blockNumber uint64) (transactions []core.Transaction, err error)
 
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
