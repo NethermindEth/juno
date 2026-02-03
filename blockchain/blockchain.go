@@ -606,25 +606,22 @@ func (b *Blockchain) RevertHead() error {
 	return b.database.Update(b.revertHead)
 }
 
-// todo(rdr): return `core.StateDiff` by value
-func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
-	var reverseStateDiff *core.StateDiff
-
+func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 	txn := b.database.NewIndexedBatch()
 	blockNum, err := core.GetChainHeight(txn)
 	if err != nil {
-		return nil, err
+		return core.StateDiff{}, err
 	}
 
 	stateUpdate, err := core.GetStateUpdateByBlockNum(txn, blockNum)
 	if err != nil {
-		return nil, err
+		return core.StateDiff{}, err
 	}
 
 	state := core.NewState(txn)
-	reverseStateDiff, err = state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
+	reverseStateDiff, err := state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
 	if err != nil {
-		return nil, err
+		return core.StateDiff{}, err
 	}
 
 	return reverseStateDiff, nil
