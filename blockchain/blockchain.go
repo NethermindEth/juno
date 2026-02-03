@@ -32,7 +32,7 @@ type Reader interface {
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
 
 	BlockNumberByHash(hash *felt.Felt) (uint64, error)
-  BlockNumberAndIndexByTxHash(
+	BlockNumberAndIndexByTxHash(
 		hash *felt.TransactionHash,
 	) (blockNumber uint64, index uint64, err error)
 
@@ -230,8 +230,7 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 // TransactionsByBlockNumber gets all transactions for a given block number
 func (b *Blockchain) TransactionsByBlockNumber(number uint64) ([]core.Transaction, error) {
 	b.listener.OnRead("TransactionsByBlockNumber")
-	txn := b.database.NewIndexedBatch()
-	return core.GetTxsByBlockNum(txn, number)
+	return b.transactionLayout.TransactionsByBlockNumber(b.database, number)
 }
 
 // BlockNumberAndIndexByTxHash gets transaction block number and index by Tx hash
