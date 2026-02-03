@@ -2017,7 +2017,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	senderAddress := rpcv9.AdaptTransaction(newHead2.Transactions[0]).SenderAddress
-	senderFilter := []felt.Address{(felt.Address)(*senderAddress)}
+	senderFilter := []felt.Address{felt.Address(*senderAddress)}
 	senderTransactions := make([]core.Transaction, 0)
 	for _, txn := range newHead2.Transactions {
 		if filterTxBySender(txn, senderFilter) {
@@ -2033,7 +2033,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
 		},
-		senderAddress: []felt.Address{(felt.Address)(*senderAddress)},
+		senderAddress: []felt.Address{felt.Address(*senderAddress)},
 		steps: []stepInfo{
 			// {
 			// 	description: "on receiving new transaction",
@@ -2595,7 +2595,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	senderAddress := rpcv9.AdaptTransaction(newHead2.Transactions[0]).SenderAddress
 	senderFilter := []felt.Address{
-		(felt.Address)(*senderAddress),
+		felt.Address(*senderAddress),
 	}
 	b2PreConfirmedPartialFilteredReceipts := toAdaptedReceiptsWithFilter(
 		b2PreConfirmedPartial.Block,
