@@ -7,11 +7,13 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 )
 
 const (
-	verifyDBPathF = "db-path"
+	verifyDBPathF  = "db-path"
+	verifyTrieType = "type"
 )
 
 func VerifyCmd(defaultDBPath string) *cobra.Command {
@@ -22,6 +24,7 @@ func VerifyCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	verifyCmd.PersistentFlags().String(verifyDBPathF, defaultDBPath, "Path to the database")
+	verifyCmd.AddCommand(verifyTrieCmd())
 	verifyCmd.RunE = verifyAll
 
 	return verifyCmd
@@ -40,8 +43,17 @@ func verifyAll(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
+	logLevel := utils.NewLogLevel(utils.INFO)
+	logger, err := utils.NewZapLogger(logLevel, true)
+	if err != nil {
+		return fmt.Errorf("failed to create logger: %w", err)
+	}
+
+	trieVerifier := NewTrieVerifier(database, logger)
 	verifier := &VerifyRunner{
-		Verifiers: []Verifier{},
+		Verifiers: []Verifier{
+			trieVerifier,
+		},
 	}
 
 	ctx := cmd.Context()
