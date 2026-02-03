@@ -42,21 +42,6 @@ func (m *MockStateHistoryReader) EXPECT() *MockStateHistoryReaderMockRecorder {
 	return m.recorder
 }
 
-// ChainHeight mocks base method.
-func (m *MockStateHistoryReader) ChainHeight() (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChainHeight")
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ChainHeight indicates an expected call of ChainHeight.
-func (mr *MockStateHistoryReaderMockRecorder) ChainHeight() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainHeight", reflect.TypeOf((*MockStateHistoryReader)(nil).ChainHeight))
-}
-
 // Class mocks base method.
 func (m *MockStateHistoryReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 	m.ctrl.T.Helper()
@@ -100,6 +85,21 @@ func (m *MockStateHistoryReader) CompiledClassHash(classHash *felt.SierraClassHa
 func (mr *MockStateHistoryReaderMockRecorder) CompiledClassHash(classHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHash", reflect.TypeOf((*MockStateHistoryReader)(nil).CompiledClassHash), classHash)
+}
+
+// CompiledClassHashAt mocks base method.
+func (m *MockStateHistoryReader) CompiledClassHashAt(classHash *felt.SierraClassHash, blockNumber uint64) (felt.CasmClassHash, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompiledClassHashAt", classHash, blockNumber)
+	ret0, _ := ret[0].(felt.CasmClassHash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CompiledClassHashAt indicates an expected call of CompiledClassHashAt.
+func (mr *MockStateHistoryReaderMockRecorder) CompiledClassHashAt(classHash, blockNumber any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHashAt", reflect.TypeOf((*MockStateHistoryReader)(nil).CompiledClassHashAt), classHash, blockNumber)
 }
 
 // CompiledClassHashV2 mocks base method.

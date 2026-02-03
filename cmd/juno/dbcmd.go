@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
+	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint // deprecated package will be removed later
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
@@ -45,12 +46,18 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 }
 
 func DBInfoCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "info",
 		Short: "Retrieve database information",
 		Long:  `This subcommand retrieves and displays blockchain information stored in the database.`,
 		RunE:  dbInfo,
 	}
+	cmd.Flags().Bool(
+		transactionCombinedLayoutF,
+		defaultTransactionCombinedLayout,
+		transactionCombinedLayoutUsage,
+	)
+	return cmd
 }
 
 func DBSizeCmd() *cobra.Command {
@@ -70,12 +77,21 @@ func DBRevertCmd() *cobra.Command {
 		RunE:  dbRevert,
 	}
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
-
+	cmd.Flags().Bool(
+		transactionCombinedLayoutF,
+		defaultTransactionCombinedLayout,
+		transactionCombinedLayoutUsage,
+	)
 	return cmd
 }
 
 func dbInfo(cmd *cobra.Command, args []string) error {
 	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	transactionCombinedLayout, err := cmd.Flags().GetBool(transactionCombinedLayoutF)
 	if err != nil {
 		return err
 	}
@@ -86,7 +102,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil)
+	chain := blockchain.New(database, nil).WithTransactionLayout(transactionCombinedLayout)
 	var info DBInfo
 
 	// Get the latest block information
@@ -100,12 +116,27 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	schemaMeta, err := migration.SchemaMetadata(utils.NewNopZapLogger(), database)
-	if err != nil {
+	// Try new migration system metadata first, fall back to deprecated if not found
+	var schemaVersion uint64
+	metadata, err := migration.GetSchemaMetadata(database)
+	if err == nil {
+		// Use the raw uint64 value of the bitset to preserve all migration information
+		schemaVersion = uint64(metadata.CurrentVersion)
+	} else if errors.Is(err, db.ErrKeyNotFound) {
+		// Fall back to deprecated migration system
+		deprecatedMetadata, err := deprecatedmigration.SchemaMetadata(
+			utils.NewNopZapLogger(),
+			database,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get deprecatedschema metadata: %v", err)
+		}
+		schemaVersion = deprecatedMetadata.Version
+	} else {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
 
-	info.SchemaVersion = schemaMeta.Version
+	info.SchemaVersion = schemaVersion
 	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
 	info.ChainHeight = headBlock.Number
 	info.LatestBlockHash = headBlock.Hash
@@ -142,6 +173,11 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	transactionCombinedLayout, err := cmd.Flags().GetBool(transactionCombinedLayoutF)
+	if err != nil {
+		return err
+	}
+
 	if revertToBlock == 0 {
 		return fmt.Errorf("--%v cannot be 0", dbRevertToBlockF)
 	}
@@ -153,7 +189,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New(database, nil)
+		chain := blockchain.New(database, nil).WithTransactionLayout(transactionCombinedLayout)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)

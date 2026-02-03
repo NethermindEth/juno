@@ -674,10 +674,12 @@ func (b *BitArray) Copy() BitArray {
 
 // Returns the encoded string representation of the bit array.
 func (b *BitArray) EncodedString() string {
-	var res []byte
 	bt := b.Bytes()
-	res = append(res, b.len)
-	res = append(res, bt[:]...)
+
+	// 1 byte to accommodate the length and the other 32 for the data
+	res := make([]byte, 1+32)
+	res[0] = b.len
+	copy(res[1:33], bt[0:32])
 	return string(res)
 }
 

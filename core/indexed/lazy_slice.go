@@ -1,6 +1,8 @@
 package indexed
 
 import (
+	"iter"
+
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 )
@@ -54,4 +56,15 @@ func (l LazySlice[T]) All() ([]T, error) {
 		}
 	}
 	return items, nil
+}
+
+func (l LazySlice[T]) Iter() iter.Seq2[T, error] {
+	return func(yield func(T, error) bool) {
+		for i := range l.indexes {
+			item, err := l.get(i)
+			if !yield(item, err) {
+				return
+			}
+		}
+	}
 }

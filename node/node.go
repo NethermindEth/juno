@@ -25,7 +25,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
@@ -47,11 +46,12 @@ import (
 )
 
 const (
-	upgraderDelay    = 5 * time.Minute
-	mempoolLimit     = 1024
-	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
-	sequencerAddress = 1337
+	upgraderDelay                 = 5 * time.Minute
+	mempoolLimit                  = 1024
+	githubAPIUrl                  = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL              = "https://github.com/NethermindEth/juno/releases/latest"
+	sequencerAddress              = 1337
+	FlagTransactionCombinedLayout = "transaction-combined-layout"
 )
 
 // Config is the top-level juno configuration.
@@ -106,8 +106,11 @@ type Config struct {
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
 
-	DBCacheSize  uint `mapstructure:"db-cache-size"`
-	DBMaxHandles int  `mapstructure:"db-max-handles"`
+	DBCacheSize             uint   `mapstructure:"db-cache-size"`
+	DBMaxHandles            int    `mapstructure:"db-max-handles"`
+	DBCompactionConcurrency string `mapstructure:"db-compaction-concurrency"`
+	DBMemtableSize          uint   `mapstructure:"db-memtable-size"`
+	DBCompression           string `mapstructure:"db-compression"`
 
 	GatewayAPIKey   string `mapstructure:"gw-api-key"`
 	GatewayTimeouts string `mapstructure:"gw-timeouts"`
@@ -118,6 +121,8 @@ type Config struct {
 	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
 
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
+
+	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
 }
 
 type Node struct {
@@ -151,6 +156,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pebblev2.WithCacheSize(cfg.DBCacheSize),
 			pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
 			pebblev2.WithLogger(cfg.Colour),
+			pebblev2.WithCompactionConcurrency(cfg.DBCompactionConcurrency),
+			pebblev2.WithMemtableSize(cfg.DBMemtableSize),
+			pebblev2.WithCompression(cfg.DBCompression),
 		)
 	}
 
@@ -162,7 +170,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network)
+	chain := blockchain.New(database, &cfg.Network).
+		WithTransactionLayout(cfg.TransactionCombinedLayout)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
@@ -522,18 +531,13 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	migrationHTTPConfig := migration.HTTPConfig{
-		Enabled: n.cfg.HTTP,
-		Host:    n.cfg.HTTPHost,
-		Port:    n.cfg.HTTPPort,
-	}
-
-	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log, &migrationHTTPConfig); err != nil {
+	err = migrateIfNeeded(ctx, n.db, n.cfg, n.log)
+	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
 		}
-		n.log.Errorw("Error while migrating the DB", "err", err)
+		n.log.Errorw("Error while running migrations", "err", err)
 		return
 	}
 

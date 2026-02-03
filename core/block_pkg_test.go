@@ -15,14 +15,21 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, c)
 	})
-	t.Run("txs with signature", func(t *testing.T) {
-		var txs []Transaction
 
-		type signature = []*felt.Felt
-		// actual tx hash is irrelevant so it's ok to have different transactions with the same hash
-		txHash := felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE")
+	t.Run("txs with signature", func(t *testing.T) {
+		// actual tx hash is irrelevant so it's ok to have different transactions with
+		// the same hash
+		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
+
 		// nil signature, empty signature and signature with some non-empty value
-		for _, sign := range []signature{nil, make(signature, 0), {new(felt.Felt).SetUint64(uint64(3))}} {
+		signatures := [][]*felt.Felt{
+			nil,
+			{},
+			{felt.NewFromUint64[felt.Felt](3)},
+		}
+		txs := make([]Transaction, 0, len(signatures)*3)
+
+		for _, sign := range signatures {
 			invoke := &InvokeTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,
@@ -47,6 +54,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 		)
 		assert.Equal(t, expected, c, "expected: %s, got: %s", expected, c)
 	})
+
 	t.Run("txs without signature", func(t *testing.T) {
 		txs := []Transaction{
 			&L1HandlerTransaction{
@@ -72,14 +80,22 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, c)
 	})
-	t.Run("txs with signature", func(t *testing.T) {
-		var txs []Transaction
 
-		type signature = []*felt.Felt
-		// actual tx hash is irrelevant so it's ok to have different transactions with the same hash
-		txHash := felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE")
+	t.Run("txs with signature", func(t *testing.T) {
+		// actual tx hash is irrelevant so it's ok to have different transactions with the
+		// same hash
+		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
+
 		// nil signature, empty signature and signature with some non-empty value
-		for _, sign := range []signature{nil, make(signature, 0), {new(felt.Felt).SetUint64(uint64(3))}} {
+		signatures := [][]*felt.Felt{
+			nil,
+			{},
+			{felt.NewFromUint64[felt.Felt](3)},
+		}
+		txs := make([]Transaction, 0, len(signatures)*3)
+
+		// nil signature, empty signature and signature with some non-empty value
+		for _, sign := range signatures {
 			invoke := &InvokeTransaction{
 				TransactionHash:      txHash,
 				TransactionSignature: sign,

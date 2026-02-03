@@ -1,0 +1,40 @@
+name: Release Published
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-official-docker-image:
+    name: Build and Push Official Docker Image
+    if: github.repository_owner == 'NethermindEth'
+    uses: ./.github/workflows/docker-image-build-push.yml
+    with:
+      repo_type: "official"
+    secrets: inherit
+
+  tag-official-latest:
+    name: Tag Official Image as Latest
+    if: github.repository_owner == 'NethermindEth'
+    needs: [build-official-docker-image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Tag official image as latest
+        run: docker buildx imagetools create --tag nethermind/juno:latest nethermind/juno:${{ needs.build-official-docker-image.outputs.tag }}
+
+      - name: Clean up Docker config
+        if: always()
+        run: rm -f ${HOME}/.docker/config.json

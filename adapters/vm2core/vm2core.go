@@ -22,8 +22,8 @@ func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
 // todo(rdr): this is function definition is twice wrong:
 //   - the parameters should be received by reference
 //   - the output param should be return by value
-func AdaptOrderedMessageToL1(message vm.OrderedL2toL1Message) *core.L2ToL1Message {
-	return &core.L2ToL1Message{
+func AdaptOrderedMessageToL1(message *vm.OrderedL2toL1Message) core.L2ToL1Message {
+	return core.L2ToL1Message{
 		From:    message.From,
 		Payload: message.Payload,
 		// todo(rdr): this is not correct because it implies the L1 is always Ethereum
@@ -37,7 +37,13 @@ func AdaptOrderedMessagesToL1(messages []vm.OrderedL2toL1Message) []*core.L2ToL1
 	slices.SortFunc(messages, func(a, b vm.OrderedL2toL1Message) int {
 		return cmp.Compare(a.Order, b.Order)
 	})
-	return utils.Map(messages, AdaptOrderedMessageToL1)
+
+	out := make([]*core.L2ToL1Message, len(messages))
+	for i := range messages {
+		m := AdaptOrderedMessageToL1(&messages[i])
+		out[i] = &m
+	}
+	return out
 }
 
 func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {

@@ -55,7 +55,7 @@ func getRandomFelt(t *testing.T) (felt.Felt, []byte) {
 func getRandomFeltSlice(t *testing.T) ([]*felt.Felt, [][]byte) {
 	t.Helper()
 
-	size := rand.IntN(maxTransactionSize)
+	size := rand.IntN(maxTransactionSize-1) + 1
 	underlyingFelts := make([]felt.Felt, size)
 	felts := make([]*felt.Felt, size)
 	feltBytes := make([][]byte, size)
@@ -352,14 +352,4 @@ func StripCompilerFields(t *testing.T, class core.ClassDefinition) {
 	default:
 		return
 	}
-}
-
-// Allows to ignore the conversion function if it's nil. This is useful when we just want the core
-// type generators.
-func ConvertToP2P[P, I any](f func(I, *common.Hash) P, inner I, hash *common.Hash) P {
-	var p P
-	if f != nil {
-		p = f(inner, hash)
-	}
-	return p
 }

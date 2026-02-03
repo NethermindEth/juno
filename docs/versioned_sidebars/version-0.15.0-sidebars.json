@@ -9,9 +9,10 @@
         "hardware-requirements",
         "running-juno",
         "configuring",
-        "plugins",
+        "updating",
+        "tuning",
         "running-on-gcp",
-        "updating"
+        "plugins"
       ]
     },
     {

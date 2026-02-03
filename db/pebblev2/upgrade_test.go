@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	pebblev2lib "github.com/cockroachdb/pebble/v2"
-	"github.com/cockroachdb/pebble/v2/sstable/block"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -130,7 +129,7 @@ func runScenario(t *testing.T, scenario scenario) {
 
 		for range 2 {
 			t.Run("open in v2 with compression", func(t *testing.T) {
-				database, err := pebblev2.New(path, pebblev2.WithCompression(block.ZstdCompression))
+				database, err := pebblev2.New(path, pebblev2.WithCompression("zstd"))
 				require.NoError(t, err)
 				defer database.Close()
 
@@ -140,9 +139,9 @@ func runScenario(t *testing.T, scenario scenario) {
 			})
 		}
 
-		expectedFormatVersion := pebblev2.TargetNewV2Version
+		expectedFormatVersion := pebblev2.TargetV2Version
 		if scenario.v1 {
-			expectedFormatVersion = pebblev2.TargetUpgradedV1Version
+			expectedFormatVersion = pebblev2.TargetV2Version
 		}
 
 		t.Run(fmt.Sprintf("check format version %v", expectedFormatVersion), func(t *testing.T) {

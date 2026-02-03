@@ -246,69 +246,6 @@ func DeleteBlockHeaderByNumber(w db.KeyValueWriter, number uint64) error {
 	return w.Delete(db.BlockHeaderByNumberKey(number))
 }
 
-// TODO: Return TransactionReceipt instead of *TransactionReceipt.
-func GetReceiptByHash(
-	r db.KeyValueReader,
-	hash *felt.TransactionHash,
-) (*TransactionReceipt, error) {
-	val, err := TransactionBlockNumbersAndIndicesByHashBucket.RawValue().Get(r, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	receipt, err := ReceiptsByBlockNumberAndIndexBucket.RawKey().Get(r, val)
-	if err != nil {
-		return nil, err
-	}
-	return &receipt, nil
-}
-
-func GetReceiptByBlockNumIndex(
-	r db.KeyValueReader,
-	num,
-	index uint64,
-) (TransactionReceipt, error) {
-	numIdxKey := db.BlockNumIndexKey{
-		Number: num,
-		Index:  index,
-	}
-	return ReceiptsByBlockNumberAndIndexBucket.Get(r, numIdxKey)
-}
-
-func DeleteTxsAndReceipts(batch db.IndexedBatch, blockNum, numTxs uint64) error {
-	// remove txs and receipts
-	for i := range numTxs {
-		key := db.BlockNumIndexKey{
-			Number: blockNum,
-			Index:  i,
-		}
-		txn, err := TransactionsByBlockNumberAndIndexBucket.Get(batch, key)
-		if err != nil {
-			return err
-		}
-
-		if err := TransactionsByBlockNumberAndIndexBucket.Delete(batch, key); err != nil {
-			return err
-		}
-		if err := ReceiptsByBlockNumberAndIndexBucket.Delete(batch, key); err != nil {
-			return err
-		}
-
-		txHash := (*felt.TransactionHash)(txn.Hash())
-		if err := TransactionBlockNumbersAndIndicesByHashBucket.Delete(batch, txHash); err != nil {
-			return err
-		}
-
-		if l1handler, ok := txn.(*L1HandlerTransaction); ok {
-			if err := DeleteL1HandlerTxnHashByMsgHash(batch, l1handler.MessageHash()); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*BlockCommitments, error) {
 	var commitment *BlockCommitments
 	err := r.Get(db.BlockCommitmentsKey(blockNum), func(data []byte) error {
@@ -349,7 +286,14 @@ func DeleteL1HandlerTxnHashByMsgHash(w db.KeyValueWriter, msgHash []byte) error 
 func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []Transaction) error {
 	for _, txn := range txns {
 		if l1Handler, ok := txn.(*L1HandlerTransaction); ok {
-			return WriteL1HandlerTxnHashByMsgHash(w, l1Handler.MessageHash(), l1Handler.Hash())
+			err := WriteL1HandlerTxnHashByMsgHash(
+				w,
+				l1Handler.MessageHash(),
+				l1Handler.Hash(),
+			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -401,95 +345,6 @@ func WriteBlockHeader(w db.KeyValueWriter, header *Header) error {
 	return WriteBlockHeaderByNumber(w, header)
 }
 
-// Returns all transactions in a given block
-func GetTxsByBlockNum(r db.KeyValueReader, blockNum uint64) ([]Transaction, error) {
-	txs := []Transaction{}
-	txSeq := TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
-
-	for tx, err := range txSeq {
-		if err != nil {
-			return nil, err
-		}
-		txs = append(txs, tx.Value)
-	}
-
-	return txs, nil
-}
-
-// Returns all receipts in a given block
-func GetReceiptsByBlockNum(r db.KeyValueReader, blockNum uint64) ([]*TransactionReceipt, error) {
-	receipts := []*TransactionReceipt{}
-	receiptSeq := ReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
-
-	for receipt, err := range receiptSeq {
-		if err != nil {
-			return nil, err
-		}
-		receipts = append(receipts, &receipt.Value)
-	}
-
-	return receipts, nil
-}
-
-func GetBlockByNumber(r db.KeyValueReader, blockNum uint64) (*Block, error) {
-	header, err := GetBlockHeaderByNumber(r, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	txs, err := GetTxsByBlockNum(r, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	receipts, err := GetReceiptsByBlockNum(r, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Block{
-		Header:       header,
-		Transactions: txs,
-		Receipts:     receipts,
-	}, nil
-}
-
-func WriteTxAndReceipt(
-	w db.KeyValueWriter,
-	num, index uint64,
-	tx Transaction,
-	receipt *TransactionReceipt,
-) error {
-	txHash := (*felt.TransactionHash)(tx.Hash())
-	key := db.BlockNumIndexKey{
-		Number: num,
-		Index:  index,
-	}
-
-	if err := TransactionBlockNumbersAndIndicesByHashBucket.Put(w, txHash, &key); err != nil {
-		return err
-	}
-
-	if err := TransactionsByBlockNumberAndIndexBucket.Put(w, key, &tx); err != nil {
-		return err
-	}
-
-	if err := ReceiptsByBlockNumberAndIndexBucket.Put(w, key, receipt); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func GetTxByHash(r db.KeyValueReader, hash *felt.TransactionHash) (Transaction, error) {
-	val, err := TransactionBlockNumbersAndIndicesByHashBucket.RawValue().Get(r, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	return TransactionsByBlockNumberAndIndexBucket.RawKey().Get(r, val)
-}
-
 func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
 	var filter AggregatedBloomFilter
 	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
@@ -533,29 +388,31 @@ func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) er
 	return w.Put(db.RunningEventFilter.Key(), enc)
 }
 
-func GetCasmClassHashV2(
+func GetClassCasmHashMetadata(
 	r db.KeyValueReader,
 	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	var casmClassHash felt.CasmClassHash
-	err := r.Get(db.ClassHashToCasmHashV2Key(classHash), func(data []byte) error {
-		casmClassHash.Unmarshal(data)
-		return nil
-	})
-	return casmClassHash, err
+) (ClassCasmHashMetadata, error) {
+	return ClassCasmHashMetadataBucket.Get(r, classHash)
 }
 
-func WriteCasmClassHashV2(
+func WriteClassCasmHashMetadata(
 	w db.KeyValueWriter,
 	classHash *felt.SierraClassHash,
-	casmClassHash *felt.CasmClassHash,
+	metadata *ClassCasmHashMetadata,
 ) error {
-	return w.Put(db.ClassHashToCasmHashV2Key(classHash), casmClassHash.Marshal())
+	return ClassCasmHashMetadataBucket.Put(
+		w,
+		classHash,
+		metadata,
+	)
 }
 
-func DeleteCasmClassHashV2(
+func DeleteClassCasmHashMetadata(
 	w db.KeyValueWriter,
 	classHash *felt.SierraClassHash,
 ) error {
-	return w.Delete(db.ClassHashToCasmHashV2Key(classHash))
+	return ClassCasmHashMetadataBucket.Delete(
+		w,
+		classHash,
+	)
 }

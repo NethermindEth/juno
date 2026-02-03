@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	TargetV1Version         = pebble.FormatFlushableIngest
-	TargetUpgradedV1Version = pebblev2.FormatMajorVersion(TargetV1Version)
-	TargetNewV2Version      = pebblev2.FormatFlushableIngest
+	TargetV1Version = pebble.FormatFlushableIngest
+	TargetV2Version = pebblev2.FormatValueSeparation
 )
 
 // There are currently two possible cases: an old database created with version 1
@@ -22,7 +21,7 @@ const (
 func upgradeFormatIfNeeded(path string) (pebblev2.FormatMajorVersion, error) {
 	desc, err := pebble.Peek(path, vfs.Default)
 	if isNotV1 := err != nil || !desc.Exists; isNotV1 {
-		return TargetNewV2Version, nil
+		return TargetV2Version, nil
 	}
 
 	if isV2Supported := desc.FormatMajorVersion >= TargetV1Version; isV2Supported {
@@ -33,7 +32,7 @@ func upgradeFormatIfNeeded(path string) (pebblev2.FormatMajorVersion, error) {
 		if v2Format > pebblev2.FormatNewest {
 			return 0, fmt.Errorf("unknown pebble db newer format %v", v2Format)
 		}
-		return v2Format, nil
+		return max(TargetV2Version, v2Format), nil
 	}
 
 	database, err := pebble.Open(path, &pebble.Options{
@@ -44,5 +43,5 @@ func upgradeFormatIfNeeded(path string) (pebblev2.FormatMajorVersion, error) {
 	}
 	defer database.Close()
 
-	return TargetUpgradedV1Version, nil
+	return TargetV2Version, nil
 }

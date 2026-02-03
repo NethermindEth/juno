@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	hintRunnerZero "github.com/NethermindEth/cairo-vm-go/pkg/hintrunner/zero"
-	"github.com/NethermindEth/cairo-vm-go/pkg/parsers/zero"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -56,81 +54,12 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (CompiledCasmResponse, *jso
 
 	switch class := declaredClass.Class.(type) {
 	case *core.DeprecatedCairoClass:
-		resp, err := adaptDeprecatedCairoClass(class)
-		if err != nil {
-			return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-		}
-		return resp, nil
+		return CompiledCasmResponse{}, rpccore.ErrClassHashNotFound
 	case *core.SierraClass:
 		return adaptCasmClass(class.Compiled), nil
 	}
 
 	return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
-}
-
-func adaptDeprecatedCairoClass(class *core.DeprecatedCairoClass) (CompiledCasmResponse, error) {
-	program, err := utils.Gzip64Decode(class.Program)
-	if err != nil {
-		return CompiledCasmResponse{}, err
-	}
-
-	var deprecatedCairo zero.ZeroProgram
-	err = json.Unmarshal(program, &deprecatedCairo)
-	if err != nil {
-		return CompiledCasmResponse{}, err
-	}
-
-	bytecode := make([]*felt.Felt, len(deprecatedCairo.Data))
-	for i, str := range deprecatedCairo.Data {
-		f, err := felt.NewFromString[felt.Felt](str)
-		if err != nil {
-			return CompiledCasmResponse{}, err
-		}
-		bytecode[i] = f
-	}
-
-	classHints, err := hintRunnerZero.GetZeroHints(&deprecatedCairo)
-	if err != nil {
-		return CompiledCasmResponse{}, err
-	}
-
-	// slice of 2-element tuples where first value is pc, and second value is slice of hints
-	hints := make([][2]any, len(classHints))
-	var count int
-	for pc, hintItems := range utils.SortedMap(classHints) {
-		hints[count] = [2]any{pc, hintItems}
-		count += 1
-	}
-	rawHints, err := json.Marshal(hints)
-	if err != nil {
-		return CompiledCasmResponse{}, err
-	}
-
-	result := CompiledCasmResponse{
-		EntryPointsByType: EntryPointsByType{
-			Constructor: adaptDeprecatedEntryPoints(class.Constructors),
-			External:    adaptDeprecatedEntryPoints(class.Externals),
-			L1Handler:   adaptDeprecatedEntryPoints(class.L1Handlers),
-		},
-		Prime:                  deprecatedCairo.Prime,
-		Bytecode:               bytecode,
-		CompilerVersion:        deprecatedCairo.CompilerVersion,
-		Hints:                  json.RawMessage(rawHints),
-		BytecodeSegmentLengths: nil, // Cairo 0 classes don't have this field (it was introduced since Sierra 1.5.0)
-	}
-	return result, nil
-}
-
-func adaptDeprecatedEntryPoints(deprecatedEntryPoints []core.DeprecatedEntryPoint) []EntryPoint {
-	entryPoints := make([]EntryPoint, len(deprecatedEntryPoints))
-	for i := range deprecatedEntryPoints {
-		entryPoints[i] = EntryPoint{
-			Offset:   deprecatedEntryPoints[i].Offset.Uint64(),
-			Selector: *deprecatedEntryPoints[i].Selector,
-			Builtins: nil,
-		}
-	}
-	return entryPoints
 }
 
 func adaptCasmClass(class *core.CasmClass) CompiledCasmResponse {

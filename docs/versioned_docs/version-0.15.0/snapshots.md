@@ -10,7 +10,7 @@ Snapshots are provided in a compressed `.tar.zst` format for faster downloads an
 
 | Network             | Version       | Download Link                                                                                                 |
 | ------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
-| Mainet              | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Mainnet             | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
 | Sepolia             | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
 | Sepolia-Integration | **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
@@ -57,31 +57,9 @@ brew install zstd
 sudo dnf install zstd  # or yum install zstd
 ```
 
-### 3. Stream download and extract
+### 3. Download and extract
 
-Create a subfolder inside `$HOME/snapshots` where to stream the download:
-
-```bash
-# For Mainnet
-mkdir $HOME/snapshots/mainnet/
-```
-
-Download and extract the snapshot directly to your target directory:
-
-```bash
-# For Mainnet
-curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
-| zstd -d | tar -xvf - -C $HOME/snapshots/mainnet
-```
-
-For other networks, replace the URL with:
-
-- **Sepolia**: `https://juno-snapshots.nethermind.io/files/sepolia/latest`
-- **Sepolia-Integration**: `https://juno-snapshots.nethermind.io/files/sepolia-integration/latest`
-
-#### Alternative method: Download then extract
-
-If you prefer the traditional two-step approach or have limited bandwidth, you can download the snapshot first and extract it later:
+Two-step approach where we first download the snapshot and extract it later. Note that this will create the requirement to have twice the space required for the Juno snapshot. If space is not enough you can always try the **alternative method** below.
 
 ##### 1. Download the snapshot
 
@@ -107,6 +85,34 @@ mkdir $HOME/snapshots/mainnet/
 # Extract to your snapshots directory
 zstd -d juno_mainnet.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet
 ```
+
+
+#### Alternative method: Stream the snapshot directly
+:::warning
+Streaming can become unreliable if the network conditions are not extremely good, requiring multiple restarts. Resort to this if disk space is at a premium.
+:::
+
+Create a subfolder inside `$HOME/snapshots` where to stream the download:
+
+```bash
+# For Mainnet
+mkdir $HOME/snapshots/mainnet/
+```
+
+Download and extract the snapshot directly to your target directory:
+
+```bash
+# For Mainnet
+curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
+| zstd -d | tar -xvf - -C $HOME/snapshots/mainnet
+```
+
+
+For other networks, replace the URL with:
+
+- **Sepolia**: `https://juno-snapshots.nethermind.io/files/sepolia/latest`
+- **Sepolia-Integration**: `https://juno-snapshots.nethermind.io/files/sepolia-integration/latest`
+
 
 ## Running Juno with snapshots
 

@@ -4,6 +4,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
+	"github.com/NethermindEth/juno/db/typed/partial"
 	"github.com/NethermindEth/juno/db/typed/prefix"
 	"github.com/NethermindEth/juno/db/typed/value"
 )
@@ -149,17 +150,39 @@ var RunningEventFilterBucket = typed.NewBucket(
 	value.Cbor[RunningEventFilter](),
 )
 
-// Bucket 39: Class hash (SierraClassHash) -> CASM hash (CasmCasmHash)
-// TODO: Integrate this bucket
-var ClassHashToCasmHashV2Bucket = typed.NewBucket(
-	db.ClassHashToCasmHashV2,
+// Bucket 39: Sierra Class Hash -> Class CASM hash metadata
+var ClassCasmHashMetadataBucket = typed.NewBucket(
+	db.ClassCasmHashMetadata,
 	key.SierraClassHash,
-	value.CasmClassHash,
+	value.Binary[ClassCasmHashMetadata](),
 )
 
 // Bucket 40: Block number (uint64) -> Block transactions (BlockTransactions)
-var BlockTransactionsBucket = typed.NewBucket(
-	db.BlockTransactions,
-	key.Cbor[uint64](),
-	BlockTransactionsSerializer{},
+var BlockTransactionsBucket = prefix.NewPrefixedBucket(
+	typed.NewBucket(
+		db.BlockTransactions,
+		key.Cbor[uint64](),
+		BlockTransactionsSerializer{},
+	),
+	prefix.Prefix(key.Uint64, prefix.End[BlockTransactions]()),
+)
+
+var BlockTransactionsTransactionPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsTransactionPartialSerializer,
+)
+
+var BlockTransactionsReceiptPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsReceiptPartialSerializer,
+)
+
+var BlockTransactionsAllTransactionsPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsAllTransactionsPartialSerializer,
+)
+
+var BlockTransactionsAllReceiptsPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsAllReceiptsPartialSerializer,
 )

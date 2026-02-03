@@ -1,5 +1,5 @@
 ---
-title: Juno Plugins
+title: Plugins
 ---
 
 Juno supports plugins that satisfy the `JunoPlugin` interface, enabling developers to extend and customize Juno's behaviour and functionality by dynamically loading external plugins during runtime.

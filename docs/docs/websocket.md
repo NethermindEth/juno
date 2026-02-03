@@ -285,20 +285,31 @@ $ websocat -v ws://localhost:6061
 
 Juno supports the following Starknet API versions:
 
+- **v0.10.0**: Accessible via endpoint `/ws/v0_10`
 - **v0.9.0**: Accessible via endpoint `/ws/v0_9`
-- **v0.8.0**: Accessible via endpoint `/ws/v0_8`
+- **v0.8.1**: Accessible via endpoint `/ws/v0_8`
 - **v0.7.0**: Accessible via endpoint `/ws/v0_7`
 
 To use a specific API version, specify the version endpoint in your WS calls:
 
 <Tabs>
-<TabItem value="latest" label="Latest">
+<TabItem value="v10" label="v0.10.0">
 
 ```bash
 # wscat
 $ wscat -c ws://localhost:6061/ws/v0_9
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.15.18", "id": 1}
+```
+
+</TabItem>
+<TabItem value="v9" label="v0.9.0">
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061/ws/v0_9
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.15.18", "id": 1}
 ```
 
 </TabItem>
@@ -308,7 +319,7 @@ $ wscat -c ws://localhost:6061/ws/v0_9
 # wscat
 $ wscat -c ws://localhost:6061/ws/v0_8
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.15.18", "id": 1}
 ```
 
 </TabItem>
@@ -318,7 +329,7 @@ $ wscat -c ws://localhost:6061/ws/v0_8
 # wscat
 $ wscat -c ws://localhost:6061/ws/v0_7
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.15.18", "id": 1}
 ```
 
 </TabItem>

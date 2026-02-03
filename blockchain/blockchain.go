@@ -70,12 +70,13 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network       *utils.Network
-	database      db.KeyValueStore
-	listener      EventListener
-	l1HeadFeed    *feed.Feed[*core.L1Head]
-	cachedFilters *AggregatedBloomFilterCache
-	runningFilter *core.RunningEventFilter
+	network           *utils.Network
+	database          db.KeyValueStore
+	listener          EventListener
+	l1HeadFeed        *feed.Feed[*core.L1Head]
+	cachedFilters     *AggregatedBloomFilterCache
+	runningFilter     *core.RunningEventFilter
+	transactionLayout core.TransactionLayout
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
@@ -88,13 +89,30 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 	runningFilter := core.NewRunningEventFilterLazy(database)
 
 	return &Blockchain{
-		database:      database,
-		network:       network,
-		listener:      &SelectiveListener{},
-		l1HeadFeed:    feed.New[*core.L1Head](),
-		cachedFilters: &cachedFilters,
-		runningFilter: runningFilter,
+		database:          database,
+		network:           network,
+		listener:          &SelectiveListener{},
+		l1HeadFeed:        feed.New[*core.L1Head](),
+		cachedFilters:     &cachedFilters,
+		runningFilter:     runningFilter,
+		transactionLayout: core.TransactionLayoutPerTx, // default to per-tx for backward compatibility
 	}
+}
+
+// WithTransactionLayout sets the transaction storage layout.
+// If combined is true, uses combined (per-block) layout; otherwise uses per-tx layout.
+func (b *Blockchain) WithTransactionLayout(combined bool) *Blockchain {
+	if combined {
+		b.transactionLayout = core.TransactionLayoutCombined
+	} else {
+		b.transactionLayout = core.TransactionLayoutPerTx
+	}
+	return b
+}
+
+// TransactionLayout returns the transaction storage layout used by this blockchain
+func (b *Blockchain) TransactionLayout() core.TransactionLayout {
+	return b.transactionLayout
 }
 
 func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
@@ -128,7 +146,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 	}
 
 	txn := b.database.NewIndexedBatch()
-	return core.GetBlockByNumber(txn, curHeight)
+	return b.transactionLayout.BlockByNumber(txn, curHeight)
 }
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
@@ -153,7 +171,7 @@ func headsHeader(txn db.KeyValueReader) (*core.Header, error) {
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 	b.listener.OnRead("BlockByNumber")
 	txn := b.database.NewIndexedBatch()
-	return core.GetBlockByNumber(txn, number)
+	return b.transactionLayout.BlockByNumber(txn, number)
 }
 
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
@@ -174,7 +192,7 @@ func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 	}
 
 	txn := b.database.NewIndexedBatch()
-	return core.GetBlockByNumber(txn, blockNum)
+	return b.transactionLayout.BlockByNumber(txn, blockNum)
 }
 
 func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
@@ -200,19 +218,13 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
-	return core.TransactionsByBlockNumberAndIndexBucket.Get(
-		b.database,
-		db.BlockNumIndexKey{
-			Number: blockNumber,
-			Index:  index,
-		},
-	)
+	return b.transactionLayout.TransactionByBlockAndIndex(b.database, blockNumber, index)
 }
 
 // TransactionByHash gets the transaction for a given hash.
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
-	return core.GetTxByHash(b.database, (*felt.TransactionHash)(hash))
+	return b.transactionLayout.TransactionByHash(b.database, (*felt.TransactionHash)(hash))
 }
 
 // TransactionsByBlockNumber gets all transactions for a given block number
@@ -241,7 +253,11 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		return nil, nil, 0, err
 	}
 
-	receipt, err := core.GetReceiptByHash(b.database, txHash)
+	receipt, err := b.transactionLayout.ReceiptByBlockAndIndex(
+		b.database,
+		bnIndex.Number,
+		bnIndex.Index,
+	)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -259,17 +275,17 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 ) (core.TransactionReceipt, *felt.Felt, error) {
 	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
 
-	receipt, err := core.GetReceiptByBlockNumIndex(b.database, blockNumber, index)
+	receipt, err := b.transactionLayout.ReceiptByBlockAndIndex(b.database, blockNumber, index)
 	if err != nil {
-		return receipt, nil, err
+		return core.TransactionReceipt{}, nil, err
 	}
 
 	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
 	if err != nil {
-		return receipt, nil, err
+		return core.TransactionReceipt{}, nil, err
 	}
 
-	return receipt, header.Hash, nil
+	return *receipt, header.Hash, nil
 }
 
 func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
@@ -306,11 +322,14 @@ func (b *Blockchain) Store(
 			return err
 		}
 
-		for i, tx := range block.Transactions {
-			if err := core.WriteTxAndReceipt(txn, block.Number, uint64(i), tx,
-				block.Receipts[i]); err != nil {
-				return err
-			}
+		err := b.transactionLayout.WriteTransactionsAndReceipts(
+			txn,
+			block.Number,
+			block.Transactions,
+			block.Receipts,
+		)
+		if err != nil {
+			return err
 		}
 
 		if err := core.WriteStateUpdateByBlockNum(txn, block.Number, stateUpdate); err != nil {
@@ -325,7 +344,13 @@ func (b *Blockchain) Store(
 			return err
 		}
 
-		err := storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		err = storeCasmHashMetadata(
+			txn,
+			block.Number,
+			block.ProtocolVersion,
+			stateUpdate,
+			newClasses,
+		)
 		if err != nil {
 			return err
 		}
@@ -342,57 +367,112 @@ func (b *Blockchain) Store(
 	)
 }
 
-// storeCasmClassHashesV2ForBlock stores CASM class hashes V2 based on the block version.
-// For versions < 0.14.1, it computes hashes from class definitions.
-// For versions >= 0.14.1, it uses pre-computed hashes from the state update.
-func storeCasmClassHashesV2ForBlock(
+// storeCasmHashMetadata stores CASM hash metadata for declared and migrated classes.
+// See [core.ClassCasmHashMetadata]
+func storeCasmHashMetadata(
 	txn db.IndexedBatch,
+	blockNumber uint64,
 	protocolVersion string,
-	newClasses map[felt.Felt]core.ClassDefinition,
 	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	ver, err := core.ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return err
 	}
-	if ver.LessThan(core.Ver0_14_1) {
-		// Pre-compute blake2s CASM class hashes of declared classes in this block and
-		// store them in order to avoid computing them during simulation.
-		return computeAndStoreCasmClassHashesV2(txn, newClasses)
+
+	isV2Protocol := ver.GreaterThanEqual(core.Ver0_14_1)
+
+	if isV2Protocol {
+		return storeCasmHashMetadataV2(txn, blockNumber, stateUpdate)
 	}
-	return storeCasmClassHashesV2(txn, stateUpdate.StateDiff.DeclaredV1Classes)
+
+	return storeCasmHashMetadataV1(txn, blockNumber, stateUpdate, newClasses)
 }
 
-// computeAndStoreCasmClassHashesV2 computes and stores CASM class hashes V2 from class definitions.
-func computeAndStoreCasmClassHashesV2(
+// storeCasmHashMetadataV2 stores metadata for classes declared with casm hash v2 or
+// migrated from v1. casm hash v2 is after protocol version >= 0.14.1.
+func storeCasmHashMetadataV2(
 	txn db.IndexedBatch,
-	declaredClasses map[felt.Felt]core.ClassDefinition,
+	blockNumber uint64,
+	stateUpdate *core.StateUpdate,
 ) error {
-	for classHash, classDefinition := range declaredClasses {
-		sierraClass, ok := classDefinition.(*core.SierraClass)
-		if !ok {
-			// We don't have CASM classes for deprecated Cairo class
-			continue
+	for sierraClassHash, casmHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		metadata := core.NewCasmHashMetadataDeclaredV2(
+			blockNumber,
+			(*felt.CasmClassHash)(casmHash),
+		)
+		err := core.WriteClassCasmHashMetadata(
+			txn,
+			(*felt.SierraClassHash)(&sierraClassHash),
+			&metadata,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	for sierraClassHash := range stateUpdate.StateDiff.MigratedClasses {
+		metadata, err := core.GetClassCasmHashMetadata(txn, &sierraClassHash)
+		if err != nil {
+			return fmt.Errorf("cannot migrate class %s: metadata not found",
+				sierraClassHash.String(),
+			)
 		}
 
-		casmHashV2 := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
-		sierraClassHash := felt.SierraClassHash(classHash)
-		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
+		if err := metadata.Migrate(blockNumber); err != nil {
+			return fmt.Errorf("failed to migrate class %s at block %d: %w",
+				sierraClassHash.String(),
+				blockNumber,
+				err,
+			)
+		}
+
+		err = core.WriteClassCasmHashMetadata(txn, &sierraClassHash, &metadata)
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// storeCasmClassHashesV2 stores pre-computed CASM class hashes V2 from the state update.
-func storeCasmClassHashesV2(
+// storeDeclaredV1Classes stores metadata for classes declared with V1 hash (protocol < 0.14.1).
+// It computes the V2 hash from the class definition.
+func storeCasmHashMetadataV1(
 	txn db.IndexedBatch,
-	declaredV1Classes map[felt.Felt]*felt.Felt,
+	blockNumber uint64,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	for classHash, casmClassHashV2 := range declaredV1Classes {
-		casmHashV2 := felt.CasmClassHash(*casmClassHashV2)
-		sierraClassHash := felt.SierraClassHash(classHash)
-		if err := core.WriteCasmClassHashV2(txn, &sierraClassHash, &casmHashV2); err != nil {
+	for sierraClassHash, casmHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		casmHashV1 := (*felt.CasmClassHash)(casmHash)
+
+		classDef, ok := newClasses[sierraClassHash]
+		if !ok {
+			return fmt.Errorf("class %s not available in newClasses at block %d",
+				sierraClassHash.String(),
+				blockNumber,
+			)
+		}
+
+		sierraClass, ok := classDef.(*core.SierraClass)
+		if !ok {
+			return fmt.Errorf("class %s must be a SierraClass at block %d",
+				sierraClassHash.String(),
+				blockNumber,
+			)
+		}
+
+		v2Hash := sierraClass.Compiled.Hash(core.HashVersionV2)
+		casmHashV2 := felt.CasmClassHash(v2Hash)
+
+		metadata := core.NewCasmHashMetadataDeclaredV1(blockNumber, casmHashV1, &casmHashV2)
+		err := core.WriteClassCasmHashMetadata(
+			txn,
+			(*felt.SierraClassHash)(&sierraClassHash),
+			&metadata,
+		)
+		if err != nil {
 			return err
 		}
 	}
@@ -525,6 +605,7 @@ func (b *Blockchain) EventFilter(
 		pendingDataFn,
 		b.cachedFilters,
 		b.runningFilter,
+		b.transactionLayout,
 	), nil
 }
 
@@ -533,25 +614,22 @@ func (b *Blockchain) RevertHead() error {
 	return b.database.Update(b.revertHead)
 }
 
-// todo(rdr): return `core.StateDiff` by value
-func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
-	var reverseStateDiff *core.StateDiff
-
+func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 	txn := b.database.NewIndexedBatch()
 	blockNum, err := core.GetChainHeight(txn)
 	if err != nil {
-		return nil, err
+		return core.StateDiff{}, err
 	}
 
 	stateUpdate, err := core.GetStateUpdateByBlockNum(txn, blockNum)
 	if err != nil {
-		return nil, err
+		return core.StateDiff{}, err
 	}
 
 	state := core.NewState(txn)
-	reverseStateDiff, err = state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
+	reverseStateDiff, err := state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
 	if err != nil {
-		return nil, err
+		return core.StateDiff{}, err
 	}
 
 	return reverseStateDiff, nil
@@ -592,12 +670,12 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		}
 	}
 
-	if err = core.DeleteTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
+	if err := b.transactionLayout.DeleteTxsAndReceipts(txn, blockNumber); err != nil {
 		return err
 	}
 
 	// remove state update
-	if err = core.DeleteStateUpdateByBlockNum(txn, blockNumber); err != nil {
+	if err := core.DeleteStateUpdateByBlockNum(txn, blockNumber); err != nil {
 		return err
 	}
 
@@ -606,8 +684,7 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		return core.DeleteChainHeight(txn)
 	}
 
-	err = core.WriteChainHeight(txn, blockNumber-1)
-	if err != nil {
+	if err = core.WriteChainHeight(txn, blockNumber-1); err != nil {
 		return err
 	}
 
@@ -680,7 +757,13 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 
-		err = storeCasmClassHashesV2ForBlock(txn, block.ProtocolVersion, newClasses, stateUpdate)
+		err = storeCasmHashMetadata(
+			txn,
+			block.Number,
+			block.ProtocolVersion,
+			stateUpdate,
+			newClasses,
+		)
 		if err != nil {
 			return err
 		}
@@ -775,11 +858,14 @@ func (b *Blockchain) storeBlockData(
 		return err
 	}
 
-	// Store transactions and receipts
-	for i, tx := range block.Transactions {
-		if err := core.WriteTxAndReceipt(txn, block.Number, uint64(i), tx, block.Receipts[i]); err != nil {
-			return err
-		}
+	err := b.transactionLayout.WriteTransactionsAndReceipts(
+		txn,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	)
+	if err != nil {
+		return err
 	}
 
 	// Store state update

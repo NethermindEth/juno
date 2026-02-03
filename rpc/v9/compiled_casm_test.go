@@ -1,7 +1,6 @@
 package rpcv9_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -54,35 +53,13 @@ func TestCompiledCasm(t *testing.T) {
 		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
-		deprecatedCairo, ok := class.(*core.DeprecatedCairoClass)
-		require.True(t, ok)
-		program, err := utils.Gzip64Decode(deprecatedCairo.Program)
-		require.NoError(t, err)
-
-		// only fields that need to be unmarshaled specified
-		var deprecatedCairoDefinition struct {
-			Data []*felt.Felt `json:"data"`
-		}
-		err = json.Unmarshal(program, &deprecatedCairoDefinition)
-		require.NoError(t, err)
-
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClassDefinition{Class: class}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)
-		require.Nil(t, rpcErr)
-		assert.Equal(t, rpc.CompiledCasmResponse{
-			Prime:           "0x800000000000011000000000000000000000000000000000000000000000001",
-			CompilerVersion: "0.10.3",
-			EntryPointsByType: rpc.EntryPointsByType{
-				Constructor: utils.Map(deprecatedCairo.Constructors, adaptEntryPoint),
-				External:    utils.Map(deprecatedCairo.Externals, adaptEntryPoint),
-				L1Handler:   utils.Map(deprecatedCairo.L1Handlers, adaptEntryPoint),
-			},
-			Hints:    json.RawMessage(`[[2,[{"Dst":0}]]]`),
-			Bytecode: deprecatedCairoDefinition.Data,
-		}, resp)
+		require.Equal(t, rpccore.ErrClassHashNotFound, rpcErr)
+		require.Zero(t, resp)
 	})
 
 	t.Run("cairo", func(t *testing.T) {
@@ -123,12 +100,4 @@ func TestCompiledCasm(t *testing.T) {
 		assert.Equal(t, utils.ToHex(big.NewInt(123)), resp.Prime)
 		assert.Equal(t, "1.0.0", resp.CompilerVersion)
 	})
-}
-
-func adaptEntryPoint(point core.DeprecatedEntryPoint) rpc.EntryPoint {
-	return rpc.EntryPoint{
-		Offset:   point.Offset.Uint64(),
-		Selector: *point.Selector,
-		Builtins: nil,
-	}
 }
