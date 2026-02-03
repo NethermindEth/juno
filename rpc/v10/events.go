@@ -24,6 +24,8 @@ type EventFilter struct {
 	Keys      [][]felt.Felt  `json:"keys"`
 }
 
+// addresList is a list of addresses, that can be unmarshalled from a single address or a list of addresses.
+// It also removes duplicates from the list.
 type addressList []felt.Address
 
 func (a *addressList) UnmarshalJSON(data []byte) error {
@@ -42,10 +44,7 @@ func (a *addressList) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &list); err != nil {
 		return err
 	}
-	if len(list) == 0 {
-		*a = make([]felt.Address, 0)
-		return nil
-	}
+
 	*a = utils.Set(list)
 	return nil
 }

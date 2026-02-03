@@ -492,9 +492,7 @@ func TestEvents(t *testing.T) {
 					ToBlock:   &latestID,
 					Address: []felt.Address{
 						testAddress[0],
-						felt.UnsafeFromString[felt.Address](
-							"0x0000000000000000000000000000000000000000000000000000000000000000",
-						), // non-existent address
+						felt.Address(felt.Zero), // non-existent address
 					},
 				},
 				ResultPageRequest: defaultPageRequest,

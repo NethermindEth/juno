@@ -562,7 +562,12 @@ func TestEvents(t *testing.T) {
 			require.Len(t, events, 3)
 			for _, event := range events {
 				require.NotNil(t, event.From)
-				assert.Contains(t, from, felt.Address(*event.From), "event.From should be in the from addresses list")
+				assert.Contains(
+					t,
+					from,
+					felt.Address(*event.From),
+					"event.From should be in the from addresses list",
+				)
 			}
 
 			allEvents = events
