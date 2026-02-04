@@ -88,8 +88,10 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 	}
 }
 
-func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
-	httpHandlers map[string]http.HandlerFunc, log utils.StructuredLogger, metricsEnabled bool, corsEnabled bool,
+func makeRPCOverHTTP(
+	host string, port uint16, servers map[string]*jsonrpc.Server,
+	httpHandlers map[string]http.HandlerFunc, log utils.StructuredLogger,
+	metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {

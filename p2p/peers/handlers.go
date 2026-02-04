@@ -60,15 +60,21 @@ func getBuffer() *bytes.Buffer {
 	return buffer
 }
 
-func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
-	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.StructuredLogger,
+func streamHandler[ReqT proto.Message](
+	ctx context.Context, wg *sync.WaitGroup,
+	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error),
+	log utils.StructuredLogger,
 ) {
 	wg.Add(1)
 	defer wg.Done()
 
 	defer func() {
 		if err := stream.Close(); err != nil {
-			log.Debug("Error closing stream", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
+			log.Debug("Error closing stream",
+				zap.String("peer", stream.ID()),
+				zap.String("protocol", string(stream.Protocol())),
+				zap.Error(err),
+			)
 		}
 	}()
 
@@ -78,7 +84,11 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	// todo add limit reader
 	// todo add read timeout
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		log.Debug("Error reading from stream", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
+		log.Debug("Error reading from stream",
+			zap.String("peer", stream.ID()),
+			zap.String("protocol", string(stream.Protocol())),
+			zap.Error(err),
+		)
 		return
 	}
 
@@ -86,14 +96,22 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		log.Debug("Error unmarshalling message", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
+		log.Debug("Error unmarshalling message",
+			zap.String("peer", stream.ID()),
+			zap.String("protocol", string(stream.Protocol())),
+			zap.Error(err),
+		)
 		return
 	}
 
 	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
-		log.Debug("Error handling request", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
+		log.Debug("Error handling request",
+			zap.String("peer", stream.ID()),
+			zap.String("protocol", string(stream.Protocol())),
+			zap.Error(err),
+		)
 		return
 	}
 
@@ -104,7 +122,11 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 
 		// todo add write timeout
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			log.Debug("Error writing response", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
+			log.Debug("Error writing response",
+				zap.String("peer", stream.ID()),
+				zap.String("protocol", string(stream.Protocol())),
+				zap.Error(err),
+			)
 			break
 		}
 	}
@@ -439,7 +461,10 @@ func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMs
 			msg, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error("Failed to generate data", zap.Uint64("blockNumber", it.BlockNumber()), zap.Error(err))
+					h.log.Error("Failed to generate data",
+						zap.Uint64("blockNumber", it.BlockNumber()),
+						zap.Error(err),
+					)
 				}
 				break
 			}
@@ -478,7 +503,10 @@ func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, 
 			messages, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error("Failed to generate data", zap.Uint64("blockNumber", it.BlockNumber()), zap.Error(err))
+					h.log.Error("Failed to generate data",
+						zap.Uint64("blockNumber", it.BlockNumber()),
+						zap.Error(err),
+					)
 				}
 				break
 			}

@@ -33,7 +33,9 @@ type Client struct {
 	log       utils.StructuredLogger
 }
 
-func NewClient(newStream NewStreamFunc, snNetwork *utils.Network, log utils.StructuredLogger) *Client {
+func NewClient(
+	newStream NewStreamFunc, snNetwork *utils.Network, log utils.StructuredLogger,
+) *Client {
 	return &Client{
 		newStream: newStream,
 		network:   snNetwork,

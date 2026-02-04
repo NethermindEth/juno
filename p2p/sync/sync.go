@@ -75,7 +75,10 @@ func (s *Service) Run(ctx context.Context) {
 			continue
 		}
 
-		s.log.Info("Start Pipeline", zap.Int("Current height", nextHeight-1), zap.Int("Start", nextHeight))
+		s.log.Info("Start Pipeline",
+			zap.Int("Current height", nextHeight-1),
+			zap.Int("Start", nextHeight),
+		)
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
@@ -224,17 +227,25 @@ func (s *BlockFetcher) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debug("Received Block Header with signatures", zap.Uint64("blockNumber", p.blockNumber()))
+					s.log.Debug("Received Block Header with signatures",
+						zap.Uint64("blockNumber", p.blockNumber()),
+					)
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
-					s.log.Debug("Received Transactions with receipts", zap.Uint64("blockNumber", p.blockNumber()), zap.Int("txLen", len(p.txs)))
+					s.log.Debug("Received Transactions with receipts",
+						zap.Uint64("blockNumber", p.blockNumber()),
+						zap.Int("txLen", len(p.txs)),
+					)
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
 				case specEvents:
-					s.log.Debug("Received Events", zap.Uint64("blockNumber", p.blockNumber()), zap.Int("len", len(p.events)))
+					s.log.Debug("Received Events",
+						zap.Uint64("blockNumber", p.blockNumber()),
+						zap.Int("len", len(p.events)),
+					)
 					if _, ok := specEventsM[part.blockNumber()]; !ok {
 						specEventsM[part.blockNumber()] = p
 					}
@@ -249,7 +260,10 @@ func (s *BlockFetcher) processSpecBlockParts(
 						specContractDiffsM[part.blockNumber()] = p
 					}
 				default:
-					s.log.Warn("Unsupported part type", zap.Uint64("blockNumber", part.blockNumber()), zap.String("type", reflect.TypeOf(p).String()))
+					s.log.Warn("Unsupported part type",
+						zap.Uint64("blockNumber", part.blockNumber()),
+						zap.String("type", reflect.TypeOf(p).String()),
+					)
 				}
 
 				headerAndSig, okHeader := specBlockHeadersAndSigsM[curBlockNum]
@@ -258,7 +272,9 @@ func (s *BlockFetcher) processSpecBlockParts(
 				cls, okClasses := specClassesM[curBlockNum]
 				diffs, okDiffs := specContractDiffsM[curBlockNum]
 				if okHeader && okTxs && okEvents && okClasses && okDiffs {
-					s.log.Debug(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
+					s.log.Debug("Received all block parts from peers",
+						zap.Uint64("blockNumber", curBlockNum),
+					)
 
 					select {
 					case <-ctx.Done():
@@ -489,7 +505,9 @@ func (s *BlockFetcher) genHeadersAndSigs(
 			case *header.BlockHeadersResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected HeaderMessage from getBlockHeaders", zap.String("v", fmt.Sprintf("%T", v)))
+				s.log.Warn("Unexpected HeaderMessage from getBlockHeaders",
+					zap.String("v", fmt.Sprintf("%T", v)),
+				)
 				break loop
 			}
 
@@ -547,7 +565,10 @@ func (s *BlockFetcher) genClasses(
 			number:  blockNumber,
 			classes: classes,
 		}:
-			s.log.Debug("Received classes for block", zap.Uint64("blockNumber", blockNumber), zap.Int("lenClasses", len(classes)))
+			s.log.Debug("Received classes for block",
+				zap.Uint64("blockNumber", blockNumber),
+				zap.Int("lenClasses", len(classes)),
+			)
 		}
 	}()
 	return classesCh, nil
@@ -692,7 +713,9 @@ func (s *BlockFetcher) genTransactions(
 			case *synctransaction.TransactionsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected TransactionMessage from getTransactions", zap.String("v", fmt.Sprintf("%T", v)))
+				s.log.Warn("Unexpected TransactionMessage from getTransactions",
+					zap.String("v", fmt.Sprintf("%T", v)),
+				)
 				break loop
 			}
 		}

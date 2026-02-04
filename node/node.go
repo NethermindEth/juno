@@ -463,13 +463,17 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
 		n.services = append(n.services, ug)
 	} else {
-		log.Warn("Failed to parse Juno version, will not warn about new releases", zap.String("version", version))
+		log.Warn("Failed to parse Juno version, will not warn about new releases",
+			zap.String("version", version),
+		)
 	}
 
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.StructuredLogger) (*l1.Client, error) {
+func newL1Client(
+	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.StructuredLogger,
+) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)

@@ -171,7 +171,10 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				)
 				c.log.Warn("Timeouts can be updated via HTTP PUT request",
 					zap.String("timeout", currentTimeout.String()),
-					zap.String("hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the specified timeouts`),
+					zap.String("hint",
+						`Set --http-update-port and --http-update-host flags and `+
+							`make a PUT request to "/feeder/timeouts" with the specified timeouts`,
+					),
 				)
 			} else {
 				c.log.Debug("Failed query to feeder, retrying...",

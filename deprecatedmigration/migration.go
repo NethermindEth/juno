@@ -55,7 +55,9 @@ type Migration interface {
 type MigrationFunc func(db.IndexedBatch, *utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.StructuredLogger) ([]byte, error) {
+func (f MigrationFunc) Migrate(
+	_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.StructuredLogger,
+) ([]byte, error) {
 	txn := database.NewIndexedBatch()
 	if err := f(txn, network); err != nil {
 		return nil, err
@@ -142,7 +144,8 @@ func migrateIfNeeded(
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-		log.Info("Applying database migration", zap.String("stage", fmt.Sprintf("%d/%d", i+1, len(migrations))))
+		log.Info("Applying database migration",
+			zap.String("stage", fmt.Sprintf("%d/%d", i+1, len(migrations))))
 		migration := migrations[i]
 		if err = migration.Before(metadata.IntermediateState); err != nil {
 			return err

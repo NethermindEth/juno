@@ -99,7 +99,10 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 					}
 				case <-time.After(maxWait):
 					// todo(rdr): use a more specific zap.Field than any
-					logger.Info("missing transactions", zap.Any("pending", slices.Collect(maps.Values(pending))))
+					logger.Info(
+						"missing transactions",
+						zap.Any("pending", slices.Collect(maps.Values(pending))),
+					)
 					require.FailNow(t, "timed out waiting for transactions")
 				}
 			}

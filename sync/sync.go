@@ -274,12 +274,18 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	}
 	fromSU, err := s.blockchain.StateUpdateByNumber(fromBlock.Number)
 	if err != nil {
-		s.log.Warn("Failed to retrieve the reverted blockchain head state-update for the plugin", zap.Error(err))
+		s.log.Warn("Failed to retrieve the reverted blockchain head state-update for the plugin",
+			zap.Error(err),
+		)
 		return
 	}
 	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
 	if err != nil {
-		s.log.Warn("Failed to retrieve reverse state diff", zap.Uint64("head", fromBlock.Number), zap.String("hash", fromBlock.Hash.ShortString()), zap.Error(err))
+		s.log.Warn("Failed to retrieve reverse state diff",
+			zap.Uint64("head", fromBlock.Number),
+			zap.String("hash", fromBlock.Hash.ShortString()),
+			zap.Error(err),
+		)
 		return
 	}
 
@@ -492,7 +498,10 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
 				pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
-				s.log.Warn("Restarting sync process", zap.Uint64("height", nextHeight), zap.Bool("catchUpMode", s.catchUpMode))
+				s.log.Warn("Restarting sync process",
+					zap.Uint64("height", nextHeight),
+					zap.Bool("catchUpMode", s.catchUpMode),
+				)
 			}
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
@@ -522,7 +531,10 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 func (s *Synchronizer) revertHead(localHeader *core.Header) {
 	s.log.Info("Reorg detected", zap.String("localHead", localHeader.Hash.String()))
 	if err := s.blockchain.RevertHead(); err != nil {
-		s.log.Warn("Failed reverting HEAD", zap.String("reverted", localHeader.Hash.String()), zap.Error(err))
+		s.log.Warn("Failed reverting HEAD",
+			zap.String("reverted", localHeader.Hash.String()),
+			zap.Error(err),
+		)
 	} else {
 		s.log.Info("Reverted HEAD", zap.String("reverted", localHeader.Hash.String()))
 	}

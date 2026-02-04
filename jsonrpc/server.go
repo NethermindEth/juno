@@ -509,7 +509,10 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 			s.listener.OnRequestFailed(req.Method, res.Error)
 			reqJSON, _ := json.Marshal(req)
 			errJSON, _ := json.Marshal(res.Error)
-			s.log.Debug("Failed handing RPC request", zap.String("req", string(reqJSON)), zap.String("res", string(errJSON)))
+			s.log.Debug("Failed handing RPC request",
+				zap.String("req", string(reqJSON)),
+				zap.String("res", string(errJSON)),
+			)
 		}
 		return res, header, nil
 	}

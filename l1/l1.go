@@ -81,7 +81,10 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 			if err == nil {
 				return updateSub, nil
 			}
-			c.log.Debug("Failed to subscribe to L1 state updates", zap.Duration("tryAgainIn", c.resubscribeDelay), zap.Error(err))
+			c.log.Debug("Failed to subscribe to L1 state updates",
+				zap.Duration("tryAgainIn", c.resubscribeDelay),
+				zap.Error(err),
+			)
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
