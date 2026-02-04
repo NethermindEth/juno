@@ -584,12 +584,11 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 	handler := rpcv10.New(nil, nil, nil, utils.NewNopZapLogger())
 
 	t.Run("WithProofAndProofFacts", func(t *testing.T) {
-		proofFacts := []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](100),
-			felt.NewFromUint64[felt.Felt](200),
+		proofFacts := []felt.Felt{
+			felt.FromUint64[felt.Felt](100),
+			felt.FromUint64[felt.Felt](200),
 		}
 		txnToAdd := baseTxnToAdd
-		txnToAdd.ProofFacts = proofFacts
 
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
 			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
@@ -613,8 +612,8 @@ func TestAddTransactionWithProofAndProofFacts(t *testing.T) {
 				require.Equal(t, []uint64{1, 2, 3}, txStruct.Proof)
 				require.NotNil(t, txStruct.ProofFacts)
 				require.Equal(t, 2, len(txStruct.ProofFacts))
-				require.Equal(t, proofFacts[0], txStruct.ProofFacts[0])
-				require.Equal(t, proofFacts[1], txStruct.ProofFacts[1])
+				require.Equal(t, proofFacts[0], *txStruct.ProofFacts[0])
+				require.Equal(t, proofFacts[1], *txStruct.ProofFacts[1])
 			}).
 			Return(json.RawMessage(`{
 				"transaction_hash": "0x1",
@@ -702,7 +701,7 @@ func TestTransactionByHashWithResponseFlags(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.NotNil(t, tx)
 		require.NotNil(t, tx.ProofFacts)
-		require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
+		require.Equal(t, len(invokeTxCore.ProofFacts), len(tx.ProofFacts))
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
@@ -750,7 +749,7 @@ func TestTransactionByBlockIDAndIndexWithResponseFlags(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.NotNil(t, tx)
 		require.NotNil(t, tx.ProofFacts)
-		require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
+		require.Equal(t, len(invokeTxCore.ProofFacts), len(tx.ProofFacts))
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
@@ -765,7 +764,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	network := &utils.Sepolia
 
 	t.Run("RejectProofFactsForNonV3Invoke", func(t *testing.T) {
-		proofFact := felt.NewFromUint64[felt.Felt](100)
+		proofFact := felt.FromUint64[felt.Felt](100)
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
 			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
 				Transaction: rpcv9.Transaction{
@@ -779,7 +778,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 					CallData:      &[]*felt.Felt{},
 				},
 			},
-			ProofFacts: []*felt.Felt{proofFact},
+			ProofFacts: []felt.Felt{proofFact},
 		}
 
 		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
@@ -810,7 +809,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	t.Run("RejectProofFactsForNonInvoke", func(t *testing.T) {
-		proofFact := felt.NewFromUint64[felt.Felt](100)
+		proofFact := felt.FromUint64[felt.Felt](100)
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
 			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
 				Transaction: rpcv9.Transaction{
@@ -823,7 +822,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
 				},
 			},
-			ProofFacts: []*felt.Felt{proofFact},
+			ProofFacts: []felt.Felt{proofFact},
 		}
 
 		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
@@ -831,7 +830,6 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
 	})
 }
-
 func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	return core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
