@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"strconv"
 	stdsync "sync"
 	"testing"
@@ -328,14 +329,15 @@ func TestSubscribeEvents(t *testing.T) {
 		rpcv9.TxnPreConfirmed,
 		false,
 	)
-	targetAddr, err := felt.NewFromString[felt.Address](
-		"0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3",
-	)
-	require.NoError(t, err)
+	targetAddrs := []felt.Address{
+		felt.UnsafeFromString[felt.Address](
+			"0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3",
+		),
+	}
 	b1FilteredByAddr, b1EmittedByAddr := createTestEvents(
 		t,
 		b1,
-		targetAddr,
+		targetAddrs,
 		nil,
 		rpcv9.TxnAcceptedOnL2,
 		false,
@@ -350,7 +352,7 @@ func TestSubscribeEvents(t *testing.T) {
 	b1FilteredByAddrAndKey, b1EmittedByAddrAndKey := createTestEvents(
 		t,
 		b1,
-		targetAddr,
+		targetAddrs,
 		keys,
 		rpcv9.TxnAcceptedOnL2,
 		false,
@@ -360,7 +362,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreConfirmedPartialEmittedByAddrAndKey := createTestEvents(
 		t,
 		b2PreConfirmedPartial.Block,
-		targetAddr,
+		targetAddrs,
 		keys,
 		rpcv9.TxnPreConfirmed,
 		false,
@@ -369,7 +371,7 @@ func TestSubscribeEvents(t *testing.T) {
 	_, b2PreConfirmedExtendedEmittedByAddrAndKey := createTestEvents(
 		t,
 		b2PreConfirmedExtended.Block,
-		targetAddr,
+		targetAddrs,
 		keys,
 		rpcv9.TxnPreConfirmed,
 		false,
@@ -378,7 +380,7 @@ func TestSubscribeEvents(t *testing.T) {
 	_, b2EmittedByAddrAndKey := createTestEvents(
 		t,
 		b2,
-		targetAddr,
+		targetAddrs,
 		keys,
 		rpcv9.TxnAcceptedOnL2,
 		false,
@@ -411,7 +413,7 @@ func TestSubscribeEvents(t *testing.T) {
 		blockID        *rpcv9.SubscriptionBlockID
 		finalityStatus *rpcv9.TxnFinalityStatusWithoutL1
 		keys           [][]felt.Felt
-		fromAddr       *felt.Address
+		fromAddrs      []felt.Address
 		steps          []stepInfo
 		setupMocks     func()
 	}
@@ -420,7 +422,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description: "Events from new blocks - default status, Starknet version < 0.14.0",
 		blockID:     nil,
 		keys:        nil,
-		fromAddr:    nil,
+		fromAddrs:   nil,
 		setupMocks: func() {
 			setupMockEventFilterer(
 				mockChain,
@@ -467,7 +469,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description:    "Events from blocks + pending at start, Starknet < 0.14.0",
 		blockID:        nil,
 		keys:           nil,
-		fromAddr:       nil,
+		fromAddrs:      nil,
 		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
@@ -507,7 +509,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description: "Events from new blocks - default status",
 		blockID:     nil,
 		keys:        nil,
-		fromAddr:    nil,
+		fromAddrs:   nil,
 		setupMocks: func() {
 			setupMockEventFilterer(
 				mockChain,
@@ -551,7 +553,7 @@ func TestSubscribeEvents(t *testing.T) {
 		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
 		blockID:        nil,
 		keys:           nil,
-		fromAddr:       nil,
+		fromAddrs:      nil,
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
 				mockChain,
@@ -592,7 +594,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description: "Events from PreLatest block - default status",
 		blockID:     nil,
 		keys:        nil,
-		fromAddr:    nil,
+		fromAddrs:   nil,
 		setupMocks: func() {
 			setupMockEventFilterer(
 				mockChain,
@@ -628,7 +630,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description: "Events from historical blocks - default status, events from 2 block",
 		blockID:     utils.HeapPtr(rpcv9.SubscriptionBlockID(rpcv9.BlockIDFromNumber(b1.Number))),
 		keys:        nil,
-		fromAddr:    nil,
+		fromAddrs:   nil,
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
 				mockChain,
@@ -656,7 +658,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description: "Events with continuation token - default status",
 		blockID:     utils.HeapPtr(rpcv9.SubscriptionBlockID(rpcv9.BlockIDFromNumber(b1.Number))),
 		keys:        nil,
-		fromAddr:    nil,
+		fromAddrs:   nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
@@ -683,7 +685,7 @@ func TestSubscribeEvents(t *testing.T) {
 	b2PreConfirmedPartialFilteredByAddr, b2PreConfirmedPartialEmittedByAddr := createTestEvents(
 		t,
 		b2PreConfirmedPartial.Block,
-		targetAddr,
+		targetAddrs,
 		nil,
 		rpcv9.TxnPreConfirmed,
 		false,
@@ -692,7 +694,7 @@ func TestSubscribeEvents(t *testing.T) {
 	_, b2PreConfirmedExtendedEmittedByAddr := createTestEvents(
 		t,
 		b2PreConfirmedExtended.Block,
-		targetAddr,
+		targetAddrs,
 		nil,
 		rpcv9.TxnPreConfirmed,
 		false,
@@ -701,7 +703,7 @@ func TestSubscribeEvents(t *testing.T) {
 	_, b2EmittedByAddr := createTestEvents(
 		t,
 		b2,
-		targetAddr,
+		targetAddrs,
 		nil,
 		rpcv9.TxnAcceptedOnL2,
 		false,
@@ -712,7 +714,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description:    "Events with from_address filter, finality PRE_CONFIRMED",
 		blockID:        nil,
 		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
-		fromAddr:       targetAddr,
+		fromAddrs:      targetAddrs,
 		keys:           nil,
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
@@ -755,7 +757,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description:    "Events with from_address and key, finality PRE_CONFIRMED",
 		blockID:        nil,
 		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
-		fromAddr:       targetAddr,
+		fromAddrs:      targetAddrs,
 		keys:           keys,
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
@@ -905,7 +907,7 @@ func TestSubscribeEvents(t *testing.T) {
 		description: "returns reorg event",
 		blockID:     nil,
 		keys:        nil,
-		fromAddr:    nil,
+		fromAddrs:   nil,
 		setupMocks: func() {
 			setupMockEventFilterer(
 				mockChain,
@@ -965,7 +967,7 @@ func TestSubscribeEvents(t *testing.T) {
 			subID, conn := createTestEventsWebsocket(
 				t,
 				handler,
-				tc.fromAddr,
+				tc.fromAddrs,
 				tc.keys,
 				tc.blockID,
 				tc.finalityStatus,
@@ -3177,7 +3179,7 @@ func CreateTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) 
 func createTestEvents(
 	t *testing.T,
 	b *core.Block,
-	fromAddress *felt.Address,
+	fromAddresses []felt.Address,
 	keys [][]felt.Felt,
 	finalityStatus rpcv9.TxnFinalityStatus,
 	isPreLatest bool,
@@ -3189,17 +3191,13 @@ func createTestEvents(
 	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
 		blockNumber = &b.Number
 	}
-	var addresses []felt.Address
-	if fromAddress != nil {
-		addresses = append(addresses, *fromAddress)
-	}
-	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
+	eventMatcher := blockchain.NewEventMatcher(fromAddresses, keys)
 	var filtered []blockchain.FilteredEvent
 	var responses []SubscriptionEmittedEvent
 	for txIndex, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			// todo: remove the cast to felt.Felt
-			if fromAddress != nil && !event.From.Equal((*felt.Felt)(fromAddress)) {
+			if len(fromAddresses) > 0 && !slices.Contains(fromAddresses, felt.Address(*event.From)) {
 				continue
 			}
 
@@ -3239,7 +3237,7 @@ func createTestEvents(
 func createTestEventsWebsocket(
 	t *testing.T,
 	h *Handler,
-	fromAddr *felt.Address,
+	fromAddrs []felt.Address,
 	keys [][]felt.Felt,
 	blockID *rpcv9.SubscriptionBlockID,
 	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
@@ -3247,11 +3245,7 @@ func createTestEventsWebsocket(
 	t.Helper()
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
-		var addresses []felt.Address
-		if fromAddr != nil {
-			addresses = []felt.Address{*fromAddr}
-		}
-		return h.SubscribeEvents(ctx, addresses, keys, blockID, finalityStatus)
+		return h.SubscribeEvents(ctx, fromAddrs, keys, blockID, finalityStatus)
 	})
 }
 

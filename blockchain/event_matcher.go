@@ -210,3 +210,13 @@ func (e *EventMatcher) AppendBlockEvents(
 	}
 	return matchedEventsSofar, processedEvents, nil
 }
+
+func (e *EventMatcher) MatchesAddress(eventFrom *felt.Felt) bool {
+	if len(e.contractAddresses) == 0 {
+		return true
+	}
+	if eventFrom == nil {
+		return false
+	}
+	return slices.Contains(e.contractAddresses, felt.Address(*eventFrom))
+}
