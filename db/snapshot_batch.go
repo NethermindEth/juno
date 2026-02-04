@@ -95,7 +95,6 @@ func (b *snapshotBatch) Reset() {
 	b.writes = make(map[string][]byte)
 	b.deletes = make(map[string]struct{})
 	b.ranges = b.ranges[:0]
-	b.batch.Reset()
 	b.size = 0
 }
 
@@ -136,4 +135,8 @@ func inRange(ranges []deleteRange, key []byte) bool {
 
 func (b *snapshotBatch) NewIterator(prefix []byte, withUpperBound bool) (Iterator, error) {
 	return b.snapshot.NewIterator(prefix, withUpperBound)
+}
+
+func (b *snapshotBatch) Close() error {
+	return b.batch.Close()
 }
