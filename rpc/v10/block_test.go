@@ -23,13 +23,14 @@ import (
 )
 
 type blockTagTestCase struct {
-	description string
-	block       *core.Block
-	commitments *core.BlockCommitments
-	stateUpdate *core.StateUpdate
-	blockID     *rpcv9.BlockID
-	l1Head      *core.L1Head
-	blockStatus rpcv9.BlockStatus
+	description   string
+	block         *core.Block
+	commitments   *core.BlockCommitments
+	stateUpdate   *core.StateUpdate
+	blockID       *rpcv9.BlockID
+	l1Head        *core.L1Head
+	blockStatus   rpcv9.BlockStatus
+	responseFlags rpcv10.ResponseFlags
 }
 
 func createBlockTagTestCases(
@@ -104,6 +105,36 @@ func createBlockTagTestCases(
 			blockID:     &blockIDPreConfirmed,
 			l1Head:      nil,
 			blockStatus: rpcv9.BlockPreConfirmed,
+		},
+	}
+}
+
+func createBlockResponseFlagsTestCases(
+	block *core.Block,
+	commitments *core.BlockCommitments,
+	stateUpdate *core.StateUpdate,
+) []blockTagTestCase {
+	blockIDNumber := rpcv9.BlockIDFromNumber(block.Number)
+	return []blockTagTestCase{
+		{
+			description:   "response flags - without IncludeProofFacts",
+			block:         block,
+			commitments:   commitments,
+			stateUpdate:   stateUpdate,
+			blockID:       &blockIDNumber,
+			l1Head:        nil,
+			blockStatus:   rpcv9.BlockAcceptedL2,
+			responseFlags: rpcv10.ResponseFlags{},
+		},
+		{
+			description:   "response flags - with IncludeProofFacts",
+			block:         block,
+			commitments:   commitments,
+			stateUpdate:   stateUpdate,
+			blockID:       &blockIDNumber,
+			l1Head:        nil,
+			blockStatus:   rpcv9.BlockAcceptedL2,
+			responseFlags: rpcv10.ResponseFlags{IncludeProofFacts: true},
 		},
 	}
 }
@@ -238,6 +269,7 @@ func assertBlockWithTxs(
 	stateUpdate *core.StateUpdate,
 	expectedStatus rpcv9.BlockStatus,
 	actual *rpcv10.BlockWithTxs,
+	responseFlags rpcv10.ResponseFlags,
 ) {
 	t.Helper()
 	assert.Equal(t, expectedStatus, actual.Status)
@@ -252,19 +284,21 @@ func assertBlockWithTxs(
 			&actual.BlockHeader,
 		)
 	}
-	assertTransactionsEq(t, expectedBlock.Transactions, actual.Transactions)
+	includeProofFacts := responseFlags.IncludeProofFacts
+	assertTransactionsEq(t, expectedBlock.Transactions, actual.Transactions, includeProofFacts)
 }
 
 func assertTransactionsEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
 	actualTransactions []*rpcv10.Transaction,
+	includeProofFacts bool,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedTransactions), len(actualTransactions))
 	for i, expectedTransaction := range expectedTransactions {
 		require.Equal(t, expectedTransaction.Hash(), actualTransactions[i].Hash)
-		adaptedTransaction := rpcv10.AdaptTransaction(expectedTransaction, false)
+		adaptedTransaction := rpcv10.AdaptTransaction(expectedTransaction, includeProofFacts)
 		require.Equal(t, adaptedTransaction.Transaction, actualTransactions[i].Transaction)
 	}
 }
@@ -543,6 +577,10 @@ func TestBlockWithTxs(t *testing.T) {
 
 	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
 
+	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(t, clientSepolia, 4072139)
+	testCases = append(testCases, createBlockResponseFlagsTestCases(blockWithProofFacts, commitmentsPF, stateUpdatePF)...)
+
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
@@ -562,7 +600,7 @@ func TestBlockWithTxs(t *testing.T) {
 				tc.l1Head,
 			)
 
-			block, rpcErr := handler.BlockWithTxs(tc.blockID, rpcv10.ResponseFlags{})
+			block, rpcErr := handler.BlockWithTxs(tc.blockID, tc.responseFlags)
 			require.Nil(t, rpcErr)
 			assertBlockWithTxs(
 				t,
@@ -571,6 +609,7 @@ func TestBlockWithTxs(t *testing.T) {
 				tc.stateUpdate,
 				tc.blockStatus,
 				block,
+				tc.responseFlags,
 			)
 		})
 	}
@@ -816,100 +855,6 @@ func nilToOne(f *felt.Felt) *felt.Felt {
 		return &felt.One
 	}
 	return f
-}
-
-func TestBlockWithTxsWithResponseFlags(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	network := &utils.Sepolia
-	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
-	require.NotNil(t, block)
-	require.Greater(t, len(block.Transactions), 0)
-
-	// Count invoke v3 transactions with proof_facts and total invoke v3 transactions
-	var invokeV3WithProofFactsCount int
-	var invokeV3Count int
-	for _, tx := range block.Transactions {
-		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version.Is(3) {
-				invokeV3Count++
-				if invokeTx.ProofFacts != nil {
-					invokeV3WithProofFactsCount++
-				}
-			}
-		}
-	}
-	require.Greater(
-		t,
-		invokeV3WithProofFactsCount,
-		0,
-		"Block should contain at least one invoke v3 transaction with proof_facts",
-	)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-
-	blockID := rpcv9.BlockIDFromNumber(block.Header.Number)
-	mockReader.EXPECT().BlockByNumber(block.Header.Number).Return(block, nil).AnyTimes()
-	mockReader.EXPECT().Network().Return(network).AnyTimes()
-	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
-
-	mockReader.EXPECT().BlockCommitmentsByNumber(block.Header.Number).Return(&core.BlockCommitments{
-		TransactionCommitment: &felt.Zero,
-		EventCommitment:       &felt.Zero,
-		ReceiptCommitment:     &felt.Zero,
-		StateDiffCommitment:   &felt.Zero,
-	}, nil).AnyTimes()
-	mockReader.EXPECT().StateUpdateByNumber(block.Header.Number).Return(&core.StateUpdate{
-		StateDiff: &core.StateDiff{},
-	}, nil).AnyTimes()
-
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
-
-	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, responseFlags)
-		require.Nil(t, rpcErr)
-		require.NotNil(t, blockWithTxs)
-
-		// Verify total number of transactions is the same
-		require.Equal(t, len(block.Transactions), len(blockWithTxs.Transactions))
-
-		// Count transactions with proof_facts in response
-		var txsWithProofFactsCount int
-		for _, tx := range blockWithTxs.Transactions {
-			if tx.ProofFacts != nil {
-				txsWithProofFactsCount++
-			}
-		}
-
-		// Verify number of transactions with proof_facts matches expected
-		require.Equal(
-			t,
-			invokeV3WithProofFactsCount,
-			txsWithProofFactsCount,
-			"Number of transactions with proof_facts should match",
-		)
-	})
-
-	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
-		require.Nil(t, rpcErr)
-		require.NotNil(t, blockWithTxs)
-
-		// Verify total number of transactions is the same
-		require.Equal(t, len(block.Transactions), len(blockWithTxs.Transactions))
-
-		// Verify no transactions have proof_facts when flag is not set
-		for _, tx := range blockWithTxs.Transactions {
-			require.Nil(t, tx.ProofFacts, "proof_facts should not be included when flag is not set")
-		}
-	})
 }
 
 func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {

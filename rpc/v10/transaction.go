@@ -22,7 +22,7 @@ import (
 
 type Transaction struct {
 	rpcv9.Transaction
-	ProofFacts *[]*felt.Felt `json:"proof_facts,omitempty"`
+	ProofFacts []*felt.Felt `json:"proof_facts,omitempty"`
 }
 
 func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transaction {
@@ -34,7 +34,7 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 	if includeProofFacts {
 		if invokeTx, ok := coreTx.(*core.InvokeTransaction); ok {
 			if invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
-				tx.ProofFacts = &invokeTx.ProofFacts
+				tx.ProofFacts = invokeTx.ProofFacts
 			}
 		}
 	}
@@ -44,8 +44,8 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 
 type BroadcastedTransaction struct {
 	rpcv9.BroadcastedTransaction
-	Proof      []uint64     `json:"proof,omitempty"`
-	ProofFacts []*felt.Felt `json:"proof_facts,omitempty"`
+	Proof      []uint64    `json:"proof,omitempty"`
+	ProofFacts []felt.Felt `json:"proof_facts,omitempty"`
 }
 
 func AdaptBroadcastedTransaction(
@@ -74,7 +74,11 @@ func AdaptBroadcastedTransaction(
 
 	if invokeTx, ok := txn.(*core.InvokeTransaction); ok {
 		if invokeTx.Version.Is(3) && len(broadcastedTxn.ProofFacts) > 0 {
-			invokeTx.ProofFacts = broadcastedTxn.ProofFacts
+			proofFactsPtrs := make([]*felt.Felt, len(broadcastedTxn.ProofFacts))
+			for i := range broadcastedTxn.ProofFacts {
+				proofFactsPtrs[i] = &broadcastedTxn.ProofFacts[i]
+			}
+			invokeTx.ProofFacts = proofFactsPtrs
 		}
 	}
 
@@ -195,7 +199,7 @@ func (h *Handler) pushToFeederGateway(
 		*starknet.Transaction
 		ContractClass json.RawMessage `json:"contract_class,omitempty"`
 		Proof         []uint64        `json:"proof,omitempty"`
-		ProofFacts    []*felt.Felt    `json:"proof_facts,omitempty"`
+		ProofFacts    []felt.Felt     `json:"proof_facts,omitempty"`
 	}{
 		Transaction:   &feederTx,
 		ContractClass: v9Tx.ContractClass,

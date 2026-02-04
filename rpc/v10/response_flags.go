@@ -6,7 +6,7 @@ import (
 )
 
 type ResponseFlags struct {
-	IncludeProofFacts bool `json:"include_proof_facts"`
+	IncludeProofFacts bool
 }
 
 func (r *ResponseFlags) UnmarshalJSON(data []byte) error {
