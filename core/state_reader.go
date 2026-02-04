@@ -24,6 +24,10 @@ type StateHistoryReader interface {
 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
+	CompiledClassHashAt(
+		classHash *felt.SierraClassHash,
+		blockNumber uint64,
+	) (felt.CasmClassHash, error)
 }
 
 type StateReader interface {
@@ -140,6 +144,17 @@ func (s *StateSnapshotReader) ContractDeployedAt(
 	}
 
 	return deployedAt <= blockNumber, nil
+}
+
+func (s *StateSnapshotReader) CompiledClassHashAt(
+	classHash *felt.SierraClassHash,
+	blockNumber uint64,
+) (felt.CasmClassHash, error) {
+	metadata, err := GetClassCasmHashMetadata(s.txn, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(blockNumber)
 }
 
 // Class returns the class object corresponding to the given classHash

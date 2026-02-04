@@ -12,7 +12,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
@@ -29,28 +28,6 @@ var (
 )
 
 var _ StateHistoryReader = (*State)(nil)
-
-//go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
-type StateHistoryReader interface {
-	StateReader
-
-	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
-}
-
-type StateReader interface {
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
-	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	ClassTrie() (commontrie.Trie, error)
-	ContractTrie() (commontrie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
-}
 
 type State struct {
 	txn db.IndexedBatch
@@ -160,6 +137,15 @@ func (s *State) Update(
 	return s.verifyStateUpdateRoot(update.NewRoot)
 }
 
+var (
+	systemContractsClassHash = new(felt.Felt).SetUint64(0)
+
+	systemContracts = map[felt.Felt]struct{}{
+		felt.FromUint64[felt.Felt](1): {},
+		felt.FromUint64[felt.Felt](2): {},
+	}
+)
+
 func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {
 	// replace contract instances
 	for addr, classHash := range diff.ReplacedClasses {
@@ -220,46 +206,6 @@ func (s *State) putClass(classHash *felt.Felt, class ClassDefinition, declaredAt
 		return s.txn.Put(classKey, classEncoded)
 	}
 	return err
-}
-
-// Class returns the class object corresponding to the given classHash
-func (s *State) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
-	var class *DeclaredClassDefinition
-	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
-	})
-	return class, err
-}
-
-func (s *State) CompiledClassHash(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	classTrie, closer, err := s.classesTrie()
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			_ = closeErr
-		}
-	}()
-
-	casmHash, err := classTrie.Get((*felt.Felt)(classHash))
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-
-	if casmHash.IsZero() {
-		return felt.CasmClassHash{}, errors.New("casm hash not found")
-	}
-
-	return felt.CasmClassHash(casmHash), nil
-}
-
-func (s *State) CompiledClassHashV2(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	return GetCasmClassHashV2(s.txn, classHash)
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
@@ -622,56 +568,6 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 	}
 
 	return storageCloser()
-}
-
-// todo(rdr): return `StateDiff` by value
-func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
-	reversed := *diff
-
-	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
-	for addr, storageDiffs := range diff.StorageDiffs {
-		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
-		for key := range storageDiffs {
-			value := felt.Zero
-			if blockNumber > 0 {
-				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber-1)
-				if err != nil {
-					return nil, err
-				}
-				value = oldValue
-			}
-			reversedDiffs[key] = &value
-		}
-		reversed.StorageDiffs[addr] = reversedDiffs
-	}
-
-	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
-	for addr := range diff.Nonces {
-		oldNonce := felt.Zero
-		if blockNumber > 0 {
-			var err error
-			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		reversed.Nonces[addr] = &oldNonce
-	}
-
-	reversed.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
-	for addr := range diff.ReplacedClasses {
-		classHash := felt.Zero
-		if blockNumber > 0 {
-			var err error
-			classHash, err = s.ContractClassHashAt(&addr, blockNumber-1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		reversed.ReplacedClasses[addr] = &classHash
-	}
-
-	return &reversed, nil
 }
 
 func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error {
