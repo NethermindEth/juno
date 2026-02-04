@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
+	"go.uber.org/zap"
 )
 
 func (h *Handler) TransactionStatus(
@@ -60,7 +61,7 @@ func (h *Handler) TransactionStatus(
 		status, err := rpcv9.AdaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, rpcv9.ErrTransactionNotFound) {
-				h.log.Error("Failed to adapt transaction status", utils.SugaredFields("err", err)...)
+				h.log.Error("Failed to adapt transaction status", zap.Error(err))
 			}
 			return rpcv9.TransactionStatus{}, rpccore.ErrTxnHashNotFound
 		}

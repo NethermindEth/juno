@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 type Pool interface {
@@ -150,7 +151,7 @@ func (p *SequencerMempool) dbWriter() {
 		for txn := range p.dbWriteChan {
 			err := p.writeToDB(txn)
 			if err != nil {
-				p.log.Error("error in handling user transaction in persistent mempool", utils.SugaredFields("err", err)...)
+				p.log.Error("error in handling user transaction in persistent mempool", zap.Error(err))
 			}
 		}
 	}()
@@ -279,7 +280,7 @@ func (p *SequencerMempool) validate(userTxn *BroadcastedTransaction) error {
 
 	defer func() {
 		if err := closer(); err != nil {
-			p.log.Error("closing state in mempool validate", utils.SugaredFields("err", err)...)
+			p.log.Error("closing state in mempool validate", zap.Error(err))
 		}
 	}()
 

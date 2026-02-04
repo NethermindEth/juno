@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"go.uber.org/zap"
 )
 
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
@@ -80,7 +81,7 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 			if err == nil {
 				return updateSub, nil
 			}
-			c.log.Debug("Failed to subscribe to L1 state updates", utils.SugaredFields("tryAgainIn", c.resubscribeDelay, "err", err)...)
+			c.log.Debug("Failed to subscribe to L1 state updates", zap.Duration("tryAgainIn", c.resubscribeDelay), zap.Error(err))
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
@@ -135,7 +136,7 @@ func (c *Client) Run(ctx context.Context) error {
 					// TODO can we use geth's event.Resubscribe?
 					// We can't use a warn log level here since we guarantee the L1 url will only be printed
 					// in debug logs and panics (to avoid leaking the API key).
-					c.log.Debug("L1 update subscription failed, resubscribing", utils.SugaredFields("error", err)...)
+					c.log.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
 					updateSub.Unsubscribe()
 
 					updateSub, err = c.subscribeToUpdates(ctx, updateChan)
@@ -145,11 +146,9 @@ func (c *Client) Run(ctx context.Context) error {
 					defer updateSub.Unsubscribe() //nolint:gocritic
 				case logStateUpdate := <-updateChan:
 					c.log.Debug("Received L1 LogStateUpdate",
-						utils.SugaredFields(
-							"number", logStateUpdate.BlockNumber,
-							"stateRoot", logStateUpdate.GlobalRoot.Text(felt.Base16),
-							"blockHash", logStateUpdate.BlockHash.Text(felt.Base16),
-						)...,
+						zap.String("number", logStateUpdate.BlockNumber.String()),
+						zap.String("stateRoot", logStateUpdate.GlobalRoot.Text(felt.Base16)),
+						zap.String("blockHash", logStateUpdate.BlockHash.Text(felt.Base16)),
 					)
 
 					if logStateUpdate.Raw.Removed {
@@ -184,7 +183,7 @@ func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 			if err == nil {
 				return finalisedHeight
 			}
-			c.log.Debug("Failed to retrieve L1 finalised height, retrying...", utils.SugaredFields("error", err)...)
+			c.log.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
@@ -221,11 +220,9 @@ func (c *Client) setL1Head(ctx context.Context) error {
 	}
 	c.listener.OnNewL1Head(head)
 	c.log.Info("Updated l1 head",
-		utils.SugaredFields(
-			"blockNumber", head.BlockNumber,
-			"blockHash", head.BlockHash.ShortString(),
-			"stateRoot", head.StateRoot.ShortString(),
-		)...,
+		zap.Uint64("blockNumber", head.BlockNumber),
+		zap.String("blockHash", head.BlockHash.ShortString()),
+		zap.String("stateRoot", head.StateRoot.ShortString()),
 	)
 
 	return nil

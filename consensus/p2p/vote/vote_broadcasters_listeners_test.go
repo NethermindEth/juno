@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 )
@@ -70,7 +71,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			prevotes[i], prevotes[j] = prevotes[j], prevotes[i]
 		})
 		for i := range prevotes {
-			logger.Debug("broadcasting prevote", utils.SugaredFields("vote", getPrevoteString(&prevotes[i]))...)
+			logger.Debug("broadcasting prevote", zap.String("vote", getPrevoteString(&prevotes[i])))
 			prevoteBroadcaster.Broadcast(t.Context(), &prevotes[i])
 		}
 	}()
@@ -81,7 +82,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			precommits[i], precommits[j] = precommits[j], precommits[i]
 		})
 		for i := range precommits {
-			logger.Debug("broadcasting precommit", utils.SugaredFields("vote", getPrecommitString(&precommits[i]))...)
+			logger.Debug("broadcasting precommit", zap.String("vote", getPrecommitString(&precommits[i])))
 			precommitBroadcaster.Broadcast(t.Context(), &precommits[i])
 		}
 	}()
@@ -117,18 +118,18 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 		case prevote := <-prevoteListener.Listen():
 			voteStr := getPrevoteString(prevote)
 			require.Contains(t, voteSet, voteStr)
-			logger.Debug("received prevote", utils.SugaredFields("vote", voteStr)...)
+			logger.Debug("received prevote", zap.String("vote", voteStr))
 			delete(pending, voteStr)
 		case precommit := <-precommitListener.Listen():
 			voteStr := getPrecommitString(precommit)
 			require.Contains(t, voteSet, voteStr)
-			logger.Debug("received precommit", utils.SugaredFields("vote", voteStr)...)
+			logger.Debug("received precommit", zap.String("vote", voteStr))
 			delete(pending, voteStr)
 		case <-time.After(maxWait):
 			require.FailNow(t, "timeout")
 		}
 
-		logger.Info("remaining", utils.SugaredFields("pending", len(pending))...)
+		logger.Info("remaining", zap.Int("pending", len(pending)))
 
 		if len(pending) == 0 {
 			return

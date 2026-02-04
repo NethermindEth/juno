@@ -26,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -123,7 +124,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	peersAddrInfoS, err = loadPeers(database)
 	if err != nil {
-		log.Warn("Failed to load peers", utils.SugaredFields("err", err)...)
+		log.Warn("Failed to load peers", zap.Error(err))
 	}
 
 	if peers != "" {
@@ -209,7 +210,7 @@ func (s *Service) Listen() <-chan p2pSync.BlockBody {
 func (s *Service) Run(ctx context.Context) error {
 	defer func() {
 		if err := s.host.Close(); err != nil {
-			s.log.Warn("Failed to close host", utils.SugaredFields("err", err)...)
+			s.log.Warn("Failed to close host", zap.Error(err))
 		}
 	}()
 
@@ -235,7 +236,7 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 	for _, addr := range listenAddrs {
-		s.log.Info("Listening on", utils.SugaredFields("addr", addr)...)
+		s.log.Info("Listening on", zap.String("addr", addr.String()))
 	}
 
 	s.setProtocolHandlers()
@@ -246,10 +247,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 	<-ctx.Done()
 	if err := s.persistPeers(); err != nil {
-		s.log.Warn("Failed to persist peers", utils.SugaredFields("err", err)...)
+		s.log.Warn("Failed to persist peers", zap.Error(err))
 	}
 	if err := s.dht.Close(); err != nil {
-		s.log.Warn("Failed stopping DHT", utils.SugaredFields("err", err.Error())...)
+		s.log.Warn("Failed stopping DHT", zap.Error(err))
 	}
 	return nil
 }
@@ -265,7 +266,7 @@ func (s *Service) setProtocolHandlers() {
 func (s *Service) callAndLogErr(f func() error, msg string) {
 	err := f()
 	if err != nil {
-		s.log.Warn(msg, utils.SugaredFields("err", err.Error())...)
+		s.log.Warn(msg, zap.Error(err))
 	}
 }
 
@@ -346,7 +347,7 @@ func (s *Service) persistPeers() error {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	s.log.Info("Stored peers", utils.SugaredFields("num", len(peers))...)
+	s.log.Info("Stored peers", zap.Int("num", len(peers)))
 
 	return nil
 }

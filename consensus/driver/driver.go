@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 type TimeoutFn func(step types.Step, round types.Round) time.Duration
@@ -131,11 +132,11 @@ func (d *Driver[V, H, A]) execute(
 				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
 			}
 
-			d.log.Debug("Committing", utils.SugaredFields("height", action.Height, "round", action.Round)...)
+			d.log.Debug("Committing", zap.Uint64("height", uint64(action.Height)), zap.Int32("round", int32(action.Round)))
 			d.commitListener.OnCommit(ctx, action.Height, *action.Value)
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
-				d.log.Error("failed to delete WAL messages during commit", utils.SugaredFields("height", action.Height, "round", action.Round, "err", err)...)
+				d.log.Error("failed to delete WAL messages during commit", zap.Uint64("height", uint64(action.Height)), zap.Int32("round", int32(action.Round)), zap.Error(err))
 			}
 
 			return true

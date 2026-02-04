@@ -19,6 +19,7 @@ import (
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -67,14 +68,12 @@ func (m *Migrator) Migrate(
 
 	if m.startFrom > 0 {
 		log.Info("Resuming Casm hash metadata migration",
-			utils.SugaredFields(
-				"chain_height", chainHeight,
-				"resuming_from", m.startFrom,
-			)...,
+			zap.Uint64("chain_height", chainHeight),
+			zap.Uint64("resuming_from", m.startFrom),
 		)
 	} else {
 		log.Info("Starting Casm hash metadata migration",
-			utils.SugaredFields("chain_height", chainHeight)...,
+			zap.Uint64("chain_height", chainHeight),
 		)
 	}
 
@@ -121,10 +120,8 @@ func (m *Migrator) Migrate(
 		// Check for cancellation after processing
 		if shouldResume := resumeFrom <= toBlock; shouldResume {
 			log.Info("Casm hash metadata migration interrupted",
-				utils.SugaredFields(
-					"resume_from", resumeFrom,
-					"elapsed", progressTracker.Elapsed(),
-				)...,
+				zap.Uint64("resume_from", resumeFrom),
+				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
@@ -154,17 +151,15 @@ func (m *Migrator) Migrate(
 
 		if shouldResume := resumeFrom <= chainHeight; shouldResume {
 			log.Info("Casm hash metadata migration interrupted",
-				utils.SugaredFields(
-					"resume_from", resumeFrom,
-					"elapsed", progressTracker.Elapsed(),
-				)...,
+				zap.Uint64("resume_from", resumeFrom),
+				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
 	}
 
 	log.Info("Casm hash metadata migration completed",
-		utils.SugaredFields("elapsed", progressTracker.Elapsed())...,
+		zap.Duration("elapsed", progressTracker.Elapsed()),
 	)
 
 	return nil, nil

@@ -65,7 +65,7 @@ func (s *Service) Run(ctx context.Context) {
 		if err := ctx.Err(); err != nil {
 			break
 		}
-		s.log.Debug("Continuous iteration", utils.SugaredFields("i", i)...)
+		s.log.Debug("Continuous iteration", zap.Int("i", i))
 
 		iterCtx, cancelIteration := context.WithCancel(ctx)
 		nextHeight, err := s.getNextHeight()
@@ -75,7 +75,7 @@ func (s *Service) Run(ctx context.Context) {
 			continue
 		}
 
-		s.log.Info("Start Pipeline", utils.SugaredFields("Current height", nextHeight-1, "Start", nextHeight)...)
+		s.log.Info("Start Pipeline", zap.Int("Current height", nextHeight-1), zap.Int("Start", nextHeight))
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
@@ -111,7 +111,7 @@ func (s *Service) logError(msg string, err error) {
 			log = s.log
 		}
 
-		log.Error(msg, utils.SugaredFields("err", err)...)
+		log.Error(msg, zap.Error(err))
 	} else {
 		s.log.Debug("Sync context canceled")
 	}
@@ -224,32 +224,32 @@ func (s *BlockFetcher) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debug("Received Block Header with signatures", utils.SugaredFields("blockNumber", p.blockNumber())...)
+					s.log.Debug("Received Block Header with signatures", zap.Uint64("blockNumber", p.blockNumber()))
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
-					s.log.Debug("Received Transactions with receipts", utils.SugaredFields("blockNumber", p.blockNumber(), "txLen", len(p.txs))...)
+					s.log.Debug("Received Transactions with receipts", zap.Uint64("blockNumber", p.blockNumber()), zap.Int("txLen", len(p.txs)))
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
 				case specEvents:
-					s.log.Debug("Received Events", utils.SugaredFields("blockNumber", p.blockNumber(), "len", len(p.events))...)
+					s.log.Debug("Received Events", zap.Uint64("blockNumber", p.blockNumber()), zap.Int("len", len(p.events)))
 					if _, ok := specEventsM[part.blockNumber()]; !ok {
 						specEventsM[part.blockNumber()] = p
 					}
 				case specClasses:
-					s.log.Debug("Received Classes", utils.SugaredFields("blockNumber", p.blockNumber())...)
+					s.log.Debug("Received Classes", zap.Uint64("blockNumber", p.blockNumber()))
 					if _, ok := specClassesM[part.blockNumber()]; !ok {
 						specClassesM[part.blockNumber()] = p
 					}
 				case specContractDiffs:
-					s.log.Debug("Received ContractDiffs", utils.SugaredFields("blockNumber", p.blockNumber())...)
+					s.log.Debug("Received ContractDiffs", zap.Uint64("blockNumber", p.blockNumber()))
 					if _, ok := specContractDiffsM[part.blockNumber()]; !ok {
 						specContractDiffsM[part.blockNumber()] = p
 					}
 				default:
-					s.log.Warn("Unsupported part type", utils.SugaredFields("blockNumber", part.blockNumber(), "type", reflect.TypeOf(p))...)
+					s.log.Warn("Unsupported part type", zap.Uint64("blockNumber", part.blockNumber()), zap.String("type", reflect.TypeOf(p).String()))
 				}
 
 				headerAndSig, okHeader := specBlockHeadersAndSigsM[curBlockNum]
@@ -271,7 +271,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 							} else {
 								oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
 								if err != nil {
-									s.log.Error("Failed to get Header", utils.SugaredFields("number", curBlockNum, "err", err)...)
+									s.log.Error("Failed to get Header", zap.Uint64("number", curBlockNum), zap.Error(err))
 									return
 								}
 								prevBlockRoot = oldHeader.GlobalStateRoot
@@ -352,24 +352,16 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
 				s.log.Error(
 					"Number of transactions != count",
-					utils.SugaredFields(
-						"transactionCount",
-						coreBlock.TransactionCount,
-						"len(transactions)",
-						len(coreBlock.Transactions),
-					)...,
+					zap.Uint64("transactionCount", coreBlock.TransactionCount),
+					zap.Int("len(transactions)", len(coreBlock.Transactions)),
 				)
 				return
 			}
 			if int(coreBlock.EventCount) != len(events) {
 				s.log.Error(
 					"Number of events != count",
-					utils.SugaredFields(
-						"eventCount",
-						coreBlock.EventCount,
-						"len(events)",
-						len(events),
-					)...,
+					zap.Uint64("eventCount", coreBlock.EventCount),
+					zap.Int("len(events)", len(events)),
 				)
 				return
 			}
@@ -405,7 +397,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 				}
 
 				if closeErr := stateCloser(); closeErr != nil {
-					s.log.Error("Failed to close state reader", utils.SugaredFields("err", closeErr)...)
+					s.log.Error("Failed to close state reader", zap.Error(closeErr))
 				}
 			}()
 
@@ -497,7 +489,7 @@ func (s *BlockFetcher) genHeadersAndSigs(
 			case *header.BlockHeadersResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected HeaderMessage from getBlockHeaders", utils.SugaredFields("v", v)...)
+				s.log.Warn("Unexpected HeaderMessage from getBlockHeaders", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 
@@ -544,7 +536,7 @@ func (s *BlockFetcher) genClasses(
 			case *syncclass.ClassesResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected ClassMessage from getClasses", utils.SugaredFields("v", v)...)
+				s.log.Warn("Unexpected ClassMessage from getClasses", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 		}
@@ -555,7 +547,7 @@ func (s *BlockFetcher) genClasses(
 			number:  blockNumber,
 			classes: classes,
 		}:
-			s.log.Debug("Received classes for block", utils.SugaredFields("blockNumber", blockNumber, "lenClasses", len(classes))...)
+			s.log.Debug("Received classes for block", zap.Uint64("blockNumber", blockNumber), zap.Int("lenClasses", len(classes)))
 		}
 	}()
 	return classesCh, nil
@@ -596,7 +588,7 @@ func (s *BlockFetcher) genStateDiffs(
 			case *state.StateDiffsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected ClassMessage from getStateDiffs", utils.SugaredFields("v", v)...)
+				s.log.Warn("Unexpected ClassMessage from getStateDiffs", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 		}
@@ -645,7 +637,7 @@ func (s *BlockFetcher) genEvents(
 			case *event.EventsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected EventMessage from getEvents", utils.SugaredFields("v", v)...)
+				s.log.Warn("Unexpected EventMessage from getEvents", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 		}
@@ -700,12 +692,12 @@ func (s *BlockFetcher) genTransactions(
 			case *synctransaction.TransactionsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected TransactionMessage from getTransactions", utils.SugaredFields("v", v)...)
+				s.log.Warn("Unexpected TransactionMessage from getTransactions", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 		}
 
-		s.log.Debug("Transactions length", utils.SugaredFields("len", len(transactions))...)
+		s.log.Debug("Transactions length", zap.Int("len", len(transactions)))
 		spexTxs := specTxWithReceipts{
 			number:   blockNumber,
 			txs:      transactions,
@@ -732,8 +724,8 @@ func randomPeer(host host.Host, log utils.StructuredLogger) peer.ID {
 
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
-	log.Debug("Number of peers", utils.SugaredFields("len", len(peers))...)
-	log.Debug("Random chosen peer's info", utils.SugaredFields("peerInfo", store.PeerInfo(p))...)
+	log.Debug("Number of peers", zap.Int("len", len(peers)))
+	log.Debug("Random chosen peer's info", zap.String("peerInfo", store.PeerInfo(p).String()))
 
 	return p
 }
@@ -748,7 +740,7 @@ func randomPeerStream(host host.Host, log utils.StructuredLogger) NewStreamFunc 
 		}
 		stream, err := host.NewStream(ctx, randPeer, pids...)
 		if err != nil {
-			log.Debug("Error creating stream", utils.SugaredFields("peer", randPeer, "err", err)...)
+			log.Debug("Error creating stream", zap.String("peer", randPeer.String()), zap.Error(err))
 			removePeer(host, log, randPeer)
 			return nil, err
 		}
@@ -757,7 +749,7 @@ func randomPeerStream(host host.Host, log utils.StructuredLogger) NewStreamFunc 
 }
 
 func removePeer(host host.Host, log utils.StructuredLogger, id peer.ID) {
-	log.Debug("Removing peer", utils.SugaredFields("peerID", id)...)
+	log.Debug("Removing peer", zap.String("peerID", id.String()))
 	host.Peerstore().RemovePeer(id)
 	host.Peerstore().ClearAddrs(id)
 }

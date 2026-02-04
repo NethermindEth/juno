@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 // BlockProgressTracker tracks the progress of a migration by block number.
@@ -44,10 +45,8 @@ func (t *BlockProgressTracker) LogProgress() {
 	percentage := float64(t.completedBlocks.Load()) / float64(t.totalBlocks) * 100
 	t.logger.Info(
 		"Migration progress",
-		utils.SugaredFields(
-			"percentage", percentage,
-			"elapsed", t.Elapsed(),
-		)...,
+		zap.Float64("percentage", percentage),
+		zap.Duration("elapsed", t.Elapsed()),
 	)
 }
 

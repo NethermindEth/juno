@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const MaxRequestBodySize = 10 * utils.Megabyte
@@ -56,7 +57,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	maps.Copy(writer.Header(), header) // overwrites duplicate headers
 
 	if err != nil {
-		h.log.Error("Handler failure", utils.SugaredFields("err", err)...)
+		h.log.Error("Handler failure", zap.Error(err))
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {
@@ -73,7 +74,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		}
 		_, err = ioWriter.Write(resp)
 		if err != nil {
-			h.log.Warn("Failed writing response", utils.SugaredFields("err", err)...)
+			h.log.Warn("Failed writing response", zap.Error(err))
 		}
 	}
 }

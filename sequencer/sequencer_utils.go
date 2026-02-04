@@ -6,13 +6,14 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 // Execute a single block. Useful for tests.
 func (s *Sequencer) RunOnce() (*core.Header, error) {
 	err := s.buildState.ClearPending()
 	if err != nil {
-		s.log.Error("clearing pending", utils.SugaredFields("err", err)...)
+		s.log.Error("clearing pending", zap.Error(err))
 	}
 
 	if err := s.initPendingBlock(); err != nil {
@@ -23,7 +24,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	cancel()
 	if pErr := s.listenPool(ctx); pErr != nil {
 		if pErr != mempool.ErrTxnPoolEmpty {
-			s.log.Warn("listening pool", utils.SugaredFields("err", pErr)...)
+			s.log.Warn("listening pool", zap.Error(pErr))
 		}
 	}
 
@@ -38,7 +39,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
 		if err != nil {
-			s.log.Error("error sending new block to plugin", utils.SugaredFields("err", err)...)
+			s.log.Error("error sending new block to plugin", zap.Error(err))
 		}
 	}
 	// push the new head to the feed

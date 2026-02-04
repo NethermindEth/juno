@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 var _ database.TrieDB = (*Database)(nil)
@@ -177,12 +178,10 @@ func (d *Database) Commit(_ *felt.StateRootHash) error {
 	d.dirtyCache.reset()
 
 	d.log.Debug("Flushed dirty cache to disk",
-		utils.SugaredFields(
-			"nodes", nodes-d.dirtyCache.len(),
-			"duration", time.Since(startTime),
-			"liveNodes", d.dirtyCache.len(),
-			"liveSize", d.dirtyCache.size,
-		)...,
+		zap.Int("nodes", nodes-d.dirtyCache.len()),
+		zap.Duration("duration", time.Since(startTime)),
+		zap.Int("liveNodes", d.dirtyCache.len()),
+		zap.Int("liveSize", d.dirtyCache.size),
 	)
 	return nil
 }

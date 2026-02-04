@@ -17,6 +17,7 @@ import (
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -74,7 +75,7 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 
 		transactionWait.Go(func() {
 			for i, transaction := range transactions[index] {
-				logger.Debug("sending", utils.SugaredFields("count", i)...)
+				logger.Debug("sending", zap.Int("count", i))
 				require.NoError(t, p2p.Push(t.Context(), &transaction))
 			}
 		})
@@ -91,12 +92,13 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 				select {
 				case transaction := <-received:
 					delete(pending, transaction.Transaction.Hash().String())
-					logger.Debug("pending", utils.SugaredFields("count", len(pending))...)
+					logger.Debug("pending", zap.Int("count", len(pending)))
 					if len(pending) == 0 {
 						logger.Info("all transactions received")
 						return
 					}
 				case <-time.After(maxWait):
+					// TODO(structured-logging): migrate to explicit zap.Field values
 					logger.Info("missing transactions", utils.SugaredFields("pending", slices.Collect(maps.Values(pending)))...)
 					require.FailNow(t, "timed out waiting for transactions")
 				}

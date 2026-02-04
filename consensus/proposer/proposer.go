@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -118,7 +119,8 @@ func (p *proposer[V, H]) Run(ctx context.Context) error {
 func (p *proposer[V, H]) OnCommit(ctx context.Context, height types.Height, value V) {
 	proposal := p.proposalStore.Get(value.Hash())
 	if proposal == nil {
-		p.log.Error("Proposal not found", utils.SugaredFields("hash", value.Hash())...)
+		// todo(rdr): Hash should be able to be printed (perhaps make it implement Stringer)
+		p.log.Error("Proposal not found", zap.Any("hash", value.Hash()))
 		return
 	}
 
@@ -163,7 +165,7 @@ func (p *proposer[V, H]) init() {
 	for {
 		buildParams := p.getBuildParams()
 		if buildState, err = p.builder.InitPreconfirmedBlock(&buildParams); err != nil {
-			p.log.Error("Fail to reinitialize proposer", utils.SugaredFields("error", err)...)
+			p.log.Error("Fail to reinitialize proposer", zap.Error(err))
 			time.Sleep(retryTimeForFailedInit)
 			continue
 		}
@@ -205,14 +207,14 @@ func (p *proposer[V, H]) reRunTransactions(request commitRequest[H]) {
 
 	// Run the transactions and discard them if we fail to run them
 	if err := p.runTransactions(p.seenTransactions); err != nil {
-		p.log.Error("Fail to re-run transactions", utils.SugaredFields("error", err)...)
+		p.log.Error("Fail to re-run transactions", zap.Error(err))
 		p.seenTransactions = nil
 	}
 }
 
 func (p *proposer[V, H]) receiveTransactions(transactions []mempool.BroadcastedTransaction) {
 	if err := p.runTransactions(transactions); err != nil {
-		p.log.Error("Fail to receive transactions", utils.SugaredFields("error", err)...)
+		p.log.Error("Fail to receive transactions", zap.Error(err))
 		return
 	}
 
@@ -235,7 +237,7 @@ func (p *proposer[V, H]) finish(responseChannel chan<- V) {
 	buildState := p.buildState.Load().Clone()
 	buildResult, err := p.builder.Finish(&buildState)
 	for err != nil {
-		p.log.Error("Fail to finish proposer", utils.SugaredFields("error", err)...)
+		p.log.Error("Fail to finish proposer", zap.Error(err))
 		p.init()
 		buildResult, err = p.builder.Finish(&buildState)
 	}

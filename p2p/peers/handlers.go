@@ -22,6 +22,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
@@ -67,7 +68,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 
 	defer func() {
 		if err := stream.Close(); err != nil {
-			log.Debug("Error closing stream", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
+			log.Debug("Error closing stream", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
 		}
 	}()
 
@@ -77,7 +78,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	// todo add limit reader
 	// todo add read timeout
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		log.Debug("Error reading from stream", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
+		log.Debug("Error reading from stream", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
 		return
 	}
 
@@ -85,14 +86,14 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		log.Debug("Error unmarshalling message", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
+		log.Debug("Error unmarshalling message", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
 		return
 	}
 
 	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
-		log.Debug("Error handling request", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
+		log.Debug("Error handling request", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
 		return
 	}
 
@@ -103,7 +104,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 
 		// todo add write timeout
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			log.Debug("Error writing response", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
+			log.Debug("Error writing response", zap.String("peer", stream.ID()), zap.String("protocol", string(stream.Protocol())), zap.Error(err))
 			break
 		}
 	}
@@ -140,7 +141,7 @@ func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[pr
 			return nil, err
 		}
 
-		h.log.Debug("Created Header Iterator", utils.SugaredFields("blockNumber", blockHeader.Number)...)
+		h.log.Debug("Created Header Iterator", zap.Uint64("blockNumber", blockHeader.Number))
 
 		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
 		if err != nil {
@@ -372,7 +373,7 @@ func (h *Handler) onClassesRequest(req *syncclass.ClassesRequest) (iter.Seq[prot
 		}
 		defer func() {
 			if closeErr := closer(); closeErr != nil {
-				h.log.Error("Failed to close state reader", utils.SugaredFields("err", closeErr)...)
+				h.log.Error("Failed to close state reader", zap.Error(closeErr))
 			}
 		}()
 
@@ -438,7 +439,7 @@ func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMs
 			msg, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error("Failed to generate data", utils.SugaredFields("blockNumber", it.BlockNumber(), "err", err)...)
+					h.log.Error("Failed to generate data", zap.Uint64("blockNumber", it.BlockNumber()), zap.Error(err))
 				}
 				break
 			}
@@ -477,7 +478,7 @@ func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, 
 			messages, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error("Failed to generate data", utils.SugaredFields("blockNumber", it.BlockNumber(), "err", err)...)
+					h.log.Error("Failed to generate data", zap.Uint64("blockNumber", it.BlockNumber()), zap.Error(err))
 				}
 				break
 			}

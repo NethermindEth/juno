@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"go.uber.org/zap"
 )
 
 type TopicSubscription struct {
@@ -25,7 +26,7 @@ func NewTopicSubscription(log utils.Logger, bufferSize int, callback func(contex
 func (b TopicSubscription) Loop(ctx context.Context, topic *pubsub.Topic) {
 	sub, err := topic.Subscribe(pubsub.WithBufferSize(b.bufferSize))
 	if err != nil {
-		b.log.Error("unable to subscribe to topic", utils.SugaredFields("err", err)...)
+		b.log.Error("unable to subscribe to topic", zap.Error(err))
 		return
 	}
 	defer sub.Cancel()
@@ -37,7 +38,7 @@ func (b TopicSubscription) Loop(ctx context.Context, topic *pubsub.Topic) {
 				return
 			}
 
-			b.log.Error("unable to receive message", utils.SugaredFields("error", err)...)
+			b.log.Error("unable to receive message", zap.Error(err))
 			continue
 		}
 		b.callback(ctx, msg)

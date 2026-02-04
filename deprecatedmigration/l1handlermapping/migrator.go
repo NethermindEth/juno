@@ -14,6 +14,7 @@ import (
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -55,14 +56,12 @@ func (m *Migrator) Migrate(
 
 	if m.startFrom > 0 {
 		log.Info("Resuming L1 handler message hash migration",
-			utils.SugaredFields(
-				"chain_height", chainHeight,
-				"from_block", m.startFrom,
-			)...,
+			zap.Uint64("chain_height", chainHeight),
+			zap.Uint64("from_block", m.startFrom),
 		)
 	} else {
 		log.Info("Starting L1 handler message hash migration",
-			utils.SugaredFields("chain_height", chainHeight)...,
+			zap.Uint64("chain_height", chainHeight),
 		)
 	}
 
@@ -83,16 +82,14 @@ func (m *Migrator) Migrate(
 
 	if shouldResume := resumeFrom <= chainHeight; shouldResume {
 		log.Info("L1 handler message hash migration interrupted",
-			utils.SugaredFields(
-				"resume_from", resumeFrom,
-				"elapsed", progressTracker.Elapsed(),
-			)...,
+			zap.Uint64("resume_from", resumeFrom),
+			zap.Duration("elapsed", progressTracker.Elapsed()),
 		)
 		return encodeIntermediateState(resumeFrom), nil
 	}
 
 	log.Info("L1 handler message hash migration completed",
-		utils.SugaredFields("elapsed", progressTracker.Elapsed())...,
+		zap.Duration("elapsed", progressTracker.Elapsed()),
 	)
 	return nil, nil
 }

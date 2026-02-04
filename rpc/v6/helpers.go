@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	"go.uber.org/zap"
 )
 
 func (h *Handler) l1Head() (core.L1Head, *jsonrpc.Error) {
@@ -134,7 +135,7 @@ func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {
 	if err := f(); err != nil {
-		h.log.Error(msg, utils.SugaredFields("err", err)...)
+		h.log.Error(msg, zap.Error(err))
 	}
 }
 

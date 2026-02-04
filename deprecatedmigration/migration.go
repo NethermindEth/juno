@@ -32,6 +32,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
+	"go.uber.org/zap"
 )
 
 type schemaMetadata struct {
@@ -141,7 +142,7 @@ func migrateIfNeeded(
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-		log.Info("Applying database migration", utils.SugaredFields("stage", fmt.Sprintf("%d/%d", i+1, len(migrations)))...)
+		log.Info("Applying database migration", zap.String("stage", fmt.Sprintf("%d/%d", i+1, len(migrations))))
 		migration := migrations[i]
 		if err = migration.Before(metadata.IntermediateState); err != nil {
 			return err
@@ -198,11 +199,9 @@ func SchemaMetadata(log utils.StructuredLogger, targetDB db.KeyValueStore) (sche
 			// TODO: Instead of returning nil, we log the error for now to debug the issue
 			log.Error(
 				"Failed to unmarshal intermediate state",
-				utils.SugaredFields(
-					"version", metadata.Version,
-					"state", hex.EncodeToString(data),
-					"err", err,
-				)...,
+				zap.Uint64("version", metadata.Version),
+				zap.String("state", hex.EncodeToString(data)),
+				zap.Error(err),
 			)
 		}
 		return nil

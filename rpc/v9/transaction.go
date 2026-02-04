@@ -20,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 )
 
 type TransactionType uint8
@@ -844,7 +845,7 @@ func (h *Handler) TransactionStatus(
 		status, err := AdaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, ErrTransactionNotFound) {
-				h.log.Error("Failed to adapt transaction status", utils.SugaredFields("err", err)...)
+				h.log.Error("Failed to adapt transaction status", zap.Error(err))
 			}
 			return TransactionStatus{}, rpccore.ErrTxnHashNotFound
 		}

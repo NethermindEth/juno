@@ -8,6 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 type Upgrader struct {
@@ -19,7 +20,13 @@ type Upgrader struct {
 	delay          time.Duration
 }
 
-func NewUpgrader(version *semver.Version, apiURL, releasesURL string, delay time.Duration, log utils.StructuredLogger) *Upgrader {
+func NewUpgrader(
+	version *semver.Version,
+	apiURL,
+	releasesURL string,
+	delay time.Duration,
+	log utils.StructuredLogger,
+) *Upgrader {
 	return &Upgrader{
 		currentVersion: version,
 		client:         &http.Client{},
@@ -28,16 +35,6 @@ func NewUpgrader(version *semver.Version, apiURL, releasesURL string, delay time
 		releasesURL:    releasesURL,
 		delay:          delay,
 	}
-}
-
-func (u *Upgrader) WithClient(client *http.Client) *Upgrader {
-	u.client = client
-	return u
-}
-
-func (u *Upgrader) WithLog(log utils.StructuredLogger) *Upgrader {
-	u.log = log
-	return u
 }
 
 type Release struct {
@@ -63,10 +60,10 @@ func (u *Upgrader) Run(ctx context.Context) error {
 
 			resp, err := u.client.Do(req)
 			if err != nil {
-				u.log.Debug("Failed to fetch latest release", utils.SugaredFields("err", err)...)
+				u.log.Debug("Failed to fetch latest release", zap.Error(err))
 				continue
 			} else if resp.StatusCode != http.StatusOK {
-				u.log.Debug("Failed to fetch latest release", utils.SugaredFields("status", resp.Status)...)
+				u.log.Debug("Failed to fetch latest release", zap.String("status", resp.Status))
 				continue
 			}
 
@@ -74,11 +71,9 @@ func (u *Upgrader) Run(ctx context.Context) error {
 			if err := json.NewDecoder(resp.Body).Decode(latest); err == nil {
 				if needsUpdate(*u.currentVersion, *latest.Version) {
 					u.log.Warn("New release is available.",
-						utils.SugaredFields(
-							"currentVersion", u.currentVersion.String(),
-							"newVersion", latest.Version.String(),
-							"link", u.releasesURL,
-						)...,
+						zap.String("currentVersion", u.currentVersion.String()),
+						zap.String("newVersion", latest.Version.String()),
+						zap.String("link", u.releasesURL),
 					)
 				} else {
 					u.log.Debug("Application is up-to-date.")

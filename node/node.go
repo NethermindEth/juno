@@ -40,6 +40,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
@@ -462,7 +463,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
 		n.services = append(n.services, ug)
 	} else {
-		log.Warn("Failed to parse Juno version, will not warn about new releases", utils.SugaredFields("version", version)...)
+		log.Warn("Failed to parse Juno version, will not warn about new releases", zap.String("version", version))
 	}
 
 	return n, nil
@@ -499,25 +500,25 @@ func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockcha
 func (n *Node) Run(ctx context.Context) {
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
-			n.log.Error("Error while closing the DB", utils.SugaredFields("err", closeErr)...)
+			n.log.Error("Error while closing the DB", zap.Error(closeErr))
 		}
 	}()
 
 	defer func() {
 		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
-			n.log.Error("Error while storing running event filter", utils.SugaredFields("err", dbErr)...)
+			n.log.Error("Error while storing running event filter", zap.Error(dbErr))
 		}
 	}()
 
 	cfg := make(map[string]any)
 	err := mapstructure.Decode(n.cfg, &cfg)
 	if err != nil {
-		n.log.Error("Error while decoding config to mapstructure", utils.SugaredFields("err", err)...)
+		n.log.Error("Error while decoding config to mapstructure", zap.Error(err))
 		return
 	}
 	yamlConfig, err := yaml.Marshal(n.cfg)
 	if err != nil {
-		n.log.Error("Error while marshalling config", utils.SugaredFields("err", err)...)
+		n.log.Error("Error while marshalling config", zap.Error(err))
 		return
 	}
 	n.log.Debug(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
@@ -537,7 +538,7 @@ func (n *Node) Run(ctx context.Context) {
 			n.log.Info("DB Migration cancelled")
 			return
 		}
-		n.log.Error("Error while running migrations", utils.SugaredFields("err", err)...)
+		n.log.Error("Error while running migrations", zap.Error(err))
 		return
 	}
 
@@ -561,7 +562,7 @@ func (n *Node) Run(ctx context.Context) {
 			n.cfg.RPCCallMaxGas,
 		)
 		if err != nil {
-			n.log.Error("Error building genesis state", utils.SugaredFields("err", err)...)
+			n.log.Error("Error building genesis state", zap.Error(err))
 			return
 		}
 	}
@@ -580,7 +581,7 @@ func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel cont
 		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 		defer cancel()
 		if err := s.Run(ctx); err != nil {
-			n.log.Error("Service error", utils.SugaredFields("name", reflect.TypeOf(s), "err", err)...)
+			n.log.Error("Service error", zap.String("name", reflect.TypeOf(s).String()), zap.Error(err))
 		}
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"go.uber.org/zap"
 )
 
 type Event struct {
@@ -51,11 +52,11 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 					},
 				})
 				if err != nil {
-					h.log.Warn("Error marshalling a subscription reply", utils.SugaredFields("err", err)...)
+					h.log.Warn("Error marshalling a subscription reply", zap.Error(err))
 					return
 				}
 				if _, err = w.Write(resp); err != nil {
-					h.log.Warn("Error writing a subscription reply", utils.SugaredFields("err", err)...)
+					h.log.Warn("Error writing a subscription reply", zap.Error(err))
 					return
 				}
 			}

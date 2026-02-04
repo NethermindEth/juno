@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common/lru"
+	"go.uber.org/zap"
 )
 
 const (
@@ -174,17 +175,17 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
 	needPreConfirmed, err := pendingdata.NeedsPreConfirmed(lastHeader.ProtocolVersion)
 	if err != nil {
-		s.log.Error("Failed to parse block version", utils.SugaredFields("err", err)...)
+		s.log.Error("Failed to parse block version", zap.Error(err))
 		return
 	}
 
 	if needPreConfirmed {
 		if err := s.storeEmptyPreConfirmed(lastHeader, nil); err != nil {
-			s.log.Error("Failed to store empty pre_confirmed block", utils.SugaredFields("number", lastHeader.Number)...)
+			s.log.Error("Failed to store empty pre_confirmed block", zap.Uint64("number", lastHeader.Number))
 		}
 	} else {
 		if err := s.storeEmptyPending(lastHeader); err != nil {
-			s.log.Error("Failed to store empty pending block", utils.SugaredFields("number", lastHeader.Number)...)
+			s.log.Error("Failed to store empty pending block", zap.Uint64("number", lastHeader.Number))
 		}
 	}
 }
@@ -213,7 +214,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 
 			head, err := s.blockchain.HeadsHeader()
 			if err != nil {
-				s.log.Debug("Error while reading head header", utils.SugaredFields("err", err)...)
+				s.log.Debug("Error while reading head header", zap.Error(err))
 				continue
 			}
 
@@ -223,7 +224,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 
 			pending, err := s.dataSource.BlockPending(ctx)
 			if err != nil {
-				s.log.Debug("Error while trying to poll pending block", utils.SugaredFields("err", err)...)
+				s.log.Debug("Error while trying to poll pending block", zap.Error(err))
 				continue
 			}
 			pending.Block.Number = head.Number + 1
@@ -257,7 +258,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 			need, err := pendingdata.NeedsPreConfirmed(head.ProtocolVersion)
 			if err != nil {
-				s.log.Debug("Failed to parse protocol version", utils.SugaredFields("err", err)...)
+				s.log.Debug("Failed to parse protocol version", zap.Error(err))
 				continue
 			}
 
@@ -266,13 +267,13 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 
 			if err := s.storeEmptyPending(head.Header); err != nil {
-				s.log.Debug("Error storing empty pending", utils.SugaredFields("err", err)...)
+				s.log.Debug("Error storing empty pending", zap.Error(err))
 			}
 
 		case p := <-pendingCh:
 			need, err := pendingdata.NeedsPreConfirmed(p.Block.ProtocolVersion)
 			if err != nil {
-				s.log.Debug("Failed to parse pending protocol version", utils.SugaredFields("err", err)...)
+				s.log.Debug("Failed to parse pending protocol version", zap.Error(err))
 				continue
 			}
 
@@ -281,7 +282,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 
 			if changed, err := s.StorePending(p); err != nil {
-				s.log.Debug("Error storing pending block", utils.SugaredFields("err", err)...)
+				s.log.Debug("Error storing pending block", zap.Error(err))
 			} else if changed {
 				s.pendingDataFeed.Send(p)
 			}
@@ -303,7 +304,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 ) bool {
 	pending, err := s.dataSource.BlockPending(ctx)
 	if err != nil {
-		s.log.Debug("Error while trying to poll pre_latest block", utils.SugaredFields("err", err)...)
+		s.log.Debug("Error while trying to poll pre_latest block", zap.Error(err))
 		return false
 	}
 
@@ -426,7 +427,7 @@ func (s *Synchronizer) pollPreConfirmed(
 
 			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetBlockNum)
 			if err != nil {
-				s.log.Debug("Error while trying to poll pre_confirmed block", utils.SugaredFields("err", err)...)
+				s.log.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
 				continue
 			}
 
@@ -462,7 +463,7 @@ func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 
 	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-		s.log.Debug("Error storing empty pre_confirmed (from head)", utils.SugaredFields("err", err)...)
+		s.log.Debug("Error storing empty pre_confirmed (from head)", zap.Error(err))
 	}
 	return nil
 }
@@ -482,7 +483,7 @@ func (s *Synchronizer) handlePreLatest(
 
 	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
-		s.log.Debug("Error storing empty pre_confirmed (with pre_latest)", utils.SugaredFields("err", err)...)
+		s.log.Debug("Error storing empty pre_confirmed (with pre_latest)", zap.Error(err))
 	}
 
 	s.preLatestDataFeed.Send(pl)
@@ -498,7 +499,7 @@ func (s *Synchronizer) handlePreConfirmed(
 	pc.WithPreLatest(stagedPreLatest)
 	changed, err := s.StorePreConfirmed(pc)
 	if err != nil {
-		s.log.Debug("Error while trying to store pre_confirmed block", utils.SugaredFields("err", err)...)
+		s.log.Debug("Error while trying to store pre_confirmed block", zap.Error(err))
 		return
 	}
 

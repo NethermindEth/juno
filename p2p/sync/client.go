@@ -15,6 +15,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
@@ -74,7 +75,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
-		log.Error("sendAndCloseWrite (stream is not closed)", utils.SugaredFields("err", err, "streamID", id)...)
+		log.Error("sendAndCloseWrite (stream is not closed)", zap.Error(err), zap.String("streamID", id))
 		return nil, err
 	}
 
@@ -82,7 +83,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		defer func() {
 			closeErr := stream.Close()
 			if closeErr != nil {
-				log.Error("Error while closing stream", utils.SugaredFields("err", closeErr)...)
+				log.Error("Error while closing stream", zap.Error(closeErr))
 			}
 		}()
 
@@ -91,7 +92,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		for {
 			if err := receiveInto(stream, res); err != nil {
 				if !errors.Is(err, io.EOF) {
-					log.Debug("Error while reading from stream", utils.SugaredFields("err", err)...)
+					log.Debug("Error while reading from stream", zap.Error(err))
 				}
 
 				break

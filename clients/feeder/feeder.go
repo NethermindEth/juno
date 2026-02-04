@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
@@ -163,27 +164,21 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {
 				c.log.Warn("Failed query to feeder, retrying...",
-					utils.SugaredFields(
-						"req", req.URL.String(),
-						"retryAfter", wait.String(),
-						"err", err,
-						"newHTTPTimeout", currentTimeout.String(),
-					)...,
+					zap.String("req", req.URL.String()),
+					zap.String("retryAfter", wait.String()),
+					zap.Error(err),
+					zap.String("newHTTPTimeout", currentTimeout.String()),
 				)
 				c.log.Warn("Timeouts can be updated via HTTP PUT request",
-					utils.SugaredFields(
-						"timeout", currentTimeout.String(),
-						"hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the specified timeouts`,
-					)...,
+					zap.String("timeout", currentTimeout.String()),
+					zap.String("hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the specified timeouts`),
 				)
 			} else {
 				c.log.Debug("Failed query to feeder, retrying...",
-					utils.SugaredFields(
-						"req", req.URL.String(),
-						"retryAfter", wait.String(),
-						"err", err,
-						"newHTTPTimeout", currentTimeout.String(),
-					)...,
+					zap.String("req", req.URL.String()),
+					zap.String("retryAfter", wait.String()),
+					zap.Error(err),
+					zap.String("newHTTPTimeout", currentTimeout.String()),
 				)
 			}
 		}

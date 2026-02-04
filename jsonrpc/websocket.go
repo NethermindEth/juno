@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/coder/websocket"
+	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -82,7 +83,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
-		ws.log.Error("Failed to upgrade connection", utils.SugaredFields("err", err)...)
+		ws.log.Error("Failed to upgrade connection", zap.Error(err))
 		return
 	}
 
@@ -118,11 +119,11 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if status := websocket.CloseStatus(err); status != -1 {
-		ws.log.Info("Client closed websocket connection", utils.SugaredFields("status", status)...)
+		ws.log.Info("Client closed websocket connection", zap.Int("status", int(status)))
 		return
 	}
 
-	ws.log.Warn("Closing websocket connection", utils.SugaredFields("err", err)...)
+	ws.log.Warn("Closing websocket connection", zap.Error(err))
 	errString := err.Error()
 	if len(errString) > closeReasonMaxBytes {
 		errString = errString[:closeReasonMaxBytes]
@@ -133,7 +134,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// could initiate the close handshake.
 		errString = err.Error()
 		if !strings.Contains(errString, "already wrote close") && !strings.Contains(errString, "WebSocket closed") {
-			ws.log.Error("Failed to close websocket connection", utils.SugaredFields("err", errString)...)
+			ws.log.Error("Failed to close websocket connection", zap.String("err", errString))
 		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"go.uber.org/zap"
 )
 
 type proposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr] struct {
@@ -59,19 +60,20 @@ func (b *proposalBroadcaster[V, H, A]) processLoop(ctx context.Context) {
 			proposalHash := (*proposal.Value).Hash()
 			buildResult := b.proposalStore.Get(proposalHash)
 			if buildResult == nil {
-				b.log.Error("proposal not found", utils.SugaredFields("proposal", proposalHash)...)
+				// todo(rdr): need to update the constrains of `H` to be able to log it
+				b.log.Error("proposal not found", zap.Any("proposal", proposalHash))
 				continue
 			}
 
 			dispatcher, err := newProposerDispatcher(b.proposalAdapter, proposal, buildResult)
 			if err != nil {
-				b.log.Error("unable to build dispatcher", utils.SugaredFields("error", err)...)
+				b.log.Error("unable to build dispatcher", zap.Error(err))
 				continue
 			}
 
 			for msg, err := range dispatcher.run() {
 				if err != nil {
-					b.log.Error("unable to generate proposal part", utils.SugaredFields("error", err)...)
+					b.log.Error("unable to generate proposal part", zap.Error(err))
 					return
 				}
 				b.broadcaster.Broadcast(ctx, msg)
