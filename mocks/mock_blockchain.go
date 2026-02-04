@@ -74,19 +74,6 @@ func (mr *MockReaderMockRecorder) BlockByNumber(number any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockReader)(nil).BlockByNumber), number)
 }
 
-func (m *MockReader) BlockNumberByHash(hash *felt.Felt) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockNumberByHash", hash)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumberByHash", reflect.TypeOf((*MockReader)(nil).BlockNumberByHash), hash)
-}
-
 // BlockCommitmentsByNumber mocks base method.
 func (m *MockReader) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
 	m.ctrl.T.Helper()
@@ -132,19 +119,50 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(number any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderByNumber), number)
 }
 
-// EventFilter mocks base method.
-func (m *MockReader) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingDataFn func() (core.PendingData, error)) (blockchain.EventFilterer, error) {
+// BlockNumberAndIndexByTxHash mocks base method.
+func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.TransactionHash) (uint64, uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EventFilter", from, keys, pendingDataFn)
+	ret := m.ctrl.Call(m, "BlockNumberAndIndexByTxHash", hash)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// BlockNumberAndIndexByTxHash indicates an expected call of BlockNumberAndIndexByTxHash.
+func (mr *MockReaderMockRecorder) BlockNumberAndIndexByTxHash(hash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumberAndIndexByTxHash", reflect.TypeOf((*MockReader)(nil).BlockNumberAndIndexByTxHash), hash)
+}
+
+// BlockNumberByHash mocks base method.
+func (m *MockReader) BlockNumberByHash(hash *felt.Felt) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockNumberByHash", hash)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockNumberByHash indicates an expected call of BlockNumberByHash.
+func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumberByHash", reflect.TypeOf((*MockReader)(nil).BlockNumberByHash), hash)
+}
+
+// EventFilter mocks base method.
+func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, pendingDataFn func() (core.PendingData, error)) (blockchain.EventFilterer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EventFilter", addresses, keys, pendingDataFn)
 	ret0, _ := ret[0].(blockchain.EventFilterer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EventFilter indicates an expected call of EventFilter.
-func (mr *MockReaderMockRecorder) EventFilter(from, keys, pendingDataFn any) *gomock.Call {
+func (mr *MockReaderMockRecorder) EventFilter(addresses, keys, pendingDataFn any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), from, keys, pendingDataFn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), addresses, keys, pendingDataFn)
 }
 
 // Head mocks base method.
@@ -269,11 +287,9 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), hash)
 }
 
-func (m *MockReader) ReceiptByBlockNumberAndIndex(
-	blockNumber, index uint64,
-) (core.TransactionReceipt, *felt.Felt, error) {
+// ReceiptByBlockNumberAndIndex mocks base method.
+func (m *MockReader) ReceiptByBlockNumberAndIndex(blockNumber, index uint64) (core.TransactionReceipt, *felt.Felt, error) {
 	m.ctrl.T.Helper()
-
 	ret := m.ctrl.Call(m, "ReceiptByBlockNumberAndIndex", blockNumber, index)
 	ret0, _ := ret[0].(core.TransactionReceipt)
 	ret1, _ := ret[1].(*felt.Felt)
@@ -281,17 +297,10 @@ func (m *MockReader) ReceiptByBlockNumberAndIndex(
 	return ret0, ret1, ret2
 }
 
-func (mr *MockReaderMockRecorder) ReceiptByBlockNumberAndIndex(
-	blockNumber any, index any,
-) *gomock.Call {
+// ReceiptByBlockNumberAndIndex indicates an expected call of ReceiptByBlockNumberAndIndex.
+func (mr *MockReaderMockRecorder) ReceiptByBlockNumberAndIndex(blockNumber, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(
-		mr.mock,
-		"ReceiptByBlockNumberAndIndex",
-		reflect.TypeOf((*MockReader)(nil).ReceiptByBlockNumberAndIndex),
-		blockNumber,
-		index,
-	)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).ReceiptByBlockNumberAndIndex), blockNumber, index)
 }
 
 // StateAtBlockHash mocks base method.
@@ -398,23 +407,4 @@ func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), hash)
-}
-
-func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.TransactionHash) (uint64, uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockNumberAndIndexByTxHash", hash)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-func (mr *MockReaderMockRecorder) BlockNumberAndIndexByTxHash(hash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(
-		mr.mock,
-		"BlockNumberAndIndexByTxHash",
-		reflect.TypeOf((*MockReader)(nil).BlockNumberAndIndexByTxHash),
-		hash,
-	)
 }

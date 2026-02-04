@@ -180,7 +180,10 @@ type SentEvent struct {
 
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
 func (h *Handler) SubscribeEvents(
-	ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt, blockID *SubscriptionBlockID,
+	ctx context.Context,
+	fromAddr *felt.Address,
+	keys [][]felt.Felt,
+	blockID *SubscriptionBlockID,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -368,12 +371,16 @@ func (h *Handler) processEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *BlockID,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	eventsPreviouslySent map[SentEvent]struct{},
 	height uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
+	var addresses []felt.Address
+	if fromAddr != nil {
+		addresses = []felt.Address{*fromAddr}
+	}
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}

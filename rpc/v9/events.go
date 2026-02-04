@@ -16,7 +16,7 @@ type EventArgs struct {
 type EventFilter struct {
 	FromBlock *BlockID      `json:"from_block"`
 	ToBlock   *BlockID      `json:"to_block"`
-	Address   *felt.Felt    `json:"address"`
+	Address   *felt.Address `json:"address"`
 	Keys      [][]felt.Felt `json:"keys"`
 }
 
@@ -77,8 +77,12 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
+	var addresses []felt.Address
+	if args.EventFilter.Address != nil {
+		addresses = []felt.Address{*args.EventFilter.Address}
+	}
 	filter, err := h.bcReader.EventFilter(
-		args.EventFilter.Address,
+		addresses,
 		args.EventFilter.Keys,
 		h.PendingData,
 	)

@@ -211,7 +211,7 @@ type SentEvent struct {
 // https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L59
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,
@@ -244,8 +244,36 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, TxnFinalityStatus]()
-	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
-	subscriber := subscriber{
+	var addresses []felt.Address
+	if fromAddr != nil {
+		addresses = []felt.Address{*fromAddr}
+	}
+	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
+	subscriber := h.createEventSubscriber(
+		w,
+		fromAddr,
+		keys,
+		&eventMatcher,
+		sentCache,
+		requestedHeader,
+		headHeader,
+		l1HeadNumber, finalityStatus,
+	)
+	return h.subscribe(ctx, w, subscriber)
+}
+
+func (h *Handler) createEventSubscriber(
+	w jsonrpc.Conn,
+	fromAddr *felt.Address,
+	keys [][]felt.Felt,
+	eventMatcher *blockchain.EventMatcher,
+	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
+	requestedHeader,
+	headHeader *core.Header,
+	l1HeadNumber uint64,
+	finalityStatus *TxnFinalityStatusWithoutL1,
+) subscriber {
+	return subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := BlockIDFromNumber(requestedHeader.Number)
 			var toBlock BlockID
@@ -279,7 +307,7 @@ func (h *Handler) SubscribeEvents(
 				id,
 				head,
 				fromAddr,
-				&eventMatcher,
+				eventMatcher,
 				sentCache,
 				TxnAcceptedOnL2,
 				false,
@@ -297,7 +325,7 @@ func (h *Handler) SubscribeEvents(
 				id,
 				preLatest.Block,
 				fromAddr,
-				&eventMatcher,
+				eventMatcher,
 				sentCache,
 				TxnAcceptedOnL2,
 				true,
@@ -323,14 +351,13 @@ func (h *Handler) SubscribeEvents(
 				id,
 				pending.GetBlock(),
 				fromAddr,
-				&eventMatcher,
+				eventMatcher,
 				sentCache,
 				blockFinalityStatus,
 				false,
 			)
 		},
 	}
-	return h.subscribe(ctx, w, subscriber)
 }
 
 // processHistoricalEvents queries database for events and stream filtered events.
@@ -339,13 +366,17 @@ func (h *Handler) processHistoricalEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *BlockID,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
+	var addresses []felt.Address
+	if fromAddr != nil {
+		addresses = []felt.Address{*fromAddr}
+	}
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
@@ -387,7 +418,7 @@ func processBlockEvents(
 	w jsonrpc.Conn,
 	id string,
 	block *core.Block,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus],
 	finalityStatus TxnFinalityStatus,
@@ -413,7 +444,8 @@ func processBlockEvents(
 			default:
 			}
 
-			if fromAddr != nil && !event.From.Equal(fromAddr) {
+			// todo: remove the cast to felt.Felt
+			if fromAddr != nil && !event.From.Equal((*felt.Felt)(fromAddr)) {
 				continue
 			}
 

@@ -288,7 +288,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	// Test address and key for filtering
-	testAddress := felt.NewUnsafeFromString[felt.Felt](
+	testAddress := felt.NewUnsafeFromString[felt.Address](
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 	)
 	testKey := felt.NewUnsafeFromString[felt.Felt](
@@ -465,7 +465,8 @@ func TestEvents(t *testing.T) {
 			expectedEvents: func() []rpcv6.EmittedEvent {
 				var filtered []rpcv6.EmittedEvent
 				for _, event := range canonicalEvents {
-					if event.From.Equal(testAddress) {
+					// todo: remove the cast to felt.Felt
+					if event.From.Equal((*felt.Felt)(testAddress)) {
 						filtered = append(filtered, event)
 					}
 				}
@@ -486,7 +487,8 @@ func TestEvents(t *testing.T) {
 			expectedEvents: func() []rpcv6.EmittedEvent {
 				var filtered []rpcv6.EmittedEvent
 				for _, event := range canonicalEvents {
-					if event.From.Equal(testAddress) &&
+					// todo: remove the cast to felt.Felt
+					if event.From.Equal((*felt.Felt)(testAddress)) &&
 						len(event.Keys) > 0 && event.Keys[0].Equal(testKey) {
 						filtered = append(filtered, event)
 					}
@@ -630,7 +632,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 
 	handler := rpc.New(chain, nil, nil, utils.NewNopZapLogger())
 
-	from := felt.NewUnsafeFromString[felt.Felt](
+	from := felt.NewUnsafeFromString[felt.Address](
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 	)
 	blockNumber := blockIDNumber(t, 0)
