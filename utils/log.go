@@ -104,17 +104,7 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 
 type Logger interface {
 	pebble.Logger
-	SimpleLogger
 	StructuredLogger
-}
-
-// Deprecated: use StructuredLogger interface instead
-type SimpleLogger interface {
-	Debugw(msg string, keysAndValues ...any)
-	Infow(msg string, keysAndValues ...any)
-	Warnw(msg string, keysAndValues ...any)
-	Errorw(msg string, keysAndValues ...any)
-	Tracew(msg string, keysAndValues ...any)
 }
 
 type StructuredLogger interface {
@@ -183,26 +173,6 @@ func (l *ZapLogger) Errorf(msg string, args ...any) {
 
 func (l *ZapLogger) Fatalf(msg string, args ...any) {
 	l.sugared.Fatalf(msg, args)
-}
-
-// Deprecated: use Debug with structured fields instead
-func (l *ZapLogger) Debugw(msg string, keysAndValues ...any) {
-	l.sugared.Debugw(msg, keysAndValues...)
-}
-
-// Deprecated: use Info with structured fields instead
-func (l *ZapLogger) Infow(msg string, keysAndValues ...any) {
-	l.sugared.Infow(msg, keysAndValues...)
-}
-
-// Deprecated: use Warn with structured fields instead
-func (l *ZapLogger) Warnw(msg string, keysAndValues ...any) {
-	l.sugared.Warnw(msg, keysAndValues...)
-}
-
-// Deprecated: use Error with structured fields instead
-func (l *ZapLogger) Errorw(msg string, keysAndValues ...any) {
-	l.sugared.Errorw(msg, keysAndValues...)
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
