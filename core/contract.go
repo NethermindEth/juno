@@ -196,5 +196,9 @@ func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
 
 func storageReader(addr *felt.Felt, txn db.KeyValueReader) (*trie.TrieReader, error) {
 	addrBytes := addr.Marshal()
-	return trie.NewTrieReaderPedersen(txn, db.ContractStorage.Key(addrBytes), ContractStorageTrieHeight)
+	return trie.NewTrieReaderPedersen(
+		txn,
+		db.ContractStorage.Key(addrBytes),
+		ContractStorageTrieHeight,
+	)
 }

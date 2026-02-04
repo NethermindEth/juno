@@ -349,7 +349,11 @@ func isEdge(parentKey *BitArray, sNode StorageNode) bool {
 // storageNodeToProofNode converts a StorageNode to the ProofNode(s).
 // Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
 // We need to convert the former to the latter for proof generation.
-func storageNodeToProofNode(tri *TrieReader, parentKey *BitArray, sNode StorageNode) (*Edge, *Binary, error) {
+func storageNodeToProofNode(
+	tri *TrieReader,
+	parentKey *BitArray,
+	sNode StorageNode,
+) (*Edge, *Binary, error) {
 	var edge *Edge
 	if isEdge(parentKey, sNode) {
 		edgePath := path(sNode.key, parentKey)

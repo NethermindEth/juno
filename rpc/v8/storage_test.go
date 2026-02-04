@@ -444,7 +444,9 @@ func TestStorageProof(t *testing.T) {
 			Return(headBlock.Header, nil)
 		contract := felt.NewUnsafeFromString[felt.Felt]("0xdead")
 		emptyTrieInstance := emptyTrie(t)
-		mockState.EXPECT().ContractStorageTrie(contract).Return(&emptyTrieInstance.TrieReader, nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(
+			contract,
+		).Return(&emptyTrieInstance.TrieReader, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
