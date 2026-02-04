@@ -2,7 +2,6 @@ package core
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"maps"
@@ -15,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -595,81 +593,6 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error
 	}
 
 	return nil
-}
-
-func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
-	it, err := s.txn.NewIterator(nil, false)
-	if err != nil {
-		return nil, err
-	}
-
-	seekKey := binary.BigEndian.AppendUint64(key, height)
-	for it.Seek(seekKey); it.Valid(); it.Next() {
-		seekedKey := it.Key()
-		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
-		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
-			break
-		}
-
-		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
-		if seekedHeight < height {
-			// last change happened before the height we are looking for
-			// check head state
-			break
-		} else if seekedHeight == height {
-			// a log exists for the height we are looking for, so the old value in this
-			// log entry is not useful. Advance the iterator and see we can use the next entry.
-			// If not, ErrCheckHeadState will be returned.
-			continue
-		}
-
-		val, itErr := it.Value()
-		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
-			return nil, err
-		}
-		// seekedHeight > height
-		return val, nil
-	}
-
-	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
-}
-
-// ContractStorageAt returns the value of a storage location
-// of the given contract at the height `height`.
-func (s *State) ContractStorageAt(
-	contractAddress,
-	storageLocation *felt.Felt,
-	height uint64,
-) (felt.Felt, error) {
-	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
-	value, err := s.valueAt(key, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	return felt.FromBytes[felt.Felt](value), nil
-}
-
-func (s *State) ContractNonceAt(contractAddress *felt.Felt, height uint64) (felt.Felt, error) {
-	key := db.ContractNonceHistoryKey(contractAddress)
-	value, err := s.valueAt(key, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return felt.FromBytes[felt.Felt](value), nil
-}
-
-func (s *State) ContractClassHashAt(
-	contractAddress *felt.Felt,
-	height uint64,
-) (felt.Felt, error) {
-	key := db.ContractClassHashHistoryKey(contractAddress)
-	value, err := s.valueAt(key, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	return felt.FromBytes[felt.Felt](value), nil
 }
 
 func (s *State) revertMigratedCasmClasses(
