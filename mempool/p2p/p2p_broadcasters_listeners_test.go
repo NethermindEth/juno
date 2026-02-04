@@ -98,8 +98,8 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 						return
 					}
 				case <-time.After(maxWait):
-					// TODO(structured-logging): migrate to explicit zap.Field values
-					logger.Info("missing transactions", utils.SugaredFields("pending", slices.Collect(maps.Values(pending)))...)
+					// todo(rdr): use a more specific zap.Field than any
+					logger.Info("missing transactions", zap.Any("pending", slices.Collect(maps.Values(pending))))
 					require.FailNow(t, "timed out waiting for transactions")
 				}
 			}

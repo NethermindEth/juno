@@ -458,8 +458,8 @@ func isNilOrEmpty(i any) (bool, error) {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
-	// TODO(structured-logging): migrate to explicit zap.Field values
-	s.log.Trace("Received request", utils.SugaredFields("req", req)...)
+	// todo(rdr): have a way of representing a `req` so the structured logger has a way of showing it
+	s.log.Trace("Received request", zap.Any("req", req))
 
 	header := http.Header{}
 	if err := req.isSane(); err != nil {
