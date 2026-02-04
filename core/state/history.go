@@ -1,6 +1,8 @@
 package state
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -103,7 +105,14 @@ func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, er
 func (s *stateHistory) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	return s.state.CompiledClassHash(classHash)
+	metadata, err := core.GetClassCasmHashMetadata(s.state.db.disk, classHash)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return felt.CasmClassHash{}, db.ErrKeyNotFound
+		}
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(s.blockNum)
 }
 
 func (s *stateHistory) CompiledClassHashV2(
