@@ -83,6 +83,7 @@ func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
 
 func (d *DB) View(fn func(r db.Snapshot) error) error {
 	snap := d.NewSnapshot()
+	defer snap.Close()
 	return fn(snap)
 }
 

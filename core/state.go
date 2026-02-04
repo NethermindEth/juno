@@ -20,20 +20,23 @@ import (
 const globalTrieHeight = 251
 
 var (
-	stateVersion      = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
-	leafVersion       = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
-	ErrCheckHeadState = errors.New("check head state")
+	stateVersion             = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
+	leafVersion              = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
+	ErrCheckHeadState        = errors.New("check head state")
+	systemContractsClassHash = felt.NewFromUint64[felt.Felt](0)
+	systemContracts          = map[felt.Felt]struct{}{
+		*felt.NewFromUint64[felt.Felt](1): {},
+		*felt.NewFromUint64[felt.Felt](2): {},
+	}
 )
 
-var _ StateHistoryReader = (*State)(nil)
-
 type State struct {
-	txn db.IndexedBatch
+	txn db.SnapshotBatch
 	*StateSnapshotReader
 }
 
 func NewState(
-	txn db.IndexedBatch,
+	txn db.SnapshotBatch,
 ) *State {
 	return &State{
 		txn:                 txn,
@@ -134,15 +137,6 @@ func (s *State) Update(
 
 	return s.verifyStateUpdateRoot(update.NewRoot)
 }
-
-var (
-	systemContractsClassHash = new(felt.Felt).SetUint64(0)
-
-	systemContracts = map[felt.Felt]struct{}{
-		felt.FromUint64[felt.Felt](1): {},
-		felt.FromUint64[felt.Felt](2): {},
-	}
-)
 
 func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {
 	// replace contract instances
@@ -639,16 +633,16 @@ func (s *State) revertMigratedCasmClasses(
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
-func contractTrie(txn db.IndexedBatch) (*trie.Trie, func() error, error) {
+func contractTrie(txn db.SnapshotBatch) (*trie.Trie, func() error, error) {
 	return globalTrie(txn, db.StateTrie, trie.NewTriePedersen)
 }
 
-func classesTrie(txn db.IndexedBatch) (*trie.Trie, func() error, error) {
+func classesTrie(txn db.SnapshotBatch) (*trie.Trie, func() error, error) {
 	return globalTrie(txn, db.ClassesTrie, trie.NewTriePoseidon)
 }
 
 func globalTrie(
-	txn db.IndexedBatch,
+	txn db.SnapshotBatch,
 	bucket db.Bucket,
 	newTrie trie.NewTrieFunc,
 ) (*trie.Trie, func() error, error) {
@@ -666,8 +660,9 @@ func globalTrie(
 		return nil, nil, err
 	}
 
-	rootKey := new(trie.BitArray)
+	var rootKey *trie.BitArray
 	if len(val) > 0 {
+		rootKey = new(trie.BitArray)
 		err = rootKey.UnmarshalBinary(val)
 		if err != nil {
 			return nil, nil, err
@@ -687,7 +682,8 @@ func globalTrie(
 
 		resultingRootKey := gTrie.RootKey()
 		// no updates on the trie, short circuit and return
-		if resultingRootKey.Equal(rootKey) {
+		if (resultingRootKey == nil && rootKey == nil) ||
+			(resultingRootKey != nil && rootKey != nil && resultingRootKey.Equal(rootKey)) {
 			return nil
 		}
 
