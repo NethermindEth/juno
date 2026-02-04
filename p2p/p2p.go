@@ -40,7 +40,7 @@ type Service struct {
 
 	network *utils.Network
 	handler *p2pPeers.Handler
-	log     utils.SimpleLogger
+	log     utils.StructuredLogger
 
 	dht    *dht.IpfsDHT
 	pubsub *pubsub.PubSub
@@ -53,7 +53,7 @@ type Service struct {
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+	log utils.StructuredLogger, database db.KeyValueStore,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -114,7 +114,7 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 }
 
 func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+	log utils.StructuredLogger, database db.KeyValueStore,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
@@ -123,7 +123,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	peersAddrInfoS, err = loadPeers(database)
 	if err != nil {
-		log.Warnw("Failed to load peers", "err", err)
+		log.Warn("Failed to load peers", utils.SugaredFields("err", err)...)
 	}
 
 	if peers != "" {
@@ -209,7 +209,7 @@ func (s *Service) Listen() <-chan p2pSync.BlockBody {
 func (s *Service) Run(ctx context.Context) error {
 	defer func() {
 		if err := s.host.Close(); err != nil {
-			s.log.Warnw("Failed to close host", "err", err)
+			s.log.Warn("Failed to close host", utils.SugaredFields("err", err)...)
 		}
 	}()
 
@@ -235,7 +235,7 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 	for _, addr := range listenAddrs {
-		s.log.Infow("Listening on", "addr", addr)
+		s.log.Info("Listening on", utils.SugaredFields("addr", addr)...)
 	}
 
 	s.setProtocolHandlers()
@@ -246,10 +246,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 	<-ctx.Done()
 	if err := s.persistPeers(); err != nil {
-		s.log.Warnw("Failed to persist peers", "err", err)
+		s.log.Warn("Failed to persist peers", utils.SugaredFields("err", err)...)
 	}
 	if err := s.dht.Close(); err != nil {
-		s.log.Warnw("Failed stopping DHT", "err", err.Error())
+		s.log.Warn("Failed stopping DHT", utils.SugaredFields("err", err.Error())...)
 	}
 	return nil
 }
@@ -265,7 +265,7 @@ func (s *Service) setProtocolHandlers() {
 func (s *Service) callAndLogErr(f func() error, msg string) {
 	err := f()
 	if err != nil {
-		s.log.Warnw(msg, "err", err.Error())
+		s.log.Warn(msg, utils.SugaredFields("err", err.Error())...)
 	}
 }
 
@@ -346,7 +346,7 @@ func (s *Service) persistPeers() error {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	s.log.Infow("Stored peers", "num", len(peers))
+	s.log.Info("Stored peers", utils.SugaredFields("num", len(peers))...)
 
 	return nil
 }

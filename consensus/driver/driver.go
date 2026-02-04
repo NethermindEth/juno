@@ -131,11 +131,11 @@ func (d *Driver[V, H, A]) execute(
 				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
 			}
 
-			d.log.Debugw("Committing", "height", action.Height, "round", action.Round)
+			d.log.Debug("Committing", utils.SugaredFields("height", action.Height, "round", action.Round)...)
 			d.commitListener.OnCommit(ctx, action.Height, *action.Value)
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
-				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
+				d.log.Error("failed to delete WAL messages during commit", utils.SugaredFields("height", action.Height, "round", action.Round, "err", err)...)
 			}
 
 			return true

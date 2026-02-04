@@ -134,7 +134,7 @@ type Synchronizer struct {
 	pendingDataFeed     *feed.Feed[core.PendingData]
 	preLatestDataFeed   *feed.Feed[*core.PreLatest]
 
-	log      utils.SimpleLogger
+	log      utils.StructuredLogger
 	listener EventListener
 
 	pendingData              atomic.Pointer[core.PendingData]
@@ -150,7 +150,7 @@ type Synchronizer struct {
 func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
-	log utils.SimpleLogger,
+	log utils.StructuredLogger,
 	pendingPollInterval, preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
 	database db.KeyValueStore,
@@ -268,17 +268,17 @@ func (s *Synchronizer) isReverting(
 func (s *Synchronizer) handlePluginRevertBlock() {
 	fromBlock, err := s.blockchain.Head()
 	if err != nil {
-		s.log.Warnw("Failed to retrieve the reverted blockchain head block for the plugin", "err", err)
+		s.log.Warn("Failed to retrieve the reverted blockchain head block for the plugin", utils.SugaredFields("err", err)...)
 		return
 	}
 	fromSU, err := s.blockchain.StateUpdateByNumber(fromBlock.Number)
 	if err != nil {
-		s.log.Warnw("Failed to retrieve the reverted blockchain head state-update for the plugin", "err", err)
+		s.log.Warn("Failed to retrieve the reverted blockchain head state-update for the plugin", utils.SugaredFields("err", err)...)
 		return
 	}
 	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
 	if err != nil {
-		s.log.Warnw("Failed to retrieve reverse state diff", "head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)
+		s.log.Warn("Failed to retrieve reverse state diff", utils.SugaredFields("head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)...)
 		return
 	}
 
@@ -286,12 +286,12 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	if fromBlock.Number != 0 {
 		toBlock, err := s.blockchain.BlockByHash(fromBlock.ParentHash)
 		if err != nil {
-			s.log.Warnw("Failed to retrieve the parent block for the plugin", "err", err)
+			s.log.Warn("Failed to retrieve the parent block for the plugin", utils.SugaredFields("err", err)...)
 			return
 		}
 		toSU, err := s.blockchain.StateUpdateByNumber(toBlock.Number)
 		if err != nil {
-			s.log.Warnw("Failed to retrieve the parents state-update for the plugin", "err", err)
+			s.log.Warn("Failed to retrieve the parents state-update for the plugin", utils.SugaredFields("err", err)...)
 			return
 		}
 		toBlockAndStateUpdate = &junoplugin.BlockAndStateUpdate{
@@ -304,7 +304,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 		toBlockAndStateUpdate,
 		&reverseStateDiff)
 	if err != nil {
-		s.log.Errorw("Plugin RevertBlock failure:", "err", err)
+		s.log.Error("Plugin RevertBlock failure:", utils.SugaredFields("err", err)...)
 	}
 }
 
@@ -322,14 +322,16 @@ func (s *Synchronizer) verifierTask(
 	if err != nil {
 		return func() {
 			defer close(committedBlock.Persisted)
-			s.log.Warnw(
+			s.log.Warn(
 				"Sanity checks failed",
-				"number",
-				committedBlock.Block.Number,
-				"hash",
-				committedBlock.Block.Hash.ShortString(),
-				"err",
-				err,
+				utils.SugaredFields(
+					"number",
+					committedBlock.Block.Number,
+					"hash",
+					committedBlock.Block.Hash.ShortString(),
+					"err",
+					err,
+				)...,
 			)
 			resetStreams()
 		}
@@ -366,8 +368,8 @@ func (s *Synchronizer) storeTask(
 			return
 		}
 
-		s.log.Warnw("Failed storing Block", "number", block.Number,
-			"hash", block.Hash.ShortString(), "err", err)
+		s.log.Warn("Failed storing Block", utils.SugaredFields("number", block.Number,
+			"hash", block.Hash.ShortString(), "err", err)...)
 		resetStreams()
 		return
 	}
@@ -394,12 +396,12 @@ func (s *Synchronizer) storeTask(
 	}
 
 	s.newHeads.Send(block)
-	s.log.Infow("Stored Block", "number", block.Number, "hash",
-		block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+	s.log.Info("Stored Block", utils.SugaredFields("number", block.Number, "hash",
+		block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())...)
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(block, stateUpdate, newClasses)
 		if err != nil {
-			s.log.Errorw("Plugin NewBlock failure:", err)
+			s.log.Error("Plugin NewBlock failure:", utils.SugaredFields("err", err)...)
 		}
 	}
 }
@@ -412,7 +414,7 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 	for shouldContinue {
 		localHeader, err := s.blockchain.HeadsHeader()
 		if err != nil {
-			s.log.Errorw("Failed to retrieve the local head header", "err", err)
+			s.log.Error("Failed to retrieve the local head header", utils.SugaredFields("err", err)...)
 			break
 		}
 		lastHead = localHeader
@@ -421,7 +423,7 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 		if localHeader.Number <= lastPossiblyValidHeight {
 			remoteBlock, err := s.dataSource.BlockByNumber(ctx, localHeader.Number)
 			if err != nil {
-				s.log.Errorw("Failed to retrieve the remote header", "err", err)
+				s.log.Error("Failed to retrieve the remote header", utils.SugaredFields("err", err)...)
 				break
 			}
 			remoteHeader := remoteBlock.Block.Header
@@ -494,7 +496,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
 				pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
-				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
+				s.log.Warn("Restarting sync process", utils.SugaredFields("height", nextHeight, "catchUpMode", s.catchUpMode)...)
 			}
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
@@ -522,11 +524,11 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 }
 
 func (s *Synchronizer) revertHead(localHeader *core.Header) {
-	s.log.Infow("Reorg detected", "localHead", localHeader.Hash)
+	s.log.Info("Reorg detected", utils.SugaredFields("localHead", localHeader.Hash)...)
 	if err := s.blockchain.RevertHead(); err != nil {
-		s.log.Warnw("Failed reverting HEAD", "reverted", localHeader.Hash, "err", err)
+		s.log.Warn("Failed reverting HEAD", utils.SugaredFields("reverted", localHeader.Hash, "err", err)...)
 	} else {
-		s.log.Infow("Reverted HEAD", "reverted", localHeader.Hash)
+		s.log.Info("Reverted HEAD", utils.SugaredFields("reverted", localHeader.Hash)...)
 	}
 
 	if s.currReorg == nil { // first block of the reorg
@@ -577,7 +579,7 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	for {
 		highestBlock, err := s.dataSource.BlockLatest(ctx)
 		if err != nil {
-			s.log.Warnw("Failed fetching latest block", "err", err)
+			s.log.Warn("Failed fetching latest block", utils.SugaredFields("err", err)...)
 		} else {
 			s.highestBlockHeader.Store(highestBlock.Header)
 		}

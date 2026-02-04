@@ -25,7 +25,7 @@ type Client struct {
 	maxRetries int
 	maxWait    time.Duration
 	minWait    time.Duration
-	log        utils.SimpleLogger
+	log        utils.StructuredLogger
 	userAgent  string
 	apiKey     string
 	listener   EventListener
@@ -57,7 +57,7 @@ func (c *Client) WithMinWait(d time.Duration) *Client {
 	return c
 }
 
-func (c *Client) WithLogger(log utils.SimpleLogger) *Client {
+func (c *Client) WithLogger(log utils.StructuredLogger) *Client {
 	c.log = log
 	return c
 }
@@ -162,21 +162,28 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {
-				c.log.Warnw("Failed query to feeder, retrying...",
-					"req", req.URL.String(),
-					"retryAfter", wait.String(),
-					"err", err,
-					"newHTTPTimeout", currentTimeout.String(),
+				c.log.Warn("Failed query to feeder, retrying...",
+					utils.SugaredFields(
+						"req", req.URL.String(),
+						"retryAfter", wait.String(),
+						"err", err,
+						"newHTTPTimeout", currentTimeout.String(),
+					)...,
 				)
-				c.log.Warnw("Timeouts can be updated via HTTP PUT request",
-					"timeout", currentTimeout.String(),
-					"hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the specified timeouts`)
+				c.log.Warn("Timeouts can be updated via HTTP PUT request",
+					utils.SugaredFields(
+						"timeout", currentTimeout.String(),
+						"hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the specified timeouts`,
+					)...,
+				)
 			} else {
-				c.log.Debugw("Failed query to feeder, retrying...",
-					"req", req.URL.String(),
-					"retryAfter", wait.String(),
-					"err", err,
-					"newHTTPTimeout", currentTimeout.String(),
+				c.log.Debug("Failed query to feeder, retrying...",
+					utils.SugaredFields(
+						"req", req.URL.String(),
+						"retryAfter", wait.String(),
+						"err", err,
+						"newHTTPTimeout", currentTimeout.String(),
+					)...,
 				)
 			}
 		}

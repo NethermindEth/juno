@@ -174,17 +174,17 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
 	needPreConfirmed, err := pendingdata.NeedsPreConfirmed(lastHeader.ProtocolVersion)
 	if err != nil {
-		s.log.Errorw("Failed to parse block version", "err", err)
+		s.log.Error("Failed to parse block version", utils.SugaredFields("err", err)...)
 		return
 	}
 
 	if needPreConfirmed {
 		if err := s.storeEmptyPreConfirmed(lastHeader, nil); err != nil {
-			s.log.Errorw("Failed to store empty pre_confirmed block", "number", lastHeader.Number)
+			s.log.Error("Failed to store empty pre_confirmed block", utils.SugaredFields("number", lastHeader.Number)...)
 		}
 	} else {
 		if err := s.storeEmptyPending(lastHeader); err != nil {
-			s.log.Errorw("Failed to store empty pending block", "number", lastHeader.Number)
+			s.log.Error("Failed to store empty pending block", utils.SugaredFields("number", lastHeader.Number)...)
 		}
 	}
 }
@@ -192,7 +192,7 @@ func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
 // pollPending periodically polls the pending block while at tip and forwards it to out.
 func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending) {
 	if s.pendingPollInterval == 0 {
-		s.log.Infow("Pending block polling is disabled")
+		s.log.Info("Pending block polling is disabled")
 		return
 	}
 
@@ -213,7 +213,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 
 			head, err := s.blockchain.HeadsHeader()
 			if err != nil {
-				s.log.Debugw("Error while reading head header", "err", err)
+				s.log.Debug("Error while reading head header", utils.SugaredFields("err", err)...)
 				continue
 			}
 
@@ -223,7 +223,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 
 			pending, err := s.dataSource.BlockPending(ctx)
 			if err != nil {
-				s.log.Debugw("Error while trying to poll pending block", "err", err)
+				s.log.Debug("Error while trying to poll pending block", utils.SugaredFields("err", err)...)
 				continue
 			}
 			pending.Block.Number = head.Number + 1
@@ -257,7 +257,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 			need, err := pendingdata.NeedsPreConfirmed(head.ProtocolVersion)
 			if err != nil {
-				s.log.Debugw("Failed to parse protocol version", "err", err)
+				s.log.Debug("Failed to parse protocol version", utils.SugaredFields("err", err)...)
 				continue
 			}
 
@@ -266,13 +266,13 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 
 			if err := s.storeEmptyPending(head.Header); err != nil {
-				s.log.Debugw("Error storing empty pending", "err", err)
+				s.log.Debug("Error storing empty pending", utils.SugaredFields("err", err)...)
 			}
 
 		case p := <-pendingCh:
 			need, err := pendingdata.NeedsPreConfirmed(p.Block.ProtocolVersion)
 			if err != nil {
-				s.log.Debugw("Failed to parse pending protocol version", "err", err)
+				s.log.Debug("Failed to parse pending protocol version", utils.SugaredFields("err", err)...)
 				continue
 			}
 
@@ -281,7 +281,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 
 			if changed, err := s.StorePending(p); err != nil {
-				s.log.Debugw("Error storing pending block", "err", err)
+				s.log.Debug("Error storing pending block", utils.SugaredFields("err", err)...)
 			} else if changed {
 				s.pendingDataFeed.Send(p)
 			}
@@ -303,7 +303,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 ) bool {
 	pending, err := s.dataSource.BlockPending(ctx)
 	if err != nil {
-		s.log.Debugw("Error while trying to poll pre_latest block", "err", err)
+		s.log.Debug("Error while trying to poll pre_latest block", utils.SugaredFields("err", err)...)
 		return false
 	}
 
@@ -329,7 +329,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 // it is cached keyed by ParentHash and emitted immediately when that head arrives.
 func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLatest) {
 	if s.pendingPollInterval == 0 {
-		s.log.Infow("Pre-latest block polling is disabled")
+		s.log.Info("Pre-latest block polling is disabled")
 		return
 	}
 
@@ -405,7 +405,7 @@ func (s *Synchronizer) pollPreConfirmed(
 	out chan<- *core.PreConfirmed,
 ) {
 	if s.preConfirmedPollInterval == 0 {
-		s.log.Infow("Pre-confirmed block polling is disabled")
+		s.log.Info("Pre-confirmed block polling is disabled")
 		return
 	}
 
@@ -426,7 +426,7 @@ func (s *Synchronizer) pollPreConfirmed(
 
 			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetBlockNum)
 			if err != nil {
-				s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
+				s.log.Debug("Error while trying to poll pre_confirmed block", utils.SugaredFields("err", err)...)
 				continue
 			}
 
@@ -462,7 +462,7 @@ func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 
 	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-		s.log.Debugw("Error storing empty pre_confirmed (from head)", "err", err)
+		s.log.Debug("Error storing empty pre_confirmed (from head)", utils.SugaredFields("err", err)...)
 	}
 	return nil
 }
@@ -482,7 +482,7 @@ func (s *Synchronizer) handlePreLatest(
 
 	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
-		s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
+		s.log.Debug("Error storing empty pre_confirmed (with pre_latest)", utils.SugaredFields("err", err)...)
 	}
 
 	s.preLatestDataFeed.Send(pl)
@@ -498,7 +498,7 @@ func (s *Synchronizer) handlePreConfirmed(
 	pc.WithPreLatest(stagedPreLatest)
 	changed, err := s.StorePreConfirmed(pc)
 	if err != nil {
-		s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
+		s.log.Debug("Error while trying to store pre_confirmed block", utils.SugaredFields("err", err)...)
 		return
 	}
 
@@ -550,7 +550,7 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 //  2. Pre_confirmed phase: manage baselines and pre_latest attachments and poll pre_confirmed.
 func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	if s.pendingPollInterval == 0 || s.preConfirmedPollInterval == 0 {
-		s.log.Infow("Pending data polling is disabled")
+		s.log.Info("Pending data polling is disabled")
 		return
 	}
 

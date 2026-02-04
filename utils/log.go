@@ -122,6 +122,42 @@ type StructuredLogger interface {
 	Info(msg string, fields ...zap.Field)
 	Warn(msg string, fields ...zap.Field)
 	Error(msg string, fields ...zap.Field)
+	Trace(msg string, fields ...zap.Field)
+}
+
+// TODO(simple-logger): replace SugaredFields call sites with explicit zap.Field values.
+func SugaredFields(keysAndValues ...any) []zap.Field {
+	if len(keysAndValues) == 0 {
+		return nil
+	}
+
+	fields := make([]zap.Field, 0, len(keysAndValues)/2)
+	for i := 0; i < len(keysAndValues); {
+		switch v := keysAndValues[i].(type) {
+		case zap.Field:
+			fields = append(fields, v)
+			i++
+			continue
+		}
+
+		if i == len(keysAndValues)-1 {
+			if err, ok := keysAndValues[i].(error); ok {
+				fields = append(fields, zap.Error(err))
+			} else {
+				fields = append(fields, zap.Any("invalid", keysAndValues[i]))
+			}
+			break
+		}
+
+		key, ok := keysAndValues[i].(string)
+		if !ok {
+			key = fmt.Sprint(keysAndValues[i])
+		}
+		fields = append(fields, zap.Any(key, keysAndValues[i+1]))
+		i += 2
+	}
+
+	return fields
 }
 
 var _ Logger = (*ZapLogger)(nil)
@@ -230,6 +266,12 @@ func (l *ZapLogger) Warn(msg string, fields ...zap.Field) {
 
 func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
 	l.structured.Error(msg, fields...)
+}
+
+func (l *ZapLogger) Trace(msg string, fields ...zap.Field) {
+	if l.IsTraceEnabled() {
+		l.structured.WithOptions(zap.AddCallerSkip(1)).Log(TRACE, msg, fields...)
+	}
 }
 
 func (l *ZapLogger) IsTraceEnabled() bool {

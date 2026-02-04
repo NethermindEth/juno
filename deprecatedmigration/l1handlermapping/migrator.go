@@ -43,7 +43,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	_ *utils.Network,
-	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
+	log utils.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -54,13 +54,15 @@ func (m *Migrator) Migrate(
 	}
 
 	if m.startFrom > 0 {
-		log.Infow("Resuming L1 handler message hash migration",
-			"chain_height", chainHeight,
-			"from_block", m.startFrom,
+		log.Info("Resuming L1 handler message hash migration",
+			utils.SugaredFields(
+				"chain_height", chainHeight,
+				"from_block", m.startFrom,
+			)...,
 		)
 	} else {
-		log.Infow("Starting L1 handler message hash migration",
-			"chain_height", chainHeight,
+		log.Info("Starting L1 handler message hash migration",
+			utils.SugaredFields("chain_height", chainHeight)...,
 		)
 	}
 
@@ -80,15 +82,17 @@ func (m *Migrator) Migrate(
 	}
 
 	if shouldResume := resumeFrom <= chainHeight; shouldResume {
-		log.Infow("L1 handler message hash migration interrupted",
-			"resume_from", resumeFrom,
-			"elapsed", progressTracker.Elapsed(),
+		log.Info("L1 handler message hash migration interrupted",
+			utils.SugaredFields(
+				"resume_from", resumeFrom,
+				"elapsed", progressTracker.Elapsed(),
+			)...,
 		)
 		return encodeIntermediateState(resumeFrom), nil
 	}
 
-	log.Infow("L1 handler message hash migration completed",
-		"elapsed", progressTracker.Elapsed(),
+	log.Info("L1 handler message hash migration completed",
+		utils.SugaredFields("elapsed", progressTracker.Elapsed())...,
 	)
 	return nil, nil
 }
@@ -96,7 +100,7 @@ func (m *Migrator) Migrate(
 func migrateBlockRange(
 	ctx context.Context,
 	database db.KeyValueStore,
-	logger utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
+	logger utils.StructuredLogger,
 	startFrom uint64,
 	rangeEnd uint64,
 	maxWorkers int,

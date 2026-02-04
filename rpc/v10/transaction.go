@@ -60,7 +60,7 @@ func (h *Handler) TransactionStatus(
 		status, err := rpcv9.AdaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, rpcv9.ErrTransactionNotFound) {
-				h.log.Errorw("Failed to adapt transaction status", "err", err)
+				h.log.Error("Failed to adapt transaction status", utils.SugaredFields("err", err)...)
 			}
 			return rpcv9.TransactionStatus{}, rpccore.ErrTxnHashNotFound
 		}

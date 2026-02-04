@@ -72,11 +72,11 @@ type VM interface {
 
 type vm struct {
 	chainInfo       *ChainInfo
-	log             utils.SimpleLogger
+	log             utils.StructuredLogger
 	concurrencyMode bool
 }
 
-func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.SimpleLogger) VM {
+func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.StructuredLogger) VM {
 	return &vm{
 		chainInfo:       chainInfo,
 		log:             log,
@@ -88,7 +88,7 @@ func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.SimpleLogger) VM 
 type callContext struct {
 	// state that the call is running on
 	state core.StateReader
-	log   utils.SimpleLogger
+	log   utils.StructuredLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
 	// index of the transaction that generated err

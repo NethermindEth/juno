@@ -12,14 +12,14 @@ import (
 
 type Upgrader struct {
 	client         *http.Client
-	log            utils.SimpleLogger
+	log            utils.StructuredLogger
 	apiURL         string
 	currentVersion *semver.Version
 	releasesURL    string
 	delay          time.Duration
 }
 
-func NewUpgrader(version *semver.Version, apiURL, releasesURL string, delay time.Duration, log utils.SimpleLogger) *Upgrader {
+func NewUpgrader(version *semver.Version, apiURL, releasesURL string, delay time.Duration, log utils.StructuredLogger) *Upgrader {
 	return &Upgrader{
 		currentVersion: version,
 		client:         &http.Client{},
@@ -35,7 +35,7 @@ func (u *Upgrader) WithClient(client *http.Client) *Upgrader {
 	return u
 }
 
-func (u *Upgrader) WithLog(log utils.SimpleLogger) *Upgrader {
+func (u *Upgrader) WithLog(log utils.StructuredLogger) *Upgrader {
 	u.log = log
 	return u
 }
@@ -57,31 +57,34 @@ func (u *Upgrader) Run(ctx context.Context) error {
 			var req *http.Request
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.apiURL, http.NoBody)
 			if err != nil {
-				u.log.Debugw("Failed to create new request with context")
+				u.log.Debug("Failed to create new request with context")
 				continue
 			}
 
 			resp, err := u.client.Do(req)
 			if err != nil {
-				u.log.Debugw("Failed to fetch latest release", "err", err)
+				u.log.Debug("Failed to fetch latest release", utils.SugaredFields("err", err)...)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
-				u.log.Debugw("Failed to fetch latest release", "status", resp.Status)
+				u.log.Debug("Failed to fetch latest release", utils.SugaredFields("status", resp.Status)...)
 				continue
 			}
 
 			latest := new(Release)
 			if err := json.NewDecoder(resp.Body).Decode(latest); err == nil {
 				if needsUpdate(*u.currentVersion, *latest.Version) {
-					u.log.Warnw("New release is available.",
-						"currentVersion", u.currentVersion.String(),
-						"newVersion", latest.Version.String(),
-						"link", u.releasesURL)
+					u.log.Warn("New release is available.",
+						utils.SugaredFields(
+							"currentVersion", u.currentVersion.String(),
+							"newVersion", latest.Version.String(),
+							"link", u.releasesURL,
+						)...,
+					)
 				} else {
-					u.log.Debugw("Application is up-to-date.")
+					u.log.Debug("Application is up-to-date.")
 				}
 			} else {
-				u.log.Debugw("Failed to unmarshal latest release")
+				u.log.Debug("Failed to unmarshal latest release")
 			}
 
 			timer.Reset(u.delay)

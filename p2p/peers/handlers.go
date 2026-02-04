@@ -28,14 +28,14 @@ import (
 
 type Handler struct {
 	bcReader blockchain.Reader
-	log      utils.SimpleLogger
+	log      utils.StructuredLogger
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 }
 
-func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
+func NewHandler(bcReader blockchain.Reader, log utils.StructuredLogger) *Handler {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Handler{
 		bcReader: bcReader,
@@ -60,14 +60,14 @@ func getBuffer() *bytes.Buffer {
 }
 
 func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
-	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
+	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.StructuredLogger,
 ) {
 	wg.Add(1)
 	defer wg.Done()
 
 	defer func() {
 		if err := stream.Close(); err != nil {
-			log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			log.Debug("Error closing stream", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
 		}
 	}()
 
@@ -77,7 +77,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	// todo add limit reader
 	// todo add read timeout
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		log.Debugw("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debug("Error reading from stream", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
 		return
 	}
 
@@ -85,14 +85,14 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		log.Debugw("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debug("Error unmarshalling message", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
 		return
 	}
 
 	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
-		log.Debugw("Error handling request", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debug("Error handling request", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
 		return
 	}
 
@@ -103,7 +103,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 
 		// todo add write timeout
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			log.Debug("Error writing response", utils.SugaredFields("peer", stream.ID(), "protocol", stream.Protocol(), "err", err)...)
 			break
 		}
 	}
@@ -140,7 +140,7 @@ func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[pr
 			return nil, err
 		}
 
-		h.log.Debugw("Created Header Iterator", "blockNumber", blockHeader.Number)
+		h.log.Debug("Created Header Iterator", utils.SugaredFields("blockNumber", blockHeader.Number)...)
 
 		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
 		if err != nil {
@@ -372,7 +372,7 @@ func (h *Handler) onClassesRequest(req *syncclass.ClassesRequest) (iter.Seq[prot
 		}
 		defer func() {
 			if closeErr := closer(); closeErr != nil {
-				h.log.Errorw("Failed to close state reader", "err", closeErr)
+				h.log.Error("Failed to close state reader", utils.SugaredFields("err", closeErr)...)
 			}
 		}()
 
@@ -438,7 +438,7 @@ func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMs
 			msg, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+					h.log.Error("Failed to generate data", utils.SugaredFields("blockNumber", it.BlockNumber(), "err", err)...)
 				}
 				break
 			}
@@ -477,7 +477,7 @@ func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, 
 			messages, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+					h.log.Error("Failed to generate data", utils.SugaredFields("blockNumber", it.BlockNumber(), "err", err)...)
 				}
 				break
 			}

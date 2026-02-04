@@ -52,13 +52,13 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 		case msg := <-b.ch:
 			msgBytes, err := proto.Marshal(msg)
 			if err != nil {
-				b.log.Errorw("unable to marshal message", "error", err)
+				b.log.Error("unable to marshal message", utils.SugaredFields("error", err)...)
 				continue
 			}
 
 			for {
 				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil && !errors.Is(err, context.Canceled) {
-					b.log.Errorw("unable to send message", "error", err)
+					b.log.Error("unable to send message", utils.SugaredFields("error", err)...)
 					time.Sleep(b.retryInterval)
 					continue
 				}
@@ -71,7 +71,7 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 		case <-rebroadcasted.trigger:
 			for msgBytes := range rebroadcasted.messages {
 				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil && !errors.Is(err, context.Canceled) {
-					b.log.Errorw("unable to rebroadcast message", "error", err)
+					b.log.Error("unable to rebroadcast message", utils.SugaredFields("error", err)...)
 				}
 			}
 		}

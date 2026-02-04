@@ -30,7 +30,7 @@ func NewTransactionBroadcaster(
 func (b *transactionBroadcaster) Broadcast(ctx context.Context, message *mempool.BroadcastedTransaction) {
 	msg, err := mempool2p2p.AdaptTransaction(message)
 	if err != nil {
-		b.log.Errorw("unable to convert transaction", "error", err)
+		b.log.Error("unable to convert transaction", utils.SugaredFields("error", err)...)
 		return
 	}
 

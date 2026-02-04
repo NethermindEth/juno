@@ -134,7 +134,7 @@ func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {
 	if err := f(); err != nil {
-		h.log.Errorw(msg, "err", err)
+		h.log.Error(msg, utils.SugaredFields("err", err)...)
 	}
 }
 

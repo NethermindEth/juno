@@ -75,7 +75,7 @@ func (s *proposalStream) loop(ctx context.Context) {
 			return
 		case streamMessage := <-s.input:
 			if err := s.processMessages(ctx, streamMessage); err != nil {
-				s.log.Errorw("error processing message", "err", err)
+				s.log.Error("error processing message", utils.SugaredFields("err", err)...)
 				return
 			}
 		}

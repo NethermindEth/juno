@@ -50,7 +50,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.log.Errorw("Failed to get contract class hash", "err", err)
+		h.log.Error("Failed to get contract class hash", utils.SugaredFields("err", err)...)
 		return nil, rpccore.ErrInternal
 	}
 

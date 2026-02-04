@@ -12,7 +12,7 @@ import (
 func (s *Sequencer) RunOnce() (*core.Header, error) {
 	err := s.buildState.ClearPending()
 	if err != nil {
-		s.log.Errorw("clearing pending", "err", err)
+		s.log.Error("clearing pending", utils.SugaredFields("err", err)...)
 	}
 
 	if err := s.initPendingBlock(); err != nil {
@@ -23,7 +23,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	cancel()
 	if pErr := s.listenPool(ctx); pErr != nil {
 		if pErr != mempool.ErrTxnPoolEmpty {
-			s.log.Warnw("listening pool", "err", pErr)
+			s.log.Warn("listening pool", utils.SugaredFields("err", pErr)...)
 		}
 	}
 
@@ -38,7 +38,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
 		if err != nil {
-			s.log.Errorw("error sending new block to plugin", err)
+			s.log.Error("error sending new block to plugin", utils.SugaredFields("err", err)...)
 		}
 	}
 	// push the new head to the feed

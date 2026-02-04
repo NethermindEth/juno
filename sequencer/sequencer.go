@@ -78,7 +78,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 	// Clear pending state on shutdown
 	defer func() {
 		if pErr := s.buildState.ClearPending(); pErr != nil {
-			s.log.Errorw("clearing pending", "err", pErr)
+			s.log.Error("clearing pending", utils.SugaredFields("err", pErr)...)
 		}
 	}()
 
@@ -90,7 +90,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 	go func() {
 		if pErr := s.listenPool(ctx); pErr != nil {
 			if pErr != mempool.ErrTxnPoolEmpty {
-				s.log.Warnw("listening pool", "err", pErr)
+				s.log.Warn("listening pool", utils.SugaredFields("err", pErr)...)
 			}
 		}
 		close(doneListen)
@@ -115,7 +115,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 			if s.plugin != nil {
 				err := s.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
 				if err != nil {
-					s.log.Errorw("error sending new block to plugin", err)
+					s.log.Error("error sending new block to plugin", utils.SugaredFields("err", err)...)
 				}
 			}
 			// push the new head to the feed
@@ -186,15 +186,15 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.log.Debugw("running txns", userTxns)
+		s.log.Debug("running txns", utils.SugaredFields("txns", userTxns)...)
 		if err = s.builder.RunTxns(s.buildState, userTxns); err != nil {
-			s.log.Debugw("failed running txn", "err", err.Error())
+			s.log.Debug("failed running txn", utils.SugaredFields("err", err.Error())...)
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
 				return err
 			}
 		}
-		s.log.Debugw("running txns success")
+		s.log.Debug("running txns success")
 		select {
 		case <-ctx.Done():
 			return nil

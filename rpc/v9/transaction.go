@@ -844,7 +844,7 @@ func (h *Handler) TransactionStatus(
 		status, err := AdaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, ErrTransactionNotFound) {
-				h.log.Errorw("Failed to adapt transaction status", "err", err)
+				h.log.Error("Failed to adapt transaction status", utils.SugaredFields("err", err)...)
 			}
 			return TransactionStatus{}, rpccore.ErrTxnHashNotFound
 		}

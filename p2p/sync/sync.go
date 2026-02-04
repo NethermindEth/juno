@@ -33,7 +33,7 @@ import (
 
 type Service struct {
 	blockchain *blockchain.Blockchain
-	log        utils.SimpleLogger
+	log        utils.StructuredLogger
 
 	blockFetcher *BlockFetcher
 	blockCh      chan BlockBody
@@ -41,7 +41,7 @@ type Service struct {
 
 func New(
 	bc *blockchain.Blockchain,
-	log utils.SimpleLogger,
+	log utils.StructuredLogger,
 	blockFetcher *BlockFetcher,
 ) *Service {
 	return &Service{
@@ -65,7 +65,7 @@ func (s *Service) Run(ctx context.Context) {
 		if err := ctx.Err(); err != nil {
 			break
 		}
-		s.log.Debugw("Continuous iteration", "i", i)
+		s.log.Debug("Continuous iteration", utils.SugaredFields("i", i)...)
 
 		iterCtx, cancelIteration := context.WithCancel(ctx)
 		nextHeight, err := s.getNextHeight()
@@ -75,7 +75,7 @@ func (s *Service) Run(ctx context.Context) {
 			continue
 		}
 
-		s.log.Infow("Start Pipeline", "Current height", nextHeight-1, "Start", nextHeight)
+		s.log.Info("Start Pipeline", utils.SugaredFields("Current height", nextHeight-1, "Start", nextHeight)...)
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
@@ -104,16 +104,16 @@ func (s *Service) getNextHeight() (int, error) {
 
 func (s *Service) logError(msg string, err error) {
 	if !errors.Is(err, context.Canceled) {
-		var log utils.SimpleLogger
+		var log utils.StructuredLogger
 		if v, ok := s.log.(*utils.ZapLogger); ok {
 			log = v.WithOptions(zap.AddCallerSkip(1))
 		} else {
 			log = s.log
 		}
 
-		log.Errorw(msg, "err", err)
+		log.Error(msg, utils.SugaredFields("err", err)...)
 	} else {
-		s.log.Debugw("Sync context canceled")
+		s.log.Debug("Sync context canceled")
 	}
 }
 
@@ -122,14 +122,14 @@ type BlockFetcher struct {
 	client     *Client // todo: merge all the functionality of Client with p2p SyncService
 	blockchain *blockchain.Blockchain
 	listener   junoSync.EventListener
-	log        utils.SimpleLogger
+	log        utils.StructuredLogger
 }
 
 func NewBlockFetcher(
 	bc *blockchain.Blockchain,
 	h host.Host,
 	n *utils.Network,
-	log utils.SimpleLogger,
+	log utils.StructuredLogger,
 ) BlockFetcher {
 	return BlockFetcher{
 		network:    n,
@@ -224,32 +224,32 @@ func (s *BlockFetcher) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debugw("Received Block Header with signatures", "blockNumber", p.blockNumber())
+					s.log.Debug("Received Block Header with signatures", utils.SugaredFields("blockNumber", p.blockNumber())...)
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
-					s.log.Debugw("Received Transactions with receipts", "blockNumber", p.blockNumber(), "txLen", len(p.txs))
+					s.log.Debug("Received Transactions with receipts", utils.SugaredFields("blockNumber", p.blockNumber(), "txLen", len(p.txs))...)
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
 				case specEvents:
-					s.log.Debugw("Received Events", "blockNumber", p.blockNumber(), "len", len(p.events))
+					s.log.Debug("Received Events", utils.SugaredFields("blockNumber", p.blockNumber(), "len", len(p.events))...)
 					if _, ok := specEventsM[part.blockNumber()]; !ok {
 						specEventsM[part.blockNumber()] = p
 					}
 				case specClasses:
-					s.log.Debugw("Received Classes", "blockNumber", p.blockNumber())
+					s.log.Debug("Received Classes", utils.SugaredFields("blockNumber", p.blockNumber())...)
 					if _, ok := specClassesM[part.blockNumber()]; !ok {
 						specClassesM[part.blockNumber()] = p
 					}
 				case specContractDiffs:
-					s.log.Debugw("Received ContractDiffs", "blockNumber", p.blockNumber())
+					s.log.Debug("Received ContractDiffs", utils.SugaredFields("blockNumber", p.blockNumber())...)
 					if _, ok := specContractDiffsM[part.blockNumber()]; !ok {
 						specContractDiffsM[part.blockNumber()] = p
 					}
 				default:
-					s.log.Warnw("Unsupported part type", "blockNumber", part.blockNumber(), "type", reflect.TypeOf(p))
+					s.log.Warn("Unsupported part type", utils.SugaredFields("blockNumber", part.blockNumber(), "type", reflect.TypeOf(p))...)
 				}
 
 				headerAndSig, okHeader := specBlockHeadersAndSigsM[curBlockNum]
@@ -258,7 +258,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 				cls, okClasses := specClassesM[curBlockNum]
 				diffs, okDiffs := specContractDiffsM[curBlockNum]
 				if okHeader && okTxs && okEvents && okClasses && okDiffs {
-					s.log.Debugw(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
+					s.log.Debug(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
 
 					select {
 					case <-ctx.Done():
@@ -271,7 +271,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 							} else {
 								oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
 								if err != nil {
-									s.log.Errorw("Failed to get Header", "number", curBlockNum, "err", err)
+									s.log.Error("Failed to get Header", utils.SugaredFields("number", curBlockNum, "err", err)...)
 									return
 								}
 								prevBlockRoot = oldHeader.GlobalStateRoot
@@ -350,22 +350,26 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 			coreBlock.Header = header
 
 			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
-				s.log.Errorw(
+				s.log.Error(
 					"Number of transactions != count",
-					"transactionCount",
-					coreBlock.TransactionCount,
-					"len(transactions)",
-					len(coreBlock.Transactions),
+					utils.SugaredFields(
+						"transactionCount",
+						coreBlock.TransactionCount,
+						"len(transactions)",
+						len(coreBlock.Transactions),
+					)...,
 				)
 				return
 			}
 			if int(coreBlock.EventCount) != len(events) {
-				s.log.Errorw(
+				s.log.Error(
 					"Number of events != count",
-					"eventCount",
-					coreBlock.EventCount,
-					"len(events)",
-					len(events),
+					utils.SugaredFields(
+						"eventCount",
+						coreBlock.EventCount,
+						"len(events)",
+						len(events),
+					)...,
 				)
 				return
 			}
@@ -401,7 +405,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 				}
 
 				if closeErr := stateCloser(); closeErr != nil {
-					s.log.Errorw("Failed to close state reader", "err", closeErr)
+					s.log.Error("Failed to close state reader", utils.SugaredFields("err", closeErr)...)
 				}
 			}()
 
@@ -493,7 +497,7 @@ func (s *BlockFetcher) genHeadersAndSigs(
 			case *header.BlockHeadersResponse_Fin:
 				break loop
 			default:
-				s.log.Warnw("Unexpected HeaderMessage from getBlockHeaders", "v", v)
+				s.log.Warn("Unexpected HeaderMessage from getBlockHeaders", utils.SugaredFields("v", v)...)
 				break loop
 			}
 
@@ -540,7 +544,7 @@ func (s *BlockFetcher) genClasses(
 			case *syncclass.ClassesResponse_Fin:
 				break loop
 			default:
-				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
+				s.log.Warn("Unexpected ClassMessage from getClasses", utils.SugaredFields("v", v)...)
 				break loop
 			}
 		}
@@ -551,7 +555,7 @@ func (s *BlockFetcher) genClasses(
 			number:  blockNumber,
 			classes: classes,
 		}:
-			s.log.Debugw("Received classes for block", "blockNumber", blockNumber, "lenClasses", len(classes))
+			s.log.Debug("Received classes for block", utils.SugaredFields("blockNumber", blockNumber, "lenClasses", len(classes))...)
 		}
 	}()
 	return classesCh, nil
@@ -588,11 +592,11 @@ func (s *BlockFetcher) genStateDiffs(
 			case *state.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
 			case *state.StateDiffsResponse_DeclaredClass:
-				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
+				s.log.Warn("Unimplemented message StateDiffsResponse_DeclaredClass")
 			case *state.StateDiffsResponse_Fin:
 				break loop
 			default:
-				s.log.Warnw("Unexpected ClassMessage from getStateDiffs", "v", v)
+				s.log.Warn("Unexpected ClassMessage from getStateDiffs", utils.SugaredFields("v", v)...)
 				break loop
 			}
 		}
@@ -641,7 +645,7 @@ func (s *BlockFetcher) genEvents(
 			case *event.EventsResponse_Fin:
 				break loop
 			default:
-				s.log.Warnw("Unexpected EventMessage from getEvents", "v", v)
+				s.log.Warn("Unexpected EventMessage from getEvents", utils.SugaredFields("v", v)...)
 				break loop
 			}
 		}
@@ -696,12 +700,12 @@ func (s *BlockFetcher) genTransactions(
 			case *synctransaction.TransactionsResponse_Fin:
 				break loop
 			default:
-				s.log.Warnw("Unexpected TransactionMessage from getTransactions", "v", v)
+				s.log.Warn("Unexpected TransactionMessage from getTransactions", utils.SugaredFields("v", v)...)
 				break loop
 			}
 		}
 
-		s.log.Debugw("Transactions length", "len", len(transactions))
+		s.log.Debug("Transactions length", utils.SugaredFields("len", len(transactions))...)
 		spexTxs := specTxWithReceipts{
 			number:   blockNumber,
 			txs:      transactions,
@@ -716,7 +720,7 @@ func (s *BlockFetcher) genTransactions(
 	return txsCh, nil
 }
 
-func randomPeer(host host.Host, log utils.SimpleLogger) peer.ID {
+func randomPeer(host host.Host, log utils.StructuredLogger) peer.ID {
 	store := host.Peerstore()
 	// todo do not request same block from all peers
 	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
@@ -728,15 +732,15 @@ func randomPeer(host host.Host, log utils.SimpleLogger) peer.ID {
 
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
-	log.Debugw("Number of peers", "len", len(peers))
-	log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
+	log.Debug("Number of peers", utils.SugaredFields("len", len(peers))...)
+	log.Debug("Random chosen peer's info", utils.SugaredFields("peerInfo", store.PeerInfo(p))...)
 
 	return p
 }
 
 var errNoPeers = errors.New("no peers available")
 
-func randomPeerStream(host host.Host, log utils.SimpleLogger) NewStreamFunc {
+func randomPeerStream(host host.Host, log utils.StructuredLogger) NewStreamFunc {
 	return func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		randPeer := randomPeer(host, log)
 		if randPeer == "" {
@@ -744,7 +748,7 @@ func randomPeerStream(host host.Host, log utils.SimpleLogger) NewStreamFunc {
 		}
 		stream, err := host.NewStream(ctx, randPeer, pids...)
 		if err != nil {
-			log.Debugw("Error creating stream", "peer", randPeer, "err", err)
+			log.Debug("Error creating stream", utils.SugaredFields("peer", randPeer, "err", err)...)
 			removePeer(host, log, randPeer)
 			return nil, err
 		}
@@ -752,8 +756,8 @@ func randomPeerStream(host host.Host, log utils.SimpleLogger) NewStreamFunc {
 	}
 }
 
-func removePeer(host host.Host, log utils.SimpleLogger, id peer.ID) {
-	log.Debugw("Removing peer", "peerID", id)
+func removePeer(host host.Host, log utils.StructuredLogger, id peer.ID) {
+	log.Debug("Removing peer", utils.SugaredFields("peerID", id)...)
 	host.Peerstore().RemovePeer(id)
 	host.Peerstore().ClearAddrs(id)
 }

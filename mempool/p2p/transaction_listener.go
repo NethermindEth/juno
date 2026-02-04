@@ -21,18 +21,18 @@ func NewTransactionListener(
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		var p2pTransaction mempooltransaction.MempoolTransaction
 		if err := proto.Unmarshal(msg.Data, &p2pTransaction); err != nil {
-			log.Errorw("unable to unmarshal transaction message", "error", err)
+			log.Error("unable to unmarshal transaction message", utils.SugaredFields("error", err)...)
 			return
 		}
 
 		transaction, err := p2p2mempool.AdaptTransaction(&p2pTransaction, network)
 		if err != nil {
-			log.Errorw("unable to convert transaction message to transaction", "error", err)
+			log.Error("unable to convert transaction message to transaction", utils.SugaredFields("error", err)...)
 			return
 		}
 
 		if err := pool.Push(ctx, &transaction); err != nil {
-			log.Errorw("unable to push transaction to mempool", "error", err)
+			log.Error("unable to push transaction to mempool", utils.SugaredFields("error", err)...)
 		}
 	}
 

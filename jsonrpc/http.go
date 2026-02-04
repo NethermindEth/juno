@@ -14,12 +14,12 @@ const MaxRequestBodySize = 10 * utils.Megabyte
 
 type HTTP struct {
 	rpc *Server
-	log utils.SimpleLogger
+	log utils.StructuredLogger
 
 	listener NewRequestListener
 }
 
-func NewHTTP(rpc *Server, log utils.SimpleLogger) *HTTP {
+func NewHTTP(rpc *Server, log utils.StructuredLogger) *HTTP {
 	h := &HTTP{
 		rpc:      rpc,
 		log:      log,
@@ -56,7 +56,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	maps.Copy(writer.Header(), header) // overwrites duplicate headers
 
 	if err != nil {
-		h.log.Errorw("Handler failure", "err", err)
+		h.log.Error("Handler failure", utils.SugaredFields("err", err)...)
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {
@@ -73,7 +73,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		}
 		_, err = ioWriter.Write(resp)
 		if err != nil {
-			h.log.Warnw("Failed writing response", "err", err)
+			h.log.Warn("Failed writing response", utils.SugaredFields("err", err)...)
 		}
 	}
 }

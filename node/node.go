@@ -290,7 +290,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			if cfg.Network == utils.Mainnet {
 				return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
 			}
-			log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
+			log.Warn("P2P features enabled. Please note P2P is in experimental stage")
 
 			if !cfg.P2PFeederNode {
 				// Do not start the feeder synchronisation
@@ -395,7 +395,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		log.Infow("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+		log.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
 			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
 		)
 		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
@@ -462,13 +462,13 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
 		n.services = append(n.services, ug)
 	} else {
-		log.Warnw("Failed to parse Juno version, will not warn about new releases", "version", version)
+		log.Warn("Failed to parse Juno version, will not warn about new releases", utils.SugaredFields("version", version)...)
 	}
 
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.StructuredLogger) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -499,28 +499,28 @@ func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockcha
 func (n *Node) Run(ctx context.Context) {
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
-			n.log.Errorw("Error while closing the DB", "err", closeErr)
+			n.log.Error("Error while closing the DB", utils.SugaredFields("err", closeErr)...)
 		}
 	}()
 
 	defer func() {
 		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
-			n.log.Errorw("Error while storing running event filter", "err", dbErr)
+			n.log.Error("Error while storing running event filter", utils.SugaredFields("err", dbErr)...)
 		}
 	}()
 
 	cfg := make(map[string]any)
 	err := mapstructure.Decode(n.cfg, &cfg)
 	if err != nil {
-		n.log.Errorw("Error while decoding config to mapstructure", "err", err)
+		n.log.Error("Error while decoding config to mapstructure", utils.SugaredFields("err", err)...)
 		return
 	}
 	yamlConfig, err := yaml.Marshal(n.cfg)
 	if err != nil {
-		n.log.Errorw("Error while marshalling config", "err", err)
+		n.log.Error("Error while marshalling config", utils.SugaredFields("err", err)...)
 		return
 	}
-	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
+	n.log.Debug(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
 	wg := conc.NewWaitGroup()
 	defer wg.Wait()
@@ -534,17 +534,17 @@ func (n *Node) Run(ctx context.Context) {
 	err = migrateIfNeeded(ctx, n.db, n.cfg, n.log)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			n.log.Infow("DB Migration cancelled")
+			n.log.Info("DB Migration cancelled")
 			return
 		}
-		n.log.Errorw("Error while running migrations", "err", err)
+		n.log.Error("Error while running migrations", utils.SugaredFields("err", err)...)
 		return
 	}
 
 	if n.cfg.Sequencer {
 		// Custom networks are not supported in sequencer mode yet
 		if !slices.Contains(utils.KnownNetworkNames, n.cfg.Network.Name) {
-			n.log.Errorw("Custom networks are not supported in sequencer mode yet")
+			n.log.Error("Custom networks are not supported in sequencer mode yet")
 			return
 		}
 		feeTokens := utils.DefaultFeeTokenAddresses
@@ -561,7 +561,7 @@ func (n *Node) Run(ctx context.Context) {
 			n.cfg.RPCCallMaxGas,
 		)
 		if err != nil {
-			n.log.Errorw("Error building genesis state", "err", err)
+			n.log.Error("Error building genesis state", utils.SugaredFields("err", err)...)
 			return
 		}
 	}
@@ -571,7 +571,7 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
-	n.log.Infow("Shutting down Juno...")
+	n.log.Info("Shutting down Juno...")
 }
 
 func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service) {
@@ -580,7 +580,7 @@ func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel cont
 		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 		defer cancel()
 		if err := s.Run(ctx); err != nil {
-			n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
+			n.log.Error("Service error", utils.SugaredFields("name", reflect.TypeOf(s), "err", err)...)
 		}
 	})
 }

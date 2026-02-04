@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 )
 
 //export JunoFree
@@ -26,7 +27,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 	val, err := context.state.ContractStorage(contractAddressFelt, storageLocationFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Errorw("JunoStateGetStorageAt failed to read contract storage", "err", err)
+			context.log.Error("JunoStateGetStorageAt failed to read contract storage", utils.SugaredFields("err", err)...)
 			return 0
 		}
 		val = felt.Zero
@@ -43,7 +44,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 	val, err := context.state.ContractNonce(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Errorw("JunoStateGetNonceAt failed to read contract nonce", "err", err)
+			context.log.Error("JunoStateGetNonceAt failed to read contract nonce", utils.SugaredFields("err", err)...)
 			return 0
 		}
 		val = felt.Zero
@@ -60,7 +61,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 	val, err := context.state.ContractClassHash(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Errorw("JunoStateGetClassHashAt failed to read contract class", "err", err)
+			context.log.Error("JunoStateGetClassHashAt failed to read contract class", utils.SugaredFields("err", err)...)
 			return 0
 		}
 		val = felt.Zero
@@ -77,14 +78,14 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 	val, err := context.state.Class(classHashFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Errorw("JunoStateGetCompiledClass failed to read class", "err", err)
+			context.log.Error("JunoStateGetCompiledClass failed to read class", utils.SugaredFields("err", err)...)
 		}
 		return nil
 	}
 
 	compiledClass, err := marshalClassInfo(val.Class)
 	if err != nil {
-		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class", "err", err)
+		context.log.Error("JunoStateGetCompiledClass failed to marshal compiled class", utils.SugaredFields("err", err)...)
 		return nil
 	}
 

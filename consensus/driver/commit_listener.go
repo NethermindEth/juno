@@ -48,7 +48,7 @@ func NewCommitListener[V types.Hashable[H], H types.Hash](
 func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height, value V) {
 	buildResult := b.proposalStore.Get(value.Hash())
 	if buildResult == nil {
-		b.log.Errorw("failed to get build result", "hash", value.Hash())
+		b.log.Error("failed to get build result", utils.SugaredFields("hash", value.Hash())...)
 		return
 	}
 

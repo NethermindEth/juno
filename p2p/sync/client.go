@@ -29,10 +29,10 @@ type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Strea
 type Client struct {
 	newStream NewStreamFunc
 	network   *utils.Network
-	log       utils.SimpleLogger
+	log       utils.StructuredLogger
 }
 
-func NewClient(newStream NewStreamFunc, snNetwork *utils.Network, log utils.SimpleLogger) *Client {
+func NewClient(newStream NewStreamFunc, snNetwork *utils.Network, log utils.StructuredLogger) *Client {
 	return &Client{
 		newStream: newStream,
 		network:   snNetwork,
@@ -60,7 +60,7 @@ func receiveInto(stream network.Stream, res proto.Message) error {
 }
 
 func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context.Context,
-	newStream NewStreamFunc, protocolID protocol.ID, req ReqT, log utils.SimpleLogger,
+	newStream NewStreamFunc, protocolID protocol.ID, req ReqT, log utils.StructuredLogger,
 ) (iter.Seq[ResT], error) {
 	stream, err := newStream(ctx, protocolID)
 	if err != nil {
@@ -74,7 +74,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
-		log.Errorw("sendAndCloseWrite (stream is not closed)", "err", err, "streamID", id)
+		log.Error("sendAndCloseWrite (stream is not closed)", utils.SugaredFields("err", err, "streamID", id)...)
 		return nil, err
 	}
 
@@ -82,7 +82,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		defer func() {
 			closeErr := stream.Close()
 			if closeErr != nil {
-				log.Errorw("Error while closing stream", "err", closeErr)
+				log.Error("Error while closing stream", utils.SugaredFields("err", closeErr)...)
 			}
 		}()
 
@@ -91,7 +91,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		for {
 			if err := receiveInto(stream, res); err != nil {
 				if !errors.Is(err, io.EOF) {
-					log.Debugw("Error while reading from stream", "err", err)
+					log.Debug("Error while reading from stream", utils.SugaredFields("err", err)...)
 				}
 
 				break

@@ -59,19 +59,19 @@ func (b *proposalBroadcaster[V, H, A]) processLoop(ctx context.Context) {
 			proposalHash := (*proposal.Value).Hash()
 			buildResult := b.proposalStore.Get(proposalHash)
 			if buildResult == nil {
-				b.log.Errorw("proposal not found", "proposal", proposalHash)
+				b.log.Error("proposal not found", utils.SugaredFields("proposal", proposalHash)...)
 				continue
 			}
 
 			dispatcher, err := newProposerDispatcher(b.proposalAdapter, proposal, buildResult)
 			if err != nil {
-				b.log.Errorw("unable to build dispatcher", "error", err)
+				b.log.Error("unable to build dispatcher", utils.SugaredFields("error", err)...)
 				continue
 			}
 
 			for msg, err := range dispatcher.run() {
 				if err != nil {
-					b.log.Errorw("unable to generate proposal part", "error", err)
+					b.log.Error("unable to generate proposal part", utils.SugaredFields("error", err)...)
 					return
 				}
 				b.broadcaster.Broadcast(ctx, msg)

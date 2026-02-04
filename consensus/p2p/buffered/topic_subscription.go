@@ -25,7 +25,7 @@ func NewTopicSubscription(log utils.Logger, bufferSize int, callback func(contex
 func (b TopicSubscription) Loop(ctx context.Context, topic *pubsub.Topic) {
 	sub, err := topic.Subscribe(pubsub.WithBufferSize(b.bufferSize))
 	if err != nil {
-		b.log.Errorw("unable to subscribe to topic with error: %w", err)
+		b.log.Error("unable to subscribe to topic", utils.SugaredFields("err", err)...)
 		return
 	}
 	defer sub.Cancel()
@@ -37,7 +37,7 @@ func (b TopicSubscription) Loop(ctx context.Context, topic *pubsub.Topic) {
 				return
 			}
 
-			b.log.Errorw("unable to receive message", "error", err)
+			b.log.Error("unable to receive message", utils.SugaredFields("error", err)...)
 			continue
 		}
 		b.callback(ctx, msg)

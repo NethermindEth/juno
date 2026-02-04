@@ -38,7 +38,7 @@ func NewVoteBroadcaster[H types.Hash, A types.Addr](
 func (b *voteBroadcaster[H, A]) broadcast(ctx context.Context, message *types.Vote[H, A], voteType consensus.Vote_VoteType) {
 	msg, err := b.voteAdapter.FromVote(message, voteType)
 	if err != nil {
-		b.log.Errorw("unable to convert vote", "error", err)
+		b.log.Error("unable to convert vote", utils.SugaredFields("error", err)...)
 		return
 	}
 

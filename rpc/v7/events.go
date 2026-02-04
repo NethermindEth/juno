@@ -51,11 +51,11 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 					},
 				})
 				if err != nil {
-					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					h.log.Warn("Error marshalling a subscription reply", utils.SugaredFields("err", err)...)
 					return
 				}
 				if _, err = w.Write(resp); err != nil {
-					h.log.Warnw("Error writing a subscription reply", "err", err)
+					h.log.Warn("Error writing a subscription reply", utils.SugaredFields("err", err)...)
 					return
 				}
 			}

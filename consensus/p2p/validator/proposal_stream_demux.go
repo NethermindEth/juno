@@ -101,7 +101,7 @@ func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
 				return
 			case message := <-messages:
 				if err := t.processStreamMessage(ctx, message); err != nil {
-					t.log.Errorw("error processing stream message", "error", err)
+					t.log.Error("error processing stream message", utils.SugaredFields("error", err)...)
 				}
 			case height, ok := <-t.commitNotifier:
 				if !ok {
@@ -114,7 +114,7 @@ func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
 
 				// Process the commit
 				if err := t.processCommit(height); err != nil {
-					t.log.Errorw("error processing commit", "error", err)
+					t.log.Error("error processing commit", utils.SugaredFields("error", err)...)
 				}
 			}
 		}

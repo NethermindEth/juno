@@ -482,7 +482,7 @@ type testMigration struct {
 	before func([]byte) error
 }
 
-func (f testMigration) Migrate(ctx context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+func (f testMigration) Migrate(ctx context.Context, database db.KeyValueStore, network *utils.Network, _ utils.StructuredLogger) ([]byte, error) {
 	return f.exec(ctx, database, network)
 }
 

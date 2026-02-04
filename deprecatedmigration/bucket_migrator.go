@@ -80,7 +80,7 @@ func (m *BucketMigrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *utils.Network,
-	log utils.SimpleLogger,
+	log utils.StructuredLogger,
 ) ([]byte, error) {
 	remainingInBatch := m.batchSize
 	iterator, err := database.NewIterator(nil, false)
@@ -100,7 +100,7 @@ func (m *BucketMigrator) Migrate(
 					"Database may be in an inconsistent state.\n" +
 					"To force cancellation and potentially corrupt data, send interrupt signal again.\n" +
 					"Otherwise, please allow the migration to complete."
-				log.Warnw(msg)
+				log.Warn(msg)
 
 				// after context canceled on upper level there is no way to check how many interrupts were made from ctx.Done()
 				// but we can Initialise additional channel to receive the signals, they will be copied by runtime and provided

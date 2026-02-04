@@ -19,11 +19,11 @@ type DB struct {
 	ctx        context.Context
 	grpcClient *grpc.ClientConn
 	kvClient   gen.KVClient
-	log        utils.SimpleLogger
+	log        utils.StructuredLogger
 	listener   db.EventListener
 }
 
-func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
+func New(rawURL string, ctx context.Context, log utils.StructuredLogger, opts ...grpc.DialOption) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {
 		return nil, err

@@ -48,13 +48,13 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		p2pVote := consensus.Vote{}
 		if err := proto.Unmarshal(msg.Data, &p2pVote); err != nil {
-			log.Errorw("unable to unmarshal vote message", "error", err)
+			log.Error("unable to unmarshal vote message", utils.SugaredFields("error", err)...)
 			return
 		}
 
 		vote, err := voteAdapter.ToVote(&p2pVote)
 		if err != nil {
-			log.Errorw("unable to convert vote message to vote", "error", err)
+			log.Error("unable to convert vote message to vote", utils.SugaredFields("error", err)...)
 			return
 		}
 

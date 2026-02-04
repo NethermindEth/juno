@@ -19,7 +19,7 @@ type Database struct {
 	disk db.KeyValueStore
 
 	lock sync.RWMutex
-	log  utils.SimpleLogger
+	log  utils.StructuredLogger
 }
 
 func New(disk db.KeyValueStore) *Database {

@@ -27,7 +27,7 @@ type Database struct {
 	dirtyCache *dirtyCache
 
 	lock sync.RWMutex
-	log  utils.SimpleLogger
+	log  utils.StructuredLogger
 }
 
 // Creates a new hash-based database. If the config is not provided, it will use the default config,
@@ -176,11 +176,13 @@ func (d *Database) Commit(_ *felt.StateRootHash) error {
 
 	d.dirtyCache.reset()
 
-	d.log.Debugw("Flushed dirty cache to disk",
-		"nodes", nodes-d.dirtyCache.len(),
-		"duration", time.Since(startTime),
-		"liveNodes", d.dirtyCache.len(),
-		"liveSize", d.dirtyCache.size,
+	d.log.Debug("Flushed dirty cache to disk",
+		utils.SugaredFields(
+			"nodes", nodes-d.dirtyCache.len(),
+			"duration", time.Since(startTime),
+			"liveNodes", d.dirtyCache.len(),
+			"liveSize", d.dirtyCache.size,
+		)...,
 	)
 	return nil
 }

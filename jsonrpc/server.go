@@ -125,7 +125,7 @@ type Server struct {
 	methods              map[string]Method
 	validator            Validator
 	pool                 *pool.Pool
-	log                  utils.SimpleLogger
+	log                  utils.StructuredLogger
 	listener             EventListener
 	disableBatchRequests bool
 }
@@ -135,7 +135,7 @@ type Validator interface {
 }
 
 // NewServer instantiates a JSONRPC server
-func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
+func NewServer(poolMaxGoroutines int, log utils.StructuredLogger) *Server {
 	s := &Server{
 		log:      log,
 		methods:  make(map[string]Method),
@@ -357,7 +357,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 	addResponse := func(response any, header http.Header) {
 		if responseJSON, err := json.Marshal(response); err != nil {
-			s.log.Errorw("failed to marshal response", "err", err)
+			s.log.Error("failed to marshal response", utils.SugaredFields("err", err)...)
 		} else {
 			mutex.Lock()
 			responses = append(responses, responseJSON)
@@ -457,11 +457,11 @@ func isNilOrEmpty(i any) (bool, error) {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
-	s.log.Tracew("Received request", "req", req)
+	s.log.Trace("Received request", utils.SugaredFields("req", req)...)
 
 	header := http.Header{}
 	if err := req.isSane(); err != nil {
-		s.log.Tracew("Request sanity check failed", "err", err)
+		s.log.Trace("Request sanity check failed", utils.SugaredFields("err", err)...)
 		return nil, header, err
 	}
 
@@ -473,7 +473,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
-		s.log.Tracew("Method not found in request", "method", req.Method)
+		s.log.Trace("Method not found in request", utils.SugaredFields("method", req.Method)...)
 		return res, header, nil
 	}
 
@@ -482,7 +482,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
-		s.log.Tracew("Error building arguments for RPC call", "err", err)
+		s.log.Trace("Error building arguments for RPC call", utils.SugaredFields("err", err)...)
 		return res, header, nil
 	}
 	defer func() {
@@ -491,7 +491,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
-		s.log.Tracew("Notification received, no response expected")
+		s.log.Trace("Notification received, no response expected")
 		return nil, header, nil
 	}
 
@@ -507,7 +507,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 			s.listener.OnRequestFailed(req.Method, res.Error)
 			reqJSON, _ := json.Marshal(req)
 			errJSON, _ := json.Marshal(res.Error)
-			s.log.Debugw("Failed handing RPC request", "req", string(reqJSON), "res", string(errJSON))
+			s.log.Debug("Failed handing RPC request", utils.SugaredFields("req", string(reqJSON), "res", string(errJSON))...)
 		}
 		return res, header, nil
 	}
