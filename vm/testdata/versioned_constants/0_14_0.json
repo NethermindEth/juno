@@ -1,33 +1,17 @@
 {
-    "tx_event_limits": {
-        "max_data_length": 300,
-        "max_keys_length": 50,
-        "max_n_emitted_events": 1000
-    },
-    "gateway": {
-        "max_calldata_length": 5000,
-        "max_contract_bytecode_size": 81920
-    },
-    "invoke_tx_max_n_steps": 10000000,
-    "deprecated_l2_resource_gas_costs": {
-        "gas_per_data_felt": [
-            128,
-            1000
-        ],
-        "event_key_factor": [
-            2,
-            1
-        ],
-        "gas_per_code_byte": [
-            32,
-            1000
-        ]
+    "allocation_cost": {
+        "blob_cost": {
+            "l1_data_gas": 32,
+            "l1_gas": 0,
+            "l2_gas": 0
+        },
+        "gas_cost": {
+            "l1_data_gas": 0,
+            "l1_gas": 551,
+            "l2_gas": 0
+        }
     },
     "archival_data_gas_costs": {
-        "gas_per_data_felt": [
-            5120,
-            1
-        ],
         "event_key_factor": [
             2,
             1
@@ -35,34 +19,77 @@
         "gas_per_code_byte": [
             1280,
             1
+        ],
+        "gas_per_data_felt": [
+            5120,
+            1
+        ],
+        "gas_per_proof": [
+            0,
+            1
+        ]
+    },
+    "block_casm_hash_v1_declares": false,
+    "block_direct_execute_call": true,
+    "comprehensive_state_diff": true,
+    "deprecated_l2_resource_gas_costs": {
+        "event_key_factor": [
+            2,
+            1
+        ],
+        "gas_per_code_byte": [
+            32,
+            1000
+        ],
+        "gas_per_data_felt": [
+            128,
+            1000
+        ],
+        "gas_per_proof": [
+            0,
+            1
         ]
     },
     "disable_cairo0_redeclaration": true,
+    "disable_deploy_in_validation_mode": true,
+    "enable_casm_hash_migration": false,
+    "enable_reverts": true,
     "enable_stateful_compression": true,
-    "comprehensive_state_diff": true,
-    "block_direct_execute_call": true,
-    "allocation_cost": {
-        "blob_cost": {
-            "l1_gas": 0,
-            "l1_data_gas": 32,
-            "l2_gas": 0
-        },
-        "gas_cost": {
-            "l1_gas": 551,
-            "l1_data_gas": 0,
-            "l2_gas": 0
-        }
+    "enable_tip": true,
+    "gateway": {
+        "max_calldata_length": 5000,
+        "max_contract_bytecode_size": 81920,
+        "max_proof_size": 0
     },
     "ignore_inner_event_resources": false,
-    "disable_deploy_in_validation_mode": true,
-    "enable_reverts": true,
-    "enable_casm_hash_migration": false,
-    "block_casm_hash_v1_declares": false,
+    "invoke_tx_max_n_steps": 10000000,
     "max_recursion_depth": 50,
-    "segment_arena_cells": false,
+    "min_sierra_version_for_sierra_gas": "1.7.0",
     "os_constants": {
+        "allowed_virtual_os_program_hashes": [],
+        "builtin_gas_costs": {
+            "add_mod": 230,
+            "bitwise": 583,
+            "ecdsa": 10561,
+            "ecop": 4085,
+            "keccak": 136189,
+            "mul_mod": 604,
+            "pedersen": 4050,
+            "poseidon": 491,
+            "range_check": 70,
+            "range_check96": 56
+        },
         "constructor_entry_point_selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+        "data_gas_accounts": [
+            "0x02c8c7e6fbcfb3e8e15a46648e8914c6aa1fc506fc1e7fb3d1e19630716174bc",
+            "0x00816dd0297efc55dc1e7559020a3a825e81ef734b558f03c83325d4da7e6253",
+            "0x041bf1e71792aecb9df3e9d04e1540091c5e13122a731e02bec588f71dc1a5c3",
+            "0x6d612cac7690e6620055c617a83a5a0b43b9758d9d30f281ddbc77be1651a70"
+        ],
         "default_entry_point_selector": "0x0",
+        "default_initial_gas_cost": {
+            "step_gas_cost": 100000000
+        },
         "entry_point_initial_budget": {
             "step_gas_cost": 100
         },
@@ -70,46 +97,31 @@
         "entry_point_type_external": 0,
         "entry_point_type_l1_handler": 1,
         "error_block_number_out_of_range": "Block number out of range",
-        "error_invalid_input_len": "Invalid input length",
-        "error_invalid_argument": "Invalid argument",
-        "error_out_of_gas": "Out of gas",
         "error_entry_point_failed": "ENTRYPOINT_FAILED",
         "error_entry_point_not_found": "ENTRYPOINT_NOT_FOUND",
+        "error_invalid_argument": "Invalid argument",
+        "error_invalid_input_len": "Invalid input length",
+        "error_out_of_gas": "Out of gas",
         "execute_entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad",
         "execute_max_sierra_gas": 1000000000,
-        "default_initial_gas_cost": {
-            "step_gas_cost": 100000000
-        },
-        "l1_gas": "L1_GAS",
-        "l1_gas_index": 0,
-        "l1_handler_version": 0,
-        "l2_gas": "L2_GAS",
         "l1_data_gas": "L1_DATA",
         "l1_data_gas_index": 2,
+        "l1_gas": "L1_GAS",
+        "l1_gas_index": 0,
+        "l1_handler_max_amount_bounds": {
+            "l1_data_gas": 20000,
+            "l1_gas": 40000,
+            "l2_gas": 100000000
+        },
+        "l1_handler_version": 0,
+        "l2_gas": "L2_GAS",
         "l2_gas_index": 1,
         "memory_hole_gas_cost": 10,
         "nop_entry_point_offset": -1,
         "os_contract_addresses": {
-            "block_hash_contract_address": 1,
             "alias_contract_address": 2,
+            "block_hash_contract_address": 1,
             "reserved_contract_address": 3
-        },
-        "builtin_gas_costs": {
-            "range_check": 70,
-            "range_check96": 56,
-            "keccak": 136189,
-            "pedersen": 4050,
-            "bitwise": 583,
-            "ecop": 4085,
-            "poseidon": 491,
-            "add_mod": 230,
-            "mul_mod": 604,
-            "ecdsa": 10561
-        },
-        "l1_handler_max_amount_bounds": {
-            "l1_gas": 40000,
-            "l1_data_gas": 20000,
-            "l2_gas": 100000000
         },
         "sierra_array_len_bound": 4294967296,
         "step_gas_cost": 100,
@@ -118,15 +130,6 @@
             "step_gas_cost": 100
         },
         "transfer_entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
-        "validate_declare_entry_point_selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3",
-        "validate_deploy_entry_point_selector": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895",
-        "validate_entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775",
-        "validate_max_sierra_gas": 100000000,
-        "validate_rounding_consts": {
-            "validate_block_number_rounding": 100,
-            "validate_timestamp_rounding": 3600
-        },
-        "validated": "VALID",
         "v1_bound_accounts_cairo0": [
             "0x06d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4",
             "0x0309c042d3729173c7f2f91a34f04d8c509c1b292d334679ef1aabf8da0899cc",
@@ -145,15 +148,24 @@
             "0x0251cac7b2f45d255b83b7a06dcdef70c8a8752f00ea776517c1c2243c7a06e5"
         ],
         "v1_bound_accounts_max_tip": "0x746a5288000",
-        "data_gas_accounts": [
-            "0x02c8c7e6fbcfb3e8e15a46648e8914c6aa1fc506fc1e7fb3d1e19630716174bc",
-            "0x00816dd0297efc55dc1e7559020a3a825e81ef734b558f03c83325d4da7e6253",
-            "0x041bf1e71792aecb9df3e9d04e1540091c5e13122a731e02bec588f71dc1a5c3",
-            "0x6d612cac7690e6620055c617a83a5a0b43b9758d9d30f281ddbc77be1651a70"
-        ],
-        "allowed_virtual_os_program_hashes": []
+        "validate_declare_entry_point_selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3",
+        "validate_deploy_entry_point_selector": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895",
+        "validate_entry_point_selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775",
+        "validate_max_sierra_gas": 100000000,
+        "validate_rounding_consts": {
+            "validate_block_number_rounding": 100,
+            "validate_timestamp_rounding": 3600
+        },
+        "validated": "VALID"
     },
     "os_resources": {
+        "compute_os_kzg_commitment_info": {
+            "builtin_instance_counter": {
+                "range_check_builtin": 17
+            },
+            "n_memory_holes": 0,
+            "n_steps": 113
+        },
         "execute_syscalls": {
             "CallContract": {
                 "builtin_instance_counter": {
@@ -177,6 +189,13 @@
                 "n_steps": 692
             },
             "Deploy": {
+                "calldata_factor": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 1
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 8
+                },
                 "constant": {
                     "builtin_instance_counter": {
                         "pedersen_builtin": 7,
@@ -184,13 +203,6 @@
                     },
                     "n_memory_holes": 0,
                     "n_steps": 1173
-                },
-                "calldata_factor": {
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 1
-                    },
-                    "n_memory_holes": 0,
-                    "n_steps": 8
                 }
             },
             "EmitEvent": {
@@ -291,6 +303,13 @@
                 "n_steps": 659
             },
             "MetaTxV0": {
+                "calldata_factor": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 1
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 8
+                },
                 "constant": {
                     "builtin_instance_counter": {
                         "pedersen_builtin": 9,
@@ -298,13 +317,6 @@
                     },
                     "n_memory_holes": 0,
                     "n_steps": 1301
-                },
-                "calldata_factor": {
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 1
-                    },
-                    "n_memory_holes": 0,
-                    "n_steps": 8
                 }
             },
             "ReplaceClass": {
@@ -393,8 +405,8 @@
             },
             "Sha256ProcessBlock": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 65,
-                    "bitwise_builtin": 1115
+                    "bitwise_builtin": 1115,
+                    "range_check_builtin": 65
                 },
                 "n_memory_holes": 0,
                 "n_steps": 1867
@@ -418,44 +430,35 @@
             "Declare": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 4,
-                    "range_check_builtin": 72,
-                    "poseidon_builtin": 15
+                    "poseidon_builtin": 15,
+                    "range_check_builtin": 72
                 },
                 "n_memory_holes": 0,
                 "n_steps": 3523
             },
             "DeployAccount": {
-                "constant": {
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 11,
-                        "range_check_builtin": 93,
-                        "poseidon_builtin": 11
-                    },
-                    "n_memory_holes": 0,
-                    "n_steps": 4583
-                },
                 "calldata_factor": {
                     "resources": {
                         "builtin_instance_counter": {
-                            "poseidon_builtin": 1,
-                            "pedersen_builtin": 2
+                            "pedersen_builtin": 2,
+                            "poseidon_builtin": 1
                         },
                         "n_memory_holes": 0,
                         "n_steps": 37
                     },
                     "scaling_factor": 2
+                },
+                "constant": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 11,
+                        "poseidon_builtin": 11,
+                        "range_check_builtin": 93
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 4583
                 }
             },
             "InvokeFunction": {
-                "constant": {
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 4,
-                        "range_check_builtin": 90,
-                        "poseidon_builtin": 12
-                    },
-                    "n_memory_holes": 0,
-                    "n_steps": 4348
-                },
                 "calldata_factor": {
                     "resources": {
                         "builtin_instance_counter": {
@@ -465,9 +468,25 @@
                         "n_steps": 11
                     },
                     "scaling_factor": 2
+                },
+                "constant": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 4,
+                        "poseidon_builtin": 12,
+                        "range_check_builtin": 90
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 4348
                 }
             },
             "L1Handler": {
+                "calldata_factor": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 1
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 13
+                },
                 "constant": {
                     "builtin_instance_counter": {
                         "pedersen_builtin": 11,
@@ -475,26 +494,17 @@
                     },
                     "n_memory_holes": 0,
                     "n_steps": 1315
-                },
-                "calldata_factor": {
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 1
-                    },
-                    "n_memory_holes": 0,
-                    "n_steps": 13
                 }
             }
-        },
-        "compute_os_kzg_commitment_info": {
-            "builtin_instance_counter": {
-                "range_check_builtin": 17
-            },
-            "n_memory_holes": 0,
-            "n_steps": 113
         }
     },
+    "segment_arena_cells": false,
+    "tx_event_limits": {
+        "max_data_length": 300,
+        "max_keys_length": 50,
+        "max_n_emitted_events": 1000
+    },
     "validate_max_n_steps": 1000000,
-    "min_sierra_version_for_sierra_gas": "1.7.0",
     "vm_resource_fee_cost": {
         "builtins": {
             "add_mod_builtin": [
@@ -533,11 +543,11 @@
                 8,
                 100
             ],
-            "range_check_builtin": [
+            "range_check96_builtin": [
                 4,
                 100
             ],
-            "range_check96_builtin": [
+            "range_check_builtin": [
                 4,
                 100
             ]
@@ -546,6 +556,5 @@
             25,
             10000
         ]
-    },
-    "enable_tip": true
+    }
 }
