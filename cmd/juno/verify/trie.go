@@ -19,7 +19,7 @@ func verifyTrieCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "trie",
 		Short:         "Verify trie integrity",
-		Long:          `Verify trie integrity by rebuilding tries from leaf nodes and comparing root hashes.`,
+		Long:          `Verify trie integrity by rebuilding tries and comparing root hashes.`,
 		RunE:          runTrieVerify,
 		SilenceUsage:  true,
 		SilenceErrors: true,

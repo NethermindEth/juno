@@ -247,7 +247,11 @@ func (v *TrieVerifier) verifyContractStorageTries(
 			}
 			v.logger.Error(fmt.Sprintf("Contract storage verification failed for %s: %v",
 				contractAddress.String(), err))
-			return fmt.Errorf("contract storage verification failed for %s: %w", contractAddress.String(), err)
+			return fmt.Errorf(
+				"contract storage verification failed for %s: %w",
+				contractAddress.String(),
+				err,
+			)
 		}
 	}
 
