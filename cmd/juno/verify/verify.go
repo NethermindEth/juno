@@ -1,6 +1,7 @@
 package verify
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -8,13 +9,16 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/verify/trie"
 	"github.com/spf13/cobra"
 )
 
-const (
-	verifyDBPathF  = "db-path"
-	verifyTrieType = "type"
-)
+type Verifier interface {
+	Name() string
+	Run(ctx context.Context) error
+}
+
+const verifyDBPathF = "db-path"
 
 func VerifyCmd(defaultDBPath string) *cobra.Command {
 	verifyCmd := &cobra.Command{
@@ -30,7 +34,6 @@ func VerifyCmd(defaultDBPath string) *cobra.Command {
 	return verifyCmd
 }
 
-// verifyAll runs all verifiers with default scope when no subcommand is specified.
 func verifyAll(cmd *cobra.Command, args []string) error {
 	dbPath, err := cmd.Flags().GetString(verifyDBPathF)
 	if err != nil {
@@ -49,15 +52,19 @@ func verifyAll(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
-	trieVerifier := NewTrieVerifier(database, logger)
-	verifier := &VerifyRunner{
-		Verifiers: []Verifier{
-			trieVerifier,
-		},
+	ctx := cmd.Context()
+
+	verifiers := []Verifier{
+		trie.NewTrieVerifier(database, logger, nil, nil),
 	}
 
-	ctx := cmd.Context()
-	return verifier.Run(ctx, nil)
+	for _, v := range verifiers {
+		if err := v.Run(ctx); err != nil {
+			return fmt.Errorf("%s verification failed: %w", v.Name(), err)
+		}
+	}
+
+	return nil
 }
 
 func openDB(path string) (db.KeyValueStore, error) {
