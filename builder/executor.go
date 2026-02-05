@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"go.uber.org/zap"
 )
 
 type Executor interface {
@@ -52,7 +53,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}
 	defer func() {
 		if err := headCloser(); err != nil {
-			e.log.Errorw("failed to close head state", "err", err)
+			e.log.Error("failed to close head state", zap.Error(err))
 		}
 	}()
 
@@ -135,13 +136,13 @@ func (e *executor) processClassDeclaration(
 ) error {
 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 		if err := state.SetContractClass(t.ClassHash, txn.DeclaredClass); err != nil {
-			e.log.Errorw("failed to set contract class", "err", err)
+			e.log.Error("failed to set contract class", zap.Error(err))
 			return err
 		}
 
 		if t.CompiledClassHash != nil {
 			if err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash); err != nil {
-				e.log.Errorw("failed to SetCompiledClassHash", "err", err)
+				e.log.Error("failed to SetCompiledClassHash", zap.Error(err))
 				return err
 			}
 		}

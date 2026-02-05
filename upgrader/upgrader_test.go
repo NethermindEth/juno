@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/upgrader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 type upgradeLogger struct {
@@ -22,21 +23,21 @@ type upgradeLogger struct {
 	traceMsg string
 }
 
-func (l *upgradeLogger) Debugw(msg string, keysAndValues ...any) {}
+func (l *upgradeLogger) Debug(msg string, _ ...zap.Field) {}
 
-func (l *upgradeLogger) Infow(msg string, keysAndValues ...any) {
+func (l *upgradeLogger) Info(msg string, _ ...zap.Field) {
 	l.infoMsg = msg
 }
 
-func (l *upgradeLogger) Warnw(msg string, keysAndValues ...any) {
+func (l *upgradeLogger) Warn(msg string, _ ...zap.Field) {
 	l.warnMsg = msg
 }
 
-func (l *upgradeLogger) Errorw(msg string, keysAndValues ...any) {
+func (l *upgradeLogger) Error(msg string, _ ...zap.Field) {
 	l.errorMsg = msg
 }
 
-func (l *upgradeLogger) Tracew(msg string, keysAndValues ...any) {
+func (l *upgradeLogger) Trace(msg string, _ ...zap.Field) {
 	l.traceMsg = msg
 }
 
@@ -124,7 +125,9 @@ func TestUpgrader(t *testing.T) {
 			}))
 			t.Cleanup(srv.Close)
 			log := &upgradeLogger{}
-			ug := upgrader.NewUpgrader(&test.current, srv.URL, "example.com/releases", time.Millisecond, log)
+			ug := upgrader.NewUpgrader(
+				&test.current, srv.URL, "example.com/releases", time.Millisecond, log,
+			)
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			t.Cleanup(cancel)

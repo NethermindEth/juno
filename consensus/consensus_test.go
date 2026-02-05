@@ -255,7 +255,7 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 
 		// If all honest nodes committed at this height, increment the finished counter
 		for commitCount[nextHeight] == honestNodeCount && nextHeight <= cfg.targetHeight {
-			logger.Infow("all honest nodes committed", "height", nextHeight)
+			logger.Info("all honest nodes committed", zap.Uint64("height", nextHeight))
 			nextHeight++
 		}
 

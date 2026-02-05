@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -75,7 +76,7 @@ func (s *proposalStream) loop(ctx context.Context) {
 			return
 		case streamMessage := <-s.input:
 			if err := s.processMessages(ctx, streamMessage); err != nil {
-				s.log.Errorw("error processing message", "err", err)
+				s.log.Error("error processing message", zap.Error(err))
 				return
 			}
 		}

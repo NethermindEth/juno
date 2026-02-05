@@ -42,7 +42,7 @@ type Client struct {
 	url       string
 	client    *http.Client
 	listener  EventListener
-	log       utils.SimpleLogger
+	log       utils.StructuredLogger
 	userAgent string
 	apiKey    string
 }
@@ -102,7 +102,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	}))
 }
 
-func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
+func NewClient(gatewayURL string, log utils.StructuredLogger) *Client {
 	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
 	return &Client{
 		url: gatewayURL,

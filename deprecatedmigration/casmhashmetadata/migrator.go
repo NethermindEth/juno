@@ -56,7 +56,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *utils.Network,
-	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
+	log utils.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -67,12 +67,12 @@ func (m *Migrator) Migrate(
 	}
 
 	if m.startFrom > 0 {
-		log.Infow("Resuming Casm hash metadata migration",
-			"chain_height", chainHeight,
-			"resuming_from", m.startFrom,
+		log.Info("Resuming Casm hash metadata migration",
+			zap.Uint64("chain_height", chainHeight),
+			zap.Uint64("resuming_from", m.startFrom),
 		)
 	} else {
-		log.Infow("Starting Casm hash metadata migration",
+		log.Info("Starting Casm hash metadata migration",
 			zap.Uint64("chain_height", chainHeight),
 		)
 	}
@@ -119,9 +119,9 @@ func (m *Migrator) Migrate(
 
 		// Check for cancellation after processing
 		if shouldResume := resumeFrom <= toBlock; shouldResume {
-			log.Infow("Casm hash metadata migration interrupted",
-				"resume_from", resumeFrom,
-				"elapsed", progressTracker.Elapsed(),
+			log.Info("Casm hash metadata migration interrupted",
+				zap.Uint64("resume_from", resumeFrom),
+				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
@@ -150,16 +150,16 @@ func (m *Migrator) Migrate(
 		}
 
 		if shouldResume := resumeFrom <= chainHeight; shouldResume {
-			log.Infow("Casm hash metadata migration interrupted",
-				"resume_from", resumeFrom,
-				"elapsed", progressTracker.Elapsed(),
+			log.Info("Casm hash metadata migration interrupted",
+				zap.Uint64("resume_from", resumeFrom),
+				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
 			return encodeIntermediateState(resumeFrom), nil
 		}
 	}
 
-	log.Infow("Casm hash metadata migration completed",
-		"elapsed", progressTracker.Elapsed(),
+	log.Info("Casm hash metadata migration completed",
+		zap.Duration("elapsed", progressTracker.Elapsed()),
 	)
 
 	return nil, nil
@@ -167,7 +167,7 @@ func (m *Migrator) Migrate(
 
 func migrateRange(
 	ctx context.Context,
-	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore simple logger will be removed in future, nolinlint because main config does not check
+	log utils.StructuredLogger,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	fromBlock, toBlock uint64,
 	maxWorkers int,

@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -48,13 +49,13 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		p2pVote := consensus.Vote{}
 		if err := proto.Unmarshal(msg.Data, &p2pVote); err != nil {
-			log.Errorw("unable to unmarshal vote message", "error", err)
+			log.Error("unable to unmarshal vote message", zap.Error(err))
 			return
 		}
 
 		vote, err := voteAdapter.ToVote(&p2pVote)
 		if err != nil {
-			log.Errorw("unable to convert vote message to vote", "error", err)
+			log.Error("unable to convert vote message to vote", zap.Error(err))
 			return
 		}
 

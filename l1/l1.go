@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"go.uber.org/zap"
 )
 
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
@@ -31,7 +32,7 @@ type Subscriber interface {
 type Client struct {
 	l1                    Subscriber
 	l2Chain               *blockchain.Blockchain
-	log                   utils.SimpleLogger
+	log                   utils.StructuredLogger
 	network               *utils.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
@@ -41,7 +42,7 @@ type Client struct {
 
 var _ service.Service = (*Client)(nil)
 
-func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogger) *Client {
+func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.StructuredLogger) *Client {
 	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,
@@ -80,7 +81,10 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 			if err == nil {
 				return updateSub, nil
 			}
-			c.log.Debugw("Failed to subscribe to L1 state updates", "tryAgainIn", c.resubscribeDelay, "err", err)
+			c.log.Debug("Failed to subscribe to L1 state updates",
+				zap.Duration("tryAgainIn", c.resubscribeDelay),
+				zap.Error(err),
+			)
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
@@ -110,7 +114,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 	buffer := 128
 
-	c.log.Infow("Subscribing to L1 updates...")
+	c.log.Info("Subscribing to L1 updates...")
 
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
 	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
@@ -119,7 +123,7 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 	defer updateSub.Unsubscribe()
 
-	c.log.Infow("Subscribed to L1 updates")
+	c.log.Info("Subscribed to L1 updates")
 
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
@@ -135,7 +139,7 @@ func (c *Client) Run(ctx context.Context) error {
 					// TODO can we use geth's event.Resubscribe?
 					// We can't use a warn log level here since we guarantee the L1 url will only be printed
 					// in debug logs and panics (to avoid leaking the API key).
-					c.log.Debugw("L1 update subscription failed, resubscribing", "error", err)
+					c.log.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
 					updateSub.Unsubscribe()
 
 					updateSub, err = c.subscribeToUpdates(ctx, updateChan)
@@ -144,10 +148,11 @@ func (c *Client) Run(ctx context.Context) error {
 					}
 					defer updateSub.Unsubscribe() //nolint:gocritic
 				case logStateUpdate := <-updateChan:
-					c.log.Debugw("Received L1 LogStateUpdate",
-						"number", logStateUpdate.BlockNumber,
-						"stateRoot", logStateUpdate.GlobalRoot.Text(felt.Base16),
-						"blockHash", logStateUpdate.BlockHash.Text(felt.Base16))
+					c.log.Debug("Received L1 LogStateUpdate",
+						zap.String("number", logStateUpdate.BlockNumber.String()),
+						zap.String("stateRoot", logStateUpdate.GlobalRoot.Text(felt.Base16)),
+						zap.String("blockHash", logStateUpdate.BlockHash.Text(felt.Base16)),
+					)
 
 					if logStateUpdate.Raw.Removed {
 						for l1BlockNumber := range c.nonFinalisedLogs {
@@ -181,7 +186,7 @@ func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 			if err == nil {
 				return finalisedHeight
 			}
-			c.log.Debugw("Failed to retrieve L1 finalised height, retrying...", "error", err)
+			c.log.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
@@ -217,10 +222,11 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
 	}
 	c.listener.OnNewL1Head(head)
-	c.log.Infow("Updated l1 head",
-		"blockNumber", head.BlockNumber,
-		"blockHash", head.BlockHash.ShortString(),
-		"stateRoot", head.StateRoot.ShortString())
+	c.log.Info("Updated l1 head",
+		zap.Uint64("blockNumber", head.BlockNumber),
+		zap.String("blockHash", head.BlockHash.ShortString()),
+		zap.String("stateRoot", head.StateRoot.ShortString()),
+	)
 
 	return nil
 }

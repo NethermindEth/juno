@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 )
 
 var errTransactionNotFound = errors.New("transaction not found")
@@ -746,7 +747,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		status, err := adaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, errTransactionNotFound) {
-				h.log.Errorw("Failed to adapt transaction status", "err", err)
+				h.log.Error("Failed to adapt transaction status", zap.Error(err))
 			}
 			return nil, rpccore.ErrTxnHashNotFound
 		}

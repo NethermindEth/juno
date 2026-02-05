@@ -32,6 +32,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
+	"go.uber.org/zap"
 )
 
 type schemaMetadata struct {
@@ -48,13 +49,15 @@ type HTTPConfig struct {
 type Migration interface {
 	Before(intermediateState []byte) error
 	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
-	Migrate(context.Context, db.KeyValueStore, *utils.Network, utils.SimpleLogger) ([]byte, error)
+	Migrate(context.Context, db.KeyValueStore, *utils.Network, utils.StructuredLogger) ([]byte, error)
 }
 
 type MigrationFunc func(db.IndexedBatch, *utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+func (f MigrationFunc) Migrate(
+	_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.StructuredLogger,
+) ([]byte, error) {
 	txn := database.NewIndexedBatch()
 	if err := f(txn, network); err != nil {
 		return nil, err
@@ -99,7 +102,7 @@ func MigrateIfNeeded(
 	ctx context.Context,
 	targetDB db.KeyValueStore,
 	network *utils.Network,
-	log utils.SimpleLogger, //nolint:staticcheck,nolintlint,lll // ignore staticcheck complies with interface, nolinlint because main config does not check
+	log utils.StructuredLogger,
 ) error {
 	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
 }
@@ -108,7 +111,7 @@ func migrateIfNeeded(
 	ctx context.Context,
 	targetDB db.KeyValueStore,
 	network *utils.Network,
-	log utils.SimpleLogger,
+	log utils.StructuredLogger,
 	migrations []Migration,
 ) error {
 	/*
@@ -141,7 +144,8 @@ func migrateIfNeeded(
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-		log.Infow("Applying database migration", "stage", fmt.Sprintf("%d/%d", i+1, len(migrations)))
+		log.Info("Applying database migration",
+			zap.String("stage", fmt.Sprintf("%d/%d", i+1, len(migrations))))
 		migration := migrations[i]
 		if err = migration.Before(metadata.IntermediateState); err != nil {
 			return err
@@ -180,7 +184,7 @@ func migrateIfNeeded(
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
-func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMetadata, error) {
+func SchemaMetadata(log utils.StructuredLogger, targetDB db.KeyValueStore) (schemaMetadata, error) {
 	metadata := schemaMetadata{}
 	txn := targetDB
 
@@ -196,11 +200,11 @@ func SchemaMetadata(log utils.SimpleLogger, targetDB db.KeyValueStore) (schemaMe
 		err := cbor.Unmarshal(data, &metadata.IntermediateState)
 		if err != nil {
 			// TODO: Instead of returning nil, we log the error for now to debug the issue
-			log.Errorw(
+			log.Error(
 				"Failed to unmarshal intermediate state",
-				"version", metadata.Version,
-				"state", hex.EncodeToString(data),
-				"err", err,
+				zap.Uint64("version", metadata.Version),
+				zap.String("state", hex.EncodeToString(data)),
+				zap.Error(err),
 			)
 		}
 		return nil
@@ -424,7 +428,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 }
 
 func (m *changeTrieNodeEncoding) Migrate(
-	_ context.Context, database db.KeyValueStore, _ *utils.Network, _ utils.SimpleLogger,
+	_ context.Context, database db.KeyValueStore, _ *utils.Network, _ utils.StructuredLogger,
 ) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a custom struct to force the encoder to use the default encoding.
