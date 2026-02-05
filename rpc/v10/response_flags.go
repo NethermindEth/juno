@@ -38,7 +38,7 @@ func (r *SubscriptionTags) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	r.IncludeProofFacts = false
+	*r = SubscriptionTags{}
 
 	for _, flag := range flags {
 		switch flag {
