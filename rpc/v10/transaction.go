@@ -194,23 +194,8 @@ func (h *Handler) pushToFeederGateway(
 		v9Tx.ContractClass = newContractClass
 	}
 
-	feederTx := adaptRPCTxToFeederTx(&v9Tx.Transaction)
-	txStruct := struct {
-		*starknet.Transaction
-		ContractClass json.RawMessage `json:"contract_class,omitempty"`
-		Proof         []uint64        `json:"proof,omitempty"`
-		ProofFacts    []felt.Felt     `json:"proof_facts,omitempty"`
-	}{
-		Transaction:   &feederTx,
-		ContractClass: v9Tx.ContractClass,
-	}
-
-	if v9Tx.Transaction.Type == rpcv9.TxnInvoke && isVersion3(v9Tx.Transaction.Version) {
-		txStruct.Proof = tx.Proof
-		txStruct.ProofFacts = tx.ProofFacts
-	}
-
-	txJSON, err := json.Marshal(&txStruct)
+	payload := adaptRPCTxToFeederTx(tx, v9Tx.ContractClass)
+	txJSON, err := json.Marshal(&payload)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
 			fmt.Sprintf("marshal transaction: %v", err),
@@ -276,7 +261,27 @@ func adaptToFeederDAMode(mode *rpcv9.DataAvailabilityMode) starknet.DataAvailabi
 	return starknet.DataAvailabilityMode(*mode)
 }
 
-func adaptRPCTxToFeederTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
+type addTxGatewayPayload struct {
+	starknet.Transaction
+	ContractClass json.RawMessage `json:"contract_class,omitempty"`
+	Proof         []uint64        `json:"proof,omitempty"`
+	ProofFacts    []felt.Felt     `json:"proof_facts,omitempty"`
+}
+
+func adaptRPCTxToFeederTx(tx *BroadcastedTransaction, contractClass json.RawMessage) addTxGatewayPayload {
+	feederTx := rpcv9TxToStarknetTx(&tx.Transaction)
+	payload := addTxGatewayPayload{
+		Transaction:   feederTx,
+		ContractClass: contractClass,
+	}
+	if tx.Transaction.Type == rpcv9.TxnInvoke && isVersion3(tx.Transaction.Version) {
+		payload.Proof = tx.Proof
+		payload.ProofFacts = tx.ProofFacts
+	}
+	return payload
+}
+
+func rpcv9TxToStarknetTx(rpcTx *rpcv9.Transaction) starknet.Transaction {
 	resourceBounds := adaptToFeederResourceBounds(rpcTx.ResourceBounds)
 	var resourceBoundsPtr *map[starknet.Resource]starknet.ResourceBounds
 	if resourceBounds != nil {
