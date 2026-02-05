@@ -8,26 +8,30 @@ You can download a snapshot of the Juno database to reduce the network syncing t
 
 Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
 
-| Network             | Version       | Download Link                                                                                                 |
-| ------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
-| Mainnet             | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
-| Sepolia             | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
-| Sepolia-Integration | **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+| Network                   | Version       | Download Link                                                                                                 |
+| ------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| Mainnet                   | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Mainnet (Combined Layout) | **>=v0.13.0** | [**juno_mainnet-newdb.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest)             |
+| Sepolia                   | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
+| Sepolia-Integration       | **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ## Getting snapshot sizes
 
 ```bash
 $date
-Tue Aug 26 11:00:52 WEST 2025
+Thu Feb  5 15:35:59 CET 2026
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-195.13 GB
+351.23 GB
+
+$curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+334.14 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-32.84 GB
+49.51 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-7.33 GB
+17.78 GB
 ```
 
 ## Run Juno with a snapshot
@@ -86,8 +90,8 @@ mkdir $HOME/snapshots/mainnet/
 zstd -d juno_mainnet.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet
 ```
 
-
 #### Alternative method: Stream the snapshot directly
+
 :::warning
 Streaming can become unreliable if the network conditions are not extremely good, requiring multiple restarts. Resort to this if disk space is at a premium.
 :::
@@ -107,12 +111,10 @@ curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
 | zstd -d | tar -xvf - -C $HOME/snapshots/mainnet
 ```
 
-
 For other networks, replace the URL with:
 
 - **Sepolia**: `https://juno-snapshots.nethermind.io/files/sepolia/latest`
 - **Sepolia-Integration**: `https://juno-snapshots.nethermind.io/files/sepolia-integration/latest`
-
 
 ## Running Juno with snapshots
 
