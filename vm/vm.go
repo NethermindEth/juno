@@ -105,7 +105,7 @@ type callContext struct {
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
 	receipts        []json.RawMessage
-	initialReads    *InitialReads
+	initialReads    json.RawMessage
 	declaredClasses map[felt.Felt]core.ClassDefinition
 	executionFailed bool
 }
@@ -189,10 +189,7 @@ func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.ulonglong) {
 func JunoAppendInitialReads(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
 	context := unwrapContext(readerHandle)
 	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
-	var initialReads InitialReads
-	if err := json.Unmarshal(byteSlice, &initialReads); err == nil {
-		context.initialReads = &initialReads
-	}
+	context.initialReads = json.RawMessage(byteSlice)
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -360,9 +357,8 @@ func (v *vm) Execute(
 	returnInitialReads bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
-		state:        state,
-		log:          v.log,
-		initialReads: nil,
+		state: state,
+		log:   v.log,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
@@ -427,6 +423,16 @@ func (v *vm) Execute(
 			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %v", err)
 		}
 	}
+
+	var initialReads *InitialReads
+	if len(context.initialReads) > 0 {
+		var reads InitialReads
+		if err := json.Unmarshal(context.initialReads, &reads); err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal initial reads: %v", err)
+		}
+		initialReads = &reads
+	}
+
 	return ExecutionResults{
 		OverallFees:      context.actualFees,
 		DataAvailability: context.daGas,
@@ -434,7 +440,7 @@ func (v *vm) Execute(
 		Traces:           traces,
 		NumSteps:         context.executionSteps,
 		Receipts:         receipts,
-		InitialReads:     context.initialReads,
+		InitialReads:     initialReads,
 	}, nil
 }
 
