@@ -8,12 +8,12 @@ You can download a snapshot of the Juno database to reduce the network syncing t
 
 Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
 
-| Network                   | Version       | Download Link                                                                                                 |
-| ------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
-| Mainnet                   | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
-| Mainnet (Combined Layout) | **>=v0.13.0** | [**juno_mainnet-newdb.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest)             |
-| Sepolia                   | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
-| Sepolia-Integration       | **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+| Network                | Version       | Download Link                                                                                                 |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| Mainnet                | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Mainnet (New Database) | **>=v0.13.0** | [**juno_mainnet-newdb.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest)             |
+| Sepolia                | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
+| Sepolia-Integration    | **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ## Getting snapshot sizes
 
