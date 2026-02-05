@@ -830,6 +830,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
 	})
 }
+
 func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	return core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
