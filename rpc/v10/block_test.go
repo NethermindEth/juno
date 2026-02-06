@@ -578,8 +578,19 @@ func TestBlockWithTxs(t *testing.T) {
 	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
 
 	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
-	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(t, clientSepolia, 4072139)
-	testCases = append(testCases, createBlockResponseFlagsTestCases(blockWithProofFacts, commitmentsPF, stateUpdatePF)...)
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(
+		t,
+		clientSepolia,
+		4072139,
+	)
+	testCases = append(
+		testCases,
+		createBlockResponseFlagsTestCases(
+			blockWithProofFacts,
+			commitmentsPF,
+			stateUpdatePF,
+		)...,
+	)
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {

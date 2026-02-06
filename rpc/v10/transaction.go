@@ -268,7 +268,10 @@ type addTxGatewayPayload struct {
 	ProofFacts    []felt.Felt     `json:"proof_facts,omitempty"`
 }
 
-func adaptRPCTxToFeederTx(tx *BroadcastedTransaction, contractClass json.RawMessage) addTxGatewayPayload {
+func adaptRPCTxToFeederTx(
+	tx *BroadcastedTransaction,
+	contractClass json.RawMessage,
+) addTxGatewayPayload {
 	feederTx := rpcv9TxToStarknetTx(&tx.Transaction)
 	payload := addTxGatewayPayload{
 		Transaction:   feederTx,
