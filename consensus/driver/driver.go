@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/db"
@@ -63,16 +64,40 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 		}
 	}()
 
-	d.stateMachine.ReplayWAL()
+	if err := d.replay(ctx); err != nil {
+		return err
+	}
 
+	return d.listen(ctx)
+}
+
+func (d *Driver[V, H, A]) replay(ctx context.Context) error {
+	for walEntry, err := range d.db.LoadAllEntries() {
+		if err != nil {
+			return fmt.Errorf("failed to load WAL entries: %w", err)
+		}
+
+		if _, err := d.execute(ctx, true, d.stateMachine.ProcessWAL(walEntry)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *Driver[V, H, A]) listen(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
 		}
+
 		actions := d.stateMachine.ProcessStart(0)
-		isCommitted := d.execute(ctx, actions)
+		isCommitted, err := d.execute(ctx, false, actions)
+		if err != nil {
+			return err
+		}
 
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
@@ -101,51 +126,76 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 				actions = d.stateMachine.ProcessPrecommit(p)
 			}
 
-			isCommitted = d.execute(ctx, actions)
+			isCommitted, err = d.execute(ctx, false, actions)
+			if err != nil {
+				return err
+			}
 		}
 	}
 }
 
 // This function executes the actions returned by the stateMachine.
 // It returns true if a commit action was executed. This is to notify the caller to start a new height with round 0.
+// Note: `WriteWAL` actions are generated as part of processing the event itself, so there's no
+// need to write them to the WAL again here. `isReplaying` is used to disable the writing of WAL.
 func (d *Driver[V, H, A]) execute(
 	ctx context.Context,
-	executingActions []actions.Action[V, H, A],
-) (isCommitted bool) {
-	for _, action := range executingActions {
-		switch action := action.(type) {
-		case *actions.BroadcastProposal[V, H, A]:
-			d.broadcasters.ProposalBroadcaster.Broadcast(ctx, (*types.Proposal[V, H, A])(action))
-		case *actions.BroadcastPrevote[H, A]:
-			d.broadcasters.PrevoteBroadcaster.Broadcast(ctx, (*types.Prevote[H, A])(action))
-		case *actions.BroadcastPrecommit[H, A]:
-			d.broadcasters.PrecommitBroadcaster.Broadcast(ctx, (*types.Precommit[H, A])(action))
-		case *actions.ScheduleTimeout:
-			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
-				select {
-				case <-ctx.Done():
-				case d.timeoutsCh <- types.Timeout(*action):
-				}
-			})
-		case *actions.Commit[V, H, A]:
+	isReplaying bool,
+	resultActions []actions.Action[V, H, A],
+) (isCommitted bool, err error) {
+	for _, action := range resultActions {
+		if !isReplaying && action.RequiresWALFlush() {
 			if err := d.db.Flush(); err != nil {
-				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
+				return false, fmt.Errorf("failed to flush WAL: %w", err)
+			}
+		}
+
+		switch action := action.(type) {
+		case *actions.WriteWAL[V, H, A]:
+			if !isReplaying {
+				if err := d.db.SetWALEntry(action.Entry); err != nil {
+					return false, fmt.Errorf("failed to write WAL: %w", err)
+				}
 			}
 
-			d.log.Debug("Committing",
-				zap.Uint64("height", uint64(action.Height)),
-				zap.Int32("round", int32(action.Round)))
+		case *actions.BroadcastProposal[V, H, A]:
+			d.broadcasters.ProposalBroadcaster.Broadcast(ctx, (*types.Proposal[V, H, A])(action))
+
+		case *actions.BroadcastPrevote[H, A]:
+			d.broadcasters.PrevoteBroadcaster.Broadcast(ctx, (*types.Prevote[H, A])(action))
+
+		case *actions.BroadcastPrecommit[H, A]:
+			d.broadcasters.PrecommitBroadcaster.Broadcast(ctx, (*types.Precommit[H, A])(action))
+
+		case *actions.ScheduleTimeout:
+			d.setTimeout(ctx, types.Timeout(*action))
+
+		case *actions.Commit[V, H, A]:
+			d.log.Debug(
+				"Committing",
+				zap.Uint("height", uint(action.Height)),
+				zap.Int("round", int(action.Round)),
+			)
 			d.commitListener.OnCommit(ctx, action.Height, *action.Value)
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
-				d.log.Error("failed to delete WAL messages during commit",
-					zap.Uint64("height", uint64(action.Height)),
-					zap.Int32("round", int32(action.Round)),
-					zap.Error(err))
+				return true, fmt.Errorf("failed to delete WAL messages during commit: %w", err)
 			}
 
-			return true
+			return true, nil
+
+		default:
+			return false, fmt.Errorf("unexpected action type: %T", action)
 		}
 	}
-	return false
+	return false, nil
+}
+
+func (d *Driver[V, H, A]) setTimeout(ctx context.Context, timeout types.Timeout) {
+	d.scheduledTms[timeout] = time.AfterFunc(d.getTimeout(timeout.Step, timeout.Round), func() {
+		select {
+		case <-ctx.Done():
+		case d.timeoutsCh <- timeout:
+		}
+	})
 }
