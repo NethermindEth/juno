@@ -184,11 +184,18 @@ func (d *Driver[V, H, A]) execute(
 
 			return true, nil
 
+		case *actions.TriggerSync:
+			d.triggerSync(*action)
+
 		default:
 			return false, fmt.Errorf("unexpected action type: %T", action)
 		}
 	}
 	return false, nil
+}
+
+func (d *Driver[V, H, A]) triggerSync(sync actions.TriggerSync) {
+	// TODO: Implement this
 }
 
 func (d *Driver[V, H, A]) setTimeout(ctx context.Context, timeout types.Timeout) {
