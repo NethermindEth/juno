@@ -2,6 +2,7 @@ package trie
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 )
+
+var ErrCorruptionDetected = errors.New("corruption detected")
 
 func VerifyTrie(
 	ctx context.Context,
@@ -29,15 +32,15 @@ func VerifyTrie(
 	startTime := time.Now()
 	rootHash, err := verifyNode(ctx, reader, rootKey, nil, height, hashFn)
 	if err != nil {
-		return fmt.Errorf("node verification failed: %w", err)
+		return err
 	}
 
 	elapsed := time.Since(startTime)
 
 	if rootHash.Cmp(expectedRoot) != 0 {
 		return fmt.Errorf(
-			"root hash mismatch: expected %s, got %s (verification took %v)",
-			expectedRoot, rootHash, elapsed.Round(time.Second),
+			"%w: root hash mismatch, expected %s, got %s (verification took %v)",
+			ErrCorruptionDetected, expectedRoot, rootHash, elapsed.Round(time.Second),
 		)
 	}
 
@@ -54,7 +57,7 @@ func verifyNode(
 ) (*felt.Felt, error) {
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("verification cancelled: %w", ctx.Err())
+		return nil, ctx.Err()
 	default:
 	}
 
@@ -93,8 +96,8 @@ func verifyNode(
 	recomputed := hashFn(leftHash, rightHash)
 	if recomputed.Cmp(node.Value) != 0 {
 		return nil, fmt.Errorf(
-			"node corruption detected at key %s: stored hash=%s, recomputed hash=%s",
-			key.String(), node.Value.String(), recomputed.String(),
+			"%w: node at key %s, stored hash=%s, recomputed hash=%s",
+			ErrCorruptionDetected, key.String(), node.Value.String(), recomputed.String(),
 		)
 	}
 

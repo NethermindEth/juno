@@ -66,9 +66,13 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 
 	var tries []verifytrie.TrieType
 	if len(trieTypes) > 0 {
-		tries = make([]verifytrie.TrieType, len(trieTypes))
-		for i, t := range trieTypes {
-			tries[i] = verifytrie.TrieType(t)
+		tries = make([]verifytrie.TrieType, 0, len(trieTypes))
+		for _, t := range trieTypes {
+			tt := verifytrie.TrieType(t)
+			if !tt.IsValid() {
+				return fmt.Errorf("invalid trie type %q (allowed: contract, class, contract-storage)", t)
+			}
+			tries = append(tries, tt)
 		}
 	}
 
@@ -84,7 +88,7 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 		}
 
 		var addr felt.Felt
-		_, err := (&addr).SetString(contractAddrStr)
+		_, err = addr.SetString(contractAddrStr)
 		if err != nil {
 			return fmt.Errorf("invalid contract address %s: %w", contractAddrStr, err)
 		}

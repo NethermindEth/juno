@@ -47,7 +47,7 @@ func (v *TrieVerifier) Run(ctx context.Context) error {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		v.logger.Info("=== Trie verification finished ===",
+		v.logger.Info("Trie verification finished",
 			zap.Duration("total_elapsed", elapsed.Round(time.Second)))
 	}()
 
@@ -60,16 +60,12 @@ func (v *TrieVerifier) Run(ctx context.Context) error {
 		stateTrieInfo := TrieInfo{
 			Name:       "ContractsTrie",
 			Prefix:     db.StateTrie.Key(),
-			HashFunc:   trie.NewTriePedersen,
 			HashFn:     crypto.Pedersen,
 			ReaderFunc: trie.NewTrieReaderPedersen,
 			Height:     StarknetTrieHeight,
 		}
-		if err := v.verifyTrieWithLogging(ctx, stateTrieInfo); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return nil
-			}
-			return err
+		if err := v.verifyTrie(ctx, stateTrieInfo); err != nil {
+			return v.handleResult(err, stateTrieInfo.Name)
 		}
 	}
 
@@ -77,33 +73,43 @@ func (v *TrieVerifier) Run(ctx context.Context) error {
 		classTrieInfo := TrieInfo{
 			Name:       "ClassesTrie",
 			Prefix:     db.ClassesTrie.Key(),
-			HashFunc:   trie.NewTriePoseidon,
 			HashFn:     crypto.Poseidon,
 			ReaderFunc: trie.NewTrieReaderPoseidon,
 			Height:     StarknetTrieHeight,
 		}
-		if err := v.verifyTrieWithLogging(ctx, classTrieInfo); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return nil
-			}
-			return err
+		if err := v.verifyTrie(ctx, classTrieInfo); err != nil {
+			return v.handleResult(err, classTrieInfo.Name)
 		}
 	}
 
 	if typeSet[ContractStorageTrie] {
 		if err := v.verifyContractStorageTries(ctx, v.contractAddress); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return nil
-			}
-			return err
+			return v.handleResult(err, "ContractStorageTries")
 		}
 	}
 
-	v.logger.Info("=== Trie verification completed successfully ===")
+	v.logger.Info("Trie verification completed successfully")
 	return nil
 }
 
-func (v *TrieVerifier) collectContractAddresses() []felt.Felt {
+func (v *TrieVerifier) handleResult(err error, trieName string) error {
+	if errors.Is(err, context.Canceled) {
+		v.logger.Info("Verification stopped", zap.String("trie", trieName))
+		return nil
+	}
+	if errors.Is(err, ErrCorruptionDetected) {
+		v.logger.Info("Corruption detected",
+			zap.String("trie", trieName),
+			zap.String("details", err.Error()))
+		return err
+	}
+	v.logger.Error("Verification error",
+		zap.String("trie", trieName),
+		zap.Error(err))
+	return err
+}
+
+func (v *TrieVerifier) collectContractAddresses() ([]felt.Felt, error) {
 	contractAddresses := make([]felt.Felt, 0)
 	stateTriePrefix := db.StateTrie.Key()
 
@@ -138,27 +144,15 @@ func (v *TrieVerifier) collectContractAddresses() []felt.Felt {
 		return nil
 	})
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to collect contract addresses: %w", err)
 	}
 
-	return contractAddresses
-}
-
-func (v *TrieVerifier) verifyTrieWithLogging(ctx context.Context, trieInfo TrieInfo) error {
-	err := v.verifyTrie(ctx, trieInfo)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			v.logger.Info("Verification stopped", zap.String("trie", trieInfo.Name))
-			return err
-		}
-		v.logger.Error(fmt.Sprintf("%s verification failed: %v", trieInfo.Name, err))
-		return fmt.Errorf("%s verification failed: %w", trieInfo.Name, err)
-	}
-	return nil
+	return contractAddresses, nil
 }
 
 func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error {
-	v.logger.Info(fmt.Sprintf("=== Starting %s verification ===", trieInfo.Name))
+	v.logger.Info("Starting trie verification", zap.String("trie", trieInfo.Name))
+
 	expectedRoot := felt.Zero
 	err := v.database.View(func(snap db.Snapshot) error {
 		reader, err := trieInfo.ReaderFunc(snap, trieInfo.Prefix, trieInfo.Height)
@@ -166,14 +160,12 @@ func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error 
 			return err
 		}
 		if reader.RootKey() == nil {
-			expectedRoot = felt.Zero
 			return nil
 		}
 		expectedRoot, err = reader.Hash()
 		return err
 	})
 	if err != nil {
-		v.logger.Error(fmt.Sprintf("Failed to get stored root hash for %s: %v", trieInfo.Name, err))
 		return fmt.Errorf("failed to get stored root hash for %s: %w", trieInfo.Name, err)
 	}
 
@@ -182,40 +174,37 @@ func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error 
 		return nil
 	}
 
-	v.logger.Info("Starting verification",
+	v.logger.Info("Verifying trie",
 		zap.String("trie", trieInfo.Name),
 		zap.String("expectedRoot", expectedRoot.String()))
-	storageReader := trie.NewReadStorage(v.database, trieInfo.Prefix)
 
-	err = VerifyTrie(ctx, storageReader, StarknetTrieHeight, trieInfo.HashFn, &expectedRoot)
-	if err != nil {
+	storageReader := trie.NewReadStorage(v.database, trieInfo.Prefix)
+	if err := VerifyTrie(ctx, storageReader, trieInfo.Height, trieInfo.HashFn, &expectedRoot); err != nil {
 		return err
 	}
 
 	v.logger.Info("Trie verification successful",
-		zap.String("trie", trieInfo.Name), zap.String("root", expectedRoot.String()))
+		zap.String("trie", trieInfo.Name),
+		zap.String("root", expectedRoot.String()))
 	return nil
 }
 
 func (v *TrieVerifier) verifyContractStorageTries(
 	ctx context.Context, filterAddress *felt.Felt,
 ) error {
-	v.logger.Info("=== Starting Contract Storage Tries verification ===")
-
 	var contractAddresses []felt.Felt
 	if filterAddress != nil {
 		contractAddresses = []felt.Felt{*filterAddress}
-		v.logger.Info("Verifying specific contract",
-			zap.String("address", filterAddress.String()))
 	} else {
-		contractAddresses = v.collectContractAddresses()
-		if len(contractAddresses) == 0 {
-			v.logger.Info("No contract addresses found, skipping contract storage verification")
-			return nil
+		var err error
+		contractAddresses, err = v.collectContractAddresses()
+		if err != nil {
+			return err
 		}
-		v.logger.Info("Found contracts to verify",
-			zap.Int("count", len(contractAddresses)))
 	}
+
+	v.logger.Info("Starting contract storage tries verification",
+		zap.Int("count", len(contractAddresses)))
 
 	for i, contractAddress := range contractAddresses {
 		select {
@@ -223,13 +212,13 @@ func (v *TrieVerifier) verifyContractStorageTries(
 			return ctx.Err()
 		default:
 		}
+
 		addrBytes := contractAddress.Marshal()
 		prefix := db.ContractStorage.Key(addrBytes)
 		trieInfo := TrieInfo{
-			Name:     fmt.Sprintf("ContractStorage[%s]", contractAddress.String()),
-			Prefix:   db.ContractStorage.Key(addrBytes),
-			HashFunc: trie.NewTriePedersen,
-			HashFn:   crypto.Pedersen,
+			Name:   fmt.Sprintf("ContractStorage[%s]", contractAddress.String()),
+			Prefix: prefix,
+			HashFn: crypto.Pedersen,
 			ReaderFunc: func(r db.KeyValueReader, _ []byte, height uint8) (trie.TrieReader, error) {
 				return trie.NewTrieReaderPedersen(r, prefix, height)
 			},
@@ -240,18 +229,8 @@ func (v *TrieVerifier) verifyContractStorageTries(
 			zap.String("contract", contractAddress.String()),
 			zap.String("progress", fmt.Sprintf("%d/%d", i+1, len(contractAddresses))))
 
-		err := v.verifyTrie(ctx, trieInfo)
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				return err
-			}
-			v.logger.Error(fmt.Sprintf("Contract storage verification failed for %s: %v",
-				contractAddress.String(), err))
-			return fmt.Errorf(
-				"contract storage verification failed for %s: %w",
-				contractAddress.String(),
-				err,
-			)
+		if err := v.verifyTrie(ctx, trieInfo); err != nil {
+			return err
 		}
 	}
 
