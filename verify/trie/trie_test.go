@@ -151,7 +151,7 @@ func TestTrieVerifier_Run_CorruptedTrie(t *testing.T) {
 	ctx := context.Background()
 	err = verifier.Run(ctx)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "node corruption detected")
+	assert.ErrorIs(t, err, ErrCorruptionDetected)
 }
 
 func TestTrieVerifier_Run_MultipleTrieTypes(t *testing.T) {

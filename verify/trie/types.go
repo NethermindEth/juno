@@ -19,10 +19,18 @@ const (
 	ContractStorageTrie TrieType = "contract-storage"
 )
 
+func (t TrieType) IsValid() bool {
+	switch t {
+	case ContractTrie, ClassTrie, ContractStorageTrie:
+		return true
+	default:
+		return false
+	}
+}
+
 type TrieInfo struct {
 	Name       string
 	Prefix     []byte
-	HashFunc   trie.NewTrieFunc
 	HashFn     crypto.HashFn
 	ReaderFunc func(db.KeyValueReader, []byte, uint8) (trie.TrieReader, error)
 	Height     uint8
