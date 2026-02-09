@@ -380,8 +380,6 @@ func TestTransactionByHash(t *testing.T) {
 				"fee_data_availability_mode": "L1"
 			}`,
 		},
-		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282
-		//nolint:lll // the url exceeds the line length limit
 		"INVOKE v3 without l1_data_gas": {
 			hash:    "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
 			network: &utils.Integration,
@@ -1763,7 +1761,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(&res.TransactionHash),
+			&res.TransactionHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingData().Return(&preConfirmedPlaceHolder, nil).Times(2)
 

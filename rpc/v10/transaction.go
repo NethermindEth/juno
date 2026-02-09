@@ -74,7 +74,8 @@ func AdaptBroadcastedTransaction(
 		if invokeTx.Version.Is(3) && len(broadcastedTxn.ProofFacts) > 0 {
 			proofFactsPtrs := make([]*felt.Felt, len(broadcastedTxn.ProofFacts))
 			for i := range broadcastedTxn.ProofFacts {
-				proofFactsPtrs[i] = &broadcastedTxn.ProofFacts[i]
+				copy := broadcastedTxn.ProofFacts[i]
+				proofFactsPtrs[i] = &copy
 			}
 			invokeTx.ProofFacts = proofFactsPtrs
 		}
