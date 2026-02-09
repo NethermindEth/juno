@@ -15,14 +15,13 @@ import (
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-type blockTagTestCase struct {
+type blockTestCase struct {
 	description   string
 	block         *core.Block
 	commitments   *core.BlockCommitments
@@ -33,17 +32,17 @@ type blockTagTestCase struct {
 	responseFlags rpcv10.ResponseFlags
 }
 
-func createBlockTagTestCases(
+func createBlockTestCases(
 	block *core.Block,
 	commitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-) []blockTagTestCase {
+) []blockTestCase {
 	blockIDLatest := rpcv9.BlockIDLatest()
 	blockIDHash := rpcv9.BlockIDFromHash(block.Hash)
 	blockIDNumber := rpcv9.BlockIDFromNumber(block.Number)
 	blockIDL1Accepted := rpcv9.BlockIDL1Accepted()
 	blockIDPreConfirmed := rpcv9.BlockIDPreConfirmed()
-	return []blockTagTestCase{
+	return []blockTestCase{
 		{
 			description: "blockID - latest",
 			block:       block,
@@ -113,9 +112,9 @@ func createBlockResponseFlagsTestCases(
 	block *core.Block,
 	commitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-) []blockTagTestCase {
+) []blockTestCase {
 	blockIDNumber := rpcv9.BlockIDFromNumber(block.Number)
-	return []blockTagTestCase{
+	return []blockTestCase{
 		{
 			description:   "response flags - without IncludeProofFacts",
 			block:         block,
@@ -300,6 +299,7 @@ func assertTransactionsEq(
 		require.Equal(t, expectedTransaction.Hash(), actualTransactions[i].Hash)
 		adaptedTransaction := rpcv10.AdaptTransaction(expectedTransaction, includeProofFacts)
 		require.Equal(t, adaptedTransaction.Transaction, actualTransactions[i].Transaction)
+		require.Equal(t, adaptedTransaction.ProofFacts, actualTransactions[i].ProofFacts)
 	}
 }
 
@@ -320,12 +320,16 @@ func assertTransactionsWithReceiptsEq(
 	expectedBlock *core.Block,
 	expectedTxnFinalityStatus rpcv9.TxnFinalityStatus,
 	actual []rpcv10.TransactionWithReceipt,
+	responseFlags rpcv10.ResponseFlags,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedBlock.Receipts), len(actual))
 	for i, expectedReceipt := range expectedBlock.Receipts {
 		require.Equal(t, expectedReceipt.TransactionHash, actual[i].Receipt.Hash)
-		adaptedTransaction := rpcv10.AdaptTransaction(expectedBlock.Transactions[i], false)
+		adaptedTransaction := rpcv10.AdaptTransaction(
+			expectedBlock.Transactions[i],
+			responseFlags.IncludeProofFacts,
+		)
 		adaptedTransaction.Transaction.Hash = nil
 		adaptedReceipt := rpcv9.AdaptReceipt(
 			expectedReceipt,
@@ -334,6 +338,7 @@ func assertTransactionsWithReceiptsEq(
 		)
 
 		require.Equal(t, adaptedTransaction.Transaction, actual[i].Transaction.Transaction)
+		require.Equal(t, adaptedTransaction.ProofFacts, actual[i].Transaction.ProofFacts)
 		require.Equal(t, adaptedReceipt, actual[i].Receipt)
 	}
 }
@@ -355,6 +360,7 @@ func assertBlockWithReceipts(
 	expectedCommitments *core.BlockCommitments,
 	expectedStateUpdate *core.StateUpdate,
 	actual *rpcv10.BlockWithReceipts,
+	responseFlags rpcv10.ResponseFlags,
 ) {
 	t.Helper()
 	assert.Equal(t, expectedStatus, actual.Status)
@@ -374,6 +380,7 @@ func assertBlockWithReceipts(
 		expectedBlock,
 		blockStatusToTxnFinalityStatus(expectedStatus),
 		actual.Transactions,
+		responseFlags,
 	)
 }
 
@@ -480,7 +487,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 56377)
 
-	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
+	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
@@ -575,7 +582,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 16697)
 
-	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
+	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
 	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
 	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(
@@ -685,7 +692,22 @@ func TestBlockWithReceipts(t *testing.T) {
 
 	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 16697)
 
-	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
+	testCases := createBlockTestCases(block, commitments, stateUpdate)
+
+	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(
+		t,
+		clientSepolia,
+		4072139,
+	)
+	testCases = append(
+		testCases,
+		createBlockResponseFlagsTestCases(
+			blockWithProofFacts,
+			commitmentsPF,
+			stateUpdatePF,
+		)...,
+	)
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
@@ -706,7 +728,7 @@ func TestBlockWithReceipts(t *testing.T) {
 				tc.l1Head,
 			)
 
-			block, rpcErr := handler.BlockWithReceipts(tc.blockID, rpcv10.ResponseFlags{})
+			blockWithReceipts, rpcErr := handler.BlockWithReceipts(tc.blockID, tc.responseFlags)
 			require.Nil(t, rpcErr)
 			assertBlockWithReceipts(
 				t,
@@ -714,7 +736,8 @@ func TestBlockWithReceipts(t *testing.T) {
 				tc.blockStatus,
 				tc.commitments,
 				tc.stateUpdate,
-				block,
+				blockWithReceipts,
+				tc.responseFlags,
 			)
 		})
 	}
@@ -866,108 +889,4 @@ func nilToOne(f *felt.Felt) *felt.Felt {
 		return &felt.One
 	}
 	return f
-}
-
-func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	network := &utils.Sepolia
-	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
-	require.NotNil(t, block)
-	require.Greater(t, len(block.Transactions), 0)
-	require.Equal(
-		t,
-		len(block.Transactions),
-		len(block.Receipts),
-		"Block should have receipts for all transactions",
-	)
-
-	// Count invoke v3 transactions with proof_facts
-	var invokeV3WithProofFactsCount int
-	for _, tx := range block.Transactions {
-		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
-				invokeV3WithProofFactsCount++
-			}
-		}
-	}
-	require.Greater(
-		t,
-		invokeV3WithProofFactsCount, 0,
-		"Block should contain at least one invoke v3 transaction with proof_facts",
-	)
-
-	// Count all transactions
-	totalTxCount := len(block.Transactions)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-
-	blockID := rpcv9.BlockIDFromNumber(block.Header.Number)
-	mockReader.EXPECT().BlockByNumber(block.Header.Number).Return(block, nil).AnyTimes()
-	mockReader.EXPECT().Network().Return(network).AnyTimes()
-	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
-
-	mockReader.EXPECT().BlockCommitmentsByNumber(block.Header.Number).Return(&core.BlockCommitments{
-		TransactionCommitment: &felt.Zero,
-		EventCommitment:       &felt.Zero,
-		ReceiptCommitment:     &felt.Zero,
-		StateDiffCommitment:   &felt.Zero,
-	}, nil).AnyTimes()
-	mockReader.EXPECT().StateUpdateByNumber(block.Header.Number).Return(&core.StateUpdate{
-		StateDiff: &core.StateDiff{},
-	}, nil).AnyTimes()
-
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
-
-	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
-		blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, responseFlags)
-		require.Nil(t, rpcErr)
-		require.NotNil(t, blockWithReceipts)
-
-		// Verify total number of transactions is the same
-		require.Equal(t, totalTxCount, len(blockWithReceipts.Transactions))
-
-		// Count transactions with proof_facts in response
-		var txsWithProofFactsCount int
-		for _, txWithReceipt := range blockWithReceipts.Transactions {
-			if txWithReceipt.Transaction.ProofFacts != nil {
-				txsWithProofFactsCount++
-			}
-		}
-
-		// Verify number of transactions with proof_facts matches expected
-		require.Equal(
-			t,
-			invokeV3WithProofFactsCount,
-			txsWithProofFactsCount,
-			"Number of transactions with proof_facts should match",
-		)
-	})
-
-	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		t.Run("WithoutResponseFlag", func(t *testing.T) {
-			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
-			require.Nil(t, rpcErr)
-			require.NotNil(t, blockWithReceipts)
-
-			// Verify total number of transactions is the same
-			require.Equal(t, len(block.Transactions), len(blockWithReceipts.Transactions))
-
-			// Verify no transactions have proof_facts when flag is not set
-			for _, tx := range blockWithReceipts.Transactions {
-				require.Nil(
-					t,
-					tx.Transaction.ProofFacts,
-					"proof_facts should not be included when flag is not set",
-				)
-			}
-		})
-	})
 }
