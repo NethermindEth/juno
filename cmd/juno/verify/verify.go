@@ -60,7 +60,7 @@ func verifyAll(cmd *cobra.Command, args []string) error {
 
 	for _, v := range verifiers {
 		if err := v.Run(ctx); err != nil {
-			return fmt.Errorf("%s verification failed: %w", v.Name(), err)
+			return fmt.Errorf("%s verification stopped: %w", v.Name(), err)
 		}
 	}
 

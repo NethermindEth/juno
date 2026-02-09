@@ -144,6 +144,7 @@ func (v *TrieVerifier) collectContractAddresses() ([]felt.Felt, error) {
 		return nil
 	})
 	if err != nil {
+		v.logger.Error("Failed to collect contract addresses", zap.Error(err))
 		return nil, fmt.Errorf("failed to collect contract addresses: %w", err)
 	}
 

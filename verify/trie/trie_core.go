@@ -40,7 +40,7 @@ func VerifyTrie(
 	if rootHash.Cmp(expectedRoot) != 0 {
 		return fmt.Errorf(
 			"%w: root hash mismatch, expected %s, got %s (verification took %v)",
-			ErrCorruptionDetected, expectedRoot, rootHash, elapsed.Round(time.Second),
+			ErrCorruptionDetected, expectedRoot.String(), rootHash.String(), elapsed.Round(time.Second),
 		)
 	}
 
@@ -54,48 +54,46 @@ func verifyNode(
 	parentKey *trie.BitArray,
 	height uint8,
 	hashFn crypto.HashFn,
-) (*felt.Felt, error) {
+) (felt.Felt, error) {
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return felt.Zero, ctx.Err()
 	default:
 	}
 
 	node, err := reader.Get(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get node at key %s: %w", key.String(), err)
+		return felt.Zero, fmt.Errorf("failed to get node at key %s: %w", key.String(), err)
 	}
 
 	if key.Len() == height {
 		p := path(key, parentKey)
 		h := node.Hash(&p, hashFn)
-		return &h, nil
+		return h, nil
 	}
 
-	leftFn := func(ctx context.Context) (*felt.Felt, error) {
+	leftFn := func(ctx context.Context) (felt.Felt, error) {
 		if node.Left.IsEmpty() {
-			zero := felt.Zero
-			return &zero, nil
+			return felt.Zero, nil
 		}
 		return verifyNode(ctx, reader, node.Left, key, height, hashFn)
 	}
 
-	rightFn := func(ctx context.Context) (*felt.Felt, error) {
+	rightFn := func(ctx context.Context) (felt.Felt, error) {
 		if node.Right.IsEmpty() {
-			zero := felt.Zero
-			return &zero, nil
+			return felt.Zero, nil
 		}
 		return verifyNode(ctx, reader, node.Right, key, height, hashFn)
 	}
 
 	leftHash, rightHash, err := TraverseBinary(ctx, key.Len(), ConcurrencyMaxDepth, leftFn, rightFn)
 	if err != nil {
-		return nil, err
+		return felt.Zero, err
 	}
 
-	recomputed := hashFn(leftHash, rightHash)
+	recomputed := hashFn(&leftHash, &rightHash)
 	if recomputed.Cmp(node.Value) != 0 {
-		return nil, fmt.Errorf(
+		return felt.Zero, fmt.Errorf(
 			"%w: node at key %s, stored hash=%s, recomputed hash=%s",
 			ErrCorruptionDetected, key.String(), node.Value.String(), recomputed.String(),
 		)
@@ -106,7 +104,7 @@ func verifyNode(
 
 	p := path(key, parentKey)
 	h := tmp.Hash(&p, hashFn)
-	return &h, nil
+	return h, nil
 }
 
 func path(key, parentKey *trie.BitArray) trie.BitArray {
