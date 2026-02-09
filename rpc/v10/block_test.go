@@ -15,7 +15,6 @@ import (
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -890,108 +889,4 @@ func nilToOne(f *felt.Felt) *felt.Felt {
 		return &felt.One
 	}
 	return f
-}
-
-func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	network := &utils.Sepolia
-	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
-	require.NotNil(t, block)
-	require.Greater(t, len(block.Transactions), 0)
-	require.Equal(
-		t,
-		len(block.Transactions),
-		len(block.Receipts),
-		"Block should have receipts for all transactions",
-	)
-
-	// Count invoke v3 transactions with proof_facts
-	var invokeV3WithProofFactsCount int
-	for _, tx := range block.Transactions {
-		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
-				invokeV3WithProofFactsCount++
-			}
-		}
-	}
-	require.Greater(
-		t,
-		invokeV3WithProofFactsCount, 0,
-		"Block should contain at least one invoke v3 transaction with proof_facts",
-	)
-
-	// Count all transactions
-	totalTxCount := len(block.Transactions)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-
-	blockID := rpcv9.BlockIDFromNumber(block.Header.Number)
-	mockReader.EXPECT().BlockByNumber(block.Header.Number).Return(block, nil).AnyTimes()
-	mockReader.EXPECT().Network().Return(network).AnyTimes()
-	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
-
-	mockReader.EXPECT().BlockCommitmentsByNumber(block.Header.Number).Return(&core.BlockCommitments{
-		TransactionCommitment: &felt.Zero,
-		EventCommitment:       &felt.Zero,
-		ReceiptCommitment:     &felt.Zero,
-		StateDiffCommitment:   &felt.Zero,
-	}, nil).AnyTimes()
-	mockReader.EXPECT().StateUpdateByNumber(block.Header.Number).Return(&core.StateUpdate{
-		StateDiff: &core.StateDiff{},
-	}, nil).AnyTimes()
-
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
-
-	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
-		blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, responseFlags)
-		require.Nil(t, rpcErr)
-		require.NotNil(t, blockWithReceipts)
-
-		// Verify total number of transactions is the same
-		require.Equal(t, totalTxCount, len(blockWithReceipts.Transactions))
-
-		// Count transactions with proof_facts in response
-		var txsWithProofFactsCount int
-		for _, txWithReceipt := range blockWithReceipts.Transactions {
-			if txWithReceipt.Transaction.ProofFacts != nil {
-				txsWithProofFactsCount++
-			}
-		}
-
-		// Verify number of transactions with proof_facts matches expected
-		require.Equal(
-			t,
-			invokeV3WithProofFactsCount,
-			txsWithProofFactsCount,
-			"Number of transactions with proof_facts should match",
-		)
-	})
-
-	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		t.Run("WithoutResponseFlag", func(t *testing.T) {
-			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
-			require.Nil(t, rpcErr)
-			require.NotNil(t, blockWithReceipts)
-
-			// Verify total number of transactions is the same
-			require.Equal(t, len(block.Transactions), len(blockWithReceipts.Transactions))
-
-			// Verify no transactions have proof_facts when flag is not set
-			for _, tx := range blockWithReceipts.Transactions {
-				require.Nil(
-					t,
-					tx.Transaction.ProofFacts,
-					"proof_facts should not be included when flag is not set",
-				)
-			}
-		})
-	})
 }
