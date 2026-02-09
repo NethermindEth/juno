@@ -38,6 +38,20 @@ func TestRunTrieVerify_AddressFlagValidation(t *testing.T) {
 			address:     "0x123",
 			expectError: false,
 		},
+		{
+			name:           "invalid type should fail",
+			trieTypes:      []string{"invalid-type"},
+			address:        "",
+			expectError:    true,
+			expectedErrMsg: "invalid trie type",
+		},
+		{
+			name:           "invalid address format should fail",
+			trieTypes:      []string{"contract-storage"},
+			address:        "not-a-hex",
+			expectError:    true,
+			expectedErrMsg: "invalid contract address",
+		},
 	}
 
 	for _, tt := range tests {
@@ -72,8 +86,12 @@ func TestRunTrieVerify_AddressFlagValidation(t *testing.T) {
 					assert.Contains(t, err.Error(), tt.expectedErrMsg)
 				}
 			} else if err != nil {
+				// For "success" cases, we're testing flag validation, not full execution.
+				// The command may fail downstream (empty DB, no data) - that's expected.
+				// We only verify that the specific flag validation error we're testing didn't occur.
 				addrFlagErr := "--address flag can only be used with --type contract-storage"
-				assert.NotContains(t, err.Error(), addrFlagErr)
+				assert.NotContains(t, err.Error(), addrFlagErr,
+					"flag validation should pass; downstream errors are acceptable")
 			}
 		})
 	}
