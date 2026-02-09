@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -52,7 +51,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed       uint64
 		err             *jsonrpc.Error
 		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockStateHistoryReader)
-		simulationFlags []rpcv6.SimulationFlag
+		simulationFlags []rpcv10.SimulationFlag
 		simulatedTxs    []rpcv10.SimulatedTransaction
 	}{
 		{ //nolint:dupl // test data
@@ -75,7 +74,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(123),
 					}, nil)
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+			simulationFlags: []rpcv10.SimulationFlag{rpcv10.SkipFeeChargeFlag},
 			simulatedTxs:    []rpcv10.SimulatedTransaction{},
 		},
 		{ //nolint:dupl // test data
@@ -98,7 +97,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(123),
 					}, nil)
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			simulationFlags: []rpcv10.SimulationFlag{rpcv10.SkipValidateFlag},
 			simulatedTxs:    []rpcv10.SimulatedTransaction{},
 		},
 		{
@@ -117,7 +116,7 @@ func TestSimulateTransactions(t *testing.T) {
 						Cause: json.RawMessage("oops"),
 					})
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			simulationFlags: []rpcv10.SimulationFlag{rpcv10.SkipValidateFlag},
 			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpcv9.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
@@ -142,7 +141,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(0),
 					}, nil)
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			simulationFlags: []rpcv10.SimulationFlag{rpcv10.SkipValidateFlag},
 			err: rpccore.ErrInternal.CloneWithData(errors.New(
 				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 			)),
@@ -308,7 +307,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			_, _, err := handler.SimulateTransactions(
 				&blockID,
 				rpcv9.BroadcastedTransactionInputs{Data: test.transactions},
-				[]rpcv6.SimulationFlag{},
+				[]rpcv10.SimulationFlag{},
 			)
 			if test.err != nil {
 				require.Equal(t, test.err, err)
@@ -319,29 +318,26 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 	}
 }
 
+type initialReadsTestCase struct {
+	name                 string
+	simulationFlags      []rpcv10.SimulationFlag
+	initialReads         *vm.InitialReads
+	expectedInitialReads *rpcv10.InitialReads
+}
+
 // initialReadsTestCases returns the shared test cases for testing RETURN_INITIAL_READS flag.
 // These test cases are used by both TestSimulateTransactionsWithReturnInitialReads
 // and TestTraceBlockTransactionsWithReturnInitialReads since they test the same
 // initial reads behaviour.
-func initialReadsTestCases() []struct {
-	name                 string
-	flags                []rpcv6.SimulationFlag
-	initialReads         *vm.InitialReads
-	expectedInitialReads *rpcv10.InitialReads
-} {
+func initialReadsTestCases() []initialReadsTestCase {
 	addr := felt.FromUint64[felt.Address](123)
 	key := felt.FromUint64[felt.Felt](456)
 	value := felt.FromUint64[felt.Felt](789)
 
-	return []struct {
-		name                 string
-		flags                []rpcv6.SimulationFlag
-		initialReads         *vm.InitialReads
-		expectedInitialReads *rpcv10.InitialReads
-	}{
+	return []initialReadsTestCase{
 		{
-			name:  "with flag and non-empty initial reads",
-			flags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
+			name:            "with flag and non-empty initial reads",
+			simulationFlags: []rpcv10.SimulationFlag{rpcv10.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
 				Storage: []vm.InitialReadsStorageEntry{
 					{ContractAddress: addr, Key: key, Value: value},
@@ -358,8 +354,8 @@ func initialReadsTestCases() []struct {
 			},
 		},
 		{
-			name:  "with flag but empty initial reads",
-			flags: []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
+			name:            "with flag but empty initial reads",
+			simulationFlags: []rpcv10.SimulationFlag{rpcv10.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
 				Storage:           []vm.InitialReadsStorageEntry{},
 				Nonces:            []vm.InitialReadsNonceEntry{},
@@ -374,8 +370,8 @@ func initialReadsTestCases() []struct {
 			},
 		},
 		{
-			name:  "without flag",
-			flags: []rpcv6.SimulationFlag{},
+			name:            "without flag",
+			simulationFlags: []rpcv10.SimulationFlag{},
 			initialReads: &vm.InitialReads{
 				Storage: []vm.InitialReadsStorageEntry{
 					{ContractAddress: addr, Key: key, Value: value},
@@ -388,7 +384,7 @@ func initialReadsTestCases() []struct {
 		},
 		{
 			name:                 "with flag but VM returns no initial reads",
-			flags:                []rpcv6.SimulationFlag{rpcv6.ReturnInitialReadsFlag},
+			simulationFlags:      []rpcv10.SimulationFlag{rpcv10.ReturnInitialReadsFlag},
 			initialReads:         nil,
 			expectedInitialReads: nil,
 		},
@@ -408,27 +404,8 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 	}
 
 	testCases := initialReadsTestCases()
-	tests := make([]struct {
-		name                 string
-		simulationFlags      []rpcv6.SimulationFlag
-		initialReads         *vm.InitialReads
-		expectedInitialReads *rpcv10.InitialReads
-	}, len(testCases))
-	for i, tc := range testCases {
-		tests[i] = struct {
-			name                 string
-			simulationFlags      []rpcv6.SimulationFlag
-			initialReads         *vm.InitialReads
-			expectedInitialReads *rpcv10.InitialReads
-		}{
-			name:                 tc.name,
-			simulationFlags:      tc.flags,
-			initialReads:         tc.initialReads,
-			expectedInitialReads: tc.expectedInitialReads,
-		}
-	}
 
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			mockCtrl := gomock.NewController(t)
@@ -442,7 +419,7 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
-			returnInitialReads := slices.Contains(test.simulationFlags, rpcv6.ReturnInitialReadsFlag)
+			returnInitialReads := slices.Contains(test.simulationFlags, rpcv10.ReturnInitialReadsFlag)
 
 			version3 := felt.FromUint64[felt.Felt](3)
 			senderAddr := felt.FromUint64[felt.Felt](1)

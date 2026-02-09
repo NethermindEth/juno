@@ -1496,7 +1496,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 			mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil)
 
-			returnInitialReads := slices.Contains(test.flags, rpcv6.ReturnInitialReadsFlag)
+			returnInitialReads := slices.Contains(test.simulationFlags, rpcv10.ReturnInitialReadsFlag)
 
 			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
 				false, false, false, true, false, false, returnInitialReads,
@@ -1515,7 +1515,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			traces, _, err := handler.TraceBlockTransactions(
 				t.Context(),
 				&blockID,
-				test.flags,
+				test.simulationFlags,
 			)
 
 			require.Nil(t, err)

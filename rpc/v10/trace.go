@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
@@ -131,7 +130,7 @@ func (h *Handler) Call(
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) TraceBlockTransactions(
-	ctx context.Context, id *rpcv9.BlockID, traceFlags []rpcv6.SimulationFlag,
+	ctx context.Context, id *rpcv9.BlockID, traceFlags []SimulationFlag,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
 	if id.IsPreConfirmed() {
 		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrCallOnPreConfirmed
@@ -142,7 +141,7 @@ func (h *Handler) TraceBlockTransactions(
 		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpcErr
 	}
 
-	returnInitialReads := slices.Contains(traceFlags, rpcv6.ReturnInitialReadsFlag)
+	returnInitialReads := slices.Contains(traceFlags, ReturnInitialReadsFlag)
 	return h.traceBlockTransactions(ctx, block, returnInitialReads)
 }
 
@@ -442,9 +441,16 @@ func (h *Handler) traceBlockTransactions(
 	ctx context.Context, block *core.Block, returnInitialReads bool,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
 	// Check if it was already traced
-	traces, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{BlockHash: *block.Hash})
-	if hit && !returnInitialReads {
-		return NewTraceBlockTransactionsResponse(traces, nil), defaultExecutionHeader(), nil
+	cacheKey := rpccore.TraceCacheKey{BlockHash: *block.Hash}
+	cachedResponse, hit := h.blockTraceCache.Get(cacheKey)
+	if hit {
+		if returnInitialReads {
+			if cachedResponse.InitialReads != nil {
+				return cachedResponse, defaultExecutionHeader(), nil
+			}
+		} else {
+			return NewTraceBlockTransactionsResponse(cachedResponse.Traces, nil), defaultExecutionHeader(), nil
+		}
 	}
 
 	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(block, h.bcReader.Network())
@@ -459,7 +465,11 @@ func (h *Handler) traceBlockTransactions(
 		if err != nil {
 			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), err
 		}
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
+		// Feeder gateway doesn't provide initial reads, so cache without them
+		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, TraceBlockTransactionsResponse{
+			Traces:       traces,
+			InitialReads: nil,
+		})
 		return NewTraceBlockTransactionsResponse(traces, nil), defaultExecutionHeader(), nil
 	}
 
@@ -520,9 +530,12 @@ func (h *Handler) traceBlockWithVM(block *core.Block, returnInitialReads bool) (
 		adaptedInitialReads = &adapted
 	}
 
-	// Cache result for finalised blocks
+	// Always cache result for finalised blocks with initial reads if we have them (they can be used for both requests)
 	if !isPending {
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
+		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, TraceBlockTransactionsResponse{
+			Traces:       traces,
+			InitialReads: adaptedInitialReads,
+		})
 	}
 
 	return NewTraceBlockTransactionsResponse(traces, adaptedInitialReads), httpHeader, nil

@@ -20,6 +20,29 @@ import (
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
 
+type SimulationFlag int
+
+const (
+	SkipValidateFlag SimulationFlag = iota + 1
+	SkipFeeChargeFlag
+	ReturnInitialReadsFlag
+)
+
+func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"SKIP_VALIDATE"`:
+		*s = SkipValidateFlag
+	case `"SKIP_FEE_CHARGE"`:
+		*s = SkipFeeChargeFlag
+	case `"RETURN_INITIAL_READS"`:
+		*s = ReturnInitialReadsFlag
+	default:
+		err = fmt.Errorf("unknown simulation flag %q", flag)
+	}
+
+	return err
+}
+
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
 	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`
@@ -30,8 +53,8 @@ type SimulatedTransaction struct {
 // When RETURN_INITIAL_READS flag is set, it marshals as an object
 // with simulated_transactions and initial_reads.
 type SimulateTransactionsResponse struct {
-	SimulatedTransactions []SimulatedTransaction
-	InitialReads          *InitialReads
+	SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
+	InitialReads          *InitialReads          `json:"initial_reads"`
 }
 
 func NewSimulateTransactionsResponse(
@@ -48,11 +71,7 @@ func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
 		return json.Marshal(r.SimulatedTransactions)
 	}
-	type simulateTransactionsResponse struct {
-		SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
-		InitialReads          *InitialReads          `json:"initial_reads"`
-	}
-	response := simulateTransactionsResponse(r)
+	response := SimulateTransactionsResponse(r)
 	return json.Marshal(response)
 }
 
@@ -65,8 +84,8 @@ type TracedBlockTransaction struct {
 // When RETURN_INITIAL_READS flag is not set, it marshals as an array.
 // When RETURN_INITIAL_READS flag is set, it marshals as an object with traces and initial_reads.
 type TraceBlockTransactionsResponse struct {
-	Traces       []TracedBlockTransaction
-	InitialReads *InitialReads
+	Traces       []TracedBlockTransaction `json:"traces"`
+	InitialReads *InitialReads            `json:"initial_reads"`
 }
 
 func NewTraceBlockTransactionsResponse(
@@ -83,11 +102,7 @@ func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
 		return json.Marshal(r.Traces)
 	}
-	type traceBlockTransactionsResponse struct {
-		Traces       []TracedBlockTransaction `json:"traces"`
-		InitialReads *InitialReads            `json:"initial_reads"`
-	}
-	response := traceBlockTransactionsResponse(r)
+	response := TraceBlockTransactionsResponse(r)
 	return json.Marshal(response)
 }
 
@@ -131,7 +146,7 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 func (h *Handler) SimulateTransactions(
 	id *rpcv9.BlockID,
 	transactions BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 ) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions.Data, simulationFlags, false, false)
 }
@@ -139,13 +154,13 @@ func (h *Handler) SimulateTransactions(
 func (h *Handler) simulateTransactions(
 	id *rpcv9.BlockID,
 	transactions []rpcv9.BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
 ) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
-	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
-	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
-	returnInitialReads := slices.Contains(simulationFlags, rpcv6.ReturnInitialReadsFlag)
+	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
+	returnInitialReads := slices.Contains(simulationFlags, ReturnInitialReadsFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")

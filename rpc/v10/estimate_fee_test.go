@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -58,7 +57,7 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv6.SimulationFlag{},
+			[]rpcv10.SimulationFlag{},
 			&blockID,
 		)
 		require.Nil(t, err)
@@ -88,7 +87,9 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			[]rpcv10.SimulationFlag{
+				rpcv10.SkipValidateFlag,
+			},
 			&blockID,
 		)
 		require.Nil(t, err)
@@ -112,7 +113,7 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			[]rpcv10.SimulationFlag{rpcv10.SkipValidateFlag},
 			&blockID,
 		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -142,7 +143,7 @@ func TestEstimateFee(t *testing.T) {
 		}
 		_, _, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{Data: []rpcv9.BroadcastedTransaction{invalidTx}},
-			[]rpcv6.SimulationFlag{},
+			[]rpcv10.SimulationFlag{},
 			&blockID,
 		)
 		expectedErr := &jsonrpc.Error{

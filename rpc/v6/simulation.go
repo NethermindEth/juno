@@ -20,7 +20,6 @@ type SimulationFlag int
 const (
 	SkipValidateFlag SimulationFlag = iota + 1
 	SkipFeeChargeFlag
-	ReturnInitialReadsFlag
 )
 
 var RPCVersion3Value = felt.Felt(fp.Element(
@@ -38,8 +37,6 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 		*s = SkipValidateFlag
 	case `"SKIP_FEE_CHARGE"`:
 		*s = SkipFeeChargeFlag
-	case `"RETURN_INITIAL_READS"`:
-		*s = ReturnInitialReadsFlag
 	default:
 		err = fmt.Errorf("unknown simulation flag %q", flag)
 	}

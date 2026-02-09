@@ -19,13 +19,13 @@ import (
 */
 func (h *Handler) EstimateFee(
 	broadcastedTxns BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 	id *rpcv9.BlockID,
 ) ([]rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
 		id,
 		broadcastedTxns.Data,
-		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		append(simulationFlags, SkipFeeChargeFlag),
 		true,
 		true,
 	)
