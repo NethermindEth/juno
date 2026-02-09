@@ -71,7 +71,8 @@ func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
 		return json.Marshal(r.SimulatedTransactions)
 	}
-	response := SimulateTransactionsResponse(r)
+	type simulateTransactionsResponse SimulateTransactionsResponse
+	response := simulateTransactionsResponse(r)
 	return json.Marshal(response)
 }
 
@@ -102,7 +103,8 @@ func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
 		return json.Marshal(r.Traces)
 	}
-	response := TraceBlockTransactionsResponse(r)
+	type traceBlockTransactionsResponse TraceBlockTransactionsResponse
+	response := traceBlockTransactionsResponse(r)
 	return json.Marshal(response)
 }
 
