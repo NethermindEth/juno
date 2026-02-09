@@ -111,6 +111,7 @@ type Config struct {
 	DBMaxHandles            int    `mapstructure:"db-max-handles"`
 	DBCompactionConcurrency string `mapstructure:"db-compaction-concurrency"`
 	DBMemtableSize          uint   `mapstructure:"db-memtable-size"`
+	DBMemtableCount         uint   `mapstructure:"db-memtable-count"`
 	DBCompression           string `mapstructure:"db-compression"`
 
 	GatewayAPIKey   string `mapstructure:"gw-api-key"`
@@ -159,6 +160,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pebblev2.WithLogger(cfg.Colour),
 			pebblev2.WithCompactionConcurrency(cfg.DBCompactionConcurrency),
 			pebblev2.WithMemtableSize(cfg.DBMemtableSize),
+			pebblev2.WithMemtableCount(cfg.DBMemtableCount),
 			pebblev2.WithCompression(cfg.DBCompression),
 		)
 	}

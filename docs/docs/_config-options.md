@@ -16,6 +16,7 @@
 | `db-compression` | `"snappy"` | Database compression profile. Options: snappy, zstd, minlz. Use zstd for low storage. |
 | `db-max-handles` | `1024` | A soft limit on the number of open files that can be used by the DB |
 | `db-memtable-size` | `256` | Determines the amount of memory (in MBs) allocated for database memtables. |
+| `db-memtable-count` | `2` | Determines the number of memtables the database can queue before stalling writes. |
 | `db-path` | `path to your db location` | Location of the database files. |
 | `disable-l1-verification` |  | Disables L1 verification since an Ethereum node is not provided. |
 | `disable-rpc-batch-requests` |  | Disables handling of batched RPC requests. |

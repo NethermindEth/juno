@@ -102,6 +102,13 @@ func WithMemtableSize(memtableSizeMB uint) Option {
 	}
 }
 
+func WithMemtableCount(count uint) Option {
+	return func(opts *pebble.Options) error {
+		opts.MemTableStopWritesThreshold = int(count)
+		return nil
+	}
+}
+
 func parseCompactionConcurrency(s string) (lower, upper int, err error) {
 	parts := strings.Split(s, ",")
 	switch len(parts) {
