@@ -14,8 +14,7 @@ func (r *ResponseFlags) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &flags); err != nil {
 		return err
 	}
-
-	r.IncludeProofFacts = false
+	*r = ResponseFlags{}
 
 	for _, flag := range flags {
 		switch flag {
