@@ -37,6 +37,16 @@ A sensible default is **256 MB** for nodes that satisfy the minimum requirements
 Setting this value too high can cause **uneven write performance**. Larger memtables mean flushes happen less frequently but involve more data at once, leading to bursty I/O patterns. If writes accumulate faster than the database can flush, writes will stall entirely until flushing catches up. A moderate value like 256 MB balances flush frequency with I/O smoothness.
 :::
 
+## Database Memory Table Count
+
+Set by the `--db-memtable-count` flag (default: 2), this controls the number of memtables the database can hold in memory before stalling writes. Memtables are in-memory buffers where writes accumulate before being flushed to disk.
+
+With the default of 2, Pebble can accept writes into one memtable while flushing a previous one to disk. Increasing this value allows more memtables to be queued, which can absorb write bursts and prevent stalls when flush speed falls behind write speed.
+
+:::warning
+Each additional memtable consumes up to `--db-memtable-size` MB of memory. For example, with the default memtable size of 256 MB and a count of 4, up to 1 GB of memory could be used for memtables alone.
+:::
+
 ## Database Compaction Concurrency
 
 Set by the `--db-compaction-concurrency` flag, this controls how many concurrent compaction workers the database uses. Compaction is the background process that merges and optimises data on disk.
