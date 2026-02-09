@@ -1,4 +1,4 @@
-package peers
+package server
 
 import (
 	"bytes"
@@ -14,7 +14,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/tracker"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	syncclass "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/class"
 	synccommon "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/common"
@@ -27,24 +30,45 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type Handler struct {
+type Server struct {
+	host     host.Host
 	bcReader blockchain.Reader
 	log      utils.StructuredLogger
-
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
 }
 
-func NewHandler(bcReader blockchain.Reader, log utils.StructuredLogger) *Handler {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &Handler{
+func New(host host.Host, bcReader blockchain.Reader, log utils.StructuredLogger) Server {
+	return Server{
+		host:     host,
 		bcReader: bcReader,
 		log:      log,
-		ctx:      ctx,
-		cancel:   cancel,
-		wg:       sync.WaitGroup{},
 	}
+}
+
+func (h *Server) Run(ctx context.Context) error {
+	tracker := tracker.Tracker{}
+	defer tracker.Wait()
+
+	h.setProtocolHandler(ctx, &tracker, starknetp2p.HeadersSyncSubProtocol, h.headersHandler)
+	h.setProtocolHandler(ctx, &tracker, starknetp2p.EventsSyncSubProtocol, h.eventsHandler)
+	h.setProtocolHandler(ctx, &tracker, starknetp2p.TransactionsSyncSubProtocol, h.transactionsHandler)
+	h.setProtocolHandler(ctx, &tracker, starknetp2p.ClassesSyncSubProtocol, h.classesHandler)
+	h.setProtocolHandler(ctx, &tracker, starknetp2p.StateDiffSyncSubProtocol, h.stateDiffHandler)
+
+	<-ctx.Done()
+	return nil
+}
+
+func (h *Server) setProtocolHandler(
+	ctx context.Context,
+	tracker *tracker.Tracker,
+	syncSubProtocol starknetp2p.SyncSubProtocol,
+	handler func(context.Context, *tracker.Tracker, network.Stream),
+) {
+	streamHandler := func(stream network.Stream) {
+		handler(ctx, tracker, stream)
+	}
+	protocolID := starknetp2p.Sync(h.bcReader.Network(), syncSubProtocol)
+	h.host.SetStreamHandler(protocolID, streamHandler)
 }
 
 // bufferPool caches unused buffer objects for later reuse.
@@ -61,16 +85,25 @@ func getBuffer() *bytes.Buffer {
 }
 
 func streamHandler[ReqT proto.Message](
-	ctx context.Context, wg *sync.WaitGroup,
-	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error),
+	ctx context.Context,
+	tracker *tracker.Tracker,
+	stream network.Stream,
+	reqHandler func(req ReqT) (iter.Seq[proto.Message], error),
 	log utils.StructuredLogger,
 ) {
-	wg.Add(1)
-	defer wg.Done()
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	tracker.Add(1)
+	defer tracker.Done()
 
 	defer func() {
 		if err := stream.Close(); err != nil {
-			log.Debug("Error closing stream",
+			log.Debug(
+				"Error closing stream",
 				zap.String("peer", stream.ID()),
 				zap.String("protocol", string(stream.Protocol())),
 				zap.Error(err),
@@ -84,7 +117,8 @@ func streamHandler[ReqT proto.Message](
 	// todo add limit reader
 	// todo add read timeout
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		log.Debug("Error reading from stream",
+		log.Debug(
+			"Error reading from stream",
 			zap.String("peer", stream.ID()),
 			zap.String("protocol", string(stream.Protocol())),
 			zap.Error(err),
@@ -96,7 +130,8 @@ func streamHandler[ReqT proto.Message](
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		log.Debug("Error unmarshalling message",
+		log.Debug(
+			"Error unmarshalling message",
 			zap.String("peer", stream.ID()),
 			zap.String("protocol", string(stream.Protocol())),
 			zap.Error(err),
@@ -107,7 +142,8 @@ func streamHandler[ReqT proto.Message](
 	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
-		log.Debug("Error handling request",
+		log.Debug(
+			"Error handling request",
 			zap.String("peer", stream.ID()),
 			zap.String("protocol", string(stream.Protocol())),
 			zap.Error(err),
@@ -122,7 +158,8 @@ func streamHandler[ReqT proto.Message](
 
 		// todo add write timeout
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			log.Debug("Error writing response",
+			log.Debug(
+				"Error writing response",
 				zap.String("peer", stream.ID()),
 				zap.String("protocol", string(stream.Protocol())),
 				zap.Error(err),
@@ -132,27 +169,49 @@ func streamHandler[ReqT proto.Message](
 	}
 }
 
-func (h *Handler) HeadersHandler(stream network.Stream) {
-	streamHandler(h.ctx, &h.wg, stream, h.onHeadersRequest, h.log)
+func (h *Server) headersHandler(
+	ctx context.Context,
+	tracker *tracker.Tracker,
+	stream network.Stream,
+) {
+	streamHandler(ctx, tracker, stream, h.onHeadersRequest, h.log)
 }
 
-func (h *Handler) EventsHandler(stream network.Stream) {
-	streamHandler(h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
+func (h *Server) eventsHandler(
+	ctx context.Context,
+	tracker *tracker.Tracker,
+	stream network.Stream,
+) {
+	streamHandler(ctx, tracker, stream, h.onEventsRequest, h.log)
 }
 
-func (h *Handler) TransactionsHandler(stream network.Stream) {
-	streamHandler(h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
+func (h *Server) transactionsHandler(
+	ctx context.Context,
+	tracker *tracker.Tracker,
+	stream network.Stream,
+) {
+	streamHandler(ctx, tracker, stream, h.onTransactionsRequest, h.log)
 }
 
-func (h *Handler) ClassesHandler(stream network.Stream) {
-	streamHandler(h.ctx, &h.wg, stream, h.onClassesRequest, h.log)
+func (h *Server) classesHandler(
+	ctx context.Context,
+	tracker *tracker.Tracker,
+	stream network.Stream,
+) {
+	streamHandler(ctx, tracker, stream, h.onClassesRequest, h.log)
 }
 
-func (h *Handler) StateDiffHandler(stream network.Stream) {
-	streamHandler(h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
+func (h *Server) stateDiffHandler(
+	ctx context.Context,
+	tracker *tracker.Tracker,
+	stream network.Stream,
+) {
+	streamHandler(ctx, tracker, stream, h.onStateDiffRequest, h.log)
 }
 
-func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
+func (h *Server) onHeadersRequest(
+	req *header.BlockHeadersRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &header.BlockHeadersResponse{
 		HeaderMessage: &header.BlockHeadersResponse_Fin{},
 	}
@@ -205,7 +264,9 @@ func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[pr
 	})
 }
 
-func (h *Handler) onEventsRequest(req *event.EventsRequest) (iter.Seq[proto.Message], error) {
+func (h *Server) onEventsRequest(
+	req *event.EventsRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &event.EventsResponse{
 		EventMessage: &event.EventsResponse_Fin{},
 	}
@@ -230,7 +291,9 @@ func (h *Handler) onEventsRequest(req *event.EventsRequest) (iter.Seq[proto.Mess
 	})
 }
 
-func (h *Handler) onTransactionsRequest(req *synctransaction.TransactionsRequest) (iter.Seq[proto.Message], error) {
+func (h *Server) onTransactionsRequest(
+	req *synctransaction.TransactionsRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &synctransaction.TransactionsResponse{
 		TransactionMessage: &synctransaction.TransactionsResponse_Fin{},
 	}
@@ -259,7 +322,9 @@ func (h *Handler) onTransactionsRequest(req *synctransaction.TransactionsRequest
 }
 
 //nolint:gocyclo
-func (h *Handler) onStateDiffRequest(req *state.StateDiffsRequest) (iter.Seq[proto.Message], error) {
+func (h *Server) onStateDiffRequest(
+	req *state.StateDiffsRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &state.StateDiffsResponse{
 		StateDiffMessage: &state.StateDiffsResponse_Fin{},
 	}
@@ -373,7 +438,9 @@ func (h *Handler) onStateDiffRequest(req *state.StateDiffsRequest) (iter.Seq[pro
 	})
 }
 
-func (h *Handler) onClassesRequest(req *syncclass.ClassesRequest) (iter.Seq[proto.Message], error) {
+func (h *Server) onClassesRequest(
+	req *syncclass.ClassesRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &syncclass.ClassesResponse{
 		ClassMessage: &syncclass.ClassesResponse_Fin{},
 	}
@@ -445,7 +512,9 @@ type iterationProcessor = func(it blockDataAccessor) (proto.Message, error)
 // processIterationRequest is helper function that simplifies data processing for provided spec.Iteration object
 // caller usually passes iteration object from received request, finMsg as final message to a peer
 // and iterationProcessor function that will generate response for each iteration
-func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMsg proto.Message,
+func (h *Server) processIterationRequest(
+	iteration *synccommon.Iteration,
+	finMsg proto.Message,
 	getMsg iterationProcessor,
 ) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
@@ -461,7 +530,8 @@ func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMs
 			msg, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error("Failed to generate data",
+					h.log.Error(
+						"Failed to generate data",
 						zap.Uint64("blockNumber", it.BlockNumber()),
 						zap.Error(err),
 					)
@@ -487,7 +557,7 @@ func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMs
 
 type iterationProcessorMulti = func(it blockDataAccessor) ([]proto.Message, error)
 
-func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, finMsg proto.Message,
+func (h *Server) processIterationRequestMulti(iteration *synccommon.Iteration, finMsg proto.Message,
 	getMsg iterationProcessorMulti,
 ) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
@@ -503,7 +573,8 @@ func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, 
 			messages, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error("Failed to generate data",
+					h.log.Error(
+						"Failed to generate data",
 						zap.Uint64("blockNumber", it.BlockNumber()),
 						zap.Error(err),
 					)
@@ -529,7 +600,7 @@ func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, 
 	}, nil
 }
 
-func (h *Handler) newIterator(it *synccommon.Iteration) (*iterator, error) {
+func (h *Server) newIterator(it *synccommon.Iteration) (*iterator, error) {
 	forward := it.Direction == synccommon.Iteration_Forward
 	// todo restrict limit max value ?
 	switch v := it.Start.(type) {
@@ -540,12 +611,4 @@ func (h *Handler) newIterator(it *synccommon.Iteration) (*iterator, error) {
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)
 	}
-}
-
-func (h *Handler) Close() {
-	fmt.Println("Canceling")
-	h.cancel()
-	fmt.Println("Waiting")
-	h.wg.Wait()
-	fmt.Println("Done")
 }
