@@ -180,7 +180,13 @@ func (v *TrieVerifier) verifyTrie(ctx context.Context, trieInfo TrieInfo) error 
 		zap.String("expectedRoot", expectedRoot.String()))
 
 	storageReader := trie.NewReadStorage(v.database, trieInfo.Prefix)
-	if err := VerifyTrie(ctx, storageReader, trieInfo.Height, trieInfo.HashFn, &expectedRoot); err != nil {
+	if err := VerifyTrie(
+		ctx,
+		storageReader,
+		trieInfo.Height,
+		trieInfo.HashFn,
+		&expectedRoot,
+	); err != nil {
 		return err
 	}
 
