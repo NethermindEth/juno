@@ -33,9 +33,9 @@ func TestOptions(t *testing.T) {
 		require.NoError(t, option(&opt))
 	}
 
-	assert.Equal(t, opt.Cache.MaxSize(), int64(testCacheSizeMB*1024*1024))
-	assert.Equal(t, opt.MemTableSize, uint64(testMemtableSizeMB*1024*1024))
-	assert.Equal(t, opt.MaxOpenFiles, testMaxOpenFiles)
+	assert.Equal(t, int64(testCacheSizeMB*1024*1024), opt.Cache.MaxSize())
+	assert.Equal(t, uint64(testMemtableSizeMB*1024*1024), opt.MemTableSize)
+	assert.Equal(t, testMaxOpenFiles, opt.MaxOpenFiles)
 	assert.Equal(t, testMemtableCount, opt.MemTableStopWritesThreshold)
 	assert.NotNil(t, opt.Logger)
 	assert.IsType(t, &utils.ZapLogger{}, opt.Logger)

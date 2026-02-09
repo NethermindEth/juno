@@ -234,7 +234,7 @@ const (
 	dbMemtableSizeUsage  = "Determines the amount of memory (in MBs) allocated for database memtables."
 	dbMemtableCountUsage = "Determines the number of memtables the database can " +
 		"queue before stalling writes."
-	dbCompressionUsage   = "Database compression profile. Options: snappy, zstd, minlz. " +
+	dbCompressionUsage = "Database compression profile. Options: snappy, zstd, minlz. " +
 		"Use zstd for low storage."
 	transactionCombinedLayoutUsage = "EXPERIMENTAL: Enable combined (per-block) transaction " +
 		"storage layout. Once enabled, cannot be disabled."
