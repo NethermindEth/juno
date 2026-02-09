@@ -1,88 +1,134 @@
 package tendermint
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/types/wal"
 )
 
 func (s *stateMachine[V, H, A]) ProcessStart(round types.Round) []actions.Action[V, H, A] {
-	return s.processLoop(s.startRound(round), nil)
+	if s.isHeightStarted {
+		return nil
+	}
+	s.isHeightStarted = true
+	return s.processLoop(
+		[]actions.Action[V, H, A]{
+			&actions.WriteWAL[V, H, A]{Entry: (*wal.Start)(&s.state.height)},
+			s.startRound(round),
+		},
+		nil,
+	)
 }
 
 func (s *stateMachine[V, H, A]) ProcessProposal(p *types.Proposal[V, H, A]) []actions.Action[V, H, A] {
-	return s.processMessage(p.MessageHeader, func() {
-		if s.voteCounter.AddProposal(p) && !s.replayMode && p.Height == s.state.height {
-			// Store proposal if its the first time we see it
-			if err := s.db.SetWALEntry((*wal.WALProposal[V, H, A])(p)); err != nil {
-				s.log.Fatalf("Failed to store prevote in WAL")
-			}
-		}
-	})
+	if !s.voteCounter.AddProposal(p) || !s.isHeightStarted {
+		return nil
+	}
+	return s.processMessage(p, (*wal.Proposal[V, H, A])(p))
 }
 
 func (s *stateMachine[V, H, A]) ProcessPrevote(p *types.Prevote[H, A]) []actions.Action[V, H, A] {
-	return s.processMessage(p.MessageHeader, func() {
-		if s.voteCounter.AddPrevote(p) && !s.replayMode && p.Height == s.state.height {
-			// Store prevote if its the first time we see it
-			if err := s.db.SetWALEntry((*wal.WALPrevote[H, A])(p)); err != nil {
-				s.log.Fatalf("Failed to store prevote in WAL")
-			}
-		}
-	})
+	if !s.voteCounter.AddPrevote(p) || !s.isHeightStarted {
+		return nil
+	}
+	return s.processMessage(p, (*wal.Prevote[H, A])(p))
 }
 
 func (s *stateMachine[V, H, A]) ProcessPrecommit(p *types.Precommit[H, A]) []actions.Action[V, H, A] {
-	return s.processMessage(p.MessageHeader, func() {
-		if s.voteCounter.AddPrecommit(p) && !s.replayMode && p.Height == s.state.height {
-			// Store precommit if its the first time we see it
-			if err := s.db.SetWALEntry((*wal.WALPrecommit[H, A])(p)); err != nil {
-				s.log.Fatalf("Failed to store prevote in WAL")
-			}
-		}
-	})
-}
-
-func (s *stateMachine[V, H, A]) processMessage(header types.MessageHeader[A], addMessage func()) []actions.Action[V, H, A] {
-	if !s.preprocessMessage(header, addMessage) {
+	if !s.voteCounter.AddPrecommit(p) || !s.isHeightStarted {
 		return nil
 	}
 
-	return s.processLoop(nil, &header.Round)
+	if s.hasFuturePrecommitQuorum(p) {
+		return s.triggerSync(p)
+	}
+
+	return s.processMessage(p, (*wal.Precommit[H, A])(p))
+}
+
+func (s *stateMachine[V, H, A]) hasFuturePrecommitQuorum(p *types.Precommit[H, A]) bool {
+	return p.ID != nil &&
+		p.Height > s.state.height &&
+		p.Height > s.lastTriggerSync &&
+		s.voteCounter.HasFuturePrecommitQuorum(p.Height, p.Round, p.ID)
+}
+
+func (s *stateMachine[V, H, A]) triggerSync(p *types.Precommit[H, A]) []actions.Action[V, H, A] {
+	syncStart := max(s.lastTriggerSync+1, s.state.height)
+	s.lastTriggerSync = p.Height
+
+	return []actions.Action[V, H, A]{
+		&actions.WriteWAL[V, H, A]{
+			Entry: (*wal.Precommit[H, A])(p),
+		},
+		&actions.TriggerSync{
+			Start: syncStart,
+			End:   p.Height,
+		},
+	}
+}
+
+func (s *stateMachine[V, H, A]) processMessage(
+	msg types.Message[V, H, A],
+	walEntry wal.Entry[V, H, A],
+) []actions.Action[V, H, A] {
+	actions := []actions.Action[V, H, A]{
+		&actions.WriteWAL[V, H, A]{Entry: walEntry},
+	}
+
+	if msg.Header().Height != s.state.height {
+		return actions
+	}
+
+	return s.processLoop(actions, &msg.Header().Round)
 }
 
 func (s *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []actions.Action[V, H, A] {
-	if !s.replayMode && tm.Height == s.state.height {
-		if err := s.db.SetWALEntry((*wal.WALTimeout)(&tm)); err != nil {
-			s.log.Fatalf("Failed to store timeout trigger in WAL")
-		}
-	}
 	switch tm.Step {
 	case types.StepPropose:
-		return s.processLoop(s.onTimeoutPropose(tm.Height, tm.Round), nil)
+		return s.processLoop(s.onTimeoutPropose(tm), nil)
 	case types.StepPrevote:
-		return s.processLoop(s.onTimeoutPrevote(tm.Height, tm.Round), nil)
+		return s.processLoop(s.onTimeoutPrevote(tm), nil)
 	case types.StepPrecommit:
-		return s.processLoop(s.onTimeoutPrecommit(tm.Height, tm.Round), nil)
+		return s.processLoop(s.onTimeoutPrecommit(tm), nil)
 	}
 
 	return nil
 }
 
-func (s *stateMachine[V, H, A]) processLoop(action actions.Action[V, H, A], recentlyReceivedRound *types.Round) []actions.Action[V, H, A] {
-	actions, shouldContinue := []actions.Action[V, H, A]{}, true
-	if action != nil {
-		actions = append(actions, action)
+func (s *stateMachine[V, H, A]) ProcessWAL(walEntry wal.Entry[V, H, A]) []actions.Action[V, H, A] {
+	switch walEntry := walEntry.(type) {
+	case *wal.Start:
+		return s.ProcessStart(0)
+	case *wal.Proposal[V, H, A]:
+		return s.ProcessProposal((*types.Proposal[V, H, A])(walEntry))
+	case *wal.Prevote[H, A]:
+		return s.ProcessPrevote((*types.Prevote[H, A])(walEntry))
+	case *wal.Precommit[H, A]:
+		return s.ProcessPrecommit((*types.Precommit[H, A])(walEntry))
+	case *wal.Timeout:
+		return s.ProcessTimeout(types.Timeout(*walEntry))
+	default:
+		panic(fmt.Sprintf("unexpected WAL entry type: %T", walEntry))
 	}
+}
 
+func (s *stateMachine[V, H, A]) processLoop(
+	resultActions []actions.Action[V, H, A],
+	recentlyReceivedRound *types.Round,
+) []actions.Action[V, H, A] {
+	var action actions.Action[V, H, A]
+	shouldContinue := true
 	for shouldContinue {
 		action, shouldContinue = s.process(recentlyReceivedRound)
 		if action != nil {
-			actions = append(actions, action)
+			resultActions = append(resultActions, action)
 		}
 	}
 
-	return actions
+	return resultActions
 }
 
 func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (action actions.Action[V, H, A], shouldContinue bool) {

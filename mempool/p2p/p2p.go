@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/p2p/pubsub"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -23,6 +24,7 @@ const (
 type P2P struct {
 	host             host.Host
 	log              utils.Logger
+	network          *utils.Network
 	pool             mempool.Pool
 	broadcaster      transactionBroadcaster
 	listener         buffered.TopicSubscription
@@ -41,6 +43,7 @@ func New(
 	return &P2P{
 		host:             host,
 		log:              log,
+		network:          network,
 		pool:             pool,
 		broadcaster:      NewTransactionBroadcaster(log, config.MempoolBroadcaster, config.RetryInterval),
 		listener:         NewTransactionListener(network, log, pool, config.MempoolListener),
@@ -52,11 +55,11 @@ func New(
 func (p *P2P) Run(ctx context.Context) error {
 	gossipSub, err := pubsub.Run(
 		ctx,
-		chainID,
-		mempoolProtocolID,
 		p.host,
-		p.config.PubSubQueueSize,
+		p.network,
+		starknetp2p.MempoolProtocolID,
 		p.bootstrapPeersFn,
+		p.config.PubSubQueueSize,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to create gossipsub with error: %w", err)
