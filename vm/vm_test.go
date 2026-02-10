@@ -192,6 +192,8 @@ func TestCallCairo(t *testing.T) {
 	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	require.NoError(t, err)
 	state, err := stateFactory.NewState(&felt.Zero, txn)
+	require.NoError(t, err)
+
 	newRoot := felt.NewUnsafeFromString[felt.Felt](
 		"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
 	)

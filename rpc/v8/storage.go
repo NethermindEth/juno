@@ -250,20 +250,16 @@ func getContractProof(
 	}
 }
 
-func getContractProofWithDeprecatedTrie(
-	tr *trie.Trie,
+func buildContractLeavesData(
 	state core.CommonStateReader,
 	contracts []felt.Felt,
-) (*ContractProof, error) {
-	contractProof := trie.NewProofNodeSet()
+	getRoot func() (felt.Felt, error),
+	contractNotFoundErr error,
+) ([]*LeafData, error) {
 	contractLeavesData := make([]*LeafData, len(contracts))
 
 	for i, contract := range contracts {
-		if err := tr.Prove(&contract, contractProof); err != nil {
-			return nil, err
-		}
-
-		root, err := tr.Hash()
+		root, err := getRoot()
 		if err != nil {
 			return nil, err
 		}
@@ -271,7 +267,7 @@ func getContractProofWithDeprecatedTrie(
 		nonce, err := state.ContractNonce(&contract)
 		if err != nil {
 			// contract does not exist, skip getting leaf data
-			if errors.Is(err, db.ErrKeyNotFound) {
+			if errors.Is(err, contractNotFoundErr) {
 				continue
 			}
 			return nil, err
@@ -289,6 +285,27 @@ func getContractProofWithDeprecatedTrie(
 		}
 	}
 
+	return contractLeavesData, nil
+}
+
+func getContractProofWithDeprecatedTrie(
+	tr *trie.Trie,
+	state core.CommonStateReader,
+	contracts []felt.Felt,
+) (*ContractProof, error) {
+	contractProof := trie.NewProofNodeSet()
+
+	for _, contract := range contracts {
+		if err := tr.Prove(&contract, contractProof); err != nil {
+			return nil, err
+		}
+	}
+
+	contractLeavesData, err := buildContractLeavesData(state, contracts, tr.Hash, db.ErrKeyNotFound)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ContractProof{
 		Nodes:      adaptDeprecatedTrieProofNodes(contractProof),
 		LeavesData: contractLeavesData,
@@ -301,36 +318,16 @@ func getContractProofWithTrie(
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
-	contractLeavesData := make([]*LeafData, len(contracts))
-	for i, contract := range contracts {
+
+	for _, contract := range contracts {
 		if err := tr.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
+	}
 
-		root, err := tr.Hash()
-		if err != nil {
-			return nil, err
-		}
-
-		nonce, err := st.ContractNonce(&contract)
-		if err != nil {
-			// contract does not exist, skip getting leaf data
-			if errors.Is(err, state.ErrContractNotDeployed) {
-				continue
-			}
-			return nil, err
-		}
-
-		classHash, err := st.ContractClassHash(&contract)
-		if err != nil {
-			return nil, err
-		}
-
-		contractLeavesData[i] = &LeafData{
-			Nonce:       &nonce,
-			ClassHash:   &classHash,
-			StorageRoot: &root,
-		}
+	contractLeavesData, err := buildContractLeavesData(st, contracts, tr.Hash, state.ErrContractNotDeployed)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ContractProof{

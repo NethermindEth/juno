@@ -483,7 +483,7 @@ func storeCasmHashMetadata(
 		return storeCasmHashMetadataV2(reader, writer, blockNumber, stateUpdate)
 	}
 
-	return storeCasmHashMetadataV1(reader, writer, blockNumber, stateUpdate, newClasses)
+	return storeCasmHashMetadataV1(writer, blockNumber, stateUpdate, newClasses)
 }
 
 // storeCasmHashMetadataV2 stores metadata for classes declared with casm hash v2 or
@@ -536,7 +536,6 @@ func storeCasmHashMetadataV2(
 // storeDeclaredV1Classes stores metadata for classes declared with V1 hash (protocol < 0.14.1).
 // It computes the V2 hash from the class definition.
 func storeCasmHashMetadataV1(
-	reader db.KeyValueReader,
 	writer db.KeyValueWriter,
 	blockNumber uint64,
 	stateUpdate *core.StateUpdate,

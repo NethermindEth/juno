@@ -67,7 +67,7 @@ func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	// todo: remove felt cast
-	if classHash := s.db.stateCache.getReplacedClass((*felt.Felt)(&s.initRoot), addr); classHash != nil {
+	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, addr); classHash != nil {
 		return *classHash, nil
 	}
 
@@ -80,7 +80,7 @@ func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 
 func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	// todo: remove felt cast
-	if nonce := s.db.stateCache.getNonce((*felt.Felt)(&s.initRoot), addr); nonce != nil {
+	if nonce := s.db.stateCache.getNonce(&s.initRoot, addr); nonce != nil {
 		return *nonce, nil
 	}
 
@@ -92,7 +92,7 @@ func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	if storage := s.db.stateCache.getStorageDiff((*felt.Felt)(&s.initRoot), addr, key); storage != nil {
+	if storage := s.db.stateCache.getStorageDiff(&s.initRoot, addr, key); storage != nil {
 		return *storage, nil
 	}
 
