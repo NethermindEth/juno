@@ -1,6 +1,7 @@
 package rpcv10
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -18,6 +19,7 @@ import (
 ****************************************************
 */
 func (h *Handler) EstimateFee(
+	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
 	estimateFlags []EstimateFlag,
 	id *rpcv9.BlockID,
@@ -32,6 +34,7 @@ func (h *Handler) EstimateFee(
 	}
 
 	txnResults, httpHeader, err := h.simulateTransactions(
+		ctx,
 		id,
 		broadcastedTxns.Data,
 		append(simulationFlags, SkipFeeChargeFlag),
@@ -52,7 +55,7 @@ func (h *Handler) EstimateFee(
 }
 
 func (h *Handler) EstimateMessageFee(
-	msg *rpcv6.MsgFromL1, id *rpcv9.BlockID,
+	ctx context.Context, msg *rpcv6.MsgFromL1, id *rpcv9.BlockID,
 ) (rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
@@ -87,6 +90,7 @@ func (h *Handler) EstimateMessageFee(
 
 	bcTxn := [1]rpcv9.BroadcastedTransaction{tx}
 	estimates, httpHeader, err := h.EstimateFee(
+		ctx,
 		rpccore.LimitSlice[rpcv9.BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
 		nil,
 		id,

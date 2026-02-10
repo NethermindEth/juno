@@ -1,10 +1,12 @@
 package p2p2core
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
@@ -12,10 +14,12 @@ import (
 )
 
 func AdaptDeclareV3WithClass(
+	ctx context.Context,
+	compiler compiler.Compiler,
 	tx *transaction.DeclareV3WithClass,
 	txnHash *common.Hash,
 ) (*core.DeclareTransaction, *core.SierraClass, error) {
-	class, err := AdaptSierraClass(tx.Class)
+	class, err := AdaptSierraClass(ctx, compiler, tx.Class)
 	if err != nil {
 		return nil, nil, err
 	}

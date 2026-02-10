@@ -1,6 +1,7 @@
 package p2p2core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -14,11 +15,15 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
+func AdaptSierraClass(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	cairo1 *class.Cairo1Class,
+) (core.SierraClass, error) {
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 	program := utils.Map(cairo1.Program, AdaptFelt)
-	compiled, err := createCompiledClass(cairo1)
+	compiled, err := createCompiledClass(ctx, compiler, cairo1)
 	if err != nil {
 		return core.SierraClass{}, fmt.Errorf("invalid compiled class: %w", err)
 	}
@@ -49,7 +54,11 @@ func AdaptSierraClass(cairo1 *class.Cairo1Class) (core.SierraClass, error) {
 	}, nil
 }
 
-func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
+func AdaptClass(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	cls *class.Class,
+) (core.ClassDefinition, error) {
 	if cls == nil {
 		return nil, nil
 	}
@@ -70,7 +79,7 @@ func AdaptClass(cls *class.Class) (core.ClassDefinition, error) {
 			Program:      deprecatedCairo.Program,
 		}, nil
 	case *class.Class_Cairo1:
-		cairoClass, err := AdaptSierraClass(cls.Cairo1)
+		cairoClass, err := AdaptSierraClass(ctx, compiler, cls.Cairo1)
 		return &cairoClass, err
 	default:
 		return nil, fmt.Errorf("unsupported class %T", cls)
@@ -91,7 +100,11 @@ func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
 	}
 }
 
-func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
+func createCompiledClass(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	cairo1 *class.Cairo1Class,
+) (*core.CasmClass, error) {
 	if cairo1 == nil {
 		return nil, nil
 	}
@@ -116,7 +129,7 @@ func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CasmClass, error) {
 		Version: cairo1.ContractClassVersion,
 	}
 
-	compiledClass, err := compiler.Compile(def)
+	compiledClass, err := compiler.Compile(ctx, def)
 	if err != nil {
 		return nil, err
 	}

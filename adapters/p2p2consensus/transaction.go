@@ -1,17 +1,24 @@
 package p2p2consensus
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Network) (consensus.Transaction, error) {
+func AdaptTransaction(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	t *p2pconsensus.ConsensusTransaction,
+	network *utils.Network,
+) (consensus.Transaction, error) {
 	if err := validateConsensusTransaction(t); err != nil {
 		return consensus.Transaction{}, err
 	}
@@ -25,7 +32,10 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 
 	switch t.Txn.(type) {
 	case *p2pconsensus.ConsensusTransaction_DeclareV3:
-		if tx, class, err = p2p2core.AdaptDeclareV3WithClass(t.GetDeclareV3(), t.TransactionHash); err != nil {
+		tx, class, err = p2p2core.AdaptDeclareV3WithClass(
+			ctx, compiler, t.GetDeclareV3(), t.TransactionHash,
+		)
+		if err != nil {
 			return consensus.Transaction{}, err
 		}
 	case *p2pconsensus.ConsensusTransaction_DeployAccountV3:

@@ -1046,7 +1046,12 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 	txnNonZeroL2Gas := rpc.BroadcastedTransaction{}
 	require.NoError(t, json.Unmarshal([]byte(txnNonZeroL2GasData), &txnNonZeroL2Gas))
 
-	tx, _, _, err := rpc.AdaptBroadcastedTransaction(&txnNonZeroL2Gas, &utils.Sepolia)
+	tx, _, _, err := rpc.AdaptBroadcastedTransaction(
+		t.Context(),
+		nil,
+		&txnNonZeroL2Gas,
+		&utils.Sepolia,
+	)
 	require.NoError(t, err)
 	resultTxn, ok := (tx).(*core.DeployAccountTransaction)
 	require.True(t, ok)

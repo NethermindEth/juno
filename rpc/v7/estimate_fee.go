@@ -1,6 +1,7 @@
 package rpcv7
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -44,11 +45,13 @@ type FeeEstimate struct {
 *****************************************************/
 
 func (h *Handler) EstimateFee(
+	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
 	id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	result, httpHeader, err := h.simulateTransactions(
+		ctx,
 		id,
 		broadcastedTxns.Data,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
@@ -64,20 +67,25 @@ func (h *Handler) EstimateFee(
 	}), httpHeader, nil
 }
 
-func (h *Handler) EstimateMessageFee(msg rpcv6.MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
-	return h.estimateMessageFee(msg, id, h.EstimateFee)
+//nolint:gocritic // MsgFromL1 passed by value
+func (h *Handler) EstimateMessageFee(
+	ctx context.Context, msg rpcv6.MsgFromL1, id BlockID,
+) (*FeeEstimate, http.Header, *jsonrpc.Error) {
+	return h.estimateMessageFee(ctx, msg, id, h.EstimateFee)
 }
 
 type estimateFeeHandler func(
+	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
 	id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error)
 
-//nolint:gocritic
-func (h *Handler) estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate,
-	http.Header, *jsonrpc.Error,
-) {
+//nolint:gocritic // MsgFromL1 passed by value
+func (h *Handler) estimateMessageFee(
+	ctx context.Context, msg rpcv6.MsgFromL1, id BlockID,
+	f estimateFeeHandler,
+) (*FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
@@ -98,6 +106,7 @@ func (h *Handler) estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimate
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
 	estimates, httpHeader, rpcErr := f(
+		ctx,
 		BroadcastedTransactionInputs{Data: []BroadcastedTransaction{tx}},
 		nil,
 		id,

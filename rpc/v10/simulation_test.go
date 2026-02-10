@@ -163,6 +163,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 			blockID := rpcv9.BlockIDLatest()
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
+				t.Context(),
 				&blockID,
 				rpcv9.BroadcastedTransactionInputs{},
 				test.simulationFlags,
@@ -305,6 +306,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 			blockID := rpcv9.BlockIDLatest()
 			_, _, err := handler.SimulateTransactions(
+				t.Context(),
 				&blockID,
 				rpcv9.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpcv10.SimulationFlag{},
@@ -467,6 +469,7 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 
 			blockID := rpcv9.BlockIDLatest()
 			simulatedTxs, _, err := handler.SimulateTransactions(
+				t.Context(),
 				&blockID,
 				rpcv9.BroadcastedTransactionInputs{Data: broadcastedTxns},
 				test.simulationFlags,

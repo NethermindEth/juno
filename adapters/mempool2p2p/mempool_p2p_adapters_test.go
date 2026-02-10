@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/mempool2p2p/testutils"
 	"github.com/NethermindEth/juno/adapters/p2p2mempool"
 	transactiontestutils "github.com/NethermindEth/juno/adapters/testutils"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +28,9 @@ func TestAdaptTransaction(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, p2pTransactions[i], convertedP2PTransaction)
 
-			convertedmempoolTransaction, err := p2p2mempool.AdaptTransaction(convertedP2PTransaction, &utils.Sepolia)
+			convertedmempoolTransaction, err := p2p2mempool.AdaptTransaction(
+				t.Context(), compiler.NewUnsafe(), convertedP2PTransaction, &utils.Sepolia,
+			)
 			require.NoError(t, err)
 
 			transactiontestutils.StripCompilerFields(t, mempoolTransactions[i].DeclaredClass)

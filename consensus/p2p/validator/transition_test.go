@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/sequencer"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -49,11 +50,13 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 		FeeTokenAddresses: feeTokens,
 	}
 	diff, classes, err := genesis.GenesisStateDiff(
+		t.Context(),
 		genesisConfig,
 		vm.New(&chainInfo, false, log),
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
@@ -74,7 +77,7 @@ func TestEmptyProposal(t *testing.T) {
 	testBuilder, head := getBuilder(t, proposerAddr)
 
 	initialState := InitialState{}
-	transition := NewTransition(testBuilder)
+	transition := NewTransition(testBuilder, nil)
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
@@ -119,7 +122,7 @@ func TestEmptyProposal(t *testing.T) {
 func TestProposal(t *testing.T) {
 	proposerAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	b, head := getBuilder(t, proposerAddr)
-	transition := NewTransition(b)
+	transition := NewTransition(b, nil)
 	initialState := InitialState{}
 
 	l2GasPriceFri := uint64(10)

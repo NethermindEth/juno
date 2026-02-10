@@ -122,7 +122,7 @@ func runNonEmptyProposalStream(t *testing.T, testCase validator.TestCase) {
 
 func runTestSteps(t *testing.T, builder *builder.Builder, steps []validTransitionTestStep) {
 	var err error
-	transition := validator.NewTransition(builder)
+	transition := validator.NewTransition(builder, nil)
 	var state validator.ProposalStateMachine = &validator.InitialState{}
 
 	for _, step := range steps {
@@ -191,7 +191,7 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 		},
 	}
 
-	transition := validator.NewTransition(nil)
+	transition := validator.NewTransition(nil, nil)
 	for _, step := range steps {
 		t.Run(fmt.Sprintf("State %T", step.state), func(t *testing.T) {
 			for _, event := range step.events {

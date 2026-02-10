@@ -31,6 +31,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/upgrader"
@@ -131,6 +132,7 @@ type Node struct {
 	cfg        *Config
 	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
+	compiler   compiler.Compiler
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
@@ -218,6 +220,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
+	compiler := compiler.NewUnsafe()
+
 	if cfg.Sequencer {
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
@@ -242,6 +246,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)
 		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network).
+			WithCompiler(compiler).
 			WithMempool(mempool).
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
 			WithCallMaxGas(cfg.RPCCallMaxGas)
@@ -266,7 +271,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			// For custom networks, fetch fee tokens from the gateway
 			feeTokens, err = client.FeeTokenAddresses(context.Background())
 			if err != nil {
-				return nil, fmt.Errorf("failed to fetch fee token addresses for custom network: %w", err)
+				return nil, fmt.Errorf(
+					"failed to fetch fee token addresses for custom network: %w", err,
+				)
 			}
 		}
 		chainInfo := vm.ChainInfo{
@@ -287,7 +294,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		)
 		synchronizer.WithPlugin(junoPlugin)
 
-		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).
+			WithUserAgent(ua).
+			WithAPIKey(cfg.GatewayAPIKey)
 
 		if cfg.P2P {
 			if cfg.Network == utils.Mainnet {
@@ -299,8 +308,19 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 				// Do not start the feeder synchronisation
 				synchronizer = nil
 			}
-			p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-				chain, &cfg.Network, log, database)
+			p2pService, err = p2p.New(
+				cfg.P2PAddr,
+				cfg.P2PPublicAddr,
+				version,
+				cfg.P2PPeers,
+				cfg.P2PPrivateKey,
+				cfg.P2PFeederNode,
+				chain,
+				&cfg.Network,
+				log,
+				database,
+				compiler,
+			)
 			if err != nil {
 				return nil, fmt.Errorf("set up p2p service: %w", err)
 			}
@@ -313,9 +333,13 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			syncReader = synchronizer
 		}
 
-		submittedTransactionsCache := rpccore.NewTransactionCache(cfg.SubmittedTransactionsCacheEntryTTL, cfg.SubmittedTransactionsCacheSize)
+		submittedTransactionsCache := rpccore.NewTransactionCache(
+			cfg.SubmittedTransactionsCacheEntryTTL,
+			cfg.SubmittedTransactionsCacheSize,
+		)
 		services = append(services, submittedTransactionsCache)
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+			WithCompiler(compiler).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
 			WithSubmittedTransactionsCache(submittedTransactionsCache).
@@ -391,7 +415,17 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			"/ready":      readinessHandlers.HandleReadySync,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(services,
+			makeRPCOverHTTP(
+				cfg.HTTPHost,
+				cfg.HTTPPort,
+				rpcServers,
+				httpHandlers,
+				log,
+				cfg.Metrics,
+				cfg.RPCCorsEnable,
+			),
+		)
 	}
 	if cfg.Websocket {
 		services = append(services,
@@ -441,6 +475,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		version:       version,
 		db:            database,
 		blockchain:    chain,
+		compiler:      compiler,
 		services:      services,
 		earlyServices: earlyServices,
 	}
@@ -560,11 +595,13 @@ func (n *Node) Run(ctx context.Context) {
 		}
 
 		err := buildGenesis(
+			ctx,
 			n.cfg.SeqGenesisFile,
 			n.blockchain,
 			vm.New(&chainInfo, false, n.log),
 			n.cfg.RPCCallMaxSteps,
 			n.cfg.RPCCallMaxGas,
+			n.compiler,
 		)
 		if err != nil {
 			n.log.Error("Error building genesis state", zap.Error(err))
@@ -580,13 +617,19 @@ func (n *Node) Run(ctx context.Context) {
 	n.log.Info("Shutting down Juno...")
 }
 
-func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service) {
+func (n *Node) StartService(
+	wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service,
+) {
 	wg.Go(func() {
 		// Immediately acknowledge panicing services by shutting down the node
 		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 		defer cancel()
 		if err := s.Run(ctx); err != nil {
-			n.log.Error("Service error", zap.String("name", reflect.TypeOf(s).String()), zap.Error(err))
+			n.log.Error(
+				"Service error",
+				zap.String("name", reflect.TypeOf(s).String()),
+				zap.Error(err),
+			)
 		}
 	})
 }

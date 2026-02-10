@@ -56,6 +56,7 @@ func TestEstimateFee(t *testing.T) {
 			}, nil)
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{},
 			[]rpcv10.EstimateFlag{},
 			&blockID,
@@ -86,6 +87,7 @@ func TestEstimateFee(t *testing.T) {
 			)
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{},
 			[]rpcv10.EstimateFlag{
 				rpcv10.EstimateSkipValidateFlag,
@@ -112,6 +114,7 @@ func TestEstimateFee(t *testing.T) {
 			})
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{},
 			[]rpcv10.EstimateFlag{rpcv10.EstimateSkipValidateFlag},
 			&blockID,
@@ -142,6 +145,7 @@ func TestEstimateFee(t *testing.T) {
 			ContractClass: json.RawMessage(`{}`),
 		}
 		_, _, err := handler.EstimateFee(
+			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{Data: []rpcv9.BroadcastedTransaction{invalidTx}},
 			[]rpcv10.EstimateFlag{},
 			&blockID,
