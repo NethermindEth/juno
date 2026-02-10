@@ -1,10 +1,12 @@
 package compiler_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -55,6 +57,31 @@ func TestCompileFFI(t *testing.T) {
 
 		_, err := compiler.CompileFFI(&definition)
 		require.NoError(t, err)
+	})
+}
+
+func TestCompile(t *testing.T) {
+	c := compiler.New(
+		1,
+		"",
+		utils.NewNopZapLogger(),
+	)
+
+	t.Run("cancelled context returns error", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		_, err := c.Compile(ctx, &starknet.SierraClass{})
+		require.Error(t, err)
+	})
+
+	t.Run("zero timeout returns error", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Nanosecond)
+		defer cancel()
+		time.Sleep(time.Millisecond) // ensure timeout fires
+
+		_, err := c.Compile(ctx, &starknet.SierraClass{})
+		require.Error(t, err)
 	})
 }
 
