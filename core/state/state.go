@@ -34,32 +34,7 @@ var (
 	}
 )
 
-var _ StateReader = &State{}
-
-//go:generate mockgen -destination=../../mocks/mock_state_reader.go -package=mocks github.com/NethermindEth/juno/core/state StateReader
-type StateReader interface {
-	ContractReader
-	ClassReader
-	TrieProvider
-}
-
-type ContractReader interface {
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-}
-
-type ClassReader interface {
-	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
-	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-}
-
-type TrieProvider interface {
-	ClassTrie() (core.CommonTrie, error)
-	ContractTrie() (core.CommonTrie, error)
-	ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error)
-}
+var _ core.CommonState = &State{}
 
 type State struct {
 	initRoot     felt.Felt
@@ -716,6 +691,17 @@ func (s *State) ContractNonceAt(addr *felt.Felt, blockNum uint64) (felt.Felt, er
 func (s *State) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
 	prefix := db.ContractClassHashHistoryKey(addr)
 	return s.getHistoricalValue(prefix, blockNum)
+}
+
+func (s *State) CompiledClassHashAt(
+	classHash *felt.SierraClassHash,
+	blockNumber uint64,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(blockNumber)
 }
 
 func (s *State) getHistoricalValue(prefix []byte, blockNum uint64) (felt.Felt, error) {

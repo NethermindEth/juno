@@ -16,7 +16,7 @@ func TestStateHistory(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockCommonState(mockCtrl)
 	deployedHeight := uint64(3)
 	changeHeight := uint64(10)
 	snapshotBeforeDeployment := core.NewDeprecatedStateHistory(mockState, deployedHeight-1)

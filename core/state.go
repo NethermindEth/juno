@@ -27,34 +27,6 @@ var (
 	ErrCheckHeadState = errors.New("check head state")
 )
 
-var _ StateHistoryReader = (*State)(nil)
-
-//go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
-type StateHistoryReader interface {
-	StateReader
-
-	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
-	CompiledClassHashAt(
-		classHash *felt.SierraClassHash,
-		blockNumber uint64,
-	) (felt.CasmClassHash, error)
-}
-
-type StateReader interface {
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
-	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	ClassTrie() (CommonTrie, error)
-	ContractTrie() (CommonTrie, error)
-	ContractStorageTrie(addr *felt.Felt) (CommonTrie, error)
-}
-
 type State struct {
 	txn db.IndexedBatch
 }

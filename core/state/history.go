@@ -1,14 +1,12 @@
 package state
 
 import (
-	"errors"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 )
 
-var _ StateReader = (*stateHistory)(nil)
+var _ core.CommonStateReader = (*stateHistory)(nil)
 
 // StateHistory represents a snapshot of the blockchain state at a specific block number.
 type stateHistory struct {
@@ -107,9 +105,6 @@ func (s *stateHistory) CompiledClassHash(
 ) (felt.CasmClassHash, error) {
 	metadata, err := core.GetClassCasmHashMetadata(s.state.db.disk, classHash)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return felt.CasmClassHash{}, db.ErrKeyNotFound
-		}
 		return felt.CasmClassHash{}, err
 	}
 	return metadata.CasmHashAt(s.blockNum)

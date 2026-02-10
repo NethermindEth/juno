@@ -11,11 +11,11 @@ var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
 
 type deprecatedStateHistory struct {
 	blockNumber uint64
-	state       StateHistoryReader
+	state       CommonState
 }
 
 func NewDeprecatedStateHistory(
-	state StateHistoryReader,
+	state CommonState,
 	blockNumber uint64,
 ) *deprecatedStateHistory {
 	return &deprecatedStateHistory{
