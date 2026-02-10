@@ -2,10 +2,12 @@ package jsonrpc
 
 import (
 	"compress/gzip"
+	"context"
 	"io"
 	"maps"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
@@ -17,7 +19,8 @@ type HTTP struct {
 	rpc *Server
 	log utils.StructuredLogger
 
-	listener NewRequestListener
+	listener       NewRequestListener
+	requestTimeout time.Duration
 }
 
 func NewHTTP(rpc *Server, log utils.StructuredLogger) *HTTP {
@@ -32,6 +35,13 @@ func NewHTTP(rpc *Server, log utils.StructuredLogger) *HTTP {
 // WithListener registers a NewRequestListener
 func (h *HTTP) WithListener(listener NewRequestListener) *HTTP {
 	h.listener = listener
+	return h
+}
+
+// WithRequestTimeout sets the maximum duration for handling an
+// RPC request. Zero means no timeout.
+func (h *HTTP) WithRequestTimeout(d time.Duration) *HTTP {
+	h.requestTimeout = d
 	return h
 }
 
@@ -51,7 +61,14 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	h.listener.OnNewRequest("any")
-	resp, header, err := h.rpc.HandleReader(req.Context(), req.Body)
+
+	ctx := req.Context()
+	if h.requestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.requestTimeout)
+		defer cancel()
+	}
+	resp, header, err := h.rpc.HandleReader(ctx, req.Body)
 
 	writer.Header().Set("Content-Type", "application/json")
 	maps.Copy(writer.Header(), header) // overwrites duplicate headers
