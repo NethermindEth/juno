@@ -66,7 +66,8 @@ func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 }
 
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, addr); classHash != nil {
+	// todo: remove felt cast
+	if classHash := s.db.stateCache.getReplacedClass((*felt.Felt)(&s.initRoot), addr); classHash != nil {
 		return *classHash, nil
 	}
 
@@ -78,7 +79,8 @@ func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	if nonce := s.db.stateCache.getNonce(&s.initRoot, addr); nonce != nil {
+	// todo: remove felt cast
+	if nonce := s.db.stateCache.getNonce((*felt.Felt)(&s.initRoot), addr); nonce != nil {
 		return *nonce, nil
 	}
 
@@ -90,7 +92,7 @@ func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	if storage := s.db.stateCache.getStorageDiff(&s.initRoot, addr, key); storage != nil {
+	if storage := s.db.stateCache.getStorageDiff((*felt.Felt)(&s.initRoot), addr, key); storage != nil {
 		return *storage, nil
 	}
 
@@ -132,7 +134,8 @@ func (s *State) ContractTrie() (core.CommonTrie, error) {
 }
 
 func (s *State) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
-	return s.db.ContractStorageTrie(&s.initRoot, addr)
+	// todo: remove felt cast
+	return s.db.ContractStorageTrie((*felt.Felt)(&s.initRoot), addr)
 }
 
 func (s *State) CompiledClassHash(
@@ -480,7 +483,8 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	newComm := stateCommitment(&contractRoot, &classRoot)
 
 	su := stateUpdate{
-		prevComm:      s.initRoot,
+		// todo: remove felt cast
+		prevComm:      felt.Felt(s.initRoot),
 		curComm:       newComm,
 		contractNodes: mergedContractNodes,
 	}

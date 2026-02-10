@@ -97,7 +97,6 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
-	require.NoError(t, chain.Stop())
 	require.NoError(t, testDB.Close())
 
 	return dbPath

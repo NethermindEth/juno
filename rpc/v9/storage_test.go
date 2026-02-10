@@ -252,7 +252,7 @@ func TestStorageProof(t *testing.T) {
 		classTrie = tempTrie
 		contractTrie = tempTrie
 	} else {
-		newComm := new(felt.Felt).SetUint64(1)
+		newComm := felt.FromUint64[felt.StateRootHash](1)
 		createTrie := func(
 			t *testing.T,
 			id trieutils.TrieID,
@@ -263,29 +263,33 @@ func TestStorageProof(t *testing.T) {
 			_ = tr.Update(key2, value2)
 			require.NoError(t, err)
 			_, nodes := tr.Commit()
-			err = trieDB.Update(newComm, &felt.Zero, trienode.NewMergeNodeSet(nodes))
+			err = trieDB.Update((*felt.Felt)(&newComm), &felt.Zero, trienode.NewMergeNodeSet(nodes))
 			require.NoError(t, err)
 			return tr
 		}
 
 		// TODO(weiihann): should have a better way of testing
 		trieDB := trie2.NewTestNodeDatabase(memory.New(), trie2.PathScheme)
-		createTrie(t, trieutils.NewClassTrieID(felt.Zero), &trieDB)
-		contractTrie2 := createTrie(t, trieutils.NewContractTrieID(felt.Zero), &trieDB)
+		createTrie(t, trieutils.NewClassTrieID(
+			felt.FromUint64[felt.StateRootHash](0),
+		), &trieDB)
+		contractTrie2 := createTrie(t, trieutils.NewContractTrieID(
+			felt.FromUint64[felt.StateRootHash](0),
+		), &trieDB)
 		tmpTrieRoot, err := contractTrie2.Hash()
 		require.NoError(t, err)
 		trieRoot = tmpTrieRoot
 
 		// recreate because the previous ones are committed
 		classTrie2, err := trie2.New(
-			trieutils.NewClassTrieID(*newComm),
+			trieutils.NewClassTrieID(newComm),
 			251,
 			crypto.Pedersen,
 			&trieDB,
 		)
 		require.NoError(t, err)
 		contractTrie2, err = trie2.New(
-			trieutils.NewContractTrieID(*newComm),
+			trieutils.NewContractTrieID(newComm),
 			251,
 			crypto.Pedersen,
 			&trieDB,

@@ -29,7 +29,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 	if err != nil {
 		// TODO(maksymmalicki): handle errors of both states
 		if !errors.Is(err, state.ErrContractNotDeployed) && !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Errorw("JunoStateGetStorageAt failed to read contract storage", "err", err)
+			context.log.Error("JunoStateGetStorageAt failed to read contract storage", zap.Error(err))
 			return 0
 		}
 		val = felt.Zero
@@ -47,7 +47,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 	if err != nil {
 		// TODO(maksymmalicki): handle errors of both states
 		if !errors.Is(err, db.ErrKeyNotFound) && !errors.Is(err, state.ErrContractNotDeployed) {
-			context.log.Errorw("JunoStateGetNonceAt failed to read contract nonce", "err", err)
+			context.log.Error("JunoStateGetNonceAt failed to read contract nonce", zap.Error(err))
 			return 0
 		}
 		val = felt.Zero
@@ -65,7 +65,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 	if err != nil {
 		// TODO(maksymmalicki): handle errors of both states
 		if !errors.Is(err, db.ErrKeyNotFound) && !errors.Is(err, state.ErrContractNotDeployed) {
-			context.log.Errorw("JunoStateGetClassHashAt failed to read contract class", "err", err)
+			context.log.Error("JunoStateGetClassHashAt failed to read contract class", zap.Error(err))
 			return 0
 		}
 		val = felt.Zero

@@ -51,12 +51,13 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 
 	path := tr.FeltToPath(key)
 	reader, err := s.state.db.triedb.NodeReader(
-		trieutils.NewContractStorageTrieID(s.state.initRoot, s.addr),
+		trieutils.NewContractStorageTrieID(felt.StateRootHash(s.state.initRoot), felt.Address(s.addr)),
 	)
 	if err != nil {
 		return felt.Zero, err
 	}
-	v, err := reader.Node(&s.addr, &path, nil, true)
+	// todo: remove felt cast
+	v, err := reader.Node((*felt.Address)(&s.addr), &path, nil, true)
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -73,7 +74,8 @@ func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
 	}
 
 	storageTrie, err := s.state.db.ContractStorageTrie(
-		&s.state.initRoot,
+		// todo: remove felt cast
+		(*felt.Felt)(&s.state.initRoot),
 		&s.addr,
 	)
 	if err != nil {
