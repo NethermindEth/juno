@@ -57,7 +57,7 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv10.SimulationFlag{},
+			[]rpcv10.EstimateFlag{},
 			&blockID,
 		)
 		require.Nil(t, err)
@@ -87,8 +87,8 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv10.SimulationFlag{
-				rpcv10.SkipValidateFlag,
+			[]rpcv10.EstimateFlag{
+				rpcv10.EstimateSkipValidateFlag,
 			},
 			&blockID,
 		)
@@ -113,7 +113,7 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv10.SimulationFlag{rpcv10.SkipValidateFlag},
+			[]rpcv10.EstimateFlag{rpcv10.EstimateSkipValidateFlag},
 			&blockID,
 		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -143,7 +143,7 @@ func TestEstimateFee(t *testing.T) {
 		}
 		_, _, err := handler.EstimateFee(
 			rpcv10.BroadcastedTransactionInputs{Data: []rpcv9.BroadcastedTransaction{invalidTx}},
-			[]rpcv10.SimulationFlag{},
+			[]rpcv10.EstimateFlag{},
 			&blockID,
 		)
 		expectedErr := &jsonrpc.Error{

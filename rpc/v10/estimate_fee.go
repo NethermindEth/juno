@@ -19,9 +19,18 @@ import (
 */
 func (h *Handler) EstimateFee(
 	broadcastedTxns BroadcastedTransactionInputs,
-	simulationFlags []SimulationFlag,
+	estimateFlags []EstimateFlag,
 	id *rpcv9.BlockID,
 ) ([]rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
+	simulationFlags := make([]SimulationFlag, 0, len(estimateFlags)+1)
+	for _, flag := range estimateFlags {
+		simulationFlag, err := flag.ToSimulationFlag()
+		if err != nil {
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
+		}
+		simulationFlags = append(simulationFlags, simulationFlag)
+	}
+
 	txnResults, httpHeader, err := h.simulateTransactions(
 		id,
 		broadcastedTxns.Data,

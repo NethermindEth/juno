@@ -60,6 +60,33 @@ func (t *TraceFlag) UnmarshalJSON(bytes []byte) (err error) {
 	return err
 }
 
+type EstimateFlag int
+
+const (
+	EstimateSkipValidateFlag EstimateFlag = iota + 1
+)
+
+func (e *EstimateFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"SKIP_VALIDATE"`:
+		*e = EstimateSkipValidateFlag
+	default:
+		err = fmt.Errorf("unknown estimate flag %q", flag)
+	}
+
+	return err
+}
+
+// ToSimulationFlag converts an EstimateFlag to the corresponding SimulationFlag.
+func (e EstimateFlag) ToSimulationFlag() (SimulationFlag, error) {
+	switch e {
+	case EstimateSkipValidateFlag:
+		return SkipValidateFlag, nil
+	default:
+		return 0, fmt.Errorf("unknown estimate flag %v", e)
+	}
+}
+
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
 	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`

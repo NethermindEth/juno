@@ -481,9 +481,13 @@ func (h *Handler) traceBlockTransactions(
 			},
 		)
 
+		var initialReads *InitialReads
+		if returnInitialReads {
+			initialReads = &InitialReads{}
+		}
 		return TraceBlockTransactionsResponse{
 			Traces:       traces,
-			InitialReads: &InitialReads{},
+			InitialReads: initialReads,
 		}, defaultExecutionHeader(), nil
 	}
 
