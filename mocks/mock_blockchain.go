@@ -151,37 +151,6 @@ func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingDataFn func() (core.PendingData, error)) (blockchain.EventFilterer, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockNumberAndIndexByTxHash", hash)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// BlockNumberAndIndexByTxHash indicates an expected call of BlockNumberAndIndexByTxHash.
-func (mr *MockReaderMockRecorder) BlockNumberAndIndexByTxHash(hash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumberAndIndexByTxHash", reflect.TypeOf((*MockReader)(nil).BlockNumberAndIndexByTxHash), hash)
-}
-
-// BlockNumberByHash mocks base method.
-func (m *MockReader) BlockNumberByHash(hash *felt.Felt) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockNumberByHash", hash)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockNumberByHash indicates an expected call of BlockNumberByHash.
-func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumberByHash", reflect.TypeOf((*MockReader)(nil).BlockNumberByHash), hash)
-}
-
-// EventFilter mocks base method.
 func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, pendingDataFn func() (core.PendingData, error)) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventFilter", addresses, keys, pendingDataFn)

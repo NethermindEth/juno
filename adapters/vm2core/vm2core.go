@@ -22,7 +22,7 @@ func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
 // todo(rdr): this is function definition is twice wrong:
 //   - the parameters should be received by reference
 //   - the output param should be return by value
-func AdaptOrderedMessageToL1(message vm.OrderedL2toL1Message) *core.L2ToL1Message {
+func AdaptOrderedMessageToL1(message *vm.OrderedL2toL1Message) *core.L2ToL1Message {
 	var to *types.L1Address
 	if message.To != nil {
 		bits := (*felt.Felt)(message.To).Bits()
@@ -45,7 +45,7 @@ func AdaptOrderedMessagesToL1(messages []vm.OrderedL2toL1Message) []*core.L2ToL1
 	out := make([]*core.L2ToL1Message, len(messages))
 	for i := range messages {
 		m := AdaptOrderedMessageToL1(&messages[i])
-		out[i] = &m
+		out[i] = m
 	}
 	return out
 }
