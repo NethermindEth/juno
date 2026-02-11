@@ -749,11 +749,7 @@ func (b *Blockchain) RevertHead() error {
 
 func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 	if !b.StateFactory.UseNewState() {
-		reverseStateDiff, err := b.deprecatedGetReverseStateDiff()
-		if err != nil {
-			return core.StateDiff{}, err
-		}
-		return reverseStateDiff, nil
+		return b.deprecatedGetReverseStateDiff()
 	}
 
 	return b.getReverseStateDiff()
@@ -773,12 +769,7 @@ func (b *Blockchain) deprecatedGetReverseStateDiff() (core.StateDiff, error) {
 	}
 
 	state := core.NewState(txn)
-	reverseStateDiff, err := state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
-	if err != nil {
-		return core.StateDiff{}, err
-	}
-
-	return reverseStateDiff, nil
+	return state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
 }
 
 func (b *Blockchain) getReverseStateDiff() (core.StateDiff, error) {
@@ -797,12 +788,7 @@ func (b *Blockchain) getReverseStateDiff() (core.StateDiff, error) {
 		return ret, err
 	}
 
-	ret, err = state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
+	return state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
 }
 
 func (b *Blockchain) deprecatedRevertHead(txn db.IndexedBatch) error {

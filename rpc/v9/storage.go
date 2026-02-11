@@ -132,6 +132,7 @@ func (h *Handler) StorageProof(
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
+
 	classTreeRoot, err := classTrie.Hash()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)

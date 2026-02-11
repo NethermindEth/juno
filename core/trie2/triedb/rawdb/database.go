@@ -67,6 +67,7 @@ func (d *Database) Update(
 	defer d.lock.Unlock()
 
 	batch := d.disk.NewBatch()
+
 	var classNodes classNodesMap
 	var contractNodes contractNodesMap
 	var contractStorageNodes contractStorageNodesMap
