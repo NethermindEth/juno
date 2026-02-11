@@ -44,6 +44,7 @@ type TrieDB interface {
 		blockNum uint64,
 		mergeClassNodes,
 		mergeContractNodes *trienode.MergeNodeSet,
+		batch db.Batch,
 	) error
 	Scheme() TrieDBScheme
 }
