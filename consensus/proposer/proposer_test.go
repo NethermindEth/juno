@@ -30,7 +30,7 @@ import (
 const (
 	maxConcurrentRead  = 8
 	delayPerRead       = 100 * time.Millisecond
-	waitPerTransaction = 1 * time.Second
+	waitPerTransaction = 3 * time.Second
 	assertionTick      = 100 * time.Millisecond
 	logLevel           = zapcore.DebugLevel
 )
