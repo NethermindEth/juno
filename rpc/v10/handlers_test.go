@@ -88,7 +88,7 @@ func TestThrottledVMError(t *testing.T) {
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(
 			t.Context(),
 			&blockID,
-			[]rpcv10.SimulationFlag{},
+			[]rpcv10.TraceFlag{},
 		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv9.ExecutionStepsHeader))

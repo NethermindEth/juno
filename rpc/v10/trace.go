@@ -473,10 +473,13 @@ func (h *Handler) traceBlockTransactions(
 			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), err
 		}
 		// Feeder gateway doesn't provide initial reads, so cache without them
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, TraceBlockTransactionsResponse{
-			Traces:       traces,
-			InitialReads: nil,
-		})
+		h.blockTraceCache.Add(
+			rpccore.TraceCacheKey{BlockHash: *block.Hash},
+			TraceBlockTransactionsResponse{
+				Traces:       traces,
+				InitialReads: nil,
+			},
+		)
 
 		return TraceBlockTransactionsResponse{
 			Traces:       traces,
@@ -541,12 +544,14 @@ func (h *Handler) traceBlockWithVM(block *core.Block, returnInitialReads bool) (
 		adaptedInitialReads = &adapted
 	}
 
-	// Always cache result for finalised blocks with initial reads if we have them (they can be used for both requests)
 	if !isPending {
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, TraceBlockTransactionsResponse{
-			Traces:       traces,
-			InitialReads: adaptedInitialReads,
-		})
+		h.blockTraceCache.Add(
+			rpccore.TraceCacheKey{BlockHash: *block.Hash},
+			TraceBlockTransactionsResponse{
+				Traces:       traces,
+				InitialReads: adaptedInitialReads,
+			},
+		)
 	}
 
 	return TraceBlockTransactionsResponse{
