@@ -1,6 +1,8 @@
 package state
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -32,7 +34,10 @@ func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	}
 	ret, err := s.state.ContractClassHashAt(addr, s.blockNum)
 	if err != nil {
-		return felt.Felt{}, err
+		if errors.Is(err, ErrCheckHeadState) {
+			return s.state.ContractClassHash(addr)
+		}
+		return felt.Zero, err
 	}
 	return ret, nil
 }
@@ -43,7 +48,10 @@ func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	}
 	ret, err := s.state.ContractNonceAt(addr, s.blockNum)
 	if err != nil {
-		return felt.Felt{}, err
+		if errors.Is(err, ErrCheckHeadState) {
+			return s.state.ContractNonce(addr)
+		}
+		return felt.Zero, err
 	}
 	return ret, nil
 }
@@ -54,7 +62,10 @@ func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	}
 	ret, err := s.state.ContractStorageAt(addr, key, s.blockNum)
 	if err != nil {
-		return felt.Felt{}, err
+		if errors.Is(err, ErrCheckHeadState) {
+			return s.state.ContractStorage(addr, key)
+		}
+		return felt.Zero, err
 	}
 	return ret, nil
 }

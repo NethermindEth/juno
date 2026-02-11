@@ -174,6 +174,19 @@ func (d *Database) Update(fn func(db.IndexedBatch) error) error {
 	return batch.Write()
 }
 
+func (d *Database) Write(fn func(db.Batch) error) error {
+	if d.db == nil {
+		return errDBClosed
+	}
+
+	batch := d.NewBatch()
+	if err := fn(batch); err != nil {
+		return err
+	}
+
+	return batch.Write()
+}
+
 func (d *Database) View(fn func(db.Snapshot) error) error {
 	if d.db == nil {
 		return errDBClosed

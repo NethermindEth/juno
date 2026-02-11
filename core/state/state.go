@@ -66,6 +66,7 @@ func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 }
 
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	// todo: remove felt cast
 	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, addr); classHash != nil {
 		return *classHash, nil
 	}
@@ -78,6 +79,7 @@ func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	// todo: remove felt cast
 	if nonce := s.db.stateCache.getNonce(&s.initRoot, addr); nonce != nil {
 		return *nonce, nil
 	}
@@ -132,6 +134,7 @@ func (s *State) ContractTrie() (core.CommonTrie, error) {
 }
 
 func (s *State) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
+	// todo: remove felt cast
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
@@ -176,6 +179,7 @@ func (s *State) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
+	flushChanges bool,
 ) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
@@ -244,8 +248,10 @@ func (s *State) Update(
 		deployedContracts: update.StateDiff.ReplacedClasses,
 	})
 
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
-		return err
+	if flushChanges {
+		if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -478,6 +484,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	newComm := stateCommitment(&contractRoot, &classRoot)
 
 	su := stateUpdate{
+		// todo: remove felt cast
 		prevComm:      s.initRoot,
 		curComm:       newComm,
 		contractNodes: mergedContractNodes,
@@ -735,7 +742,7 @@ func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) erro
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 	if !it.Seek(seekKey) {
-		return ErrNoHistoryValue
+		return ErrCheckHeadState
 	}
 
 	key := it.Key()

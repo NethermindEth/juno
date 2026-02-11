@@ -281,15 +281,15 @@ func (mr *MockCommonStateMockRecorder) Revert(blockNum, update any) *gomock.Call
 }
 
 // Update mocks base method.
-func (m *MockCommonState) Update(blockNum uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.ClassDefinition, skipVerifyNewRoot bool) error {
+func (m *MockCommonState) Update(blockNum uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.ClassDefinition, skipVerifyNewRoot, flushChanges bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", blockNum, update, declaredClasses, skipVerifyNewRoot)
+	ret := m.ctrl.Call(m, "Update", blockNum, update, declaredClasses, skipVerifyNewRoot, flushChanges)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockCommonStateMockRecorder) Update(blockNum, update, declaredClasses, skipVerifyNewRoot any) *gomock.Call {
+func (mr *MockCommonStateMockRecorder) Update(blockNum, update, declaredClasses, skipVerifyNewRoot, flushChanges any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockCommonState)(nil).Update), blockNum, update, declaredClasses, skipVerifyNewRoot)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockCommonState)(nil).Update), blockNum, update, declaredClasses, skipVerifyNewRoot, flushChanges)
 }

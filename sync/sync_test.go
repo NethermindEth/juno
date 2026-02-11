@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -55,7 +56,7 @@ func TestSyncBlocks(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -68,7 +69,7 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(t.Context(), 0)
@@ -87,7 +88,7 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
 
@@ -152,7 +153,7 @@ func TestReorg(t *testing.T) {
 	testDB := memory.New()
 
 	// sync to Sepolia for 2 blocks
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &utils.Sepolia, statetestutils.UseNewState())
 	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
 	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
@@ -161,7 +162,7 @@ func TestReorg(t *testing.T) {
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 
 		// Ensure current head is Sepolia head
 		head, err := bc.HeadsHeader()
@@ -198,7 +199,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	testDB := memory.New()
 	log := utils.NewNopZapLogger()
 	network := utils.Mainnet
-	chain := blockchain.New(testDB, &network)
+	chain := blockchain.New(testDB, &network, statetestutils.UseNewState())
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
@@ -227,7 +228,7 @@ func TestSubscribePending(t *testing.T) {
 
 	testDB := memory.New()
 	log := utils.NewNopZapLogger()
-	bc := blockchain.New(testDB, &utils.Mainnet)
+	bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 	synchronizer := sync.New(
 		bc,

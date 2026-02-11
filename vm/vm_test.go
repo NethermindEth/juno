@@ -7,6 +7,10 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/state/statefactory"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -27,10 +31,18 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
+	testState, err := stateFactory.NewState(&felt.Zero, txn)
+	require.NoError(t, err)
+	newRoot := felt.NewUnsafeFromString[felt.Felt](
+		"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+	)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
+		NewRoot: newRoot,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -38,7 +50,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		},
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
-	}, false))
+	}, false, true))
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
@@ -65,6 +77,12 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
+	// if new state, we need to create a new state with the new root
+	if statetestutils.UseNewState() {
+		testState, err = stateFactory.NewState(newRoot, txn)
+		require.NoError(t, err)
+	}
+
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x4a948783e8786ba9d8edaf42de972213bd2deb1b50c49e36647f1fef844890f"),
@@ -75,7 +93,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 				},
 			},
 		},
-	}, nil, false))
+	}, nil, false, true))
 
 	ret, err = New(&chainInfo, false, nil).Call(
 		&CallInfo{
@@ -108,7 +126,13 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
+	testState, err := stateFactory.NewState(&felt.Zero, txn)
+	require.NoError(t, err)
+
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -119,7 +143,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		},
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
-	}, false))
+	}, false, true))
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 	feeTokens := utils.DefaultFeeTokenAddresses
@@ -160,12 +184,19 @@ func TestCallCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	state := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
+	state, err := stateFactory.NewState(&felt.Zero, txn)
+	require.NoError(t, err)
+
+	newRoot := felt.NewUnsafeFromString[felt.Felt](
+		"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
+	)
 	firstStateUpdate := core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt](
-			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
-		),
+		NewRoot: newRoot,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -173,7 +204,7 @@ func TestCallCairo(t *testing.T) {
 		},
 	}
 	declaredClass := map[felt.Felt]core.ClassDefinition{*classHash: simpleClass}
-	require.NoError(t, state.Update(0, &firstStateUpdate, declaredClass, false))
+	require.NoError(t, state.Update(0, &firstStateUpdate, declaredClass, false, true))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)
@@ -213,6 +244,12 @@ func TestCallCairo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
+	// if new state, we need to create a new state with the new root
+	if statetestutils.UseNewState() {
+		state, err = stateFactory.NewState(newRoot, txn)
+		require.NoError(t, err)
+	}
+
 	secondStateUpdate := core.StateUpdate{
 		OldRoot: felt.NewUnsafeFromString[felt.Felt](
 			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
@@ -228,7 +265,7 @@ func TestCallCairo(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, state.Update(1, &secondStateUpdate, nil, false))
+	require.NoError(t, state.Update(1, &secondStateUpdate, nil, false, true))
 
 	ret, err = vm.Call(
 		&callInfo,
@@ -254,7 +291,12 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
+	testState, err := stateFactory.NewState(&felt.Zero, txn)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42"),
@@ -265,7 +307,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		},
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
-	}, false))
+	}, false, true))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)
@@ -324,7 +366,12 @@ func TestExecute(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
+	state, err := stateFactory.NewState(&felt.Zero, txn)
+	require.NoError(t, err)
 
 	t.Run("empty transaction list", func(t *testing.T) {
 		feeTokens := utils.DefaultFeeTokenAddresses
