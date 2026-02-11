@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
@@ -52,8 +53,8 @@ func New(
 	}
 }
 
-func (p *P2P) Run(ctx context.Context) error {
-	gossipSub, err := pubsub.Run(
+func (p *P2P) Run(ctx context.Context) (returnedError error) {
+	gossipSub, closer, err := pubsub.Run(
 		ctx,
 		p.host,
 		p.network,
@@ -64,6 +65,9 @@ func (p *P2P) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create gossipsub with error: %w", err)
 	}
+	defer func() {
+		returnedError = errors.Join(returnedError, closer())
+	}()
 
 	topic, relayCancel, err := pubsub.JoinTopic(gossipSub, transactionTopicName)
 	if err != nil {

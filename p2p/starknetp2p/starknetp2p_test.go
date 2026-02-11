@@ -69,6 +69,9 @@ func TestDHT(t *testing.T) {
 
 				host, err := libp2p.New()
 				require.NoError(t, err)
+				t.Cleanup(func() {
+					require.NoError(t, host.Close())
+				})
 
 				_, err = dht.New(t.Context(), host, options...)
 				require.NoError(t, err)
