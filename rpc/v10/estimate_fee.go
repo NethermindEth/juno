@@ -19,13 +19,22 @@ import (
 */
 func (h *Handler) EstimateFee(
 	broadcastedTxns BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	estimateFlags []EstimateFlag,
 	id *rpcv9.BlockID,
 ) ([]rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
+	simulationFlags := make([]SimulationFlag, 0, len(estimateFlags)+1)
+	for _, flag := range estimateFlags {
+		simulationFlag, err := flag.ToSimulationFlag()
+		if err != nil {
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
+		}
+		simulationFlags = append(simulationFlags, simulationFlag)
+	}
+
 	txnResults, httpHeader, err := h.simulateTransactions(
 		id,
 		broadcastedTxns.Data,
-		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		append(simulationFlags, SkipFeeChargeFlag),
 		true,
 		true,
 	)
@@ -33,9 +42,10 @@ func (h *Handler) EstimateFee(
 		return nil, httpHeader, err
 	}
 
-	feeEstimates := make([]rpcv9.FeeEstimate, len(txnResults))
+	simulatedTransactions := txnResults.SimulatedTransactions
+	feeEstimates := make([]rpcv9.FeeEstimate, len(simulatedTransactions))
 	for i := range feeEstimates {
-		feeEstimates[i] = txnResults[i].FeeEstimation
+		feeEstimates[i] = simulatedTransactions[i].FeeEstimation
 	}
 
 	return feeEstimates, httpHeader, nil

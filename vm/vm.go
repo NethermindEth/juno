@@ -36,6 +36,7 @@ type ExecutionResults struct {
 	Traces           []TransactionTrace
 	NumSteps         uint64
 	Receipts         []TransactionReceipt
+	InitialReads     *InitialReads
 }
 
 type CallResult struct {
@@ -67,6 +68,7 @@ type VM interface {
 		errStack,
 		allowBinarySearch bool,
 		isEstimateFee bool,
+		returnInitialReads bool,
 	) (ExecutionResults, error)
 }
 
@@ -103,6 +105,7 @@ type callContext struct {
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
 	receipts        []json.RawMessage
+	initialReads    json.RawMessage
 	declaredClasses map[felt.Felt]core.ClassDefinition
 	executionFailed bool
 }
@@ -180,6 +183,13 @@ func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2, ptr3 unsafe.Poin
 func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.ulonglong) {
 	context := unwrapContext(readerHandle)
 	context.executionSteps += uint64(execSteps)
+}
+
+//export JunoAppendInitialReads
+func JunoAppendInitialReads(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.initialReads = json.RawMessage(byteSlice)
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -344,6 +354,7 @@ func (v *vm) Execute(
 	errorStack,
 	allowBinarySearch bool,
 	isEstimateFee bool,
+	returnInitialReads bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
@@ -380,7 +391,8 @@ func (v *vm) Execute(
 		toUchar(v.concurrencyMode),
 		toUchar(errorStack),
 		toUchar(allowBinarySearch),
-		toUchar(isEstimateFee), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(isEstimateFee),      //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(returnInitialReads), //nolint:gocritic // false positive
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -411,6 +423,16 @@ func (v *vm) Execute(
 			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %v", err)
 		}
 	}
+
+	var initialReads *InitialReads
+	if len(context.initialReads) > 0 {
+		var reads InitialReads
+		if err := json.Unmarshal(context.initialReads, &reads); err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal initial reads: %v", err)
+		}
+		initialReads = &reads
+	}
+
 	return ExecutionResults{
 		OverallFees:      context.actualFees,
 		DataAvailability: context.daGas,
@@ -418,6 +440,7 @@ func (v *vm) Execute(
 		Traces:           traces,
 		NumSteps:         context.executionSteps,
 		Receipts:         receipts,
+		InitialReads:     initialReads,
 	}, nil
 }
 

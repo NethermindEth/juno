@@ -45,7 +45,7 @@ type Handler struct {
 
 	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
 	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
-	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, TraceBlockTransactionsResponse]
 	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 
@@ -92,7 +92,7 @@ func New(
 
 		blockTraceCache: lru.NewCache[
 			rpccore.TraceCacheKey,
-			[]TracedBlockTransaction,
+			TraceBlockTransactionsResponse,
 		](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,

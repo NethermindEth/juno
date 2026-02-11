@@ -216,6 +216,7 @@ func traceTransactionsWithState(
 		true,  // allowZeroMaxFee
 		false, // allowNoSignature
 		false, // isEstimateFee
+		false, // returnInitialReads
 	)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))

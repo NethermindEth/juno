@@ -44,7 +44,7 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			false,
-			true, false, true, true).
+			true, false, true, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -70,7 +70,7 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			true,
-			true, false, true, true).
+			true, false, true, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -96,7 +96,7 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			true,
-			true, false, true, true).
+			true, false, true, true, false).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: json.RawMessage("oops"),

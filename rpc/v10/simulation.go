@@ -1,6 +1,7 @@
 package rpcv10
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,14 +20,144 @@ import (
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
 
+type SimulationFlag int
+
+const (
+	SkipValidateFlag SimulationFlag = iota + 1
+	SkipFeeChargeFlag
+	ReturnInitialReadsFlag
+)
+
+func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"SKIP_VALIDATE"`:
+		*s = SkipValidateFlag
+	case `"SKIP_FEE_CHARGE"`:
+		*s = SkipFeeChargeFlag
+	case `"RETURN_INITIAL_READS"`:
+		*s = ReturnInitialReadsFlag
+	default:
+		err = fmt.Errorf("unknown simulation flag %q", flag)
+	}
+
+	return err
+}
+
+type TraceFlag int
+
+const (
+	TraceReturnInitialReadsFlag TraceFlag = iota + 1
+)
+
+func (t *TraceFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"RETURN_INITIAL_READS"`:
+		*t = TraceReturnInitialReadsFlag
+	default:
+		err = fmt.Errorf("unknown trace flag %q", flag)
+	}
+
+	return err
+}
+
+type EstimateFlag int
+
+const (
+	EstimateSkipValidateFlag EstimateFlag = iota + 1
+)
+
+func (e *EstimateFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"SKIP_VALIDATE"`:
+		*e = EstimateSkipValidateFlag
+	default:
+		err = fmt.Errorf("unknown estimate flag %q", flag)
+	}
+
+	return err
+}
+
+// ToSimulationFlag converts an EstimateFlag to the corresponding SimulationFlag.
+func (e EstimateFlag) ToSimulationFlag() (SimulationFlag, error) {
+	switch e {
+	case EstimateSkipValidateFlag:
+		return SkipValidateFlag, nil
+	default:
+		return 0, fmt.Errorf("unknown estimate flag %v", e)
+	}
+}
+
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
 	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`
 }
 
+// SimulateTransactionsResponse represents the response for simulateTransactions.
+// When RETURN_INITIAL_READS flag is not set, it marshals as an array.
+// When RETURN_INITIAL_READS flag is set, it marshals as an object
+// with simulated_transactions and initial_reads.
+type SimulateTransactionsResponse struct {
+	SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
+	InitialReads          *InitialReads          `json:"initial_reads"`
+}
+
+func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
+	if r.InitialReads == nil {
+		return json.Marshal(r.SimulatedTransactions)
+	}
+	type simulateTransactionsResponse SimulateTransactionsResponse
+	response := simulateTransactionsResponse(r)
+	return json.Marshal(response)
+}
+
 type TracedBlockTransaction struct {
 	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
 	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
+}
+
+// TraceBlockTransactionsResponse represents the response for traceBlockTransactions.
+// When RETURN_INITIAL_READS flag is not set, it marshals as an array.
+// When RETURN_INITIAL_READS flag is set, it marshals as an object with traces and initial_reads.
+type TraceBlockTransactionsResponse struct {
+	Traces       []TracedBlockTransaction `json:"traces"`
+	InitialReads *InitialReads            `json:"initial_reads"`
+}
+
+func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
+	if r.InitialReads == nil {
+		return json.Marshal(r.Traces)
+	}
+	type traceBlockTransactionsResponse TraceBlockTransactionsResponse
+	response := traceBlockTransactionsResponse(r)
+	return json.Marshal(response)
+}
+
+type StorageEntry struct {
+	ContractAddress felt.Address `json:"contract_address"`
+	Key             felt.Felt    `json:"key"`
+	Value           felt.Felt    `json:"value"`
+}
+
+type NonceEntry struct {
+	ContractAddress felt.Address `json:"contract_address"`
+	Nonce           felt.Felt    `json:"nonce"`
+}
+
+type ClassHashEntry struct {
+	ContractAddress felt.Address   `json:"contract_address"`
+	ClassHash       felt.ClassHash `json:"class_hash"`
+}
+
+type DeclaredContractEntry struct {
+	ClassHash  felt.ClassHash `json:"class_hash"`
+	IsDeclared bool           `json:"is_declared"`
+}
+
+type InitialReads struct {
+	Storage           []StorageEntry          `json:"storage"`
+	Nonces            []NonceEntry            `json:"nonces"`
+	ClassHashes       []ClassHashEntry        `json:"class_hashes"`
+	DeclaredContracts []DeclaredContractEntry `json:"declared_contracts"`
 }
 
 type BroadcastedTransactionInputs = rpccore.LimitSlice[
@@ -41,44 +172,45 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 func (h *Handler) SimulateTransactions(
 	id *rpcv9.BlockID,
 	transactions BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
-) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+	simulationFlags []SimulationFlag,
+) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions.Data, simulationFlags, false, false)
 }
 
 func (h *Handler) simulateTransactions(
 	id *rpcv9.BlockID,
 	transactions []rpcv9.BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
-) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
-	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
+) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
+	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
+	returnInitialReads := slices.Contains(simulationFlags, ReturnInitialReadsFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
 	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 
 	network := h.bcReader.Network()
 	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
 	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
-		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+		return SimulateTransactionsResponse{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
 	blockInfo := vm.BlockInfo{
 		Header:                header,
@@ -97,19 +229,29 @@ func (h *Handler) simulateTransactions(
 		true,
 		true,
 		isEstimateFee,
+		returnInitialReads,
 	)
 	if err != nil {
-		return nil, httpHeader, handleExecutionError(err)
+		return SimulateTransactionsResponse{}, httpHeader, handleExecutionError(err)
 	}
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
 
 	simulatedTransactions, err := createSimulatedTransactions(&executionResults, txns, header)
 	if err != nil {
-		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+		return SimulateTransactionsResponse{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	return simulatedTransactions, httpHeader, nil
+	var adaptedInitialReads *InitialReads
+	if executionResults.InitialReads != nil && returnInitialReads {
+		adapted := adaptVMInitialReads(executionResults.InitialReads)
+		adaptedInitialReads = &adapted
+	}
+
+	return SimulateTransactionsResponse{
+		SimulatedTransactions: simulatedTransactions,
+		InitialReads:          adaptedInitialReads,
+	}, httpHeader, nil
 }
 
 func isVersion3(version *felt.Felt) bool {
@@ -269,7 +411,6 @@ func createSimulatedTransactions(
 			l1DataGasPrice = l1DataGasPriceStrk
 		}
 
-		// Append simulated transaction (trace + fee estimate)
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: rpcv9.FeeEstimate{
