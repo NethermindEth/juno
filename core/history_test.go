@@ -16,7 +16,7 @@ func TestStateHistory(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockCommonState(mockCtrl)
 	deployedHeight := uint64(3)
 	changeHeight := uint64(10)
 	snapshotBeforeDeployment := core.NewDeprecatedStateHistory(mockState, deployedHeight-1)
@@ -68,7 +68,7 @@ func TestStateHistory(t *testing.T) {
 	require.NoError(t, err)
 
 	for desc, test := range map[string]struct {
-		snapshot core.StateReader
+		snapshot core.CommonStateReader
 		checker  func(*testing.T, felt.Felt, error)
 	}{
 		"contract is not deployed": {

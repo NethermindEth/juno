@@ -12,7 +12,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
@@ -27,34 +26,6 @@ var (
 	leafVersion       = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	ErrCheckHeadState = errors.New("check head state")
 )
-
-var _ StateHistoryReader = (*State)(nil)
-
-//go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
-type StateHistoryReader interface {
-	StateReader
-
-	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
-	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
-	CompiledClassHashAt(
-		classHash *felt.SierraClassHash,
-		blockNumber uint64,
-	) (felt.CasmClassHash, error)
-}
-
-type StateReader interface {
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
-	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
-	ClassTrie() (commontrie.Trie, error)
-	ContractTrie() (commontrie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
-}
 
 type State struct {
 	txn db.IndexedBatch
@@ -135,18 +106,18 @@ func (s *State) Commitment() (felt.Felt, error) {
 	return root, nil
 }
 
-func (s *State) ClassTrie() (commontrie.Trie, error) {
+func (s *State) ClassTrie() (CommonTrie, error) {
 	// We don't need to call the closer function here because we are only reading the trie
 	tr, _, err := s.classesTrie()
 	return tr, err
 }
 
-func (s *State) ContractTrie() (commontrie.Trie, error) {
+func (s *State) ContractTrie() (CommonTrie, error) {
 	tr, _, err := s.storage()
 	return tr, err
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (CommonTrie, error) {
 	return storage(addr, s.txn)
 }
 
