@@ -329,7 +329,12 @@ func getContractProofWithTrie(
 		}
 	}
 
-	contractLeavesData, err := buildContractLeavesData(st, contracts, tr.Hash, state.ErrContractNotDeployed)
+	contractLeavesData, err := buildContractLeavesData(
+		st,
+		contracts,
+		tr.Hash,
+		state.ErrContractNotDeployed,
+	)
 	if err != nil {
 		return nil, err
 	}
