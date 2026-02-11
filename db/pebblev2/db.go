@@ -81,6 +81,19 @@ func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
 	return batch.Write()
 }
 
+func (d *DB) Write(fn func(w db.Batch) error) error {
+	if d.closed {
+		return pebble.ErrClosed
+	}
+
+	batch := d.NewBatch()
+	if err := fn(batch); err != nil {
+		return err
+	}
+
+	return batch.Write()
+}
+
 func (d *DB) View(fn func(r db.Snapshot) error) error {
 	snap := d.NewSnapshot()
 	return fn(snap)

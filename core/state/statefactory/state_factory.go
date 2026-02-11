@@ -10,7 +10,7 @@ import (
 )
 
 type StateFactory struct {
-	UseNewState bool
+	useNewState bool
 	triedb      database.TrieDB
 	stateDB     *state.StateDB
 }
@@ -19,23 +19,23 @@ func NewStateFactory(
 	newState bool,
 	triedb database.TrieDB,
 	stateDB *state.StateDB,
-) (*StateFactory, error) {
+) *StateFactory {
 	if !newState {
-		return &StateFactory{UseNewState: false}, nil
+		return &StateFactory{useNewState: false}
 	}
 
 	return &StateFactory{
-		UseNewState: true,
+		useNewState: true,
 		triedb:      triedb,
 		stateDB:     stateDB,
-	}, nil
+	}
 }
 
 func (sf *StateFactory) NewState(
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
 ) (core.CommonState, error) {
-	if !sf.UseNewState {
+	if !sf.useNewState {
 		deprecatedState := core.NewState(txn)
 		return deprecatedState, nil
 	}
@@ -52,7 +52,7 @@ func (sf *StateFactory) NewStateReader(
 	txn db.IndexedBatch,
 	blockNumber uint64,
 ) (core.CommonStateReader, error) {
-	if !sf.UseNewState {
+	if !sf.useNewState {
 		deprecatedState := core.NewState(txn)
 		history := core.NewDeprecatedStateHistory(deprecatedState, blockNumber)
 		return history, nil
@@ -66,7 +66,7 @@ func (sf *StateFactory) NewStateReader(
 }
 
 func (sf *StateFactory) EmptyState() (core.CommonStateReader, error) {
-	if !sf.UseNewState {
+	if !sf.useNewState {
 		memDB := memory.New()
 		txn := memDB.NewIndexedBatch()
 		emptyState := core.NewState(txn)
@@ -77,4 +77,8 @@ func (sf *StateFactory) EmptyState() (core.CommonStateReader, error) {
 		return nil, err
 	}
 	return state, nil
+}
+
+func (sf *StateFactory) UseNewState() bool {
+	return sf.useNewState
 }
