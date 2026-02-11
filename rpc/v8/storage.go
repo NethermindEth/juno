@@ -217,7 +217,7 @@ func getClassProof(tr core.CommonTrie, classes []felt.Felt) ([]*HashToNode, erro
 	case *trie.Trie:
 		classProof := trie.NewProofNodeSet()
 		for _, class := range classes {
-			if err := (*trie.Trie)(t).Prove(&class, classProof); err != nil {
+			if err := t.Prove(&class, classProof); err != nil {
 				return nil, err
 			}
 		}
@@ -351,7 +351,7 @@ func getContractStorageProof(
 		case *trie.Trie:
 			contractStorageProof := trie.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
-				if err := (*trie.Trie)(t).Prove(&key, contractStorageProof); err != nil {
+				if err := t.Prove(&key, contractStorageProof); err != nil {
 					return nil, err
 				}
 			}
@@ -359,7 +359,7 @@ func getContractStorageProof(
 		case *trie2.Trie:
 			contractStorageProof := trie2.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
-				if err := (*trie2.Trie)(t).Prove(&key, contractStorageProof); err != nil {
+				if err := t.Prove(&key, contractStorageProof); err != nil {
 					return nil, err
 				}
 			}
