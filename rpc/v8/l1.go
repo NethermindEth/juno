@@ -66,8 +66,10 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *types.L1Hash)
 		if err != nil {
 			return nil, jsonrpc.Err(
 				jsonrpc.InternalError,
-				fmt.Errorf("failed to retrieve L1 handler txn %v",
-					err),
+				fmt.Sprintf("failed to retrieve L1 handler txn hash. msgHash %s, err: %v",
+					msgHash.String(),
+					err,
+				),
 			)
 		}
 		status, rpcErr := h.TransactionStatus(ctx, hash)
@@ -94,7 +96,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *types.L1Hash) ([]
 	}
 
 	messageHashes := make([]*types.L1Hash, 0, len(receipt.Logs))
-	for _, vLog := range receipt.Logs {
+	for i, vLog := range receipt.Logs {
 		topic0Hash, err := types.FromString[types.L1Hash](vLog.Topics[0].Hex())
 		if err != nil {
 			return nil, jsonrpc.Err(rpccore.ErrInternal.Code, fmt.Errorf("failed to parse topic 0 hash %v", err))
@@ -105,7 +107,14 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *types.L1Hash) ([]
 		var event logMessageToL2
 		err = h.coreContractABI.UnpackIntoInterface(&event, "LogMessageToL2", vLog.Data)
 		if err != nil {
-			return nil, jsonrpc.Err(rpccore.ErrInternal.Code, fmt.Errorf("failed to unpack log %v", err))
+			return nil, jsonrpc.Err(
+				jsonrpc.InternalError,
+				fmt.Sprintf("failed to unpack log, l1 txn hash %s, logIndex %d err: %v",
+					txHash.String(),
+					i,
+					err,
+				),
+			)
 		}
 		// Extract indexed fields from topics
 		fromAddress, err := types.FromString[types.L1Address](vLog.Topics[1].Hex())

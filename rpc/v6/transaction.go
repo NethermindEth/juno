@@ -253,9 +253,9 @@ type MsgFromL1 struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Address    `json:"from_address,omitempty"`
-	To      *types.L1Address `json:"to_address"`
-	Payload []*felt.Felt     `json:"payload"`
+	From    *felt.Address   `json:"from_address,omitempty"`
+	To      types.L1Address `json:"to_address"`
+	Payload []*felt.Felt    `json:"payload"`
 }
 
 type ComputationResources struct {

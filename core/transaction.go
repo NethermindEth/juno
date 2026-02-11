@@ -85,7 +85,7 @@ type Event struct {
 }
 
 type L1ToL2Message struct {
-	From     *types.L1Address
+	From     types.L1Address
 	Nonce    *felt.Felt
 	Payload  []*felt.Felt
 	Selector *felt.Felt
@@ -95,7 +95,7 @@ type L1ToL2Message struct {
 type L2ToL1Message struct {
 	From    *felt.Address
 	Payload []*felt.Felt
-	To      *types.L1Address
+	To      types.L1Address
 }
 
 type ExecutionResources struct {

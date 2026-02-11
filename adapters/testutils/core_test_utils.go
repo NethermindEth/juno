@@ -35,10 +35,10 @@ func randomSliceT[T any](t *testing.T, size int, generator func(t *testing.T) T)
 	return items
 }
 
-func randomL1Address(t *testing.T) *types.L1Address {
+func randomL1Address(t *testing.T) types.L1Address {
 	t.Helper()
 	addr := types.Random[types.L1Address]()
-	return &addr
+	return addr
 }
 
 func randomEvent() *core.Event {

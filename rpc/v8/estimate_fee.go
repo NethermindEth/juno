@@ -287,7 +287,7 @@ func (h *Handler) EstimateMessageFee(
 ) (FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
-	calldata[0] = new(felt.Felt).SetBytes(msg.From.Marshal())
+	calldata[0] = felt.NewFromBytes[felt.Felt](msg.From.Marshal())
 	for i := range msg.Payload {
 		calldata[i+1] = &msg.Payload[i]
 	}

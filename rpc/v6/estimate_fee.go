@@ -77,7 +77,7 @@ type estimateFeeHandler func(
 func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
-	calldata = append(calldata, (*felt.Felt)(&msg.From))
+	calldata = append(calldata, felt.NewFromBytes[felt.Felt](msg.From.Marshal()))
 	for payloadIdx := range msg.Payload {
 		calldata = append(calldata, &msg.Payload[payloadIdx])
 	}

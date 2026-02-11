@@ -80,7 +80,7 @@ func (h *Handler) estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimate
 ) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
-	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Marshal()))
+	calldata = append(calldata, felt.NewFromBytes[felt.Felt](msg.From.Marshal()))
 	for payloadIdx := range msg.Payload {
 		calldata = append(calldata, &msg.Payload[payloadIdx])
 	}

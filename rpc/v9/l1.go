@@ -65,7 +65,13 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *types.L1Hash)
 	for i, msgHash := range msgHashes {
 		hash, err := h.bcReader.L1HandlerTxnHash(msgHash)
 		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("failed to retrieve L1 handler txn %v", err))
+			return nil, jsonrpc.Err(
+				jsonrpc.InternalError,
+				fmt.Sprintf("failed to retrieve L1 handler txn hash. msgHash %s, err: %v",
+					msgHash.String(),
+					err,
+				),
+			)
 		}
 		status, rpcErr := h.TransactionStatus(ctx, &hash)
 		if rpcErr != nil {

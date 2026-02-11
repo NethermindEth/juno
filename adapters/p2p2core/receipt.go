@@ -75,13 +75,11 @@ func adaptExecutionResources(er *receipt.Receipt_ExecutionResources) *core.Execu
 
 func adaptMessageToL1(m *receipt.MessageToL1) *core.L2ToL1Message {
 	from := (*felt.Address)(AdaptFelt(m.FromAddress))
-	var to *types.L1Address
-	if m.ToAddress != nil {
-		to = types.NewFromBytes[types.L1Address](m.ToAddress.GetElements())
-	}
 	return &core.L2ToL1Message{
-		From:    from,
-		To:      to,
+		From: from,
+		To: types.FromBytes[types.L1Address](
+			m.ToAddress.GetElements(),
+		),
 		Payload: utils.Map(m.Payload, AdaptFelt),
 	}
 }

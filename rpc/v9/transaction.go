@@ -975,7 +975,7 @@ func AdaptReceipt(
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = &MsgToL1{
-			To:      *msg.To,
+			To:      msg.To,
 			Payload: msg.Payload,
 			From:    msg.From,
 		}
