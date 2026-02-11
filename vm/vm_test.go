@@ -34,8 +34,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	triedb, err := triedb.New(testDB, nil)
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
-	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	require.NoError(t, err)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	testState, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
 	newRoot := felt.NewUnsafeFromString[felt.Felt](
@@ -130,8 +129,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	triedb, err := triedb.New(testDB, nil)
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
-	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	require.NoError(t, err)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	testState, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
 
@@ -189,8 +187,7 @@ func TestCallCairo(t *testing.T) {
 	triedb, err := triedb.New(testDB, nil)
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
-	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	require.NoError(t, err)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	state, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
 
@@ -297,8 +294,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	triedb, err := triedb.New(testDB, nil)
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
-	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	require.NoError(t, err)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	testState, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
@@ -373,8 +369,7 @@ func TestExecute(t *testing.T) {
 	triedb, err := triedb.New(testDB, nil)
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
-	stateFactory, err := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	require.NoError(t, err)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
 	state, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
 
