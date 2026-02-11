@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/builder"
@@ -121,8 +122,8 @@ func New(
 	}
 }
 
-func (p *p2p[V, H, A]) Run(ctx context.Context) error {
-	gossipSub, err := pubsub.Run(
+func (p *p2p[V, H, A]) Run(ctx context.Context) (returnedError error) {
+	gossipSub, closer, err := pubsub.Run(
 		ctx,
 		p.host,
 		p.network,
@@ -133,6 +134,9 @@ func (p *p2p[V, H, A]) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create gossipsub with error: %w", err)
 	}
+	defer func() {
+		returnedError = errors.Join(returnedError, closer())
+	}()
 
 	topics := make([]*libp2p.Topic, 0, len(p.topicAttachment))
 	relayCancels := make([]func(), 0, len(p.topicAttachment))

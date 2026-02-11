@@ -42,17 +42,17 @@ func Run(
 	starknetProtocol starknetp2p.Protocol,
 	bootstrapPeersFn func() []peer.AddrInfo,
 	pubSubQueueSize int,
-) (*pubsub.PubSub, error) {
+) (*pubsub.PubSub, func() error, error) {
 	dht, err := dht.New(ctx, host, network, starknetProtocol, bootstrapPeersFn)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create dht with error: %w", err)
+		return nil, nil, fmt.Errorf("unable to create dht with error: %w", err)
 	}
 
 	params := pubsub.DefaultGossipSubParams()
 	params.HistoryLength = gossipSubHistory
 	params.HistoryGossip = gossipSubHistory
 
-	return pubsub.NewGossipSub(
+	pubSub, err := pubsub.NewGossipSub(
 		ctx,
 		host,
 		pubsub.WithPeerOutboundQueueSize(pubSubQueueSize),
@@ -60,6 +60,11 @@ func Run(
 		pubsub.WithDiscovery(routing.NewRoutingDiscovery(dht)),
 		pubsub.WithGossipSubParams(params),
 	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create gossipsub with error: %w", err)
+	}
+
+	return pubSub, dht.Close, nil
 }
 
 func JoinTopic(pubSub *pubsub.PubSub, topicName string) (*pubsub.Topic, func(), error) {

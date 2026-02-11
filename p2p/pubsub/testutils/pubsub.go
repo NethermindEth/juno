@@ -38,6 +38,9 @@ func BuildNetworks(
 			var err error
 			nodes[i].Host, err = pubsub.GetHost(mockKey(i), hostAddress)
 			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, nodes[i].Host.Close())
+			})
 		})
 	}
 	wg.Wait()
@@ -69,7 +72,7 @@ func (n Nodes) JoinTopic(
 	topicName string,
 ) []*libp2p.Topic {
 	return iter.Map(n, func(node *Node) *libp2p.Topic {
-		pubSub, err := pubsub.Run(
+		pubSub, closer, err := pubsub.Run(
 			t.Context(),
 			node.Host,
 			network,
@@ -78,6 +81,9 @@ func (n Nodes) JoinTopic(
 			config.DefaultBufferSizes.PubSubQueueSize,
 		)
 		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, closer())
+		})
 
 		topic, relayCancel, err := pubsub.JoinTopic(pubSub, topicName)
 		require.NoError(t, err)
