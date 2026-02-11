@@ -75,7 +75,7 @@ func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
 
 	storageTrie, err := s.state.db.ContractStorageTrie(
 		// todo: remove felt cast
-		(*felt.Felt)(&s.state.initRoot),
+		&s.state.initRoot,
 		&s.addr,
 	)
 	if err != nil {

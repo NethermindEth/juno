@@ -135,7 +135,7 @@ func (s *State) ContractTrie() (core.CommonTrie, error) {
 
 func (s *State) ContractStorageTrie(addr *felt.Felt) (core.CommonTrie, error) {
 	// todo: remove felt cast
-	return s.db.ContractStorageTrie((*felt.Felt)(&s.initRoot), addr)
+	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
 func (s *State) CompiledClassHash(
@@ -484,7 +484,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 
 	su := stateUpdate{
 		// todo: remove felt cast
-		prevComm:      felt.Felt(s.initRoot),
+		prevComm:      s.initRoot,
 		curComm:       newComm,
 		contractNodes: mergedContractNodes,
 	}
