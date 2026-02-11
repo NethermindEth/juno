@@ -43,6 +43,23 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 	return err
 }
 
+type TraceFlag int
+
+const (
+	TraceReturnInitialReadsFlag TraceFlag = iota + 1
+)
+
+func (t *TraceFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"RETURN_INITIAL_READS"`:
+		*t = TraceReturnInitialReadsFlag
+	default:
+		err = fmt.Errorf("unknown trace flag %q", flag)
+	}
+
+	return err
+}
+
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
 	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`
@@ -55,16 +72,6 @@ type SimulatedTransaction struct {
 type SimulateTransactionsResponse struct {
 	SimulatedTransactions []SimulatedTransaction `json:"simulated_transactions"`
 	InitialReads          *InitialReads          `json:"initial_reads"`
-}
-
-func NewSimulateTransactionsResponse(
-	simulatedTransactions []SimulatedTransaction,
-	initialReads *InitialReads,
-) SimulateTransactionsResponse {
-	return SimulateTransactionsResponse{
-		SimulatedTransactions: simulatedTransactions,
-		InitialReads:          initialReads,
-	}
 }
 
 func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
@@ -89,16 +96,6 @@ type TraceBlockTransactionsResponse struct {
 	InitialReads *InitialReads            `json:"initial_reads"`
 }
 
-func NewTraceBlockTransactionsResponse(
-	traces []TracedBlockTransaction,
-	initialReads *InitialReads,
-) TraceBlockTransactionsResponse {
-	return TraceBlockTransactionsResponse{
-		Traces:       traces,
-		InitialReads: initialReads,
-	}
-}
-
 func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
 		return json.Marshal(r.Traces)
@@ -109,24 +106,24 @@ func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 }
 
 type StorageEntry struct {
-	ContractAddress *felt.Address `json:"contract_address"`
-	Key             *felt.Felt    `json:"key"`
-	Value           *felt.Felt    `json:"value"`
+	ContractAddress felt.Address `json:"contract_address"`
+	Key             felt.Felt    `json:"key"`
+	Value           felt.Felt    `json:"value"`
 }
 
 type NonceEntry struct {
-	ContractAddress *felt.Address `json:"contract_address"`
-	Nonce           *felt.Felt    `json:"nonce"`
+	ContractAddress felt.Address `json:"contract_address"`
+	Nonce           felt.Felt    `json:"nonce"`
 }
 
 type ClassHashEntry struct {
-	ContractAddress *felt.Address   `json:"contract_address"`
-	ClassHash       *felt.ClassHash `json:"class_hash"`
+	ContractAddress felt.Address   `json:"contract_address"`
+	ClassHash       felt.ClassHash `json:"class_hash"`
 }
 
 type DeclaredContractEntry struct {
-	ClassHash  *felt.ClassHash `json:"class_hash"`
-	IsDeclared bool            `json:"is_declared"`
+	ClassHash  felt.ClassHash `json:"class_hash"`
+	IsDeclared bool           `json:"is_declared"`
 }
 
 type InitialReads struct {
@@ -224,7 +221,10 @@ func (h *Handler) simulateTransactions(
 		adaptedInitialReads = &adapted
 	}
 
-	return NewSimulateTransactionsResponse(simulatedTransactions, adaptedInitialReads), httpHeader, nil
+	return SimulateTransactionsResponse{
+		SimulatedTransactions: simulatedTransactions,
+		InitialReads:          adaptedInitialReads,
+	}, httpHeader, nil
 }
 
 func isVersion3(version *felt.Felt) bool {

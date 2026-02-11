@@ -181,32 +181,32 @@ func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
 	storage := make([]StorageEntry, len(vmInitialReads.Storage))
 	for i, s := range vmInitialReads.Storage {
 		storage[i] = StorageEntry{
-			ContractAddress: &s.ContractAddress,
-			Key:             &s.Key,
-			Value:           &s.Value,
+			ContractAddress: s.ContractAddress,
+			Key:             s.Key,
+			Value:           s.Value,
 		}
 	}
 
 	nonces := make([]NonceEntry, len(vmInitialReads.Nonces))
 	for i, n := range vmInitialReads.Nonces {
 		nonces[i] = NonceEntry{
-			ContractAddress: &n.ContractAddress,
-			Nonce:           &n.Nonce,
+			ContractAddress: n.ContractAddress,
+			Nonce:           n.Nonce,
 		}
 	}
 
 	classHashes := make([]ClassHashEntry, len(vmInitialReads.ClassHashes))
 	for i, ch := range vmInitialReads.ClassHashes {
 		classHashes[i] = ClassHashEntry{
-			ContractAddress: &ch.ContractAddress,
-			ClassHash:       &ch.ClassHash,
+			ContractAddress: ch.ContractAddress,
+			ClassHash:       ch.ClassHash,
 		}
 	}
 
 	declaredContracts := make([]DeclaredContractEntry, len(vmInitialReads.DeclaredContracts))
 	for i, dc := range vmInitialReads.DeclaredContracts {
 		declaredContracts[i] = DeclaredContractEntry{
-			ClassHash:  &dc.ClassHash,
+			ClassHash:  dc.ClassHash,
 			IsDeclared: dc.IsDeclared,
 		}
 	}

@@ -130,7 +130,7 @@ func (h *Handler) Call(
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) TraceBlockTransactions(
-	ctx context.Context, id *rpcv9.BlockID, traceFlags []SimulationFlag,
+	ctx context.Context, id *rpcv9.BlockID, traceFlags []TraceFlag,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
 	if id.IsPreConfirmed() {
 		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrCallOnPreConfirmed
@@ -141,7 +141,7 @@ func (h *Handler) TraceBlockTransactions(
 		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpcErr
 	}
 
-	returnInitialReads := slices.Contains(traceFlags, ReturnInitialReadsFlag)
+	returnInitialReads := slices.Contains(traceFlags, TraceReturnInitialReadsFlag)
 	return h.traceBlockTransactions(ctx, block, returnInitialReads)
 }
 
@@ -448,8 +448,15 @@ func (h *Handler) traceBlockTransactions(
 			if cachedResponse.InitialReads != nil {
 				return cachedResponse, defaultExecutionHeader(), nil
 			}
+			return TraceBlockTransactionsResponse{
+				Traces:       cachedResponse.Traces,
+				InitialReads: &InitialReads{},
+			}, defaultExecutionHeader(), nil
 		} else {
-			return NewTraceBlockTransactionsResponse(cachedResponse.Traces, nil), defaultExecutionHeader(), nil
+			return TraceBlockTransactionsResponse{
+				Traces:       cachedResponse.Traces,
+				InitialReads: nil,
+			}, defaultExecutionHeader(), nil
 		}
 	}
 
@@ -470,7 +477,11 @@ func (h *Handler) traceBlockTransactions(
 			Traces:       traces,
 			InitialReads: nil,
 		})
-		return NewTraceBlockTransactionsResponse(traces, nil), defaultExecutionHeader(), nil
+
+		return TraceBlockTransactionsResponse{
+			Traces:       traces,
+			InitialReads: &InitialReads{},
+		}, defaultExecutionHeader(), nil
 	}
 
 	return h.traceBlockWithVM(block, returnInitialReads)
@@ -538,7 +549,10 @@ func (h *Handler) traceBlockWithVM(block *core.Block, returnInitialReads bool) (
 		})
 	}
 
-	return NewTraceBlockTransactionsResponse(traces, adaptedInitialReads), httpHeader, nil
+	return TraceBlockTransactionsResponse{
+		Traces:       traces,
+		InitialReads: adaptedInitialReads,
+	}, httpHeader, nil
 }
 
 // fetchTracesFromFeederGateway fetches block traces from the feeder gateway

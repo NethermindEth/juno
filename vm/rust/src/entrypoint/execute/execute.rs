@@ -195,14 +195,11 @@ pub fn cairo_vm_execute(
         let initial_reads = state
             .get_initial_reads()
             .map_err(|err| {
-                JunoError::tx_non_execution_error(
-                    format!("failed to get initial reads: {err:?}"),
-                    0,
-                )
+                JunoError::block_error(format!("failed to get initial reads: {err:?}"))
             })?;
         let initial_reads_ffi: InitialReads = initial_reads.into();
         append_initial_reads(reader_handle, &initial_reads_ffi, &mut writer_buffer)
-            .map_err(|err| JunoError::tx_non_execution_error(err, 0))?;
+            .map_err(|err| JunoError::block_error(err))?;
     }
 
     Ok(())

@@ -320,6 +320,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 type initialReadsTestCase struct {
 	name                 string
+	traceFlags           []rpcv10.TraceFlag
 	simulationFlags      []rpcv10.SimulationFlag
 	initialReads         *vm.InitialReads
 	expectedInitialReads *rpcv10.InitialReads
@@ -337,6 +338,7 @@ func initialReadsTestCases() []initialReadsTestCase {
 	return []initialReadsTestCase{
 		{
 			name:            "with flag and non-empty initial reads",
+			traceFlags:      []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
 			simulationFlags: []rpcv10.SimulationFlag{rpcv10.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
 				Storage: []vm.InitialReadsStorageEntry{
@@ -347,7 +349,7 @@ func initialReadsTestCases() []initialReadsTestCase {
 				DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
 			},
 			expectedInitialReads: &rpcv10.InitialReads{
-				Storage:           []rpcv10.StorageEntry{{ContractAddress: &addr, Key: &key, Value: &value}},
+				Storage:           []rpcv10.StorageEntry{{ContractAddress: addr, Key: key, Value: value}},
 				Nonces:            []rpcv10.NonceEntry{},
 				ClassHashes:       []rpcv10.ClassHashEntry{},
 				DeclaredContracts: []rpcv10.DeclaredContractEntry{},
@@ -355,6 +357,7 @@ func initialReadsTestCases() []initialReadsTestCase {
 		},
 		{
 			name:            "with flag but empty initial reads",
+			traceFlags:      []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
 			simulationFlags: []rpcv10.SimulationFlag{rpcv10.ReturnInitialReadsFlag},
 			initialReads: &vm.InitialReads{
 				Storage:           []vm.InitialReadsStorageEntry{},
@@ -371,6 +374,7 @@ func initialReadsTestCases() []initialReadsTestCase {
 		},
 		{
 			name:            "without flag",
+			traceFlags:      []rpcv10.TraceFlag{},
 			simulationFlags: []rpcv10.SimulationFlag{},
 			initialReads: &vm.InitialReads{
 				Storage: []vm.InitialReadsStorageEntry{
@@ -384,6 +388,7 @@ func initialReadsTestCases() []initialReadsTestCase {
 		},
 		{
 			name:                 "with flag but VM returns no initial reads",
+			traceFlags:           []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
 			simulationFlags:      []rpcv10.SimulationFlag{rpcv10.ReturnInitialReadsFlag},
 			initialReads:         nil,
 			expectedInitialReads: nil,
@@ -419,7 +424,7 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
-			returnInitialReads := slices.Contains(test.simulationFlags, rpcv10.ReturnInitialReadsFlag)
+			returnInitialReads := slices.Contains(test.traceFlags, rpcv10.TraceReturnInitialReadsFlag)
 
 			version3 := felt.FromUint64[felt.Felt](3)
 			senderAddr := felt.FromUint64[felt.Felt](1)

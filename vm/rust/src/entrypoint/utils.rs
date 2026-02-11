@@ -100,7 +100,7 @@ pub fn build_block_context(
         .to_str()
         .ok()
         .and_then(|version_str| StarknetVersion::try_from(version_str).ok())
-        .unwrap_or_else(|| StarknetVersion::default());
+        .unwrap_or_else();
 
     let block_info = BlockifierBlockInfo {
         block_number: starknet_api::block::BlockNumber(block_info.block_number),

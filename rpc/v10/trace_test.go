@@ -1515,7 +1515,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			traces, _, err := handler.TraceBlockTransactions(
 				t.Context(),
 				&blockID,
-				test.simulationFlags,
+				test.traceFlags,
 			)
 
 			require.Nil(t, err)
