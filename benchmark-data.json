@@ -1600,5 +1600,11 @@
     "block_target": 800000,
     "duration_seconds": 70082.458322,
     "timestamp": "2026-02-11T20:11:41.506219+00:00"
+  },
+  {
+    "version": "v0.15.18-7-ge717c5214",
+    "block_target": 800000,
+    "duration_seconds": 70562.544901,
+    "timestamp": "2026-02-12T15:49:08.037136+00:00"
   }
 ]
