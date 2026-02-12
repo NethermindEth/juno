@@ -3,6 +3,9 @@ package consensus_test
 import (
 	"fmt"
 	goitre "iter"
+	"maps"
+	"slices"
+	gosync "sync"
 	"testing"
 	"time"
 
@@ -10,17 +13,19 @@ import (
 	"github.com/NethermindEth/juno/consensus"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/starknet"
-	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/p2p/dht"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
+	"github.com/NethermindEth/juno/p2p/server"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
+	p2psync "github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
-	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -28,7 +33,7 @@ import (
 
 const (
 	commitBufferSize = 1024
-	maxRoundWait     = types.Round(5)
+	maxCommitWait    = 5 * time.Minute
 )
 
 var (
@@ -98,7 +103,8 @@ func loadGenesis(
 func initNode(
 	t *testing.T,
 	index int,
-	node *testutils.Node,
+	consensusNode *testutils.Node,
+	syncNode *testutils.Node,
 	logger *utils.ZapLogger,
 	commits chan commit,
 	cfg *testConfig,
@@ -120,20 +126,41 @@ func initNode(
 	}
 	vm := vm.New(&chainInfo, false, logger)
 
+	blockFetcher := p2psync.NewBlockFetcher(bc, syncNode.Host, &network, logger)
+	syncServer := server.New(syncNode.Host, bc, logger)
+
 	services, err := consensus.Init(
-		node.Host,
+		consensusNode.Host,
 		logger,
 		consensusDB,
 		bc,
 		vm,
+		&blockFetcher,
 		&mockServices.NodeAddress,
 		mockServices.Validators,
 		mockServices.TimeoutFn,
-		node.GetBootstrapPeers,
+		consensusNode.GetBootstrapPeers,
 	)
 	require.NoError(t, err)
 
 	wg := conc.NewWaitGroup()
+	wg.Go(func() {
+		dht, err := dht.New(
+			t.Context(),
+			syncNode.Host,
+			&network,
+			starknetp2p.SyncProtocolID,
+			syncNode.GetBootstrapPeers,
+		)
+		require.NoError(t, err)
+		require.NoError(t, dht.Bootstrap(t.Context()))
+		t.Cleanup(func() {
+			require.NoError(t, dht.Close())
+		})
+	})
+	wg.Go(func() {
+		require.NoError(t, syncServer.Run(t.Context()))
+	})
 	wg.Go(func() {
 		require.NoError(t, services.Proposer.Run(t.Context()))
 	})
@@ -181,14 +208,9 @@ func writeBlock(
 	}
 }
 
-func commitStream(t *testing.T, nodeCount int, commits chan commit) goitre.Seq[commit] {
+func commitStream(t *testing.T, commits chan commit) goitre.Seq[commit] {
 	t.Helper()
 
-	timeoutFn := consensus.MockTimeoutFn(nodeCount)
-	var maxCommitWait time.Duration
-	for round := range maxRoundWait {
-		maxCommitWait += timeoutFn(types.StepPropose, round) + timeoutFn(types.StepPrevote, round) + timeoutFn(types.StepPrecommit, round)
-	}
 	return func(yield func(commit) bool) {
 		t.Helper()
 		for {
@@ -217,7 +239,7 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 	commitCount := make(map[uint64]int)
 
 	nextHeight := uint64(1)
-	for commit := range commitStream(t, cfg.nodeCount, commits) {
+	for commit := range commitStream(t, commits) {
 		blockNumber := commit.committedBlock.Block.Number
 		blockHash := commit.committedBlock.Block.Hash
 
@@ -265,6 +287,24 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 	}
 }
 
+func setupNodes(
+	t *testing.T,
+	msg string,
+	logger utils.Logger,
+	cfg *testConfig,
+	honestNodeCount int,
+) testutils.Nodes {
+	network := cfg.networkSetup(honestNodeCount)
+	for from, edges := range network {
+		logger.Info(
+			msg,
+			zap.Int("from", from),
+			zap.Any("to", slices.Sorted(maps.Keys(edges))),
+		)
+	}
+	return testutils.BuildNetworks(t, network)
+}
+
 func runTest(t *testing.T, cfg testConfig) {
 	t.Helper()
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
@@ -276,12 +316,26 @@ func runTest(t *testing.T, cfg testConfig) {
 
 	commits := make(chan commit, commitBufferSize)
 
-	nodes := testutils.BuildNetworks(t, cfg.networkSetup(honestNodeCount))
+	consensusNodes := setupNodes(t, "consensus network", logger, &cfg, honestNodeCount)
+	syncNodes := setupNodes(t, "sync network", logger, &cfg, honestNodeCount)
 
-	iterator := iter.Iterator[testutils.Node]{MaxGoroutines: honestNodeCount}
-	iterator.ForEachIdx(nodes, func(i int, node *testutils.Node) {
-		initNode(t, i, node, logger, commits, &cfg, genesisDiff, genesisClasses)
-	})
+	wg := gosync.WaitGroup{}
+	t.Cleanup(wg.Wait)
+	for i := range honestNodeCount {
+		wg.Go(func() {
+			initNode(
+				t,
+				i,
+				&consensusNodes[i],
+				&syncNodes[i],
+				logger,
+				commits,
+				&cfg,
+				genesisDiff,
+				genesisClasses,
+			)
+		})
+	}
 
 	assertCommits(t, commits, cfg, logger)
 }
@@ -306,7 +360,7 @@ func runWithAllHonestAndSilentFaultyNodes(t *testing.T, cfg testConfig) {
 func TestTendermintCluster(t *testing.T) {
 	runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 		nodeCount:    4,
-		targetHeight: 10,
+		targetHeight: 60,
 		networkSetup: testutils.LineNetworkConfig,
 	})
 

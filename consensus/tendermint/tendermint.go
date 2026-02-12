@@ -5,10 +5,11 @@ import (
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/types/wal"
 	"github.com/NethermindEth/juno/consensus/votecounter"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
-//go:generate mockgen -destination=../mocks/mock_application.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint Application
 type Application[V types.Hashable[H], H types.Hash] interface {
 	// Value returns the value to the Tendermint consensus algorithm which can be proposed to other validators.
 	Value() V
@@ -25,12 +26,14 @@ type Slasher[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A type
 
 //go:generate mockgen -destination=../mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
 type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
+	Height() types.Height
 	ProcessStart(types.Round) []actions.Action[V, H, A]
 	ProcessTimeout(types.Timeout) []actions.Action[V, H, A]
 	ProcessProposal(*types.Proposal[V, H, A]) []actions.Action[V, H, A]
 	ProcessPrevote(*types.Prevote[H, A]) []actions.Action[V, H, A]
 	ProcessPrecommit(*types.Precommit[H, A]) []actions.Action[V, H, A]
 	ProcessWAL(wal.Entry[V, H, A]) []actions.Action[V, H, A]
+	ProcessSync(*types.Proposal[V, H, A], []types.Precommit[H, A]) []actions.Action[V, H, A]
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
@@ -41,6 +44,7 @@ type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	application     Application[V, H]
 	isHeightStarted bool
 	lastTriggerSync types.Height
+	lastQuorum      types.Height
 }
 
 type state[V types.Hashable[H], H types.Hash] struct {
@@ -79,6 +83,10 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 }
 
+func (s *stateMachine[V, H, A]) Height() types.Height {
+	return s.state.height
+}
+
 type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	types.Proposal[V, H, A]
 	Valid bool
@@ -96,6 +104,16 @@ func (s *stateMachine[V, H, A]) resetState(round types.Round) {
 
 func (s *stateMachine[V, H, A]) startRound(r types.Round) actions.Action[V, H, A] {
 	s.resetState(r)
+
+	if r > 0 {
+		proposer := felt.Felt(s.voteCounter.Proposer(r - 1))
+		s.log.Debug(
+			"Failed round",
+			zap.Uint("height", uint(s.state.height)),
+			zap.Int("round", int(r-1)),
+			zap.Stringer("proposer", &proposer),
+		)
+	}
 
 	if p := s.voteCounter.Proposer(r); p == s.nodeAddr {
 		var proposalValue *V

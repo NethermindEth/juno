@@ -16,8 +16,6 @@ type CommitHook[V types.Hashable[H], H types.Hash] interface {
 }
 
 // CommitListener is a component that is used to notify different components that a new committed block is available.
-//
-//go:generate mockgen -destination=../mocks/mock_commit_listener.go -package=mocks github.com/NethermindEth/juno/consensus/driver CommitListener
 type CommitListener[V types.Hashable[H], H types.Hash] interface {
 	CommitHook[V, H]
 	// Listen returns a channel that will receive committed blocks.
