@@ -1,0 +1,100 @@
+x-node: &node
+  image: nethermind/juno:consensus
+  command: [
+    "--http",
+    "--http-host", "0.0.0.0",
+    "--network", "sepolia",
+    "--log-level", "debug",
+    "--disable-l1-verification",
+    "--db-path", "/db/main",
+    "--seq-genesis-file", "/genesis/genesis_prefund_accounts.json",
+    "--consensus",
+    "--consensus-db-path", "/db/consensus",
+    "--consensus-addr", "/ip4/0.0.0.0/tcp/7070",
+    "--consensus-mock-count", "4",
+    "--mempool",
+    "--mempool-addr", "/ip4/0.0.0.0/tcp/7071",
+  ]
+  configs:
+    - genesis
+
+services:
+  node0:
+    <<: *node
+    ports:
+      - "6060:6060"
+    environment:
+      JUNO_CONSENSUS_MOCK_INDEX: 0
+      JUNO_CONSENSUS_PEERS:
+      JUNO_MEMPOOL_PEERS:
+
+  node1:
+    <<: *node
+    ports:
+      - "6061:6060"
+    environment:
+      JUNO_CONSENSUS_MOCK_INDEX: 1
+      JUNO_CONSENSUS_PEERS: /dns4/node0/tcp/7070/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
+      JUNO_MEMPOOL_PEERS: /dns4/node0/tcp/7071/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
+
+  node2:
+    <<: *node
+    ports:
+      - "6062:6060"
+    environment:
+      JUNO_CONSENSUS_MOCK_INDEX: 2
+      JUNO_CONSENSUS_PEERS: /dns4/node1/tcp/7070/p2p/12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X
+      JUNO_MEMPOOL_PEERS: /dns4/node1/tcp/7071/p2p/12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X
+
+  node3:
+    <<: *node
+    ports:
+      - "6063:6060"
+    environment:
+      JUNO_CONSENSUS_MOCK_INDEX: 3
+      JUNO_CONSENSUS_PEERS: /dns4/node2/tcp/7070/p2p/12D3KooWH3uVF6wv47WnArKHk5p6cvgCJEb74UTmxztmQDc298L3
+      JUNO_MEMPOOL_PEERS: /dns4/node2/tcp/7071/p2p/12D3KooWH3uVF6wv47WnArKHk5p6cvgCJEb74UTmxztmQDc298L3
+
+  setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.shooter
+    entrypoint: ["/consensus-tests/all.sh", "${SHOOTER_COUNT:-4}"]
+    environment:
+      DATA_DIR: /data
+    depends_on:
+      - node0
+    configs:
+      - consensus-tests
+    volumes:
+      - data:/data
+
+  shooters:
+    build:
+      context: .
+      dockerfile: Dockerfile.shooter
+    entrypoint: ["/consensus-tests/shoot.sh"]
+    environment:
+      DATA_DIR: /data
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      webdis:
+        condition: service_started
+    configs:
+      - consensus-tests
+    volumes:
+      - data:/data
+    scale: ${SHOOTER_COUNT:-4}
+
+  webdis:
+    image: nicolas/webdis:latest
+
+configs:
+  genesis:
+    file: ../genesis
+  consensus-tests:
+    file: ./
+
+volumes:
+  data:

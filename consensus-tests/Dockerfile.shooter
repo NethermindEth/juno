@@ -1,0 +1,3 @@
+FROM starknet/starkli:0.4.1
+
+RUN apk add --no-cache bash curl jq

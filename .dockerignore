@@ -24,3 +24,8 @@ CONTRIBUTING.md
 
 # Scripts
 scripts/
+
+.devbox/
+.plugins/
+tmp/
+snapshots/

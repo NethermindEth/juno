@@ -17,6 +17,9 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/consensus"
+	"github.com/NethermindEth/juno/consensus/datasource"
+	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -25,7 +28,11 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
+	mempoolp2p "github.com/NethermindEth/juno/mempool/p2p"
 	"github.com/NethermindEth/juno/p2p"
+	"github.com/NethermindEth/juno/p2p/dht"
+	"github.com/NethermindEth/juno/p2p/pubsub"
+	p2psync "github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -38,6 +45,7 @@ import (
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"go.uber.org/zap"
@@ -103,6 +111,17 @@ type Config struct {
 	RPCCallMaxSteps         uint64 `mapstructure:"rpc-call-max-steps"`
 	RPCCallMaxGas           uint64 `mapstructure:"rpc-call-max-gas"`
 	ReadinessBlockTolerance uint   `mapstructure:"readiness-block-tolerance"`
+
+	Consensus          bool   `mapstructure:"consensus"`
+	ConsensusAddr      string `mapstructure:"consensus-addr"`
+	ConsensusPeers     string `mapstructure:"consensus-peers"`
+	ConsensusDBPath    string `mapstructure:"consensus-db-path"`
+	ConsensusMockIndex int    `mapstructure:"consensus-mock-index"` // TODO: remove this
+	ConsensusMockCount int    `mapstructure:"consensus-mock-count"` // TODO: remove this
+
+	Mempool      bool   `mapstructure:"mempool"`
+	MempoolAddr  string `mapstructure:"mempool-addr"`
+	MempoolPeers string `mapstructure:"mempool-peers"`
 
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
@@ -275,19 +294,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 		nodeVM = vm.New(&chainInfo, false, log)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-		synchronizer = sync.New(
-			chain,
-			feederGatewayDataSource,
-			log,
-			cfg.PendingPollInterval,
-			cfg.PreConfirmedPollInterval,
-			dbIsRemote,
-			database,
-		)
-		synchronizer.WithPlugin(junoPlugin)
-
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+
+		var syncDataSource sync.DataSource
+		var mempool mempool.Pool
 
 		if cfg.P2P {
 			if cfg.Network == utils.Mainnet {
@@ -295,10 +305,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			}
 			log.Warn("P2P features enabled. Please note P2P is in experimental stage")
 
-			if !cfg.P2PFeederNode {
-				// Do not start the feeder synchronisation
-				synchronizer = nil
+			if cfg.P2PFeederNode {
+				syncDataSource = sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 			}
+
 			p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
 				chain, &cfg.Network, log, database)
 			if err != nil {
@@ -306,16 +316,99 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			}
 
 			services = append(services, p2pService)
+		} else if cfg.Consensus {
+			// TODO: Replace these mock components with the actual ones
+			mockConsensusServices := consensus.InitMockServices(0, 0, cfg.ConsensusMockIndex, cfg.ConsensusMockCount)
+
+			consensusDB, err := pebblev2.New(
+				cfg.ConsensusDBPath,
+				pebblev2.WithCacheSize(cfg.DBCacheSize),
+				pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
+				pebblev2.WithLogger(cfg.Colour),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("open consensus DB: %w", err)
+			}
+
+			consensusHost, err := pubsub.GetHost(mockConsensusServices.PrivateKey, cfg.ConsensusAddr)
+			if err != nil {
+				return nil, fmt.Errorf("get consensus host: %w", err)
+			}
+
+			consensusPeers, err := dht.ExtractPeers(cfg.ConsensusPeers)
+			if err != nil {
+				return nil, fmt.Errorf("extract consensus peers: %w", err)
+			}
+
+			blockFetcher := p2psync.NewBlockFetcher(chain, consensusHost, &cfg.Network, log)
+
+			consensusServices, err := consensus.Init(
+				consensusHost,
+				log,
+				consensusDB,
+				chain,
+				nodeVM,
+				&blockFetcher,
+				&mockConsensusServices.NodeAddress,
+				mockConsensusServices.Validators,
+				mockConsensusServices.TimeoutFn,
+				func() []peer.AddrInfo {
+					return consensusPeers
+				},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("init consensus services: %w", err)
+			}
+
+			dataSource := datasource.New(consensusServices.CommitListener, consensusServices.Proposer)
+
+			syncDataSource = dataSource
+
+			if cfg.Mempool {
+				mempoolHost, err := pubsub.GetHost(mockConsensusServices.PrivateKey, cfg.MempoolAddr)
+				if err != nil {
+					return nil, fmt.Errorf("get mempool host: %w", err)
+				}
+
+				mempoolPeers, err := dht.ExtractPeers(cfg.MempoolPeers)
+				if err != nil {
+					return nil, fmt.Errorf("extract mempool peers: %w", err)
+				}
+
+				mempoolp2p := mempoolp2p.New(
+					&cfg.Network,
+					mempoolHost,
+					log,
+					consensusServices.Proposer,
+					&config.DefaultBufferSizes,
+					func() []peer.AddrInfo {
+						return mempoolPeers
+					},
+				)
+				mempool = mempoolp2p
+				services = append(services, mempoolp2p)
+			} else {
+				mempool = consensusServices.Proposer
+			}
+
+			gatewayClient = nil
+
+			services = append(services, consensusServices.Proposer, consensusServices.P2P, consensusServices.Driver, dataSource)
+		} else {
+			syncDataSource = sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		}
 
 		var syncReader sync.Reader = &sync.NoopSynchronizer{}
-		if synchronizer != nil {
+		if syncDataSource != nil {
+			synchronizer = sync.New(chain, syncDataSource, log, cfg.PendingPollInterval, cfg.PreConfirmedPollInterval, dbIsRemote, database)
+			synchronizer.WithPlugin(junoPlugin)
 			syncReader = synchronizer
 		}
 
 		submittedTransactionsCache := rpccore.NewTransactionCache(cfg.SubmittedTransactionsCacheEntryTTL, cfg.SubmittedTransactionsCacheSize)
 		services = append(services, submittedTransactionsCache)
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+			WithMempool(mempool).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
 			WithSubmittedTransactionsCache(submittedTransactionsCache).
@@ -547,7 +640,7 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	if n.cfg.Sequencer {
+	if n.cfg.Sequencer || n.cfg.Consensus {
 		// Custom networks are not supported in sequencer mode yet
 		if !slices.Contains(utils.KnownNetworkNames, n.cfg.Network.Name) {
 			n.log.Error("Custom networks are not supported in sequencer mode yet")
