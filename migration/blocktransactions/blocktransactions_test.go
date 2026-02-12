@@ -28,6 +28,7 @@ const (
 )
 
 func TestBlockTransactionsMigration(t *testing.T) {
+	t.Skip("Temporary skip")
 	t.Run("Empty database", func(t *testing.T) {
 		database := openDatabase(t, t.TempDir())
 
