@@ -176,3 +176,17 @@ jobs:
       STARKNET_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_3 }}
       STARKNET_PUBLIC_KEY: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       STARKNET_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS_3 }}
+
+  golden-tests:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout golden tests
+        uses: actions/checkout@v5
+        with:
+          repository: NethermindEth/starknet-golden-tests
+
+      - name: Run golden tests
+        env:
+          STARKNET_RPC: ${{ secrets.RPC_URL }}
+        run: ./golden.sh test
