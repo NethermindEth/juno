@@ -71,6 +71,9 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGwTimeout := "5s"
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
+	defaultRPCRequestTimeout := 1 * time.Minute
+	defaultMaxConcurrentCompilations := uint(8)
+
 	expectedConfig1 := node.Config{
 		LogLevel:                           "debug",
 		HTTP:                               defaultHTTP,
@@ -110,6 +113,8 @@ func TestConfigPrecedence(t *testing.T) {
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 		ReadinessBlockTolerance:            6,
+		RPCRequestTimeout:                  defaultRPCRequestTimeout,
+		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 	}
 
 	expectedConfig2 := node.Config{
@@ -151,6 +156,8 @@ func TestConfigPrecedence(t *testing.T) {
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 		ReadinessBlockTolerance:            6,
+		RPCRequestTimeout:                  defaultRPCRequestTimeout,
+		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 	}
 	tests := map[string]struct {
 		cfgFile         bool
@@ -253,6 +260,8 @@ pprof: true
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -300,6 +309,8 @@ http-port: 4576
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"all flags without config file": {
@@ -346,6 +357,8 @@ http-port: 4576
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some flags without config file": {
@@ -392,6 +405,8 @@ http-port: 4576
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -463,6 +478,8 @@ db-cache-size: 1024
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -512,6 +529,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -557,6 +576,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"only set env variables": {
@@ -600,6 +621,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -644,6 +667,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -689,6 +714,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 	}
