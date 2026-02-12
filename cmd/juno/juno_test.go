@@ -11,9 +11,9 @@ import (
 	"time"
 
 	juno "github.com/NethermindEth/juno/cmd/juno"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWS := false
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
-	defaultCoreContractAddress := common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
+	defaultCoreContractAddress, err := types.FromString[types.L1Address]("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
+	require.NoError(t, err)
 	defaultNetwork := utils.Mainnet
 	defaultCustomNetwork := utils.Network{
 		Name:                "custom",

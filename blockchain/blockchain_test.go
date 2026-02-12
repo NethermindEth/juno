@@ -10,9 +10,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	types "github.com/NethermindEth/juno/l1/types"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -304,8 +304,8 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
-	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
-	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
+	l1HandlerMsgHash := types.NewUnsafeFromString[types.L1Hash]("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(l1HandlerMsgHash)
 	require.NoError(t, err)
 	expectedHash := felt.UnsafeFromString[felt.Felt](
 		"0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5",

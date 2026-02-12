@@ -287,14 +287,15 @@ func (h *Handler) EstimateMessageFee(
 ) (FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
-	calldata[0] = new(felt.Felt).SetBytes(msg.From.Bytes())
+	calldata[0] = felt.NewFromBytes[felt.Felt](msg.From.Marshal())
 	for i := range msg.Payload {
 		calldata[i+1] = &msg.Payload[i]
 	}
 	tx := BroadcastedTransaction{
 		Transaction: Transaction{
-			Type:               TxnL1Handler,
-			ContractAddress:    &msg.To,
+			Type: TxnL1Handler,
+			// todo: this shouldn't have to be casted
+			ContractAddress:    (*felt.Felt)(&msg.To),
 			EntryPointSelector: &msg.Selector,
 			CallData:           &calldata,
 			Version:            &felt.Zero, // Needed for transaction hash calculation.

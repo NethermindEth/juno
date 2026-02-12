@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/l1/contract"
+	l1types "github.com/NethermindEth/juno/l1/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
@@ -28,7 +28,7 @@ type EthSubscriber struct {
 
 var _ Subscriber = (*EthSubscriber)(nil)
 
-func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Address) (*EthSubscriber, error) {
+func NewEthSubscriber(ethClientAddress string, coreContractAddress *l1types.L1Address) (*EthSubscriber, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -37,7 +37,8 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 		return nil, err
 	}
 	ethClient := ethclient.NewClient(client)
-	filterer, err := contract.NewStarknetFilterer(coreContractAddress, ethClient)
+	coreContractAddressEthereum := coreContractAddress.ToEthAddress()
+	filterer, err := contract.NewStarknetFilterer(coreContractAddressEthereum, ethClient)
 	if err != nil {
 		return nil, err
 	}
@@ -94,9 +95,10 @@ func (s *EthSubscriber) Close() {
 	s.ethClient.Close()
 }
 
-func (s *EthSubscriber) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+func (s *EthSubscriber) TransactionReceipt(ctx context.Context, txHash *l1types.L1Hash) (*types.Receipt, error) {
 	reqTimer := time.Now()
-	receipt, err := s.ethClient.TransactionReceipt(ctx, txHash)
+	txHashEthereum := txHash.ToEthHash()
+	receipt, err := s.ethClient.TransactionReceipt(ctx, txHashEthereum)
 	if err != nil {
 		return nil, fmt.Errorf("get eth Transaction Receipt: %w", err)
 	}

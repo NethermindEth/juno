@@ -8,9 +8,8 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 )
 
 const sliceLen = 5
@@ -36,13 +35,10 @@ func randomSliceT[T any](t *testing.T, size int, generator func(t *testing.T) T)
 	return items
 }
 
-func randomL1Address(t *testing.T) common.Address {
+func randomL1Address(t *testing.T) types.L1Address {
 	t.Helper()
-	var l1Address common.Address
-	read, err := cryptorand.Read(l1Address[:])
-	require.Equal(t, len(l1Address), read)
-	require.NoError(t, err)
-	return l1Address
+	addr := types.Random[types.L1Address]()
+	return addr
 }
 
 func randomEvent() *core.Event {
@@ -90,14 +86,14 @@ func randomL1ToL2Message(t *testing.T) *core.L1ToL2Message {
 		Nonce:    felt.NewRandom[felt.Felt](),
 		Payload:  randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
 		Selector: felt.NewRandom[felt.Felt](),
-		To:       felt.NewRandom[felt.Felt](),
+		To:       felt.NewRandom[felt.Address](),
 	}
 }
 
 func randomL2ToL1Message(t *testing.T) *core.L2ToL1Message {
 	t.Helper()
 	return &core.L2ToL1Message{
-		From:    felt.NewRandom[felt.Felt](),
+		From:    felt.NewRandom[felt.Address](),
 		Payload: randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
 		To:      randomL1Address(t),
 	}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/ethereum/go-ethereum/common"
+	l1types "github.com/NethermindEth/juno/l1/types"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -27,7 +27,7 @@ type Gateway interface {
 }
 
 type L1Client interface {
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionReceipt(ctx context.Context, txHash *l1types.L1Hash) (*types.Receipt, error)
 }
 
 type TraceCacheKey struct {

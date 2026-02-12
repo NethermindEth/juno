@@ -15,8 +15,8 @@ import (
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	types "github.com/NethermindEth/juno/l1/types"
 	utils "github.com/NethermindEth/juno/utils"
-	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -227,7 +227,7 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 }
 
 // L1HandlerTxnHash mocks base method.
-func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
+func (m *MockReader) L1HandlerTxnHash(msgHash *types.L1Hash) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1HandlerTxnHash", msgHash)
 	ret0, _ := ret[0].(felt.Felt)

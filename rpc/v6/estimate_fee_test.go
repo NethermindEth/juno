@@ -7,12 +7,12 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -28,11 +28,13 @@ func TestEstimateMessageFee(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	handler := rpc.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
+	from, err := types.FromString[types.L1Address]("0xDEADBEEF")
+	require.NoError(t, err)
 	msg := rpc.MsgFromL1{
-		From:     common.HexToAddress("0xDEADBEEF"),
-		To:       *new(felt.Felt).SetUint64(1337),
-		Payload:  []felt.Felt{*new(felt.Felt).SetUint64(1), *new(felt.Felt).SetUint64(2)},
-		Selector: *new(felt.Felt).SetUint64(44),
+		From:     from,
+		To:       felt.FromUint64[felt.Address](1337),
+		Payload:  []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)},
+		Selector: felt.FromUint64[felt.Felt](44),
 	}
 
 	t.Run("block not found", func(t *testing.T) {
@@ -95,8 +97,8 @@ func TestEstimateMessageFee(t *testing.T) {
 		},
 	)
 
-	estimateFee, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
-	require.Nil(t, err)
+	estimateFee, rpcErr := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
+	require.Nil(t, rpcErr)
 	feeUnit := rpc.WEI
 	require.Equal(t, expectedGasConsumed, estimateFee.GasConsumed)
 	require.Equal(t, latestHeader.L1GasPriceETH, estimateFee.GasPrice)

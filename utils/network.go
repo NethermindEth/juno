@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/pflag"
 )
 
@@ -50,7 +50,7 @@ type Network struct {
 	GatewayURL          string             `json:"gateway_url" validate:"required"`
 	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
 	L2ChainID           string             `json:"l2_chain_id" validate:"required"`
-	CoreContractAddress common.Address     `json:"core_contract_address" validate:"required"`
+	CoreContractAddress types.L1Address    `json:"core_contract_address" validate:"required"`
 	BlockHashMetaInfo   *BlockHashMetaInfo `json:"block_hash_meta_info"`
 }
 
@@ -77,7 +77,7 @@ var (
 		GatewayURL:          "https://alpha-mainnet.starknet.io/gateway/",
 		L2ChainID:           "SN_MAIN",
 		L1ChainID:           big.NewInt(1),
-		CoreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+		CoreContractAddress: types.UnsafeFromString[types.L1Address]("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             833,
 			FallBackSequencerAddress: fallBackSequencerAddressMainnet,
@@ -90,7 +90,7 @@ var (
 		L2ChainID:  "SN_GOERLI",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
-		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+		CoreContractAddress: types.UnsafeFromString[types.L1Address]("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             47028,
 			UnverifiableRange:        []uint64{119802, 148428},
@@ -104,7 +104,7 @@ var (
 		L2ChainID:  "SN_GOERLI2",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
-		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		CoreContractAddress: types.UnsafeFromString[types.L1Address]("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
@@ -117,7 +117,7 @@ var (
 		L2ChainID:  "SN_GOERLI",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
-		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
+		CoreContractAddress: types.UnsafeFromString[types.L1Address]("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
@@ -131,7 +131,7 @@ var (
 		L2ChainID:  "SN_SEPOLIA",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
-		CoreContractAddress: common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
+		CoreContractAddress: types.UnsafeFromString[types.L1Address]("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
@@ -144,7 +144,7 @@ var (
 		L2ChainID:  "SN_INTEGRATION_SEPOLIA",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
-		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
+		CoreContractAddress: types.UnsafeFromString[types.L1Address]("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,

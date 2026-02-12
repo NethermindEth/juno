@@ -13,11 +13,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
@@ -244,18 +244,18 @@ type TransactionStatus struct {
 
 type MsgFromL1 struct {
 	// The address of the L1 contract sending the message.
-	From common.Address `json:"from_address" validate:"required"`
+	From types.L1Address `json:"from_address" validate:"required"`
 	// The address of the L2 contract receiving the message.
-	To felt.Felt `json:"to_address" validate:"required"`
+	To felt.Address `json:"to_address" validate:"required"`
 	// The payload of the message.
 	Payload  []felt.Felt `json:"payload" validate:"required"`
 	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt     `json:"from_address,omitempty"`
-	To      common.Address `json:"to_address"`
-	Payload []*felt.Felt   `json:"payload"`
+	From    *felt.Address   `json:"from_address,omitempty"`
+	To      types.L1Address `json:"to_address"`
+	Payload []*felt.Felt    `json:"payload"`
 }
 
 type ComputationResources struct {

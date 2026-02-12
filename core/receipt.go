@@ -59,9 +59,10 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 		felt.NewFromUint64[felt.Felt](uint64(len(messages))),
 	}
 	for _, msg := range messages {
-		msgTo := felt.FromBytes[felt.Felt](msg.To.Bytes())
+		toBytes := msg.To.Bytes()
+		msgTo := felt.FromBytes[felt.Felt](toBytes[:])
 		payloadSize := felt.FromUint64[felt.Felt](uint64(len(msg.Payload)))
-		chain = append(chain, msg.From, &msgTo, &payloadSize)
+		chain = append(chain, (*felt.Felt)(msg.From), &msgTo, &payloadSize)
 		chain = append(chain, msg.Payload...)
 	}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/contract"
+	l1types "github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -286,7 +287,7 @@ func testEthSubscriberHeight(t *testing.T, tests map[string]struct {
 			server, listener := startServer("127.0.0.1:0", test.service)
 			defer server.Stop()
 
-			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), common.Address{})
+			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), &l1types.L1Address{})
 			require.NoError(t, err)
 			defer subscriber.Close()
 

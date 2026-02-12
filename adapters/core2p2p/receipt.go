@@ -94,9 +94,9 @@ func adaptPriceUnit(unit core.FeeUnit) receipt.PriceUnit {
 
 func AdaptMessageToL1(mL1 *core.L2ToL1Message) *receipt.MessageToL1 {
 	return &receipt.MessageToL1{
-		FromAddress: AdaptFelt(mL1.From),
+		FromAddress: AdaptFelt((*felt.Felt)(mL1.From)),
 		Payload:     utils.Map(mL1.Payload, AdaptFelt),
-		ToAddress:   &receipt.EthereumAddress{Elements: mL1.To.Bytes()},
+		ToAddress:   &receipt.EthereumAddress{Elements: mL1.To.Marshal()},
 	}
 }
 

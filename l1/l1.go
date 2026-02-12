@@ -10,9 +10,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/contract"
+	l1types "github.com/NethermindEth/juno/l1/types"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"go.uber.org/zap"
@@ -24,7 +24,7 @@ type Subscriber interface {
 	LatestHeight(ctx context.Context) (uint64, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
 	ChainID(ctx context.Context) (*big.Int, error)
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionReceipt(ctx context.Context, txHash *l1types.L1Hash) (*types.Receipt, error)
 
 	Close()
 }

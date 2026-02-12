@@ -56,7 +56,7 @@ func (h *Handler) EstimateMessageFee(
 ) (rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
-	calldata[0] = felt.NewFromBytes[felt.Felt](msg.From.Bytes())
+	calldata[0] = felt.NewFromBytes[felt.Felt](msg.From.Marshal())
 	for i := range msg.Payload {
 		calldata[i+1] = &msg.Payload[i]
 	}
@@ -67,14 +67,16 @@ func (h *Handler) EstimateMessageFee(
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateMessageFee")
 
-	if _, err := state.ContractClassHash(&msg.To); err != nil {
+	// todo: remove the felt cast
+	if _, err := state.ContractClassHash((*felt.Felt)(&msg.To)); err != nil {
 		return rpcv9.FeeEstimate{}, nil, rpccore.ErrContractNotFound
 	}
 
 	tx := rpcv9.BroadcastedTransaction{
 		Transaction: rpcv9.Transaction{
-			Type:               rpcv9.TxnL1Handler,
-			ContractAddress:    &msg.To,
+			Type: rpcv9.TxnL1Handler,
+			// todo: remove the felt cast
+			ContractAddress:    (*felt.Felt)(&msg.To),
 			EntryPointSelector: &msg.Selector,
 			CallData:           &calldata,
 			Version:            &felt.Zero, // Needed for transaction hash calculation.
