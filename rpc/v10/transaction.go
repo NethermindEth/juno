@@ -57,23 +57,13 @@ func AdaptBroadcastedTransaction(
 	isInvokeV3 := broadcastedTxn.Transaction.Type == rpcv9.TxnInvoke &&
 		isVersion3(broadcastedTxn.Transaction.Version)
 
-	if !isInvokeV3 {
-		if len(broadcastedTxn.ProofFacts) > 0 {
-			return nil, nil, nil, fmt.Errorf("proof_facts can only be included in invoke v3 transactions")
-		}
-		if len(broadcastedTxn.Proof) > 0 {
-			return nil, nil, nil, fmt.Errorf("proof can only be included in invoke v3 transactions")
-		}
+	if err := validateNonV3Transaction(broadcastedTxn, isInvokeV3); err != nil {
+		return nil, nil, nil, err
 	}
 
 	feederTxn := rpcv9.AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 	if isInvokeV3 && len(broadcastedTxn.ProofFacts) > 0 {
-		proofFactsPtrs := make([]*felt.Felt, len(broadcastedTxn.ProofFacts))
-		for i := range broadcastedTxn.ProofFacts {
-			copy := broadcastedTxn.ProofFacts[i]
-			proofFactsPtrs[i] = &copy
-		}
-		feederTxn.ProofFacts = &proofFactsPtrs
+		setProofFacts(&feederTxn, broadcastedTxn)
 	}
 
 	txn, err := sn2core.AdaptTransaction(&feederTxn)
@@ -81,24 +71,9 @@ func AdaptBroadcastedTransaction(
 		return nil, nil, nil, err
 	}
 
-	var declaredClass core.ClassDefinition
-	if len(broadcastedTxn.ContractClass) != 0 {
-		declaredClass, err = rpcv9.AdaptDeclaredClass(
-			ctx, compiler, broadcastedTxn.ContractClass,
-		)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	} else if broadcastedTxn.Type == rpcv9.TxnDeclare {
-		return nil, nil, nil, errors.New("declare without a class definition")
-	}
-
-	if t, ok := txn.(*core.DeclareTransaction); ok {
-		classHash, err := declaredClass.Hash()
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		t.ClassHash = &classHash
+	declaredClass, err := handleDeclaredClass(ctx, compiler, broadcastedTxn, txn)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
 	txnHash, err := core.TransactionHash(txn, network)
@@ -126,6 +101,56 @@ func AdaptBroadcastedTransaction(
 	}
 
 	return txn, declaredClass, paidFeeOnL1, nil
+}
+
+func validateNonV3Transaction(broadcastedTxn *BroadcastedTransaction, isInvokeV3 bool) error {
+	if isInvokeV3 {
+		return nil
+	}
+	if len(broadcastedTxn.ProofFacts) > 0 {
+		return fmt.Errorf("proof_facts can only be included in invoke v3 transactions")
+	}
+	if len(broadcastedTxn.Proof) > 0 {
+		return fmt.Errorf("proof can only be included in invoke v3 transactions")
+	}
+	return nil
+}
+
+func setProofFacts(feederTxn *starknet.Transaction, broadcastedTxn *BroadcastedTransaction) {
+	proofFactsPtrs := make([]*felt.Felt, len(broadcastedTxn.ProofFacts))
+	for i := range broadcastedTxn.ProofFacts {
+		proofFact := broadcastedTxn.ProofFacts[i]
+		proofFactsPtrs[i] = &proofFact
+	}
+	feederTxn.ProofFacts = &proofFactsPtrs
+}
+
+func handleDeclaredClass(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	broadcastedTxn *BroadcastedTransaction,
+	txn core.Transaction,
+) (core.ClassDefinition, error) {
+	var declaredClass core.ClassDefinition
+	if len(broadcastedTxn.ContractClass) != 0 {
+		var err error
+		declaredClass, err = rpcv9.AdaptDeclaredClass(
+			ctx, compiler, broadcastedTxn.ContractClass,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if t, ok := txn.(*core.DeclareTransaction); ok {
+			classHash, err := declaredClass.Hash()
+			if err != nil {
+				return nil, err
+			}
+			t.ClassHash = &classHash
+		}
+	} else if broadcastedTxn.Type == rpcv9.TxnDeclare {
+		return nil, errors.New("declare without a class definition")
+	}
+	return declaredClass, nil
 }
 
 type AddTxResponse struct {
