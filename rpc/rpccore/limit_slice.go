@@ -27,7 +27,7 @@ func (l FunctionCalldataLimit) Limit() int { return functionCalldataLimit }
 func (l SenderAddressLimit) Limit() int    { return senderAddressLimit }
 
 type LimitSlice[T any, L Limit] struct {
-	Data []T
+	Data []T `validate:"dive"`
 }
 
 func (l LimitSlice[T, L]) MarshalJSON() ([]byte, error) {
