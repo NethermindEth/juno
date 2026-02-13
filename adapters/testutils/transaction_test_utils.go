@@ -279,6 +279,7 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, networ
 		AccountDeploymentData: nil, // TODO: Figure out why the original adapter doesn't set this field
 		NonceDAMode:           core.DAModeL2,
 		FeeDAMode:             core.DAModeL2,
+		ProofFacts:            nil,
 	}
 
 	p2pTransaction := transaction.InvokeV3{

@@ -25,7 +25,7 @@ type FunctionCall struct {
 	Calldata           CalldataInputs `json:"calldata"`
 }
 
-func adaptDeclaredClass(
+func AdaptDeclaredClass(
 	ctx context.Context,
 	compiler compiler.Compiler,
 	declaredClass json.RawMessage,

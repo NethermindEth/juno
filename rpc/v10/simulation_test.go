@@ -165,7 +165,7 @@ func TestSimulateTransactions(t *testing.T) {
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
 				t.Context(),
 				&blockID,
-				rpcv9.BroadcastedTransactionInputs{},
+				rpcv10.BroadcastedTransactionInputs{},
 				test.simulationFlags,
 			)
 			if test.err != nil {
@@ -206,16 +206,18 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 	tests := []struct {
 		name         string
-		transactions []rpcv9.BroadcastedTransaction
+		transactions []rpcv10.BroadcastedTransaction
 		err          *jsonrpc.Error
 	}{
 		{
 			name: "declare transaction without sender address",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version: &version3,
-						Type:    rpcv9.TxnDeclare,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version: &version3,
+							Type:    rpcv9.TxnDeclare,
+						},
 					},
 				},
 			},
@@ -226,12 +228,14 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "declare transaction without resource bounds",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version:       &version3,
-						Type:          rpcv9.TxnDeclare,
-						SenderAddress: &felt.Zero,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version:       &version3,
+							Type:          rpcv9.TxnDeclare,
+							SenderAddress: &felt.Zero,
+						},
 					},
 				},
 			},
@@ -242,11 +246,13 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "invoke transaction without sender address",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version: &version3,
-						Type:    rpcv9.TxnInvoke,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version: &version3,
+							Type:    rpcv9.TxnInvoke,
+						},
 					},
 				},
 			},
@@ -257,12 +263,14 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "invoke transaction without resource bounds",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version:       &version3,
-						Type:          rpcv9.TxnInvoke,
-						SenderAddress: &felt.Zero,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version:       &version3,
+							Type:          rpcv9.TxnInvoke,
+							SenderAddress: &felt.Zero,
+						},
 					},
 				},
 			},
@@ -273,11 +281,13 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 		{
 			name: "deploy account transaction without resource bounds",
-			transactions: []rpcv9.BroadcastedTransaction{
+			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					Transaction: rpcv9.Transaction{
-						Version: &version3,
-						Type:    rpcv9.TxnDeployAccount,
+					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+						Transaction: rpcv9.Transaction{
+							Version: &version3,
+							Type:    rpcv9.TxnDeployAccount,
+						},
 					},
 				},
 			},
@@ -308,7 +318,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			_, _, err := handler.SimulateTransactions(
 				t.Context(),
 				&blockID,
-				rpcv9.BroadcastedTransactionInputs{Data: test.transactions},
+				rpcv10.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpcv10.SimulationFlag{},
 			)
 			if test.err != nil {
@@ -431,25 +441,27 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			version3 := felt.FromUint64[felt.Felt](3)
 			senderAddr := felt.FromUint64[felt.Felt](1)
 			nonce := felt.FromUint64[felt.Felt](1)
-			broadcastedTxns := []rpcv9.BroadcastedTransaction{{
-				Transaction: rpcv9.Transaction{
-					Version:       &version3,
-					Type:          rpcv9.TxnInvoke,
-					SenderAddress: &senderAddr,
-					Nonce:         &nonce,
-					Tip:           &felt.Zero,
-					CallData:      &[]*felt.Felt{},
-					Signature:     &[]*felt.Felt{&felt.Zero},
-					ResourceBounds: &rpcv9.ResourceBoundsMap{
-						L1Gas: &rpcv9.ResourceBounds{
-							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
-							MaxPricePerUnit: &felt.Zero,
+			broadcastedTxns := []rpcv10.BroadcastedTransaction{{
+				BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+					Transaction: rpcv9.Transaction{
+						Version:       &version3,
+						Type:          rpcv9.TxnInvoke,
+						SenderAddress: &senderAddr,
+						Nonce:         &nonce,
+						Tip:           &felt.Zero,
+						CallData:      &[]*felt.Felt{},
+						Signature:     &[]*felt.Felt{&felt.Zero},
+						ResourceBounds: &rpcv9.ResourceBoundsMap{
+							L1Gas: &rpcv9.ResourceBounds{
+								MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
+								MaxPricePerUnit: &felt.Zero,
+							},
+							L1DataGas: &rpcv9.ResourceBounds{
+								MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
+								MaxPricePerUnit: &felt.Zero,
+							},
+							L2Gas: &rpcv9.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
 						},
-						L1DataGas: &rpcv9.ResourceBounds{
-							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
-							MaxPricePerUnit: &felt.Zero,
-						},
-						L2Gas: &rpcv9.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
 					},
 				},
 			}}
@@ -471,7 +483,7 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			simulatedTxs, _, err := handler.SimulateTransactions(
 				t.Context(),
 				&blockID,
-				rpcv9.BroadcastedTransactionInputs{Data: broadcastedTxns},
+				rpcv10.BroadcastedTransactionInputs{Data: broadcastedTxns},
 				test.simulationFlags,
 			)
 			require.Nil(t, err)

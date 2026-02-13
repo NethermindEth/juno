@@ -164,14 +164,20 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.BlockWithTxHashes,
 		},
 		{
-			Name:    "starknet_getBlockWithTxs",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_getBlockWithTxs",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "response_flags", Optional: true},
+			},
 			Handler: h.rpcv10Handler.BlockWithTxs,
 		},
 		{
-			Name:    "starknet_getTransactionByHash",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv9Handler.TransactionByHash,
+			Name: "starknet_getTransactionByHash",
+			Params: []jsonrpc.Parameter{
+				{Name: "transaction_hash"},
+				{Name: "response_flags", Optional: true},
+			},
+			Handler: h.rpcv10Handler.TransactionByHash,
 		},
 		{
 			Name:    "starknet_getTransactionReceipt",
@@ -184,9 +190,13 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv9Handler.BlockTransactionCount,
 		},
 		{
-			Name:    "starknet_getTransactionByBlockIdAndIndex",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			Handler: h.rpcv9Handler.TransactionByBlockIDAndIndex,
+			Name: "starknet_getTransactionByBlockIdAndIndex",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "index"},
+				{Name: "response_flags", Optional: true},
+			},
+			Handler: h.rpcv10Handler.TransactionByBlockIDAndIndex,
 		},
 		{
 			Name:    "starknet_getStateUpdate",
@@ -227,7 +237,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_addInvokeTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: h.rpcv9Handler.AddTransaction,
+			Handler: h.rpcv10Handler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeployAccountTransaction",
@@ -336,8 +346,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.Unsubscribe,
 		},
 		{
-			Name:    "starknet_getBlockWithReceipts",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_getBlockWithReceipts",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "response_flags", Optional: true},
+			},
 			Handler: h.rpcv10Handler.BlockWithReceipts,
 		},
 		{

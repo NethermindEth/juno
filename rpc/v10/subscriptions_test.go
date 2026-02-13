@@ -1103,16 +1103,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
-		// rpcv10 forward AddTransaction to rpcv9
-		rpcv9Handler := rpcv9.New(mockChain, mockSyncer, nil, log).
-			WithFeeder(client).
-			WithGateway(mockGateway).
-			WithSubmittedTransactionsCache(cache)
 		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
-		txToBroadcast := rpcv9.BroadcastedTransaction{
-			Transaction: *rpcv9.AdaptTransaction(block.Transactions[0]),
+		txToBroadcast := BroadcastedTransaction{
+			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+				Transaction: *rpcv9.AdaptTransaction(block.Transactions[0]),
+			},
 		}
 
 		var tempGatewayResponse struct {
@@ -1129,32 +1126,32 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			AddTransaction(gomock.Any(), gomock.Any()).Return(resRaw, nil).
 			AnyTimes()
 
-		addRes, addErr := rpcv9Handler.AddTransaction(
+		addRes, addErr := handler.AddTransaction(
 			t.Context(),
 			&txToBroadcast,
 		)
 		require.Nil(t, addErr)
 		txHash := addRes.TransactionHash
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).Times(2)
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
+		id, conn := createTestTxStatusWebsocket(t, handler, (*felt.Felt)(&txHash))
 
 		assertNextTxnStatus(
 			t,
 			conn,
 			id,
-			txHash,
+			(*felt.Felt)(&txHash),
 			rpcv9.TxnStatusReceived,
 			rpcv9.UnknownExecution,
 			"",
 		)
 		// Candidate Status
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		preConfirmed := &core.PreConfirmed{
 			Block: &core.Block{
@@ -1175,16 +1172,16 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			txHash,
+			(*felt.Felt)(&txHash),
 			rpcv9.TxnStatusCandidate,
 			rpcv9.UnknownExecution,
 			"",
 		)
-		require.Equal(t, block.Transactions[0].Hash(), txHash)
+		require.Equal(t, block.Transactions[0].Hash(), (*felt.Felt)(&txHash))
 
 		// PreConfirmed Status
 		rpcTx := rpcv9.AdaptTransaction(block.Transactions[0])
-		rpcTx.Hash = txHash
+		rpcTx.Hash = (*felt.Felt)(&txHash)
 
 		preConfirmed = &core.PreConfirmed{
 			Block: &core.Block{
@@ -1208,7 +1205,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			txHash,
+			(*felt.Felt)(&txHash),
 			rpcv9.TxnStatusPreConfirmed,
 			rpcv9.TxnSuccess,
 			"",
@@ -1231,7 +1228,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Times(1)
 		// Accepted on l2 Status
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			&txHash,
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
 			block.Number, uint64(0),
@@ -1246,7 +1243,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			txHash,
+			(*felt.Felt)(&txHash),
 			rpcv9.TxnStatusAcceptedOnL2,
 			rpcv9.TxnSuccess,
 			"",
@@ -1258,7 +1255,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Times(1)
 		l1Head := core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			&txHash,
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
 			block.Number, uint64(0),
@@ -1272,7 +1269,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			txHash,
+			(*felt.Felt)(&txHash),
 			rpcv9.TxnStatusAcceptedOnL1,
 			rpcv9.TxnSuccess,
 			"",
