@@ -280,7 +280,7 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 
 func (h *Handler) prepareTransactions(
 	ctx context.Context,
-	transactions []rpcv9.BroadcastedTransaction,
+	transactions []BroadcastedTransaction,
 	network *utils.Network,
 ) ([]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
 	txns := make([]core.Transaction, len(transactions))

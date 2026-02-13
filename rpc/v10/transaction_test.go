@@ -1818,7 +1818,12 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			ProofFacts: []felt.Felt{proofFact},
 		}
 
-		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
+		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(
+			t.Context(),
+			nil,
+			broadcastedTxn,
+			network,
+		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
 	})
@@ -1840,7 +1845,12 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Proof: []uint64{1, 2, 3},
 		}
 
-		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
+		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(
+			t.Context(),
+			nil,
+			broadcastedTxn,
+			network,
+		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proof can only be included in invoke v3 transactions")
 	})
@@ -1862,7 +1872,12 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			ProofFacts: []felt.Felt{proofFact},
 		}
 
-		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(broadcastedTxn, network)
+		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(
+			t.Context(),
+			nil,
+			broadcastedTxn,
+			network,
+		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
 	})
