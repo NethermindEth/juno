@@ -379,7 +379,7 @@ func AdaptBroadcastedTransaction(
 
 	var declaredClass core.ClassDefinition
 	if len(broadcastedTxn.ContractClass) != 0 {
-		declaredClass, err = adaptDeclaredClass(
+		declaredClass, err = AdaptDeclaredClass(
 			ctx, compiler, broadcastedTxn.ContractClass,
 		)
 		if err != nil {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -51,7 +52,7 @@ func AdaptBroadcastedTransaction(
 	network *utils.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	isInvokeV3 := broadcastedTxn.Transaction.Type == rpcv9.TxnInvoke &&
-		broadcastedTxn.Transaction.Version.Cmp(felt.NewFromUint64[felt.Felt](3)) == 0
+		isVersion3(broadcastedTxn.Transaction.Version)
 
 	if !isInvokeV3 {
 		if len(broadcastedTxn.ProofFacts) > 0 {
@@ -62,23 +63,61 @@ func AdaptBroadcastedTransaction(
 		}
 	}
 
-	txn, declaredClass, paidFeeOnL1, err := rpcv9.AdaptBroadcastedTransaction(
-		&broadcastedTxn.BroadcastedTransaction,
-		network,
-	)
+	feederTxn := rpcv9.AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
+	if isInvokeV3 && len(broadcastedTxn.ProofFacts) > 0 {
+		proofFactsPtrs := make([]*felt.Felt, len(broadcastedTxn.ProofFacts))
+		for i := range broadcastedTxn.ProofFacts {
+			copy := broadcastedTxn.ProofFacts[i]
+			proofFactsPtrs[i] = &copy
+		}
+		feederTxn.ProofFacts = &proofFactsPtrs
+	}
+
+	txn, err := sn2core.AdaptTransaction(&feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	if invokeTx, ok := txn.(*core.InvokeTransaction); ok {
-		if invokeTx.Version.Is(3) && len(broadcastedTxn.ProofFacts) > 0 {
-			proofFactsPtrs := make([]*felt.Felt, len(broadcastedTxn.ProofFacts))
-			for i := range broadcastedTxn.ProofFacts {
-				copy := broadcastedTxn.ProofFacts[i]
-				proofFactsPtrs[i] = &copy
-			}
-			invokeTx.ProofFacts = proofFactsPtrs
+	var declaredClass core.ClassDefinition
+	if len(broadcastedTxn.ContractClass) != 0 {
+		declaredClass, err = rpcv9.AdaptDeclaredClass(broadcastedTxn.ContractClass)
+		if err != nil {
+			return nil, nil, nil, err
 		}
+	} else if broadcastedTxn.Type == rpcv9.TxnDeclare {
+		return nil, nil, nil, errors.New("declare without a class definition")
+	}
+
+	if t, ok := txn.(*core.DeclareTransaction); ok {
+		classHash, err := declaredClass.Hash()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		t.ClassHash = &classHash
+	}
+
+	txnHash, err := core.TransactionHash(txn, network)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	var paidFeeOnL1 *felt.Felt
+	switch t := txn.(type) {
+	case *core.DeclareTransaction:
+		t.TransactionHash = &txnHash
+	case *core.InvokeTransaction:
+		t.TransactionHash = &txnHash
+	case *core.DeployAccountTransaction:
+		t.TransactionHash = &txnHash
+	case *core.L1HandlerTransaction:
+		t.TransactionHash = &txnHash
+		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
+	default:
+		return nil, nil, nil, errors.New("unsupported transaction")
+	}
+
+	if txn.Hash() == nil {
+		return nil, nil, nil, errors.New("deprecated transaction type")
 	}
 
 	return txn, declaredClass, paidFeeOnL1, nil

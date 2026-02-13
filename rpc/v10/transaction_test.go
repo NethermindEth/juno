@@ -525,18 +525,11 @@ func TestTransactionByHash(t *testing.T) {
 			hash, err := felt.NewFromString[felt.Felt](test.hash)
 			require.NoError(t, err)
 
-			expectedMap := make(map[string]any)
-			require.NoError(t, json.Unmarshal([]byte(test.expected), &expectedMap))
-
 			res, rpcErr := handler.TransactionByHash(hash, test.responseFlags)
 			require.Nil(t, rpcErr)
-
 			resJSON, err := json.Marshal(res)
 			require.NoError(t, err)
-			resMap := make(map[string]any)
-			require.NoError(t, json.Unmarshal(resJSON, &resMap))
-
-			assert.Equal(t, expectedMap, resMap, string(resJSON))
+			assert.JSONEq(t, test.expected, string(resJSON))
 		})
 	}
 }
