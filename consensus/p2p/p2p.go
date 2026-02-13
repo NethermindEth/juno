@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	libp2p "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -62,6 +63,7 @@ func New(
 	currentHeight types.Height,
 	bufferSizeConfig *config.BufferSizes,
 	bootstrapPeersFn func() []peer.AddrInfo,
+	compiler compiler.Compiler,
 ) P2P[starknet.Value, starknet.Hash, starknet.Address] {
 	commitNotifier := make(chan types.Height, bufferSizeConfig.ProposalCommitNotifier)
 
@@ -86,7 +88,7 @@ func New(
 	proposalStream := validator.NewProposalStreamDemux(
 		log,
 		proposalStore,
-		validator.NewTransition(builder),
+		validator.NewTransition(builder, compiler),
 		bufferSizeConfig,
 		commitNotifier,
 		currentHeight,

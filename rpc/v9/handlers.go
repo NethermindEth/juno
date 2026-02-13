@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -31,6 +32,7 @@ type Handler struct {
 	gatewayClient rpccore.Gateway
 	feederClient  *feeder.Client
 	vm            vm.VM
+	compiler      compiler.Compiler
 	log           utils.Logger
 	memPool       mempool.Pool
 
@@ -94,6 +96,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
+}
+
+func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
+	h.compiler = compiler
+	return h
 }
 
 func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {

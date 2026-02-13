@@ -17,15 +17,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCompile(t *testing.T) {
+func TestCompileFFI(t *testing.T) {
 	t.Run("zero sierra", func(t *testing.T) {
-		_, err := compiler.Compile(&starknet.SierraClass{})
+		_, err := compiler.CompileFFI(&starknet.SierraClass{})
 		require.Error(t, err)
 	})
 
 	t.Run("ok", func(t *testing.T) {
 		cl := feeder.NewTestClient(t, &utils.Integration)
-		classHash := felt.NewUnsafeFromString[felt.Felt]("0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b")
+		classHash := felt.NewUnsafeFromString[felt.Felt](
+			"0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b",
+		)
 
 		classDef, err := cl.ClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
@@ -35,7 +37,7 @@ func TestCompile(t *testing.T) {
 		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)
 		require.NoError(t, err)
 
-		res, err := compiler.Compile(classDef.Sierra)
+		res, err := compiler.CompileFFI(classDef.Sierra)
 		require.NoError(t, err)
 
 		gotCompiled, err := sn2core.AdaptCompiledClass(res)
@@ -51,7 +53,7 @@ func TestCompile(t *testing.T) {
 		// tests https://github.com/NethermindEth/juno/issues/1748
 		definition := loadTestData[starknet.SierraClass](t, "declare_cairo2_definition.json")
 
-		_, err := compiler.Compile(&definition)
+		_, err := compiler.CompileFFI(&definition)
 		require.NoError(t, err)
 	})
 }

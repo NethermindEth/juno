@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sequencer"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -122,11 +123,13 @@ func getGenesisSequencer(
 		FeeTokenAddresses: feeTokens,
 	}
 	diff, classes, err := genesis.GenesisStateDiff(
+		t.Context(),
 		genesisConfig,
 		vm.New(&chainInfo, false, log),
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))

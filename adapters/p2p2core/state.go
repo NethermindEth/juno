@@ -1,12 +1,14 @@
 package p2p2core
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
@@ -14,6 +16,8 @@ import (
 )
 
 func AdaptStateDiff(
+	ctx context.Context,
+	compiler compiler.Compiler,
 	reader core.StateReader,
 	contractDiffs []*state.ContractDiff,
 	classes []*class.Class,
@@ -24,7 +28,7 @@ func AdaptStateDiff(
 	)
 
 	for _, cls := range classes {
-		class, err := AdaptClass(cls)
+		class, err := AdaptClass(ctx, compiler, cls)
 		if err != nil {
 			return nil, fmt.Errorf("unsupported class: %w", err)
 		}

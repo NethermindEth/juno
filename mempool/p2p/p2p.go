@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -40,6 +41,7 @@ func New(
 	pool mempool.Pool,
 	config *config.BufferSizes,
 	bootstrapPeersFn func() []peer.AddrInfo,
+	compiler compiler.Compiler,
 ) *P2P {
 	return &P2P{
 		host:             host,
@@ -47,7 +49,7 @@ func New(
 		network:          network,
 		pool:             pool,
 		broadcaster:      NewTransactionBroadcaster(log, config.MempoolBroadcaster, config.RetryInterval),
-		listener:         NewTransactionListener(network, log, pool, config.MempoolListener),
+		listener:         NewTransactionListener(network, log, pool, config.MempoolListener, compiler),
 		config:           config,
 		bootstrapPeersFn: bootstrapPeersFn,
 	}

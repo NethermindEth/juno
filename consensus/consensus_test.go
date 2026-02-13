@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/server"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	p2psync "github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -89,11 +90,13 @@ func loadGenesis(
 		FeeTokenAddresses: feeTokens,
 	}
 	diff, classes, err := genesis.GenesisStateDiff(
+		t.Context(),
 		genesisConfig,
 		vm.New(&chainInfo, false, log),
 		&network,
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)
 
@@ -126,7 +129,9 @@ func initNode(
 	}
 	vm := vm.New(&chainInfo, false, logger)
 
-	blockFetcher := p2psync.NewBlockFetcher(bc, syncNode.Host, &network, logger)
+	blockFetcher := p2psync.NewBlockFetcher(
+		bc, compiler.NewUnsafe(), syncNode.Host, &network, logger,
+	)
 	syncServer := server.New(syncNode.Host, bc, logger)
 
 	services, err := consensus.Init(
@@ -140,6 +145,7 @@ func initNode(
 		mockServices.Validators,
 		mockServices.TimeoutFn,
 		consensusNode.GetBootstrapPeers,
+		nil,
 	)
 	require.NoError(t, err)
 

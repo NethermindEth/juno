@@ -51,6 +51,7 @@ func TestSimulateTransactions(t *testing.T) {
 			}, nil)
 
 		_, httpHeader, err := handler.SimulateTransactions(
+			t.Context(),
 			rpcv7.BlockID{Latest: true},
 			rpcv7.BroadcastedTransactionInputs{},
 			[]rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
@@ -72,6 +73,7 @@ func TestSimulateTransactions(t *testing.T) {
 			}, nil)
 
 		_, httpHeader, err := handler.SimulateTransactions(
+			t.Context(),
 			rpcv7.BlockID{Latest: true},
 			rpcv7.BroadcastedTransactionInputs{},
 			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
@@ -91,6 +93,7 @@ func TestSimulateTransactions(t *testing.T) {
 				})
 
 			_, httpHeader, err := handler.SimulateTransactions(
+				t.Context(),
 				rpcv7.BlockID{Latest: true},
 				rpcv7.BroadcastedTransactionInputs{},
 				[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
@@ -116,6 +119,7 @@ func TestSimulateTransactions(t *testing.T) {
 			}, nil)
 
 		_, httpHeader, err := handler.SimulateTransactions(
+			t.Context(),
 			rpcv7.BlockID{Latest: true},
 			rpcv7.BroadcastedTransactionInputs{},
 			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
@@ -233,6 +237,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			handler := rpcv7.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
 
 			_, _, err := handler.SimulateTransactions(
+				t.Context(),
 				rpcv7.BlockID{Latest: true},
 				rpcv7.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpcv6.SimulationFlag{},

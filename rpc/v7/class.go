@@ -1,6 +1,7 @@
 package rpcv7
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -22,7 +23,11 @@ type FunctionCall struct {
 	Calldata           CalldataInputs `json:"calldata"`
 }
 
-func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, error) {
+func adaptDeclaredClass(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	declaredClass json.RawMessage,
+) (core.ClassDefinition, error) {
 	var feederClass starknet.ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
@@ -31,7 +36,7 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.ClassDefinition, er
 
 	switch {
 	case feederClass.Sierra != nil:
-		compiledClass, cErr := compiler.Compile(feederClass.Sierra)
+		compiledClass, cErr := compiler.Compile(ctx, feederClass.Sierra)
 		if cErr != nil {
 			return nil, cErr
 		}

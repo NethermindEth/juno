@@ -44,6 +44,7 @@ func TestThrottledVMError(t *testing.T) {
 
 		blockID := rpcv9.BlockIDLatest()
 		_, httpHeader, rpcErr := handler.SimulateTransactions(
+			t.Context(),
 			&blockID,
 			rpcv9.BroadcastedTransactionInputs{},
 			[]rpcv10.SimulationFlag{rpcv10.SkipFeeChargeFlag},
