@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Rust
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
