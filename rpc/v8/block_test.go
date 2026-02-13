@@ -158,7 +158,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	}
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(latestBlock, nil)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		latest := blockIDLatest(t)
@@ -169,7 +171,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
+		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		hash := blockIDHash(t, latestBlockHash)
@@ -180,7 +184,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		number := blockIDNumber(t, latestBlockNumber)
@@ -191,7 +197,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
@@ -213,7 +221,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
-		)
+		).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		pendingID := blockIDPending(t)
@@ -229,15 +237,15 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
-		)
+		).Times(2)
 
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
 		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil)
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+			Return(&blockToRegisterHash, nil).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)
 		blockWTxHashes, rpcErr := handler.BlockWithTxHashes(&pending)
@@ -335,7 +343,9 @@ func TestBlockWithTxs(t *testing.T) {
 	}).Times(len(latestBlock.Transactions) * 5)
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		latest := blockIDLatest(t)
@@ -349,7 +359,9 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		hash := blockIDHash(t, latestBlockHash)
@@ -363,7 +375,10 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(
+			latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		number := blockIDNumber(t, latestBlockNumber)
@@ -380,7 +395,10 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(
+			latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
@@ -407,7 +425,7 @@ func TestBlockWithTxs(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
-		).Times(2)
+		).Times(4)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		pendingID := blockIDPending(t)
@@ -427,15 +445,15 @@ func TestBlockWithTxs(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
-		)
+		).Times(2)
 
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
 		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil)
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+			Return(&blockToRegisterHash, nil).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&pending)
@@ -476,7 +494,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	tx, ok := coreBlock.Transactions[0].(*core.InvokeTransaction)
 	require.True(t, ok)
 
-	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(coreBlock, nil)
+	mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(coreBlock.Header, nil)
+	mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(coreBlock.Transactions, nil)
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 	blockID := blockIDNumber(t, blockNumber)
@@ -731,7 +750,9 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 		require.NoError(t, err)
 		latestBlock.Header.SequencerAddress = nil
-		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		blockID := blockIDLatest(t)
