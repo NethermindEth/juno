@@ -890,7 +890,8 @@ func (h *Handler) TransactionStatus(
 	return TransactionStatus{}, txErr
 }
 
-func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error { //nolint:gocyclo
+//nolint:gocyclo // maps gateway error codes to RPC errors
+func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
