@@ -126,9 +126,8 @@ func AdaptL1ToL2Message(response *starknet.L1ToL2Message) *core.L1ToL2Message {
 	if response == nil {
 		return nil
 	}
-	fromBytes := []byte(response.From)
 	return &core.L1ToL2Message{
-		From:     types.FromBytes[types.L1Address](fromBytes),
+		From:     types.UnsafeFromString[types.L1Address](response.From),
 		Nonce:    response.Nonce,
 		Payload:  response.Payload,
 		Selector: response.Selector,
@@ -141,11 +140,10 @@ func AdaptL2ToL1Message(response *starknet.L2ToL1Message) *core.L2ToL1Message {
 		return nil
 	}
 
-	toBytes := []byte(response.To)
 	return &core.L2ToL1Message{
 		From:    (*felt.Address)(response.From),
 		Payload: response.Payload,
-		To:      types.FromBytes[types.L1Address](toBytes),
+		To:      types.UnsafeFromString[types.L1Address](response.To),
 	}
 }
 

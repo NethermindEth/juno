@@ -23,12 +23,16 @@ func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
 //   - the parameters should be received by reference
 //   - the output param should be return by value
 func AdaptOrderedMessageToL1(message *vm.OrderedL2toL1Message) *core.L2ToL1Message {
-	messageBytes := message.From.Marshal()
+	var to types.L1Address
+	if message.To != nil {
+		toBytes := message.To.Marshal()
+		to = types.FromBytes[types.L1Address](toBytes)
+	}
 	return &core.L2ToL1Message{
 		// todo: remove this cast
 		From:    (*felt.Address)(message.From),
 		Payload: message.Payload,
-		To:      types.FromBytes[types.L1Address](messageBytes),
+		To:      to,
 	}
 }
 
