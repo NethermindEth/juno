@@ -188,5 +188,5 @@ jobs:
 
       - name: Run golden tests
         env:
-          STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
+          STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
         run: ./golden.sh test
