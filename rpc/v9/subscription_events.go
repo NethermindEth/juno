@@ -1,4 +1,4 @@
-package rpcv10
+package rpcv9
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -25,17 +24,17 @@ const subscribeEventsChunkSize = 1024
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
-	fromAddrs addressList,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
-	blockID *rpcv9.SubscriptionBlockID,
-	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
+	blockID *SubscriptionBlockID,
+	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	sub, rpcErr := newEventSubscriber(h, w, fromAddrs, keys, blockID, finalityStatus)
+	sub, rpcErr := newEventSubscriber(h, w, fromAddr, keys, blockID, finalityStatus)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
@@ -44,8 +43,8 @@ func (h *Handler) SubscribeEvents(
 }
 
 type SubscriptionEmittedEvent struct {
-	EmittedEvent
-	FinalityStatus rpcv9.TxnFinalityStatus `json:"finality_status"`
+	rpcv6.EmittedEvent
+	FinalityStatus TxnFinalityStatus `json:"finality_status"`
 }
 
 type SentEvent struct {
@@ -58,17 +57,17 @@ type eventSubscriberState struct {
 	handler      *Handler
 	conn         jsonrpc.Conn
 	l1HeadNumber uint64
-	sentCache    *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus]
+	sentCache    *rpccore.SubscriptionCache[SentEvent, TxnFinalityStatus]
 	eventMatcher blockchain.EventMatcher
 }
 
 func newEventSubscriber(
 	handler *Handler,
 	conn jsonrpc.Conn,
-	fromAddrs []felt.Address,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
-	blockID *rpcv9.SubscriptionBlockID,
-	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
+	blockID *SubscriptionBlockID,
+	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (subscriber, *jsonrpc.Error) {
 	lenKeys := len(keys)
 	for _, k := range keys {
@@ -87,30 +86,35 @@ func newEventSubscriber(
 		return subscriber{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 
+	var addresses []felt.Address
+	if fromAddr != nil {
+		addresses = []felt.Address{*fromAddr}
+	}
+
 	state := &eventSubscriberState{
 		handler:      handler,
 		conn:         conn,
 		l1HeadNumber: l1Head.BlockNumber,
-		sentCache:    rpccore.NewSubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus](),
-		eventMatcher: blockchain.NewEventMatcher(fromAddrs, keys),
+		sentCache:    rpccore.NewSubscriptionCache[SentEvent, TxnFinalityStatus](),
+		eventMatcher: blockchain.NewEventMatcher(addresses, keys),
 	}
 
-	fromBlock := rpcv9.BlockIDFromNumber(requestedHeader.Number)
-	var toBlock rpcv9.BlockID
-	if finalityStatus != nil &&
-		*finalityStatus == rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed) {
-		toBlock = rpcv9.BlockIDPreConfirmed()
+	fromBlock := BlockIDFromNumber(requestedHeader.Number)
+	var toBlock BlockID
+	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
+		toBlock = BlockIDPreConfirmed()
 	} else {
-		toBlock = rpcv9.BlockIDFromNumber(headHeader.Number)
+		toBlock = BlockIDFromNumber(headHeader.Number)
 	}
 
 	s := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			return state.processHistoricalEvents(
-				ctx, id,
+				ctx,
+				id,
 				&fromBlock,
 				&toBlock,
-				fromAddrs,
+				fromAddr,
 				keys,
 				headHeader.Number,
 			)
@@ -120,8 +124,7 @@ func newEventSubscriber(
 		onPreLatest: state.onPreLatest,
 	}
 
-	if finalityStatus != nil &&
-		*finalityStatus == rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed) {
+	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 		s.onPendingData = state.onPendingData
 	}
 
@@ -144,7 +147,7 @@ func (s *eventSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	return s.processBlock(ctx, id, head, rpcv9.TxnAcceptedOnL2)
+	return s.processBlock(ctx, id, head, TxnAcceptedOnL2)
 }
 
 func (s *eventSubscriberState) onPreLatest(
@@ -153,7 +156,7 @@ func (s *eventSubscriberState) onPreLatest(
 	_ *subscription,
 	preLatest *core.PreLatest,
 ) error {
-	return s.processBlock(ctx, id, preLatest.Block, rpcv9.TxnAcceptedOnL2)
+	return s.processBlock(ctx, id, preLatest.Block, TxnAcceptedOnL2)
 }
 
 func (s *eventSubscriberState) onPendingData(
@@ -166,14 +169,14 @@ func (s *eventSubscriberState) onPendingData(
 		return fmt.Errorf("unexpected pending data variant %v", pending.Variant())
 	}
 
-	return s.processBlock(ctx, id, pending.GetBlock(), rpcv9.TxnPreConfirmed)
+	return s.processBlock(ctx, id, pending.GetBlock(), TxnPreConfirmed)
 }
 
 func (s *eventSubscriberState) processBlock(
 	ctx context.Context,
 	id string,
 	block *core.Block,
-	finalityStatus rpcv9.TxnFinalityStatus,
+	finalityStatus TxnFinalityStatus,
 ) error {
 	if isMatch := s.eventMatcher.TestBloom(block.EventsBloom); !isMatch {
 		return nil
@@ -187,6 +190,7 @@ func (s *eventSubscriberState) processBlock(
 			default:
 			}
 
+			// todo: remove the cast to felt.Felt
 			if !s.eventMatcher.MatchesAddress(event.From) {
 				continue
 			}
@@ -195,7 +199,7 @@ func (s *eventSubscriberState) processBlock(
 				continue
 			}
 
-			event := blockchain.FilteredEvent{
+			filteredEvent := blockchain.FilteredEvent{
 				BlockNumber:      &block.Number,
 				BlockHash:        block.Hash,
 				TransactionHash:  receipt.TransactionHash,
@@ -206,7 +210,7 @@ func (s *eventSubscriberState) processBlock(
 
 			err := s.sendEventWithoutDuplicate(
 				id,
-				&event,
+				&filteredEvent,
 				finalityStatus,
 				block.Number,
 			)
@@ -223,12 +227,16 @@ func (s *eventSubscriberState) processHistoricalEvents(
 	ctx context.Context,
 	id string,
 	from,
-	to *rpcv9.BlockID,
-	fromAddrs []felt.Address,
+	to *BlockID,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	height uint64,
 ) error {
-	filter, err := s.handler.bcReader.EventFilter(fromAddrs, keys, s.handler.PendingData)
+	var addresses []felt.Address
+	if fromAddr != nil {
+		addresses = []felt.Address{*fromAddr}
+	}
+	filter, err := s.handler.bcReader.EventFilter(addresses, keys, s.handler.PendingData)
 	if err != nil {
 		return err
 	}
@@ -275,18 +283,18 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			var finalityStatus rpcv9.TxnFinalityStatus
+			var finalityStatus TxnFinalityStatus
 			switch {
 			case *event.BlockNumber > height: // pre_confirmed or pre_latest block
 				if event.BlockParentHash == nil {
-					finalityStatus = rpcv9.TxnPreConfirmed
+					finalityStatus = TxnPreConfirmed
 				} else {
-					finalityStatus = rpcv9.TxnAcceptedOnL2
+					finalityStatus = TxnAcceptedOnL2
 				}
 			case *event.BlockNumber <= s.l1HeadNumber:
-				finalityStatus = rpcv9.TxnAcceptedOnL1
+				finalityStatus = TxnAcceptedOnL1
 			default: // Canonical block not finalised on L1
-				finalityStatus = rpcv9.TxnAcceptedOnL2
+				finalityStatus = TxnAcceptedOnL2
 			}
 
 			if err := s.sendEventWithoutDuplicate(
@@ -305,7 +313,7 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 func (s *eventSubscriberState) sendEventWithoutDuplicate(
 	id string,
 	event *blockchain.FilteredEvent,
-	finalityStatus rpcv9.TxnFinalityStatus,
+	finalityStatus TxnFinalityStatus,
 	blockNum uint64,
 ) error {
 	sentEvent := SentEvent{
@@ -318,12 +326,10 @@ func (s *eventSubscriberState) sendEventWithoutDuplicate(
 	}
 	s.sentCache.Put(blockNum, &sentEvent, &finalityStatus)
 
-	emittedEvent := EmittedEvent{
-		BlockNumber:      event.BlockNumber,
-		BlockHash:        event.BlockHash,
-		TransactionHash:  event.TransactionHash,
-		TransactionIndex: event.TransactionIndex,
-		EventIndex:       event.EventIndex,
+	emittedEvent := rpcv6.EmittedEvent{
+		BlockNumber:     event.BlockNumber,
+		BlockHash:       event.BlockHash,
+		TransactionHash: event.TransactionHash,
 		Event: &rpcv6.Event{
 			From: event.From,
 			Keys: event.Keys,
