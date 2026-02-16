@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,6 +56,24 @@ func TestLazySlice(t *testing.T) {
 			// Cannot test full struct for FunctionCall because its json encoding is not roundtrip
 			nil,
 		)
+	})
+
+	// This test ensures that the validation logic works for the values inside the Data slice.
+	t.Run("ValidateRequiredFields", func(t *testing.T) {
+		type BroadcastedTxLimitSlice = rpccore.LimitSlice[
+			rpcv9.BroadcastedTransaction,
+			rpccore.SimulationLimit,
+		]
+
+		withEmptyValues := BroadcastedTxLimitSlice{
+			Data: make([]rpcv9.BroadcastedTransaction, 10),
+		}
+
+		validate := validator.Validator()
+		// The [rpcv9.BroadcastedTransaction] struct contains 'validate:...' json tags,
+		// so it should fail here since we're not filling them with valid values.
+		err := validate.Struct(withEmptyValues)
+		require.Error(t, err, "Validation is not working for the values inside the Data slice")
 	})
 }
 
