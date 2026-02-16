@@ -24,7 +24,7 @@ import (
 // or not at all.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/4e98e3684b50ee9e63b7eeea9412b6a2ed7494ec/api/starknet_ws_api.json#L257
+// https://github.com/starkware-libs/starknet-specs/blob/785257f27cdc4ea0ca3b62a21b0f7bf51000f9b1/api/starknet_ws_api.json#L264
 //
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeNewTransactions(

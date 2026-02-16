@@ -37,7 +37,7 @@ var (
 // Later updates are sent only when the transaction status changes.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L151
+// https://github.com/starkware-libs/starknet-specs/blob/785257f27cdc4ea0ca3b62a21b0f7bf51000f9b1/api/starknet_ws_api.json#L151
 //
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeTransactionStatus(
