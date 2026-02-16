@@ -19,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -43,6 +44,7 @@ func Init(
 	validators votecounter.Validators[starknet.Address],
 	timeoutFn driver.TimeoutFn,
 	bootstrapPeersFn func() []peer.AddrInfo,
+	compiler compiler.Compiler,
 ) (ConsensusServices, error) {
 	chainHeight, err := blockchain.Height()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -59,7 +61,16 @@ func Init(
 	proposer := proposer.New(logger, &builder, &proposalStore, *nodeAddress, toValue)
 	stateMachine := tendermint.New(logger, *nodeAddress, proposer, validators, currentHeight)
 
-	p2p := p2p.New(host, logger, &builder, &proposalStore, currentHeight, &config.DefaultBufferSizes, bootstrapPeersFn)
+	p2p := p2p.New(
+		host,
+		logger,
+		&builder,
+		&proposalStore,
+		currentHeight,
+		&config.DefaultBufferSizes,
+		bootstrapPeersFn,
+		compiler,
+	)
 
 	commitListener := driver.NewCommitListener(logger, &proposalStore, proposer, p2p)
 

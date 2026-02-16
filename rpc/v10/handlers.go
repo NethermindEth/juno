@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -52,6 +53,8 @@ type Handler struct {
 	filterLimit  uint
 	callMaxSteps uint64
 	callMaxGas   uint64
+
+	compiler compiler.Compiler
 
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
@@ -97,6 +100,11 @@ func New(
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
+}
+
+func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
+	h.compiler = compiler
+	return h
 }
 
 func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {

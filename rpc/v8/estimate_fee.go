@@ -1,6 +1,7 @@
 package rpcv8
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -259,11 +260,13 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 */
 
 func (h *Handler) EstimateFee(
+	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
 	id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
+		ctx,
 		id,
 		broadcastedTxns.Data,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
@@ -283,7 +286,9 @@ func (h *Handler) EstimateFee(
 }
 
 func (h *Handler) EstimateMessageFee(
-	msg *rpcv6.MsgFromL1, id *BlockID,
+	ctx context.Context,
+	msg *rpcv6.MsgFromL1,
+	id *BlockID,
 ) (FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
@@ -307,6 +312,7 @@ func (h *Handler) EstimateMessageFee(
 
 	bcTxn := [1]BroadcastedTransaction{tx}
 	estimates, httpHeader, err := h.EstimateFee(
+		ctx,
 		BroadcastedTransactionInputs{Data: bcTxn[:]},
 		nil,
 		id,

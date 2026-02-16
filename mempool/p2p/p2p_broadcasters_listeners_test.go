@@ -67,7 +67,15 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 		received := make(chan *mempool.BroadcastedTransaction, txCount)
 		pool := mockMempool(received)
 
-		p2p := p2p.New(&utils.Mainnet, node.Host, logger, &pool, &config.DefaultBufferSizes, node.GetBootstrapPeers)
+		p2p := p2p.New(
+			&utils.Mainnet,
+			node.Host,
+			logger,
+			&pool,
+			&config.DefaultBufferSizes,
+			node.GetBootstrapPeers,
+			nil,
+		)
 
 		peerWait.Go(func() {
 			require.NoError(t, p2p.Run(t.Context()))

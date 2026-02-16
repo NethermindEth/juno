@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -32,6 +33,7 @@ type Handler struct {
 	gatewayClient rpccore.Gateway
 	feederClient  *feeder.Client
 	vm            vm.VM
+	compiler      compiler.Compiler
 	idgen         func() uint64
 	subscriptions stdsync.Map // map[uint64]*subscription
 	newHeads      *feed.Feed[*core.Block]
@@ -71,6 +73,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 	}
+}
+
+func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
+	h.compiler = compiler
+	return h
 }
 
 func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {

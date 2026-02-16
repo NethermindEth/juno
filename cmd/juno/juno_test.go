@@ -71,7 +71,6 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGwTimeout := "5s"
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
-
 	expectedConfig1 := node.Config{
 		LogLevel:                           "debug",
 		HTTP:                               defaultHTTP,

@@ -54,7 +54,7 @@ func TestProposalStreamDemux(t *testing.T) {
 	database := memory.New()
 	bc := blockchain.New(database, network)
 	builder := builder.New(bc, executor)
-	transition := NewTransition(&builder)
+	transition := NewTransition(&builder, nil)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	demux := NewProposalStreamDemux(logger, &proposalStore, transition, &config.DefaultBufferSizes, commitNotifier, block1)
 

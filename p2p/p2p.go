@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/server"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
@@ -52,8 +53,18 @@ type Service struct {
 	database   db.KeyValueStore
 }
 
-func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.StructuredLogger, database db.KeyValueStore,
+func New(
+	addr,
+	publicAddr,
+	version,
+	peers,
+	privKeyStr string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	log utils.StructuredLogger,
+	database db.KeyValueStore,
+	compiler compiler.Compiler,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -110,11 +121,20 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(
+		p2pHost, peers, feederNode, bc, snNetwork, log, database, compiler,
+	)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.StructuredLogger, database db.KeyValueStore,
+func NewWithHost(
+	p2phost host.Host,
+	peers string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	log utils.StructuredLogger,
+	database db.KeyValueStore,
+	compiler compiler.Compiler,
 ) (*Service, error) {
 	peersAddrInfoS, err := loadPeers(database)
 	if err != nil {
@@ -143,7 +163,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	blockFetcher := p2pSync.NewBlockFetcher(bc, p2phost, snNetwork, log)
+	blockFetcher := p2pSync.NewBlockFetcher(bc, compiler, p2phost, snNetwork, log)
 	synchroniser := p2pSync.New(bc, log, &blockFetcher)
 	server := server.New(p2phost, bc, log)
 	s := &Service{

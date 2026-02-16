@@ -1,6 +1,7 @@
 package rpcv6
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,15 +66,21 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 
 // pre 13.1
 func (h *Handler) SimulateTransactions(
+	ctx context.Context,
 	id BlockID,
 	broadcastedTxns BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, broadcastedTxns.Data, simulationFlags, false, false)
+	return h.simulateTransactions(ctx, id, broadcastedTxns.Data, simulationFlags, false, false)
 }
 
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, errOnRevert bool, isEstimateFee bool,
+func (h *Handler) simulateTransactions(
+	ctx context.Context,
+	id BlockID,
+	transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag,
+	errOnRevert bool,
+	isEstimateFee bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -90,7 +97,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	network := h.bcReader.Network()
-	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
+	txns, classes, paidFeesOnL1, rpcErr := h.prepareTransactions(
+		ctx, transactions, network,
+	)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -149,7 +158,9 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 		tx.Transaction.ResourceBounds == nil
 }
 
-func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
+func (h *Handler) prepareTransactions(
+	ctx context.Context, transactions []BroadcastedTransaction, network *utils.Network,
+) (
 	[]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error,
 ) {
 	txns := make([]core.Transaction, len(transactions))
@@ -171,7 +182,12 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
 		}
 
-		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
+		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(
+			ctx,
+			h.compiler,
+			&transactions[idx],
+			network,
+		)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}

@@ -1,6 +1,7 @@
 package rpcv10
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -170,14 +171,16 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 *****************************************************/
 
 func (h *Handler) SimulateTransactions(
+	ctx context.Context,
 	id *rpcv9.BlockID,
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions.Data, simulationFlags, false, false)
+	return h.simulateTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
 }
 
 func (h *Handler) simulateTransactions(
+	ctx context.Context,
 	id *rpcv9.BlockID,
 	transactions []rpcv9.BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
@@ -203,7 +206,9 @@ func (h *Handler) simulateTransactions(
 	}
 
 	network := h.bcReader.Network()
-	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
+	txns, classes, paidFeesOnL1, rpcErr := h.prepareTransactions(
+		ctx, transactions, network,
+	)
 	if rpcErr != nil {
 		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
@@ -273,7 +278,8 @@ func checkTxHasResourceBounds(tx *rpcv9.BroadcastedTransaction) bool {
 		tx.Transaction.ResourceBounds == nil
 }
 
-func prepareTransactions(
+func (h *Handler) prepareTransactions(
+	ctx context.Context,
 	transactions []rpcv9.BroadcastedTransaction,
 	network *utils.Network,
 ) ([]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
@@ -303,6 +309,8 @@ func prepareTransactions(
 		}
 
 		txn, declaredClass, paidFeeOnL1, aErr := rpcv9.AdaptBroadcastedTransaction(
+			ctx,
+			h.compiler,
 			&transactions[idx],
 			network,
 		)
@@ -345,7 +353,8 @@ func createSimulatedTransactions(
 	if len(overallFees) != len(traces) || len(overallFees) != len(gasConsumed) ||
 		len(overallFees) != len(daGas) || len(overallFees) != len(txns) {
 		return nil, fmt.Errorf(
-			"inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns", //nolint:lll // error message exceeds line limit
+			"inconsistent lengths: "+
+				"%d overall fees, %d traces, %d gas consumed, %d data availability, %d txns",
 			len(overallFees),
 			len(traces),
 			len(gasConsumed),

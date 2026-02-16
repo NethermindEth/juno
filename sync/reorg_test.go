@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -107,11 +108,13 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 		FeeTokenAddresses: feeTokens,
 	}
 	diff, classes, err := genesis.GenesisStateDiff(
+		t.Context(),
 		genesisConfig,
 		vm.New(&chainInfo, false, utils.NewNopZapLogger()),
 		bc.Network(),
 		vm.DefaultMaxGas,
 		vm.DefaultMaxGas,
+		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))

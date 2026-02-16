@@ -13,6 +13,7 @@ import (
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -45,6 +46,15 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		rpcv10Handler: handlerv10,
 		version:       version,
 	}
+}
+
+func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
+	h.rpcv6Handler.WithCompiler(compiler)
+	h.rpcv7Handler.WithCompiler(compiler)
+	h.rpcv8Handler.WithCompiler(compiler)
+	h.rpcv9Handler.WithCompiler(compiler)
+	h.rpcv10Handler.WithCompiler(compiler)
+	return h
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.

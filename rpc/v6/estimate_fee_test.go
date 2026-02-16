@@ -37,7 +37,7 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	t.Run("block not found", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-		_, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
+		_, err := handler.EstimateMessageFee(t.Context(), msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrBlockNotFound, err)
 	})
 
@@ -95,7 +95,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		},
 	)
 
-	estimateFee, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
+	estimateFee, err := handler.EstimateMessageFee(t.Context(), msg, rpc.BlockID{Latest: true})
 	require.Nil(t, err)
 	feeUnit := rpc.WEI
 	require.Equal(t, expectedGasConsumed, estimateFee.GasConsumed)

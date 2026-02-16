@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/hashstorage"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
@@ -125,12 +126,14 @@ type BlockFetcher struct {
 	network    *utils.Network
 	client     *Client // todo: merge all the functionality of Client with p2p SyncService
 	blockchain *blockchain.Blockchain
+	compiler   compiler.Compiler
 	listener   junoSync.EventListener
 	log        utils.StructuredLogger
 }
 
 func NewBlockFetcher(
 	bc *blockchain.Blockchain,
+	compiler compiler.Compiler,
 	h host.Host,
 	n *utils.Network,
 	log utils.StructuredLogger,
@@ -138,6 +141,7 @@ func NewBlockFetcher(
 	return BlockFetcher{
 		network:    n,
 		blockchain: bc,
+		compiler:   compiler,
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
 		client:     NewClient(randomPeerStream(h, log), n, log),
@@ -390,7 +394,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 
 			newClasses := make(map[felt.Felt]core.ClassDefinition)
 			for _, cls := range classes {
-				coreC, err := p2p2core.AdaptClass(cls)
+				coreC, err := p2p2core.AdaptClass(ctx, s.compiler, cls)
 				if err != nil {
 					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt class: %w", err)}
 					return
@@ -423,7 +427,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 				}
 			}()
 
-			stateDiff, err := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			stateDiff, err := p2p2core.AdaptStateDiff(ctx, s.compiler, stateReader, contractDiffs, classes)
 			if err != nil {
 				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt state diff: %w", err)}
 				return
