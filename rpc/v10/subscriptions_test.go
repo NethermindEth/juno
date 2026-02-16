@@ -1726,7 +1726,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	type testCase struct {
 		description   string
 		statuses      []rpcv9.TxnStatusWithoutL1
-		senderAddress []felt.Felt
+		senderAddress []felt.Address
 		tags          SubscriptionTags
 		steps         []stepInfo
 	}
@@ -3384,7 +3384,7 @@ func createTestNewTransactionsWebsocket(
 	t *testing.T,
 	h *Handler,
 	finalityStatus []rpcv9.TxnStatusWithoutL1,
-	senderAddress []felt.Felt,
+	senderAddress []felt.Address,
 	tags SubscriptionTags,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()

@@ -1,7 +1,6 @@
 package rpcv10
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
@@ -165,30 +164,6 @@ func (h *Handler) BlockWithReceipts(
 		BlockHeader:  AdaptBlockHeader(block.Header, commitments, stateDiff),
 		Transactions: txsWithReceipts,
 	}, nil
-}
-
-type ResponseFlags struct {
-	IncludeProofFacts bool `json:"include_proof_facts"`
-}
-
-func (r *ResponseFlags) UnmarshalJSON(data []byte) error {
-	var flags []string
-	if err := json.Unmarshal(data, &flags); err != nil {
-		return err
-	}
-
-	r.IncludeProofFacts = false
-
-	for _, flag := range flags {
-		switch flag {
-		case "INCLUDE_PROOF_FACTS":
-			r.IncludeProofFacts = true
-		default:
-			return fmt.Errorf("unknown flag: %s", flag)
-		}
-	}
-
-	return nil
 }
 
 // BlockWithTxs returns the block information with full transactions given a block ID.

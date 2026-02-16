@@ -1021,7 +1021,7 @@ func processBlockReceipts(
 func (h *Handler) SubscribeNewTransactions(
 	ctx context.Context,
 	finalityStatus []rpcv9.TxnStatusWithoutL1,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
 	tags SubscriptionTags,
 ) (SubscriptionID, *jsonrpc.Error) {
 	includeProofFacts := tags.IncludeProofFacts
