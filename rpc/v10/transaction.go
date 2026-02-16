@@ -44,8 +44,8 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 
 type BroadcastedTransaction struct {
 	rpcv9.BroadcastedTransaction
-	Proof      []uint64    `json:"proof,omitempty"`
-	ProofFacts []felt.Felt `json:"proof_facts,omitempty"`
+	Proof      []uint64    `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE"`
+	ProofFacts []felt.Felt `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
 func AdaptBroadcastedTransaction(
@@ -54,12 +54,7 @@ func AdaptBroadcastedTransaction(
 	broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
-	isInvokeV3 := broadcastedTxn.Transaction.Type == rpcv9.TxnInvoke &&
-		isVersion3(broadcastedTxn.Transaction.Version)
-
-	if err := validateNonV3Transaction(broadcastedTxn, isInvokeV3); err != nil {
-		return nil, nil, nil, err
-	}
+	isInvokeV3 := broadcastedTxn.Transaction.Type == rpcv9.TxnInvoke
 
 	feederTxn := rpcv9.AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 	if isInvokeV3 && len(broadcastedTxn.ProofFacts) > 0 {
@@ -101,19 +96,6 @@ func AdaptBroadcastedTransaction(
 	}
 
 	return txn, declaredClass, paidFeeOnL1, nil
-}
-
-func validateNonV3Transaction(broadcastedTxn *BroadcastedTransaction, isInvokeV3 bool) error {
-	if isInvokeV3 {
-		return nil
-	}
-	if len(broadcastedTxn.ProofFacts) > 0 {
-		return fmt.Errorf("proof_facts can only be included in invoke v3 transactions")
-	}
-	if len(broadcastedTxn.Proof) > 0 {
-		return fmt.Errorf("proof can only be included in invoke v3 transactions")
-	}
-	return nil
 }
 
 func setProofFacts(feederTxn *starknet.Transaction, broadcastedTxn *BroadcastedTransaction) {
@@ -199,6 +181,7 @@ func (h *Handler) addToMempool(
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		PaidFeeOnL1:   paidFeeOnL1,
+		Proof:         tx.Proof,
 	}); err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}

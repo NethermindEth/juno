@@ -24,6 +24,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -1800,59 +1801,31 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	network := &utils.Sepolia
 
-	t.Run("RejectProofFactsForNonV3Invoke", func(t *testing.T) {
-		proofFact := felt.FromUint64[felt.Felt](100)
+	t.Run("RejectProofForNonInvoke", func(t *testing.T) {
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
 			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
 				Transaction: rpcv9.Transaction{
-					Type:    rpcv9.TxnInvoke,
-					Version: felt.NewFromUint64[felt.Felt](1),
+					Type:    rpcv9.TxnDeclare,
+					Version: felt.NewFromUint64[felt.Felt](3),
 					Signature: &[]*felt.Felt{
 						felt.NewFromUint64[felt.Felt](0x1),
 					},
 					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
 					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
-					CallData:      &[]*felt.Felt{},
-				},
-			},
-			ProofFacts: []felt.Felt{proofFact},
-		}
-
-		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(
-			t.Context(),
-			nil,
-			broadcastedTxn,
-			network,
-		)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
-	})
-
-	t.Run("RejectProofForNonV3Invoke", func(t *testing.T) {
-		broadcastedTxn := &rpcv10.BroadcastedTransaction{
-			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-				Transaction: rpcv9.Transaction{
-					Type:    rpcv9.TxnInvoke,
-					Version: felt.NewFromUint64[felt.Felt](1),
-					Signature: &[]*felt.Felt{
-						felt.NewFromUint64[felt.Felt](0x1),
-					},
-					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
-					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
-					CallData:      &[]*felt.Felt{},
 				},
 			},
 			Proof: []uint64{1, 2, 3},
 		}
 
-		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(
-			t.Context(),
-			nil,
-			broadcastedTxn,
-			network,
-		)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "proof can only be included in invoke v3 transactions")
+		jsonBytes, err := json.Marshal(broadcastedTxn)
+		require.NoError(t, err)
+		var unmarshaledTxn rpcv10.BroadcastedTransaction
+		err = json.Unmarshal(jsonBytes, &unmarshaledTxn)
+		require.NoError(t, err)
+
+		validate := validator.Validator()
+		err = validate.Struct(unmarshaledTxn)
+		require.Error(t, err, "validation should fail because proof is excluded unless Type is INVOKE")
 	})
 
 	t.Run("RejectProofFactsForNonInvoke", func(t *testing.T) {
@@ -1872,14 +1845,75 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			ProofFacts: []felt.Felt{proofFact},
 		}
 
-		_, _, _, err := rpcv10.AdaptBroadcastedTransaction(
+		jsonBytes, err := json.Marshal(broadcastedTxn)
+		require.NoError(t, err)
+		var unmarshaledTxn rpcv10.BroadcastedTransaction
+		err = json.Unmarshal(jsonBytes, &unmarshaledTxn)
+		require.NoError(t, err)
+
+		validate := validator.Validator()
+		err = validate.Struct(unmarshaledTxn)
+		require.Error(t, err, "validation should fail because proof_facts are excluded unless Type is INVOKE")
+	})
+
+	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
+		proofFact := felt.FromUint64[felt.Felt](100)
+		broadcastedTxn := &rpcv10.BroadcastedTransaction{
+			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+				Transaction: rpcv9.Transaction{
+					Type:    rpcv9.TxnInvoke,
+					Version: felt.NewFromUint64[felt.Felt](3),
+					Signature: &[]*felt.Felt{
+						felt.NewFromUint64[felt.Felt](0x1),
+					},
+					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
+					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+					CallData:      &[]*felt.Felt{},
+					ResourceBounds: &rpcv9.ResourceBoundsMap{
+						L1Gas: &rpcv9.ResourceBounds{
+							MaxAmount:       &felt.Zero,
+							MaxPricePerUnit: &felt.Zero,
+						},
+						L2Gas: &rpcv9.ResourceBounds{
+							MaxAmount:       &felt.Zero,
+							MaxPricePerUnit: &felt.Zero,
+						},
+						L1DataGas: &rpcv9.ResourceBounds{
+							MaxAmount:       &felt.Zero,
+							MaxPricePerUnit: &felt.Zero,
+						},
+					},
+					Tip:                   felt.NewFromUint64[felt.Felt](0),
+					PaymasterData:         &[]*felt.Felt{},
+					AccountDeploymentData: &[]*felt.Felt{},
+					NonceDAMode:           utils.HeapPtr(rpcv9.DAModeL1),
+					FeeDAMode:             utils.HeapPtr(rpcv9.DAModeL1),
+				},
+			},
+			Proof:      []uint64{1, 2, 3},
+			ProofFacts: []felt.Felt{proofFact},
+		}
+
+		jsonBytes, err := json.Marshal(broadcastedTxn)
+		require.NoError(t, err)
+		var unmarshaledTxn rpcv10.BroadcastedTransaction
+		err = json.Unmarshal(jsonBytes, &unmarshaledTxn)
+		require.NoError(t, err)
+
+		validate := validator.Validator()
+		err = validate.Struct(unmarshaledTxn.Transaction)
+		require.NoError(t, err, "validation should pass for valid INVOKE v3 transaction")
+
+		err = validate.Struct(unmarshaledTxn)
+		require.NoError(t, err, "validation should pass for INVOKE v3 transaction with proof and proof_facts")
+
+		_, _, _, err = rpcv10.AdaptBroadcastedTransaction(
 			t.Context(),
 			nil,
-			broadcastedTxn,
+			&unmarshaledTxn,
 			network,
 		)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "proof_facts can only be included in invoke v3 transactions")
+		require.NoError(t, err, "AdaptBroadcastedTransaction should succeed for valid INVOKE v3 with proof and proof_facts")
 	})
 }
 
