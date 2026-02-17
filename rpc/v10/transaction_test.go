@@ -1910,7 +1910,11 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			broadcastedTxn,
 			network,
 		)
-		require.NoError(t, err, "AdaptBroadcastedTransaction should succeed for valid INVOKE v3 with proof and proof_facts")
+		require.NoError(
+			t,
+			err,
+			"AdaptBroadcastedTransaction should succeed for valid INVOKE v3 with proof and proof_facts",
+		)
 	})
 }
 
