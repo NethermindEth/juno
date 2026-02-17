@@ -21,27 +21,28 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-type blockTagTestCase struct {
-	description string
-	block       *core.Block
-	commitments *core.BlockCommitments
-	stateUpdate *core.StateUpdate
-	blockID     *rpcv9.BlockID
-	l1Head      *core.L1Head
-	blockStatus rpcv9.BlockStatus
+type blockTestCase struct {
+	description   string
+	block         *core.Block
+	commitments   *core.BlockCommitments
+	stateUpdate   *core.StateUpdate
+	blockID       *rpcv9.BlockID
+	l1Head        *core.L1Head
+	blockStatus   rpcv9.BlockStatus
+	responseFlags rpcv10.ResponseFlags
 }
 
-func createBlockTagTestCases(
+func createBlockTestCases(
 	block *core.Block,
 	commitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-) []blockTagTestCase {
+) []blockTestCase {
 	blockIDLatest := rpcv9.BlockIDLatest()
 	blockIDHash := rpcv9.BlockIDFromHash(block.Hash)
 	blockIDNumber := rpcv9.BlockIDFromNumber(block.Number)
 	blockIDL1Accepted := rpcv9.BlockIDL1Accepted()
 	blockIDPreConfirmed := rpcv9.BlockIDPreConfirmed()
-	return []blockTagTestCase{
+	return []blockTestCase{
 		{
 			description: "blockID - latest",
 			block:       block,
@@ -103,6 +104,36 @@ func createBlockTagTestCases(
 			blockID:     &blockIDPreConfirmed,
 			l1Head:      nil,
 			blockStatus: rpcv9.BlockPreConfirmed,
+		},
+	}
+}
+
+func createBlockResponseFlagsTestCases(
+	block *core.Block,
+	commitments *core.BlockCommitments,
+	stateUpdate *core.StateUpdate,
+) []blockTestCase {
+	blockIDNumber := rpcv9.BlockIDFromNumber(block.Number)
+	return []blockTestCase{
+		{
+			description:   "response flags - without IncludeProofFacts",
+			block:         block,
+			commitments:   commitments,
+			stateUpdate:   stateUpdate,
+			blockID:       &blockIDNumber,
+			l1Head:        nil,
+			blockStatus:   rpcv9.BlockAcceptedL2,
+			responseFlags: rpcv10.ResponseFlags{},
+		},
+		{
+			description:   "response flags - with IncludeProofFacts",
+			block:         block,
+			commitments:   commitments,
+			stateUpdate:   stateUpdate,
+			blockID:       &blockIDNumber,
+			l1Head:        nil,
+			blockStatus:   rpcv9.BlockAcceptedL2,
+			responseFlags: rpcv10.ResponseFlags{IncludeProofFacts: true},
 		},
 	}
 }
@@ -237,6 +268,7 @@ func assertBlockWithTxs(
 	stateUpdate *core.StateUpdate,
 	expectedStatus rpcv9.BlockStatus,
 	actual *rpcv10.BlockWithTxs,
+	responseFlags rpcv10.ResponseFlags,
 ) {
 	t.Helper()
 	assert.Equal(t, expectedStatus, actual.Status)
@@ -251,20 +283,23 @@ func assertBlockWithTxs(
 			&actual.BlockHeader,
 		)
 	}
-	assertTransactionsEq(t, expectedBlock.Transactions, actual.Transactions)
+	includeProofFacts := responseFlags.IncludeProofFacts
+	assertTransactionsEq(t, expectedBlock.Transactions, actual.Transactions, includeProofFacts)
 }
 
 func assertTransactionsEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
-	actualTransactions []*rpcv9.Transaction,
+	actualTransactions []*rpcv10.Transaction,
+	includeProofFacts bool,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedTransactions), len(actualTransactions))
 	for i, expectedTransaction := range expectedTransactions {
 		require.Equal(t, expectedTransaction.Hash(), actualTransactions[i].Hash)
-		adaptedTransaction := rpcv9.AdaptTransaction(expectedTransaction)
-		require.Equal(t, adaptedTransaction, actualTransactions[i])
+		adaptedTransaction := rpcv10.AdaptTransaction(expectedTransaction, includeProofFacts)
+		require.Equal(t, adaptedTransaction.Transaction, actualTransactions[i].Transaction)
+		require.Equal(t, adaptedTransaction.ProofFacts, actualTransactions[i].ProofFacts)
 	}
 }
 
@@ -284,21 +319,26 @@ func assertTransactionsWithReceiptsEq(
 	t *testing.T,
 	expectedBlock *core.Block,
 	expectedTxnFinalityStatus rpcv9.TxnFinalityStatus,
-	actual []rpcv9.TransactionWithReceipt,
+	actual []rpcv10.TransactionWithReceipt,
+	responseFlags rpcv10.ResponseFlags,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedBlock.Receipts), len(actual))
 	for i, expectedReceipt := range expectedBlock.Receipts {
 		require.Equal(t, expectedReceipt.TransactionHash, actual[i].Receipt.Hash)
-		adaptedTransaction := rpcv9.AdaptTransaction(expectedBlock.Transactions[i])
-		adaptedTransaction.Hash = nil
+		adaptedTransaction := rpcv10.AdaptTransaction(
+			expectedBlock.Transactions[i],
+			responseFlags.IncludeProofFacts,
+		)
+		adaptedTransaction.Transaction.Hash = nil
 		adaptedReceipt := rpcv9.AdaptReceipt(
 			expectedReceipt,
 			expectedBlock.Transactions[i],
 			expectedTxnFinalityStatus,
 		)
 
-		require.Equal(t, adaptedTransaction, actual[i].Transaction)
+		require.Equal(t, adaptedTransaction.Transaction, actual[i].Transaction.Transaction)
+		require.Equal(t, adaptedTransaction.ProofFacts, actual[i].Transaction.ProofFacts)
 		require.Equal(t, adaptedReceipt, actual[i].Receipt)
 	}
 }
@@ -320,6 +360,7 @@ func assertBlockWithReceipts(
 	expectedCommitments *core.BlockCommitments,
 	expectedStateUpdate *core.StateUpdate,
 	actual *rpcv10.BlockWithReceipts,
+	responseFlags rpcv10.ResponseFlags,
 ) {
 	t.Helper()
 	assert.Equal(t, expectedStatus, actual.Status)
@@ -339,6 +380,7 @@ func assertBlockWithReceipts(
 		expectedBlock,
 		blockStatusToTxnFinalityStatus(expectedStatus),
 		actual.Transactions,
+		responseFlags,
 	)
 }
 
@@ -433,7 +475,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -445,7 +487,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 56377)
 
-	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
+	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
@@ -505,7 +547,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
-			block, rpcErr := handler.BlockWithTxs(&id)
+			block, rpcErr := handler.BlockWithTxs(&id, rpcv10.ResponseFlags{})
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -528,7 +570,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -540,7 +582,22 @@ func TestBlockWithTxs(t *testing.T) {
 
 	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 16697)
 
-	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
+	testCases := createBlockTestCases(block, commitments, stateUpdate)
+
+	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(
+		t,
+		clientSepolia,
+		4072139,
+	)
+	testCases = append(
+		testCases,
+		createBlockResponseFlagsTestCases(
+			blockWithProofFacts,
+			commitmentsPF,
+			stateUpdatePF,
+		)...,
+	)
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
@@ -561,7 +618,7 @@ func TestBlockWithTxs(t *testing.T) {
 				tc.l1Head,
 			)
 
-			block, rpcErr := handler.BlockWithTxs(tc.blockID)
+			block, rpcErr := handler.BlockWithTxs(tc.blockID, tc.responseFlags)
 			require.Nil(t, rpcErr)
 			assertBlockWithTxs(
 				t,
@@ -570,6 +627,7 @@ func TestBlockWithTxs(t *testing.T) {
 				tc.stateUpdate,
 				tc.blockStatus,
 				block,
+				tc.responseFlags,
 			)
 		})
 	}
@@ -599,7 +657,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
-			block, rpcErr := handler.BlockWithReceipts(&id)
+			block, rpcErr := handler.BlockWithReceipts(&id, rpcv10.ResponseFlags{})
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -622,7 +680,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -634,7 +692,22 @@ func TestBlockWithReceipts(t *testing.T) {
 
 	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 16697)
 
-	testCases := createBlockTagTestCases(block, commitments, stateUpdate)
+	testCases := createBlockTestCases(block, commitments, stateUpdate)
+
+	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(
+		t,
+		clientSepolia,
+		4072139,
+	)
+	testCases = append(
+		testCases,
+		createBlockResponseFlagsTestCases(
+			blockWithProofFacts,
+			commitmentsPF,
+			stateUpdatePF,
+		)...,
+	)
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
@@ -655,7 +728,7 @@ func TestBlockWithReceipts(t *testing.T) {
 				tc.l1Head,
 			)
 
-			block, rpcErr := handler.BlockWithReceipts(tc.blockID)
+			blockWithReceipts, rpcErr := handler.BlockWithReceipts(tc.blockID, tc.responseFlags)
 			require.Nil(t, rpcErr)
 			assertBlockWithReceipts(
 				t,
@@ -663,7 +736,8 @@ func TestBlockWithReceipts(t *testing.T) {
 				tc.blockStatus,
 				tc.commitments,
 				tc.stateUpdate,
-				block,
+				blockWithReceipts,
+				tc.responseFlags,
 			)
 		})
 	}
@@ -694,7 +768,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil).Times(2)
 
 		blockID := rpcv9.BlockIDLatest()
-		actual, rpcErr := handler.BlockWithTxs(&blockID)
+		actual, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &felt.Zero, actual.BlockHeader.SequencerAddress)
 
@@ -725,7 +799,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	require.True(t, ok)
 
 	blockID := rpcv9.BlockIDFromNumber(blockNumber)
-	got, rpcErr := handler.BlockWithTxs(&blockID)
+	got, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
 	require.Nil(t, rpcErr)
 	got.Transactions = got.Transactions[:1]
 
@@ -761,41 +835,43 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			EventCount:            &block.EventCount,
 		},
 		Status: rpcv9.BlockAcceptedL2,
-		Transactions: []*rpcv9.Transaction{
+		Transactions: []*rpcv10.Transaction{
 			{
-				Hash:               tx.Hash(),
-				Type:               rpcv9.TxnInvoke,
-				Version:            tx.Version.AsFelt(),
-				Nonce:              tx.Nonce,
-				MaxFee:             tx.MaxFee,
-				ContractAddress:    tx.ContractAddress,
-				SenderAddress:      tx.SenderAddress,
-				Signature:          &tx.TransactionSignature,
-				CallData:           &tx.CallData,
-				EntryPointSelector: tx.EntryPointSelector,
-				ResourceBounds: &rpcv9.ResourceBoundsMap{
-					L1Gas: &rpcv9.ResourceBounds{
-						MaxAmount: felt.NewFromUint64[felt.Felt](
-							tx.ResourceBounds[core.ResourceL1Gas].MaxAmount,
-						),
-						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
+				Transaction: rpcv9.Transaction{
+					Hash:               tx.Hash(),
+					Type:               rpcv9.TxnInvoke,
+					Version:            tx.Version.AsFelt(),
+					Nonce:              tx.Nonce,
+					MaxFee:             tx.MaxFee,
+					ContractAddress:    tx.ContractAddress,
+					SenderAddress:      tx.SenderAddress,
+					Signature:          &tx.TransactionSignature,
+					CallData:           &tx.CallData,
+					EntryPointSelector: tx.EntryPointSelector,
+					ResourceBounds: &rpcv9.ResourceBoundsMap{
+						L1Gas: &rpcv9.ResourceBounds{
+							MaxAmount: felt.NewFromUint64[felt.Felt](
+								tx.ResourceBounds[core.ResourceL1Gas].MaxAmount,
+							),
+							MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
+						},
+						L2Gas: &rpcv9.ResourceBounds{
+							MaxAmount: felt.NewFromUint64[felt.Felt](
+								tx.ResourceBounds[core.ResourceL2Gas].MaxAmount,
+							),
+							MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
+						},
+						L1DataGas: &rpcv9.ResourceBounds{
+							MaxAmount:       &felt.Zero,
+							MaxPricePerUnit: &felt.Zero,
+						},
 					},
-					L2Gas: &rpcv9.ResourceBounds{
-						MaxAmount: felt.NewFromUint64[felt.Felt](
-							tx.ResourceBounds[core.ResourceL2Gas].MaxAmount,
-						),
-						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
-					},
-					L1DataGas: &rpcv9.ResourceBounds{
-						MaxAmount:       &felt.Zero,
-						MaxPricePerUnit: &felt.Zero,
-					},
+					Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
+					PaymasterData:         &tx.PaymasterData,
+					AccountDeploymentData: &tx.AccountDeploymentData,
+					NonceDAMode:           utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.NonceDAMode)),
+					FeeDAMode:             utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.FeeDAMode)),
 				},
-				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
-				PaymasterData:         &tx.PaymasterData,
-				AccountDeploymentData: &tx.AccountDeploymentData,
-				NonceDAMode:           utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.NonceDAMode)),
-				FeeDAMode:             utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.FeeDAMode)),
 			},
 		},
 	}, got)

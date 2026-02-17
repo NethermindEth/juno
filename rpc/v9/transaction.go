@@ -370,16 +370,16 @@ func AdaptBroadcastedTransaction(
 	broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
-	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
+	feederTxn := AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
-	txn, err := sn2core.AdaptTransaction(feederTxn)
+	txn, err := sn2core.AdaptTransaction(&feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	var declaredClass core.ClassDefinition
 	if len(broadcastedTxn.ContractClass) != 0 {
-		declaredClass, err = adaptDeclaredClass(
+		declaredClass, err = AdaptDeclaredClass(
 			ctx, compiler, broadcastedTxn.ContractClass,
 		)
 		if err != nil {
@@ -453,7 +453,9 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb *ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func AdaptToFeederResourceBounds(
+	rb *ResourceBoundsMap,
+) map[starknet.Resource]starknet.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
@@ -471,18 +473,36 @@ func adaptToFeederResourceBounds(rb *ResourceBoundsMap) *map[starknet.Resource]s
 		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
 	}
 
-	return &feederResourceBounds
+	return feederResourceBounds
 }
 
-func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
+func AdaptToFeederDAMode(mode *DataAvailabilityMode) starknet.DataAvailabilityMode {
 	if mode == nil {
-		return nil
+		return 0
 	}
-	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
+	return starknet.DataAvailabilityMode(*mode)
 }
 
-func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
-	return &starknet.Transaction{
+func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
+	resourceBounds := AdaptToFeederResourceBounds(rpcTx.ResourceBounds)
+	var resourceBoundsPtr *map[starknet.Resource]starknet.ResourceBounds
+	if resourceBounds != nil {
+		resourceBoundsPtr = &resourceBounds
+	}
+
+	var nonceDAModePtr *starknet.DataAvailabilityMode
+	if rpcTx.NonceDAMode != nil {
+		nonceDAMode := AdaptToFeederDAMode(rpcTx.NonceDAMode)
+		nonceDAModePtr = &nonceDAMode
+	}
+
+	var feeDAModePtr *starknet.DataAvailabilityMode
+	if rpcTx.FeeDAMode != nil {
+		feeDAMode := AdaptToFeederDAMode(rpcTx.FeeDAMode)
+		feeDAModePtr = &feeDAMode
+	}
+
+	return starknet.Transaction{
 		Hash:                  rpcTx.Hash,
 		Version:               rpcTx.Version,
 		ContractAddress:       rpcTx.ContractAddress,
@@ -497,10 +517,10 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
+		ResourceBounds:        resourceBoundsPtr,
 		Tip:                   rpcTx.Tip,
-		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
-		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		NonceDAMode:           nonceDAModePtr,
+		FeeDAMode:             feeDAModePtr,
 		AccountDeploymentData: rpcTx.AccountDeploymentData,
 		PaymasterData:         rpcTx.PaymasterData,
 	}
@@ -718,7 +738,8 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
-	if tx.Type == TxnDeployAccount {
+	switch tx.Type {
+	case TxnDeployAccount:
 		contractAddress := core.ContractAddress(
 			&felt.Zero,
 			tx.ClassHash,
@@ -726,7 +747,7 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 			*tx.ConstructorCallData,
 		)
 		res.ContractAddress = &contractAddress
-	} else if tx.Type == TxnDeclare {
+	case TxnDeclare:
 		classHash, err := userClass.Hash()
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
@@ -768,13 +789,8 @@ func (h *Handler) pushToFeederGateway(
 		tx.ContractClass = newContractClass
 	}
 
-	txJSON, err := json.Marshal(&struct {
-		*starknet.Transaction
-		ContractClass json.RawMessage `json:"contract_class,omitempty"`
-	}{
-		Transaction:   adaptRPCTxToFeederTx(&tx.Transaction),
-		ContractClass: tx.ContractClass,
-	})
+	payload := AdaptRPCTxToAddTxGatewayPayload(tx)
+	txJSON, err := json.Marshal(&payload)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
 	}
@@ -785,7 +801,7 @@ func (h *Handler) pushToFeederGateway(
 
 	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
 	if err != nil {
-		return AddTxResponse{}, makeJSONErrorFromGatewayError(err)
+		return AddTxResponse{}, MakeJSONErrorFromGatewayError(err)
 	}
 
 	var gatewayResponse struct {
@@ -802,6 +818,18 @@ func (h *Handler) pushToFeederGateway(
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil
+}
+
+type AddTxGatewayPayload struct {
+	starknet.Transaction
+	ContractClass json.RawMessage `json:"contract_class,omitempty"`
+}
+
+func AdaptRPCTxToAddTxGatewayPayload(rpcTx *BroadcastedTransaction) AddTxGatewayPayload {
+	return AddTxGatewayPayload{
+		Transaction:   AdaptRPCTxToFeederTx(&rpcTx.Transaction),
+		ContractClass: rpcTx.ContractClass,
+	}
 }
 
 var ErrTransactionNotFound = errors.New("transaction not found")
@@ -862,7 +890,8 @@ func (h *Handler) TransactionStatus(
 	return TransactionStatus{}, txErr
 }
 
-func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error { //nolint:gocyclo
+//nolint:gocyclo // maps gateway error codes to RPC errors
+func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())

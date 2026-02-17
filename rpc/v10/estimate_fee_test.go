@@ -146,7 +146,11 @@ func TestEstimateFee(t *testing.T) {
 		}
 		_, _, err := handler.EstimateFee(
 			t.Context(),
-			rpcv10.BroadcastedTransactionInputs{Data: []rpcv9.BroadcastedTransaction{invalidTx}},
+			rpcv10.BroadcastedTransactionInputs{
+				Data: []rpcv10.BroadcastedTransaction{
+					{BroadcastedTransaction: invalidTx},
+				},
+			},
 			[]rpcv10.EstimateFlag{},
 			&blockID,
 		)
