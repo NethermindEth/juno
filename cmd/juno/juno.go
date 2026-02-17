@@ -106,6 +106,7 @@ const (
 	transactionCombinedLayoutF          = node.FlagTransactionCombinedLayout
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
+	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 
 	defaultConfig                             = ""
 	defaultLogJSON                            = false
@@ -164,6 +165,7 @@ const (
 	defaultTransactionCombinedLayout          = false
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
+	defaultDisableReceivedTxnStream           = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -247,6 +249,7 @@ const (
 		"storage layout. Once enabled, cannot be disabled."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
+	disableReceivedTxnStreamUsage  = "Disable received transaction stream feature"
 )
 
 var Version string
@@ -474,6 +477,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
 	junoCmd.Flags().Uint(
 		maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage,
+	)
+	junoCmd.Flags().Bool(
+		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
 	)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 

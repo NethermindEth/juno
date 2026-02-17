@@ -36,11 +36,12 @@ type Handler struct {
 	log           utils.Logger
 	memPool       mempool.Pool
 
-	newHeads      *feed.Feed[*core.Block]
-	reorgs        *feed.Feed[*sync.ReorgBlockRange]
-	pendingData   *feed.Feed[core.PendingData]
-	l1Heads       *feed.Feed[*core.L1Head]
-	preLatestFeed *feed.Feed[*core.PreLatest]
+	newHeads                *feed.Feed[*core.Block]
+	reorgs                  *feed.Feed[*sync.ReorgBlockRange]
+	pendingData             *feed.Feed[core.PendingData]
+	l1Heads                 *feed.Feed[*core.L1Head]
+	preLatestFeed           *feed.Feed[*core.PreLatest]
+	receivedTransactionFeed *feed.Feed[core.Transaction]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -65,7 +66,10 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
 	logger utils.Logger,
 ) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
@@ -146,6 +150,11 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 
 func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache) *Handler {
 	h.submittedTransactionsCache = cache
+	return h
+}
+
+func (h *Handler) WithReceivedTransactionFeed(feed *feed.Feed[core.Transaction]) *Handler {
+	h.receivedTransactionFeed = feed
 	return h
 }
 

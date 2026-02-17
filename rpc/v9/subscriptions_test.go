@@ -1599,15 +1599,18 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 		senderAddress: nil,
 		steps: []stepInfo{
-			// {
-			// 	description: "on receiving new transaction",
-			// 	notify: func() {
-			// 		handler.receivedTxFeed.Send(newHead2.Transactions[0])
-			// 	},
-			// 	expect: [][]*NewTransactionSubscriptionResponse{
-			// 		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
-			// 	},
-			// },
+			{
+				description: "on receiving new transaction",
+				notify: func() {
+					handler.receivedTransactionFeed.Send(newHead2.Transactions[0])
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:1],
+						TxnStatusWithoutL1(TxnStatusReceived),
+					),
+				},
+			},
 			{
 				description: "on new head receive all txs with ACCEPTED_ON_L2",
 				notify: func() {
@@ -1698,15 +1701,18 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 		senderAddress: []felt.Felt{*senderAddress},
 		steps: []stepInfo{
-			//  {
-			//  	description: "on receiving new transaction",
-			//  	notify: func() {
-			//  		handler.receivedTxFeed.Send(newHead2.Transactions[0])
-			//  	},
-			//  	expect: [][]*NewTransactionSubscriptionResponse{
-			//  		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
-			//  	},
-			//  },
+			{
+				description: "on receiving new transaction",
+				notify: func() {
+					handler.receivedTransactionFeed.Send(newHead2.Transactions[0])
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:1],
+						TxnStatusWithoutL1(TxnStatusReceived),
+					),
+				},
+			},
 			{
 				description: "on new pre_confirmed full of candidates",
 				notify: func() {
@@ -2514,7 +2520,8 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	t.Helper()
 
 	log := utils.NewNopZapLogger()
-	handler := New(chain, syncer, nil, log)
+	receivedTxFeed := feed.New[core.Transaction]()
+	handler := New(chain, syncer, nil, log).WithReceivedTransactionFeed(receivedTxFeed)
 
 	go func() {
 		require.NoError(t, handler.Run(ctx))
