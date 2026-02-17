@@ -293,6 +293,8 @@ type InvokeTransaction struct {
 	NonceDAMode DataAvailabilityMode
 	// From RPC spec: The storage domain of the account's balance from which fee will be charged
 	FeeDAMode DataAvailabilityMode
+	// From RPC spec: optional field, proof facts for the transaction
+	ProofFacts []*felt.Felt `cbor:",omitempty"`
 }
 
 func (i *InvokeTransaction) TxVersion() *TransactionVersion {
@@ -472,7 +474,8 @@ func invokeTransactionHash(i *InvokeTransaction, n *utils.Network) (felt.Felt, e
 		accountDeploymentDataHash := crypto.PoseidonArray(i.AccountDeploymentData...)
 		calldataHash := crypto.PoseidonArray(i.CallData...)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode))
-		return crypto.PoseidonArray(
+
+		hashElems := []*felt.Felt{
 			invokeFelt,
 			i.Version.AsFelt(),
 			i.SenderAddress,
@@ -483,7 +486,14 @@ func invokeTransactionHash(i *InvokeTransaction, n *utils.Network) (felt.Felt, e
 			&daMode,
 			&accountDeploymentDataHash,
 			&calldataHash,
-		), nil
+		}
+
+		if len(i.ProofFacts) > 0 {
+			proofFactsHash := crypto.PoseidonArray(i.ProofFacts...)
+			hashElems = append(hashElems, &proofFactsHash)
+		}
+
+		return crypto.PoseidonArray(hashElems...), nil
 	default:
 		return felt.Felt{}, errInvalidTransactionVersion(i, i.Version)
 	}

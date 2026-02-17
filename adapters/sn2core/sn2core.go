@@ -247,6 +247,7 @@ func AdaptInvokeTransaction(t *starknet.Transaction) *core.InvokeTransaction {
 		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
 		NonceDAMode:           adaptDataAvailabilityMode(t.NonceDAMode),
 		FeeDAMode:             adaptDataAvailabilityMode(t.FeeDAMode),
+		ProofFacts:            utils.DerefSlice(t.ProofFacts),
 	}
 }
 

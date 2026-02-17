@@ -184,6 +184,7 @@ type Transaction struct {
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty"`
 	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty"`
 	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty"`
+	ProofFacts            *[]*felt.Felt                `json:"proof_facts,omitempty"`
 }
 
 type TransactionFailureReason struct {

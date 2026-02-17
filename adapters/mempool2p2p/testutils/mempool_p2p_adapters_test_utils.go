@@ -23,6 +23,7 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[
 			Transaction:   transaction,
 			DeclaredClass: class,
 			PaidFeeOnL1:   paidFeeOnL1,
+			Proof:         nil,
 		}
 	},
 	ToP2PDeclareV3: func(

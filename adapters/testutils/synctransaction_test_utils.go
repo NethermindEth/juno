@@ -438,6 +438,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 		AccountDeploymentData: nil, // this field is not available on v0
 		NonceDAMode:           0,   // this field is not available on v0
 		FeeDAMode:             0,   // this field is not available on v0
+		ProofFacts:            nil, // this field is not available on v0
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
@@ -489,6 +490,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 		AccountDeploymentData: nil, // this field is not available on v1
 		NonceDAMode:           0,   // this field is not available on v1
 		FeeDAMode:             0,   // this field is not available on v1
+		ProofFacts:            nil, // this field is not available on v1
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
@@ -549,6 +551,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 		NonceDAMode:           core.DAModeL2,
 		FeeDAMode:             core.DAModeL2,
 		AccountDeploymentData: nil, // TODO: this is for future use as per starknet document
+		ProofFacts:            nil, // this field is optional
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
