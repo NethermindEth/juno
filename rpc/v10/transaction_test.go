@@ -1817,15 +1817,13 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Proof: []uint64{1, 2, 3},
 		}
 
-		jsonBytes, err := json.Marshal(broadcastedTxn)
-		require.NoError(t, err)
-		var unmarshaledTxn rpcv10.BroadcastedTransaction
-		err = json.Unmarshal(jsonBytes, &unmarshaledTxn)
-		require.NoError(t, err)
-
 		validate := validator.Validator()
-		err = validate.Struct(unmarshaledTxn)
-		require.Error(t, err, "validation should fail because proof is excluded unless Type is INVOKE")
+		err := validate.Struct(broadcastedTxn)
+		require.Error(
+			t,
+			err,
+			"validation should fail because proof_facts are excluded unless Type is INVOKE",
+		)
 	})
 
 	t.Run("RejectProofFactsForNonInvoke", func(t *testing.T) {
@@ -1845,14 +1843,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			ProofFacts: []felt.Felt{proofFact},
 		}
 
-		jsonBytes, err := json.Marshal(broadcastedTxn)
-		require.NoError(t, err)
-		var unmarshaledTxn rpcv10.BroadcastedTransaction
-		err = json.Unmarshal(jsonBytes, &unmarshaledTxn)
-		require.NoError(t, err)
-
 		validate := validator.Validator()
-		err = validate.Struct(unmarshaledTxn)
+		err := validate.Struct(broadcastedTxn)
 		require.Error(
 			t,
 			err,
@@ -1898,20 +1890,14 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			ProofFacts: []felt.Felt{proofFact},
 		}
 
-		jsonBytes, err := json.Marshal(broadcastedTxn)
-		require.NoError(t, err)
-		var unmarshaledTxn rpcv10.BroadcastedTransaction
-		err = json.Unmarshal(jsonBytes, &unmarshaledTxn)
-		require.NoError(t, err)
-
 		validate := validator.Validator()
-		err = validate.Struct(unmarshaledTxn.Transaction)
+		err := validate.Struct(broadcastedTxn.Transaction)
 		require.NoError(t,
 			err,
 			"validation should pass for valid INVOKE v3 transaction",
 		)
 
-		err = validate.Struct(unmarshaledTxn)
+		err = validate.Struct(broadcastedTxn)
 		require.NoError(
 			t,
 			err,
@@ -1921,7 +1907,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		_, _, _, err = rpcv10.AdaptBroadcastedTransaction(
 			t.Context(),
 			nil,
-			&unmarshaledTxn,
+			broadcastedTxn,
 			network,
 		)
 		require.NoError(t, err, "AdaptBroadcastedTransaction should succeed for valid INVOKE v3 with proof and proof_facts")
