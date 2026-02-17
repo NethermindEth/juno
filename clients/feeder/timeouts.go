@@ -6,6 +6,7 @@ package feeder
 
 import (
 	"fmt"
+	"html"
 	"math"
 	"net/http"
 	"strings"
@@ -174,7 +175,7 @@ func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client
 			return
 		}
 		client.WithTimeouts(newTimeouts, fixed)
-		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
+		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", html.EscapeString(timeoutsStr))
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
