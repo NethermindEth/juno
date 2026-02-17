@@ -126,6 +126,9 @@ type Config struct {
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
 
 	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
+
+	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 }
 
 type Node struct {
@@ -220,7 +223,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	compiler := compiler.NewUnsafe()
+	compiler := compiler.New(
+		cfg.MaxConcurrentCompilations,
+		"",
+		log,
+	)
 
 	if cfg.Sequencer {
 		// Sequencer mode only supports known networks and
@@ -415,7 +422,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			"/ready":      readinessHandlers.HandleReadySync,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
-		services = append(services,
+		services = append(
+			services,
 			makeRPCOverHTTP(
 				cfg.HTTPHost,
 				cfg.HTTPPort,
@@ -424,6 +432,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 				log,
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
+				cfg.RPCRequestTimeout,
 			),
 		)
 	}
