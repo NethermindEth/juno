@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/remote"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
@@ -124,6 +125,8 @@ type Config struct {
 	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
 
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
+
+	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
 	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
 
@@ -353,6 +356,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithFilterLimit(cfg.RPCMaxBlockScan).
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
 			WithCallMaxGas(cfg.RPCCallMaxGas)
+
+		if !cfg.DisableReceivedTxnStream {
+			receivedTxFeed := feed.New[core.Transaction]()
+			rpcHandler = rpcHandler.WithReceivedTransactionFeed(receivedTxFeed)
+		}
 		if synchronizer != nil {
 			services = append(services, synchronizer)
 		}

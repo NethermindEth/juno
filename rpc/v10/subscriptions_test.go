@@ -1552,7 +1552,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			Subscription: l1Feed.Subscribe(),
 		},
 	)
-	handler := New(mockChain, syncer, nil, utils.NewNopZapLogger())
+	receivedTxFeed := feed.New[core.Transaction]()
+	handler := New(mockChain, syncer, nil, utils.NewNopZapLogger()).
+		WithReceivedTransactionFeed(receivedTxFeed)
 	handlerCtx, handlerCancel := context.WithCancel(t.Context())
 	var handlerWg stdsync.WaitGroup
 	handlerWg.Go(func() {
@@ -1782,18 +1784,19 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 		senderAddress: nil,
 		steps: []stepInfo{
-			// {
-			// 	description: "on receiving new transaction",
-			// 	notify: func() {
-			// 		handler.receivedTxFeed.Send(newHead2.Transactions[0])
-			// 	},
-			// 	expect: [][]*SubscriptionNewTransaction{
-			// 		toTransactionsWithFinalityStatus(
-			// 			newHead2.Transactions[:1],
-			// 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
-			// 		),
-			// 	},
-			// },
+			{
+				description: "on receiving new transaction",
+				notify: func() {
+					handler.receivedTransactionFeed.Send(newHead2.Transactions[0])
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:1],
+						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
+						false,
+					),
+				},
+			},
 			{
 				description: "on new head receive all txs with ACCEPTED_ON_L2",
 				notify: func() {
@@ -1893,18 +1896,19 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 		senderAddress: []felt.Address{felt.Address(*senderAddress)},
 		steps: []stepInfo{
-			// {
-			// 	description: "on receiving new transaction",
-			// 	notify: func() {
-			// 		handler.receivedTxFeed.Send(newHead2.Transactions[0])
-			// 	},
-			// 	expect: [][]*SubscriptionNewTransaction{
-			// 		toTransactionsWithFinalityStatus(
-			// 			newHead2.Transactions[:1],
-			// 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
-			// 		),
-			// 	},
-			// },
+			{
+				description: "on receiving new transaction",
+				notify: func() {
+					handler.receivedTransactionFeed.Send(newHead2.Transactions[0])
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:1],
+						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
+						false,
+					),
+				},
+			},
 			{
 				description: "on new pre_confirmed full of candidates",
 				notify: func() {
