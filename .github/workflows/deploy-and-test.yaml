@@ -186,7 +186,12 @@ jobs:
         with:
           repository: NethermindEth/starknet-golden-tests
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl jq
+
       - name: Run golden tests
         env:
-          STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_10?apikey=${{ secrets.AUTH_TOKEN }}
+          STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
         run: ./golden.sh test
