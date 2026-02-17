@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7.0
 
 # --- Builder stage ---
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 
 ARG RUST_VERSION=1.88.0
 
