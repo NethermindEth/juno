@@ -1853,7 +1853,11 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 		validate := validator.Validator()
 		err = validate.Struct(unmarshaledTxn)
-		require.Error(t, err, "validation should fail because proof_facts are excluded unless Type is INVOKE")
+		require.Error(
+			t,
+			err,
+			"validation should fail because proof_facts are excluded unless Type is INVOKE",
+		)
 	})
 
 	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
@@ -1902,10 +1906,17 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 		validate := validator.Validator()
 		err = validate.Struct(unmarshaledTxn.Transaction)
-		require.NoError(t, err, "validation should pass for valid INVOKE v3 transaction")
+		require.NoError(t,
+			err,
+			"validation should pass for valid INVOKE v3 transaction",
+		)
 
 		err = validate.Struct(unmarshaledTxn)
-		require.NoError(t, err, "validation should pass for INVOKE v3 transaction with proof and proof_facts")
+		require.NoError(
+			t,
+			err,
+			"validation should pass for INVOKE v3 transaction with proof and proof_facts",
+		)
 
 		_, _, _, err = rpcv10.AdaptBroadcastedTransaction(
 			t.Context(),
