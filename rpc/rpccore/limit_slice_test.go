@@ -60,18 +60,22 @@ func TestLazySlice(t *testing.T) {
 
 	// This test ensures that the validation logic works for the values inside the Data slice.
 	t.Run("ValidateRequiredFields", func(t *testing.T) {
-		type BroadcastedTxLimitSlice = rpccore.LimitSlice[
-			rpcv9.BroadcastedTransaction,
+		// Random type with validation tags
+		type RandType struct {
+			A int `validate:"required"`
+			B int `validate:"gt=5"`
+		}
+
+		type RandLimitSlice = rpccore.LimitSlice[
+			RandType,
 			rpccore.SimulationLimit,
 		]
 
-		withEmptyValues := BroadcastedTxLimitSlice{
-			Data: make([]rpcv9.BroadcastedTransaction, 10),
+		withEmptyValues := RandLimitSlice{
+			Data: make([]RandType, 10),
 		}
 
 		validate := validator.Validator()
-		// The [rpcv9.BroadcastedTransaction] struct contains 'validate:...' json tags,
-		// so it should fail here since we're not filling them with valid values.
 		err := validate.Struct(withEmptyValues)
 		require.Error(t, err, "Validation is not working for the values inside the Data slice")
 	})
