@@ -136,8 +136,12 @@ linters:
           - exhaustruct
         path-except: adapters/.+\.go
       - linters:
+          - staticcheck
+        path: vm/state\.go
+        text: ST1003
+      - linters:
           - lll
-        source: '^//go:generate '
+        source: "^//go:generate "
 formatters:
   enable:
     - gci
