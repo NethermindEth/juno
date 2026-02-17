@@ -60,7 +60,7 @@ linters:
         - octalLiteral
         - whyNoLint
         - unnamedResult
-        # note(rdr): when lib is called x and then you do x = x.New(). Widely used in the repo. 
+        # note(rdr): when lib is called x and then you do x = x.New(). Widely used in the repo.
         #            Should we change it?
         - importShadow
       enabled-tags:
@@ -74,6 +74,10 @@ linters:
     gosec:
       excludes:
         - G115 #TODO: remove after fixing https://github.com/securego/gosec/issues/1212
+        - G602 # false positive on validated slice bounds
+        - G703 # false positive on controlled test paths
+        - G704 # false positive on URLs from trusted config
+        - G705 # false positive on already-escaped output
     govet:
       enable:
         - nilness
