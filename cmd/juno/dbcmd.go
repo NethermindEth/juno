@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,7 +42,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
-	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd(), DBFixSchemaCmd())
 	return dbCmd
 }
 
@@ -83,6 +84,15 @@ func DBRevertCmd() *cobra.Command {
 		transactionCombinedLayoutUsage,
 	)
 	return cmd
+}
+
+func DBFixSchemaCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "fix-schema",
+		Short: "Fix deprecated schema version to 22",
+		Long:  `This subcommand sets the deprecated schema version to 22.`,
+		RunE:  dbFixSchema,
+	}
 }
 
 func dbInfo(cmd *cobra.Command, args []string) error {
@@ -208,6 +218,33 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "Reverted head at block %d\n", head.Number)
 	}
 
+	return nil
+}
+
+func dbFixSchema(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	database, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	batch := database.NewBatch()
+	var version [8]byte
+	binary.BigEndian.PutUint64(version[:], 22)
+	if err := batch.Put(db.DeprecatedSchemaVersion.Key(), version[:]); err != nil {
+		return err
+	}
+
+	if err := batch.Write(); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Successfully set deprecated schema version to 22")
 	return nil
 }
 
