@@ -445,9 +445,10 @@ func (b *BitArray) IsEmpty() bool {
 }
 
 // Serialises the BitArray into a bytes buffer in the following format:
-// - First few bytes: the necessary bytes included in big endian order
-// - Last byte: length of the bit array (0-255)
-// The returned error is always nil
+//   - First few bytes: the necessary bytes included in big endian order
+//   - Last byte: length of the bit array (0-255)
+//
+// Returns the number of bytes written. The returned error is always nil.
 //
 // Example:
 //
