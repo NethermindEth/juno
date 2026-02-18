@@ -447,16 +447,14 @@ func (b *BitArray) IsEmpty() bool {
 // Serialises the BitArray into a bytes buffer in the following format:
 // - First few bytes: the necessary bytes included in big endian order
 // - Last byte: length of the bit array (0-255)
-//
 // The returned error is always nil
-// Example: Err
+//
+// Example:
 //
 //	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
-	var bytesWritten int
-
 	bytes := b.Bytes()
-	bytesWritten, _ = buf.Write(bytes[b.inactiveBytes():])
+	bytesWritten, _ := buf.Write(bytes[b.inactiveBytes():])
 
 	buf.WriteByte(b.len)
 	return bytesWritten + 1, nil
