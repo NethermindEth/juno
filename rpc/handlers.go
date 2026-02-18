@@ -337,6 +337,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Params: []jsonrpc.Parameter{
 				{Name: "finality_status", Optional: true},
 				{Name: "sender_address", Optional: true},
+				{Name: "tags", Optional: true},
 			},
 			Handler: h.rpcv10Handler.SubscribeNewTransactions,
 		},
