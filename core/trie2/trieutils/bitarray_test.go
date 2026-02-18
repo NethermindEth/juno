@@ -2292,12 +2292,6 @@ func TestEncodedBytes(t *testing.T) {
 			_, _ = tt.ba.Write(buf)
 			assert.Equal(t, buf.Bytes(), got, "EncodedBytes: output inconsistent with Write")
 
-			// Verify that modifying the returned slice does not affect internal state.
-			if len(got) > 0 {
-				got[0] ^= 0xFF
-				assert.Equal(t, tt.wantBytes, tt.ba.EncodedBytes(), "EncodedBytes: returned slice shares memory with BitArray")
-			}
-
 			// --- BitArrayOld (old implementation) ---
 			old := BitArrayOld(tt.ba)
 			oldGot := old.EncodedBytes()
@@ -2305,6 +2299,12 @@ func TestEncodedBytes(t *testing.T) {
 
 			// Both implementations must produce identical output.
 			assert.Equal(t, got, oldGot, "EncodedBytes: BitArray and BitArrayOld outputs differ")
+
+			// Verify that modifying the returned slice does not affect internal state.
+			if len(got) > 0 {
+				got[0] ^= 0xFF
+				assert.Equal(t, tt.wantBytes, tt.ba.EncodedBytes(), "EncodedBytes: returned slice shares memory with BitArray")
+			}
 		})
 	}
 }
