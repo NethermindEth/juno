@@ -462,7 +462,7 @@ func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 }
 
 // Returns the encoded bytes of the bit array.
-// todo(rdr): This method needs dedicated tests
+// Same as Write(buf), but returns a new slice instead of writing to a buffer.
 func (b *BitArray) EncodedBytes() []byte {
 	bytes := b.Bytes()
 
@@ -688,9 +688,9 @@ func (b *BitArray) Copy() BitArray {
 }
 
 // Returns the encoded string representation of the bit array.
+// Same as EncodedBytes(), but wrapped within a string.
 func (b *BitArray) EncodedString() string {
-	bbytes := b.Bytes()
-	return string(bbytes[:]) + string(b.len)
+	return string(b.EncodedBytes())
 }
 
 // Returns a string representation of the bit array.
