@@ -2090,8 +2090,8 @@ func TestSubset(t *testing.T) {
 	}
 }
 
-// serializationCases are shared by TestWrite and TestEncodedBytes.
-// Both methods must produce the same byte sequence: the minimal big-endian
+// serializationCases are shared by TestWrite, TestEncodedBytes, and TestEncodedString.
+// They must produce the same byte sequence: the minimal big-endian
 // encoding of the bit array's significant bytes, followed by its bit length.
 //
 // Expected format: [active_bytes...] [b.len]
@@ -2229,15 +2229,13 @@ func serializationCases() []struct {
 			// words[3]=0x07FFFFFFFFFFFFFF gives leading byte 0x07.
 			name: "251 bits / full StarkNet key",
 			ba:   BitArray{len: 251, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF}},
-			wantBytes: func() []byte {
-				b := make([]byte, 33)
-				b[0] = 0x07
-				for i := 1; i < 32; i++ {
-					b[i] = 0xFF
-				}
-				b[32] = 251
-				return b
-			}(),
+			wantBytes: []byte{
+				0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFB, // 251
+			},
 		},
 		{
 			// 251-bit key with a sparse lower word to verify per-word byte ordering.
@@ -2249,18 +2247,17 @@ func serializationCases() []struct {
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // words[2]
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // words[1]
 				0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, // words[0]
-				251,
+				0xFB, // 251
 			},
 		},
 	}
 }
 
-// TestWrite verifies that BitArray.Write and BitArrayOld.Write both produce the
-// expected byte sequence (active bytes + length byte) and that their outputs are identical.
+// TestWrite verifies that BitArray.Write produces the expected byte sequence
+// (active bytes + length byte).
 func TestWrite(t *testing.T) {
 	for _, tt := range serializationCases() {
 		t.Run(tt.name, func(t *testing.T) {
-			// --- BitArray (new implementation) ---
 			buf := new(bytes.Buffer)
 			n, err := tt.ba.Write(buf)
 			require.NoError(t, err)
@@ -2282,23 +2279,13 @@ func TestWrite(t *testing.T) {
 	}
 }
 
-// TestEncodedBytes verifies that BitArray.EncodedBytes and BitArrayOld.EncodedBytes
-// both return the expected byte slice (active bytes + length byte) and that their
-// outputs are identical and consistent with Write.
+// TestEncodedBytes verifies that BitArray.EncodedBytes returns the expected byte
+// slice (active bytes + length byte) and that its output is consistent with Write.
 func TestEncodedBytes(t *testing.T) {
 	for _, tt := range serializationCases() {
 		t.Run(tt.name, func(t *testing.T) {
-			// --- BitArray (new implementation) ---
 			got := tt.ba.EncodedBytes()
 			assert.Equal(t, tt.wantBytes, got, "BitArray.EncodedBytes: wrong bytes")
-
-			// --- BitArrayOld (old implementation) ---
-			old := BitArrayOld(tt.ba)
-			oldGot := old.EncodedBytes()
-			assert.Equal(t, tt.wantBytes, oldGot, "BitArrayOld.EncodedBytes: wrong bytes")
-
-			// Both implementations must produce identical output.
-			assert.Equal(t, got, oldGot, "EncodedBytes: BitArray and BitArrayOld outputs differ")
 
 			// EncodedBytes must be consistent with Write.
 			buf := new(bytes.Buffer)
@@ -2310,140 +2297,30 @@ func TestEncodedBytes(t *testing.T) {
 				got[0] ^= 0xFF
 				assert.Equal(t, tt.wantBytes, tt.ba.EncodedBytes(), "EncodedBytes: returned slice shares memory with BitArray")
 			}
+
+			// --- BitArrayOld (old implementation) ---
+			old := BitArrayOld(tt.ba)
+			oldGot := old.EncodedBytes()
+			assert.Equal(t, tt.wantBytes, oldGot, "BitArrayOld.EncodedBytes: wrong bytes")
+
+			// Both implementations must produce identical output.
+			assert.Equal(t, got, oldGot, "EncodedBytes: BitArray and BitArrayOld outputs differ")
 		})
 	}
 }
 
-// TestEncodedString verifies the behaviour of BitArray.EncodedString and
-// BitArrayOld.EncodedString and documents the semantic difference between them.
-//
-// Old: produces string(active_bytes) + string([]byte{b.len})
-//
-//	→ length == activeBytes + 1 (always 1 byte for the length suffix)
-//	→ identical content to string(EncodedBytes())
-//
-// New: produces string(b.Bytes()[:]) + string(rune(b.len))
-//
-//	→ always starts with 32 bytes (the full Bytes() representation)
-//	→ for b.len < 128: length suffix is 1 byte (standard ASCII)  → total 33 bytes
-//	→ for b.len >= 128: string(rune(b.len)) uses 2-byte UTF-8    → total 34 bytes
+// TestEncodedString verifies that EncodedString returns a string whose bytes are
+// identical to those produced by EncodedBytes: active bytes in big-endian order
+// followed by the bit length as a single byte.
 func TestEncodedString(t *testing.T) {
-	tests := []struct {
-		name string
-		ba   BitArray
-	}{
-		{
-			// len=0: old produces 1-byte string; new produces 33-byte string.
-			name: "empty",
-			ba:   BitArray{len: 0, words: [4]uint64{0, 0, 0, 0}},
-		},
-		{
-			// len=1: old produces 2-byte string; new produces 33-byte string.
-			name: "1 bit / set",
-			ba:   BitArray{len: 1, words: [4]uint64{1, 0, 0, 0}},
-		},
-		{
-			// len=1 with bit value 0.
-			name: "1 bit / unset",
-			ba:   BitArray{len: 1, words: [4]uint64{0, 0, 0, 0}},
-		},
-		{
-			// len=8: old produces 2-byte string; new produces 33-byte string.
-			name: "8 bits",
-			ba:   BitArray{len: 8, words: [4]uint64{0xFF, 0, 0, 0}},
-		},
-		{
-			// len=10: old produces 3-byte string; new produces 33-byte string.
-			name: "10 bits",
-			ba:   BitArray{len: 10, words: [4]uint64{0x3FF, 0, 0, 0}},
-		},
-		{
-			// len=64: old produces 9-byte string; new produces 33-byte string.
-			name: "64 bits / word boundary",
-			ba:   BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
-		},
-		{
-			// len=127 (< 128): old produces 17-byte string; new produces 33-byte string.
-			name: "127 bits",
-			ba:   BitArray{len: 127, words: [4]uint64{maxUint64, ones63, 0, 0}},
-		},
-		{
-			// len=128: first case where string(rune(b.len)) encodes as 2 UTF-8 bytes.
-			// old: 17-byte string (last byte literal 0x80).
-			// new: 34-byte string (32 bytes + "\xC2\x80" for U+0080).
-			name: "128 bits / len suffix becomes multi-byte UTF-8",
-			ba:   BitArray{len: 128, words: [4]uint64{maxUint64, maxUint64, 0, 0}},
-		},
-		{
-			// len=192: old produces 25-byte string; new produces 34-byte string.
-			name: "192 bits / word boundary",
-			ba:   BitArray{len: 192, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0}},
-		},
-		{
-			// len=251 (the most common StarkNet trie key length):
-			// old: 33-byte string (32 data bytes + literal 0xFB).
-			// new: 34-byte string (32 data bytes + "\xC3\xBB" for U+00FB).
-			name: "251 bits / full StarkNet key",
-			ba:   BitArray{len: 251, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF}},
-		},
-	}
-
-	for _, tt := range tests {
+	for _, tt := range serializationCases() {
 		t.Run(tt.name, func(t *testing.T) {
+			want := string(tt.wantBytes)
+			assert.Equal(t, want, tt.ba.EncodedString(), "BitArray.EncodedString: wrong result")
+
+			// --- BitArrayOld (old implementation) ---
 			old := BitArrayOld(tt.ba)
-			oldResult := old.EncodedString()
-			newResult := tt.ba.EncodedString()
-
-			// --- Old implementation assertions ---
-
-			// Old must produce a string with exactly activeBytes+1 bytes.
-			wantOldLen := int(old.byteCount()) + 1
-			assert.Equal(t, wantOldLen, len(oldResult),
-				"BitArrayOld.EncodedString: wrong length")
-
-			// Old must be identical to string(EncodedBytes()), making it a
-			// suitable map key for the same data that Write / EncodedBytes encode.
-			assert.Equal(t, string(old.EncodedBytes()), oldResult,
-				"BitArrayOld.EncodedString: must equal string(EncodedBytes())")
-
-			// --- New implementation assertions ---
-
-			// New always begins with the full 32-byte Bytes() representation.
-			bbytes := tt.ba.Bytes()
-			wantNewPrefix := string(bbytes[:])
-			assert.True(t, len(newResult) >= 32 && newResult[:32] == wantNewPrefix,
-				"BitArray.EncodedString: first 32 bytes must equal Bytes()")
-
-			// The length suffix is string(rune(b.len)), which is 1 byte for len<128
-			// and 2 bytes for len>=128 due to UTF-8 encoding.
-			lenSuffix := string(rune(tt.ba.len))
-			wantNewLen := 32 + len(lenSuffix)
-			assert.Equal(t, wantNewLen, len(newResult),
-				"BitArray.EncodedString: wrong total length")
-			assert.Equal(t, wantNewPrefix+lenSuffix, newResult,
-				"BitArray.EncodedString: wrong content")
-
-			// --- Cross-implementation comparison ---
-
-			// For any non-empty bit array, the two implementations produce different
-			// strings: old uses only the active bytes as prefix (variable-length),
-			// new always uses the full 32-byte representation.
-			// For len >= 128, new also produces an extra byte due to UTF-8.
-			if tt.ba.len > 0 {
-				assert.NotEqual(t, oldResult, newResult,
-					"old and new EncodedString must differ for non-empty bit arrays")
-
-				// Specifically document the length divergence.
-				assert.Less(t, len(oldResult), len(newResult),
-					"old EncodedString is shorter than new for any non-zero length")
-			}
-
-			// For len >= 128, document that new produces 34 bytes while old produces
-			// activeBytes+1, which for a 251-bit key is 33 — a 1-byte discrepancy.
-			if tt.ba.len >= 128 {
-				assert.Equal(t, 34, len(newResult),
-					"BitArray.EncodedString: len>=128 must produce 34-byte string (32 + 2-byte UTF-8)")
-			}
+			assert.Equal(t, want, old.EncodedString(), "BitArrayOld.EncodedString: wrong result")
 		})
 	}
 }
