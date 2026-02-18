@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -40,7 +41,6 @@ func (b ProtoBroadcaster[M]) Broadcast(ctx context.Context, msg M) {
 }
 
 func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
-	readinessOpt := pubsub.WithReadiness(pubsub.MinTopicSize(1))
 	var rebroadcasted rebroadcastMessages
 
 	time.Sleep(pubsub.GossipSubHeartbeatInitialDelay * 2)
@@ -52,13 +52,13 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 		case msg := <-b.ch:
 			msgBytes, err := proto.Marshal(msg)
 			if err != nil {
-				b.log.Errorw("unable to marshal message", "error", err)
+				b.log.Error("unable to marshal message", zap.Error(err))
 				continue
 			}
 
 			for {
-				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil && !errors.Is(err, context.Canceled) {
-					b.log.Errorw("unable to send message", "error", err)
+				if err := topic.Publish(ctx, msgBytes); err != nil && !errors.Is(err, context.Canceled) {
+					b.log.Error("unable to send message", zap.Error(err))
 					time.Sleep(b.retryInterval)
 					continue
 				}
@@ -70,8 +70,8 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 			}
 		case <-rebroadcasted.trigger:
 			for msgBytes := range rebroadcasted.messages {
-				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil && !errors.Is(err, context.Canceled) {
-					b.log.Errorw("unable to rebroadcast message", "error", err)
+				if err := topic.Publish(ctx, msgBytes); err != nil && !errors.Is(err, context.Canceled) {
+					b.log.Error("unable to rebroadcast message", zap.Error(err))
 				}
 			}
 		}

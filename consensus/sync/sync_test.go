@@ -1,168 +1,169 @@
 package sync_test
 
 import (
-	"context"
+	"math/rand/v2"
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/db"
-	"github.com/NethermindEth/juno/consensus/driver"
-	"github.com/NethermindEth/juno/consensus/mocks"
-	"github.com/NethermindEth/juno/consensus/p2p"
+	"github.com/NethermindEth/juno/consensus"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	consensusSync "github.com/NethermindEth/juno/consensus/sync"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
+	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
-var (
-	comittedHeight = -1
-	blockID        = uint64(9)
+const (
+	nodeCount = 4
+	nodeIndex = nodeCount + 1 // This is to guarantee that this node is not the proposer
 )
 
-type (
-	listeners    = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
-	broadcasters = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
-)
-
-func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
-	return 10 * time.Second
+type app struct {
+	cur uint64
 }
 
-func TestSync(t *testing.T) {
-	ctrl := gomock.NewController(t)
+func (a *app) Value() starknet.Value {
+	a.cur = (a.cur + 1) % 100
+	return felt.FromUint64[starknet.Value](a.cur)
+}
 
-	ctx, cancel := context.WithCancel(t.Context())
+func (a *app) Valid(v starknet.Value) bool {
+	return true
+}
 
-	nodeAddr := felt.FromUint64[starknet.Address](123)
-	logger := utils.NewNopZapLogger()
-
-	dbPath := t.TempDir()
-	testDB, err := pebblev2.New(dbPath)
-	require.NoError(t, err)
-
-	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB)
-	require.NotNil(t, tmDB)
+func TestMessageExtractor(t *testing.T) {
+	allNodes := consensus.InitMockServices(0, 0, nodeIndex, nodeCount)
 
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	allNodes := newNodes(4)
-	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
-	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
-	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash](ctrl)
-
-	mockCommitListener.EXPECT().
-		OnCommit(gomock.Any(), types.Height(0), gomock.Any()).
-		Do(func(_ any, newHeight types.Height, _ any) {
-			comittedHeight = int(newHeight)
-			cancel()
-		})
-
-	stateMachine := tendermint.New(tmDB, logger, nodeAddr, mockApp, allNodes, types.Height(0))
-
-	proposalCh := make(chan *starknet.Proposal)
-	prevoteCh := make(chan *starknet.Prevote)
-	precommitCh := make(chan *starknet.Precommit)
-
-	listeners := listeners{
-		ProposalListener:  newMockListener(proposalCh),
-		PrevoteListener:   newMockListener(prevoteCh),
-		PrecommitListener: newMockListener(precommitCh),
-	}
-	broadcasters := broadcasters{
-		ProposalBroadcaster:  &mockBroadcaster[*starknet.Proposal]{},
-		PrevoteBroadcaster:   &mockBroadcaster[*starknet.Prevote]{},
-		PrecommitBroadcaster: &mockBroadcaster[*starknet.Precommit]{},
-	}
-
-	driver := driver.New(
-		utils.NewNopZapLogger(),
-		tmDB,
-		stateMachine,
-		mockCommitListener,
-		broadcasters,
-		listeners,
-		mockTimeoutFn,
+	messageExtractor := consensusSync.New[starknet.Value, starknet.Hash, starknet.Address](
+		allNodes.Validators,
+		toValue,
+		&proposalStore,
 	)
 
-	go func() {
-		require.NoError(t, driver.Run(ctx))
-	}()
+	blockBody, expectedProposal, expectedPrecommits := getTestData(allNodes.Validators)
+	actualProposal, actualPrecommits := messageExtractor.Extract(&blockBody)
 
-	mockInCh := make(chan sync.BlockBody)
+	t.Run(("Verify stored build result"), func(t *testing.T) {
+		buildResult := proposalStore.Get(actualProposal.Value.Hash())
+		require.NotEmpty(t, buildResult)
+		require.Equal(t, buildResult.Preconfirmed.Block, blockBody.Block)
+		require.Equal(t, buildResult.Preconfirmed.StateUpdate, blockBody.StateUpdate)
+		require.Equal(t, buildResult.Preconfirmed.NewClasses, blockBody.NewClasses)
+		require.Equal(t, buildResult.SimulateResult.BlockCommitments, blockBody.Commitments)
+		require.Equal(t, buildResult.L2GasConsumed, blockBody.Block.L2GasConsumed())
+	})
 
-	consensusSyncService := consensusSync.New(mockInCh, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
+	t.Run(("Verify proposal"), func(t *testing.T) {
+		require.Equal(t, expectedProposal, actualProposal)
+	})
 
-	block0 := getCommittedBlock(allNodes)
-	block0Hash := block0.Block.Hash
-	valueHash := toValue(block0Hash).Hash()
-	go func() {
-		// P2P Sync service inserts block into mockInCh
-		mockInCh <- block0
-	}()
+	t.Run(("Verify precommits"), func(t *testing.T) {
+		require.Equal(t, expectedPrecommits, actualPrecommits)
+	})
 
-	require.NoError(t, consensusSyncService.Run(ctx))
-	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
-	require.NotEqual(t, comittedHeight, -1, "expected a block to be committed")
+	t.Run(("State machine should be able to commit"), func(t *testing.T) {
+		logger := utils.NewNopZapLogger()
+		nodeAddr := felt.FromUint64[starknet.Address](uint64(nodeCount) + 1)
+
+		stateMachine := tendermint.New[starknet.Value, starknet.Hash, starknet.Address](
+			logger,
+			nodeAddr,
+			&app{},
+			allNodes.Validators,
+			actualProposal.Height,
+		)
+		stateMachine.ProcessStart(0)
+
+		resultActions := stateMachine.ProcessSync(&actualProposal, actualPrecommits)
+		expectedCommit := actions.Commit[starknet.Value, starknet.Hash, starknet.Address](
+			expectedProposal,
+		)
+		require.Contains(t, resultActions, &expectedCommit)
+	})
 }
 
-func getCommittedBlock(allNodes nodes) sync.BlockBody {
-	proposerAddr := allNodes.Proposer(types.Height(0), types.Round(0))
-	return sync.BlockBody{
+func getTestData(
+	validators votecounter.Validators[starknet.Address],
+) (sync.BlockBody, starknet.Proposal, []starknet.Precommit) {
+	height := types.Height(rand.Uint64N(1000000))
+	round := types.Round(rand.IntN(nodeCount))
+	blockHash := felt.Random[felt.Felt]()
+	proposerAddr := validators.Proposer(height, round)
+	blockBody := sync.BlockBody{
 		Block: &core.Block{
 			Header: &core.Header{
-				Hash:             felt.NewFromUint64[felt.Felt](blockID),
-				TransactionCount: 2,
-				EventCount:       3,
+				Hash:             &blockHash,
+				ParentHash:       felt.NewRandom[felt.Felt](),
+				Number:           uint64(height),
+				GlobalStateRoot:  felt.NewRandom[felt.Felt](),
 				SequencerAddress: (*felt.Felt)(&proposerAddr),
-				Number:           0,
+				TransactionCount: rand.Uint64N(100),
+				EventCount:       rand.Uint64N(1000),
+				Timestamp:        uint64(time.Now().Unix()),
+				ProtocolVersion:  "0.14.0",
+				EventsBloom:      &bloom.BloomFilter{},
+				L1GasPriceETH:    felt.NewRandom[felt.Felt](),
+				Signatures:       make([][]*felt.Felt, 100),
+				L1GasPriceSTRK:   felt.NewRandom[felt.Felt](),
+				L1DAMode:         core.Blob,
+				L1DataGasPrice: &core.GasPrice{
+					PriceInWei: felt.NewRandom[felt.Felt](),
+					PriceInFri: felt.NewRandom[felt.Felt](),
+				},
+				L2GasPrice: &core.GasPrice{
+					PriceInWei: felt.NewRandom[felt.Felt](),
+					PriceInFri: felt.NewRandom[felt.Felt](),
+				},
 			},
 		},
 		StateUpdate: &core.StateUpdate{
-			StateDiff: &core.StateDiff{},
+			BlockHash: &blockHash,
+			NewRoot:   felt.NewRandom[felt.Felt](),
+			OldRoot:   felt.NewRandom[felt.Felt](),
+			StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
 		},
-		NewClasses:  make(map[felt.Felt]core.ClassDefinition),
-		Commitments: &core.BlockCommitments{},
+		NewClasses: make(map[felt.Felt]core.ClassDefinition),
+		Commitments: &core.BlockCommitments{
+			TransactionCommitment: felt.NewRandom[felt.Felt](),
+			EventCommitment:       felt.NewRandom[felt.Felt](),
+			ReceiptCommitment:     felt.NewRandom[felt.Felt](),
+			StateDiffCommitment:   felt.NewRandom[felt.Felt](),
+		},
 	}
+
+	proposal := starknet.Proposal{
+		MessageHeader: types.MessageHeader[starknet.Address]{
+			Height: height,
+			Round:  round,
+			Sender: proposerAddr,
+		},
+		ValidRound: consensusSync.ValidRoundPlaceholder,
+		Value:      (*starknet.Value)(&blockHash),
+	}
+
+	precommits := []starknet.Precommit{
+		{
+			MessageHeader: types.MessageHeader[starknet.Address]{
+				Height: height,
+				Round:  round,
+				Sender: consensusSync.SyncProtocolPrecommitSender,
+			},
+			ID: (*starknet.Hash)(&blockHash),
+		},
+	}
+
+	return blockBody, proposal, precommits
 }
 
 func toValue(in *felt.Felt) starknet.Value {
 	return starknet.Value(*in)
-}
-
-func getPrecommits(*sync.BlockBody) []starknet.Precommit {
-	blockID := felt.FromUint64[starknet.Hash](blockID)
-	return []starknet.Precommit{
-		{
-			MessageHeader: types.MessageHeader[starknet.Address]{
-				Height: types.Height(0),
-				Round:  types.Round(0),
-				Sender: felt.FromUint64[starknet.Address](1),
-			},
-			ID: &blockID,
-		},
-		{
-			MessageHeader: types.MessageHeader[starknet.Address]{
-				Height: types.Height(0),
-				Round:  types.Round(0),
-				Sender: felt.FromUint64[starknet.Address](2),
-			},
-			ID: &blockID,
-		},
-		{
-			MessageHeader: types.MessageHeader[starknet.Address]{
-				Height: types.Height(0),
-				Round:  types.Round(0),
-				Sender: felt.FromUint64[starknet.Address](3),
-			},
-			ID: &blockID,
-		},
-	}
 }

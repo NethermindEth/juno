@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 type CommitHook[V types.Hashable[H], H types.Hash] interface {
@@ -15,8 +16,6 @@ type CommitHook[V types.Hashable[H], H types.Hash] interface {
 }
 
 // CommitListener is a component that is used to notify different components that a new committed block is available.
-//
-//go:generate mockgen -destination=../mocks/mock_commit_listener.go -package=mocks github.com/NethermindEth/juno/consensus/driver CommitListener
 type CommitListener[V types.Hashable[H], H types.Hash] interface {
 	CommitHook[V, H]
 	// Listen returns a channel that will receive committed blocks.
@@ -48,7 +47,8 @@ func NewCommitListener[V types.Hashable[H], H types.Hash](
 func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height, value V) {
 	buildResult := b.proposalStore.Get(value.Hash())
 	if buildResult == nil {
-		b.log.Errorw("failed to get build result", "hash", value.Hash())
+		// todo(rdr): we can avoid using the ANY by writing some representation into Hash
+		b.log.Error("failed to get build result", zap.Any("hash", value.Hash()))
 		return
 	}
 

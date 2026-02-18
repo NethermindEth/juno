@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -167,7 +168,9 @@ func AssertTracedBlockTransactions(
 			handler := rpcv10.New(mockReader, nil, nil, nil)
 			handler = handler.WithFeeder(client)
 			blockID := rpcv9.BlockIDFromNumber(test.blockNumber)
-			traces, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
+			tracesResp, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
+			require.Nil(t, err)
+			traces := tracesResp.Traces
 			if n == &utils.Sepolia && description == "newer block" {
 				// For the newer block test, we test 3 of the block traces (INVOKE, DEPLOY_ACCOUNT, DECLARE)
 				traces = []rpcv10.TracedBlockTransaction{traces[0], traces[7], traces[11]}
@@ -201,9 +204,9 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		handler := rpcv10.New(mockReader, nil, nil, nil)
 
 		blockID := rpcv9.BlockIDFromNumber(blockNumber)
-		tracedBlocks, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
+		tracedBlocks, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 
-		require.Nil(t, tracedBlocks)
+		require.Nil(t, tracedBlocks.Traces)
 		require.Equal(t, rpccore.ErrInternal.Code, err.Code)
 		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
 	})
@@ -412,6 +415,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			true,
 			false,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
@@ -493,6 +497,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			true,
 			false,
+			false,
 			false).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -569,6 +574,7 @@ func TestTraceTransaction(t *testing.T) {
 			false,
 			false,
 			true,
+			false,
 			false,
 			false,
 		).
@@ -664,6 +670,7 @@ func TestTraceTransaction(t *testing.T) {
 			true,
 			false,
 			false,
+			false,
 		).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -742,13 +749,13 @@ func TestTraceBlockTransactions(t *testing.T) {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
-				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
-				assert.Nil(t, update)
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
+				assert.Nil(t, update.Traces)
 				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
 			} else {
-				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
-				assert.Nil(t, update)
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
+				assert.Nil(t, update.Traces)
 				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 			}
@@ -816,6 +823,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			false,
 			true,
 			false,
+			false,
 			false).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
@@ -833,10 +841,11 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 
 		blockID := rpcv9.BlockIDFromHash(blockHash)
-		result, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+		result, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
-		assert.Equal(t, expectedResult, result)
+		assert.Equal(t, expectedResult, result.Traces)
+		assert.Nil(t, result.InitialReads)
 	})
 }
 
@@ -1436,4 +1445,82 @@ func TestCall(t *testing.T) {
 		require.Nil(t, res)
 		require.Equal(t, expectedErr, rpcErr)
 	})
+}
+
+func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
+	t.Parallel()
+	n := &utils.Mainnet
+	headsHeader := &core.Header{
+		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
+		L1GasPriceETH:    &felt.Zero,
+		L1GasPriceSTRK:   &felt.Zero,
+		L1DAMode:         0,
+		L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+		L2GasPrice:       &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+		Number:           100,
+	}
+
+	testCases := initialReadsTestCases()
+	blockHash := felt.FromUint64[felt.Felt](999)
+	txHash := felt.FromUint64[felt.Felt](888)
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockVM := mocks.NewMockVM(mockCtrl)
+			mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+			parentHash := felt.FromUint64[felt.Felt](998)
+			header := &core.Header{
+				SequencerAddress: headsHeader.SequencerAddress, L1GasPriceETH: headsHeader.L1GasPriceETH,
+				L1GasPriceSTRK: headsHeader.L1GasPriceSTRK, L1DAMode: headsHeader.L1DAMode,
+				L1DataGasPrice: headsHeader.L1DataGasPrice, L2GasPrice: headsHeader.L2GasPrice,
+				Number: headsHeader.Number, Hash: &blockHash, ParentHash: &parentHash,
+				ProtocolVersion: "0.13.2",
+			}
+			block := &core.Block{
+				Header:       header,
+				Transactions: []core.Transaction{&core.InvokeTransaction{TransactionHash: &txHash}},
+			}
+			revealedHash := felt.FromUint64[felt.Felt](90)
+			revealedHeader := &core.Header{Hash: &revealedHash}
+
+			mockReader.EXPECT().Network().Return(n).AnyTimes()
+			mockReader.EXPECT().BlockByHash(&blockHash).Return(block, nil)
+			mockReader.EXPECT().StateAtBlockHash(&parentHash).Return(mockState, nopCloser, nil)
+			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+			mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil)
+
+			returnInitialReads := slices.Contains(test.simulationFlags, rpcv10.ReturnInitialReadsFlag)
+
+			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+				false, false, false, true, false, false, returnInitialReads,
+			).Return(vm.ExecutionResults{
+				OverallFees:      []*felt.Felt{&felt.Zero},
+				DataAvailability: []core.DataAvailability{{L1Gas: 0}},
+				GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
+				Traces:           []vm.TransactionTrace{{}},
+				NumSteps:         100,
+				InitialReads:     test.initialReads,
+			}, nil)
+
+			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+
+			blockID := rpcv9.BlockIDFromHash(&blockHash)
+			traces, _, err := handler.TraceBlockTransactions(
+				t.Context(),
+				&blockID,
+				test.traceFlags,
+			)
+
+			require.Nil(t, err)
+
+			require.Equal(t, test.expectedInitialReads, traces.InitialReads)
+		})
+	}
 }

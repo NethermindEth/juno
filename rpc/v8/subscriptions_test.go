@@ -60,7 +60,7 @@ func TestSubscribeEvents(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1024+1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Address]([]byte("from_address"))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -83,7 +83,7 @@ func TestSubscribeEvents(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Address]([]byte("from_address"))
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -131,8 +131,8 @@ func TestSubscribeEvents(t *testing.T) {
 	pending1 := createTestPendingBlock(t, b2, 3)
 	pending2 := createTestPendingBlock(t, b2, 6)
 
-	fromAddr := new(felt.Felt).SetBytes([]byte("some address"))
-	keys := [][]felt.Felt{{*new(felt.Felt).SetBytes([]byte("key1"))}}
+	fromAddr := felt.NewFromBytes[felt.Address]([]byte("some address"))
+	keys := [][]felt.Felt{{felt.FromBytes[felt.Felt]([]byte("key1"))}}
 
 	b1Filtered, b1Emitted := createTestEvents(t, b1)
 	b2Filtered, b2Emitted := createTestEvents(t, b2)
@@ -180,7 +180,11 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(
+			[]felt.Address{*fromAddr},
+			keys,
+			gomock.Any(),
+		).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
@@ -203,7 +207,11 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(
+			[]felt.Address{*fromAddr},
+			keys,
+			gomock.Any(),
+		).Return(mockEventFilterer, nil)
 
 		cToken := blockchain.ContinuationToken{}
 		require.NoError(t, cToken.FromString(fmt.Sprintf("%d-0", b2.Number)))
@@ -229,7 +237,11 @@ func TestSubscribeEvents(t *testing.T) {
 
 		handler := New(mockChain, mockSyncer, nil, log)
 
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().EventFilter(
+			[]felt.Address{*fromAddr},
+			keys,
+			gomock.Any(),
+		).Return(mockEventFilterer, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
@@ -1175,7 +1187,11 @@ func createTestEvents(
 }
 
 func createTestEventsWebsocket(
-	t *testing.T, h *Handler, fromAddr *felt.Felt, keys [][]felt.Felt, startBlock *uint64,
+	t *testing.T,
+	h *Handler,
+	fromAddr *felt.Address,
+	keys [][]felt.Felt,
+	startBlock *uint64,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 

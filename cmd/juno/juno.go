@@ -100,8 +100,11 @@ const (
 	disableRPCBatchRequestsF            = "disable-rpc-batch-requests"
 	dbCompactionConcurrencyF            = "db-compaction-concurrency"
 	dbMemtableSizeF                     = "db-memtable-size"
+	dbMemtableCountF                    = "db-memtable-count"
 	dbCompressionF                      = "db-compression"
 	transactionCombinedLayoutF          = node.FlagTransactionCombinedLayout
+	rpcRequestTimeoutF                  = "rpc-request-timeout"
+	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 
 	defaultConfig                             = ""
 	defaultHost                               = "localhost"
@@ -154,8 +157,11 @@ const (
 	defaultDisableRPCBatchRequests            = false
 	defaultDBCompactionConcurrency            = ""
 	defaultDBMemtableSize                     = 256
+	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "snappy"
 	defaultTransactionCombinedLayout          = false
+	defaultRPCRequestTimeout                  = 1 * time.Minute
+	defaultMaxConcurrentCompilations          = 8
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -229,11 +235,15 @@ const (
 	disableRPCBatchRequestsUsage       = "Disables handling of batched RPC requests."
 	dbCompactionConcurrencyUsage       = "DB compaction concurrency range. " +
 		"Format: N (lower=1, upper=N) or M,N (lower=M, upper=N). Default: 1,GOMAXPROCS/2"
-	dbMemtableSizeUsage = "Determines the amount of memory (in MBs) allocated for database memtables."
-	dbCompressionUsage  = "Database compression profile. Options: snappy, zstd, minlz. " +
+	dbMemtableSizeUsage  = "Determines the amount of memory (in MBs) allocated for database memtables."
+	dbMemtableCountUsage = "Determines the number of memtables the database can " +
+		"queue before stalling writes."
+	dbCompressionUsage = "Database compression profile. Options: snappy, zstd, minlz. " +
 		"Use zstd for low storage."
 	transactionCombinedLayoutUsage = "EXPERIMENTAL: Enable combined (per-block) transaction " +
 		"storage layout. Once enabled, cannot be disabled."
+	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
+	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
 )
 
 var Version string
@@ -424,6 +434,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		dbCompactionConcurrencyF, defaultDBCompactionConcurrency, dbCompactionConcurrencyUsage,
 	)
 	junoCmd.Flags().Uint(dbMemtableSizeF, defaultDBMemtableSize, dbMemtableSizeUsage)
+	junoCmd.Flags().Uint(dbMemtableCountF, defaultDBMemtableCount, dbMemtableCountUsage)
 	junoCmd.Flags().String(dbCompressionF, defaultDBCompression, dbCompressionUsage)
 	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
@@ -453,7 +464,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(
 		transactionCombinedLayoutF, defaultTransactionCombinedLayout, transactionCombinedLayoutUsage,
 	)
-	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
+	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
+	junoCmd.Flags().Uint(
+		maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage,
+	)
+	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd
 }

@@ -235,8 +235,8 @@ func TestIsTraceEnabled(t *testing.T) {
 	})
 }
 
-func TestTracew(t *testing.T) {
-	t.Run("Tracew with trace level enabled", func(t *testing.T) {
+func TestTrace(t *testing.T) {
+	t.Run("Trace with trace level enabled", func(t *testing.T) {
 		logLevel := utils.NewLogLevel(utils.TRACE)
 
 		var buf bytes.Buffer
@@ -248,13 +248,13 @@ func TestTracew(t *testing.T) {
 		zapLogger := utils.NewZapLoggerWithCore(core)
 
 		expectedMessage := "trace message"
-		zapLogger.Tracew(expectedMessage)
+		zapLogger.Trace(expectedMessage)
 
 		logOutput := buf.String()
 		assert.Contains(t, logOutput, expectedMessage)
 	})
 
-	t.Run("Tracew with trace level disabled", func(t *testing.T) {
+	t.Run("Trace with trace level disabled", func(t *testing.T) {
 		logLevel := utils.NewLogLevel(utils.INFO)
 
 		var buf bytes.Buffer
@@ -266,7 +266,7 @@ func TestTracew(t *testing.T) {
 		zapLogger := utils.NewZapLoggerWithCore(core)
 
 		expectedMessage := "trace message"
-		zapLogger.Tracew(expectedMessage)
+		zapLogger.Trace(expectedMessage)
 
 		logOutput := buf.String()
 		assert.NotContains(t, logOutput, expectedMessage)

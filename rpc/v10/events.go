@@ -1,12 +1,15 @@
 package rpcv10
 
 import (
+	"encoding/json"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type EventArgs struct {
@@ -17,8 +20,33 @@ type EventArgs struct {
 type EventFilter struct {
 	FromBlock *rpcv9.BlockID `json:"from_block"`
 	ToBlock   *rpcv9.BlockID `json:"to_block"`
-	Address   *felt.Felt     `json:"address"`
+	Address   addressList    `json:"address"`
 	Keys      [][]felt.Felt  `json:"keys"`
+}
+
+// addresList is a list of addresses, that can be unmarshalled from a single address
+// or a list of addresses. It also removes duplicates from the list.
+type addressList []felt.Address
+
+func (a *addressList) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" || string(data) == "[]" {
+		*a = make([]felt.Address, 0)
+		return nil
+	}
+
+	var single felt.Address
+	if err := json.Unmarshal(data, &single); err == nil {
+		*a = []felt.Address{single}
+		return nil
+	}
+
+	var list []felt.Address
+	if err := json.Unmarshal(data, &list); err != nil {
+		return err
+	}
+
+	*a = utils.Set(list)
+	return nil
 }
 
 type EmittedEvent struct {
@@ -81,7 +109,7 @@ func setEventFilterRange(
 // https://github.com/starkware-libs/starknet-specs/blob/785257f27cdc4ea0ca3b62a21b0f7bf51000f9b1/api/starknet_api_openrpc.json#L810 //nolint:lll
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
-func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > rpccore.MaxEventChunkSize {
 		return EventsChunk{}, rpccore.ErrPageSizeTooBig
 	} else {

@@ -39,5 +39,6 @@ func (s *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, 
 	s.state.validRound = -1
 	s.state.validValue = nil
 	s.resetState(0)
+	s.isHeightStarted = false
 	return (*actions.Commit[V, H, A])(&cachedProposal.Proposal)
 }

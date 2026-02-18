@@ -31,6 +31,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/upgrader"
@@ -40,6 +41,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
@@ -110,6 +112,7 @@ type Config struct {
 	DBMaxHandles            int    `mapstructure:"db-max-handles"`
 	DBCompactionConcurrency string `mapstructure:"db-compaction-concurrency"`
 	DBMemtableSize          uint   `mapstructure:"db-memtable-size"`
+	DBMemtableCount         uint   `mapstructure:"db-memtable-count"`
 	DBCompression           string `mapstructure:"db-compression"`
 
 	GatewayAPIKey   string `mapstructure:"gw-api-key"`
@@ -123,12 +126,16 @@ type Config struct {
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
 
 	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
+
+	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 }
 
 type Node struct {
 	cfg        *Config
 	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
+	compiler   compiler.Compiler
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
@@ -158,6 +165,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pebblev2.WithLogger(cfg.Colour),
 			pebblev2.WithCompactionConcurrency(cfg.DBCompactionConcurrency),
 			pebblev2.WithMemtableSize(cfg.DBMemtableSize),
+			pebblev2.WithMemtableCount(cfg.DBMemtableCount),
 			pebblev2.WithCompression(cfg.DBCompression),
 		)
 	}
@@ -215,6 +223,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
+	compiler := compiler.New(
+		cfg.MaxConcurrentCompilations,
+		"",
+		log,
+	)
+
 	if cfg.Sequencer {
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
@@ -239,6 +253,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)
 		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network).
+			WithCompiler(compiler).
 			WithMempool(mempool).
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
 			WithCallMaxGas(cfg.RPCCallMaxGas)
@@ -263,7 +278,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			// For custom networks, fetch fee tokens from the gateway
 			feeTokens, err = client.FeeTokenAddresses(context.Background())
 			if err != nil {
-				return nil, fmt.Errorf("failed to fetch fee token addresses for custom network: %w", err)
+				return nil, fmt.Errorf(
+					"failed to fetch fee token addresses for custom network: %w", err,
+				)
 			}
 		}
 		chainInfo := vm.ChainInfo{
@@ -284,20 +301,33 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		)
 		synchronizer.WithPlugin(junoPlugin)
 
-		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).
+			WithUserAgent(ua).
+			WithAPIKey(cfg.GatewayAPIKey)
 
 		if cfg.P2P {
 			if cfg.Network == utils.Mainnet {
 				return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
 			}
-			log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
+			log.Warn("P2P features enabled. Please note P2P is in experimental stage")
 
 			if !cfg.P2PFeederNode {
 				// Do not start the feeder synchronisation
 				synchronizer = nil
 			}
-			p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-				chain, &cfg.Network, log, database)
+			p2pService, err = p2p.New(
+				cfg.P2PAddr,
+				cfg.P2PPublicAddr,
+				version,
+				cfg.P2PPeers,
+				cfg.P2PPrivateKey,
+				cfg.P2PFeederNode,
+				chain,
+				&cfg.Network,
+				log,
+				database,
+				compiler,
+			)
 			if err != nil {
 				return nil, fmt.Errorf("set up p2p service: %w", err)
 			}
@@ -310,9 +340,13 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			syncReader = synchronizer
 		}
 
-		submittedTransactionsCache := rpccore.NewTransactionCache(cfg.SubmittedTransactionsCacheEntryTTL, cfg.SubmittedTransactionsCacheSize)
+		submittedTransactionsCache := rpccore.NewTransactionCache(
+			cfg.SubmittedTransactionsCacheEntryTTL,
+			cfg.SubmittedTransactionsCacheSize,
+		)
 		services = append(services, submittedTransactionsCache)
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+			WithCompiler(compiler).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
 			WithSubmittedTransactionsCache(submittedTransactionsCache).
@@ -388,14 +422,26 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			"/ready":      readinessHandlers.HandleReadySync,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(
+			services,
+			makeRPCOverHTTP(
+				cfg.HTTPHost,
+				cfg.HTTPPort,
+				rpcServers,
+				httpHandlers,
+				log,
+				cfg.Metrics,
+				cfg.RPCCorsEnable,
+				cfg.RPCRequestTimeout,
+			),
+		)
 	}
 	if cfg.Websocket {
 		services = append(services,
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		log.Infow("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+		log.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
 			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
 		)
 		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
@@ -421,7 +467,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			} else if p2pService != nil {
 				// regular p2p node
 				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
-				p2pService.WithGossipTracer()
 			}
 		}
 		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
@@ -439,6 +484,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		version:       version,
 		db:            database,
 		blockchain:    chain,
+		compiler:      compiler,
 		services:      services,
 		earlyServices: earlyServices,
 	}
@@ -462,13 +508,17 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
 		n.services = append(n.services, ug)
 	} else {
-		log.Warnw("Failed to parse Juno version, will not warn about new releases", "version", version)
+		log.Warn("Failed to parse Juno version, will not warn about new releases",
+			zap.String("version", version),
+		)
 	}
 
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(
+	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.StructuredLogger,
+) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -499,28 +549,28 @@ func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockcha
 func (n *Node) Run(ctx context.Context) {
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
-			n.log.Errorw("Error while closing the DB", "err", closeErr)
+			n.log.Error("Error while closing the DB", zap.Error(closeErr))
 		}
 	}()
 
 	defer func() {
 		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
-			n.log.Errorw("Error while storing running event filter", "err", dbErr)
+			n.log.Error("Error while storing running event filter", zap.Error(dbErr))
 		}
 	}()
 
 	cfg := make(map[string]any)
 	err := mapstructure.Decode(n.cfg, &cfg)
 	if err != nil {
-		n.log.Errorw("Error while decoding config to mapstructure", "err", err)
+		n.log.Error("Error while decoding config to mapstructure", zap.Error(err))
 		return
 	}
 	yamlConfig, err := yaml.Marshal(n.cfg)
 	if err != nil {
-		n.log.Errorw("Error while marshalling config", "err", err)
+		n.log.Error("Error while marshalling config", zap.Error(err))
 		return
 	}
-	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
+	n.log.Debug(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
 	wg := conc.NewWaitGroup()
 	defer wg.Wait()
@@ -534,17 +584,17 @@ func (n *Node) Run(ctx context.Context) {
 	err = migrateIfNeeded(ctx, n.db, n.cfg, n.log)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			n.log.Infow("DB Migration cancelled")
+			n.log.Info("DB Migration cancelled")
 			return
 		}
-		n.log.Errorw("Error while running migrations", "err", err)
+		n.log.Error("Error while running migrations", zap.Error(err))
 		return
 	}
 
 	if n.cfg.Sequencer {
 		// Custom networks are not supported in sequencer mode yet
 		if !slices.Contains(utils.KnownNetworkNames, n.cfg.Network.Name) {
-			n.log.Errorw("Custom networks are not supported in sequencer mode yet")
+			n.log.Error("Custom networks are not supported in sequencer mode yet")
 			return
 		}
 		feeTokens := utils.DefaultFeeTokenAddresses
@@ -554,14 +604,16 @@ func (n *Node) Run(ctx context.Context) {
 		}
 
 		err := buildGenesis(
+			ctx,
 			n.cfg.SeqGenesisFile,
 			n.blockchain,
 			vm.New(&chainInfo, false, n.log),
 			n.cfg.RPCCallMaxSteps,
 			n.cfg.RPCCallMaxGas,
+			n.compiler,
 		)
 		if err != nil {
-			n.log.Errorw("Error building genesis state", "err", err)
+			n.log.Error("Error building genesis state", zap.Error(err))
 			return
 		}
 	}
@@ -571,16 +623,22 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
-	n.log.Infow("Shutting down Juno...")
+	n.log.Info("Shutting down Juno...")
 }
 
-func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service) {
+func (n *Node) StartService(
+	wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service,
+) {
 	wg.Go(func() {
 		// Immediately acknowledge panicing services by shutting down the node
 		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 		defer cancel()
 		if err := s.Run(ctx); err != nil {
-			n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
+			n.log.Error(
+				"Service error",
+				zap.String("name", reflect.TypeOf(s).String()),
+				zap.Error(err),
+			)
 		}
 	})
 }

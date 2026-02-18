@@ -24,7 +24,7 @@ import (
 type entryMap = map[uint64]map[felt.Address]map[string]testEntry
 
 const (
-	layerKeyCount     = 20
+	layerKeyCount     = 25
 	readTestsPerLayer = 5
 	deleteTests       = 5
 )
@@ -156,6 +156,7 @@ func randomDeletedRange[K comparable, V any](
 	t *testing.T,
 	entries map[K]V,
 	cmp func(K, K) int,
+	maxDeletions int,
 ) (lowerBound, upperBound K) {
 	t.Helper()
 	var keys []K
@@ -171,7 +172,6 @@ func randomDeletedRange[K comparable, V any](
 				keys = append(keys, key)
 			}
 		}
-		maxDeletions := layerKeyCount / deleteTests // delete at most half of the entries
 		if len(keys) > 0 && len(keys) <= maxDeletions {
 			break
 		}
@@ -429,10 +429,10 @@ func TestPrefixedBucket(t *testing.T) {
 
 	t.Run("DeleteRange", func(t *testing.T) {
 		t.Run("Layer 3", func(t *testing.T) {
-			for range deleteTests {
+			for i := range deleteTests {
 				blockNumber, map1 := randomEntry(t, content)
 				hash, map2 := randomEntry(t, map1)
-				lowerBound, upperBound := randomDeletedRange(t, map2, cmp.Compare)
+				lowerBound, upperBound := randomDeletedRange(t, map2, cmp.Compare, max(1, deleteTests-1-i))
 				require.NoError(
 					t,
 					bucket.Prefix().Add(blockNumber).Add(&hash).DeleteRange(
@@ -450,9 +450,9 @@ func TestPrefixedBucket(t *testing.T) {
 		})
 
 		t.Run("Layer 2", func(t *testing.T) {
-			for range deleteTests {
+			for i := range deleteTests {
 				blockNumber, map1 := randomEntry(t, content)
-				lowerBound, upperBound := randomDeletedRange(t, map1, compareAddress)
+				lowerBound, upperBound := randomDeletedRange(t, map1, compareAddress, max(1, deleteTests-1-i))
 				require.NoError(t, bucket.Prefix().Add(blockNumber).DeleteRange(
 					database,
 					&lowerBound,
@@ -466,8 +466,8 @@ func TestPrefixedBucket(t *testing.T) {
 		})
 
 		t.Run("Layer 1", func(t *testing.T) {
-			for range deleteTests {
-				lowerBound, upperBound := randomDeletedRange(t, content, cmp.Compare)
+			for i := range deleteTests {
+				lowerBound, upperBound := randomDeletedRange(t, content, cmp.Compare, max(1, deleteTests-1-i))
 				require.NoError(t, bucket.Prefix().DeleteRange(
 					database,
 					lowerBound,

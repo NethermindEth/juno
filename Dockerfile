@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.7.0
 
 # --- Builder stage ---
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 
-ARG RUST_VERSION=1.87.0
+ARG RUST_VERSION=1.88.0
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

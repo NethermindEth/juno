@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -41,7 +42,7 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.log.Errorw("Failed to get contract nonce", "err", err)
+		h.log.Error("Failed to get contract nonce", zap.Error(err))
 		return nil, rpccore.ErrInternal
 	}
 

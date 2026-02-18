@@ -8,18 +8,25 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 type Upgrader struct {
 	client         *http.Client
-	log            utils.SimpleLogger
+	log            utils.StructuredLogger
 	apiURL         string
 	currentVersion *semver.Version
 	releasesURL    string
 	delay          time.Duration
 }
 
-func NewUpgrader(version *semver.Version, apiURL, releasesURL string, delay time.Duration, log utils.SimpleLogger) *Upgrader {
+func NewUpgrader(
+	version *semver.Version,
+	apiURL,
+	releasesURL string,
+	delay time.Duration,
+	log utils.StructuredLogger,
+) *Upgrader {
 	return &Upgrader{
 		currentVersion: version,
 		client:         &http.Client{},
@@ -28,16 +35,6 @@ func NewUpgrader(version *semver.Version, apiURL, releasesURL string, delay time
 		releasesURL:    releasesURL,
 		delay:          delay,
 	}
-}
-
-func (u *Upgrader) WithClient(client *http.Client) *Upgrader {
-	u.client = client
-	return u
-}
-
-func (u *Upgrader) WithLog(log utils.SimpleLogger) *Upgrader {
-	u.log = log
-	return u
 }
 
 type Release struct {
@@ -57,31 +54,32 @@ func (u *Upgrader) Run(ctx context.Context) error {
 			var req *http.Request
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.apiURL, http.NoBody)
 			if err != nil {
-				u.log.Debugw("Failed to create new request with context")
+				u.log.Debug("Failed to create new request with context")
 				continue
 			}
 
 			resp, err := u.client.Do(req)
 			if err != nil {
-				u.log.Debugw("Failed to fetch latest release", "err", err)
+				u.log.Debug("Failed to fetch latest release", zap.Error(err))
 				continue
 			} else if resp.StatusCode != http.StatusOK {
-				u.log.Debugw("Failed to fetch latest release", "status", resp.Status)
+				u.log.Debug("Failed to fetch latest release", zap.String("status", resp.Status))
 				continue
 			}
 
 			latest := new(Release)
 			if err := json.NewDecoder(resp.Body).Decode(latest); err == nil {
 				if needsUpdate(*u.currentVersion, *latest.Version) {
-					u.log.Warnw("New release is available.",
-						"currentVersion", u.currentVersion.String(),
-						"newVersion", latest.Version.String(),
-						"link", u.releasesURL)
+					u.log.Warn("New release is available.",
+						zap.String("currentVersion", u.currentVersion.String()),
+						zap.String("newVersion", latest.Version.String()),
+						zap.String("link", u.releasesURL),
+					)
 				} else {
-					u.log.Debugw("Application is up-to-date.")
+					u.log.Debug("Application is up-to-date.")
 				}
 			} else {
-				u.log.Debugw("Failed to unmarshal latest release")
+				u.log.Debug("Failed to unmarshal latest release")
 			}
 
 			timer.Reset(u.delay)

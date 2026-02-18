@@ -1,6 +1,7 @@
 package rpcv10
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -18,14 +19,25 @@ import (
 ****************************************************
 */
 func (h *Handler) EstimateFee(
+	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	estimateFlags []EstimateFlag,
 	id *rpcv9.BlockID,
 ) ([]rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
+	simulationFlags := make([]SimulationFlag, 0, len(estimateFlags)+1)
+	for _, flag := range estimateFlags {
+		simulationFlag, err := flag.ToSimulationFlag()
+		if err != nil {
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
+		}
+		simulationFlags = append(simulationFlags, simulationFlag)
+	}
+
 	txnResults, httpHeader, err := h.simulateTransactions(
+		ctx,
 		id,
 		broadcastedTxns.Data,
-		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		append(simulationFlags, SkipFeeChargeFlag),
 		true,
 		true,
 	)
@@ -33,16 +45,17 @@ func (h *Handler) EstimateFee(
 		return nil, httpHeader, err
 	}
 
-	feeEstimates := make([]rpcv9.FeeEstimate, len(txnResults))
+	simulatedTransactions := txnResults.SimulatedTransactions
+	feeEstimates := make([]rpcv9.FeeEstimate, len(simulatedTransactions))
 	for i := range feeEstimates {
-		feeEstimates[i] = txnResults[i].FeeEstimation
+		feeEstimates[i] = simulatedTransactions[i].FeeEstimation
 	}
 
 	return feeEstimates, httpHeader, nil
 }
 
 func (h *Handler) EstimateMessageFee(
-	msg *rpcv6.MsgFromL1, id *rpcv9.BlockID,
+	ctx context.Context, msg *rpcv6.MsgFromL1, id *rpcv9.BlockID,
 ) (rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
@@ -61,23 +74,26 @@ func (h *Handler) EstimateMessageFee(
 		return rpcv9.FeeEstimate{}, nil, rpccore.ErrContractNotFound
 	}
 
-	tx := rpcv9.BroadcastedTransaction{
-		Transaction: rpcv9.Transaction{
-			Type:               rpcv9.TxnL1Handler,
-			ContractAddress:    &msg.To,
-			EntryPointSelector: &msg.Selector,
-			CallData:           &calldata,
-			Version:            &felt.Zero, // Needed for transaction hash calculation.
-			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+	tx := BroadcastedTransaction{
+		BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+			Transaction: rpcv9.Transaction{
+				Type:               rpcv9.TxnL1Handler,
+				ContractAddress:    &msg.To,
+				EntryPointSelector: &msg.Selector,
+				CallData:           &calldata,
+				Version:            &felt.Zero, // Needed for transaction hash calculation.
+				Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+			},
+			// Needed to marshal to blockifier type.
+			// Must be greater than zero to successfully execute transaction.
+			PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 		},
-		// Needed to marshal to blockifier type.
-		// Must be greater than zero to successfully execute transaction.
-		PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 	}
 
-	bcTxn := [1]rpcv9.BroadcastedTransaction{tx}
+	bcTxn := [1]BroadcastedTransaction{tx}
 	estimates, httpHeader, err := h.EstimateFee(
-		rpccore.LimitSlice[rpcv9.BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
+		ctx,
+		rpccore.LimitSlice[BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
 		nil,
 		id,
 	)

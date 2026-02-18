@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	"go.uber.org/zap"
 )
 
 type EventsArg struct {
@@ -71,8 +72,12 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
+	var addresses []felt.Address
+	if args.EventFilter.Address != nil {
+		addresses = []felt.Address{felt.Address(*args.EventFilter.Address)}
+	}
 	filter, err := h.bcReader.EventFilter(
-		args.EventFilter.Address,
+		addresses,
 		args.EventFilter.Keys,
 		h.PendingData,
 	)
@@ -195,11 +200,11 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 					},
 				})
 				if err != nil {
-					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					h.log.Warn("Error marshalling a subscription reply", zap.Error(err))
 					return
 				}
 				if _, err = w.Write(resp); err != nil {
-					h.log.Warnw("Error writing a subscription reply", "err", err)
+					h.log.Warn("Error writing a subscription reply", zap.Error(err))
 					return
 				}
 			}

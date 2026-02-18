@@ -1,6 +1,7 @@
 package rpcv8
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,15 +40,20 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 *****************************************************/
 
 func (h *Handler) SimulateTransactions(
+	ctx context.Context,
 	id *BlockID,
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []rpcv6.SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions.Data, simulationFlags, false, false)
+	return h.simulateTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
 }
 
-func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool,
+func (h *Handler) simulateTransactions(
+	ctx context.Context,
+	id *BlockID,
+	transactions []BroadcastedTransaction,
+	simulationFlags []rpcv6.SimulationFlag,
+	errOnRevert bool,
 	isEstimateFee bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
@@ -68,7 +74,9 @@ func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTr
 	}
 
 	network := h.bcReader.Network()
-	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
+	txns, classes, paidFeesOnL1, rpcErr := h.prepareTransactions(
+		ctx, transactions, network,
+	)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
@@ -83,7 +91,7 @@ func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTr
 	}
 
 	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, skipFeeCharge, skipValidate, errOnRevert, true, true, isEstimateFee)
+		state, skipFeeCharge, skipValidate, errOnRevert, true, true, isEstimateFee, false)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}
@@ -117,7 +125,9 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 		tx.Transaction.ResourceBounds == nil
 }
 
-func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
+func (h *Handler) prepareTransactions(
+	ctx context.Context, transactions []BroadcastedTransaction, network *utils.Network,
+) (
 	[]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error,
 ) {
 	txns := make([]core.Transaction, len(transactions))
@@ -139,7 +149,12 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
 		}
 
-		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
+		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(
+			ctx,
+			h.compiler,
+			&transactions[idx],
+			network,
+		)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}

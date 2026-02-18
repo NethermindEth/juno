@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -22,11 +23,13 @@ func TestGenesisStateDiff(t *testing.T) {
 		}
 		genesisConfig := genesis.GenesisConfig{}
 		_, _, err := genesis.GenesisStateDiff(
+			t.Context(),
 			&genesisConfig,
 			vm.New(&chainInfo, false, log),
 			network,
 			vm.DefaultMaxSteps,
 			vm.DefaultMaxGas,
+			nil,
 		)
 		require.NoError(t, err)
 	})
@@ -44,11 +47,13 @@ func TestGenesisStateDiff(t *testing.T) {
 			FeeTokenAddresses: feeTokens,
 		}
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(
+			t.Context(),
 			genesisConfig,
 			vm.New(&chainInfo, false, log),
 			network,
 			vm.DefaultMaxSteps,
 			vm.DefaultMaxGas,
+			compiler.NewUnsafe(),
 		)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))

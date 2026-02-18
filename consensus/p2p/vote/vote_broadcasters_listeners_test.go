@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 )
@@ -29,6 +30,8 @@ const (
 	invalidCount = 10
 	maxWait      = 5 * time.Second
 )
+
+var network = &utils.Mainnet
 
 func TestVoteBroadcastersAndListeners(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
@@ -51,7 +54,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 	pending := maps.Clone(voteSet)
 
 	nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(2))
-	topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
+	topics := nodes.JoinTopic(t, network, protocolID, topicName)
 
 	source := topics[0]
 	destination := topics[1]
@@ -70,7 +73,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			prevotes[i], prevotes[j] = prevotes[j], prevotes[i]
 		})
 		for i := range prevotes {
-			logger.Debugw("broadcasting prevote", "vote", getPrevoteString(&prevotes[i]))
+			logger.Debug("broadcasting prevote", zap.String("vote", getPrevoteString(&prevotes[i])))
 			prevoteBroadcaster.Broadcast(t.Context(), &prevotes[i])
 		}
 	}()
@@ -81,7 +84,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			precommits[i], precommits[j] = precommits[j], precommits[i]
 		})
 		for i := range precommits {
-			logger.Debugw("broadcasting precommit", "vote", getPrecommitString(&precommits[i]))
+			logger.Debug("broadcasting precommit", zap.String("vote", getPrecommitString(&precommits[i])))
 			precommitBroadcaster.Broadcast(t.Context(), &precommits[i])
 		}
 	}()
@@ -117,18 +120,18 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 		case prevote := <-prevoteListener.Listen():
 			voteStr := getPrevoteString(prevote)
 			require.Contains(t, voteSet, voteStr)
-			logger.Debugw("received prevote", "vote", voteStr)
+			logger.Debug("received prevote", zap.String("vote", voteStr))
 			delete(pending, voteStr)
 		case precommit := <-precommitListener.Listen():
 			voteStr := getPrecommitString(precommit)
 			require.Contains(t, voteSet, voteStr)
-			logger.Debugw("received precommit", "vote", voteStr)
+			logger.Debug("received precommit", zap.String("vote", voteStr))
 			delete(pending, voteStr)
 		case <-time.After(maxWait):
 			require.FailNow(t, "timeout")
 		}
 
-		logger.Infow("remaining", "pending", len(pending))
+		logger.Info("remaining", zap.Int("pending", len(pending)))
 
 		if len(pending) == 0 {
 			return

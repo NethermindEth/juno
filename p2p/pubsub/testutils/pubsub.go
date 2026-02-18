@@ -3,16 +3,17 @@ package testutils
 import (
 	"bytes"
 	"crypto/ed25519"
+	"sync"
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/p2p/pubsub"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
+	"github.com/NethermindEth/juno/utils"
 	libp2p "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
 )
@@ -31,17 +32,30 @@ func BuildNetworks(
 	adjacentNodes AdjacentNodes,
 ) Nodes {
 	nodes := make([]Node, len(adjacentNodes))
-	wg := conc.NewWaitGroup()
+	wg := sync.WaitGroup{}
 	for i := range nodes {
 		wg.Go(func() {
 			var err error
 			nodes[i].Host, err = pubsub.GetHost(mockKey(i), hostAddress)
 			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, nodes[i].Host.Close())
+			})
 		})
 	}
 	wg.Wait()
 
-	wg = conc.NewWaitGroup()
+	// This is a workaround to make sure that all `GetBootstrapPeers` are executed
+	// concurrently once, which ensures that all nodes use the bootstrap peers.
+	onces := make([]sync.Once, len(nodes))
+	ready := make(chan struct{})
+	bootstrapWg := sync.WaitGroup{}
+	bootstrapWg.Add(len(nodes))
+	go func() {
+		bootstrapWg.Wait()
+		close(ready)
+	}()
+
 	for i := range nodes {
 		wg.Go(func() {
 			peers := make([]peer.AddrInfo, 0, len(adjacentNodes[i]))
@@ -52,6 +66,10 @@ func BuildNetworks(
 				})
 			}
 			nodes[i].GetBootstrapPeers = func() []peer.AddrInfo {
+				onces[i].Do(func() {
+					bootstrapWg.Done()
+				})
+				<-ready
 				return peers
 			}
 		})
@@ -61,10 +79,25 @@ func BuildNetworks(
 	return nodes
 }
 
-func (n Nodes) JoinTopic(t *testing.T, chainID, protocolID protocol.ID, topicName string) []*libp2p.Topic {
+func (n Nodes) JoinTopic(
+	t *testing.T,
+	network *utils.Network,
+	protocolID starknetp2p.Protocol,
+	topicName string,
+) []*libp2p.Topic {
 	return iter.Map(n, func(node *Node) *libp2p.Topic {
-		pubSub, err := pubsub.Run(t.Context(), chainID, protocolID, node.Host, config.DefaultBufferSizes.PubSubQueueSize, node.GetBootstrapPeers)
+		pubSub, closer, err := pubsub.Run(
+			t.Context(),
+			node.Host,
+			network,
+			protocolID,
+			node.GetBootstrapPeers,
+			config.DefaultBufferSizes.PubSubQueueSize,
+		)
 		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, closer())
+		})
 
 		topic, relayCancel, err := pubsub.JoinTopic(pubSub, topicName)
 		require.NoError(t, err)

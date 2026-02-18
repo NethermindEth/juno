@@ -104,17 +104,7 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 
 type Logger interface {
 	pebble.Logger
-	SimpleLogger
 	StructuredLogger
-}
-
-// Deprecated: use StructuredLogger interface instead
-type SimpleLogger interface {
-	Debugw(msg string, keysAndValues ...any)
-	Infow(msg string, keysAndValues ...any)
-	Warnw(msg string, keysAndValues ...any)
-	Errorw(msg string, keysAndValues ...any)
-	Tracew(msg string, keysAndValues ...any)
 }
 
 type StructuredLogger interface {
@@ -122,6 +112,7 @@ type StructuredLogger interface {
 	Info(msg string, fields ...zap.Field)
 	Warn(msg string, fields ...zap.Field)
 	Error(msg string, fields ...zap.Field)
+	Trace(msg string, fields ...zap.Field)
 }
 
 var _ Logger = (*ZapLogger)(nil)
@@ -184,26 +175,6 @@ func (l *ZapLogger) Fatalf(msg string, args ...any) {
 	l.sugared.Fatalf(msg, args)
 }
 
-// Deprecated: use Debug with structured fields instead
-func (l *ZapLogger) Debugw(msg string, keysAndValues ...any) {
-	l.sugared.Debugw(msg, keysAndValues...)
-}
-
-// Deprecated: use Info with structured fields instead
-func (l *ZapLogger) Infow(msg string, keysAndValues ...any) {
-	l.sugared.Infow(msg, keysAndValues...)
-}
-
-// Deprecated: use Warn with structured fields instead
-func (l *ZapLogger) Warnw(msg string, keysAndValues ...any) {
-	l.sugared.Warnw(msg, keysAndValues...)
-}
-
-// Deprecated: use Error with structured fields instead
-func (l *ZapLogger) Errorw(msg string, keysAndValues ...any) {
-	l.sugared.Errorw(msg, keysAndValues...)
-}
-
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
 	if l.IsTraceEnabled() {
 		// l.WithOptions() clones logger every time there is a Tracew() call
@@ -230,6 +201,12 @@ func (l *ZapLogger) Warn(msg string, fields ...zap.Field) {
 
 func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
 	l.structured.Error(msg, fields...)
+}
+
+func (l *ZapLogger) Trace(msg string, fields ...zap.Field) {
+	if l.IsTraceEnabled() {
+		l.structured.WithOptions(zap.AddCallerSkip(1)).Log(TRACE, msg, fields...)
+	}
 }
 
 func (l *ZapLogger) IsTraceEnabled() bool {

@@ -12,4 +12,5 @@ extern "C" {
         ptr: *const c_uchar,
         ptr: *const c_uchar,
     );
+    pub fn JunoAppendInitialReads(reader_handle: usize, json_initial_reads: *const c_void, len: usize);
 }

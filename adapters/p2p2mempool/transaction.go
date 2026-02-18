@@ -1,12 +1,14 @@
 package p2p2mempool
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	mempooltransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/mempool/transaction"
 )
@@ -25,7 +27,12 @@ func validateMempoolTransaction(t *mempooltransaction.MempoolTransaction) error 
 	return nil
 }
 
-func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.Network) (mempool.BroadcastedTransaction, error) {
+func AdaptTransaction(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	t *mempooltransaction.MempoolTransaction,
+	network *utils.Network,
+) (mempool.BroadcastedTransaction, error) {
 	if err := validateMempoolTransaction(t); err != nil {
 		return mempool.BroadcastedTransaction{}, err
 	}
@@ -38,7 +45,10 @@ func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.N
 
 	switch t.Txn.(type) {
 	case *mempooltransaction.MempoolTransaction_DeclareV3:
-		if tx, class, err = p2p2core.AdaptDeclareV3WithClass(t.GetDeclareV3(), t.TransactionHash); err != nil {
+		tx, class, err = p2p2core.AdaptDeclareV3WithClass(
+			ctx, compiler, t.GetDeclareV3(), t.TransactionHash,
+		)
+		if err != nil {
 			return mempool.BroadcastedTransaction{}, err
 		}
 	case *mempooltransaction.MempoolTransaction_DeployAccountV3:
@@ -69,5 +79,6 @@ func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.N
 		Transaction:   tx,
 		DeclaredClass: class,
 		PaidFeeOnL1:   nil,
+		Proof:         nil,
 	}, nil
 }

@@ -58,7 +58,7 @@ type Reader interface {
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
 	EventFilter(
-		from *felt.Felt,
+		addresses []felt.Address,
 		keys [][]felt.Felt,
 		pendingDataFn func() (core.PendingData, error),
 	) (EventFilterer, error)
@@ -587,7 +587,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
 func (b *Blockchain) EventFilter(
-	from *felt.Felt,
+	addresses []felt.Address,
 	keys [][]felt.Felt,
 	pendingDataFn func() (core.PendingData, error),
 ) (EventFilterer, error) {
@@ -599,7 +599,7 @@ func (b *Blockchain) EventFilter(
 
 	return newEventFilter(
 		b.database,
-		from,
+		addresses,
 		keys,
 		0,
 		latest,

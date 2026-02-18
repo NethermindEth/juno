@@ -1,6 +1,7 @@
 package genesis
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -96,11 +97,13 @@ func (g *GenesisConfig) Validate() error {
 
 // GenesisStateDiff builds the genesis state given the genesis-config data.
 func GenesisStateDiff(
+	ctx context.Context,
 	config *GenesisConfig,
 	v vm.VM,
 	network *utils.Network,
 	maxSteps uint64,
 	maxGas uint64,
+	compiler compiler.Compiler,
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
@@ -110,7 +113,7 @@ func GenesisStateDiff(
 		core.NewState(memDB.NewIndexedBatch()),
 	)
 
-	if err := declareClasses(config, &genesisState); err != nil {
+	if err := declareClasses(ctx, config, &genesisState, compiler); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
@@ -131,10 +134,12 @@ func GenesisStateDiff(
 }
 
 func declareClasses(
+	ctx context.Context,
 	config *GenesisConfig,
 	genesisState *core.PendingStateWriter,
+	compiler compiler.Compiler,
 ) error {
-	newClasses, err := loadClasses(config.Classes)
+	newClasses, err := loadClasses(ctx, config.Classes, compiler)
 	if err != nil {
 		return err
 	}
@@ -341,7 +346,7 @@ func executeTransactions(
 
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 	executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-		&blockInfo, genesisState, true, true, true, true, false, false)
+		&blockInfo, genesisState, true, true, true, true, false, false, false)
 	if err != nil {
 		return fmt.Errorf("execute transactions: %v", err)
 	}
@@ -373,7 +378,11 @@ func adaptResourceBounds(rb *rpc.ResourceBoundsMap) map[core.Resource]core.Resou
 	}
 }
 
-func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
+func loadClasses(
+	ctx context.Context,
+	classes []string,
+	compiler compiler.Compiler,
+) (map[felt.Felt]core.ClassDefinition, error) {
 	classMap := make(map[felt.Felt]core.ClassDefinition, len(classes))
 	for _, classPath := range classes {
 		bytes, err := os.ReadFile(classPath)
@@ -388,15 +397,20 @@ func loadClasses(classes []string) (map[felt.Felt]core.ClassDefinition, error) {
 
 		var class core.ClassDefinition
 		if response.DeprecatedCairo != nil {
-			if class, err = sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo); err != nil {
+			if class, err = sn2core.AdaptDeprecatedCairoClass(
+				response.DeprecatedCairo,
+			); err != nil {
 				return nil, err
 			}
 		} else {
 			var casmClass *starknet.CasmClass
-			if casmClass, err = compiler.Compile(response.Sierra); err != nil {
+			casmClass, err = compiler.Compile(ctx, response.Sierra)
+			if err != nil {
 				return nil, err
 			}
-			if class, err = sn2core.AdaptSierraClass(response.Sierra, casmClass); err != nil {
+			if class, err = sn2core.AdaptSierraClass(
+				response.Sierra, casmClass,
+			); err != nil {
 				return nil, err
 			}
 		}

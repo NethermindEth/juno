@@ -7,6 +7,7 @@ import (
 	"iter"
 	"time"
 
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -15,6 +16,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
@@ -29,10 +31,12 @@ type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Strea
 type Client struct {
 	newStream NewStreamFunc
 	network   *utils.Network
-	log       utils.SimpleLogger
+	log       utils.StructuredLogger
 }
 
-func NewClient(newStream NewStreamFunc, snNetwork *utils.Network, log utils.SimpleLogger) *Client {
+func NewClient(
+	newStream NewStreamFunc, snNetwork *utils.Network, log utils.StructuredLogger,
+) *Client {
 	return &Client{
 		newStream: newStream,
 		network:   snNetwork,
@@ -60,7 +64,7 @@ func receiveInto(stream network.Stream, res proto.Message) error {
 }
 
 func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context.Context,
-	newStream NewStreamFunc, protocolID protocol.ID, req ReqT, log utils.SimpleLogger,
+	newStream NewStreamFunc, protocolID protocol.ID, req ReqT, log utils.StructuredLogger,
 ) (iter.Seq[ResT], error) {
 	stream, err := newStream(ctx, protocolID)
 	if err != nil {
@@ -74,7 +78,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
-		log.Errorw("sendAndCloseWrite (stream is not closed)", "err", err, "streamID", id)
+		log.Error("sendAndCloseWrite (stream is not closed)", zap.Error(err), zap.String("streamID", id))
 		return nil, err
 	}
 
@@ -82,7 +86,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		defer func() {
 			closeErr := stream.Close()
 			if closeErr != nil {
-				log.Errorw("Error while closing stream", "err", closeErr)
+				log.Error("Error while closing stream", zap.Error(closeErr))
 			}
 		}()
 
@@ -91,7 +95,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		for {
 			if err := receiveInto(stream, res); err != nil {
 				if !errors.Is(err, io.EOF) {
-					log.Debugw("Error while reading from stream", "err", err)
+					log.Debug("Error while reading from stream", zap.Error(err))
 				}
 
 				break
@@ -110,19 +114,42 @@ func (c *Client) RequestBlockHeaders(
 	ctx context.Context, req *header.BlockHeadersRequest,
 ) (iter.Seq[*header.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*header.BlockHeadersRequest, *header.BlockHeadersResponse](
-		ctx, c.newStream, HeadersPID(), req, c.log)
+		ctx,
+		c.newStream,
+		starknetp2p.Sync(c.network, starknetp2p.HeadersSyncSubProtocol),
+		req,
+		c.log,
+	)
 }
 
 func (c *Client) RequestEvents(ctx context.Context, req *event.EventsRequest) (iter.Seq[*event.EventsResponse], error) {
-	return requestAndReceiveStream[*event.EventsRequest, *event.EventsResponse](ctx, c.newStream, EventsPID(), req, c.log)
+	return requestAndReceiveStream[*event.EventsRequest, *event.EventsResponse](
+		ctx,
+		c.newStream,
+		starknetp2p.Sync(c.network, starknetp2p.EventsSyncSubProtocol),
+		req,
+		c.log,
+	)
 }
 
 func (c *Client) RequestClasses(ctx context.Context, req *syncclass.ClassesRequest) (iter.Seq[*syncclass.ClassesResponse], error) {
-	return requestAndReceiveStream[*syncclass.ClassesRequest, *syncclass.ClassesResponse](ctx, c.newStream, ClassesPID(), req, c.log)
+	return requestAndReceiveStream[*syncclass.ClassesRequest, *syncclass.ClassesResponse](
+		ctx,
+		c.newStream,
+		starknetp2p.Sync(c.network, starknetp2p.ClassesSyncSubProtocol),
+		req,
+		c.log,
+	)
 }
 
 func (c *Client) RequestStateDiffs(ctx context.Context, req *state.StateDiffsRequest) (iter.Seq[*state.StateDiffsResponse], error) {
-	return requestAndReceiveStream[*state.StateDiffsRequest, *state.StateDiffsResponse](ctx, c.newStream, StateDiffPID(), req, c.log)
+	return requestAndReceiveStream[*state.StateDiffsRequest, *state.StateDiffsResponse](
+		ctx,
+		c.newStream,
+		starknetp2p.Sync(c.network, starknetp2p.StateDiffSyncSubProtocol),
+		req,
+		c.log,
+	)
 }
 
 func (c *Client) RequestTransactions(
@@ -130,5 +157,10 @@ func (c *Client) RequestTransactions(
 	req *synctransaction.TransactionsRequest,
 ) (iter.Seq[*synctransaction.TransactionsResponse], error) {
 	return requestAndReceiveStream[*synctransaction.TransactionsRequest, *synctransaction.TransactionsResponse](
-		ctx, c.newStream, TransactionsPID(), req, c.log)
+		ctx,
+		c.newStream,
+		starknetp2p.Sync(c.network, starknetp2p.TransactionsSyncSubProtocol),
+		req,
+		c.log,
+	)
 }

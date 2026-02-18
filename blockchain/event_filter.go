@@ -45,7 +45,7 @@ const (
 
 func newEventFilter(
 	txn db.KeyValueStore,
-	contractAddress *felt.Felt,
+	contractAddresses []felt.Address,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
 	pendingDataFn func() (core.PendingData, error),
@@ -55,7 +55,7 @@ func newEventFilter(
 ) *EventFilter {
 	return &EventFilter{
 		txn:           txn,
-		matcher:       NewEventMatcher(contractAddress, keys),
+		matcher:       NewEventMatcher(contractAddresses, keys),
 		fromBlock:     fromBlock,
 		toBlock:       toBlock,
 		maxScanned:    math.MaxUint,

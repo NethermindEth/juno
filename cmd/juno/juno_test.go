@@ -63,6 +63,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
 	defaultDBMemtableSize := uint(256)
+	defaultDBMemtableCount := uint(2)
 	defaultDBCompression := "snappy"
 	defaultCallMaxSteps := uint64(4_000_000)
 	defaultCallMaxGas := uint64(100_000_000)
@@ -70,6 +71,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGwTimeout := "5s"
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
+	defaultRPCRequestTimeout := 1 * time.Minute
+	defaultMaxConcurrentCompilations := uint(8)
 
 	expectedConfig1 := node.Config{
 		LogLevel:                           "debug",
@@ -99,6 +102,7 @@ func TestConfigPrecedence(t *testing.T) {
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
 		DBMemtableSize:                     defaultDBMemtableSize,
+		DBMemtableCount:                    defaultDBMemtableCount,
 		DBCompression:                      defaultDBCompression,
 		RPCCallMaxSteps:                    defaultCallMaxSteps,
 		RPCCallMaxGas:                      defaultCallMaxGas,
@@ -109,6 +113,8 @@ func TestConfigPrecedence(t *testing.T) {
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 		ReadinessBlockTolerance:            6,
+		RPCRequestTimeout:                  defaultRPCRequestTimeout,
+		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 	}
 
 	expectedConfig2 := node.Config{
@@ -139,6 +145,7 @@ func TestConfigPrecedence(t *testing.T) {
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
 		DBMemtableSize:                     defaultDBMemtableSize,
+		DBMemtableCount:                    defaultDBMemtableCount,
 		DBCompression:                      defaultDBCompression,
 		RPCCallMaxSteps:                    defaultCallMaxSteps,
 		RPCCallMaxGas:                      defaultCallMaxGas,
@@ -149,6 +156,8 @@ func TestConfigPrecedence(t *testing.T) {
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 		ReadinessBlockTolerance:            6,
+		RPCRequestTimeout:                  defaultRPCRequestTimeout,
+		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 	}
 	tests := map[string]struct {
 		cfgFile         bool
@@ -240,6 +249,7 @@ pprof: true
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -250,6 +260,8 @@ pprof: true
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -286,6 +298,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -296,6 +309,8 @@ http-port: 4576
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"all flags without config file": {
@@ -329,6 +344,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -341,6 +357,8 @@ http-port: 4576
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some flags without config file": {
@@ -376,6 +394,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -386,6 +405,8 @@ http-port: 4576
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -446,6 +467,7 @@ db-cache-size: 1024
 				DBCacheSize:                        9,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -456,6 +478,8 @@ db-cache-size: 1024
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -494,6 +518,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -504,6 +529,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -538,6 +565,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -548,6 +576,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"only set env variables": {
@@ -580,6 +610,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -590,6 +621,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -623,6 +656,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -633,6 +667,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -667,6 +703,7 @@ network: sepolia
 				GatewayAPIKey:                      "apikey",
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
+				DBMemtableCount:                    defaultDBMemtableCount,
 				DBCompression:                      defaultDBCompression,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
@@ -677,6 +714,8 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				RPCRequestTimeout:                  defaultRPCRequestTimeout,
+				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 			},
 		},
 	}

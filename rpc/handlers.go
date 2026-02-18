@@ -13,6 +13,7 @@ import (
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -45,6 +46,15 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		rpcv10Handler: handlerv10,
 		version:       version,
 	}
+}
+
+func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
+	h.rpcv6Handler.WithCompiler(compiler)
+	h.rpcv7Handler.WithCompiler(compiler)
+	h.rpcv8Handler.WithCompiler(compiler)
+	h.rpcv9Handler.WithCompiler(compiler)
+	h.rpcv10Handler.WithCompiler(compiler)
+	return h
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
@@ -133,7 +143,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	return g.Wait()
 }
 
-//nolint:funlen,dupl // just registering methods for rpc v10, shares many methods with rpcv9
+//nolint:funlen // just registering methods for rpc v10, shares many methods with rpcv9
 func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
 		{
@@ -154,14 +164,20 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.BlockWithTxHashes,
 		},
 		{
-			Name:    "starknet_getBlockWithTxs",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_getBlockWithTxs",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "response_flags", Optional: true},
+			},
 			Handler: h.rpcv10Handler.BlockWithTxs,
 		},
 		{
-			Name:    "starknet_getTransactionByHash",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv9Handler.TransactionByHash,
+			Name: "starknet_getTransactionByHash",
+			Params: []jsonrpc.Parameter{
+				{Name: "transaction_hash"},
+				{Name: "response_flags", Optional: true},
+			},
+			Handler: h.rpcv10Handler.TransactionByHash,
 		},
 		{
 			Name:    "starknet_getTransactionReceipt",
@@ -174,9 +190,13 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv9Handler.BlockTransactionCount,
 		},
 		{
-			Name:    "starknet_getTransactionByBlockIdAndIndex",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			Handler: h.rpcv9Handler.TransactionByBlockIDAndIndex,
+			Name: "starknet_getTransactionByBlockIdAndIndex",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "index"},
+				{Name: "response_flags", Optional: true},
+			},
+			Handler: h.rpcv10Handler.TransactionByBlockIDAndIndex,
 		},
 		{
 			Name:    "starknet_getStateUpdate",
@@ -217,7 +237,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_addInvokeTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: h.rpcv9Handler.AddTransaction,
+			Handler: h.rpcv10Handler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeployAccountTransaction",
@@ -273,8 +293,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.SimulateTransactions,
 		},
 		{
-			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_traceBlockTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "trace_flags", Optional: true},
+			},
 			Handler: h.rpcv10Handler.TraceBlockTransactions,
 		},
 		{
@@ -314,6 +337,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Params: []jsonrpc.Parameter{
 				{Name: "finality_status", Optional: true},
 				{Name: "sender_address", Optional: true},
+				{Name: "tags", Optional: true},
 			},
 			Handler: h.rpcv10Handler.SubscribeNewTransactions,
 		},
@@ -323,8 +347,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.Unsubscribe,
 		},
 		{
-			Name:    "starknet_getBlockWithReceipts",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_getBlockWithReceipts",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "response_flags", Optional: true},
+			},
 			Handler: h.rpcv10Handler.BlockWithReceipts,
 		},
 		{
@@ -350,7 +377,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 	}, "/v0_10"
 }
 
-//nolint:funlen,dupl // just registering methods for rpc v9, shares many methods with rpcv10
+//nolint:funlen // just registering methods for rpc v9, shares many methods with rpcv10
 func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
 		{

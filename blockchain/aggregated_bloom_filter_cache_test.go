@@ -13,13 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// randomContractAddress generates a random contract address (felt) for testing.
-func randomContractAddress(t *testing.T) *felt.Felt {
-	t.Helper()
-	addr := felt.NewRandom[felt.Felt]()
-	return addr
-}
-
 // randomEventKeys generates a random 2D slice of felts to simulate event log keys.
 // keysPerEvent sets "topic count"; subKeysPerKey is for composite keys (set to 1 for regular).
 func randomEventKeys(t *testing.T, keysPerEvent, subKeysPerKey int) [][]felt.Felt {
@@ -37,7 +30,7 @@ func randomEventKeys(t *testing.T, keysPerEvent, subKeysPerKey int) [][]felt.Fel
 
 // EventTestCase describes an event/contract with its block mappings for assertions.
 type eventTestCase struct {
-	contractAddress *felt.Felt
+	contractAddress felt.Address
 	keys            [][]felt.Felt
 	expectedBlocks  []uint64 // Populated by the insert routine
 }
@@ -47,7 +40,7 @@ func generateRandomEvents(t *testing.T, n, keysPerEvent, subKeysPerKey int) []*e
 	t.Helper()
 	events := make([]*eventTestCase, n)
 	for i := range n {
-		addr := randomContractAddress(t)
+		addr := felt.Random[felt.Address]()
 		keys := randomEventKeys(t, keysPerEvent, subKeysPerKey)
 		events[i] = &eventTestCase{
 			contractAddress: addr,
@@ -84,9 +77,7 @@ func populateAggregatedBloomFilters(
 				}
 				insertedEvents[eventIdx] = struct{}{}
 				ev := events[eventIdx]
-				if ev.contractAddress != nil {
-					bloomInst.Add(ev.contractAddress.Marshal())
-				}
+				bloomInst.Add(ev.contractAddress.Marshal())
 				// Insert all keys for the event
 				for index, keySet := range ev.keys {
 					for _, key := range keySet {
@@ -133,9 +124,7 @@ func populateAggregatedBloomDeterministic(
 			}
 			innerBloom := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 
-			if test.contractAddress != nil {
-				innerBloom.Add(test.contractAddress.Marshal())
-			}
+			innerBloom.Add(test.contractAddress.Marshal())
 			// Flatten keys from all positions in event filter keys
 			for index, keySet := range test.keys {
 				for _, key := range keySet {
@@ -177,7 +166,8 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, runningFilterStart)
 	for _, test := range events {
 		// Create iterator for event
-		matcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
+		contractAddresses := []felt.Address{test.contractAddress}
+		matcher := blockchain.NewEventMatcher(contractAddresses, test.keys)
 
 		iterator, err := cache.NewMatchedBlockIterator(0, chainHeight, 0, &matcher, runningFilter)
 		require.NoError(t, err)
@@ -211,7 +201,8 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 
 	testDB := memory.New()
 	var maxScannedLimit uint64 = 0
-	eventMatcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
+	contractAddresses := []felt.Address{test.contractAddress}
+	eventMatcher := blockchain.NewEventMatcher(contractAddresses, test.keys)
 	innerFilter := core.NewAggregatedFilter(chainHeight + 1)
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, chainHeight+1)
 	t.Run("returns only what is in range", func(t *testing.T) {

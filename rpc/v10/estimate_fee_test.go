@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -47,7 +46,7 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			false,
-			true, true, true, true).
+			true, true, true, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -57,8 +56,9 @@ func TestEstimateFee(t *testing.T) {
 			}, nil)
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv6.SimulationFlag{},
+			[]rpcv10.EstimateFlag{},
 			&blockID,
 		)
 		require.Nil(t, err)
@@ -74,7 +74,7 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			true,
-			true, true, true, true).
+			true, true, true, true, false).
 			Return(
 				vm.ExecutionResults{
 					OverallFees:      []*felt.Felt{},
@@ -87,8 +87,11 @@ func TestEstimateFee(t *testing.T) {
 			)
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			[]rpcv10.EstimateFlag{
+				rpcv10.EstimateSkipValidateFlag,
+			},
 			&blockID,
 		)
 		require.Nil(t, err)
@@ -104,15 +107,16 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			true,
-			true, true, true, true).
+			true, true, true, true, false).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: json.RawMessage("oops"),
 			})
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{},
-			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			[]rpcv10.EstimateFlag{rpcv10.EstimateSkipValidateFlag},
 			&blockID,
 		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -141,8 +145,13 @@ func TestEstimateFee(t *testing.T) {
 			ContractClass: json.RawMessage(`{}`),
 		}
 		_, _, err := handler.EstimateFee(
-			rpcv10.BroadcastedTransactionInputs{Data: []rpcv9.BroadcastedTransaction{invalidTx}},
-			[]rpcv6.SimulationFlag{},
+			t.Context(),
+			rpcv10.BroadcastedTransactionInputs{
+				Data: []rpcv10.BroadcastedTransaction{
+					{BroadcastedTransaction: invalidTx},
+				},
+			},
+			[]rpcv10.EstimateFlag{},
 			&blockID,
 		)
 		expectedErr := &jsonrpc.Error{

@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/builder"
@@ -13,7 +14,9 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/p2p/pubsub"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	libp2p "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -24,10 +27,9 @@ import (
 type topicName string
 
 const (
-	chainID                       = "1" // TODO: Make this configurable
-	consensusProtocolID           = "consensus"
-	proposalTopicName   topicName = "consensus_proposals"
-	voteTopicName       topicName = "consensus_votes"
+	chainID                     = "1" // TODO: Make this configurable
+	proposalTopicName topicName = "consensus_proposals"
+	voteTopicName     topicName = "consensus_votes"
 )
 
 type P2P[V types.Hashable[H], H types.Hash, A types.Addr] interface {
@@ -40,6 +42,7 @@ type P2P[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 type p2p[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	host             host.Host
 	log              utils.Logger
+	network          *utils.Network
 	commitNotifier   chan types.Height
 	broadcasters     Broadcasters[V, H, A]
 	listeners        Listeners[V, H, A]
@@ -60,6 +63,7 @@ func New(
 	currentHeight types.Height,
 	bufferSizeConfig *config.BufferSizes,
 	bootstrapPeersFn func() []peer.AddrInfo,
+	compiler compiler.Compiler,
 ) P2P[starknet.Value, starknet.Hash, starknet.Address] {
 	commitNotifier := make(chan types.Height, bufferSizeConfig.ProposalCommitNotifier)
 
@@ -84,7 +88,7 @@ func New(
 	proposalStream := validator.NewProposalStreamDemux(
 		log,
 		proposalStore,
-		validator.NewTransition(builder),
+		validator.NewTransition(builder, compiler),
 		bufferSizeConfig,
 		commitNotifier,
 		currentHeight,
@@ -110,6 +114,7 @@ func New(
 	return &p2p[starknet.Value, starknet.Hash, starknet.Address]{
 		host:             host,
 		log:              log,
+		network:          builder.Network(),
 		commitNotifier:   commitNotifier,
 		broadcasters:     broadcasters,
 		listeners:        listeners,
@@ -119,18 +124,21 @@ func New(
 	}
 }
 
-func (p *p2p[V, H, A]) Run(ctx context.Context) error {
-	gossipSub, err := pubsub.Run(
+func (p *p2p[V, H, A]) Run(ctx context.Context) (returnedError error) {
+	gossipSub, closer, err := pubsub.Run(
 		ctx,
-		chainID,
-		consensusProtocolID,
 		p.host,
-		p.pubSubQueueSize,
+		p.network,
+		starknetp2p.ConsensusProtocolID,
 		p.bootstrapPeersFn,
+		p.pubSubQueueSize,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to create gossipsub with error: %w", err)
 	}
+	defer func() {
+		returnedError = errors.Join(returnedError, closer())
+	}()
 
 	topics := make([]*libp2p.Topic, 0, len(p.topicAttachment))
 	relayCancels := make([]func(), 0, len(p.topicAttachment))

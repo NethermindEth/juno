@@ -15,6 +15,8 @@ jobs:
         network:
           - name: "Mainnet"
             url: "https://juno-snapshots.nethermind.io/files/mainnet/latest"
+          - name: "Mainnet CL"
+            url: "https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest"
           - name: "Sepolia"
             url: "https://juno-snapshots.nethermind.io/files/sepolia/latest"
           - name: "Sepolia Integration"
@@ -62,4 +64,3 @@ jobs:
           else
             echo "✅ OK: $NETWORK_NAME snapshot is fresh ($AGE_DAYS days old). No alert needed."
           fi
-

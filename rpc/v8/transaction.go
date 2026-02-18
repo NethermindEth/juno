@@ -17,8 +17,10 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 )
 
 type TransactionType uint8
@@ -326,7 +328,10 @@ type BroadcastedTransaction struct {
 	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
-func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+func AdaptBroadcastedTransaction(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
@@ -338,7 +343,9 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 
 	var declaredClass core.ClassDefinition
 	if len(broadcastedTxn.ContractClass) != 0 {
-		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
+		declaredClass, err = adaptDeclaredClass(
+			ctx, compiler, broadcastedTxn.ContractClass,
+		)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -639,7 +646,9 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 }
 
 func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
-	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
+	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(
+		ctx, h.compiler, tx, h.bcReader.Network(),
+	)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
@@ -767,7 +776,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		status, err := adaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, errTransactionNotFound) {
-				h.log.Errorw("Failed to adapt transaction status", "err", err)
+				h.log.Error("Failed to adapt transaction status", zap.Error(err))
 			}
 			return nil, rpccore.ErrTxnHashNotFound
 		}

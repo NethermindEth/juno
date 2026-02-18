@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -45,13 +46,15 @@ type Handler struct {
 
 	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
 	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
-	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, TraceBlockTransactionsResponse]
 	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
 	callMaxSteps uint64
 	callMaxGas   uint64
+
+	compiler compiler.Compiler
 
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
@@ -92,11 +95,16 @@ func New(
 
 		blockTraceCache: lru.NewCache[
 			rpccore.TraceCacheKey,
-			[]TracedBlockTransaction,
+			TraceBlockTransactionsResponse,
 		](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
+}
+
+func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
+	h.compiler = compiler
+	return h
 }
 
 func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {

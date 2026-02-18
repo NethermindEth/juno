@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/mempool/transaction"
+	"go.uber.org/zap"
 )
 
 type transactionBroadcaster struct {
@@ -30,7 +31,7 @@ func NewTransactionBroadcaster(
 func (b *transactionBroadcaster) Broadcast(ctx context.Context, message *mempool.BroadcastedTransaction) {
 	msg, err := mempool2p2p.AdaptTransaction(message)
 	if err != nil {
-		b.log.Errorw("unable to convert transaction", "error", err)
+		b.log.Error("unable to convert transaction", zap.Error(err))
 		return
 	}
 

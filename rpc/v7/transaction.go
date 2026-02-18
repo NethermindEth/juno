@@ -15,8 +15,10 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 )
 
 type TransactionType uint8
@@ -255,7 +257,10 @@ type BroadcastedTransaction struct {
 	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
-func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+func AdaptBroadcastedTransaction(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	// RPCv7 requests must set l2_gas to zero
@@ -276,7 +281,9 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	}
 	var declaredClass core.ClassDefinition
 	if len(broadcastedTxn.ContractClass) != 0 {
-		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
+		declaredClass, err = adaptDeclaredClass(
+			ctx, compiler, broadcastedTxn.ContractClass,
+		)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -530,7 +537,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		status, err := adaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, errTransactionNotFound) {
-				h.log.Errorw("Failed to adapt transaction status", "err", err)
+				h.log.Error("Failed to adapt transaction status", zap.Error(err))
 			}
 			return nil, rpccore.ErrTxnHashNotFound
 		}

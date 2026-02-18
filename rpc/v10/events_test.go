@@ -174,12 +174,12 @@ func extractCanonicalEvents(
 
 // collectAllEvents collects all events from the given handler and returns them
 // asserts that the number of events in each chunk is less than or equal to the chunk size
-func collectAllEvents(t *testing.T, h *rpc.Handler, args rpc.EventArgs) []rpc.EmittedEvent {
+func collectAllEvents(t *testing.T, h *rpc.Handler, args *rpc.EventArgs) []rpc.EmittedEvent {
 	t.Helper()
 	all := []rpc.EmittedEvent{}
-	cur := args
+	cur := *args
 	for {
-		chunk, err := h.Events(cur)
+		chunk, err := h.Events(&cur)
 		require.Nil(t, err)
 		require.LessOrEqual(t, len(chunk.Events), int(args.ResultPageRequest.ChunkSize))
 		all = append(all, chunk.Events...)
@@ -297,9 +297,11 @@ func TestEvents(t *testing.T) {
 	}
 
 	// Test address and key for filtering
-	testAddress := felt.NewUnsafeFromString[felt.Felt](
-		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-	)
+	testAddress := []felt.Address{
+		felt.UnsafeFromString[felt.Address](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		),
+	}
 	testKey := felt.NewUnsafeFromString[felt.Felt](
 		"0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e",
 	)
@@ -462,7 +464,7 @@ func TestEvents(t *testing.T) {
 			expectedEvents: canonicalEvents,
 		},
 		{
-			description: "canonical events with address filter",
+			description: "canonical events with single address filter",
 			args: rpc.EventArgs{
 				EventFilter: rpc.EventFilter{
 					FromBlock: &blockIDZero,
@@ -474,7 +476,32 @@ func TestEvents(t *testing.T) {
 			expectedEvents: func() []rpc.EmittedEvent {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
-					if event.From.Equal(testAddress) {
+					// todo: remove the cast to felt.Felt
+					if event.From.Equal((*felt.Felt)(&testAddress[0])) {
+						filtered = append(filtered, event)
+					}
+				}
+				return filtered
+			}(),
+		},
+		{
+			description: "canonical events with multiple addresses filter",
+			args: rpc.EventArgs{
+				EventFilter: rpc.EventFilter{
+					FromBlock: &blockIDZero,
+					ToBlock:   &latestID,
+					Address: []felt.Address{
+						testAddress[0],
+						felt.Address(felt.Zero), // non-existent address
+					},
+				},
+				ResultPageRequest: defaultPageRequest,
+			},
+			expectedEvents: func() []rpc.EmittedEvent {
+				var filtered []rpc.EmittedEvent
+				for _, event := range canonicalEvents {
+					// todo: remove the cast to felt.Felt
+					if event.From != nil && event.From.Equal((*felt.Felt)(&testAddress[0])) {
 						filtered = append(filtered, event)
 					}
 				}
@@ -495,7 +522,8 @@ func TestEvents(t *testing.T) {
 			expectedEvents: func() []rpc.EmittedEvent {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
-					if event.From.Equal(testAddress) &&
+					// todo: remove the cast to felt.Felt
+					if event.From.Equal((*felt.Felt)(&testAddress[0])) &&
 						len(event.Keys) > 0 && event.Keys[0].Equal(testKey) {
 						filtered = append(filtered, event)
 					}
@@ -619,7 +647,7 @@ func TestEvents(t *testing.T) {
 
 			// Error cases: assert once and return
 			if tc.expectError != nil {
-				chunk, err := handler.Events(tc.args)
+				chunk, err := handler.Events(&tc.args)
 				require.Equal(t, tc.expectError, err)
 				require.Empty(t, chunk.Events)
 				require.Empty(t, chunk.ContinuationToken)
@@ -627,7 +655,7 @@ func TestEvents(t *testing.T) {
 			}
 
 			// Success cases: collect all pages then compare
-			got := collectAllEvents(t, handler, tc.args)
+			got := collectAllEvents(t, handler, &tc.args)
 			require.Equal(t, tc.expectedEvents, got)
 		})
 	}
@@ -639,9 +667,11 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 
 	handler := rpc.New(chain, nil, nil, utils.NewNopZapLogger())
 
-	from := felt.NewUnsafeFromString[felt.Felt](
-		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-	)
+	from := []felt.Address{
+		felt.UnsafeFromString[felt.Address](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		),
+	}
 	blockNumber := rpcv9.BlockIDFromNumber(0)
 	latest := rpcv9.BlockIDLatest()
 
@@ -659,13 +689,13 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	}
 
 	handler = handler.WithFilterLimit(1)
-	events, err := handler.Events(args)
+	events, err := handler.Events(&args)
 	require.Nil(t, err)
 	require.Equal(t, "4-0", events.ContinuationToken)
 	require.NotEmpty(t, events.Events)
 
 	handler = handler.WithFilterLimit(7)
-	events, err = handler.Events(args)
+	events, err = handler.Events(&args)
 	require.Nil(t, err)
 	require.Empty(t, events.ContinuationToken)
 	require.NotEmpty(t, events.Events)
@@ -717,7 +747,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	// Collect canonical events
 	mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 	for {
-		chunk, err := handler.Events(curArgs)
+		chunk, err := handler.Events(&curArgs)
 		require.Nil(t, err)
 
 		allEvents = append(allEvents, chunk.Events...)
@@ -736,7 +766,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 
 	// Read one from pre_latest block 5
 	mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
-	chunk, rpcErr := handler.Events(curArgs)
+	chunk, rpcErr := handler.Events(&curArgs)
 	require.Nil(t, rpcErr)
 	require.NotEmpty(t, chunk.ContinuationToken)
 	require.Equal(t, uint64(5), *chunk.Events[0].BlockNumber)
@@ -746,7 +776,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	// pre-latest becomes latest, continue pagination from block 5
 	fetchAndStoreBlock(t, chain, gw, 5)
 	mockSyncReader.EXPECT().PendingData().Return(preConfirmed.WithPreLatest(nil), nil)
-	chunk, rpcErr = handler.Events(curArgs)
+	chunk, rpcErr = handler.Events(&curArgs)
 	require.Nil(t, rpcErr)
 	require.NotEmpty(t, chunk.ContinuationToken)
 	require.Equal(t, uint64(5), *chunk.Events[0].BlockNumber)
@@ -755,7 +785,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 
 	// continue from pre_confirmed, read one from block 6
 	mockSyncReader.EXPECT().PendingData().Return(preConfirmed.WithPreLatest(nil), nil)
-	chunk, rpcErr = handler.Events(curArgs)
+	chunk, rpcErr = handler.Events(&curArgs)
 	require.Nil(t, rpcErr)
 	require.NotEmpty(t, chunk.ContinuationToken)
 	require.Equal(t, uint64(6), *chunk.Events[0].BlockNumber)
@@ -775,7 +805,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 
 	for {
 		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed2, nil)
-		chunk, rpcErr = handler.Events(curArgs)
+		chunk, rpcErr = handler.Events(&curArgs)
 		require.Nil(t, rpcErr)
 		require.Equal(t, uint64(6), *chunk.Events[0].BlockNumber)
 		allEvents = append(allEvents, chunk.Events...)

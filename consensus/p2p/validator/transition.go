@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -18,6 +19,7 @@ var errHashMismatch = errors.New("hash mismatch")
 
 type Transition interface {
 	Network() *utils.Network
+	Compiler() compiler.Compiler
 	OnProposalInit(
 		context.Context,
 		*InitialState,
@@ -51,17 +53,25 @@ type Transition interface {
 }
 
 type transition struct {
-	builder *builder.Builder
+	builder  *builder.Builder
+	compiler compiler.Compiler
 }
 
-func NewTransition(builder *builder.Builder) Transition {
+func NewTransition(
+	builder *builder.Builder, compiler compiler.Compiler,
+) Transition {
 	return &transition{
-		builder: builder,
+		builder:  builder,
+		compiler: compiler,
 	}
 }
 
 func (t *transition) Network() *utils.Network {
 	return t.builder.Network()
+}
+
+func (t *transition) Compiler() compiler.Compiler {
+	return t.compiler
 }
 
 func (t *transition) OnProposalInit(

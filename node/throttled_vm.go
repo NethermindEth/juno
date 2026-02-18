@@ -55,6 +55,7 @@ func (tvm *ThrottledVM) Execute(
 	errStack,
 	allowBinarySearch bool,
 	isEstimateFee bool,
+	returnInitialReads bool,
 ) (vm.ExecutionResults, error) {
 	var executionResult vm.ExecutionResults
 	return executionResult, tvm.Do(func(vm *vm.VM) error {
@@ -71,6 +72,7 @@ func (tvm *ThrottledVM) Execute(
 			errStack,
 			allowBinarySearch,
 			isEstimateFee,
+			returnInitialReads,
 		)
 		return err
 	})

@@ -17,6 +17,7 @@ import (
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -66,7 +67,15 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 		received := make(chan *mempool.BroadcastedTransaction, txCount)
 		pool := mockMempool(received)
 
-		p2p := p2p.New(&utils.Mainnet, node.Host, logger, &pool, &config.DefaultBufferSizes, node.GetBootstrapPeers)
+		p2p := p2p.New(
+			&utils.Mainnet,
+			node.Host,
+			logger,
+			&pool,
+			&config.DefaultBufferSizes,
+			node.GetBootstrapPeers,
+			nil,
+		)
 
 		peerWait.Go(func() {
 			require.NoError(t, p2p.Run(t.Context()))
@@ -74,7 +83,7 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 
 		transactionWait.Go(func() {
 			for i, transaction := range transactions[index] {
-				logger.Debugw("sending", "count", i)
+				logger.Debug("sending", zap.Int("count", i))
 				require.NoError(t, p2p.Push(t.Context(), &transaction))
 			}
 		})
@@ -91,13 +100,17 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 				select {
 				case transaction := <-received:
 					delete(pending, transaction.Transaction.Hash().String())
-					logger.Debugw("pending", "count", len(pending))
+					logger.Debug("pending", zap.Int("count", len(pending)))
 					if len(pending) == 0 {
-						logger.Infow("all transactions received")
+						logger.Info("all transactions received")
 						return
 					}
 				case <-time.After(maxWait):
-					logger.Infow("missing transactions", "pending", slices.Collect(maps.Values(pending)))
+					// todo(rdr): use a more specific zap.Field than any
+					logger.Info(
+						"missing transactions",
+						zap.Any("pending", slices.Collect(maps.Values(pending))),
+					)
 					require.FailNow(t, "timed out waiting for transactions")
 				}
 			}

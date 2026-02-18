@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"encoding/binary"
+	"slices"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -10,14 +11,21 @@ import (
 )
 
 type EventMatcher struct {
-	contractAddress *felt.Felt
-	keysMap         []map[felt.Felt]struct{}
+	contractAddresses    []felt.Address
+	contractAddressBytes [][]byte
+	keysMap              []map[felt.Felt]struct{}
 }
 
-func NewEventMatcher(contractAddress *felt.Felt, keys [][]felt.Felt) EventMatcher {
+func NewEventMatcher(contractAddresses []felt.Address, keys [][]felt.Felt) EventMatcher {
+	contractAddressBytes := make([][]byte, len(contractAddresses))
+	for i, addr := range contractAddresses {
+		b := addr.Bytes()
+		contractAddressBytes[i] = append([]byte(nil), b[:]...)
+	}
 	return EventMatcher{
-		contractAddress: contractAddress,
-		keysMap:         makeKeysMaps(keys),
+		contractAddresses:    contractAddresses,
+		contractAddressBytes: contractAddressBytes,
+		keysMap:              makeKeysMaps(keys),
 	}
 }
 
@@ -66,10 +74,9 @@ func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 
 func (e *EventMatcher) TestBloom(bloomFilter *bloom.BloomFilter) bool {
 	possibleMatches := true
-	if e.contractAddress != nil {
-		addrBytes := e.contractAddress.Bytes()
-		possibleMatches = bloomFilter.Test(addrBytes[:])
-		// bloom filter says no events from this contract
+	if len(e.contractAddressBytes) > 0 {
+		possibleMatches = slices.ContainsFunc(e.contractAddressBytes, bloomFilter.Test)
+		// bloom filter says no events from any of these contracts
 		if !possibleMatches {
 			return possibleMatches
 		}
@@ -110,9 +117,8 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	out.SetAll()
 
 	innerMatch := bitset.New(uint(core.NumBlocksPerFilter))
-	if e.contractAddress != nil {
-		addrBytes := e.contractAddress.Bytes()
-		if err := filter.BlocksForKeysInto([][]byte{addrBytes[:]}, innerMatch); err != nil {
+	if len(e.contractAddressBytes) > 0 {
+		if err := filter.BlocksForKeysInto(e.contractAddressBytes, innerMatch); err != nil {
 			return err
 		}
 
@@ -170,9 +176,13 @@ func (e *EventMatcher) AppendBlockEvents(
 				continue
 			}
 
-			if e.contractAddress != nil && !event.From.Equal(e.contractAddress) {
-				processedEvents++
-				continue
+			if len(e.contractAddresses) > 0 {
+				// todo: remove the cast to felt.Address
+				contains := slices.Contains(e.contractAddresses, felt.Address(*event.From))
+				if !contains {
+					processedEvents++
+					continue
+				}
 			}
 
 			if !e.MatchesEventKeys(event.Keys) {
@@ -199,4 +209,14 @@ func (e *EventMatcher) AppendBlockEvents(
 		}
 	}
 	return matchedEventsSofar, processedEvents, nil
+}
+
+func (e *EventMatcher) MatchesAddress(eventFrom *felt.Felt) bool {
+	if len(e.contractAddresses) == 0 {
+		return true
+	}
+	if eventFrom == nil {
+		return false
+	}
+	return slices.Contains(e.contractAddresses, felt.Address(*eventFrom))
 }

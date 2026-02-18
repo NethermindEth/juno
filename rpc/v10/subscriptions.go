@@ -18,6 +18,7 @@ import (
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"go.uber.org/zap"
 )
 
 const subscribeEventsChunkSize = 1024
@@ -104,7 +105,7 @@ func (h *Handler) subscribe(
 
 		if subscriber.onStart != nil {
 			if err := subscriber.onStart(subscriptionCtx, id, sub, nil); err != nil {
-				h.log.Warnw("Error starting subscription", "err", err)
+				h.log.Warn("Error starting subscription", zap.Error(err))
 				return
 			}
 		}
@@ -115,27 +116,27 @@ func (h *Handler) subscribe(
 				return
 			case reorg := <-reorgRecv:
 				if err := subscriber.onReorg(subscriptionCtx, id, sub, reorg); err != nil {
-					h.log.Warnw("Error on reorg", "id", id, "err", err)
+					h.log.Warn("Error on reorg", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case l1Head := <-l1HeadRecv:
 				if err := subscriber.onL1Head(subscriptionCtx, id, sub, l1Head); err != nil {
-					h.log.Warnw("Error on l1 head", "id", id, "err", err)
+					h.log.Warn("Error on l1 head", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case head := <-newHeadsRecv:
 				if err := subscriber.onNewHead(subscriptionCtx, id, sub, head); err != nil {
-					h.log.Warnw("Error on new head", "id", id, "err", err)
+					h.log.Warn("Error on new head", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case pending := <-pendingRecv:
 				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
-					h.log.Warnw("Error on pending data", "id", id, "err", err)
+					h.log.Warn("Error on pending data", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case preLatest := <-preLatestRecv:
 				if err := subscriber.onPreLatest(subscriptionCtx, id, sub, preLatest); err != nil {
-					h.log.Warnw("Error on  preLatest", "id", id, "err", err)
+					h.log.Warn("Error on  preLatest", zap.String("id", id), zap.Error(err))
 					return
 				}
 			}
@@ -165,7 +166,7 @@ type SentEvent struct {
 //nolint:funlen // URL exceeds line limit but should remain intact for reference
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
-	fromAddr *felt.Felt,
+	fromAddrs addressList,
 	keys [][]felt.Felt,
 	blockID *rpcv9.SubscriptionBlockID,
 	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
@@ -198,7 +199,7 @@ func (h *Handler) SubscribeEvents(
 
 	l1HeadNumber := l1Head.BlockNumber
 	sentCache := rpccore.NewSubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus]()
-	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
+	eventMatcher := blockchain.NewEventMatcher(fromAddrs, keys)
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := rpcv9.BlockIDFromNumber(requestedHeader.Number)
@@ -215,7 +216,7 @@ func (h *Handler) SubscribeEvents(
 				id,
 				&fromBlock,
 				&toBlock,
-				fromAddr,
+				fromAddrs,
 				keys,
 				sentCache,
 				headHeader.Number,
@@ -242,7 +243,6 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				head,
-				fromAddr,
 				&eventMatcher,
 				sentCache,
 				rpcv9.TxnAcceptedOnL2,
@@ -260,7 +260,6 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				preLatest.Block,
-				fromAddr,
 				&eventMatcher,
 				sentCache,
 				rpcv9.TxnAcceptedOnL2,
@@ -291,7 +290,6 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				pending.GetBlock(),
-				fromAddr,
 				&eventMatcher,
 				sentCache,
 				blockFinalityStatus,
@@ -308,13 +306,13 @@ func (h *Handler) processHistoricalEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *rpcv9.BlockID,
-	fromAddr *felt.Felt,
+	addresses []felt.Address,
 	keys [][]felt.Felt,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	height uint64,
 	l1Head uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
@@ -356,7 +354,6 @@ func processBlockEvents(
 	w jsonrpc.Conn,
 	id string,
 	block *core.Block,
-	fromAddr *felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
 	sentCache *rpccore.SubscriptionCache[SentEvent, rpcv9.TxnFinalityStatus],
 	finalityStatus rpcv9.TxnFinalityStatus,
@@ -382,7 +379,7 @@ func processBlockEvents(
 			default:
 			}
 
-			if fromAddr != nil && !event.From.Equal(fromAddr) {
+			if !eventMatcher.MatchesAddress(event.From) {
 				continue
 			}
 
@@ -736,7 +733,7 @@ func (h *Handler) SubscribeNewHeads(
 // If the sender address list is not empty, it will check if the transaction is an Invoke or
 // Declare transaction and if the sender address is in the list.
 // For other transaction types, it will by default return false.
-func filterTxBySender(txn core.Transaction, senderAddr []felt.Felt) bool {
+func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 	if len(senderAddr) == 0 {
 		return true
 	}
@@ -744,13 +741,15 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Felt) bool {
 	switch t := txn.(type) {
 	case *core.InvokeTransaction:
 		for _, addr := range senderAddr {
-			if t.SenderAddress.Equal(&addr) {
+			// todo: remove the cast to felt.Felt
+			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
 				return true
 			}
 		}
 	case *core.DeclareTransaction:
 		for _, addr := range senderAddr {
-			if t.SenderAddress.Equal(&addr) {
+			// todo: remove the cast to felt.Felt
+			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
 				return true
 			}
 		}
@@ -855,7 +854,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 // https://github.com/starkware-libs/starknet-specs/blob/4e98e3684b50ee9e63b7eeea9412b6a2ed7494ec/api/starknet_ws_api.json#L186
 func (h *Handler) SubscribeNewTransactionReceipts(
 	ctx context.Context,
-	senderAddress []felt.Felt,
+	senderAddress []felt.Address,
 	finalityStatuses []rpcv9.TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
@@ -970,7 +969,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 func processBlockReceipts(
 	id string,
 	w jsonrpc.Conn,
-	senderAddress []felt.Felt,
+	senderAddress []felt.Address,
 	block *core.Block,
 	sentCache *rpccore.SubscriptionCache[rpcv9.SentReceipt, rpcv9.TxnFinalityStatusWithoutL1],
 	finalityStatus rpcv9.TxnFinalityStatusWithoutL1,
@@ -1022,8 +1021,11 @@ func processBlockReceipts(
 func (h *Handler) SubscribeNewTransactions(
 	ctx context.Context,
 	finalityStatus []rpcv9.TxnStatusWithoutL1,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
+	tags SubscriptionTags,
 ) (SubscriptionID, *jsonrpc.Error) {
+	includeProofFacts := tags.IncludeProofFacts
+
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -1058,6 +1060,7 @@ func (h *Handler) SubscribeNewTransactions(
 				head,
 				sentCache,
 				rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+				includeProofFacts,
 			)
 		},
 		onPreLatest: func(
@@ -1076,6 +1079,7 @@ func (h *Handler) SubscribeNewTransactions(
 				preLatest.Block,
 				sentCache,
 				rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+				includeProofFacts,
 			)
 		},
 		onPendingData: func(
@@ -1098,6 +1102,7 @@ func (h *Handler) SubscribeNewTransactions(
 						pending.GetBlock(),
 						sentCache,
 						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						includeProofFacts,
 					)
 				}
 
@@ -1110,6 +1115,7 @@ func (h *Handler) SubscribeNewTransactions(
 						pending.GetBlock(),
 						sentCache,
 						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						includeProofFacts,
 					)
 					if err != nil {
 						return err
@@ -1117,7 +1123,7 @@ func (h *Handler) SubscribeNewTransactions(
 				}
 
 				if slices.Contains(finalityStatus, rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate)) {
-					return processCandidateTransactions(id, w, senderAddr, pending, sentCache)
+					return processCandidateTransactions(id, w, senderAddr, pending, sentCache, includeProofFacts)
 				}
 			}
 			return nil
@@ -1126,14 +1132,20 @@ func (h *Handler) SubscribeNewTransactions(
 	return h.subscribe(ctx, w, subscriber)
 }
 
+type SubscriptionNewTransaction struct {
+	Transaction
+	FinalityStatus rpcv9.TxnStatusWithoutL1 `json:"finality_status"`
+}
+
 // processBlockTransactions streams given block transactions without duplicates
 func processBlockTransactions(
 	id string,
 	w jsonrpc.Conn,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
 	b *core.Block,
 	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1],
 	status rpcv9.TxnStatusWithoutL1,
+	includeProofFacts bool,
 ) error {
 	for _, txn := range b.Transactions {
 		if !filterTxBySender(txn, senderAddr) {
@@ -1147,6 +1159,7 @@ func processBlockTransactions(
 			txn,
 			status,
 			id,
+			includeProofFacts,
 		); err != nil {
 			return err
 		}
@@ -1158,9 +1171,10 @@ func processBlockTransactions(
 func processCandidateTransactions(
 	id string,
 	w jsonrpc.Conn,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
 	preConfirmed core.PendingData,
 	sentCache *rpccore.SubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1],
+	includeProofFacts bool,
 ) error {
 	for _, txn := range preConfirmed.GetCandidateTransaction() {
 		if !filterTxBySender(txn, senderAddr) {
@@ -1174,6 +1188,7 @@ func processCandidateTransactions(
 			txn,
 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
 			id,
+			includeProofFacts,
 		); err != nil {
 			return err
 		}
@@ -1190,6 +1205,7 @@ func sendTransactionWithoutDuplicate(
 	txn core.Transaction,
 	finalityStatus rpcv9.TxnStatusWithoutL1,
 	id string,
+	includeProofFacts bool,
 ) error {
 	txHash := felt.TransactionHash(*txn.Hash())
 	if !sentCache.ShouldSend(
@@ -1203,8 +1219,8 @@ func sendTransactionWithoutDuplicate(
 	// Add to cache
 	sentCache.Put(blockNumber, &txHash, &finalityStatus)
 
-	response := rpcv9.SubscriptionNewTransaction{
-		Transaction:    *rpcv9.AdaptTransaction(txn),
+	response := SubscriptionNewTransaction{
+		Transaction:    AdaptTransaction(txn, includeProofFacts),
 		FinalityStatus: finalityStatus,
 	}
 
@@ -1212,7 +1228,7 @@ func sendTransactionWithoutDuplicate(
 }
 
 // sendTransaction creates a response and sends it to the client
-func sendTransaction(w jsonrpc.Conn, result *rpcv9.SubscriptionNewTransaction, id string) error {
+func sendTransaction(w jsonrpc.Conn, result *SubscriptionNewTransaction, id string) error {
 	return sendResponse("starknet_subscriptionNewTransaction", w, id, result)
 }
 

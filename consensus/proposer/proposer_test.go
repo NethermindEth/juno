@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
@@ -30,7 +31,7 @@ import (
 const (
 	maxConcurrentRead  = 8
 	delayPerRead       = 100 * time.Millisecond
-	waitPerTransaction = 1 * time.Second
+	waitPerTransaction = 3 * time.Second
 	assertionTick      = 100 * time.Millisecond
 	logLevel           = zapcore.DebugLevel
 )
@@ -200,11 +201,13 @@ func getBuilder(t *testing.T, log utils.Logger, bc *blockchain.Blockchain) *buil
 		FeeTokenAddresses: feeTokens,
 	}
 	diff, classes, err := genesis.GenesisStateDiff(
+		t.Context(),
 		genesisConfig,
 		vm.New(&chainInfo, false, log),
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))

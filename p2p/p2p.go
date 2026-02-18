@@ -6,19 +6,20 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
-	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
+	"github.com/NethermindEth/juno/p2p/dht"
+	"github.com/NethermindEth/juno/p2p/server"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	libp2pdht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/crypto/pb"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -26,6 +27,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -39,21 +42,29 @@ type Service struct {
 	host host.Host
 
 	network *utils.Network
-	handler *p2pPeers.Handler
-	log     utils.SimpleLogger
+	server  *server.Server
+	log     utils.StructuredLogger
 
-	dht    *dht.IpfsDHT
-	pubsub *pubsub.PubSub
+	dht *libp2pdht.IpfsDHT
 
 	synchroniser *p2pSync.Service
-	gossipTracer *gossipTracer
 
 	feederNode bool
 	database   db.KeyValueStore
 }
 
-func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+func New(
+	addr,
+	publicAddr,
+	version,
+	peers,
+	privKeyStr string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	log utils.StructuredLogger,
+	database db.KeyValueStore,
+	compiler compiler.Compiler,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -110,43 +121,51 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(
+		p2pHost, peers, feederNode, bc, snNetwork, log, database, compiler,
+	)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+func NewWithHost(
+	p2phost host.Host,
+	peers string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	log utils.StructuredLogger,
+	database db.KeyValueStore,
+	compiler compiler.Compiler,
 ) (*Service, error) {
-	var (
-		peersAddrInfoS []peer.AddrInfo
-		err            error
-	)
-
-	peersAddrInfoS, err = loadPeers(database)
+	peersAddrInfoS, err := loadPeers(database)
 	if err != nil {
-		log.Warnw("Failed to load peers", "err", err)
+		log.Warn("Failed to load peers", zap.Error(err))
 	}
 
-	if peers != "" {
-		for peerStr := range strings.SplitSeq(peers, ",") {
-			var peerAddr *peer.AddrInfo
-			peerAddr, err = peer.AddrInfoFromString(peerStr)
-			if err != nil {
-				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
-			}
-
-			peersAddrInfoS = append(peersAddrInfoS, *peerAddr)
-		}
+	configuredPeers, err := dht.ExtractPeers(peers)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract peers: %w", err)
 	}
 
-	p2pdht, err := makeDHT(p2phost, peersAddrInfoS)
+	peersAddrInfoS = append(peersAddrInfoS, configuredPeers...)
+
+	p2pdht, err := dht.New(
+		context.Background(),
+		p2phost,
+		snNetwork,
+		starknetp2p.SyncProtocolID,
+		func() []peer.AddrInfo {
+			return peersAddrInfoS
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	blockFetcher := p2pSync.NewBlockFetcher(bc, p2phost, snNetwork, log)
+	blockFetcher := p2pSync.NewBlockFetcher(bc, compiler, p2phost, snNetwork, log)
 	synchroniser := p2pSync.New(bc, log, &blockFetcher)
+	server := server.New(p2phost, bc, log)
 	s := &Service{
 		synchroniser: synchroniser,
 		log:          log,
@@ -154,19 +173,10 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		network:      snNetwork,
 		dht:          p2pdht,
 		feederNode:   feederNode,
-		handler:      p2pPeers.NewHandler(bc, log),
+		server:       &server,
 		database:     database,
 	}
 	return s, nil
-}
-
-func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
-	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(p2pSync.Prefix),
-		dht.BootstrapPeers(addrInfos...),
-		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
-		dht.Mode(dht.ModeServer),
-	)
 }
 
 func privateKey(privKeyStr string) (crypto.PrivKey, error) {
@@ -209,21 +219,11 @@ func (s *Service) Listen() <-chan p2pSync.BlockBody {
 func (s *Service) Run(ctx context.Context) error {
 	defer func() {
 		if err := s.host.Close(); err != nil {
-			s.log.Warnw("Failed to close host", "err", err)
+			s.log.Warn("Failed to close host", zap.Error(err))
 		}
 	}()
 
 	err := s.dht.Bootstrap(ctx)
-	if err != nil {
-		return err
-	}
-
-	var options []pubsub.Option
-	if s.gossipTracer != nil {
-		options = append(options, pubsub.WithRawTracer(s.gossipTracer))
-	}
-
-	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, options...)
 	if err != nil {
 		return err
 	}
@@ -235,37 +235,40 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 	for _, addr := range listenAddrs {
-		s.log.Infow("Listening on", "addr", addr)
+		s.log.Info("Listening on", zap.Stringer("addr", addr))
 	}
 
-	s.setProtocolHandlers()
+	g := errgroup.Group{}
 
 	if !s.feederNode {
-		s.synchroniser.Run(ctx)
+		g.Go(func() error {
+			s.synchroniser.Run(ctx)
+			return nil
+		})
+	}
+
+	g.Go(func() error {
+		return s.server.Run(ctx)
+	})
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	<-ctx.Done()
 	if err := s.persistPeers(); err != nil {
-		s.log.Warnw("Failed to persist peers", "err", err)
+		s.log.Warn("Failed to persist peers", zap.Error(err))
 	}
 	if err := s.dht.Close(); err != nil {
-		s.log.Warnw("Failed stopping DHT", "err", err.Error())
+		s.log.Warn("Failed stopping DHT", zap.Error(err))
 	}
 	return nil
-}
-
-func (s *Service) setProtocolHandlers() {
-	s.SetProtocolHandler(p2pSync.HeadersPID(), s.handler.HeadersHandler)
-	s.SetProtocolHandler(p2pSync.EventsPID(), s.handler.EventsHandler)
-	s.SetProtocolHandler(p2pSync.TransactionsPID(), s.handler.TransactionsHandler)
-	s.SetProtocolHandler(p2pSync.ClassesPID(), s.handler.ClassesHandler)
-	s.SetProtocolHandler(p2pSync.StateDiffPID(), s.handler.StateDiffHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {
 	err := f()
 	if err != nil {
-		s.log.Warnw(msg, "err", err.Error())
+		s.log.Warn(msg, zap.Error(err))
 	}
 }
 
@@ -309,16 +312,8 @@ func (s *Service) NewStream(ctx context.Context, pids ...protocol.ID) (network.S
 	}
 }
 
-func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {
-	s.host.SetStreamHandler(pid, handler)
-}
-
 func (s *Service) WithListener(l junoSync.EventListener) {
 	s.synchroniser.WithListener(l)
-}
-
-func (s *Service) WithGossipTracer() {
-	s.gossipTracer = NewGossipTracer(s.host)
 }
 
 // persistPeers stores the given peers in the peers database
@@ -346,7 +341,7 @@ func (s *Service) persistPeers() error {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	s.log.Infow("Stored peers", "num", len(peers))
+	s.log.Info("Stored peers", zap.Int("num", len(peers)))
 
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"go.uber.org/zap"
 )
 
 type voteBroadcaster[H types.Hash, A types.Addr] struct {
@@ -24,13 +25,11 @@ func NewVoteBroadcaster[H types.Hash, A types.Addr](
 	return voteBroadcaster[H, A]{
 		log:         log,
 		voteAdapter: voteAdapter,
-		ProtoBroadcaster: buffered.NewProtoBroadcaster(
+		ProtoBroadcaster: buffered.NewProtoBroadcaster[*consensus.Vote](
 			log,
 			bufferSizeConfig.VoteProtoBroadcaster,
 			bufferSizeConfig.RetryInterval,
-			buffered.NewRebroadcastStrategy(bufferSizeConfig.RebroadcastInterval, func(msg *consensus.Vote) consensus.Vote_VoteType {
-				return msg.VoteType
-			}),
+			nil,
 		),
 	}
 }
@@ -38,7 +37,7 @@ func NewVoteBroadcaster[H types.Hash, A types.Addr](
 func (b *voteBroadcaster[H, A]) broadcast(ctx context.Context, message *types.Vote[H, A], voteType consensus.Vote_VoteType) {
 	msg, err := b.voteAdapter.FromVote(message, voteType)
 	if err != nil {
-		b.log.Errorw("unable to convert vote", "error", err)
+		b.log.Error("unable to convert vote", zap.Error(err))
 		return
 	}
 

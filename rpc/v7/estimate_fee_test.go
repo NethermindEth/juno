@@ -44,7 +44,7 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			false,
-			true, false, true, true).
+			true, false, true, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -53,6 +53,7 @@ func TestEstimateFee(t *testing.T) {
 			}, nil)
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv7.BroadcastedTransactionInputs{},
 			[]rpcv6.SimulationFlag{},
 			rpcv7.BlockID{Latest: true},
@@ -70,7 +71,7 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			true,
-			true, false, true, true).
+			true, false, true, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -79,6 +80,7 @@ func TestEstimateFee(t *testing.T) {
 			}, nil)
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv7.BroadcastedTransactionInputs{},
 			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 			rpcv7.BlockID{Latest: true},
@@ -96,13 +98,14 @@ func TestEstimateFee(t *testing.T) {
 			mockState,
 			true,
 			true,
-			true, false, true, true).
+			true, false, true, true, false).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: json.RawMessage("oops"),
 			})
 
 		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
 			rpcv7.BroadcastedTransactionInputs{},
 			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 			rpcv7.BlockID{Latest: true},
@@ -132,6 +135,7 @@ func TestEstimateFee(t *testing.T) {
 			ContractClass: json.RawMessage(`{}`),
 		}
 		_, _, err := handler.EstimateFee(
+			t.Context(),
 			rpcv7.BroadcastedTransactionInputs{Data: []rpcv7.BroadcastedTransaction{invalidTx}},
 			[]rpcv6.SimulationFlag{},
 			rpcv7.BlockID{Latest: true},

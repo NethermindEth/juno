@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
+	"go.uber.org/zap"
 )
 
 const subscribeEventsChunkSize = 1024
@@ -135,7 +136,7 @@ func (h *Handler) subscribe(
 
 		if subscriber.onStart != nil {
 			if err := subscriber.onStart(subscriptionCtx, id, sub, nil); err != nil {
-				h.log.Warnw("Error starting subscription", "err", err)
+				h.log.Warn("Error starting subscription", zap.Error(err))
 				return
 			}
 		}
@@ -146,22 +147,22 @@ func (h *Handler) subscribe(
 				return
 			case reorg := <-reorgRecv:
 				if err := subscriber.onReorg(subscriptionCtx, id, sub, reorg); err != nil {
-					h.log.Warnw("Error on reorg", "id", id, "err", err)
+					h.log.Warn("Error on reorg", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case l1Head := <-l1HeadRecv:
 				if err := subscriber.onL1Head(subscriptionCtx, id, sub, l1Head); err != nil {
-					h.log.Warnw("Error on l1 head", "id", id, "err", err)
+					h.log.Warn("Error on l1 head", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case head := <-newHeadsRecv:
 				if err := subscriber.onNewHead(subscriptionCtx, id, sub, head); err != nil {
-					h.log.Warnw("Error on new head", "id", id, "err", err)
+					h.log.Warn("Error on new head", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case pending := <-pendingRecv:
 				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
-					h.log.Warnw("Error on pending", "id", id, "err", err)
+					h.log.Warn("Error on pending", zap.String("id", id), zap.Error(err))
 					return
 				}
 			}
@@ -180,7 +181,10 @@ type SentEvent struct {
 
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
 func (h *Handler) SubscribeEvents(
-	ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt, blockID *SubscriptionBlockID,
+	ctx context.Context,
+	fromAddr *felt.Address,
+	keys [][]felt.Felt,
+	blockID *SubscriptionBlockID,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -368,12 +372,16 @@ func (h *Handler) processEvents(
 	w jsonrpc.Conn,
 	id string,
 	from, to *BlockID,
-	fromAddr *felt.Felt,
+	fromAddr *felt.Address,
 	keys [][]felt.Felt,
 	eventsPreviouslySent map[SentEvent]struct{},
 	height uint64,
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingData)
+	var addresses []felt.Address
+	if fromAddr != nil {
+		addresses = []felt.Address{*fromAddr}
+	}
+	filter, err := h.bcReader.EventFilter(addresses, keys, h.PendingData)
 	if err != nil {
 		return err
 	}
