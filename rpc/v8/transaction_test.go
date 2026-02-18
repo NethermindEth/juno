@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -1352,6 +1354,56 @@ func TestAddTransaction(t *testing.T) {
 				require.Zero(t, addTxRes)
 			})
 		}
+
+		t.Run("AddTransaction publishes to receivedTxFeed when enabled", func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
+
+			mockReader := mocks.NewMockReader(mockCtrl)
+			n := &utils.Sepolia
+			mockReader.EXPECT().Network().Return(n).AnyTimes()
+
+			receivedTxFeed := feed.New[core.Transaction]()
+			sub := receivedTxFeed.SubscribeKeepLast()
+			defer sub.Unsubscribe()
+
+			gw := adaptfeeder.New(feeder.NewTestClient(t, n))
+			tx, err := gw.Transaction(
+				t.Context(),
+				felt.NewUnsafeFromString[felt.Felt](
+					"0x435f87f1eecd5968ba8190744fee1f3ef69f17471f8902ce1e7d444c4e0c8cb",
+				),
+			)
+			require.NoError(t, err)
+
+			broadcastedTxn := rpc.BroadcastedTransaction{
+				Transaction: *rpc.AdaptTransaction(tx),
+			}
+
+			mockGateway := mocks.NewMockGateway(mockCtrl)
+			mockGateway.
+				EXPECT().
+				AddTransaction(gomock.Any(), gomock.Any()).
+				Return(json.RawMessage(fmt.Sprintf(`{
+				"transaction_hash": "%s"
+			}`, tx.Hash().String())), nil).
+				Times(1)
+
+			handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger()).
+				WithGateway(mockGateway).
+				WithReceivedTransactionFeed(receivedTxFeed)
+
+			_, rpcErr := handler.AddTransaction(t.Context(), &broadcastedTxn)
+			require.Nil(t, rpcErr)
+
+			select {
+			case receivedTxn := <-sub.Recv():
+				require.NotNil(t, receivedTxn)
+				require.Equal(t, tx.Hash(), receivedTxn.Hash())
+			case <-time.After(1 * time.Second):
+				t.Fatal("Expected transaction to be published to feed")
+			}
+		})
 	})
 }
 

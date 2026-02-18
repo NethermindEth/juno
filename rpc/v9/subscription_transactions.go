@@ -98,6 +98,10 @@ func newTransactionsSubscriber(
 		s.onPendingData = state.onPendingData
 	}
 
+	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusReceived)) {
+		s.onReceivedTransaction = state.onReceivedTransaction
+	}
+
 	return s, nil
 }
 
@@ -228,6 +232,24 @@ func (s *transactionsSubscriberState) sendWithoutDuplicate(
 	response := SubscriptionNewTransaction{
 		Transaction:    *AdaptTransaction(txn),
 		FinalityStatus: finalityStatus,
+	}
+
+	return sendTransaction(s.conn, &response, id)
+}
+
+func (s *transactionsSubscriberState) onReceivedTransaction(
+	_ context.Context,
+	id string,
+	_ *subscription,
+	txn core.Transaction,
+) error {
+	if !filterTxBySender(txn, s.senderAddr) {
+		return nil
+	}
+
+	response := SubscriptionNewTransaction{
+		Transaction:    *AdaptTransaction(txn),
+		FinalityStatus: TxnStatusWithoutL1(TxnStatusReceived),
 	}
 
 	return sendTransaction(s.conn, &response, id)

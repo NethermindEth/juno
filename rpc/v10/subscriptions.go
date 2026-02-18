@@ -24,16 +24,17 @@ func (h *Handler) unsubscribe(sub *subscription, id string) {
 type on[T any] func(ctx context.Context, id string, sub *subscription, event T) error
 
 type subscriber struct {
-	onStart       on[any]
-	onReorg       on[*sync.ReorgBlockRange]
-	onNewHead     on[*core.Block]
-	onPendingData on[core.PendingData]
-	onL1Head      on[*core.L1Head]
-	onPreLatest   on[*core.PreLatest]
+	onStart               on[any]
+	onReorg               on[*sync.ReorgBlockRange]
+	onNewHead             on[*core.Block]
+	onPendingData         on[core.PendingData]
+	onL1Head              on[*core.L1Head]
+	onPreLatest           on[*core.PreLatest]
+	onReceivedTransaction on[core.Transaction]
 }
 
 func getSubscription[T any](callback on[T], feed *feed.Feed[T]) (*feed.Subscription[T], <-chan T) {
-	if callback != nil {
+	if callback != nil && feed != nil {
 		sub := feed.SubscribeKeepLast()
 		recv := sub.Recv()
 		return sub, recv
@@ -47,6 +48,7 @@ func unsubscribeFeedSubscription[T any](sub *feed.Subscription[T]) {
 	}
 }
 
+//nolint:gocyclo // select statement with multiple subscription cases
 func (h *Handler) subscribe(
 	ctx context.Context,
 	w jsonrpc.Conn,
@@ -65,6 +67,10 @@ func (h *Handler) subscribe(
 	pendingDataSub, pendingRecv := getSubscription(subscriber.onPendingData, h.pendingData)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
 	preLatestSub, preLatestRecv := getSubscription(subscriber.onPreLatest, h.preLatestFeed)
+	receivedTransactionSub, receivedTransactionRecv := getSubscription(
+		subscriber.onReceivedTransaction,
+		h.receivedTransactionFeed,
+	)
 
 	sub.wg.Go(func() {
 		defer func() {
@@ -74,6 +80,7 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(newHeadsSub)
 			unsubscribeFeedSubscription(pendingDataSub)
 			unsubscribeFeedSubscription(preLatestSub)
+			unsubscribeFeedSubscription(receivedTransactionSub)
 		}()
 
 		if subscriber.onStart != nil {
@@ -109,7 +116,16 @@ func (h *Handler) subscribe(
 				}
 			case preLatest := <-preLatestRecv:
 				if err := subscriber.onPreLatest(subscriptionCtx, id, sub, preLatest); err != nil {
-					h.log.Warn("Error on  preLatest", zap.String("id", id), zap.Error(err))
+					h.log.Warn("Error on preLatest", zap.String("id", id), zap.Error(err))
+					return
+				}
+			case transaction := <-receivedTransactionRecv:
+				err := subscriber.onReceivedTransaction(subscriptionCtx, id, sub, transaction)
+				if err != nil {
+					h.log.Warn("Error on received transaction",
+						zap.String("id", id),
+						zap.Error(err),
+					)
 					return
 				}
 			}

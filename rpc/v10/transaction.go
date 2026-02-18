@@ -164,6 +164,16 @@ func (h *Handler) AddTransaction(
 		h.submittedTransactionsCache.Add((*felt.Felt)(&res.TransactionHash))
 	}
 
+	if h.receivedTransactionFeed != nil {
+		adaptedTxn, _, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
+		if aErr != nil {
+			// Log error but don't fail the transaction submission
+			h.log.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
+		} else {
+			h.receivedTransactionFeed.Send(adaptedTxn)
+		}
+	}
+
 	return res, nil
 }
 

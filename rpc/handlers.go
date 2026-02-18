@@ -5,6 +5,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -124,6 +126,13 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache
 	h.rpcv8Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv9Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv10Handler.WithSubmittedTransactionsCache(cache)
+	return h
+}
+
+func (h *Handler) WithReceivedTransactionFeed(feed *feed.Feed[core.Transaction]) *Handler {
+	h.rpcv8Handler.WithReceivedTransactionFeed(feed)
+	h.rpcv9Handler.WithReceivedTransactionFeed(feed)
+	h.rpcv10Handler.WithReceivedTransactionFeed(feed)
 	return h
 }
 
