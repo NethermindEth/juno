@@ -1,6 +1,7 @@
 package rawdb
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -83,39 +84,55 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
+	batch db.Batch,
 ) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	batch := d.disk.NewBatch()
-
 	var classNodes classNodesMap
+	var classOrderedPaths []trieutils.Path
 	var contractNodes contractNodesMap
+	var contractOrderedPaths []trieutils.Path
 	var contractStorageNodes contractStorageNodesMap
+	var contractStorageOrderedPaths map[felt.Address][]trieutils.Path
 
 	if mergedClassNodes != nil {
-		classNodes, _ = mergedClassNodes.Flatten()
+		classNodes, classOrderedPaths, _, _ = mergedClassNodes.FlattenWithOrder()
 	}
 	if mergedContractNodes != nil {
-		contractNodes, contractStorageNodes = mergedContractNodes.Flatten()
+		contractNodes,
+			contractOrderedPaths,
+			contractStorageNodes,
+			contractStorageOrderedPaths = mergedContractNodes.FlattenWithOrder()
 	}
 
-	for path, n := range classNodes {
+	for _, path := range classOrderedPaths {
+		n := classNodes[path]
 		err := d.updateNode(batch, db.ClassTrie, &felt.Address{}, &path, n, true)
 		if err != nil {
 			return err
 		}
 	}
 
-	for path, n := range contractNodes {
+	for _, path := range contractOrderedPaths {
+		n := contractNodes[path]
 		err := d.updateNode(batch, db.ContractTrieContract, &felt.Address{}, &path, n, false)
 		if err != nil {
 			return err
 		}
 	}
 
-	for owner, nodes := range contractStorageNodes {
-		for path, n := range nodes {
+	owners := make([]felt.Address, 0, len(contractStorageNodes))
+	for owner := range contractStorageNodes {
+		owners = append(owners, owner)
+	}
+	sort.Slice(owners, func(i, j int) bool {
+		return felt.Equal(&owners[i], &owners[j])
+	})
+	for _, owner := range owners {
+		orderedPaths := contractStorageOrderedPaths[owner]
+		for _, path := range orderedPaths {
+			n := contractStorageNodes[owner][path]
 			err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n, false)
 			if err != nil {
 				return err
@@ -123,7 +140,7 @@ func (d *Database) Update(
 		}
 	}
 
-	return batch.Write()
+	return nil
 }
 
 func (d *Database) updateNode(
@@ -134,6 +151,10 @@ func (d *Database) updateNode(
 	n trienode.TrieNode,
 	isClass bool,
 ) error {
+	if batch == nil {
+		return nil
+	}
+
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
 		err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
 		if err != nil {
@@ -154,14 +175,7 @@ func (d *Database) updateNode(
 		}
 		d.cleanCache.putNode(owner, path, isClass, n.Blob())
 	}
-	return trieutils.WriteNodeByPath(
-		batch,
-		bucket,
-		owner,
-		path,
-		n.IsLeaf(),
-		n.Blob(),
-	)
+	return nil
 }
 
 // This method was added to satisfy the TrieDB interface, but it is not used.

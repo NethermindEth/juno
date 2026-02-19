@@ -191,7 +191,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 func TestCalculateBlockCommitments(t *testing.T) {
 	testdb := memory.New()
-	chain := blockchain.New(testdb, &utils.Mainnet, statetestutils.UseNewState()).WithTransactionLayout(false)
+	chain := blockchain.New(testdb, &utils.Mainnet, statetestutils.UseNewState())
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -215,7 +215,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 
 func TestL1HandlerTxns(t *testing.T) {
 	testdb := memory.New()
-	chain := blockchain.New(testdb, &utils.Sepolia, statetestutils.UseNewState()).WithTransactionLayout(false)
+	chain := blockchain.New(testdb, &utils.Sepolia, statetestutils.UseNewState())
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 

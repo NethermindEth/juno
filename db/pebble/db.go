@@ -29,14 +29,23 @@ type DB struct {
 
 // New opens a new database at the given path with default options
 func New(path string, options ...Option) (db.KeyValueStore, error) {
-	opts := pebble.Options{}
+	opts := pebble.Options{
+		L0CompactionFileThreshold: 8,
+		L0StopWritesThreshold:     24,
+		MemTableSize:              8 * utils.Megabyte,
+		MaxConcurrentCompactions:  func() int { return 2 },
+	}
 	for _, option := range options {
 		if err := option(&opts); err != nil {
 			return nil, err
 		}
 	}
 
-	pDB, err := pebble.Open(path, &opts)
+	return newPebble(path, &opts)
+}
+
+func newPebble(path string, options *pebble.Options) (*DB, error) {
+	pDB, err := pebble.Open(path, options)
 	if err != nil {
 		return nil, err
 	}
