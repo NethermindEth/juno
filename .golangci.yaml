@@ -138,6 +138,10 @@ linters:
       - linters:
           - lll
         source: '^//go:generate '
+      - linters:
+          - staticcheck
+        path: vm/state.go
+        text: "ST1003.*_cgo"
 formatters:
   enable:
     - gci
