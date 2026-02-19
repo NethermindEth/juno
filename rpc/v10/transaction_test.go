@@ -1860,7 +1860,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	}
 
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
-		correctBroadcastedTxn.Proof = "not-valid-base64"
+		correctBroadcastedTxn.Proof = utils.Base64("not-valid-base64")
 
 		validate := validator.Validator()
 		err := validate.Struct(correctBroadcastedTxn)
@@ -1872,7 +1872,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	t.Run("AcceptEmptyProofOnInvoke", func(t *testing.T) {
-		correctBroadcastedTxn.Proof = ""
+		correctBroadcastedTxn.Proof = utils.Base64("")
 
 		validate := validator.Validator()
 		err := validate.Struct(correctBroadcastedTxn)
@@ -1885,7 +1885,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
 		proofFact := felt.FromUint64[felt.Felt](100)
-		correctBroadcastedTxn.Proof = "AAAAAQAAAAIAAAAD"
+		correctBroadcastedTxn.Proof = utils.Base64("AAAAAQAAAAIAAAAD")
 		correctBroadcastedTxn.ProofFacts = []felt.Felt{proofFact}
 
 		validate := validator.Validator()

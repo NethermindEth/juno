@@ -79,6 +79,6 @@ func AdaptTransaction(
 		Transaction:   tx,
 		DeclaredClass: class,
 		PaidFeeOnL1:   nil,
-		Proof:         "",
+		Proof:         utils.Base64(""),
 	}, nil
 }
