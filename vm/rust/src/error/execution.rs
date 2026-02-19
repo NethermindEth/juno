@@ -5,6 +5,8 @@ use blockifier::transaction::errors::TransactionExecutionError;
 use crate::error::stack::ErrorStack;
 
 #[derive(Debug)]
+// todo(rdr): check if this enum name can be improved and avoid the clippy warning
+#[allow(clippy::enum_variant_names)]
 pub enum ExecutionError {
     ExecutionError {
         error: String,

@@ -55,7 +55,7 @@ impl From<StateError> for CallError {
     fn from(e: StateError) -> Self {
         match e {
             StateError::StateReadError(_) => Self::Internal(e.to_string()),
-            _ => Self::Custom(anyhow::anyhow!("State error: {}", e).to_string()),
+            _ => Self::Custom(anyhow::anyhow!("State error: {e}").to_string()),
         }
     }
 }

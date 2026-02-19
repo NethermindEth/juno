@@ -8,7 +8,7 @@ check:
 	cargo check --release
 
 lint:
-	cargo clippy
+	cargo clippy -- -D warnings
 
 fix:
 	cargo fix --lib -p juno-starknet-rs --allow-dirty --allow-staged
@@ -18,6 +18,9 @@ clean:
 
 format:
 	cargo fmt
+
+format-check:
+	cargo fmt --check
 
 install-rustfmt:
 	cargo install rustfmt

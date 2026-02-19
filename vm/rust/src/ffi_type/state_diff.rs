@@ -69,9 +69,7 @@ impl From<StateMaps> for StateDiff {
                         value,
                     };
 
-                    acc.entry(starkfelt_address)
-                        .or_insert_with(Vec::new)
-                        .push(entry);
+                    acc.entry(starkfelt_address).or_default().push(entry);
 
                     acc
                 },

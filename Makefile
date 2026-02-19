@@ -107,6 +107,16 @@ lint-diff:
 tidy: ## Add missing and remove unused modules
 	go mod tidy
 
+rust-format-check: ## Check Rust formatting across all crates
+	$(MAKE) -C vm/rust format-check
+	$(MAKE) -C core/rust format-check
+	$(MAKE) -C starknet/compiler/rust format-check
+
+rust-lint: ## Run clippy on all Rust crates
+	$(MAKE) -C vm/rust lint
+	$(MAKE) -C core/rust lint
+	$(MAKE) -C starknet/compiler/rust lint
+
 format: ## Format Go and Rust code
 	$(MAKE) -C vm/rust format
 	$(MAKE) -C core/rust format

@@ -26,7 +26,7 @@ fn format_panic(payload: Box<dyn std::any::Any + Send>) -> String {
         .unwrap_or_else(|| {
             payload
                 .downcast_ref::<String>()
-                .map(|s| s.clone())
+                .cloned()
                 .unwrap_or("Unknown panic payload".into())
         })
 }
