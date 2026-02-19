@@ -1,28 +1,86 @@
 name: Prepare Draft Release
-
 on:
   push:
     tags:
       - "v*"
-
 permissions:
   contents: write
   packages: write
-
 jobs:
+  check-docs-version:
+    name: Check Documentation Version
+    if: github.repository_owner == 'NethermindEth'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Verify docs are versioned for this release
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "Release version: ${TAG}"
+
+          # Skip pre-release tags (rc, beta, alpha)
+          if [[ "$TAG" =~ [.\-](rc|beta|alpha) ]]; then
+            echo "::notice::Skipping docs version check for pre-release: v${TAG}"
+            exit 0
+          fi
+
+          # Extract the minor version (X.Y.0) from the tag
+          MAJOR=$(echo "$TAG" | cut -d. -f1)
+          MINOR=$(echo "$TAG" | cut -d. -f2)
+          MINOR_VERSION="${MAJOR}.${MINOR}.0"
+          echo "Expected docs version: ${MINOR_VERSION}"
+
+          # 1. Check versions.json contains the minor version
+          if ! grep -q "\"${MINOR_VERSION}\"" docs/versions.json; then
+            echo "::error::Documentation version ${MINOR_VERSION} is NOT in docs/versions.json"
+            echo ""
+            echo "Before releasing, version the docs:"
+            echo "  cd docs && npm run docusaurus docs:version ${MINOR_VERSION}"
+            echo "  git add docs/ && git commit -m 'docs: version ${MINOR_VERSION}'"
+            echo "  git push origin main"
+            echo ""
+            exit 1
+          fi
+
+          # 2. Verify the versioned docs directory exists
+          VERSIONED_DIR="docs/versioned_docs/version-${MINOR_VERSION}"
+          if [ ! -d "${VERSIONED_DIR}" ]; then
+            echo "::error::${VERSIONED_DIR}/ directory is missing"
+            exit 1
+          fi
+
+          # 3. Check for drift between current docs and versioned docs
+          DIFF_OUTPUT=$(diff -r docs/docs/ "${VERSIONED_DIR}/" 2>&1) || true
+          if [ -n "$DIFF_OUTPUT" ]; then
+            echo "::error::Versioned docs (${VERSIONED_DIR}) are out of sync with docs/docs/"
+            echo ""
+            echo "The following files differ:"
+            echo "$DIFF_OUTPUT"
+            echo ""
+            echo "Re-version the docs to pick up the latest changes:"
+            echo "  cd docs && rm -rf versioned_docs/version-${MINOR_VERSION} versioned_sidebars/version-${MINOR_VERSION}-sidebars.json"
+            echo "  npm run docusaurus docs:version ${MINOR_VERSION}"
+            echo "  git add docs/ && git commit -m 'docs: re-version ${MINOR_VERSION}'"
+            echo "  git push origin main"
+            echo ""
+            exit 1
+          fi
+
+          echo "Documentation version ${MINOR_VERSION} is present and up to date."
   build-binaries:
     name: Build Binaries
     if: github.repository_owner == 'NethermindEth'
+    needs: [check-docs-version]
     uses: ./.github/workflows/build-binaries.yml
-
   docker-image:
     name: Build and Push Docker Image
     if: github.repository_owner == 'NethermindEth'
+    needs: [check-docs-version]
     uses: ./.github/workflows/docker-image-build-push.yml
     with:
       repo_type: "non-official"
     secrets: inherit
-
   tag-non-official-latest:
     name: Tag Non-Official Image as Latest
     if: github.repository_owner == 'NethermindEth'
@@ -31,20 +89,16 @@ jobs:
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
       - name: Tag non-official image as latest
         run: docker buildx imagetools create --tag nethermindeth/juno:latest nethermindeth/juno:${{ needs.docker-image.outputs.tag }}
-
       - name: Clean up Docker config
         if: always()
         run: rm -f ${HOME}/.docker/config.json
-
   create-release:
     name: Create Draft Release
     if: github.repository_owner == 'NethermindEth'
@@ -57,7 +111,6 @@ jobs:
           pattern: juno-*.zip
           merge-multiple: true
           path: binaries
-
       - name: Create Draft GitHub Release
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
         with:
@@ -69,4 +122,3 @@ jobs:
             binaries/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
