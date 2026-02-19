@@ -76,7 +76,7 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 			handleNotFound(dir, queryArg, w)
 			return
 		}
-		_, err = w.Write(read) 
+		_, err = w.Write(read) //nolint:gosec // G705: no danger, test environment
 		require.NoError(t, err, "failed to write response")
 	}))
 }
