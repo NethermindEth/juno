@@ -19,7 +19,7 @@ jobs:
 
   tag-official-latest:
     name: Tag Official Image as Latest
-    if: github.repository_owner == 'NethermindEth'
+    if: github.repository_owner == 'NethermindEth' && !github.event.release.prerelease
     needs: [build-official-docker-image]
     runs-on: ubuntu-latest
     steps:
