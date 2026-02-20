@@ -255,25 +255,6 @@ func TestSubscribeEvents(t *testing.T) {
 		false,
 	)
 
-	pending := createTestPending(t, b2, 6)
-	pendingFiltered, pendingEmitted := createTestEvents(
-		t,
-		pending.Block,
-		nil,
-		nil,
-		TxnAcceptedOnL2,
-		false,
-	)
-	pending2 := createTestPending(t, b2, 10)
-
-	_, pending2Emitted := createTestEvents(
-		t,
-		pending2.Block,
-		nil,
-		nil,
-		TxnAcceptedOnL2,
-		false,
-	)
 	b2PreConfirmedPartial := createTestPreConfirmed(t, b2, 3)
 	b2PreConfirmedExtended := createTestPreConfirmed(t, b2, 6)
 
@@ -431,69 +412,11 @@ func TestSubscribeEvents(t *testing.T) {
 				expect:      [][]SubscriptionEmittedEvent{b1Emitted},
 			},
 			{
-				description: "on pending block",
-				notify: func() {
-					handler.pendingData.Send(&pending)
-				},
-				expect: [][]SubscriptionEmittedEvent{pendingEmitted},
-			},
-			{
-				description: "on pending block update, without duplicates",
-				notify: func() {
-					handler.pendingData.Send(&pending2)
-				},
-				expect: [][]SubscriptionEmittedEvent{
-					pending2Emitted[len(pendingEmitted):],
-				},
-			},
-			{
-				description: "on new head, without duplicates",
+				description: "on new head",
 				notify: func() {
 					handler.newHeads.Send(b2)
 				},
-				expect: [][]SubscriptionEmittedEvent{
-					b2Emitted[len(pending2Emitted):],
-				},
-			},
-		},
-	}
-
-	preStarknet0_14_0basicSubscriptionWithPending := testCase{
-		description:    "Events from blocks + pending at start, Starknet < 0.14.0",
-		blockID:        nil,
-		keys:           nil,
-		fromAddr:       nil,
-		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
-		setupMocks: func() {
-			setupMockEventFiltererWithMultiple(
-				mockChain,
-				mockEventFilterer,
-				b1.Header,
-				b1.Header.Number-1,
-				b1Filtered,
-				pendingFiltered,
-			)
-		},
-		steps: []stepInfo{
-			{
-				description: "events from latest and pending on start",
-				expect: [][]SubscriptionEmittedEvent{
-					b1Emitted, pendingEmitted,
-				},
-			},
-			{
-				description: "on pending block update with duplicates",
-				notify: func() {
-					handler.pendingData.Send(&pending2)
-				},
-				expect: [][]SubscriptionEmittedEvent{pending2Emitted},
-			},
-			{
-				description: "on new head, without duplicates",
-				notify: func() {
-					handler.newHeads.Send(b2)
-				},
-				expect: [][]SubscriptionEmittedEvent{b2Emitted[len(pending2Emitted):]},
+				expect: [][]SubscriptionEmittedEvent{b2Emitted},
 			},
 		},
 	}
@@ -890,7 +813,6 @@ func TestSubscribeEvents(t *testing.T) {
 
 	testCases := []testCase{
 		preStarknet0_14_0basicSubscription,
-		preStarknet0_14_0basicSubscriptionWithPending,
 		basicSubscription,
 		basicSubscriptionWithPreConfirmed,
 		preLatestEvents,
@@ -1532,9 +1454,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		return txsWithStatus
 	}
 
-	pendingBlockTxCount := 6
-	pending := createTestPending(t, newHead2, pendingBlockTxCount)
-
 	partialPreConfirmedCount := 3
 	extendedPreConfirmedCount := 6
 
@@ -1568,7 +1487,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	preStarknet0_14_0DefaultFinality := testCase{
-		description:   "Basic subcription - default finality status. Starknet version < 0.14.0, Pending txs without duplicates",
+		description:   "Basic subcription - default finality status. Starknet version < 0.14.0",
 		statuses:      nil,
 		senderAddress: nil,
 		steps: []stepInfo{
@@ -1582,25 +1501,13 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				},
 			},
 			{
-				description: "onPendingBLock",
-				notify: func() {
-					syncer.pendingData.Send(&pending)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						pending.Block.Transactions,
-						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
-					),
-				},
-			},
-			{
-				description: "pending becomes new head without duplicates",
+				description: "on new head",
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
-						newHead2.Transactions[pendingBlockTxCount:],
+						newHead2.Transactions,
 						TxnStatusWithoutL1(TxnAcceptedOnL2),
 					),
 				},
@@ -2142,11 +2049,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		return receipts
 	}
 
-	partialPendingCount := 3
-	extendedPendingCount := 6
-	pendingPartial := createTestPending(t, newHead2, partialPendingCount)
-	pendingExtended := createTestPending(t, newHead2, extendedPendingCount)
-
 	preStarknet0_14_0defaultFinalityStatus := testCase{
 		description: "Basic subscription with default finality status, starknet version < 0.14.0",
 		statuses:    nil,
@@ -2161,35 +2063,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				},
 			},
 			{
-				description: "on pending",
-				notify: func() {
-					syncer.pendingData.Send(&pendingPartial)
-				},
-				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						pendingPartial.Block,
-						nil,
-						TxnAcceptedOnL2,
-						false,
-					),
-				},
-			},
-			{
-				description: "on pending block update, without duplicates",
-				notify: func() {
-					syncer.pendingData.Send(&pendingExtended)
-				},
-				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						pendingExtended.Block,
-						nil,
-						TxnAcceptedOnL2,
-						false,
-					)[partialPendingCount:],
-				},
-			},
-			{
-				description: "on next head, without duplicates",
+				description: "on next head",
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
@@ -2199,7 +2073,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						nil,
 						TxnAcceptedOnL2,
 						false,
-					)[extendedPendingCount:],
+					),
 				},
 			},
 		},
@@ -2937,7 +2811,7 @@ func createTestEvents(
 	eventMatcher := blockchain.NewEventMatcher(addresses, keys)
 	var filtered []blockchain.FilteredEvent
 	var responses []SubscriptionEmittedEvent
-	for _, receipt := range b.Receipts {
+	for txIndex, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			// todo: remove the cast to felt.Felt
 			if fromAddress != nil && !event.From.Equal((*felt.Felt)(fromAddress)) {
@@ -2949,12 +2823,13 @@ func createTestEvents(
 			}
 
 			filtered = append(filtered, blockchain.FilteredEvent{
-				Event:           event,
-				BlockNumber:     blockNumber,
-				BlockHash:       b.Hash,
-				BlockParentHash: b.ParentHash,
-				TransactionHash: receipt.TransactionHash,
-				EventIndex:      uint(i),
+				Event:            event,
+				BlockNumber:      blockNumber,
+				BlockHash:        b.Hash,
+				BlockParentHash:  b.ParentHash,
+				TransactionHash:  receipt.TransactionHash,
+				TransactionIndex: uint(txIndex),
+				EventIndex:       uint(i),
 			})
 			responses = append(responses, SubscriptionEmittedEvent{
 				EmittedEvent: rpcv6.EmittedEvent{
