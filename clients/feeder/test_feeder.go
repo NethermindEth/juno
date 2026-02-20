@@ -71,12 +71,13 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 			t.Fatalf("failed to find testdata directory: %v", err)
 		}
 		path := filepath.Join(dataPath, network.String(), dir, fileName[0]+".json")
-		read, err := os.ReadFile(path)
+		read, err := os.ReadFile(path) //nolint:gosec // G703: no danger, test environment
 		if err != nil {
 			handleNotFound(dir, queryArg, w)
 			return
 		}
-		w.Write(read) //nolint:errcheck
+		_, err = w.Write(read) //nolint:gosec // G705: no danger, test environment
+		require.NoError(t, err, "failed to write response")
 	}))
 }
 

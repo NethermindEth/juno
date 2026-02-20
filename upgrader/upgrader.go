@@ -58,6 +58,7 @@ func (u *Upgrader) Run(ctx context.Context) error {
 				continue
 			}
 
+			//nolint:gosec // G704: URL is 'u.apiURL' var, which is the `githubAPIUrl` constant
 			resp, err := u.client.Do(req)
 			if err != nil {
 				u.log.Debug("Failed to fetch latest release", zap.Error(err))

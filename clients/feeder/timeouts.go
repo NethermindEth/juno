@@ -174,6 +174,7 @@ func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client
 			return
 		}
 		client.WithTimeouts(newTimeouts, fixed)
+		//nolint:gosec // G705: `timeoutsStr` was validated by `ParseTimeouts`
 		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

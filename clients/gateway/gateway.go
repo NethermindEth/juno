@@ -164,6 +164,7 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 		req.Header.Set("X-Throttling-Bypass", c.apiKey)
 	}
 	reqTimer := time.Now()
+	//nolint:gosec // G704: URL is 'url' var, based on the `Network.GatewayURL` config
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
