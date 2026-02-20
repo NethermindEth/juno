@@ -199,7 +199,6 @@ func WriteNodeByHash(
 // [1 byte prefix][32 bytes owner][1 byte node-type][8 byte from path][32 byte hash]
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
-
 func nodeKeyByHash(
 	prefix db.Bucket,
 	owner *felt.Address,
@@ -226,12 +225,10 @@ func nodeKeyByHash(
 	hashBytes := hash.Bytes()
 
 	const pathSignificantBytes = 8
-	pathSize := max(pathSignificantBytes, path.len)
-
 	keySize := len(prefixBytes) +
 		len(ownerBytes) +
 		nodeTypeSize +
-		int(pathSize) +
+		pathSignificantBytes +
 		len(hashBytes)
 
 	key := make([]byte, keySize)
@@ -247,8 +244,16 @@ func nodeKeyByHash(
 	dst = dst[nodeTypeSize:]
 
 	pathBytes := path.Bytes()
-	copy(dst, pathBytes[0:pathSize])
-	dst = dst[pathSize:]
+
+	activeBytes := path.activeBytes()
+	if activeBytes < pathSignificantBytes {
+		tempSlice := make([]byte, pathSignificantBytes)
+		copy(tempSlice, pathBytes[path.inactiveBytes():])
+		copy(dst, tempSlice)
+	} else {
+		copy(dst, pathBytes[path.inactiveBytes():len(pathBytes)-pathSignificantBytes])
+	}
+	dst = dst[pathSignificantBytes:]
 
 	copy(dst, hashBytes[:])
 
