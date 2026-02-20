@@ -10,6 +10,13 @@ func (l leafType) Bytes() []byte {
 	return []byte{byte(l)}
 }
 
+// Construct key bytes to insert a trie node. The format is as follows:
+//
+// ClassTrie/ContractTrie:
+// [1 byte prefix][1 byte node-type][path]
+//
+// StorageTrie of a Contract :
+// [1 byte prefix][32 bytes owner][1 byte node-type][path]
 func nodeKeyByPathOld(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf bool) []byte {
 	var (
 		prefixBytes = prefix.Key()
@@ -38,6 +45,19 @@ func nodeKeyByPathOld(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf 
 	return key
 }
 
+// References: https://github.com/NethermindEth/nethermind/pull/6331
+// Construct key bytes to insert a trie node. The format is as follows:
+//
+// ClassTrie :
+// [1 byte prefix][1 byte node-type][8 byte from path][32 byte hash]
+//
+// ContractTrie :
+// [1 byte prefix][1 byte node-type][8 byte from path][32 byte hash]
+//
+// StorageTrie of a Contract :
+// [1 byte prefix][32 bytes owner][1 byte node-type][8 byte from path][32 byte hash]
+//
+// Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 func nodeKeyByHashOld(
 	prefix db.Bucket,
 	owner *felt.Address,
