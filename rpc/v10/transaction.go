@@ -45,7 +45,7 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 type BroadcastedTransaction struct {
 	rpcv9.BroadcastedTransaction
 	Proof      utils.Base64 `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
-	ProofFacts []felt.Felt `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
+	ProofFacts []felt.Felt  `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
 func AdaptBroadcastedTransaction(
