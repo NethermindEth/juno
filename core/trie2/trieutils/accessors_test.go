@@ -215,17 +215,18 @@ func TestNodeKeyByPath(t *testing.T) {
 func TestNodeKeyByHash(t *testing.T) {
 	hash := felt.FromUint64[felt.Hash](0xCAFEBABE)
 
-	// pathSection computes the path bytes as the old implementation would include them
-	// in the key: ActiveBytes() padded with trailing zeros to at least 8 bytes.
+	// pathSection computes the path bytes as it should be in the key:
+	// 8-byte path section. If the path is less than 8 bytes, it is padded with trailing zeros
 	pathSection := func(path *BitArray) []byte {
-		active := (*BitArrayOld)(path).ActiveBytes()
+		bytes32 := path.Bytes()
+		activeBytes := bytes32[path.inactiveBytes():]
 		const minBytes = 8
-		if len(active) < minBytes {
-			padded := make([]byte, minBytes)
-			copy(padded, active)
-			return padded
+		if len(activeBytes) <= minBytes {
+			tempSlice := make([]byte, minBytes)
+			copy(tempSlice, activeBytes)
+			return tempSlice
 		}
-		return active
+		return activeBytes[:minBytes]
 	}
 
 	t.Run("old implementation", func(t *testing.T) {
