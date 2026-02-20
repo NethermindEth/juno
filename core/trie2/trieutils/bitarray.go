@@ -60,6 +60,18 @@ func (b *BitArray) Bytes() [32]byte {
 	return res
 }
 
+// Returns the bytes representation of the bit array in big endian format
+// and the offset to the first active byte. Use the offset to slice out
+// only the active bytes.
+//
+// Example:
+//
+//	bytes, offset := b.BytesWithOffset()
+//	validBytes := bytes[offset:]
+func (b *BitArray) BytesWithOffset() ([32]byte, int) {
+	return b.Bytes(), int(b.inactiveBytes())
+}
+
 // Sets the bit array to the least significant 'n' bits of x.
 // n is counted from the least significant bit, starting at 0.
 // If length >= x.len, the bit array is an exact copy of x.
@@ -445,25 +457,31 @@ func (b *BitArray) IsEmpty() bool {
 }
 
 // Serialises the BitArray into a bytes buffer in the following format:
-// - First few bytes: the necessary bytes included in big endian order
-// - Last byte: length of the bit array (0-255)
+//   - First few bytes: the necessary bytes included in big endian order
+//   - Last byte: length of the bit array (0-255)
 //
-// The returned error is always nil
-// Example: Err
+// Returns the number of bytes written. The returned error is always nil.
+//
+// Example:
 //
 //	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
-	var bytesWritten int
-
 	bytes := b.Bytes()
-	bytesWritten, _ = buf.Write(bytes[b.inactiveBytes():])
+	bytesWritten, _ := buf.Write(bytes[b.inactiveBytes():])
 
 	buf.WriteByte(b.len)
 	return bytesWritten + 1, nil
 }
 
-// Returns the encoded bytes of the bit array.
-// todo(rdr): This method needs dedicated tests
+// Serialises the BitArray into a bytes buffer in the following format:
+//   - First few bytes: the necessary bytes included in big endian order
+//   - Last byte: length of the bit array (0-255)
+//
+// Same as Write(buf), but returns a new slice instead of writing to a buffer.
+//
+// Example:
+//
+//	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) EncodedBytes() []byte {
 	bytes := b.Bytes()
 
@@ -689,9 +707,9 @@ func (b *BitArray) Copy() BitArray {
 }
 
 // Returns the encoded string representation of the bit array.
+// Same as EncodedBytes(), but wrapped within a string.
 func (b *BitArray) EncodedString() string {
-	bbytes := b.Bytes()
-	return string(bbytes[:]) + string(b.len)
+	return string(b.EncodedBytes())
 }
 
 // Returns a string representation of the bit array.

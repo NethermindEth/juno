@@ -118,15 +118,12 @@ func WriteTrieJournal(w db.KeyValueWriter, journal []byte) error {
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
 func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf bool) []byte {
-	prefixBytes := prefix.Key()
-
-	const ownerByteSize = 32
-	var ownerBytes [32]byte
+	var ownerLen int
 	if !felt.IsZero(owner) {
-		ownerBytes = owner.Bytes()
+		// felt.Bytes() returns a fixed-size array of 32 bytes
+		ownerLen = 32
 	}
 
-	const nodeTypeSize = 1
 	var nodeType byte
 	if isLeaf {
 		nodeType = leaf.Byte()
@@ -136,19 +133,23 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf boo
 
 	pathBytes := path.EncodedBytes()
 
-	key := make([]byte, len(prefixBytes)+ownerByteSize+nodeTypeSize+len(pathBytes))
-	dst := key
+	// [1 byte prefix][owner len (32 bytes) OR zero][1 byte node-type][path]
+	key := make([]byte, 1+ownerLen+1+len(pathBytes))
+	var currIdx int
 
-	copy(dst, prefixBytes)
-	dst = dst[len(prefixBytes):]
+	key[currIdx] = byte(prefix)
+	currIdx++
 
-	copy(dst, ownerBytes[:])
-	dst = dst[ownerByteSize:]
+	if ownerLen > 0 {
+		ownerBytes := owner.Bytes()
+		copy(key[currIdx:], ownerBytes[:])
+		currIdx += ownerLen
+	}
 
-	dst[0] = nodeType
-	dst = dst[nodeTypeSize:]
+	key[currIdx] = nodeType
+	currIdx++
 
-	copy(dst, pathBytes)
+	copy(key[currIdx:], pathBytes)
 
 	return key
 }
@@ -198,7 +199,6 @@ func WriteNodeByHash(
 // [1 byte prefix][32 bytes owner][1 byte node-type][8 byte from path][32 byte hash]
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
-
 func nodeKeyByHash(
 	prefix db.Bucket,
 	owner *felt.Address,
@@ -225,12 +225,10 @@ func nodeKeyByHash(
 	hashBytes := hash.Bytes()
 
 	const pathSignificantBytes = 8
-	pathSize := max(pathSignificantBytes, path.len)
-
 	keySize := len(prefixBytes) +
 		len(ownerBytes) +
 		nodeTypeSize +
-		int(pathSize) +
+		pathSignificantBytes +
 		len(hashBytes)
 
 	key := make([]byte, keySize)
@@ -246,8 +244,16 @@ func nodeKeyByHash(
 	dst = dst[nodeTypeSize:]
 
 	pathBytes := path.Bytes()
-	copy(dst, pathBytes[0:pathSize])
-	dst = dst[pathSize:]
+
+	activeBytes := path.activeBytes()
+	if activeBytes < pathSignificantBytes {
+		tempSlice := make([]byte, pathSignificantBytes)
+		copy(tempSlice, pathBytes[path.inactiveBytes():])
+		copy(dst, tempSlice)
+	} else {
+		copy(dst, pathBytes[path.inactiveBytes():len(pathBytes)-pathSignificantBytes])
+	}
+	dst = dst[pathSignificantBytes:]
 
 	copy(dst, hashBytes[:])
 
