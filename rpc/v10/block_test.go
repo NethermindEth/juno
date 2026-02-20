@@ -418,15 +418,27 @@ func setupMockBlockTest(
 		mockSyncReader.EXPECT().PendingData().Return(
 			&blockAsPreConfirmed,
 			nil,
-		)
+		).AnyTimes()
 	case blockID.IsLatest():
-		mockChain.EXPECT().Head().Return(block, nil)
+		mockChain.EXPECT().Head().Return(block, nil).AnyTimes()
+		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
+			block.Transactions, nil).AnyTimes()
 	case blockID.IsHash():
-		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil)
+		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil).AnyTimes()
+		mockChain.EXPECT().BlockHeaderByHash(block.Hash).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
+			block.Transactions, nil).AnyTimes()
 	case blockID.IsL1Accepted():
-		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil)
+		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
+		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
+			block.Transactions, nil).AnyTimes()
 	default:
-		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil)
+		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
+		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
+			block.Transactions, nil).AnyTimes()
 	}
 }
 
@@ -763,7 +775,9 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		)
 
 		block.Header.SequencerAddress = nil
-		mockReader.EXPECT().Head().Return(block, nil).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(block.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(block.Number).Return(
+			block.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 		mockReader.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil).Times(2)
 		mockReader.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil).Times(2)
@@ -789,7 +803,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(block, nil)
+	mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(block.Header, nil)
+	mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(block.Transactions, nil)
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 	mockReader.EXPECT().BlockCommitmentsByNumber(blockNumber).Return(commitments, nil)
 	mockReader.EXPECT().StateUpdateByNumber(blockNumber).Return(stateUpdate, nil)
@@ -929,7 +944,8 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	blockID := rpcv9.BlockIDFromNumber(block.Header.Number)
-	mockReader.EXPECT().BlockByNumber(block.Header.Number).Return(block, nil).AnyTimes()
+	mockReader.EXPECT().BlockHeaderByNumber(block.Header.Number).Return(block.Header, nil).AnyTimes()
+	mockReader.EXPECT().TransactionsByBlockNumber(block.Header.Number).Return(block.Transactions, nil).AnyTimes()
 	mockReader.EXPECT().Network().Return(network).AnyTimes()
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
 
