@@ -1,0 +1,53 @@
+name: rust-lint
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - main
+  pull_request:
+    paths:
+      - vm/rust/**
+      - core/rust/**
+      - starknet/compiler/rust/**
+      - rust-toolchain.toml
+      - .github/workflows/rust-lint.yml
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  rust-lint:
+    name: rust-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88.0"
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            vm/rust
+            core/rust
+            starknet/compiler/rust
+      - name: fmt vm/rust
+        run: cargo fmt --check
+        working-directory: vm/rust
+      - name: fmt core/rust
+        run: cargo fmt --check
+        working-directory: core/rust
+      - name: fmt starknet/compiler/rust
+        run: cargo fmt --check
+        working-directory: starknet/compiler/rust
+      - name: clippy vm/rust
+        run: cargo clippy -- -D warnings
+        working-directory: vm/rust
+      - name: clippy core/rust
+        run: cargo clippy -- -D warnings
+        working-directory: core/rust
+      - name: clippy starknet/compiler/rust
+        run: cargo clippy -- -D warnings
+        working-directory: starknet/compiler/rust

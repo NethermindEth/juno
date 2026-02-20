@@ -42,6 +42,7 @@ static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<Felt> = Lazy::new(|| {
         .expect("Invalid hex string")
 });
 
+#[allow(clippy::too_many_arguments)]
 pub fn cairo_vm_call(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const BlockInfo,

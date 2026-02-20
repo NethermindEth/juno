@@ -29,6 +29,7 @@ use starknet_api::transaction::{
     fields::Fee, Transaction as StarknetApiTransaction, TransactionHash,
 };
 
+#[allow(clippy::too_many_arguments)]
 pub fn cairo_vm_execute(
     txns_json: *const c_char,
     classes_json: *const c_char,
@@ -192,14 +193,12 @@ pub fn cairo_vm_execute(
     }
 
     if return_initial_reads {
-        let initial_reads = state
-            .get_initial_reads()
-            .map_err(|err| {
-                JunoError::block_error(format!("failed to get initial reads: {err:?}"))
-            })?;
+        let initial_reads = state.get_initial_reads().map_err(|err| {
+            JunoError::block_error(format!("failed to get initial reads: {err:?}"))
+        })?;
         let initial_reads_ffi: InitialReads = initial_reads.into();
         append_initial_reads(reader_handle, &initial_reads_ffi, &mut writer_buffer)
-            .map_err(|err| JunoError::block_error(err))?;
+            .map_err(JunoError::block_error)?;
     }
 
     Ok(())
