@@ -124,9 +124,6 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf boo
 		ownerLen = 32
 	}
 
-	const prefixSize = 1
-	const nodeTypeSize = 1
-
 	var nodeType byte
 	if isLeaf {
 		nodeType = leaf.Byte()
@@ -136,7 +133,13 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf boo
 
 	pathBytes := path.EncodedBytes()
 
-	key := make([]byte, prefixSize+ownerLen+nodeTypeSize+len(pathBytes))
+	const prefixSize = 1
+	const nodeTypeSize = 1
+
+	key := make([]byte, prefixSize+
+		ownerLen+
+		nodeTypeSize+
+		len(pathBytes))
 	dst := key
 
 	dst[0] = byte(prefix)
@@ -208,6 +211,12 @@ func nodeKeyByHash(
 	hash *felt.Hash,
 	isLeaf bool,
 ) []byte {
+	var ownerLen int
+	if !felt.IsZero(owner) {
+		// felt.Bytes() returns a fixed-size array of 32 bytes
+		ownerLen = 32
+	}
+
 	var nodeType byte
 	if isLeaf {
 		nodeType = leaf.Byte()
@@ -217,17 +226,14 @@ func nodeKeyByHash(
 
 	const prefixSize = 1
 	const nodeTypeSize = 1
-	const ownerSize = 32
 	const pathSignificantBytes = 8
 	const hashSize = 32
 
-	keySize := prefixSize +
-		ownerSize +
-		nodeTypeSize +
-		pathSignificantBytes +
-		hashSize
-
-	key := make([]byte, keySize)
+	key := make([]byte, prefixSize+
+		ownerLen+
+		nodeTypeSize+
+		pathSignificantBytes+
+		hashSize)
 	dst := key
 
 	dst[0] = byte(prefix)
@@ -236,7 +242,7 @@ func nodeKeyByHash(
 	if !felt.IsZero(owner) {
 		ownerBytes := owner.Bytes()
 		copy(dst, ownerBytes[:])
-		dst = dst[ownerSize:]
+		dst = dst[ownerLen:]
 	}
 
 	dst[0] = nodeType
