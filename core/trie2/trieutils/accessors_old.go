@@ -89,6 +89,7 @@ func nodeKeyByHashOld(
 	if len(pathBytes) < pathSignificantBytes {
 		keySize += pathSignificantBytes
 	} else {
+		// wrong. It should be pathSignificantBytes. No need for this if/else clause
 		keySize += len(pathBytes)
 	}
 
@@ -97,12 +98,23 @@ func nodeKeyByHashOld(
 	key = append(key, ownerBytes...)
 	key = append(key, nodeType...)
 
+	// ----------- wrong implementation -----------
+	// if len(pathBytes) > 0 {
+	// 	if len(pathBytes) < pathSignificantBytes {
+	// 		key = append(key, pathBytes...)
+	// 		key = append(key, make([]byte, pathSignificantBytes-len(pathBytes))...)
+	// 	} else {
+	// 		key = append(key, pathBytes...)
+	// 	}
+	// } else {
+	// 	key = append(key, make([]byte, pathSignificantBytes)...)
+	// }
 	if len(pathBytes) > 0 {
-		if len(pathBytes) < pathSignificantBytes {
+		if len(pathBytes) <= pathSignificantBytes {
 			key = append(key, pathBytes...)
 			key = append(key, make([]byte, pathSignificantBytes-len(pathBytes))...)
 		} else {
-			key = append(key, pathBytes...)
+			key = append(key, pathBytes[:pathSignificantBytes]...)
 		}
 	} else {
 		key = append(key, make([]byte, pathSignificantBytes)...)

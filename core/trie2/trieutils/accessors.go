@@ -243,15 +243,12 @@ func nodeKeyByHash(
 	dst[0] = nodeType
 	dst = dst[nodeTypeSize:]
 
-	pathBytes := path.Bytes()
-
-	activeBytes := path.activeBytes()
-	if activeBytes < pathSignificantBytes {
-		tempSlice := make([]byte, pathSignificantBytes)
-		copy(tempSlice, pathBytes[path.inactiveBytes():])
-		copy(dst, tempSlice)
+	bytes32 := path.Bytes()
+	activeBytes := bytes32[path.inactiveBytes():]
+	if len(activeBytes) <= pathSignificantBytes {
+		copy(dst, activeBytes)
 	} else {
-		copy(dst, pathBytes[path.inactiveBytes():len(pathBytes)-pathSignificantBytes])
+		copy(dst, activeBytes[:pathSignificantBytes])
 	}
 	dst = dst[pathSignificantBytes:]
 
