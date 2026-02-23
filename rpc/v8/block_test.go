@@ -273,6 +273,42 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 }
 
+func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
+	blockNumber := uint64(123)
+	header := &core.Header{Number: blockNumber}
+
+	t.Run("TransactionsByBlockNumber returns ErrKeyNotFound", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv8.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxHashes(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("TransactionsByBlockNumber returns internal error", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv8.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		internalErr := errors.New("some internal error")
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
+
+		block, rpcErr := handler.BlockWithTxHashes(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr), rpcErr)
+	})
+}
+
 func TestBlockWithTxs(t *testing.T) {
 	errTests := map[string]rpcv8.BlockID{
 		"latest":  blockIDLatest(t),
@@ -477,6 +513,42 @@ func TestBlockWithTxs(t *testing.T) {
 			},
 			Transactions: []*rpcv8.Transaction{},
 		}, blockWithTxs)
+	})
+}
+
+func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
+	blockNumber := uint64(123)
+	header := &core.Header{Number: blockNumber}
+
+	t.Run("TransactionsByBlockNumber returns ErrKeyNotFound", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv8.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxs(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("TransactionsByBlockNumber returns internal error", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv8.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		internalErr := errors.New("some internal error")
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
+
+		block, rpcErr := handler.BlockWithTxs(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr), rpcErr)
 	})
 }
 
