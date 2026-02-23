@@ -208,45 +208,42 @@ func nodeKeyByHash(
 	hash *felt.Hash,
 	isLeaf bool,
 ) []byte {
-	prefixBytes := prefix.Key()
-
-	var ownerBytes []byte
-	if !felt.IsZero(owner) {
-		ob := owner.Bytes()
-		ownerBytes = ob[:]
-	}
-
 	var nodeType byte
-	nodeTypeSize := 1
 	if isLeaf {
 		nodeType = leaf.Byte()
 	} else {
 		nodeType = nonLeaf.Byte()
 	}
 
-	hashBytes := hash.Bytes()
-
+	const prefixSize = 1
+	const nodeTypeSize = 1
+	const ownerSize = 32
 	const pathSignificantBytes = 8
-	keySize := len(prefixBytes) +
-		len(ownerBytes) +
+	const hashSize = 32
+
+	keySize := prefixSize +
+		ownerSize +
 		nodeTypeSize +
 		pathSignificantBytes +
-		len(hashBytes)
+		hashSize
 
 	key := make([]byte, keySize)
 	dst := key
 
-	copy(dst, prefixBytes)
-	dst = dst[len(prefixBytes):]
+	dst[0] = byte(prefix)
+	dst = dst[prefixSize:]
 
-	copy(dst, ownerBytes)
-	dst = dst[len(ownerBytes):]
+	if !felt.IsZero(owner) {
+		ownerBytes := owner.Bytes()
+		copy(dst, ownerBytes[:])
+		dst = dst[ownerSize:]
+	}
 
 	dst[0] = nodeType
 	dst = dst[nodeTypeSize:]
 
-	bytes32 := path.Bytes()
-	activeBytes := bytes32[path.inactiveBytes():]
+	bytes, offset := path.BytesWithOffset()
+	activeBytes := bytes[offset:]
 	if len(activeBytes) <= pathSignificantBytes {
 		copy(dst, activeBytes)
 	} else {
@@ -254,6 +251,7 @@ func nodeKeyByHash(
 	}
 	dst = dst[pathSignificantBytes:]
 
+	hashBytes := hash.Bytes()
 	copy(dst, hashBytes[:])
 
 	return key
