@@ -117,10 +117,9 @@ func testCases(t *testing.T) []testCase {
 	return cases
 }
 
-// TestNodeKeyByPath verifies that nodeKeyByPath produces the same key layout as the
-// old implementation. Any difference is a regression.
+// TestNodeKeyByPath tests the key format of the nodeKeyByPath function.
 //
-// Old key format:
+// Format:
 //
 //	ClassTrie / ContractTrieContract (zero owner):
 //	  [1 byte prefix][1 byte node-type][path encoded bytes]
@@ -135,7 +134,6 @@ func TestNodeKeyByPath(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				key := nodeKeyByPathOld(tc.prefix, tc.owner, tc.path, tc.isLeaf)
 
-				// --- Structural verification of the key format ---
 				nodeTypeByte := byte(nonLeaf)
 				if tc.isLeaf {
 					nodeTypeByte = byte(leaf)
@@ -169,7 +167,6 @@ func TestNodeKeyByPath(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				key := nodeKeyByPath(tc.prefix, tc.owner, tc.path, tc.isLeaf)
 
-				// --- Structural verification of the key format ---
 				nodeTypeByte := byte(nonLeaf)
 				if tc.isLeaf {
 					nodeTypeByte = byte(leaf)
@@ -200,10 +197,9 @@ func TestNodeKeyByPath(t *testing.T) {
 	})
 }
 
-// TestNodeKeyByHash verifies that nodeKeyByHash produces the same key layout as the
-// old implementation. Any difference is a regression.
+// TestNodeKeyByHash tests the key format of the nodeKeyByHash function.
 //
-// Old key format:
+// Format:
 //
 //	ClassTrie / ContractTrieContract (zero owner):
 //	  [1 byte prefix][1 byte node-type][≥8 byte path section][32 byte hash]
@@ -211,12 +207,12 @@ func TestNodeKeyByPath(t *testing.T) {
 //	ContractTrieStorage (non-zero owner):
 //	  [1 byte prefix][32 byte owner][1 byte node-type][≥8 byte path section][32 byte hash]
 //
-// Path section = BitArray.ActiveBytes() padded to at least 8 bytes with trailing zeros.
+// Path section = The first 8 bytes of the path bytes. If the path is less than 8 bytes,
+// it is padded with trailing zeros.
 func TestNodeKeyByHash(t *testing.T) {
 	hash := felt.FromUint64[felt.Hash](0xCAFEBABE)
 
-	// pathSection computes the path bytes as it should be in the key:
-	// 8-byte path section. If the path is less than 8 bytes, it is padded with trailing zeros
+	// pathSection computes the path bytes as it should be in the key.
 	pathSection := func(path *BitArray) []byte {
 		bytes32 := path.Bytes()
 		activeBytes := bytes32[path.inactiveBytes():]
