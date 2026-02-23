@@ -36,7 +36,7 @@ pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char, result: *mut *
             usize::MAX,
         ));
     }));
-    if let Err(_) = compilation_result {
+    if compilation_result.is_err() {
         unsafe {
             *result = raw_cstr("panic during compilation".to_string());
         }

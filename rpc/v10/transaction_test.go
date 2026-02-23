@@ -1328,7 +1328,7 @@ func TestAddTransaction(t *testing.T) {
 					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
 						Transaction: *rpcv9.AdaptTransaction(&base),
 					},
-					Proof:      []uint64{1, 2, 3},
+					Proof:      "AAAAAQAAAAIAAAAD",
 					ProofFacts: proofFacts,
 				}
 			}(),
@@ -1362,7 +1362,7 @@ func TestAddTransaction(t *testing.T) {
 				"calldata": [],
 				"account_deployment_data": [],
 				"type": "INVOKE_FUNCTION",
-				"proof": [1, 2, 3],
+				"proof": "AAAAAQAAAAIAAAAD",
 				"proof_facts": ["0x64", "0xc8"]
 			}`,
 		},
@@ -1814,7 +1814,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
 				},
 			},
-			Proof: []uint64{1, 2, 3},
+			Proof: "AAAAAQAAAAIAAAAD",
 		}
 
 		validate := validator.Validator()
@@ -1852,52 +1852,50 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		)
 	})
 
-	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
-		proofFact := felt.FromUint64[felt.Felt](100)
-		broadcastedTxn := &rpcv10.BroadcastedTransaction{
-			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-				Transaction: rpcv9.Transaction{
-					Type:    rpcv9.TxnInvoke,
-					Version: felt.NewFromUint64[felt.Felt](3),
-					Signature: &[]*felt.Felt{
-						felt.NewFromUint64[felt.Felt](0x1),
-					},
-					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
-					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
-					CallData:      &[]*felt.Felt{},
-					ResourceBounds: &rpcv9.ResourceBoundsMap{
-						L1Gas: &rpcv9.ResourceBounds{
-							MaxAmount:       &felt.Zero,
-							MaxPricePerUnit: &felt.Zero,
-						},
-						L2Gas: &rpcv9.ResourceBounds{
-							MaxAmount:       &felt.Zero,
-							MaxPricePerUnit: &felt.Zero,
-						},
-						L1DataGas: &rpcv9.ResourceBounds{
-							MaxAmount:       &felt.Zero,
-							MaxPricePerUnit: &felt.Zero,
-						},
-					},
-					Tip:                   felt.NewFromUint64[felt.Felt](0),
-					PaymasterData:         &[]*felt.Felt{},
-					AccountDeploymentData: &[]*felt.Felt{},
-					NonceDAMode:           utils.HeapPtr(rpcv9.DAModeL1),
-					FeeDAMode:             utils.HeapPtr(rpcv9.DAModeL1),
-				},
-			},
-			Proof:      []uint64{1, 2, 3},
-			ProofFacts: []felt.Felt{proofFact},
-		}
+	base := createBaseInvokeTransactionV3()
+	correctBroadcastedTxn := &rpcv10.BroadcastedTransaction{
+		BroadcastedTransaction: rpcv9.BroadcastedTransaction{
+			Transaction: *rpcv9.AdaptTransaction(&base),
+		},
+	}
+
+	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
+		correctBroadcastedTxn.Proof = utils.Base64("not-valid-base64")
 
 		validate := validator.Validator()
-		err := validate.Struct(broadcastedTxn.Transaction)
+		err := validate.Struct(correctBroadcastedTxn)
+		require.Error(
+			t,
+			err,
+			"validation should fail for non-base64 proof value",
+		)
+	})
+
+	t.Run("AcceptEmptyProofOnInvoke", func(t *testing.T) {
+		correctBroadcastedTxn.Proof = utils.Base64("")
+
+		validate := validator.Validator()
+		err := validate.Struct(correctBroadcastedTxn)
+		require.NoError(
+			t,
+			err,
+			"validation should pass for INVOKE with empty proof",
+		)
+	})
+
+	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
+		proofFact := felt.FromUint64[felt.Felt](100)
+		correctBroadcastedTxn.Proof = utils.Base64("AAAAAQAAAAIAAAAD")
+		correctBroadcastedTxn.ProofFacts = []felt.Felt{proofFact}
+
+		validate := validator.Validator()
+		err := validate.Struct(correctBroadcastedTxn.Transaction)
 		require.NoError(t,
 			err,
 			"validation should pass for valid INVOKE v3 transaction",
 		)
 
-		err = validate.Struct(broadcastedTxn)
+		err = validate.Struct(correctBroadcastedTxn)
 		require.NoError(
 			t,
 			err,
@@ -1907,7 +1905,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		_, _, _, err = rpcv10.AdaptBroadcastedTransaction(
 			t.Context(),
 			nil,
-			broadcastedTxn,
+			correctBroadcastedTxn,
 			network,
 		)
 		require.NoError(

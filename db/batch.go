@@ -31,15 +31,19 @@ type Batcher interface {
 // Same as Batch, but allows for reads from the batch and the disk.
 // Use this only if you need to read from both the in-memory and on-disk data.
 // Write operations will be slower compared to a regular Batch.
-// Ideally, IndexedBatch should not be used at all. Write operations should be done using a regular Batch,
-// and read operations should be done by accessing the database directly.
+//
+// Deprecated: Use Batch for writes and access the database directly for reads.
 type IndexedBatch interface {
 	Batch
 	KeyValueReader
 }
 
 // Produce an IndexedBatch to write to the database and read from it.
+//
+// Deprecated: Use Batcher for writes and access the database directly for reads.
 type IndexedBatcher interface {
+	// Deprecated: Use NewBatch instead.
 	NewIndexedBatch() IndexedBatch
+	// Deprecated: Use NewBatchWithSize instead.
 	NewIndexedBatchWithSize(size int) IndexedBatch
 }

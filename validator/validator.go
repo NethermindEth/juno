@@ -9,6 +9,7 @@ import (
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -82,6 +83,12 @@ func Validator() *validator.Validate {
 			}
 			panic("not an rpc v9 TransactionType")
 		}, rpcv9.TransactionType(0))
+		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
+			if b, ok := field.Interface().(utils.Base64); ok {
+				return string(b)
+			}
+			panic("not a utils.Base64")
+		}, utils.Base64(""))
 	})
 	return v
 }

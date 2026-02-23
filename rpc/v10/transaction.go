@@ -44,8 +44,8 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 
 type BroadcastedTransaction struct {
 	rpcv9.BroadcastedTransaction
-	Proof      []uint64    `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE"`
-	ProofFacts []felt.Felt `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
+	Proof      utils.Base64 `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
+	ProofFacts []felt.Felt  `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
 func AdaptBroadcastedTransaction(
@@ -286,8 +286,8 @@ func (h *Handler) pushToFeederGateway(
 
 type addTxGatewayPayload struct {
 	rpcv9.AddTxGatewayPayload
-	Proof      []uint64    `json:"proof,omitempty"`
-	ProofFacts []felt.Felt `json:"proof_facts,omitempty"`
+	Proof      utils.Base64 `json:"proof,omitempty"`
+	ProofFacts []felt.Felt  `json:"proof_facts,omitempty"`
 }
 
 func adaptRPCTxToFeederPayload(

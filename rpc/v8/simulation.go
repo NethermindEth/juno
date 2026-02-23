@@ -193,8 +193,16 @@ func createSimulatedTransactions(
 
 	if len(overallFees) != len(traces) || len(overallFees) != len(gasConsumed) ||
 		len(overallFees) != len(daGas) || len(overallFees) != len(txns) {
-		return nil, fmt.Errorf("inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns",
-			len(overallFees), len(traces), len(gasConsumed), len(daGas), len(txns))
+		return nil,
+			fmt.Errorf(
+				"inconsistent lengths: %d overall fees, %d traces,"+
+					" %d gas consumed, %d data availability, %d txns",
+				len(overallFees),
+				len(traces),
+				len(gasConsumed),
+				len(daGas),
+				len(txns),
+			)
 	}
 
 	l1GasPriceWei := header.L1GasPriceETH
@@ -229,6 +237,7 @@ func createSimulatedTransactions(
 
 		// Compute data for FeeEstimate
 		var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
+		//nolint:gosec // False positive, txns len is verified to be the same to overallFees on top
 		feeUnit := feeUnit(txns[i])
 		switch feeUnit {
 		case WEI:

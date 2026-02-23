@@ -135,6 +135,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			timeouts := c.timeouts.Load()
 			c.client.Timeout = timeouts.GetCurrentTimeout()
 			reqTimer := time.Now()
+			//nolint:gosec // G704: URL is 'queryURL' var, based on the `Network.FeederURL` config
 			res, err = c.client.Do(req)
 			tooManyRequests, badRequest := false, false
 			if err == nil {

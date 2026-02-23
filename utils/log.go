@@ -282,6 +282,7 @@ func HTTPLogSettings(w http.ResponseWriter, r *http.Request, log *LogLevel) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		//nolint:gosec // G705: `levelStr` was validated by `log.Set`
 		fmt.Fprint(w, "Replaced log level with '", html.EscapeString(levelStr), "' successfully\n")
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
