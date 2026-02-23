@@ -197,6 +197,53 @@ func TestNodeKeyByPath(t *testing.T) {
 	})
 }
 
+// BenchmarkNodeKeyByPath compares the old and new nodeKeyByPath implementations
+// across the full matrix of prefixes, owners, paths, and leaf types.
+func BenchmarkNodeKeyByPath(b *testing.B) {
+	type benchCase struct {
+		prefix db.Bucket
+		owner  felt.Address
+		path   BitArray
+		isLeaf bool
+	}
+
+	var cases []benchCase
+	for _, pc := range prefixes() {
+		for _, oc := range owners() {
+			for _, pathc := range paths() {
+				for _, isLeaf := range []bool{true, false} {
+					var owner felt.Address
+					if pc.prefix == db.ContractTrieStorage {
+						owner = oc.owner
+					}
+					cases = append(cases, benchCase{
+						prefix: pc.prefix,
+						owner:  owner,
+						path:   pathc.path,
+						isLeaf: isLeaf,
+					})
+				}
+			}
+		}
+	}
+
+	b.Run("old", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			nodeKeyByPathOld(tc.prefix, &tc.owner, &tc.path, tc.isLeaf)
+		}
+	})
+
+	b.Run("new", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			nodeKeyByPath(tc.prefix, &tc.owner, &tc.path, tc.isLeaf)
+		}
+	})
+}
+
 // TestNodeKeyByHash tests the key format of the nodeKeyByHash function.
 //
 // Format:
