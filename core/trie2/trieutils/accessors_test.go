@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// used to avoid the compiler optimising away the results
+var sink []byte
+
 type testCase struct {
 	name   string
 	prefix db.Bucket
@@ -231,7 +234,7 @@ func BenchmarkNodeKeyByPath(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
-			nodeKeyByPathOld(tc.prefix, &tc.owner, &tc.path, tc.isLeaf)
+			sink = nodeKeyByPathOld(tc.prefix, &tc.owner, &tc.path, tc.isLeaf)
 		}
 	})
 
@@ -239,7 +242,7 @@ func BenchmarkNodeKeyByPath(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
-			nodeKeyByPath(tc.prefix, &tc.owner, &tc.path, tc.isLeaf)
+			sink = nodeKeyByPath(tc.prefix, &tc.owner, &tc.path, tc.isLeaf)
 		}
 	})
 }
@@ -383,7 +386,7 @@ func BenchmarkNodeKeyByHash(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
-			nodeKeyByHashOld(tc.prefix, &tc.owner, (*BitArrayOld)(&tc.path), &tc.hash, tc.isLeaf)
+			sink = nodeKeyByHashOld(tc.prefix, &tc.owner, (*BitArrayOld)(&tc.path), &tc.hash, tc.isLeaf)
 		}
 	})
 
@@ -391,7 +394,7 @@ func BenchmarkNodeKeyByHash(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
-			nodeKeyByHash(tc.prefix, &tc.owner, &tc.path, &tc.hash, tc.isLeaf)
+			sink = nodeKeyByHash(tc.prefix, &tc.owner, &tc.path, &tc.hash, tc.isLeaf)
 		}
 	})
 }

@@ -2357,20 +2357,37 @@ func BenchmarkWrite(b *testing.B) {
 func BenchmarkEncodedBytes(b *testing.B) {
 	cases := serializationCases()
 
-	b.Run("new", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := range b.N {
-			tc := &cases[i%len(cases)]
-			_ = tc.ba.EncodedBytes()
-		}
-	})
-
 	b.Run("old", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
 			old := BitArrayOld(tc.ba)
-			_ = old.EncodedBytes()
+			sink = old.EncodedBytes()
+		}
+	})
+
+	b.Run("old2", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			old := BitArrayOld(tc.ba)
+			sink = old.EncodedBytes2()
+		}
+	})
+
+	b.Run("new", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			sink = tc.ba.EncodedBytes()
+		}
+	})
+
+	b.Run("new-no-escape", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			_ = tc.ba.EncodedBytes()
 		}
 	})
 }
@@ -2379,12 +2396,14 @@ func BenchmarkEncodedBytes(b *testing.B) {
 // BitArrayOld.EncodedString across the shared serialisation cases.
 func BenchmarkEncodedString(b *testing.B) {
 	cases := serializationCases()
+	var sink string
+	_ = sink
 
 	b.Run("new", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
-			_ = tc.ba.EncodedString()
+			sink = tc.ba.EncodedString()
 		}
 	})
 
@@ -2393,7 +2412,7 @@ func BenchmarkEncodedString(b *testing.B) {
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
 			old := BitArrayOld(tc.ba)
-			_ = old.EncodedString()
+			sink = old.EncodedString()
 		}
 	})
 }

@@ -37,6 +37,16 @@ func (b *BitArrayOld) EncodedString() string {
 	return string(res)
 }
 
+func (b *BitArrayOld) EncodedBytes2() []byte {
+	bytes := b.Bytes()
+
+	var encoding [33]byte
+	copy(encoding[0:32], bytes[0:32])
+	encoding[32] = b.len
+
+	return encoding[32-b.byteCount():]
+}
+
 // *** Methods copied from BitArray, used by the above methods
 
 // same as BitArray.Bytes()
