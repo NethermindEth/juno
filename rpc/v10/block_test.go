@@ -1017,7 +1017,9 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 
 	blockID := rpcv9.BlockIDFromNumber(block.Header.Number)
 	mockReader.EXPECT().BlockHeaderByNumber(block.Header.Number).Return(block.Header, nil).AnyTimes()
-	mockReader.EXPECT().TransactionsByBlockNumber(block.Header.Number).Return(block.Transactions, nil).AnyTimes()
+	mockReader.EXPECT().TransactionsByBlockNumber(
+		block.Header.Number,
+	).Return(block.Transactions, nil).AnyTimes()
 	mockReader.EXPECT().Network().Return(network).AnyTimes()
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
 

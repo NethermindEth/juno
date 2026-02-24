@@ -365,6 +365,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 }
 
+//nolint:dupl // similar to TestBlockWithTxs_TxnsFetchError
 func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 	blockNumber := uint64(123)
 	header := &core.Header{Number: blockNumber}
@@ -606,6 +607,7 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 }
 
+//nolint:dupl // similar to TestBlockWithTxHashes_TxnsFetchError
 func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 	blockNumber := uint64(123)
 	header := &core.Header{Number: blockNumber}
