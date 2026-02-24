@@ -248,8 +248,8 @@ func nodeKeyByHash(
 	dst[0] = nodeType
 	dst = dst[nodeTypeSize:]
 
-	bytes, offset := path.BytesWithOffset()
-	activeBytes := bytes[offset:]
+	bytes := path.Bytes()
+	activeBytes := bytes[path.inactiveBytes():]
 	if len(activeBytes) <= pathSignificantBytes {
 		copy(dst, activeBytes)
 	} else {
