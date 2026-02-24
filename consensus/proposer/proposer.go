@@ -71,7 +71,7 @@ func New[V types.Hashable[H], H types.Hash](
 	nodeAddress starknet.Address,
 	toValue func(*felt.Felt) V,
 ) Proposer[V, H] {
-	return &proposer[V, H]{
+	p := &proposer[V, H]{
 		log:                 log,
 		builder:             b,
 		proposalStore:       proposalStore,
@@ -84,6 +84,15 @@ func New[V types.Hashable[H], H types.Hash](
 		valueTrigger:        make(chan valueRequest[V, H], 1),
 		transactionReceiver: make(chan []mempool.BroadcastedTransaction, transactionReceiverBufferSize),
 	}
+	// note(rdr): This is here because I don't want to add a nil check on PreConfirmed and keep
+	// the function low cost. This solves the problem when calling `Run` which then
+	// calls `init()` which initialises `buildState`.
+	// If at the same time, in a different go-routine, `Preconfirmed()` gets called, while
+	// `buildState` hasn't been loaded yet, a nil pointer deference error would be thrown.
+	// This doesn't happen in production code (since there isn't any) but it happens in tests.
+	// When we write production consensus code this should be revisited.
+	p.buildState.Store(&builder.BuildState{})
+	return p
 }
 
 func (p *proposer[V, H]) Run(ctx context.Context) error {
@@ -152,9 +161,9 @@ func (p *proposer[V, H]) Push(ctx context.Context, transaction *mempool.Broadcas
 	return nil
 }
 
-// Return the preconfirmed block currently guarded by the atomic pointer. The implementation assumes that
-// the referenced value by the atomic pointer is immutable, which means the caller shouldn't modify
-// any fields of the returned preconfirmed block.
+// Return the preconfirmed block currently guarded by the atomic pointer. The implementation
+// assumes that the referenced value by the atomic pointer is immutable, which means the caller
+// shouldn't modify any fields of the returned preconfirmed block.
 func (p *proposer[V, H]) Preconfirmed() *core.PreConfirmed {
 	return p.buildState.Load().Preconfirmed
 }
