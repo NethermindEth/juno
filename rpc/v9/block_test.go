@@ -274,7 +274,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	}
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(latestBlock, nil)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		latest := blockIDLatest(t)
@@ -285,7 +287,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
+		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		hash := blockIDHash(t, latestBlockHash)
@@ -296,7 +300,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		number := blockIDNumber(t, latestBlockNumber)
@@ -307,7 +313,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
@@ -323,7 +331,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
@@ -345,13 +355,50 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
-		)
+		).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		preConfirmedID := blockIDPreConfirmed(t)
 		block, rpcErr := handler.BlockWithTxHashes(&preConfirmedID)
 		require.Nil(t, rpcErr)
 		checkLatestBlock(t, block)
+	})
+}
+
+//nolint:dupl // similar to TestBlockWithTxs_TxnsFetchError
+func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
+	blockNumber := uint64(123)
+	header := &core.Header{Number: blockNumber}
+
+	t.Run("TransactionsByBlockNumber returns ErrKeyNotFound", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv9.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxHashes(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("TransactionsByBlockNumber returns internal error", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv9.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		internalErr := errors.New("some internal error")
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
+
+		block, rpcErr := handler.BlockWithTxHashes(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr), rpcErr)
 	})
 }
 
@@ -440,7 +487,9 @@ func TestBlockWithTxs(t *testing.T) {
 	).Times(len(latestBlock.Transactions) * 5)
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		latest := blockIDLatest(t)
@@ -454,7 +503,9 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		hash := blockIDHash(t, latestBlockHash)
@@ -468,7 +519,10 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(
+			latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		number := blockIDNumber(t, latestBlockNumber)
@@ -485,7 +539,10 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(
+			latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
@@ -506,7 +563,10 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(
+			latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlockNumber).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
@@ -533,7 +593,7 @@ func TestBlockWithTxs(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
-		).Times(2 + len(latestBlock.Transactions))
+		).Times(4 + len(latestBlock.Transactions))
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		preConfirmedID := blockIDPreConfirmed(t)
@@ -544,6 +604,43 @@ func TestBlockWithTxs(t *testing.T) {
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
+	})
+}
+
+//nolint:dupl // similar to TestBlockWithTxHashes_TxnsFetchError
+func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
+	blockNumber := uint64(123)
+	header := &core.Header{Number: blockNumber}
+
+	t.Run("TransactionsByBlockNumber returns ErrKeyNotFound", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv9.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxs(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("TransactionsByBlockNumber returns internal error", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpcv9.New(mockReader, nil, nil, nil)
+
+		id := blockIDNumber(t, blockNumber)
+		internalErr := errors.New("some internal error")
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
+
+		block, rpcErr := handler.BlockWithTxs(&id)
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr), rpcErr)
 	})
 }
 
@@ -561,7 +658,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	tx, ok := coreBlock.Transactions[0].(*core.InvokeTransaction)
 	require.True(t, ok)
 
-	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(coreBlock, nil)
+	mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(coreBlock.Header, nil)
+	mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(coreBlock.Transactions, nil)
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 	blockID := blockIDNumber(t, blockNumber)
@@ -784,7 +882,9 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 		require.NoError(t, err)
 		latestBlock.Header.SequencerAddress = nil
-		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
+		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
+			latestBlock.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		blockID := blockIDLatest(t)

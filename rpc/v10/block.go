@@ -68,26 +68,37 @@ type BlockWithReceipts struct {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *rpcv9.BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(id)
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	txnHashes := make([]*felt.Felt, len(block.Transactions))
-	for index, txn := range block.Transactions {
+	var numID rpcv9.BlockID
+	if id.IsPreConfirmed() {
+		numID = *id
+	} else {
+		numID = rpcv9.BlockIDFromNumber(header.Number)
+	}
+	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txnHashes := make([]*felt.Felt, header.TransactionCount)
+	for index, txn := range blockTxns {
 		txnHashes[index] = txn.Hash()
 	}
 
-	status, rpcErr := h.blockStatus(id, block)
+	status, rpcErr := h.blockStatus(id, header.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
 	var commitments *core.BlockCommitments
 	var stateDiff *core.StateDiff
-	if block.Hash != nil {
+	if header.Hash != nil {
 		var err error
-		commitments, stateDiff, err = h.getCommitmentsAndStateDiff(block.Number)
+		commitments, stateDiff, err = h.getCommitmentsAndStateDiff(header.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -95,7 +106,7 @@ func (h *Handler) BlockWithTxHashes(id *rpcv9.BlockID) (*BlockWithTxHashes, *jso
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: AdaptBlockHeader(block.Header, commitments, stateDiff),
+		BlockHeader: AdaptBlockHeader(header, commitments, stateDiff),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -115,7 +126,7 @@ func (h *Handler) BlockWithReceipts(
 		return nil, rpcErr
 	}
 
-	blockStatus, rpcErr := h.blockStatus(id, block)
+	blockStatus, rpcErr := h.blockStatus(id, block.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -176,18 +187,29 @@ func (h *Handler) BlockWithTxs(
 ) (*BlockWithTxs, *jsonrpc.Error) {
 	includeProofFacts := responseFlags.IncludeProofFacts
 
-	block, rpcErr := h.blockByID(blockID)
+	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	txs := make([]*Transaction, len(block.Transactions))
-	for index, txn := range block.Transactions {
+	var numID rpcv9.BlockID
+	if blockID.IsPreConfirmed() {
+		numID = *blockID
+	} else {
+		numID = rpcv9.BlockIDFromNumber(header.Number)
+	}
+	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txs := make([]*Transaction, len(blockTxns))
+	for index, txn := range blockTxns {
 		adaptedTx := AdaptTransaction(txn, includeProofFacts)
 		txs[index] = &adaptedTx
 	}
 
-	status, rpcErr := h.blockStatus(blockID, block)
+	status, rpcErr := h.blockStatus(blockID, header.Number)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -195,8 +217,8 @@ func (h *Handler) BlockWithTxs(
 	var commitments *core.BlockCommitments
 	var stateDiff *core.StateDiff
 	var err error
-	if block.Hash != nil {
-		commitments, stateDiff, err = h.getCommitmentsAndStateDiff(block.Number)
+	if header.Hash != nil {
+		commitments, stateDiff, err = h.getCommitmentsAndStateDiff(header.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -204,14 +226,14 @@ func (h *Handler) BlockWithTxs(
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  AdaptBlockHeader(block.Header, commitments, stateDiff),
+		BlockHeader:  AdaptBlockHeader(header, commitments, stateDiff),
 		Transactions: txs,
 	}, nil
 }
 
 func (h *Handler) blockStatus(
 	id *rpcv9.BlockID,
-	block *core.Block,
+	blockNumber uint64,
 ) (rpcv9.BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
@@ -221,7 +243,7 @@ func (h *Handler) blockStatus(
 	status := rpcv9.BlockAcceptedL2
 	if id.IsPreConfirmed() {
 		status = rpcv9.BlockPreConfirmed
-	} else if isL1Verified(block.Number, l1H) {
+	} else if isL1Verified(blockNumber, l1H) {
 		status = rpcv9.BlockAcceptedL1
 	}
 

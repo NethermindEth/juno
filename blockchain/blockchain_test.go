@@ -394,6 +394,25 @@ func TestTransactionAndReceipt(t *testing.T) {
 		}
 	})
 
+	t.Run("TransactionsByBlockNumber returns empty for non-existent block", func(t *testing.T) {
+		txns, err := chain.TransactionsByBlockNumber(32)
+		require.NoError(t, err)
+		assert.Empty(t, txns)
+	})
+
+	t.Run("TransactionsByBlockNumber returns all transactions for a block", func(t *testing.T) {
+		for i := range uint64(3) {
+			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
+				block, err := gw.BlockByNumber(t.Context(), i)
+				require.NoError(t, err)
+
+				txns, err := chain.TransactionsByBlockNumber(i)
+				require.NoError(t, err)
+				assert.Equal(t, block.Transactions, txns)
+			})
+		}
+	})
+
 	t.Run("GetReceipt returns expected receipt", func(t *testing.T) {
 		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
@@ -753,6 +772,11 @@ func TestRevert(t *testing.T) {
 	t.Run("TransactionByBlockNumberAndIndex should fail with reverted height", func(t *testing.T) {
 		_, err := chain.TransactionByBlockNumberAndIndex(revertedHeight, 0)
 		require.Error(t, err)
+	})
+	t.Run("TransactionsByBlockNumber should return empty for reverted height", func(t *testing.T) {
+		txns, err := chain.TransactionsByBlockNumber(revertedHeight)
+		require.NoError(t, err)
+		assert.Empty(t, txns)
 	})
 
 	require.NoError(t, chain.RevertHead())
