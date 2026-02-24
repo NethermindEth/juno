@@ -2263,18 +2263,6 @@ func TestWrite(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, len(tt.wantBytes), n, "BitArray.Write: wrong byte count")
 			assert.Equal(t, tt.wantBytes, buf.Bytes(), "BitArray.Write: wrong bytes")
-
-			// --- BitArrayOld (old implementation) ---
-			oldBuf := new(bytes.Buffer)
-			old := BitArrayOld(tt.ba)
-			oldN, oldErr := old.Write(oldBuf)
-			require.NoError(t, oldErr)
-			assert.Equal(t, len(tt.wantBytes), oldN, "BitArrayOld.Write: wrong byte count")
-			assert.Equal(t, tt.wantBytes, oldBuf.Bytes(), "BitArrayOld.Write: wrong bytes")
-
-			// Both implementations must produce identical output.
-			assert.Equal(t, buf.Bytes(), oldBuf.Bytes(), "Write: BitArray and BitArrayOld outputs differ")
-			assert.Equal(t, n, oldN, "Write: BitArray and BitArrayOld byte counts differ")
 		})
 	}
 }
@@ -2291,14 +2279,6 @@ func TestEncodedBytes(t *testing.T) {
 			buf := new(bytes.Buffer)
 			_, _ = tt.ba.Write(buf)
 			assert.Equal(t, buf.Bytes(), got, "EncodedBytes: output inconsistent with Write")
-
-			// --- BitArrayOld (old implementation) ---
-			old := BitArrayOld(tt.ba)
-			oldGot := old.EncodedBytes()
-			assert.Equal(t, tt.wantBytes, oldGot, "BitArrayOld.EncodedBytes: wrong bytes")
-
-			// Both implementations must produce identical output.
-			assert.Equal(t, got, oldGot, "EncodedBytes: BitArray and BitArrayOld outputs differ")
 
 			// Verify that modifying the returned slice does not affect internal state.
 			if len(got) > 0 {
@@ -2317,20 +2297,16 @@ func TestEncodedString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			want := string(tt.wantBytes)
 			assert.Equal(t, want, tt.ba.EncodedString(), "BitArray.EncodedString: wrong result")
-
-			// --- BitArrayOld (old implementation) ---
-			old := BitArrayOld(tt.ba)
-			assert.Equal(t, want, old.EncodedString(), "BitArrayOld.EncodedString: wrong result")
 		})
 	}
 }
 
-// BenchmarkWrite compares the performance of BitArray.Write and BitArrayOld.Write
+// BenchmarkWrite compares the performance of BitArray.Write
 // across the shared serialisation cases.
 func BenchmarkWrite(b *testing.B) {
 	cases := serializationCases()
 
-	b.Run("new", func(b *testing.B) {
+	b.Run("benchmark", func(b *testing.B) {
 		b.ReportAllocs()
 		buf := new(bytes.Buffer)
 		for i := range b.N {
@@ -2339,43 +2315,13 @@ func BenchmarkWrite(b *testing.B) {
 			tc.ba.Write(buf) //nolint:errcheck
 		}
 	})
-
-	b.Run("old", func(b *testing.B) {
-		b.ReportAllocs()
-		buf := new(bytes.Buffer)
-		for i := range b.N {
-			tc := &cases[i%len(cases)]
-			buf.Reset()
-			old := BitArrayOld(tc.ba)
-			old.Write(buf) //nolint:errcheck
-		}
-	})
 }
 
 // BenchmarkEncodedBytes compares the performance of BitArray.EncodedBytes and
-// BitArrayOld.EncodedBytes across the shared serialisation cases.
 func BenchmarkEncodedBytes(b *testing.B) {
 	cases := serializationCases()
 
-	b.Run("old", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := range b.N {
-			tc := &cases[i%len(cases)]
-			old := BitArrayOld(tc.ba)
-			sink = old.EncodedBytes()
-		}
-	})
-
-	b.Run("old2", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := range b.N {
-			tc := &cases[i%len(cases)]
-			old := BitArrayOld(tc.ba)
-			sink = old.EncodedBytes2()
-		}
-	})
-
-	b.Run("new", func(b *testing.B) {
+	b.Run("without-inline-optimization", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
@@ -2383,7 +2329,7 @@ func BenchmarkEncodedBytes(b *testing.B) {
 		}
 	})
 
-	b.Run("new-no-escape", func(b *testing.B) {
+	b.Run("with-inline-optimization", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
@@ -2392,27 +2338,17 @@ func BenchmarkEncodedBytes(b *testing.B) {
 	})
 }
 
-// BenchmarkEncodedString compares the performance of BitArray.EncodedString and
-// BitArrayOld.EncodedString across the shared serialisation cases.
+// BenchmarkEncodedString compares the performance of BitArray.EncodedString
 func BenchmarkEncodedString(b *testing.B) {
 	cases := serializationCases()
 	var sink string
 	_ = sink
 
-	b.Run("new", func(b *testing.B) {
+	b.Run("benchmark", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
 			sink = tc.ba.EncodedString()
-		}
-	})
-
-	b.Run("old", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := range b.N {
-			tc := &cases[i%len(cases)]
-			old := BitArrayOld(tc.ba)
-			sink = old.EncodedString()
 		}
 	})
 }

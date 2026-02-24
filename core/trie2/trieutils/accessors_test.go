@@ -132,72 +132,37 @@ func testCases(t *testing.T) []testCase {
 //
 // Path encoded bytes = BitArray.EncodedBytes() = active bytes + bit-length byte.
 func TestNodeKeyByPath(t *testing.T) {
-	t.Run("old implementation", func(t *testing.T) {
-		for _, tc := range testCases(t) {
-			t.Run(tc.name, func(t *testing.T) {
-				key := nodeKeyByPathOld(tc.prefix, tc.owner, tc.path, tc.isLeaf)
+	for _, tc := range testCases(t) {
+		t.Run(tc.name, func(t *testing.T) {
+			key := nodeKeyByPath(tc.prefix, tc.owner, tc.path, tc.isLeaf)
 
-				nodeTypeByte := byte(nonLeaf)
-				if tc.isLeaf {
-					nodeTypeByte = byte(leaf)
-				}
-				pathEncoded := tc.path.EncodedBytes()
+			nodeTypeByte := byte(nonLeaf)
+			if tc.isLeaf {
+				nodeTypeByte = byte(leaf)
+			}
+			pathEncoded := tc.path.EncodedBytes()
 
-				assert.Equal(t, byte(tc.prefix), key[0], "first byte must be the prefix")
+			assert.Equal(t, byte(tc.prefix), key[0], "first byte must be the prefix")
 
-				if felt.IsZero(tc.owner) {
-					// ClassTrie/ContractTrie:
-					// [1 byte prefix][1 byte node-type][path]
-					wantLen := 1 + 1 + len(pathEncoded)
-					assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
-					assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
-					assert.Equal(t, pathEncoded, key[2:], "path must follow node type")
-				} else {
-					// StorageTrie of a Contract :
-					// [1 byte prefix][32 bytes owner][1 byte node-type][path]
-					ownerBytes := tc.owner.Bytes()
-					wantLen := 1 + 32 + 1 + len(pathEncoded)
-					assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
-					assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
-					assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
-					assert.Equal(t, pathEncoded, key[34:], "path must follow owner and node type")
-				}
-			})
-		}
-	})
-	t.Run("new implementation", func(t *testing.T) {
-		for _, tc := range testCases(t) {
-			t.Run(tc.name, func(t *testing.T) {
-				key := nodeKeyByPath(tc.prefix, tc.owner, tc.path, tc.isLeaf)
-
-				nodeTypeByte := byte(nonLeaf)
-				if tc.isLeaf {
-					nodeTypeByte = byte(leaf)
-				}
-				pathEncoded := tc.path.EncodedBytes()
-
-				assert.Equal(t, byte(tc.prefix), key[0], "first byte must be the prefix")
-
-				if felt.IsZero(tc.owner) {
-					// ClassTrie/ContractTrie:
-					// [1 byte prefix][1 byte node-type][path]
-					wantLen := 1 + 1 + len(pathEncoded)
-					assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
-					assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
-					assert.Equal(t, pathEncoded, key[2:], "path must follow node type")
-				} else {
-					// StorageTrie of a Contract :
-					// [1 byte prefix][32 bytes owner][1 byte node-type][path]
-					ownerBytes := tc.owner.Bytes()
-					wantLen := 1 + 32 + 1 + len(pathEncoded)
-					assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
-					assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
-					assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
-					assert.Equal(t, pathEncoded, key[34:], "path must follow owner and node type")
-				}
-			})
-		}
-	})
+			if felt.IsZero(tc.owner) {
+				// ClassTrie/ContractTrie:
+				// [1 byte prefix][1 byte node-type][path]
+				wantLen := 1 + 1 + len(pathEncoded)
+				assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
+				assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
+				assert.Equal(t, pathEncoded, key[2:], "path must follow node type")
+			} else {
+				// StorageTrie of a Contract :
+				// [1 byte prefix][32 bytes owner][1 byte node-type][path]
+				ownerBytes := tc.owner.Bytes()
+				wantLen := 1 + 32 + 1 + len(pathEncoded)
+				assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
+				assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
+				assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
+				assert.Equal(t, pathEncoded, key[34:], "path must follow owner and node type")
+			}
+		})
+	}
 }
 
 // BenchmarkNodeKeyByPath compares the old and new nodeKeyByPath implementations
@@ -230,15 +195,7 @@ func BenchmarkNodeKeyByPath(b *testing.B) {
 		}
 	}
 
-	b.Run("old", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := range b.N {
-			tc := &cases[i%len(cases)]
-			sink = nodeKeyByPathOld(tc.prefix, &tc.owner, &tc.path, tc.isLeaf)
-		}
-	})
-
-	b.Run("new", func(b *testing.B) {
+	b.Run("benchmark", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
@@ -275,79 +232,40 @@ func TestNodeKeyByHash(t *testing.T) {
 		return activeBytes[:minBytes]
 	}
 
-	t.Run("old implementation", func(t *testing.T) {
-		for _, tc := range testCases(t) {
-			t.Run(tc.name, func(t *testing.T) {
-				key := nodeKeyByHashOld(tc.prefix, tc.owner, (*BitArrayOld)(tc.path), &hash, tc.isLeaf)
+	for _, tc := range testCases(t) {
+		t.Run(tc.name, func(t *testing.T) {
+			key := nodeKeyByHash(tc.prefix, tc.owner, tc.path, &hash, tc.isLeaf)
 
-				nodeTypeByte := byte(nonLeaf)
-				if tc.isLeaf {
-					nodeTypeByte = byte(leaf)
-				}
-				pathSec := pathSection(tc.path)
-				hashBytes := hash.Bytes()
+			nodeTypeByte := byte(nonLeaf)
+			if tc.isLeaf {
+				nodeTypeByte = byte(leaf)
+			}
+			pathSec := pathSection(tc.path)
+			hashBytes := hash.Bytes()
 
-				assert.Equal(t, byte(tc.prefix), key[0], "first byte must be the prefix")
+			assert.Equal(t, byte(tc.prefix), key[0], "first byte must be the prefix")
 
-				if felt.IsZero(tc.owner) {
-					// [prefix][nodeType][pathSection][hash32]
-					wantLen := 1 + 1 + len(pathSec) + len(hashBytes)
-					assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
-					assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
-					pEnd := 2 + len(pathSec)
-					assert.Equal(t, pathSec, key[2:pEnd], "path section after node type")
-					assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
-				} else {
-					// [prefix][owner32][nodeType][pathSection][hash32]
-					ownerBytes := tc.owner.Bytes()
-					wantLen := 1 + 32 + 1 + len(pathSec) + len(hashBytes)
-					assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
-					assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
-					assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
-					pEnd := 34 + len(pathSec)
-					assert.Equal(t, pathSec, key[34:pEnd], "path section after owner and node type")
-					assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
-				}
-			})
-		}
-	})
-
-	t.Run("new implementation", func(t *testing.T) {
-		for _, tc := range testCases(t) {
-			t.Run(tc.name, func(t *testing.T) {
-				key := nodeKeyByHash(tc.prefix, tc.owner, tc.path, &hash, tc.isLeaf)
-
-				nodeTypeByte := byte(nonLeaf)
-				if tc.isLeaf {
-					nodeTypeByte = byte(leaf)
-				}
-				pathSec := pathSection(tc.path)
-				hashBytes := hash.Bytes()
-
-				assert.Equal(t, byte(tc.prefix), key[0], "first byte must be the prefix")
-
-				if felt.IsZero(tc.owner) {
-					// [prefix][nodeType][pathSection][hash32]
-					wantLen := 1 + 1 + len(pathSec) + len(hashBytes)
-					assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
-					assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
-					pEnd := 2 + len(pathSec)
-					assert.Equal(t, pathSec, key[2:pEnd], "path section after node type")
-					assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
-				} else {
-					// [prefix][owner32][nodeType][pathSection][hash32]
-					ownerBytes := tc.owner.Bytes()
-					wantLen := 1 + 32 + 1 + len(pathSec) + len(hashBytes)
-					assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
-					assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
-					assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
-					pEnd := 34 + len(pathSec)
-					assert.Equal(t, pathSec, key[34:pEnd], "path section after owner and node type")
-					assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
-				}
-			})
-		}
-	})
+			if felt.IsZero(tc.owner) {
+				// [prefix][nodeType][pathSection][hash32]
+				wantLen := 1 + 1 + len(pathSec) + len(hashBytes)
+				assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
+				assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
+				pEnd := 2 + len(pathSec)
+				assert.Equal(t, pathSec, key[2:pEnd], "path section after node type")
+				assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
+			} else {
+				// [prefix][owner32][nodeType][pathSection][hash32]
+				ownerBytes := tc.owner.Bytes()
+				wantLen := 1 + 32 + 1 + len(pathSec) + len(hashBytes)
+				assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
+				assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
+				assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
+				pEnd := 34 + len(pathSec)
+				assert.Equal(t, pathSec, key[34:pEnd], "path section after owner and node type")
+				assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
+			}
+		})
+	}
 }
 
 // BenchmarkNodeKeyByHash compares the old and new nodeKeyByHash implementations
@@ -382,15 +300,7 @@ func BenchmarkNodeKeyByHash(b *testing.B) {
 		}
 	}
 
-	b.Run("old", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := range b.N {
-			tc := &cases[i%len(cases)]
-			sink = nodeKeyByHashOld(tc.prefix, &tc.owner, (*BitArrayOld)(&tc.path), &tc.hash, tc.isLeaf)
-		}
-	})
-
-	b.Run("new", func(b *testing.B) {
+	b.Run("benchmark", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
