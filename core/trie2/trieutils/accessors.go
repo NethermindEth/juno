@@ -239,7 +239,7 @@ func nodeKeyByHash(
 	dst[0] = byte(prefix)
 	dst = dst[prefixSize:]
 
-	if !felt.IsZero(owner) {
+	if ownerLen > 0 {
 		ownerBytes := owner.Bytes()
 		copy(dst, ownerBytes[:])
 		dst = dst[ownerLen:]
@@ -250,11 +250,7 @@ func nodeKeyByHash(
 
 	bytes := path.Bytes()
 	activeBytes := bytes[path.inactiveBytes():]
-	if len(activeBytes) <= pathSignificantBytes {
-		copy(dst, activeBytes)
-	} else {
-		copy(dst, activeBytes[:pathSignificantBytes])
-	}
+	copy(dst[:pathSignificantBytes], activeBytes)
 	dst = dst[pathSignificantBytes:]
 
 	hashBytes := hash.Bytes()

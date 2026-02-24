@@ -2312,12 +2312,12 @@ func BenchmarkWrite(b *testing.B) {
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
 			buf.Reset()
-			tc.ba.Write(buf) //nolint:errcheck
+			_, _ = tc.ba.Write(buf)
 		}
 	})
 }
 
-// BenchmarkEncodedBytes compares the performance of BitArray.EncodedBytes and
+// BenchmarkEncodedBytes compares the performance of BitArray.EncodedBytes method.
 func BenchmarkEncodedBytes(b *testing.B) {
 	cases := serializationCases()
 
@@ -2331,24 +2331,28 @@ func BenchmarkEncodedBytes(b *testing.B) {
 
 	b.Run("with-inline-optimization", func(b *testing.B) {
 		b.ReportAllocs()
+		// to avoid compiler optimization while still inlining the function
+		var s byte
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
-			_ = tc.ba.EncodedBytes()
+			s ^= tc.ba.EncodedBytes()[0]
 		}
+		_ = s
 	})
 }
 
 // BenchmarkEncodedString compares the performance of BitArray.EncodedString
 func BenchmarkEncodedString(b *testing.B) {
 	cases := serializationCases()
-	var sink string
-	_ = sink
+	// to avoid compiler optimization
+	var sinkStr string
 
 	b.Run("benchmark", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
 			tc := &cases[i%len(cases)]
-			sink = tc.ba.EncodedString()
+			sinkStr = tc.ba.EncodedString()
 		}
 	})
+	_ = sinkStr
 }

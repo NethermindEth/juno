@@ -62,7 +62,7 @@ func (b *BitArray) BytesInto(dst []byte) {
 }
 
 // Writes the bytes representation of the bit array to a given slice in big endian format.
-// The slice must be at least 32 bytes long. Used internally to avoid heap allocations.
+// The slice must be at least 32 bytes long. Used to avoid heap allocations.
 func (b *BitArray) writeBytesTo(dst []byte) {
 	binary.BigEndian.PutUint64(dst[0:8], b.words[3])
 	binary.BigEndian.PutUint64(dst[8:16], b.words[2])
