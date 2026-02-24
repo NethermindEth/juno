@@ -164,8 +164,8 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 	return cStorage.Commit()
 }
 
-func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
-	cStorage, err := storage(addr, txn)
+func ContractStorage(addr, key *felt.Felt, txn db.KeyValueReader) (felt.Felt, error) {
+	cStorage, err := storageReader(addr, txn)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -192,4 +192,13 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	return trie.NewTriePedersen(txn, db.ContractStorage.Key(addrBytes), ContractStorageTrieHeight)
+}
+
+func storageReader(addr *felt.Felt, txn db.KeyValueReader) (*trie.TrieReader, error) {
+	addrBytes := addr.Marshal()
+	return trie.NewTrieReaderPedersen(
+		txn,
+		db.ContractStorage.Key(addrBytes),
+		ContractStorageTrieHeight,
+	)
 }

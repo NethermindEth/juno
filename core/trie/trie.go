@@ -34,15 +34,19 @@ func NewTrieReaderPedersen(
 	r db.KeyValueReader,
 	prefix []byte,
 	height uint8,
-) (TrieReader, error) {
-	return newTrieReader(r, prefix, height, crypto.Pedersen)
+) (*TrieReader, error) {
+	tr, err := newTrieReader(r, prefix, height, crypto.Pedersen)
+	if err != nil {
+		return nil, err
+	}
+	return tr, nil
 }
 
 func NewTrieReaderPoseidon(
 	r db.KeyValueReader,
 	prefix []byte,
 	height uint8,
-) (TrieReader, error) {
+) (*TrieReader, error) {
 	return newTrieReader(r, prefix, height, crypto.Poseidon)
 }
 
@@ -51,9 +55,9 @@ func newTrieReader(
 	prefix []byte,
 	height uint8,
 	hash crypto.HashFn,
-) (TrieReader, error) {
+) (*TrieReader, error) {
 	if height > felt.Bits {
-		return TrieReader{}, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
+		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
 
 	// maxKey is 2^height - 1
@@ -65,10 +69,10 @@ func newTrieReader(
 	readStorage := NewReadStorage(r, prefix)
 	rootKey, err := readStorage.RootKey()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return TrieReader{}, err
+		return nil, err
 	}
 
-	return TrieReader{
+	return &TrieReader{
 		readStorage: readStorage,
 		height:      height,
 		rootKey:     rootKey,
@@ -124,7 +128,7 @@ func newTrie(
 		return nil, err
 	}
 	return &Trie{
-		TrieReader: trieReader,
+		TrieReader: *trieReader,
 		storage:    storage,
 	}, nil
 }
@@ -395,6 +399,9 @@ func (t *Trie) replaceLinkWithNewParent(key *BitArray, commonKey BitArray, sibli
 }
 
 func (t *TrieReader) Hash() (felt.Felt, error) {
+	if t.rootKey == nil {
+		return felt.Zero, nil
+	}
 	root, err := t.readStorage.Get(t.rootKey)
 	if err != nil {
 		return felt.Zero, err
