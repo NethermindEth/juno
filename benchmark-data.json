@@ -1690,5 +1690,11 @@
     "block_target": 800000,
     "duration_seconds": 69842.81077,
     "timestamp": "2026-02-24T00:16:09.719200+00:00"
+  },
+  {
+    "version": "v0.15.19-rc.0-8-g2a50f5cc1",
+    "block_target": 800000,
+    "duration_seconds": 70982.774176,
+    "timestamp": "2026-02-24T20:00:38.095385+00:00"
   }
 ]
