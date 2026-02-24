@@ -2324,3 +2324,76 @@ func TestEncodedString(t *testing.T) {
 		})
 	}
 }
+
+// BenchmarkWrite compares the performance of BitArray.Write and BitArrayOld.Write
+// across the shared serialisation cases.
+func BenchmarkWrite(b *testing.B) {
+	cases := serializationCases()
+
+	b.Run("new", func(b *testing.B) {
+		b.ReportAllocs()
+		buf := new(bytes.Buffer)
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			buf.Reset()
+			tc.ba.Write(buf) //nolint:errcheck
+		}
+	})
+
+	b.Run("old", func(b *testing.B) {
+		b.ReportAllocs()
+		buf := new(bytes.Buffer)
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			buf.Reset()
+			old := BitArrayOld(tc.ba)
+			old.Write(buf) //nolint:errcheck
+		}
+	})
+}
+
+// BenchmarkEncodedBytes compares the performance of BitArray.EncodedBytes and
+// BitArrayOld.EncodedBytes across the shared serialisation cases.
+func BenchmarkEncodedBytes(b *testing.B) {
+	cases := serializationCases()
+
+	b.Run("new", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			_ = tc.ba.EncodedBytes()
+		}
+	})
+
+	b.Run("old", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			old := BitArrayOld(tc.ba)
+			_ = old.EncodedBytes()
+		}
+	})
+}
+
+// BenchmarkEncodedString compares the performance of BitArray.EncodedString and
+// BitArrayOld.EncodedString across the shared serialisation cases.
+func BenchmarkEncodedString(b *testing.B) {
+	cases := serializationCases()
+
+	b.Run("new", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			_ = tc.ba.EncodedString()
+		}
+	})
+
+	b.Run("old", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			old := BitArrayOld(tc.ba)
+			_ = old.EncodedString()
+		}
+	})
+}
