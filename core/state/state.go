@@ -206,7 +206,6 @@ func (s *State) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
-	flushChanges bool,
 ) error {
 	blockNum := header.Number
 	protocolVersion := header.ProtocolVersion

@@ -20,7 +20,6 @@ type State interface {
 		update *StateUpdate,
 		declaredClasses map[felt.Felt]ClassDefinition,
 		skipVerifyNewRoot bool,
-		flushChanges bool,
 	) error
 	// Revert rolls back the state update for blockNum, restoring the state to update.OldRoot.
 	// Requires the current root to match update.NewRoot.
