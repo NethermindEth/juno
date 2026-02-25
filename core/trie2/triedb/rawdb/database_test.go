@@ -109,13 +109,13 @@ func verifyNode(
 func TestRawDB(t *testing.T) {
 	t.Run("New creates database", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB)
 		require.NotNil(t, database)
 	})
 
 	t.Run("Update with all node types", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB)
 
 		contractHash := felt.NewFromUint64[felt.Felt](210)
 		contractPath := trieutils.NewBitArray(1, 0x01)
@@ -175,7 +175,7 @@ func TestRawDB(t *testing.T) {
 
 	t.Run("Update with deleted nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB)
 
 		batch := memDB.NewBatch()
 		err := database.Update(
@@ -225,7 +225,7 @@ func TestRawDB(t *testing.T) {
 
 	t.Run("NodeReader returns correct reader", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB)
 
 		batch := memDB.NewBatch()
 		err := database.Update(
@@ -258,7 +258,7 @@ func TestRawDB(t *testing.T) {
 
 	t.Run("Multiple updates", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB)
 
 		batch := memDB.NewBatch()
 		err := database.Update(
@@ -381,7 +381,7 @@ func TestRawDB(t *testing.T) {
 
 	t.Run("Concurrent reads", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB)
 
 		batch := memDB.NewBatch()
 		err := database.Update(
