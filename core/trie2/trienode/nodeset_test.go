@@ -95,4 +95,44 @@ func TestNodeSet(t *testing.T) {
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 0, ns.deletes)
 	})
+
+	t.Run("foreach", func(t *testing.T) {
+		ns := NewNodeSet(felt.Address{})
+
+		// Add nodes in random order
+		keys := []trieutils.Path{
+			trieutils.NewBitArray(8, 0xFF),
+			trieutils.NewBitArray(8, 0xAA),
+			trieutils.NewBitArray(8, 0x55),
+		}
+		for _, key := range keys {
+			ns.Add(&key, NewLeaf(felt.Zero, []byte{1}))
+		}
+
+		t.Run("ascending order", func(t *testing.T) {
+			var visited []trieutils.Path
+			_ = ns.ForEach(false, func(key trieutils.Path, node TrieNode) error {
+				visited = append(visited, key)
+				return nil
+			})
+
+			// Verify ascending order
+			for i := 1; i < len(visited); i++ {
+				require.True(t, visited[i-1].Cmp(&visited[i]) < 0)
+			}
+		})
+
+		t.Run("descending order", func(t *testing.T) {
+			var visited []trieutils.Path
+			_ = ns.ForEach(true, func(key trieutils.Path, node TrieNode) error {
+				visited = append(visited, key)
+				return nil
+			})
+
+			// Verify descending order
+			for i := 1; i < len(visited); i++ {
+				require.True(t, visited[i-1].Cmp(&visited[i]) > 0)
+			}
+		})
+	})
 }

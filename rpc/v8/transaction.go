@@ -636,7 +636,6 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 	if err != nil {
 		return AddTxResponse{}, err
 	}
-
 	if h.submittedTransactionsCache != nil {
 		h.submittedTransactionsCache.Add(res.TransactionHash)
 	}
