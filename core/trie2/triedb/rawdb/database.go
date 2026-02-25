@@ -8,15 +8,10 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
 var _ database.TrieDB = (*Database)(nil)
-
-type Config struct {
-	CleanCacheSize uint64 // Maximum size (in bytes) for caching clean nodes
-}
 
 type Database struct {
 	disk db.KeyValueStore
@@ -25,13 +20,7 @@ type Database struct {
 	logger log.StructuredLogger
 }
 
-func New(disk db.KeyValueStore, config *Config) *Database {
-	if config == nil {
-		config = &Config{
-			CleanCacheSize: 16 * utils.Megabyte,
-		}
-	}
-	cleanCache := newCleanCache(config.CleanCacheSize)
+func New(disk db.KeyValueStore) *Database {
 	return &Database{
 		disk:   disk,
 		logger: log.NewNopZapLogger(),
@@ -89,14 +78,14 @@ func (d *Database) Update(
 	}
 
 	for path, n := range classNodes {
-		err := d.updateNode(batch, db.ClassTrie, &felt.Address{}, &path, n, true)
+		err := d.updateNode(batch, db.ClassTrie, &felt.Address{}, &path, n)
 		if err != nil {
 			return err
 		}
 	}
 
 	for path, n := range contractNodes {
-		err := d.updateNode(batch, db.ContractTrieContract, &felt.Address{}, &path, n, false)
+		err := d.updateNode(batch, db.ContractTrieContract, &felt.Address{}, &path, n)
 		if err != nil {
 			return err
 		}
@@ -104,7 +93,7 @@ func (d *Database) Update(
 
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
-			err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n, false)
+			err := d.updateNode(batch, db.ContractTrieStorage, &owner, &path, n)
 			if err != nil {
 				return err
 			}
@@ -120,7 +109,6 @@ func (d *Database) updateNode(
 	owner *felt.Address,
 	path *trieutils.Path,
 	n trienode.TrieNode,
-	isClass bool,
 ) error {
 	if batch == nil {
 		return nil
@@ -131,7 +119,6 @@ func (d *Database) updateNode(
 		if err != nil {
 			return err
 		}
-		d.cleanCache.deleteNode(owner, path, isClass)
 		return nil
 	}
 	err := trieutils.WriteNodeByPath(
@@ -145,7 +132,6 @@ func (d *Database) updateNode(
 	if err != nil {
 		return err
 	}
-	d.cleanCache.putNode(owner, path, isClass, n.Blob())
 	return nil
 }
 
