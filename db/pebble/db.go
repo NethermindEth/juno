@@ -37,7 +37,6 @@ func New(path string, options ...Option) (db.KeyValueStore, error) {
 	}
 
 	pDB, err := pebble.Open(path, &opts)
-
 	if err != nil {
 		return nil, err
 	}
