@@ -49,15 +49,15 @@ func owners() []ownerCase {
 	return []ownerCase{
 		{
 			name:  "one leading zero",
-			owner: *felt.NewUnsafeFromString[felt.Address]("0x012b66312a967681ca775a20bb3445883b82477888c76790091c0b59593c5f9e"),
+			owner: felt.UnsafeFromString[felt.Address]("0x012b66312a967681ca775a20bb3445883b82477888c76790091c0b59593c5f9e"),
 		},
 		{
 			name:  "two leading zeros",
-			owner: *felt.NewUnsafeFromString[felt.Address]("0x009f3a76d3f076c79adb925bfb322d4da753bf32f34f620a36b614a1860c3c18"),
+			owner: felt.UnsafeFromString[felt.Address]("0x009f3a76d3f076c79adb925bfb322d4da753bf32f34f620a36b614a1860c3c18"),
 		},
 		{
 			name:  "three leading zeros",
-			owner: *felt.NewUnsafeFromString[felt.Address]("0x0004fb2ab0254101b7424d9fa99679f6d46a33b999360bce3d8d7f7c9db275ec"),
+			owner: felt.UnsafeFromString[felt.Address]("0x0004fb2ab0254101b7424d9fa99679f6d46a33b999360bce3d8d7f7c9db275ec"),
 		},
 	}
 }
@@ -142,12 +142,18 @@ func TestNodeKeyByPath(t *testing.T) {
 			}
 			pathEncoded := tc.path.EncodedBytes()
 
+			const (
+				// numbers in bytes
+				prefixSize   = 1
+				ownerSize    = 32
+				nodeTypeSize = 1
+			)
 			assert.Equal(t, byte(tc.prefix), key[0], "first byte must be the prefix")
 
 			if felt.IsZero(tc.owner) {
 				// ClassTrie/ContractTrie:
 				// [1 byte prefix][1 byte node-type][path]
-				wantLen := 1 + 1 + len(pathEncoded)
+				wantLen := prefixSize + nodeTypeSize + len(pathEncoded)
 				assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
 				assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
 				assert.Equal(t, pathEncoded, key[2:], "path must follow node type")
@@ -155,7 +161,7 @@ func TestNodeKeyByPath(t *testing.T) {
 				// StorageTrie of a Contract :
 				// [1 byte prefix][32 bytes owner][1 byte node-type][path]
 				ownerBytes := tc.owner.Bytes()
-				wantLen := 1 + 32 + 1 + len(pathEncoded)
+				wantLen := prefixSize + ownerSize + nodeTypeSize + len(pathEncoded)
 				assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
 				assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
 				assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
@@ -219,17 +225,26 @@ func BenchmarkNodeKeyByPath(b *testing.B) {
 func TestNodeKeyByHash(t *testing.T) {
 	hash := felt.FromUint64[felt.Hash](0xCAFEBABE)
 
+	const (
+		// numbers in bytes
+		prefixSize           = 1
+		ownerSize            = 32
+		nodeTypeSize         = 1
+		pathSignificantBytes = 8
+		hashSize             = 32
+	)
+
 	// pathSection computes the path bytes as it should be in the key.
 	pathSection := func(path *BitArray) []byte {
 		bytes32 := path.Bytes()
 		activeBytes := bytes32[path.inactiveBytes():]
-		const minBytes = 8
-		if len(activeBytes) <= minBytes {
-			tempSlice := make([]byte, minBytes)
+
+		if len(activeBytes) <= pathSignificantBytes {
+			tempSlice := make([]byte, pathSignificantBytes)
 			copy(tempSlice, activeBytes)
 			return tempSlice
 		}
-		return activeBytes[:minBytes]
+		return activeBytes[:pathSignificantBytes]
 	}
 
 	for _, tc := range testCases(t) {
@@ -247,20 +262,20 @@ func TestNodeKeyByHash(t *testing.T) {
 
 			if felt.IsZero(tc.owner) {
 				// [prefix][nodeType][pathSection][hash32]
-				wantLen := 1 + 1 + len(pathSec) + len(hashBytes)
+				wantLen := prefixSize + nodeTypeSize + pathSignificantBytes + hashSize
 				assert.Equal(t, wantLen, len(key), "wrong key length for zero owner")
 				assert.Equal(t, nodeTypeByte, key[1], "second byte must be node type")
-				pEnd := 2 + len(pathSec)
+				pEnd := prefixSize + nodeTypeSize + pathSignificantBytes
 				assert.Equal(t, pathSec, key[2:pEnd], "path section after node type")
 				assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
 			} else {
 				// [prefix][owner32][nodeType][pathSection][hash32]
 				ownerBytes := tc.owner.Bytes()
-				wantLen := 1 + 32 + 1 + len(pathSec) + len(hashBytes)
+				wantLen := prefixSize + ownerSize + nodeTypeSize + pathSignificantBytes + hashSize
 				assert.Equal(t, wantLen, len(key), "wrong key length for non-zero owner")
 				assert.Equal(t, ownerBytes[:], key[1:33], "bytes 1-32 must be owner")
 				assert.Equal(t, nodeTypeByte, key[33], "byte 33 must be node type")
-				pEnd := 34 + len(pathSec)
+				pEnd := prefixSize + ownerSize + nodeTypeSize + pathSignificantBytes
 				assert.Equal(t, pathSec, key[34:pEnd], "path section after owner and node type")
 				assert.Equal(t, hashBytes[:], key[pEnd:], "hash must be last 32 bytes")
 			}

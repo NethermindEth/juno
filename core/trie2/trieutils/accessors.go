@@ -133,8 +133,10 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf boo
 
 	pathBytes := path.EncodedBytes()
 
-	const prefixSize = 1
-	const nodeTypeSize = 1
+	const (
+		prefixSize   = 1
+		nodeTypeSize = 1
+	)
 
 	key := make([]byte, prefixSize+
 		ownerLen+
@@ -224,10 +226,12 @@ func nodeKeyByHash(
 		nodeType = nonLeaf.Byte()
 	}
 
-	const prefixSize = 1
-	const nodeTypeSize = 1
-	const pathSignificantBytes = 8
-	const hashSize = 32
+	const (
+		prefixSize           = 1
+		nodeTypeSize         = 1
+		pathSignificantBytes = 8
+		hashSize             = 32
+	)
 
 	key := make([]byte, prefixSize+
 		ownerLen+
