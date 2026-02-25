@@ -57,7 +57,7 @@ func (b *BitArray) Bytes() [32]byte {
 
 // Writes the bytes representation of the bit array to a given slice in big endian format.
 // The slice must be at least 32 bytes long.
-func (b *BitArray) BytesInto(dst []byte) {
+func (b *BitArray) BytesTo(dst []byte) {
 	b.writeBytesTo(dst)
 }
 
