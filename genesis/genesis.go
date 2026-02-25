@@ -118,7 +118,8 @@ func GenesisStateDiff(
 
 	// TODO(maksymmalick): remove this after integration done
 	stateFactory := statefactory.NewStateFactory(false, triedb, stateDB)
-	state, err := stateFactory.NewState(&felt.Zero, memDB.NewIndexedBatch())
+	batch := memDB.NewBatch()
+	state, err := stateFactory.NewState(&felt.Zero, memDB.NewIndexedBatch(), batch)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}

@@ -181,7 +181,6 @@ func (s *State) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
-	flushChanges bool,
 ) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
