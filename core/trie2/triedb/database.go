@@ -19,6 +19,7 @@ const (
 type Config struct {
 	PathConfig *pathdb.Config
 	HashConfig *hashdb.Config
+	RawConfig  *rawdb.Config
 }
 
 func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
@@ -29,6 +30,8 @@ func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
 		return pathdb.New(disk, config.PathConfig)
 	} else if config.HashConfig != nil {
 		return hashdb.New(disk, config.HashConfig), nil
+	} else if config.RawConfig != nil {
+		return rawdb.New(disk), nil
 	}
 	return nil, fmt.Errorf("invalid config")
 }

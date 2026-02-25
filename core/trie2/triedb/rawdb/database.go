@@ -13,6 +13,8 @@ import (
 
 var _ database.TrieDB = (*Database)(nil)
 
+type Config struct{}
+
 type Database struct {
 	disk db.KeyValueStore
 
@@ -115,13 +117,9 @@ func (d *Database) updateNode(
 	}
 
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
-		err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
-		if err != nil {
-			return err
-		}
-		return nil
+		return trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
 	}
-	err := trieutils.WriteNodeByPath(
+	return trieutils.WriteNodeByPath(
 		batch,
 		bucket,
 		owner,
@@ -129,10 +127,6 @@ func (d *Database) updateNode(
 		n.IsLeaf(),
 		n.Blob(),
 	)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // This method was added to satisfy the TrieDB interface, but it is not used.
