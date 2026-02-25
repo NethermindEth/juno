@@ -13,6 +13,7 @@ import (
 type Config struct {
 	PathConfig *pathdb.Config
 	HashConfig *hashdb.Config
+	RawConfig  *rawdb.Config
 }
 
 func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {

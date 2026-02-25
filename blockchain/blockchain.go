@@ -349,7 +349,9 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 
 // StateAtBlockNumber returns a StateReader that provides
 // a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockNumber(
+	blockNumber uint64,
+) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	return b.stateBackend.StateAtBlockNumber(blockNumber)
 }
