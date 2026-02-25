@@ -106,7 +106,7 @@ func TestUpdate(t *testing.T) {
 		})
 		require.NoError(t, state.Update(&core.Header{Number: 3}, su3, map[felt.Felt]core.ClassDefinition{
 			*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): &core.SierraClass{},
-		}, false, true))
+		}, false))
 		assert.NotEqual(t, su3.NewRoot, su3.OldRoot)
 	})
 
@@ -489,7 +489,7 @@ func TestClass(t *testing.T) {
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,
-	}, false, true))
+	}, false))
 
 	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)

@@ -231,7 +231,6 @@ func (s *State) Update(
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
-	flushChanges bool, // TODO(maksym): added to satisfy the interface, but not used
 ) error {
 	blockNumber := header.Number
 	protocolVersion := header.ProtocolVersion

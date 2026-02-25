@@ -34,7 +34,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	testState := deprecatedstate.New(txn)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: newRoot,
+		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -42,7 +42,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		},
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
-	}, false, true))
+	}, false))
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
@@ -85,7 +85,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 				},
 			},
 		},
-	}, nil, false, true))
+	}, nil, false))
 
 	ret, err = New(&chainInfo, false, nil).Call(
 		&CallInfo{
@@ -130,7 +130,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		},
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
-	}, false, true))
+	}, false))
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 	feeTokens := networks.DefaultFeeTokenAddresses
@@ -175,7 +175,9 @@ func TestCallCairo(t *testing.T) {
 	state := deprecatedstate.New(txn)
 	firstStateUpdate := core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: newRoot,
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
+		),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -222,12 +224,6 @@ func TestCallCairo(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
-
-	// if new state, we need to create a new state with the new root
-	if statetestutils.UseNewState() {
-		state, err = stateFactory.NewState(newRoot, txn)
-		require.NoError(t, err)
-	}
 
 	secondStateUpdate := core.StateUpdate{
 		OldRoot: felt.NewUnsafeFromString[felt.Felt](
@@ -282,7 +278,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		},
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
-	}, false, true))
+	}, false))
 
 	logLevel := log.NewLevel(log.ERROR)
 	logger, err := log.NewZapLogger(logLevel)
