@@ -131,7 +131,8 @@ func TestStateHistoryClassOperations(t *testing.T) {
 		NewRoot:   &felt.Zero,
 		StateDiff: &core.StateDiff{},
 	}
-	state, err := New(&felt.Zero, stateDB)
+	batch := stateDB.disk.NewBatch()
+	state, err := New(&felt.Zero, stateDB, batch)
 	require.NoError(t, err)
 	err = state.Update(0, stateUpdate, classes, false)
 	require.NoError(t, err)
@@ -149,7 +150,8 @@ func TestStateHistoryClassOperations(t *testing.T) {
 		class2Hash: class2,
 	}
 
-	state, err = New(&stateComm, stateDB)
+	batch = stateDB.disk.NewBatch()
+	state, err = New(&stateComm, stateDB, batch)
 	require.NoError(t, err)
 	err = state.Update(1, stateUpdate, classes2, false)
 	require.NoError(t, err)

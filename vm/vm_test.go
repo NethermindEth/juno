@@ -18,7 +18,6 @@ import (
 func TestCallDeprecatedCairo(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -100,7 +99,6 @@ func TestCallDeprecatedCairo(t *testing.T) {
 func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -148,7 +146,6 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 func TestCallCairo(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Goerli)
 	gw := adaptfeeder.New(client)
 
@@ -249,7 +246,6 @@ func TestCallCairo(t *testing.T) {
 func TestCallInfoErrorHandling(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
