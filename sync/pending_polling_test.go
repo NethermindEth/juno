@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -56,7 +57,7 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(ctx context.Context, number u
 
 func TestPollPreLatest(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Mainnet)
+	bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -226,7 +227,7 @@ func TestPollPreLatest(t *testing.T) {
 
 func TestPollPreConfirmedLoop(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &utils.Sepolia, statetestutils.UseNewState())
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -321,7 +322,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 
 func TestRunPreConfirmedPhase(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &utils.Sepolia, statetestutils.UseNewState())
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -405,7 +406,7 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 
 func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &utils.Sepolia, statetestutils.UseNewState())
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -467,7 +468,7 @@ func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
 
 func TestStorePreConfirmed(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Mainnet)
+	bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	log := utils.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -759,7 +760,7 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 
 func TestStorePending(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Mainnet)
+	bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	log := utils.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)

@@ -10,6 +10,9 @@ import (
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/state/statefactory"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
@@ -107,10 +110,23 @@ func GenesisStateDiff(
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
+	triedb, err := triedb.New(memDB, nil)
+	if err != nil {
+		return core.StateDiff{}, nil, err
+	}
+	stateDB := state.NewStateDB(memDB, triedb)
+
+	// TODO(maksymmalick): remove this after integration done
+	stateFactory := statefactory.NewStateFactory(false, triedb, stateDB)
+	batch := memDB.NewBatch()
+	state, err := stateFactory.NewState(&felt.Zero, memDB.NewIndexedBatch(), batch)
+	if err != nil {
+		return core.StateDiff{}, nil, err
+	}
 	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
-		core.NewState(memDB.NewIndexedBatch()),
+		state,
 	)
 
 	if err := declareClasses(ctx, config, &genesisState, compiler); err != nil {

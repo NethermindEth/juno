@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2"
 )
 
 type GasConsumed struct {
@@ -71,7 +71,7 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 func receiptCommitment(receipts []*TransactionReceipt) (felt.Felt, error) {
 	return calculateCommitment(
 		receipts,
-		trie.RunOnTempTriePoseidon,
+		trie2.RunOnTempTriePoseidon,
 		func(receipt *TransactionReceipt) felt.Felt {
 			return receipt.hash()
 		},
@@ -79,7 +79,7 @@ func receiptCommitment(receipts []*TransactionReceipt) (felt.Felt, error) {
 }
 
 type (
-	onTempTrieFunc     func(uint8, func(*trie.Trie) error) error
+	onTempTrieFunc     func(uint8, func(*trie2.Trie) error) error
 	processFunc[T any] func(T) felt.Felt
 )
 
@@ -90,7 +90,7 @@ func calculateCommitment[T any](
 	process processFunc[T],
 ) (felt.Felt, error) {
 	var commitment *felt.Felt
-	return *commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return *commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie2.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(items))
 		results := make([]felt.Felt, len(items))
 		var wg sync.WaitGroup
@@ -115,7 +115,7 @@ func calculateCommitment[T any](
 
 		for i, res := range results {
 			key := felt.FromUint64[felt.Felt](uint64(i))
-			if _, err := trie.Put(&key, &res); err != nil {
+			if err := trie.Update(&key, &res); err != nil {
 				return err
 			}
 		}

@@ -294,7 +294,7 @@ func (p *SequencerMempool) validate(userTxn *BroadcastedTransaction) error {
 		return fmt.Errorf("deploy transactions are not supported")
 	case *core.DeployAccountTransaction:
 		if !t.Nonce.IsZero() {
-			return fmt.Errorf("validation failed, received non-zero nonce %s", t.Nonce)
+			return fmt.Errorf("validation failed, received non-zero nonce %s", t.Nonce.String())
 		}
 	case *core.DeclareTransaction:
 		nonce, err := state.ContractNonce(t.SenderAddress)

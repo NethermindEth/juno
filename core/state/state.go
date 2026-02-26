@@ -69,6 +69,7 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 }
 
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	// todo: remove felt cast
 	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, addr); classHash != nil {
 		return *classHash, nil
 	}
@@ -81,6 +82,7 @@ func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	// todo: remove felt cast
 	if nonce := s.db.stateCache.getNonce(&s.initRoot, addr); nonce != nil {
 		return *nonce, nil
 	}
@@ -173,7 +175,6 @@ func (s *State) Commitment() (felt.Felt, error) {
 
 // Applies a state update to a given state. If any error is encountered, state is not updated.
 // After a state update is applied, the root of the state must match the given new root in the state update.
-// TODO(weiihann): deal with flush atomicity
 func (s *State) Update(
 	blockNum uint64,
 	update *core.StateUpdate,
@@ -481,6 +482,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	newComm := stateCommitment(&contractRoot, &classRoot)
 
 	su := stateUpdate{
+		// todo: remove felt cast
 		prevComm:      s.initRoot,
 		curComm:       newComm,
 		contractNodes: mergedContractNodes,
@@ -728,7 +730,7 @@ func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) erro
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 	if !it.Seek(seekKey) {
-		return ErrNoHistoryValue
+		return ErrCheckHeadState
 	}
 
 	key := it.Key()

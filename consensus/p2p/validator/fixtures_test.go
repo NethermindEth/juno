@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -108,7 +109,10 @@ func BuildTestFixture(
 
 	executor.RegisterBuildResult(&buildResult)
 
-	builder := builder.New(blockchain.New(database, testCase.Network), executor)
+	builder := builder.New(
+		blockchain.New(database, testCase.Network, statetestutils.UseNewState()),
+		executor,
+	)
 
 	return TestFixture{
 		ProposalInit:       &proposalInit,

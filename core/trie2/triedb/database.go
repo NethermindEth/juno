@@ -33,5 +33,5 @@ func New(disk db.KeyValueStore, config *Config) (database.TrieDB, error) {
 	} else if config.RawConfig != nil {
 		return rawdb.New(disk), nil
 	}
-	return nil, fmt.Errorf("invalid config")
+	return nil, fmt.Errorf("invalid trie database configuration: %v", config)
 }

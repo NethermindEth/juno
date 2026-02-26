@@ -225,18 +225,22 @@ func (l TransactionLayout) WriteTransactionsAndReceipts(
 }
 
 // DeleteTxsAndReceipts deletes all transactions and receipts for a block
-func (l TransactionLayout) DeleteTxsAndReceipts(batch db.IndexedBatch, blockNum uint64) error {
+func (l TransactionLayout) DeleteTxsAndReceipts(
+	reader db.KeyValueReader,
+	writer db.Batch,
+	blockNum uint64,
+) error {
 	// Delete hash mappings using the existing iterator
-	for tx, err := range l.TransactionsByBlockNumberIter(batch, blockNum) {
+	for tx, err := range l.TransactionsByBlockNumberIter(reader, blockNum) {
 		if err != nil {
 			return err
 		}
 		txHash := (*felt.TransactionHash)(tx.Hash())
-		if err := TransactionBlockNumbersAndIndicesByHashBucket.Delete(batch, txHash); err != nil {
+		if err := TransactionBlockNumbersAndIndicesByHashBucket.Delete(writer, txHash); err != nil {
 			return err
 		}
 		if l1handler, ok := tx.(*L1HandlerTransaction); ok {
-			if err := DeleteL1HandlerTxnHashByMsgHash(batch, l1handler.MessageHash()); err != nil {
+			if err := DeleteL1HandlerTxnHashByMsgHash(writer, l1handler.MessageHash()); err != nil {
 				return err
 			}
 		}
@@ -245,14 +249,14 @@ func (l TransactionLayout) DeleteTxsAndReceipts(batch db.IndexedBatch, blockNum 
 	// Layout-specific deletions
 	switch l {
 	case TransactionLayoutCombined:
-		return BlockTransactionsBucket.Delete(batch, blockNum)
+		return BlockTransactionsBucket.Delete(writer, blockNum)
 
 	case TransactionLayoutPerTx:
-		err := TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(batch)
+		err := TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(writer)
 		if err != nil {
 			return err
 		}
-		return ReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(batch)
+		return ReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(writer)
 
 	default:
 		return fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)

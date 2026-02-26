@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
@@ -66,7 +67,7 @@ func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	testDB := memory.New()
 	n := &utils.Sepolia
-	chain := blockchain.New(testDB, n)
+	chain := blockchain.New(testDB, n, statetestutils.UseNewState())
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
