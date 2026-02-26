@@ -47,7 +47,6 @@ func (sf *StateFactory) NewState(
 	return stateState, nil
 }
 
-//nolint:staticcheck // SA1019: IndexedBatch required for deprecated state
 func (sf *StateFactory) NewStateReader(
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
