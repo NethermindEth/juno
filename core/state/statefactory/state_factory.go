@@ -31,7 +31,6 @@ func NewStateFactory(
 	}, nil
 }
 
-//nolint:staticcheck // SA1019: IndexedBatch required for deprecated state
 func (sf *StateFactory) NewState(
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
