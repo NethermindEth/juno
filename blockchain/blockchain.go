@@ -144,14 +144,6 @@ func (b *Blockchain) Network() *utils.Network {
 	return b.network
 }
 
-// StateCommitment returns the latest block state commitment.
-// If blockchain is empty zero felt is returned.
-func (b *Blockchain) StateCommitment() (felt.Felt, error) {
-	b.listener.OnRead("StateCommitment")
-	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
-	return core.NewState(batch).Commitment()
-}
-
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
 	b.listener.OnRead("Height")
@@ -408,7 +400,6 @@ func (b *Blockchain) store(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	// TODO(weiihann): handle unexpected shutdown
 	err := b.database.Write(func(batch db.Batch) error {
 		if err := verifyBlock(b.database, block); err != nil {
 			return err
