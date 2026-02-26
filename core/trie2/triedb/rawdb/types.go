@@ -11,5 +11,3 @@ type (
 	contractNodesMap        = map[trieutils.Path]trienode.TrieNode
 	contractStorageNodesMap = map[felt.Address]map[trieutils.Path]trienode.TrieNode
 )
-
-const ownerSize = felt.Bytes
