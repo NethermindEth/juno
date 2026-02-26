@@ -34,7 +34,9 @@ func TestStateHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, state.Update(deployedHeight, &core.StateUpdate{
 		OldRoot: &initialRoot,
-		NewRoot: &felt.Zero,
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x622ff4d950d403e0b4c809283e47b949bfb1537cf616be090f3b6a70d4e5c5b",
+		),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: initialClassHash},
 			Nonces:            map[felt.Felt]*felt.Felt{*addr: initialNonce},
@@ -49,7 +51,9 @@ func TestStateHistory(t *testing.T) {
 
 	require.NoError(t, state.Update(changeHeight, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: &felt.Zero,
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x3f319205c877fdad92cc9a78bece963760a35670839aa41eb404024ca3959c6",
+		),
 		StateDiff: &core.StateDiff{
 			ReplacedClasses: map[felt.Felt]*felt.Felt{*addr: updatedClassHash},
 			Nonces:          map[felt.Felt]*felt.Felt{*addr: updatedNonce},
