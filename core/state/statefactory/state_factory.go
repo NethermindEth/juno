@@ -30,6 +30,7 @@ func NewStateFactory(
 	}, nil
 }
 
+//nolint:staticcheck // SA1019: IndexedBatch required for deprecated state
 func (sf *StateFactory) NewState(
 	// todo: this should be *felt.StateRootHash
 	stateRoot *felt.Felt,
@@ -48,6 +49,7 @@ func (sf *StateFactory) NewState(
 	return state, nil
 }
 
+//nolint:staticcheck // SA1019: IndexedBatch required for deprecated state
 func (sf *StateFactory) NewStateReader(
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
