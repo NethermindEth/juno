@@ -51,13 +51,23 @@ func (b *BitArray) Len() uint8 {
 // Returns the bytes representation of the bit array in big endian format
 func (b *BitArray) Bytes() [32]byte {
 	var res [32]byte
-
-	binary.BigEndian.PutUint64(res[0:8], b.words[3])
-	binary.BigEndian.PutUint64(res[8:16], b.words[2])
-	binary.BigEndian.PutUint64(res[16:24], b.words[1])
-	binary.BigEndian.PutUint64(res[24:32], b.words[0])
-
+	b.writeBytesTo(res[:])
 	return res
+}
+
+// Writes the bytes representation of the bit array to a given slice in big endian format.
+// The slice must be at least 32 bytes long.
+func (b *BitArray) BytesTo(dst []byte) {
+	b.writeBytesTo(dst)
+}
+
+// Writes the bytes representation of the bit array to a given slice in big endian format.
+// The slice must be at least 32 bytes long. Used to avoid heap allocations.
+func (b *BitArray) writeBytesTo(dst []byte) {
+	binary.BigEndian.PutUint64(dst[0:8], b.words[3])
+	binary.BigEndian.PutUint64(dst[8:16], b.words[2])
+	binary.BigEndian.PutUint64(dst[16:24], b.words[1])
+	binary.BigEndian.PutUint64(dst[24:32], b.words[0])
 }
 
 // Sets the bit array to the least significant 'n' bits of x.
@@ -445,35 +455,47 @@ func (b *BitArray) IsEmpty() bool {
 }
 
 // Serialises the BitArray into a bytes buffer in the following format:
-// - First few bytes: the necessary bytes included in big endian order
-// - Last byte: length of the bit array (0-255)
+//   - First few bytes: the necessary bytes included in big endian order
+//   - Last byte: length of the bit array (0-255)
 //
-// The returned error is always nil
-// Example: Err
+// Returns the number of bytes written. The returned error is always nil.
+//
+// Example:
 //
 //	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
-	var bytesWritten int
-
 	bytes := b.Bytes()
-	bytesWritten, _ = buf.Write(bytes[b.inactiveBytes():])
+	bytesWritten, _ := buf.Write(bytes[b.inactiveBytes():])
 
 	buf.WriteByte(b.len)
 	return bytesWritten + 1, nil
 }
 
-// Returns the encoded bytes of the bit array.
-// todo(rdr): This method needs dedicated tests
+// Serialises the BitArray into a bytes buffer in the following format:
+//   - First few bytes: the necessary bytes included in big endian order
+//   - Last byte: length of the bit array (0-255)
+//
+// Same as Write(buf), but returns a new slice instead of writing to a buffer.
+//
+// Example:
+//
+//	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) EncodedBytes() []byte {
-	bytes := b.Bytes()
-
 	var encoding [33]byte
-	copy(encoding[0:32], bytes[0:32])
+	b.writeBytesTo(encoding[:32])
 	encoding[32] = b.len
 
-	// todo(rdr): using this approach forces a heap allocation. It would be better if
-	// we could avoid it by passing the return parameter as an arg or returning the [33]byte
 	return encoding[b.inactiveBytes():]
+}
+
+// Serialises the BitArray into a given slice in the following format:
+//   - The first 32 bytes: all bytes in big endian order (including inactive bytes)
+//   - Last byte: length of the bit array (0-255)
+//
+// The slice must be at least 33 bytes long.
+func (b *BitArray) EncodeBytesTo(dst []byte) {
+	b.writeBytesTo(dst[:32])
+	dst[32] = b.len
 }
 
 // Deserialises the BitArray from a bytes buffer in the following format:
@@ -689,9 +711,9 @@ func (b *BitArray) Copy() BitArray {
 }
 
 // Returns the encoded string representation of the bit array.
+// Same as EncodedBytes(), but wrapped within a string.
 func (b *BitArray) EncodedString() string {
-	bbytes := b.Bytes()
-	return string(bbytes[:]) + string(b.len)
+	return string(b.EncodedBytes())
 }
 
 // Returns a string representation of the bit array.
