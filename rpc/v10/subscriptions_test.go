@@ -260,25 +260,6 @@ func TestSubscribeEvents(t *testing.T) {
 		false,
 	)
 
-	pending := createTestPending(t, b2, 6)
-	pendingFiltered, pendingEmitted := createTestEvents(
-		t,
-		pending.Block,
-		nil,
-		nil,
-		rpcv9.TxnAcceptedOnL2,
-		false,
-	)
-	pending2 := createTestPending(t, b2, 10)
-
-	_, pending2Emitted := createTestEvents(
-		t,
-		pending2.Block,
-		nil,
-		nil,
-		rpcv9.TxnAcceptedOnL2,
-		false,
-	)
 	b2PreConfirmedPartial := CreateTestPreConfirmed(t, b2, 3)
 	b2PreConfirmedExtended := CreateTestPreConfirmed(t, b2, 6)
 
@@ -416,93 +397,6 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddrs      []felt.Address
 		steps          []stepInfo
 		setupMocks     func()
-	}
-
-	preStarknet0_14_0basicSubscription := testCase{
-		description: "Events from new blocks - default status, Starknet version < 0.14.0",
-		blockID:     nil,
-		keys:        nil,
-		fromAddrs:   nil,
-		setupMocks: func() {
-			setupMockEventFilterer(
-				mockChain,
-				mockEventFilterer,
-				b1.Header,
-				b1.Header.Number-1,
-				b1Filtered,
-			)
-		},
-		steps: []stepInfo{
-			{
-				description: "events from latest on start",
-				expect:      [][]SubscriptionEmittedEvent{b1Emitted},
-			},
-			{
-				description: "on pending block",
-				notify: func() {
-					handler.pendingData.Send(&pending)
-				},
-				expect: [][]SubscriptionEmittedEvent{pendingEmitted},
-			},
-			{
-				description: "on pending block update, without duplicates",
-				notify: func() {
-					handler.pendingData.Send(&pending2)
-				},
-				expect: [][]SubscriptionEmittedEvent{
-					pending2Emitted[len(pendingEmitted):],
-				},
-			},
-			{
-				description: "on new head, without duplicates",
-				notify: func() {
-					handler.newHeads.Send(b2)
-				},
-				expect: [][]SubscriptionEmittedEvent{
-					b2Emitted[len(pending2Emitted):],
-				},
-			},
-		},
-	}
-
-	preStarknet0_14_0basicSubscriptionWithPending := testCase{
-		description:    "Events from blocks + pending at start, Starknet < 0.14.0",
-		blockID:        nil,
-		keys:           nil,
-		fromAddrs:      nil,
-		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
-		setupMocks: func() {
-			setupMockEventFiltererWithMultiple(
-				mockChain,
-				mockEventFilterer,
-				b1.Header,
-				b1.Header.Number-1,
-				b1Filtered,
-				pendingFiltered,
-			)
-		},
-		steps: []stepInfo{
-			{
-				description: "events from latest and pending on start",
-				expect: [][]SubscriptionEmittedEvent{
-					b1Emitted, pendingEmitted,
-				},
-			},
-			{
-				description: "on pending block update with duplicates",
-				notify: func() {
-					handler.pendingData.Send(&pending2)
-				},
-				expect: [][]SubscriptionEmittedEvent{pending2Emitted},
-			},
-			{
-				description: "on new head, without duplicates",
-				notify: func() {
-					handler.newHeads.Send(b2)
-				},
-				expect: [][]SubscriptionEmittedEvent{b2Emitted[len(pending2Emitted):]},
-			},
-		},
 	}
 
 	basicSubscription := testCase{
@@ -945,8 +839,6 @@ func TestSubscribeEvents(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		preStarknet0_14_0basicSubscription,
-		preStarknet0_14_0basicSubscriptionWithPending,
 		basicSubscription,
 		basicSubscriptionWithPreConfirmed,
 		preLatestEvents,
@@ -1694,9 +1586,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		return txsWithStatus
 	}
 
-	pendingBlockTxCount := 6
-	pending := createTestPending(t, newHead2, pendingBlockTxCount)
-
 	partialPreConfirmedCount := 3
 	extendedPreConfirmedCount := 6
 
@@ -1729,53 +1618,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		senderAddress []felt.Address
 		tags          SubscriptionTags
 		steps         []stepInfo
-	}
-
-	preStarknet0_14_0DefaultFinality := testCase{
-		description:   "Basic subcription - Starknet < 0.14.0, pending txs without dup",
-		statuses:      nil,
-		senderAddress: nil,
-		steps: []stepInfo{
-			{
-				description: "onNewHead",
-				notify: func() {
-					syncer.newHeads.Send(newHead1)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						newHead1.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
-						false,
-					),
-				},
-			},
-			{
-				description: "onPendingBLock",
-				notify: func() {
-					syncer.pendingData.Send(&pending)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						pending.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
-						false,
-					),
-				},
-			},
-			{
-				description: "pending becomes new head without duplicates",
-				notify: func() {
-					syncer.newHeads.Send(newHead2)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						newHead2.Transactions[pendingBlockTxCount:],
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
-						false,
-					),
-				},
-			},
-		},
 	}
 
 	// Only ACCEPTED_ON_L2 as default
@@ -2368,7 +2210,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		preStarknet0_14_0DefaultFinality,
 		defaultFinality, // onlyAcceptedOnL2
 		onlyPreConfirmed,
 		onlyCandidate,
@@ -2496,69 +2337,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			}
 		}
 		return receipts
-	}
-
-	partialPendingCount := 3
-	extendedPendingCount := 6
-	pendingPartial := createTestPending(t, newHead2, partialPendingCount)
-	pendingExtended := createTestPending(t, newHead2, extendedPendingCount)
-
-	preStarknet0_14_0defaultFinalityStatus := testCase{
-		description: "Basic subscription with default finality status, starknet version < 0.14.0",
-		statuses:    nil,
-		steps: []stepInfo{
-			{
-				description: "on new head",
-				notify: func() {
-					syncer.newHeads.Send(newHead1)
-				},
-				expect: [][]*rpcv9.TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, rpcv9.TxnAcceptedOnL2, false),
-				},
-			},
-			{
-				description: "on pending",
-				notify: func() {
-					syncer.pendingData.Send(&pendingPartial)
-				},
-				expect: [][]*rpcv9.TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						pendingPartial.Block,
-						nil,
-						rpcv9.TxnAcceptedOnL2,
-						false,
-					),
-				},
-			},
-			{
-				description: "on pending block update, without duplicates",
-				notify: func() {
-					syncer.pendingData.Send(&pendingExtended)
-				},
-				expect: [][]*rpcv9.TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						pendingExtended.Block,
-						nil,
-						rpcv9.TxnAcceptedOnL2,
-						false,
-					)[partialPendingCount:],
-				},
-			},
-			{
-				description: "on next head, without duplicates",
-				notify: func() {
-					syncer.newHeads.Send(newHead2)
-				},
-				expect: [][]*rpcv9.TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						newHead2,
-						nil,
-						rpcv9.TxnAcceptedOnL2,
-						false,
-					)[extendedPendingCount:],
-				},
-			},
-		},
 	}
 
 	partialPreConfirmedCount := 3
@@ -2951,7 +2729,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	testCases := []testCase{
 		defaultFinalityStatus,
-		preStarknet0_14_0defaultFinalityStatus,
 		allStatuses,
 		allStatusesWithFilter,
 		onlyPreConfirmed,
