@@ -28,7 +28,7 @@ var (
 )
 
 type DeprecatedState struct {
-	txn db.IndexedBatch //nolint:staticcheck // SA1019: IndexedBatch required for deprecated state
+	txn db.IndexedBatch
 }
 
 func NewDeprecatedState(txn db.IndexedBatch) *DeprecatedState {
