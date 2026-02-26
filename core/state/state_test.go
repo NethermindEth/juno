@@ -206,6 +206,7 @@ func TestNonce(t *testing.T) {
 		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, nil, false))
+		require.NoError(t, batch.Write())
 
 		gotNonce, err := state.ContractNonce(addr)
 		require.NoError(t, err)
@@ -218,6 +219,7 @@ func TestNonce(t *testing.T) {
 		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, nil, false))
+		require.NoError(t, batch.Write())
 
 		expectedNonce := new(felt.Felt).SetUint64(1)
 		su1 := &core.StateUpdate{
@@ -234,6 +236,7 @@ func TestNonce(t *testing.T) {
 		state1, err := New(su1.OldRoot, stateDB, batch1)
 		require.NoError(t, err)
 		require.NoError(t, state1.Update(&core.Header{Number: block1}, su1, nil, false))
+		require.NoError(t, batch1.Write())
 
 		gotNonce, err := state1.ContractNonce(addr)
 		require.NoError(t, err)
@@ -268,6 +271,7 @@ func TestClass(t *testing.T) {
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,
 	}, false))
+	require.NoError(t, batch.Write())
 
 	gotSierraClass, err := state.Class(sierraHash)
 	require.NoError(t, err)
@@ -378,6 +382,7 @@ func TestRevert(t *testing.T) {
 		state, err := New(su1.NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block2}, replaceStateUpdate, nil, false))
+		require.NoError(t, batch.Write())
 
 		gotClassHash, err := state.ContractClassHash(&su1FirstDeployedAddress)
 		require.NoError(t, err)
@@ -414,6 +419,7 @@ func TestRevert(t *testing.T) {
 		state, err := New(su1.NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block2}, nonceStateUpdate, nil, false))
+		require.NoError(t, batch.Write())
 
 		gotNonce, err := state.ContractNonce(&su1FirstDeployedAddress)
 		require.NoError(t, err)
@@ -453,6 +459,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, state.Update(&core.Header{Number: block2}, storageStateUpdate, nil, false))
+		require.NoError(t, batch.Write())
 		gotStorage, err := state.ContractStorage(&su1FirstDeployedAddress, replacedVal)
 		require.NoError(t, err)
 		assert.Equal(t, *replacedVal, gotStorage)
@@ -540,6 +547,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, err)
 		header := &core.Header{Number: block2}
 		require.NoError(t, state.Update(header, declaredClassesStateUpdate, classesM, false))
+		require.NoError(t, batch.Write())
 
 		batch = stateDB.disk.NewBatch()
 		state, err = New(declaredClassesStateUpdate.NewRoot, stateDB, batch)
@@ -564,6 +572,7 @@ func TestRevert(t *testing.T) {
 		state, err := New(su1.NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block2}, su2, nil, false))
+		require.NoError(t, batch.Write())
 
 		batch = stateDB.disk.NewBatch()
 		state, err = New(su2.NewRoot, stateDB, batch)
@@ -622,6 +631,7 @@ func TestRevert(t *testing.T) {
 		state, err := New(su1.OldRoot, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block1}, &su1, nil, false))
+		require.NoError(t, batch.Write())
 
 		batch = stateDB.disk.NewBatch()
 		state, err = New(su1.NewRoot, stateDB, batch)
@@ -657,6 +667,7 @@ func TestRevert(t *testing.T) {
 		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, declareDiff, newClasses, false))
+		require.NoError(t, batch.Write())
 
 		declaredClass, err := state.Class(classHash)
 		require.NoError(t, err)
@@ -670,6 +681,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, err)
 		declareDiff.OldRoot = declareDiff.NewRoot
 		require.NoError(t, state.Update(&core.Header{Number: block1}, declareDiff, newClasses, false))
+		require.NoError(t, batch.Write())
 
 		// Redeclaring should not change the declared at block number
 		declaredClass, err = state.Class(classHash)
@@ -733,6 +745,7 @@ func TestRevert(t *testing.T) {
 		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su, nil, false))
+		require.NoError(t, batch.Write())
 
 		batch = stateDB.disk.NewBatch()
 		state, err = New(su.NewRoot, stateDB, batch)
@@ -902,6 +915,7 @@ func TestContractHistory(t *testing.T) {
 		}
 
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, nil, false))
+		require.NoError(t, batch.Write())
 
 		gotNonce, err := state.ContractNonceAt(addr, block0)
 		require.NoError(t, err)
@@ -923,12 +937,14 @@ func TestContractHistory(t *testing.T) {
 		require.NoError(t, err)
 		su0 := emptyStateUpdate
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
+		require.NoError(t, batch.Write())
 
 		batch = stateDB.disk.NewBatch()
 		state1, err := New(su0.NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		su1 := su
 		require.NoError(t, state1.Update(&core.Header{Number: block1}, su1, nil, false))
+		require.NoError(t, batch.Write())
 
 		gotNonce, err := state1.ContractNonceAt(addr, block0)
 		require.NoError(t, err)
@@ -950,6 +966,7 @@ func TestContractHistory(t *testing.T) {
 		require.NoError(t, err)
 		su0 := su
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
+		require.NoError(t, batch.Write())
 
 		batch = stateDB.disk.NewBatch()
 		state1, err := New(su0.NewRoot, stateDB, batch)
@@ -960,6 +977,7 @@ func TestContractHistory(t *testing.T) {
 			StateDiff: &core.StateDiff{},
 		}
 		require.NoError(t, state1.Update(&core.Header{Number: block1}, su1, nil, false))
+		require.NoError(t, batch.Write())
 
 		batch = stateDB.disk.NewBatch()
 		state2, err := New(su1.NewRoot, stateDB, batch)
@@ -980,6 +998,7 @@ func TestContractHistory(t *testing.T) {
 			},
 		}
 		require.NoError(t, state2.Update(&core.Header{Number: block2}, su2, nil, false))
+		require.NoError(t, batch.Write())
 
 		gotNonce, err := state2.ContractNonceAt(addr, block1)
 		require.NoError(t, err)
