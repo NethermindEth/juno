@@ -138,10 +138,7 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf boo
 		nodeTypeSize = 1
 	)
 
-	key := make([]byte, prefixSize+
-		ownerLen+
-		nodeTypeSize+
-		len(pathBytes))
+	key := make([]byte, prefixSize+ownerLen+nodeTypeSize+len(pathBytes))
 	dst := key
 
 	dst[0] = byte(prefix)
@@ -233,11 +230,7 @@ func nodeKeyByHash(
 		hashSize             = 32
 	)
 
-	key := make([]byte, prefixSize+
-		ownerLen+
-		nodeTypeSize+
-		pathSignificantBytes+
-		hashSize)
+	key := make([]byte, prefixSize+ownerLen+nodeTypeSize+pathSignificantBytes+hashSize)
 	dst := key
 
 	dst[0] = byte(prefix)
