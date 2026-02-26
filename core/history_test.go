@@ -146,4 +146,15 @@ func TestStateHistory(t *testing.T) {
 			require.Equal(t, *casmHashV2, got)
 		})
 	})
+
+	t.Run("deprecated state history trie methods return ErrHistoricalTrieNotSupported", func(t *testing.T) {
+		_, err := snapshotAtDeployment.ClassTrie()
+		require.ErrorIs(t, err, core.ErrHistoricalTrieNotSupported)
+
+		_, err = snapshotAtDeployment.ContractTrie()
+		require.ErrorIs(t, err, core.ErrHistoricalTrieNotSupported)
+
+		_, err = snapshotAtDeployment.ContractStorageTrie(addr)
+		require.ErrorIs(t, err, core.ErrHistoricalTrieNotSupported)
+	})
 }
