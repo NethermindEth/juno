@@ -32,11 +32,12 @@ func NewStateFactory(
 }
 
 func (sf *StateFactory) NewState(
+	// todo: this should be *felt.StateRootHash
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
 ) (core.State, error) {
 	if !sf.UseNewState {
-		deprecatedState := core.NewState(txn)
+		deprecatedState := core.NewDeprecatedState(txn)
 		return deprecatedState, nil
 	}
 
@@ -53,7 +54,7 @@ func (sf *StateFactory) NewStateReader(
 	blockNumber uint64,
 ) (core.StateReader, error) {
 	if !sf.UseNewState {
-		deprecatedState := core.NewState(txn)
+		deprecatedState := core.NewDeprecatedState(txn)
 		history := core.NewDeprecatedStateHistory(deprecatedState, blockNumber)
 		return history, nil
 	}
@@ -69,7 +70,7 @@ func (sf *StateFactory) EmptyState() (core.StateReader, error) {
 	if !sf.UseNewState {
 		memDB := memory.New()
 		txn := memDB.NewIndexedBatch()
-		emptyState := core.NewState(txn)
+		emptyState := core.NewDeprecatedState(txn)
 		return emptyState, nil
 	}
 	state, err := state.New(&felt.Zero, sf.stateDB)

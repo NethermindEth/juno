@@ -31,7 +31,7 @@ type DeprecatedState struct {
 	txn db.IndexedBatch
 }
 
-func NewState(txn db.IndexedBatch) *DeprecatedState {
+func NewDeprecatedState(txn db.IndexedBatch) *DeprecatedState {
 	return &DeprecatedState{
 		txn: txn,
 	}
@@ -379,7 +379,7 @@ func (s *DeprecatedState) updateStorageBuffered(
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
 	bufferedTxn := db.NewBufferBatch(s.txn)
-	bufferedState := NewState(bufferedTxn)
+	bufferedState := NewDeprecatedState(bufferedTxn)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
 		return nil, err

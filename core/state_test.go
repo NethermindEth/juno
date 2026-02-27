@@ -31,7 +31,7 @@ func TestUpdate(t *testing.T) {
 
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestContractClassHash(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestContractClassHash(t *testing.T) {
 func TestNonce(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	addr := felt.NewUnsafeFromString[felt.Felt](
 		"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
@@ -272,7 +272,7 @@ func TestStateHistoricalReads(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil, false))
@@ -325,7 +325,7 @@ func TestHistory(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 	contractAddress := felt.NewFromUint64[felt.Felt](123)
 
 	for desc, test := range map[string]struct {
@@ -418,7 +418,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -481,7 +481,7 @@ func TestClass(t *testing.T) {
 	sierraClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.ClassDefinition{
@@ -506,7 +506,7 @@ func TestRevert(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil, false))
@@ -665,7 +665,7 @@ func TestRevert(t *testing.T) {
 func TestRevertGenesisStateDiff(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	addr := felt.NewFromUint64[felt.Felt](1)
 	key := felt.NewFromUint64[felt.Felt](2)
@@ -695,7 +695,7 @@ func TestRevertSystemContracts(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -733,7 +733,7 @@ func TestRevertSystemContracts(t *testing.T) {
 func TestRevertDeclaredClasses(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	classHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	sierraHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
@@ -799,7 +799,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 func TestCompiledClassHashAt(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	sierraClassHash := felt.NewFromUint64[felt.SierraClassHash](123)
 	casmHash1 := felt.NewFromUint64[felt.CasmClassHash](456)
