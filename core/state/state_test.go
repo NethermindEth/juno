@@ -275,6 +275,29 @@ func TestClass(t *testing.T) {
 	assert.Equal(t, deprecatedCairoClass, gotDeprecatedCairoClass.Class)
 }
 
+func TestStateTries(t *testing.T) {
+	stateUpdates := getStateUpdates(t)
+	stateDB := setupState(t, stateUpdates, 1)
+	root := *stateUpdates[0].NewRoot
+
+	state, err := New(&root, stateDB)
+	require.NoError(t, err)
+
+	classTrie, err := state.ClassTrie()
+	require.NoError(t, err)
+	require.NotNil(t, classTrie)
+
+	contractTrie, err := state.ContractTrie()
+	require.NoError(t, err)
+	require.NotNil(t, contractTrie)
+
+	// ContractStorageTrie for a deployed contract (first deployed in mainnet block 1)
+	addr := &su1FirstDeployedAddress
+	storageTrie, err := state.ContractStorageTrie(addr)
+	require.NoError(t, err)
+	require.NotNil(t, storageTrie)
+}
+
 func TestContractDeployedAt(t *testing.T) {
 	stateUpdates := getStateUpdates(t)
 	stateDB := setupState(t, stateUpdates, 2)

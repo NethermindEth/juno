@@ -131,7 +131,7 @@ func (b *Blockchain) Network() *utils.Network {
 func (b *Blockchain) StateCommitment() (felt.Felt, error) {
 	b.listener.OnRead("StateCommitment")
 	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
-	return core.NewState(batch).Commitment()
+	return core.NewDeprecatedState(batch).Commitment()
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
@@ -316,14 +316,16 @@ func (b *Blockchain) Store(
 			return err
 		}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses, false); err != nil {
+		state := core.NewDeprecatedState(txn)
+		err := state.Update(block.Number, stateUpdate, newClasses, false)
+		if err != nil {
 			return err
 		}
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 
-		err := b.transactionLayout.WriteTransactionsAndReceipts(
+		err = b.transactionLayout.WriteTransactionsAndReceipts(
 			txn,
 			block.Number,
 			block.Transactions,
@@ -548,12 +550,14 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	return core.NewState(txn), noopStateCloser, nil
+	return core.NewDeprecatedState(txn), noopStateCloser, nil
 }
 
 // StateAtBlockNumber returns a StateReader that provides
 // a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockNumber(
+	blockNumber uint64,
+) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
@@ -562,17 +566,23 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewDeprecatedStateHistory(core.NewState(txn), blockNumber), noopStateCloser, nil
+	return core.NewDeprecatedStateHistory(
+		core.NewDeprecatedState(txn),
+		blockNumber,
+	), noopStateCloser, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides
 // a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockHash(
+	// todo: this should be *felt.Hash or *felt.BlockHash
+	blockHash *felt.Felt,
+) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		memDB := memory.New()
 		txn := memDB.NewIndexedBatch()
-		emptyState := core.NewState(txn)
+		emptyState := core.NewDeprecatedState(txn)
 		return emptyState, noopStateCloser, nil
 	}
 
@@ -582,7 +592,10 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 		return nil, nil, err
 	}
 
-	return core.NewDeprecatedStateHistory(core.NewState(txn), header.Number), noopStateCloser, nil
+	return core.NewDeprecatedStateHistory(
+		core.NewDeprecatedState(txn),
+		header.Number,
+	), noopStateCloser, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
@@ -627,7 +640,7 @@ func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 		return core.StateDiff{}, err
 	}
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 	reverseStateDiff, err := state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
 	if err != nil {
 		return core.StateDiff{}, err
@@ -647,7 +660,7 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		return err
 	}
 
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 	// revert state
 	if err = state.Revert(blockNumber, stateUpdate); err != nil {
 		return err
@@ -785,7 +798,7 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	// Get old state root
 	oldStateRoot, err := state.Commitment()
