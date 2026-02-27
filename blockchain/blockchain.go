@@ -332,7 +332,7 @@ func (b *Blockchain) Store(
 		if err != nil {
 			return err
 		}
-		
+
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
@@ -589,7 +589,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	return core.NewState(txn), noopStateCloser, nil
+	return core.NewDeprecatedState(txn), noopStateCloser, nil
 }
 
 // StateAtBlockNumber returns a StateReader that provides
@@ -841,7 +841,7 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	state := core.NewState(txn)
+	state := core.NewDeprecatedState(txn)
 
 	// Get old state root
 	oldStateRoot, err := state.Commitment(block.ProtocolVersion)
