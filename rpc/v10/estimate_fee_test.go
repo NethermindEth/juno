@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
@@ -34,7 +33,7 @@ func TestEstimateFee(t *testing.T) {
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil).AnyTimes()
 
-	blockID := rpcv9.BlockIDLatest()
+	blockID := rpcv10.BlockIDLatest()
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
@@ -120,7 +119,7 @@ func TestEstimateFee(t *testing.T) {
 			&blockID,
 		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(
-			rpcv9.TransactionExecutionErrorData{
+			rpcv10.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
 			}), err)
@@ -131,9 +130,9 @@ func TestEstimateFee(t *testing.T) {
 		toFelt := func(hex string) *felt.Felt {
 			return felt.NewUnsafeFromString[felt.Felt](hex)
 		}
-		invalidTx := rpcv9.BroadcastedTransaction{
-			Transaction: rpcv9.Transaction{
-				Type:          rpcv9.TxnDeclare,
+		invalidTx := rpcv10.BroadcastedTransaction{
+			Transaction: rpcv10.Transaction{
+				Type:          rpcv10.TxnDeclare,
 				Version:       toFelt("0x1"),
 				Nonce:         toFelt("0x0"),
 				MaxFee:        toFelt("0x1"),
@@ -148,7 +147,7 @@ func TestEstimateFee(t *testing.T) {
 			t.Context(),
 			rpcv10.BroadcastedTransactionInputs{
 				Data: []rpcv10.BroadcastedTransaction{
-					{BroadcastedTransaction: invalidTx},
+					invalidTx,
 				},
 			},
 			[]rpcv10.EstimateFlag{},

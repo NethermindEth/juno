@@ -13,8 +13,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
@@ -42,7 +40,7 @@ func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpc.Emitted
 	for txIndex, receipt := range pendingBlock.Receipts {
 		for eventIndex, event := range receipt.Events {
 			events = append(events, rpc.EmittedEvent{
-				Event: &rpcv6.Event{
+				Event: &rpc.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
@@ -83,7 +81,7 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 	for txIndex, receipt := range preConfirmedBlock.Receipts {
 		for eventIndex, event := range receipt.Events {
 			events = append(events, rpc.EmittedEvent{
-				Event: &rpcv6.Event{
+				Event: &rpc.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
@@ -121,7 +119,7 @@ func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []rpc.Emi
 	for txIndex, receipt := range preLatestBlock.Receipts {
 		for eventIndex, event := range receipt.Events {
 			events = append(events, rpc.EmittedEvent{
-				Event: &rpcv6.Event{
+				Event: &rpc.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
@@ -154,7 +152,7 @@ func extractCanonicalEvents(
 		for txIndex, receipt := range block.Receipts {
 			for eventIndex, event := range receipt.Events {
 				events = append(events, rpc.EmittedEvent{
-					Event: &rpcv6.Event{
+					Event: &rpc.Event{
 						From: event.From,
 						Keys: event.Keys,
 						Data: event.Data,
@@ -306,19 +304,19 @@ func TestEvents(t *testing.T) {
 		"0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e",
 	)
 
-	futureBlockNumber := rpcv9.BlockIDFromNumber(^uint64(0))
-	nonExistingBlockHash := rpcv9.BlockIDFromHash(felt.NewUnsafeFromString[felt.Felt]("0x1BadB10c3"))
-	defaultPageRequest := rpcv6.ResultPageRequest{
+	futureBlockNumber := rpc.BlockIDFromNumber(^uint64(0))
+	nonExistingBlockHash := rpc.BlockIDFromHash(felt.NewUnsafeFromString[felt.Felt]("0x1BadB10c3"))
+	defaultPageRequest := rpc.ResultPageRequest{
 		ChunkSize:         100,
 		ContinuationToken: "",
 	}
 
-	latestID := rpcv9.BlockIDLatest()
-	preConfirmedID := rpcv9.BlockIDPreConfirmed()
-	l1AcceptedID := rpcv9.BlockIDL1Accepted()
-	blockIDZero := rpcv9.BlockIDFromNumber(0)
-	blockID3 := rpcv9.BlockIDFromNumber(3)
-	blockID4 := rpcv9.BlockIDFromNumber(4)
+	latestID := rpc.BlockIDLatest()
+	preConfirmedID := rpc.BlockIDPreConfirmed()
+	l1AcceptedID := rpc.BlockIDL1Accepted()
+	blockIDZero := rpc.BlockIDFromNumber(0)
+	blockID3 := rpc.BlockIDFromNumber(3)
+	blockID4 := rpc.BlockIDFromNumber(4)
 
 	// Common filter patterns
 	// Common event args patterns
@@ -334,7 +332,7 @@ func TestEvents(t *testing.T) {
 			FromBlock: &preConfirmedID,
 			ToBlock:   &preConfirmedID,
 		},
-		ResultPageRequest: rpcv6.ResultPageRequest{
+		ResultPageRequest: rpc.ResultPageRequest{
 			ChunkSize:         1,
 			ContinuationToken: "",
 		},
@@ -349,7 +347,7 @@ func TestEvents(t *testing.T) {
 		EventFilter: rpc.EventFilter{
 			ToBlock: &preConfirmedID,
 		},
-		ResultPageRequest: rpcv6.ResultPageRequest{
+		ResultPageRequest: rpc.ResultPageRequest{
 			ChunkSize:         1,
 			ContinuationToken: "",
 		},
@@ -364,7 +362,7 @@ func TestEvents(t *testing.T) {
 		EventFilter: rpc.EventFilter{
 			ToBlock: &latestID,
 		},
-		ResultPageRequest: rpcv6.ResultPageRequest{
+		ResultPageRequest: rpc.ResultPageRequest{
 			ChunkSize:         1,
 			ContinuationToken: "",
 		},
@@ -433,7 +431,7 @@ func TestEvents(t *testing.T) {
 					ToBlock:   &latestID,
 					Address:   testAddress,
 				},
-				ResultPageRequest: rpcv6.ResultPageRequest{
+				ResultPageRequest: rpc.ResultPageRequest{
 					ChunkSize:         10240 + 1,
 					ContinuationToken: "",
 				},
@@ -672,8 +670,8 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 		),
 	}
-	blockNumber := rpcv9.BlockIDFromNumber(0)
-	latest := rpcv9.BlockIDLatest()
+	blockNumber := rpc.BlockIDFromNumber(0)
+	latest := rpc.BlockIDLatest()
 
 	args := rpc.EventArgs{
 		EventFilter: rpc.EventFilter{
@@ -682,7 +680,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 			Address:   from,
 			Keys:      [][]felt.Felt{},
 		},
-		ResultPageRequest: rpcv6.ResultPageRequest{
+		ResultPageRequest: rpc.ResultPageRequest{
 			ChunkSize:         100,
 			ContinuationToken: "",
 		},
@@ -728,13 +726,13 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
 
-	preConfirmedID := rpcv9.BlockIDPreConfirmed()
+	preConfirmedID := rpc.BlockIDPreConfirmed()
 	// Test pagination with small chunk size to trigger multiple calls
 	args := rpc.EventArgs{
 		EventFilter: rpc.EventFilter{
 			ToBlock: &preConfirmedID,
 		},
-		ResultPageRequest: rpcv6.ResultPageRequest{
+		ResultPageRequest: rpc.ResultPageRequest{
 			ChunkSize:         1, // Small chunk to force pagination
 			ContinuationToken: "",
 		},

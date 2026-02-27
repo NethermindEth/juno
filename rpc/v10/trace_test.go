@@ -18,8 +18,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -167,7 +165,7 @@ func AssertTracedBlockTransactions(
 		t.Run(description, func(t *testing.T) {
 			handler := rpcv10.New(mockReader, nil, nil, nil)
 			handler = handler.WithFeeder(client)
-			blockID := rpcv9.BlockIDFromNumber(test.blockNumber)
+			blockID := rpcv10.BlockIDFromNumber(test.blockNumber)
 			tracesResp, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 			require.Nil(t, err)
 			traces := tracesResp.Traces
@@ -176,7 +174,7 @@ func AssertTracedBlockTransactions(
 				traces = []rpcv10.TracedBlockTransaction{traces[0], traces[7], traces[11]}
 			}
 			require.Nil(t, err)
-			require.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
+			require.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "0")
 			require.Equal(t, test.wantTrace, traces)
 		})
 	}
@@ -203,50 +201,50 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		// No feeder client is set
 		handler := rpcv10.New(mockReader, nil, nil, nil)
 
-		blockID := rpcv9.BlockIDFromNumber(blockNumber)
+		blockID := rpcv10.BlockIDFromNumber(blockNumber)
 		tracedBlocks, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 
 		require.Nil(t, tracedBlocks.Traces)
 		require.Equal(t, rpccore.ErrInternal.Code, err.Code)
-		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
+		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "0")
 	})
 }
 
 func TestTransactionTraceValidation(t *testing.T) {
 	validInvokeTransactionTrace := rpcv10.TransactionTrace{
-		Type:              rpcv9.TxnInvoke,
-		ExecuteInvocation: &rpcv9.ExecuteInvocation{},
+		Type:              rpcv10.TxnInvoke,
+		ExecuteInvocation: &rpcv10.ExecuteInvocation{},
 	}
 
 	invalidInvokeTransactionTrace := rpcv10.TransactionTrace{
-		Type: rpcv9.TxnInvoke,
+		Type: rpcv10.TxnInvoke,
 	}
 
 	validDeployAccountTransactionTrace := rpcv10.TransactionTrace{
-		Type:                  rpcv9.TxnDeployAccount,
-		ConstructorInvocation: &rpcv9.FunctionInvocation{},
+		Type:                  rpcv10.TxnDeployAccount,
+		ConstructorInvocation: &rpcv10.FunctionInvocation{},
 	}
 
 	invalidDeployAccountTransactionTrace := rpcv10.TransactionTrace{
-		Type: rpcv9.TxnDeployAccount,
+		Type: rpcv10.TxnDeployAccount,
 	}
 
 	validL1HandlerTransactionTrace := rpcv10.TransactionTrace{
-		Type: rpcv9.TxnL1Handler,
-		FunctionInvocation: &rpcv9.ExecuteInvocation{
-			FunctionInvocation: &rpcv9.FunctionInvocation{},
+		Type: rpcv10.TxnL1Handler,
+		FunctionInvocation: &rpcv10.ExecuteInvocation{
+			FunctionInvocation: &rpcv10.FunctionInvocation{},
 		},
 	}
 
 	validRevertedL1HandlerTransactionTrace := rpcv10.TransactionTrace{
-		Type: rpcv9.TxnL1Handler,
-		FunctionInvocation: &rpcv9.ExecuteInvocation{
+		Type: rpcv10.TxnL1Handler,
+		FunctionInvocation: &rpcv10.ExecuteInvocation{
 			RevertReason: "Reverted",
 		},
 	}
 
 	invalidL1HandlerTransactionTrace := rpcv10.TransactionTrace{
-		Type: rpcv9.TxnL1Handler,
+		Type: rpcv10.TxnL1Handler,
 	}
 
 	tests := []struct {
@@ -342,7 +340,7 @@ func TestTraceTransaction(t *testing.T) {
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
-			assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
+			assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "0")
 		})
 
 		t.Run("other error", func(t *testing.T) {
@@ -358,7 +356,7 @@ func TestTraceTransaction(t *testing.T) {
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
-			assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), "0")
+			assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "0")
 		})
 	})
 	t.Run("ok", func(t *testing.T) {
@@ -425,7 +423,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
@@ -508,7 +506,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
@@ -587,7 +585,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
@@ -681,7 +679,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			L1Gas:     2,
@@ -724,18 +722,18 @@ func TestTraceTransaction(t *testing.T) {
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), revertedTxHash)
 
 		require.Nil(t, err)
-		assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
+		assert.Equal(t, "0", httpHeader.Get(rpcv10.ExecutionStepsHeader))
 		assert.Equal(t, expectedRevertedTrace, trace)
 	})
 }
 
 func TestTraceBlockTransactions(t *testing.T) {
-	errTests := map[string]rpcv9.BlockID{
-		"latest":        rpcv9.BlockIDLatest(),
-		"hash":          rpcv9.BlockIDFromHash(felt.NewFromUint64[felt.Felt](1)),
-		"number":        rpcv9.BlockIDFromNumber(2),
-		"pre_confirmed": rpcv9.BlockIDPreConfirmed(),
-		"l1_accepted":   rpcv9.BlockIDL1Accepted(),
+	errTests := map[string]rpcv10.BlockID{
+		"latest":        rpcv10.BlockIDLatest(),
+		"hash":          rpcv10.BlockIDFromHash(felt.NewFromUint64[felt.Felt](1)),
+		"number":        rpcv10.BlockIDFromNumber(2),
+		"pre_confirmed": rpcv10.BlockIDPreConfirmed(),
+		"l1_accepted":   rpcv10.BlockIDL1Accepted(),
 	}
 
 	for description, blockID := range errTests {
@@ -751,12 +749,12 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 				assert.Nil(t, update.Traces)
-				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
+				assert.Equal(t, "0", httpHeader.Get(rpcv10.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
 			} else {
 				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 				assert.Nil(t, update.Traces)
-				assert.Equal(t, "0", httpHeader.Get(rpcv9.ExecutionStepsHeader))
+				assert.Equal(t, "0", httpHeader.Get(rpcv10.ExecutionStepsHeader))
 				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 			}
 		})
@@ -840,10 +838,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 			},
 		}
 
-		blockID := rpcv9.BlockIDFromHash(blockHash)
+		blockID := rpcv10.BlockIDFromHash(blockHash)
 		result, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpcv9.ExecutionStepsHeader), stepsUsedStr)
+		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result.Traces)
 		assert.Nil(t, result.InitialReads)
 	})
@@ -963,11 +961,11 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 		}
 
 		expectedAdaptedTrace := rpcv10.TransactionTrace{
-			Type: rpcv9.TxnInvoke,
-			ValidateInvocation: &rpcv9.FunctionInvocation{
-				Calls:  []rpcv9.FunctionInvocation{},
-				Events: []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{
+			Type: rpcv10.TxnInvoke,
+			ValidateInvocation: &rpcv10.FunctionInvocation{
+				Calls:  []rpcv10.FunctionInvocation{},
+				Events: []rpcv10.OrderedEvent{},
+				Messages: []rpcv10.OrderedL2toL1Message{
 					{
 						Order: 0,
 						From:  fromAddr,
@@ -983,32 +981,32 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						},
 					},
 				},
-				ExecutionResources: &rpcv9.InnerExecutionResources{
+				ExecutionResources: &rpcv10.InnerExecutionResources{
 					L1Gas: 1,
 					L2Gas: 3,
 				},
 				IsReverted: false,
 			},
-			FeeTransferInvocation: &rpcv9.FunctionInvocation{
-				Calls:      []rpcv9.FunctionInvocation{},
-				Events:     []rpcv6.OrderedEvent{},
-				Messages:   []rpcv6.OrderedL2toL1Message{},
+			FeeTransferInvocation: &rpcv10.FunctionInvocation{
+				Calls:      []rpcv10.FunctionInvocation{},
+				Events:     []rpcv10.OrderedEvent{},
+				Messages:   []rpcv10.OrderedL2toL1Message{},
 				IsReverted: false,
 			},
-			ExecuteInvocation: &rpcv9.ExecuteInvocation{
+			ExecuteInvocation: &rpcv10.ExecuteInvocation{
 				RevertReason: "",
-				FunctionInvocation: &rpcv9.FunctionInvocation{
-					Calls:      []rpcv9.FunctionInvocation{},
-					Events:     []rpcv6.OrderedEvent{},
-					Messages:   []rpcv6.OrderedL2toL1Message{},
+				FunctionInvocation: &rpcv10.FunctionInvocation{
+					Calls:      []rpcv10.FunctionInvocation{},
+					Events:     []rpcv10.OrderedEvent{},
+					Messages:   []rpcv10.OrderedL2toL1Message{},
 					IsReverted: false,
 				},
 			},
 			StateDiff: &rpcv10.StateDiff{ //nolint:dupl // false positive with vm.StateDiff
-				StorageDiffs: []rpcv6.StorageDiff{
+				StorageDiffs: []rpcv10.StorageDiff{
 					{
 						Address: felt.Zero,
-						StorageEntries: []rpcv6.Entry{
+						StorageEntries: []rpcv10.Entry{
 							{
 								Key:   felt.Zero,
 								Value: felt.Zero,
@@ -1016,13 +1014,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						},
 					},
 				},
-				Nonces: []rpcv6.Nonce{
+				Nonces: []rpcv10.Nonce{
 					{
 						ContractAddress: felt.Zero,
 						Nonce:           felt.Zero,
 					},
 				},
-				DeployedContracts: []rpcv6.DeployedContract{
+				DeployedContracts: []rpcv10.DeployedContract{
 					{
 						Address:   felt.Zero,
 						ClassHash: felt.Zero,
@@ -1031,13 +1029,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				DeprecatedDeclaredClasses: []*felt.Felt{
 					&felt.Zero,
 				},
-				DeclaredClasses: []rpcv6.DeclaredClass{
+				DeclaredClasses: []rpcv10.DeclaredClassDiff{
 					{
 						ClassHash:         felt.Zero,
 						CompiledClassHash: felt.Zero,
 					},
 				},
-				ReplacedClasses: []rpcv6.ReplacedClass{
+				ReplacedClasses: []rpcv10.ReplacedClass{
 					{
 						ContractAddress: felt.Zero,
 						ClassHash:       felt.Zero,
@@ -1069,21 +1067,21 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 		}
 
 		expectedAdaptedTrace := rpcv10.TransactionTrace{
-			Type: rpcv9.TxnDeployAccount,
-			ValidateInvocation: &rpcv9.FunctionInvocation{
-				Calls:    []rpcv9.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+			Type: rpcv10.TxnDeployAccount,
+			ValidateInvocation: &rpcv10.FunctionInvocation{
+				Calls:    []rpcv10.FunctionInvocation{},
+				Events:   []rpcv10.OrderedEvent{},
+				Messages: []rpcv10.OrderedL2toL1Message{},
 			},
-			FeeTransferInvocation: &rpcv9.FunctionInvocation{
-				Calls:    []rpcv9.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+			FeeTransferInvocation: &rpcv10.FunctionInvocation{
+				Calls:    []rpcv10.FunctionInvocation{},
+				Events:   []rpcv10.OrderedEvent{},
+				Messages: []rpcv10.OrderedL2toL1Message{},
 			},
-			ConstructorInvocation: &rpcv9.FunctionInvocation{
-				Calls:    []rpcv9.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+			ConstructorInvocation: &rpcv10.FunctionInvocation{
+				Calls:    []rpcv10.FunctionInvocation{},
+				Events:   []rpcv10.OrderedEvent{},
+				Messages: []rpcv10.OrderedL2toL1Message{},
 			},
 		}
 
@@ -1108,13 +1106,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 		}
 
 		expectedAdaptedTrace := rpcv10.TransactionTrace{
-			Type: rpcv9.TxnL1Handler,
-			FunctionInvocation: &rpcv9.ExecuteInvocation{
+			Type: rpcv10.TxnL1Handler,
+			FunctionInvocation: &rpcv10.ExecuteInvocation{
 				RevertReason: "",
-				FunctionInvocation: &rpcv9.FunctionInvocation{
-					Calls:      []rpcv9.FunctionInvocation{},
-					Events:     []rpcv6.OrderedEvent{},
-					Messages:   []rpcv6.OrderedL2toL1Message{},
+				FunctionInvocation: &rpcv10.FunctionInvocation{
+					Calls:      []rpcv10.FunctionInvocation{},
+					Events:     []rpcv10.OrderedEvent{},
+					Messages:   []rpcv10.OrderedL2toL1Message{},
 					IsReverted: false,
 				},
 			},
@@ -1178,18 +1176,18 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			{
 				TransactionHash: felt.NewFromUint64[felt.Felt](1),
 				TraceRoot: &rpcv10.TransactionTrace{
-					Type: rpcv9.TxnL1Handler,
-					FunctionInvocation: &rpcv9.ExecuteInvocation{
+					Type: rpcv10.TxnL1Handler,
+					FunctionInvocation: &rpcv10.ExecuteInvocation{
 						RevertReason: "",
-						FunctionInvocation: &rpcv9.FunctionInvocation{
-							Calls: []rpcv9.FunctionInvocation{},
-							Events: []rpcv6.OrderedEvent{{
+						FunctionInvocation: &rpcv10.FunctionInvocation{
+							Calls: []rpcv10.FunctionInvocation{},
+							Events: []rpcv10.OrderedEvent{{
 								Order: 1,
 								Keys:  []*felt.Felt{felt.NewFromUint64[felt.Felt](2)},
 								Data:  []*felt.Felt{felt.NewFromUint64[felt.Felt](3)},
 							}},
-							Messages: []rpcv6.OrderedL2toL1Message{},
-							ExecutionResources: &rpcv9.InnerExecutionResources{
+							Messages: []rpcv10.OrderedL2toL1Message{},
+							ExecutionResources: &rpcv10.InnerExecutionResources{
 								L1Gas: 10,
 								L2Gas: 11,
 							},
@@ -1224,20 +1222,20 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			{
 				TransactionHash: felt.NewFromUint64[felt.Felt](1),
 				TraceRoot: &rpcv10.TransactionTrace{
-					Type: rpcv9.TxnInvoke,
-					FeeTransferInvocation: &rpcv9.FunctionInvocation{
-						Calls:              []rpcv9.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv9.InnerExecutionResources{},
+					Type: rpcv10.TxnInvoke,
+					FeeTransferInvocation: &rpcv10.FunctionInvocation{
+						Calls:              []rpcv10.FunctionInvocation{},
+						Events:             []rpcv10.OrderedEvent{},
+						Messages:           []rpcv10.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv10.InnerExecutionResources{},
 					},
-					ValidateInvocation: &rpcv9.FunctionInvocation{
-						Calls:              []rpcv9.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv9.InnerExecutionResources{},
+					ValidateInvocation: &rpcv10.FunctionInvocation{
+						Calls:              []rpcv10.FunctionInvocation{},
+						Events:             []rpcv10.OrderedEvent{},
+						Messages:           []rpcv10.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv10.InnerExecutionResources{},
 					},
-					ExecuteInvocation: &rpcv9.ExecuteInvocation{
+					ExecuteInvocation: &rpcv10.ExecuteInvocation{
 						RevertReason: "some error",
 					},
 				},
@@ -1261,8 +1259,8 @@ func TestCall(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
-		blockID := rpcv9.BlockIDLatest()
-		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		blockID := rpcv10.BlockIDLatest()
+		res, rpcErr := handler.Call(&rpcv10.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -1270,8 +1268,8 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 
-		blockID := rpcv9.BlockIDFromHash(&felt.Zero)
-		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		blockID := rpcv10.BlockIDFromHash(&felt.Zero)
+		res, rpcErr := handler.Call(&rpcv10.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -1279,8 +1277,8 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
 
-		blockID := rpcv9.BlockIDFromNumber(0)
-		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		blockID := rpcv10.BlockIDFromNumber(0)
+		res, rpcErr := handler.Call(&rpcv10.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -1292,8 +1290,8 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
 
-		blockID := rpcv9.BlockIDLatest()
-		res, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
+		blockID := rpcv10.BlockIDLatest()
+		res, rpcErr := handler.Call(&rpcv10.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
@@ -1338,12 +1336,12 @@ func TestCall(t *testing.T) {
 			false,
 		).Return(expectedRes, nil)
 
-		blockID := rpcv9.BlockIDLatest()
+		blockID := rpcv10.BlockIDLatest()
 		res, rpcErr := handler.Call(
-			&rpcv9.FunctionCall{
+			&rpcv10.FunctionCall{
 				ContractAddress:    *contractAddr,
 				EntryPointSelector: *selector,
-				Calldata:           rpcv9.CalldataInputs{Data: calldata},
+				Calldata:           rpcv10.CalldataInputs{Data: calldata},
 			},
 			&blockID,
 		)
@@ -1391,11 +1389,11 @@ func TestCall(t *testing.T) {
 			false,
 		).Return(expectedRes, nil)
 
-		blockID := rpcv9.BlockIDLatest()
-		res, rpcErr := handler.Call(&rpcv9.FunctionCall{
+		blockID := rpcv10.BlockIDLatest()
+		res, rpcErr := handler.Call(&rpcv10.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           rpcv9.CalldataInputs{Data: calldata},
+			Calldata:           rpcv10.CalldataInputs{Data: calldata},
 		},
 			&blockID,
 		)
@@ -1413,7 +1411,7 @@ func TestCall(t *testing.T) {
 		expectedRes := vm.CallResult{
 			ExecutionFailed: true,
 		}
-		expectedErr := rpcv9.MakeContractError(json.RawMessage(""))
+		expectedErr := rpcv10.MakeContractError(json.RawMessage(""))
 
 		headsHeader := &core.Header{
 			Number:    9,
@@ -1433,12 +1431,12 @@ func TestCall(t *testing.T) {
 			gomock.Any(),
 		).Return(expectedRes, nil)
 
-		blockID := rpcv9.BlockIDLatest()
+		blockID := rpcv10.BlockIDLatest()
 		res, rpcErr := handler.Call(
-			&rpcv9.FunctionCall{
+			&rpcv10.FunctionCall{
 				ContractAddress:    *contractAddr,
 				EntryPointSelector: *selector,
-				Calldata:           rpcv9.CalldataInputs{Data: calldata},
+				Calldata:           rpcv10.CalldataInputs{Data: calldata},
 			},
 			&blockID,
 		)
@@ -1511,7 +1509,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 
 			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
-			blockID := rpcv9.BlockIDFromHash(&blockHash)
+			blockID := rpcv10.BlockIDFromHash(&blockHash)
 			traces, _, err := handler.TraceBlockTransactions(
 				t.Context(),
 				&blockID,

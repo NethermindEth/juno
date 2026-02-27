@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -56,7 +55,7 @@ type txStatusSubscriberState struct {
 	handler    *Handler
 	conn       jsonrpc.Conn
 	txHash     *felt.Felt
-	lastStatus rpcv9.TxnStatus
+	lastStatus TxnStatus
 }
 
 func newTxStatusSubscriber(h *Handler, w jsonrpc.Conn, txHash *felt.Felt) subscriber {
@@ -172,7 +171,7 @@ func (s *txStatusSubscriberState) checkTxStatusIfPending(
 	id string,
 	sub *subscription,
 ) error {
-	if s.lastStatus < rpcv9.TxnStatusAcceptedOnL2 {
+	if s.lastStatus < TxnStatusAcceptedOnL2 {
 		return s.checkTxStatus(ctx, id, sub)
 	}
 	return nil
@@ -201,7 +200,7 @@ func (s *txStatusSubscriberState) checkTxStatus(
 
 	err := sendTxnStatus(
 		s.conn,
-		rpcv9.SubscriptionTransactionStatus{
+		SubscriptionTransactionStatus{
 			TransactionHash: s.txHash,
 			Status:          status,
 		},
@@ -211,7 +210,7 @@ func (s *txStatusSubscriberState) checkTxStatus(
 		return err
 	}
 
-	if status.Finality == rpcv9.TxnStatusAcceptedOnL1 {
+	if status.Finality == TxnStatusAcceptedOnL1 {
 		sub.cancel()
 	}
 
@@ -219,6 +218,6 @@ func (s *txStatusSubscriberState) checkTxStatus(
 	return nil
 }
 
-func sendTxnStatus(w jsonrpc.Conn, status rpcv9.SubscriptionTransactionStatus, id string) error {
+func sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id string) error {
 	return sendResponse("starknet_subscriptionTransactionStatus", w, id, status)
 }

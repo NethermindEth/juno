@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -29,7 +28,7 @@ import (
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeNewTransactions(
 	ctx context.Context,
-	finalityStatus []rpcv9.TxnStatusWithoutL1,
+	finalityStatus []TxnStatusWithoutL1,
 	senderAddr []felt.Address,
 	tags SubscriptionTags,
 ) (SubscriptionID, *jsonrpc.Error) {
@@ -48,21 +47,21 @@ func (h *Handler) SubscribeNewTransactions(
 
 type SubscriptionNewTransaction struct {
 	Transaction
-	FinalityStatus rpcv9.TxnStatusWithoutL1 `json:"finality_status"`
+	FinalityStatus TxnStatusWithoutL1 `json:"finality_status"`
 }
 
 type transactionsSubscriberState struct {
 	conn jsonrpc.Conn
 
 	senderAddr     []felt.Address
-	finalityStatus []rpcv9.TxnStatusWithoutL1
-	sentCache      *rpccore.SubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1]
+	finalityStatus []TxnStatusWithoutL1
+	sentCache      *rpccore.SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1]
 	tags           SubscriptionTags
 }
 
 func newTransactionsSubscriber(
 	conn jsonrpc.Conn,
-	finalityStatus []rpcv9.TxnStatusWithoutL1,
+	finalityStatus []TxnStatusWithoutL1,
 	senderAddr []felt.Address,
 	tags SubscriptionTags,
 ) (subscriber, *jsonrpc.Error) {
@@ -71,8 +70,8 @@ func newTransactionsSubscriber(
 	}
 
 	if len(finalityStatus) == 0 {
-		finalityStatus = []rpcv9.TxnStatusWithoutL1{
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+		finalityStatus = []TxnStatusWithoutL1{
+			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		}
 	} else {
 		finalityStatus = utils.Set(finalityStatus)
@@ -82,7 +81,7 @@ func newTransactionsSubscriber(
 		conn:           conn,
 		senderAddr:     senderAddr,
 		finalityStatus: finalityStatus,
-		sentCache:      rpccore.NewSubscriptionCache[felt.TransactionHash, rpcv9.TxnStatusWithoutL1](),
+		sentCache:      rpccore.NewSubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1](),
 		tags:           tags,
 	}
 
@@ -90,16 +89,16 @@ func newTransactionsSubscriber(
 		onReorg: state.onReorg,
 	}
 
-	if slices.Contains(state.finalityStatus, rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2)) {
+	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
 		s.onNewHead = state.onNewHead
 		s.onPreLatest = state.onPreLatest
 	}
 
 	if slices.ContainsFunc(
 		state.finalityStatus,
-		func(status rpcv9.TxnStatusWithoutL1) bool {
-			return status == rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed) ||
-				status == rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate)
+		func(status TxnStatusWithoutL1) bool {
+			return status == TxnStatusWithoutL1(TxnStatusPreConfirmed) ||
+				status == TxnStatusWithoutL1(TxnStatusCandidate)
 		}) {
 		s.onPendingData = state.onPendingData
 	}
@@ -126,7 +125,7 @@ func (s *transactionsSubscriberState) onNewHead(
 	return s.processBlock(
 		id,
 		head,
-		rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+		TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 	)
 }
 
@@ -139,7 +138,7 @@ func (s *transactionsSubscriberState) onPreLatest(
 	return s.processBlock(
 		id,
 		preLatest.Block,
-		rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+		TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 	)
 }
 
@@ -153,17 +152,17 @@ func (s *transactionsSubscriberState) onPendingData(
 		return fmt.Errorf("unexpected pending data variant %v", pending.Variant())
 	}
 
-	if slices.Contains(s.finalityStatus, rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed)) {
+	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
 		if err := s.processBlock(
 			id,
 			pending.GetBlock(),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 		); err != nil {
 			return err
 		}
 	}
 
-	if slices.Contains(s.finalityStatus, rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate)) {
+	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusCandidate)) {
 		return s.processCandidateTransactions(id, pending)
 	}
 
@@ -173,7 +172,7 @@ func (s *transactionsSubscriberState) onPendingData(
 func (s *transactionsSubscriberState) processBlock(
 	id string,
 	b *core.Block,
-	status rpcv9.TxnStatusWithoutL1,
+	status TxnStatusWithoutL1,
 ) error {
 	for _, txn := range b.Transactions {
 		if !filterTxBySender(txn, s.senderAddr) {
@@ -206,7 +205,7 @@ func (s *transactionsSubscriberState) processCandidateTransactions(
 			id,
 			blockNumber,
 			txn,
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
+			TxnStatusWithoutL1(TxnStatusCandidate),
 		); err != nil {
 			return err
 		}
@@ -218,7 +217,7 @@ func (s *transactionsSubscriberState) sendWithoutDuplicate(
 	id string,
 	blockNumber uint64,
 	txn core.Transaction,
-	finalityStatus rpcv9.TxnStatusWithoutL1,
+	finalityStatus TxnStatusWithoutL1,
 ) error {
 	txHash := felt.TransactionHash(*txn.Hash())
 	if !s.sentCache.ShouldSend(

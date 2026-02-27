@@ -8,8 +8,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909 //nolint:lll
@@ -22,14 +20,44 @@ type StateUpdate struct {
 	StateDiff *StateDiff `json:"state_diff"`
 }
 
+type StorageDiff struct {
+	Address        felt.Felt `json:"address"`
+	StorageEntries []Entry   `json:"storage_entries"`
+}
+
+type Entry struct {
+	Key   felt.Felt `json:"key"`
+	Value felt.Felt `json:"value"`
+}
+
+type Nonce struct {
+	ContractAddress felt.Felt `json:"contract_address"`
+	Nonce           felt.Felt `json:"nonce"`
+}
+
+type DeployedContract struct {
+	Address   felt.Felt `json:"address"`
+	ClassHash felt.Felt `json:"class_hash"`
+}
+
+type DeclaredClassDiff struct {
+	ClassHash         felt.Felt `json:"class_hash"`
+	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
+}
+
+type ReplacedClass struct {
+	ContractAddress felt.Felt `json:"contract_address"`
+	ClassHash       felt.Felt `json:"class_hash"`
+}
+
 type StateDiff struct {
-	StorageDiffs              []rpcv6.StorageDiff      `json:"storage_diffs"`
-	Nonces                    []rpcv6.Nonce            `json:"nonces"`
-	DeployedContracts         []rpcv6.DeployedContract `json:"deployed_contracts"`
-	DeprecatedDeclaredClasses []*felt.Felt             `json:"deprecated_declared_classes"`
-	DeclaredClasses           []rpcv6.DeclaredClass    `json:"declared_classes"`
-	ReplacedClasses           []rpcv6.ReplacedClass    `json:"replaced_classes"`
-	MigratedCompiledClasses   []MigratedCompiledClass  `json:"migrated_compiled_classes"`
+	StorageDiffs              []StorageDiff           `json:"storage_diffs"`
+	Nonces                    []Nonce                 `json:"nonces"`
+	DeployedContracts         []DeployedContract      `json:"deployed_contracts"`
+	DeprecatedDeclaredClasses []*felt.Felt            `json:"deprecated_declared_classes"`
+	DeclaredClasses           []DeclaredClassDiff     `json:"declared_classes"`
+	ReplacedClasses           []ReplacedClass         `json:"replaced_classes"`
+	MigratedCompiledClasses   []MigratedCompiledClass `json:"migrated_compiled_classes"`
 }
 
 type MigratedCompiledClass struct {
@@ -47,7 +75,7 @@ type MigratedCompiledClass struct {
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136 //nolint:lll
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
-func (h *Handler) StateUpdate(id *rpcv9.BlockID) (StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id *BlockID) (StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
@@ -57,26 +85,26 @@ func (h *Handler) StateUpdate(id *rpcv9.BlockID) (StateUpdate, *jsonrpc.Error) {
 	}
 
 	index := 0
-	nonces := make([]rpcv6.Nonce, len(update.StateDiff.Nonces))
+	nonces := make([]Nonce, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		nonces[index] = rpcv6.Nonce{ContractAddress: addr, Nonce: *nonce}
+		nonces[index] = Nonce{ContractAddress: addr, Nonce: *nonce}
 		index++
 	}
 
 	index = 0
-	storageDiffs := make([]rpcv6.StorageDiff, len(update.StateDiff.StorageDiffs))
+	storageDiffs := make([]StorageDiff, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
-		entries := make([]rpcv6.Entry, len(diffs))
+		entries := make([]Entry, len(diffs))
 		entryIdx := 0
 		for key, value := range diffs {
-			entries[entryIdx] = rpcv6.Entry{
+			entries[entryIdx] = Entry{
 				Key:   key,
 				Value: *value,
 			}
 			entryIdx++
 		}
 
-		storageDiffs[index] = rpcv6.StorageDiff{
+		storageDiffs[index] = StorageDiff{
 			Address:        addr,
 			StorageEntries: entries,
 		}
@@ -84,9 +112,9 @@ func (h *Handler) StateUpdate(id *rpcv9.BlockID) (StateUpdate, *jsonrpc.Error) {
 	}
 
 	index = 0
-	deployedContracts := make([]rpcv6.DeployedContract, len(update.StateDiff.DeployedContracts))
+	deployedContracts := make([]DeployedContract, len(update.StateDiff.DeployedContracts))
 	for addr, classHash := range update.StateDiff.DeployedContracts {
-		deployedContracts[index] = rpcv6.DeployedContract{
+		deployedContracts[index] = DeployedContract{
 			Address:   addr,
 			ClassHash: *classHash,
 		}
@@ -94,9 +122,9 @@ func (h *Handler) StateUpdate(id *rpcv9.BlockID) (StateUpdate, *jsonrpc.Error) {
 	}
 
 	index = 0
-	declaredClasses := make([]rpcv6.DeclaredClass, len(update.StateDiff.DeclaredV1Classes))
+	declaredClasses := make([]DeclaredClassDiff, len(update.StateDiff.DeclaredV1Classes))
 	for classHash, compiledClassHash := range update.StateDiff.DeclaredV1Classes {
-		declaredClasses[index] = rpcv6.DeclaredClass{
+		declaredClasses[index] = DeclaredClassDiff{
 			ClassHash:         classHash,
 			CompiledClassHash: *compiledClassHash,
 		}
@@ -104,9 +132,9 @@ func (h *Handler) StateUpdate(id *rpcv9.BlockID) (StateUpdate, *jsonrpc.Error) {
 	}
 
 	index = 0
-	replacedClasses := make([]rpcv6.ReplacedClass, len(update.StateDiff.ReplacedClasses))
+	replacedClasses := make([]ReplacedClass, len(update.StateDiff.ReplacedClasses))
 	for addr, classHash := range update.StateDiff.ReplacedClasses {
-		replacedClasses[index] = rpcv6.ReplacedClass{
+		replacedClasses[index] = ReplacedClass{
 			ClassHash:       *classHash,
 			ContractAddress: addr,
 		}
@@ -139,7 +167,7 @@ func (h *Handler) StateUpdate(id *rpcv9.BlockID) (StateUpdate, *jsonrpc.Error) {
 	}, nil
 }
 
-func (h *Handler) stateUpdateByID(id *rpcv9.BlockID) (*core.StateUpdate, error) {
+func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 	switch {
 	case id.IsLatest():
 		if height, heightErr := h.bcReader.Height(); heightErr != nil {

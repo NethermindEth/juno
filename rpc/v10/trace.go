@@ -14,21 +14,20 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
 type TransactionTrace struct {
-	Type                  rpcv9.TransactionType     `json:"type"`
-	ValidateInvocation    *rpcv9.FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *rpcv9.ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"` //nolint:lll // struct tag exceeds line limit
-	FeeTransferInvocation *rpcv9.FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *rpcv9.FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"` //nolint:lll // struct tag exceeds line limit
-	FunctionInvocation    *rpcv9.ExecuteInvocation  `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`        //nolint:lll // struct tag exceeds line limit
-	StateDiff             *StateDiff                `json:"state_diff,omitempty"`
-	ExecutionResources    *rpcv9.ExecutionResources `json:"execution_resources"`
+	Type                  TransactionType     `json:"type"`
+	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"` //nolint:lll // validate tag
+	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"` //nolint:lll // validate tag
+	FunctionInvocation    *ExecuteInvocation  `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`        //nolint:lll // validate tag
+	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
 
 /****************************************************
@@ -62,8 +61,8 @@ func (h *Handler) TraceTransaction(
 
 // https://github.com/starkware-libs/starknet-specs/blob/39553a2e5216b7b5e06f6d44368317c0ccd79dfa/api/starknet_api_openrpc.json#L569
 func (h *Handler) Call(
-	funcCall *rpcv9.FunctionCall,
-	id *rpcv9.BlockID,
+	funcCall *FunctionCall,
+	id *BlockID,
 ) ([]*felt.Felt, *jsonrpc.Error) {
 	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
@@ -104,7 +103,7 @@ func (h *Handler) Call(
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
-		return nil, rpcv9.MakeContractError(json.RawMessage(err.Error()))
+		return nil, MakeContractError(json.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
 		// the blockifier 0.13.4 update requires us to check if the execution failed,
@@ -118,7 +117,7 @@ func (h *Handler) Call(
 			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
 		}
 		// Todo: There is currently no standardised way to format these error messages
-		return nil, rpcv9.MakeContractError(json.RawMessage(strErr))
+		return nil, MakeContractError(json.RawMessage(strErr))
 	}
 	return res.Result, nil
 }
@@ -130,7 +129,7 @@ func (h *Handler) Call(
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) TraceBlockTransactions(
-	ctx context.Context, id *rpcv9.BlockID, traceFlags []TraceFlag,
+	ctx context.Context, id *BlockID, traceFlags []TraceFlag,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
 	if id.IsPreConfirmed() {
 		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrCallOnPreConfirmed
@@ -199,7 +198,7 @@ func traceTransactionsWithState(
 		returnInitialReads,
 	)
 
-	httpHeader.Set(rpcv9.ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
+	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if vmErr != nil {
 		if errors.Is(vmErr, utils.ErrResourceBusy) {
@@ -214,8 +213,8 @@ func traceTransactionsWithState(
 		// Adapt vm transaction trace to rpc v9 trace and add root level execution resources
 		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
 
-		trace.ExecutionResources = &rpcv9.ExecutionResources{
-			InnerExecutionResources: rpcv9.InnerExecutionResources{
+		trace.ExecutionResources = &ExecutionResources{
+			InnerExecutionResources: InnerExecutionResources{
 				L1Gas: executionResult.GasConsumed[index].L1Gas,
 				L2Gas: executionResult.GasConsumed[index].L2Gas,
 			},
@@ -647,8 +646,8 @@ func fillFeederGatewayData(
 	for index, trace := range traces {
 		tgs := totalGasConsumed[*trace.TransactionHash]
 
-		traces[index].TraceRoot.ExecutionResources = &rpcv9.ExecutionResources{
-			InnerExecutionResources: rpcv9.InnerExecutionResources{
+		traces[index].TraceRoot.ExecutionResources = &ExecutionResources{
+			InnerExecutionResources: InnerExecutionResources{
 				L1Gas: tgs.L1Gas,
 				L2Gas: tgs.L2Gas,
 			},
@@ -663,7 +662,7 @@ func fillFeederGatewayData(
 // with the execution steps header set to "0".
 func defaultExecutionHeader() http.Header {
 	header := http.Header{}
-	header.Set(rpcv9.ExecutionStepsHeader, "0")
+	header.Set(ExecutionStepsHeader, "0")
 	return header
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,7 +41,7 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
-		blockID := rpcv9.BlockIDLatest()
+		blockID := rpcv10.BlockIDLatest()
 		_, httpHeader, rpcErr := handler.SimulateTransactions(
 			t.Context(),
 			&blockID,
@@ -50,7 +49,7 @@ func TestThrottledVMError(t *testing.T) {
 			[]rpcv10.SimulationFlag{rpcv10.SkipFeeChargeFlag},
 		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
-		assert.NotEmpty(t, httpHeader.Get(rpcv9.ExecutionStepsHeader))
+		assert.NotEmpty(t, httpHeader.Get(rpcv10.ExecutionStepsHeader))
 	})
 
 	t.Run("trace", func(t *testing.T) {
@@ -85,13 +84,13 @@ func TestThrottledVMError(t *testing.T) {
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
-		blockID := rpcv9.BlockIDFromHash(blockHash)
+		blockID := rpcv10.BlockIDFromHash(blockHash)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(
 			t.Context(),
 			&blockID,
 			[]rpcv10.TraceFlag{},
 		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
-		assert.NotEmpty(t, httpHeader.Get(rpcv9.ExecutionStepsHeader))
+		assert.NotEmpty(t, httpHeader.Get(rpcv10.ExecutionStepsHeader))
 	})
 }

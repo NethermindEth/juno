@@ -20,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -608,7 +607,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
-		blockID := rpcv9.BlockIDLatest()
+		blockID := rpcv10.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpcv10.ResponseFlags{})
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -617,7 +616,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockNumberByHash(gomock.Any()).Return(uint64(0), db.ErrKeyNotFound)
 
-		blockID := rpcv9.BlockIDFromHash(
+		blockID := rpcv10.BlockIDFromHash(
 			felt.NewFromBytes[felt.Felt]([]byte("random")),
 		)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpcv10.ResponseFlags{})
@@ -628,7 +627,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
 			gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
-		blockID := rpcv9.BlockIDFromNumber(rand.Uint64())
+		blockID := rpcv10.BlockIDFromNumber(rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpcv10.ResponseFlags{})
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
@@ -637,7 +636,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("negative index", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("negative index"))
 
-		blockID := rpcv9.BlockIDLatest()
+		blockID := rpcv10.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1, rpcv10.ResponseFlags{})
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
@@ -646,7 +645,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("invalid index", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 
-		blockID := rpcv9.BlockIDLatest()
+		blockID := rpcv10.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
 			&blockID,
 			len(latestBlock.Transactions),
@@ -665,7 +664,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		})
 
 		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv9.BlockIDLatest()
+		blockID := rpcv10.BlockIDLatest()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
@@ -681,7 +680,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		})
 
 		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv9.BlockIDFromHash(latestBlock.Hash)
+		blockID := rpcv10.BlockIDFromHash(latestBlock.Hash)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
@@ -696,7 +695,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		})
 
 		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv9.BlockIDFromNumber(latestBlockNumber)
+		blockID := rpcv10.BlockIDFromNumber(latestBlockNumber)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
@@ -719,7 +718,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		})
 
 		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv9.BlockIDL1Accepted()
+		blockID := rpcv10.BlockIDL1Accepted()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
@@ -733,7 +732,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			&preConfirmed,
 			nil,
 		).Times(2)
-		blockID := rpcv9.BlockIDPreConfirmed()
+		blockID := rpcv10.BlockIDPreConfirmed()
 
 		t.Run("invalid index", func(t *testing.T) {
 			invalidIndex := len(preConfirmed.Block.Transactions)
@@ -776,7 +775,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		blockID := rpcv9.BlockIDFromNumber(1)
+		blockID := rpcv10.BlockIDFromNumber(1)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(1), uint64(0)).
 			Return(invokeTxCore, nil).AnyTimes()
 		mockReader.EXPECT().Network().Return(network).AnyTimes()
@@ -806,7 +805,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	type testCase struct {
 		description   string
 		network       *utils.Network
-		expected      *rpcv9.TransactionReceipt
+		expected      *rpcv10.TransactionReceipt
 		pendingDataFn func(t *testing.T, block *core.Block) core.PendingData
 		l1Head        core.L1Head
 	}
@@ -864,7 +863,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l2",
 			network:     &utils.Mainnet,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_accepted_on_l2.json",
 			),
@@ -874,7 +873,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l1",
 			network:     &utils.Mainnet,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_accepted_on_l1.json",
 			),
@@ -884,7 +883,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt pre confirmed",
 			network:     &utils.Mainnet,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_pre_confirmed.json",
 			),
@@ -894,7 +893,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt pre latest",
 			network:     &utils.Mainnet,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_pre_latest.json",
 			),
@@ -904,7 +903,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt reverted",
 			network:     &utils.Integration,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_reverted.json",
 			),
@@ -914,7 +913,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt invoke v3",
 			network:     &utils.Integration,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_invoke_v3.json",
 			),
@@ -924,7 +923,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt non empty da",
 			network:     &utils.SepoliaIntegration,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_non_empty_da.json",
 			),
@@ -934,7 +933,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt deploy",
 			network:     &utils.Mainnet,
-			expected: readTestData[*rpcv9.TransactionReceipt](
+			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_deploy.json",
 			),
@@ -1064,9 +1063,7 @@ func TestAddTransaction(t *testing.T) {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
 		return rpcv10.BroadcastedTransaction{
-			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-				Transaction: *rpcv9.AdaptTransaction(tx),
-			},
+			Transaction: *rpcv10.AdaptCoreTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
@@ -1325,11 +1322,9 @@ func TestAddTransaction(t *testing.T) {
 					felt.FromUint64[felt.Felt](200),
 				}
 				return rpcv10.BroadcastedTransaction{
-					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-						Transaction: *rpcv9.AdaptTransaction(&base),
-					},
-					Proof:      "AAAAAQAAAAIAAAAD",
-					ProofFacts: proofFacts,
+					Transaction: *rpcv10.AdaptCoreTransaction(&base),
+					Proof:       "AAAAAQAAAAIAAAAD",
+					ProofFacts:  proofFacts,
 				}
 			}(),
 			expectedJSON: `{
@@ -1492,7 +1487,7 @@ func TestTransactionStatus(t *testing.T) {
 		description    string
 		network        *utils.Network
 		txHash         *felt.Felt
-		expectedStatus rpcv9.TransactionStatus
+		expectedStatus rpcv10.TransactionStatus
 		expectedErr    *jsonrpc.Error
 		setupMocks     func(
 			mockReader *mocks.MockReader,
@@ -1538,9 +1533,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status ACCEPTED_ON_L2",
 			network:     &utils.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv9.TransactionStatus{
-				Finality:  rpcv9.TxnStatusAcceptedOnL2,
-				Execution: rpcv9.TxnSuccess,
+			expectedStatus: rpcv10.TransactionStatus{
+				Finality:  rpcv10.TxnStatusAcceptedOnL2,
+				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockFoundInDB(mockReader, mockSyncReader)
@@ -1551,9 +1546,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status ACCEPTED_ON_L1",
 			network:     &utils.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv9.TransactionStatus{
-				Finality:  rpcv9.TxnStatusAcceptedOnL1,
-				Execution: rpcv9.TxnSuccess,
+			expectedStatus: rpcv10.TransactionStatus{
+				Finality:  rpcv10.TxnStatusAcceptedOnL1,
+				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockFoundInDB(mockReader, mockSyncReader)
@@ -1564,9 +1559,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status PRE_CONFIRMED",
 			network:     &utils.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv9.TransactionStatus{
-				Finality:  rpcv9.TxnStatusPreConfirmed,
-				Execution: rpcv9.TxnSuccess,
+			expectedStatus: rpcv10.TransactionStatus{
+				Finality:  rpcv10.TxnStatusPreConfirmed,
+				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockSyncReader.EXPECT().PendingData().Return(
@@ -1586,9 +1581,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status CANDIDATE",
 			network:     &utils.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv9.TransactionStatus{
-				Finality:  rpcv9.TxnStatusCandidate,
-				Execution: rpcv9.UnknownExecution,
+			expectedStatus: rpcv10.TransactionStatus{
+				Finality:  rpcv10.TxnStatusCandidate,
+				Execution: rpcv10.UnknownExecution,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
@@ -1610,9 +1605,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status ACCEPTED_ON_L2 from pre-latest",
 			network:     &utils.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv9.TransactionStatus{
-				Finality:  rpcv9.TxnStatusAcceptedOnL2,
-				Execution: rpcv9.TxnSuccess,
+			expectedStatus: rpcv10.TransactionStatus{
+				Finality:  rpcv10.TxnStatusAcceptedOnL2,
+				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				preLatest := core.PreLatest{
@@ -1638,9 +1633,9 @@ func TestTransactionStatus(t *testing.T) {
 			txHash: felt.NewUnsafeFromString[felt.Felt](
 				"0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
 			),
-			expectedStatus: rpcv9.TransactionStatus{
-				Finality:  rpcv9.TxnStatusAcceptedOnL1,
-				Execution: rpcv9.TxnSuccess,
+			expectedStatus: rpcv10.TransactionStatus{
+				Finality:  rpcv10.TxnStatusAcceptedOnL1,
+				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: mockNotFound,
 		},
@@ -1650,9 +1645,9 @@ func TestTransactionStatus(t *testing.T) {
 			txHash: felt.NewUnsafeFromString[felt.Felt](
 				"0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
 			),
-			expectedStatus: rpcv9.TransactionStatus{
-				Finality:  rpcv9.TxnStatusAcceptedOnL2,
-				Execution: rpcv9.TxnSuccess,
+			expectedStatus: rpcv10.TransactionStatus{
+				Finality:  rpcv10.TxnStatusAcceptedOnL2,
+				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: mockNotFound,
 		},
@@ -1707,9 +1702,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	txnToAdd := createBaseInvokeTransactionV3()
 
 	broadcastedTxn := &rpcv10.BroadcastedTransaction{
-		BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-			Transaction: *rpcv9.AdaptTransaction(&txnToAdd),
-		},
+		Transaction: *rpcv10.AdaptCoreTransaction(&txnToAdd),
 	}
 
 	var gatewayResponse struct {
@@ -1761,8 +1754,8 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 		status, err := handler.TransactionStatus(ctx, (*felt.Felt)(&res.TransactionHash))
 		require.Nil(t, err)
-		require.Equal(t, rpcv9.TxnStatusReceived, status.Finality)
-		require.Equal(t, rpcv9.UnknownExecution, status.Execution)
+		require.Equal(t, rpcv10.TxnStatusReceived, status.Finality)
+		require.Equal(t, rpcv10.UnknownExecution, status.Execution)
 	})
 
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
@@ -1803,16 +1796,14 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 	t.Run("RejectProofForNonInvoke", func(t *testing.T) {
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
-			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-				Transaction: rpcv9.Transaction{
-					Type:    rpcv9.TxnDeclare,
-					Version: felt.NewFromUint64[felt.Felt](3),
-					Signature: &[]*felt.Felt{
-						felt.NewFromUint64[felt.Felt](0x1),
-					},
-					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
-					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+			Transaction: rpcv10.Transaction{
+				Type:    rpcv10.TxnDeclare,
+				Version: felt.NewFromUint64[felt.Felt](3),
+				Signature: &[]*felt.Felt{
+					felt.NewFromUint64[felt.Felt](0x1),
 				},
+				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
+				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
 			},
 			Proof: "AAAAAQAAAAIAAAAD",
 		}
@@ -1829,16 +1820,14 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	t.Run("RejectProofFactsForNonInvoke", func(t *testing.T) {
 		proofFact := felt.FromUint64[felt.Felt](100)
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
-			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-				Transaction: rpcv9.Transaction{
-					Type:    rpcv9.TxnDeclare,
-					Version: felt.NewFromUint64[felt.Felt](3),
-					Signature: &[]*felt.Felt{
-						felt.NewFromUint64[felt.Felt](0x1),
-					},
-					Nonce:         felt.NewFromUint64[felt.Felt](0x1),
-					SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+			Transaction: rpcv10.Transaction{
+				Type:    rpcv10.TxnDeclare,
+				Version: felt.NewFromUint64[felt.Felt](3),
+				Signature: &[]*felt.Felt{
+					felt.NewFromUint64[felt.Felt](0x1),
 				},
+				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
+				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
 			},
 			ProofFacts: []felt.Felt{proofFact},
 		}
@@ -1854,9 +1843,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 	base := createBaseInvokeTransactionV3()
 	correctBroadcastedTxn := &rpcv10.BroadcastedTransaction{
-		BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-			Transaction: *rpcv9.AdaptTransaction(&base),
-		},
+		Transaction: *rpcv10.AdaptCoreTransaction(&base),
 	}
 
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
