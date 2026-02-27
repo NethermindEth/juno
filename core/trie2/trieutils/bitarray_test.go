@@ -2241,7 +2241,9 @@ func serializationCases() []struct {
 			// 251-bit key with a sparse lower word to verify per-word byte ordering.
 			// words[0]=0xAAAAAAAAAAAAAAAA → big-endian last 8 bytes are all 0xAA.
 			name: "251 bits / sparse lower word",
-			ba:   BitArray{len: 251, words: [4]uint64{0xAAAAAAAAAAAAAAAA, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF}},
+			ba: BitArray{len: 251, words: [4]uint64{
+				0xAAAAAAAAAAAAAAAA, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF,
+			}},
 			wantBytes: []byte{
 				0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // words[3]
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // words[2]
@@ -2283,7 +2285,12 @@ func TestEncodedBytes(t *testing.T) {
 			// Verify that modifying the returned slice does not affect internal state.
 			if len(got) > 0 {
 				got[0] ^= 0xFF
-				assert.Equal(t, tt.wantBytes, tt.ba.EncodedBytes(), "EncodedBytes: returned slice shares memory with BitArray")
+				assert.Equal(
+					t,
+					tt.wantBytes,
+					tt.ba.EncodedBytes(),
+					"EncodedBytes: returned slice shares memory with BitArray",
+				)
 			}
 		})
 	}

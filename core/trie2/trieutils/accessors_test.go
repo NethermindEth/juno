@@ -48,16 +48,22 @@ func owners() []ownerCase {
 	// they're all real Sepolia addresses
 	return []ownerCase{
 		{
-			name:  "one leading zero",
-			owner: felt.UnsafeFromString[felt.Address]("0x012b66312a967681ca775a20bb3445883b82477888c76790091c0b59593c5f9e"),
+			name: "one leading zero",
+			owner: felt.UnsafeFromString[felt.Address](
+				"0x012b66312a967681ca775a20bb3445883b82477888c76790091c0b59593c5f9e",
+			),
 		},
 		{
-			name:  "two leading zeros",
-			owner: felt.UnsafeFromString[felt.Address]("0x009f3a76d3f076c79adb925bfb322d4da753bf32f34f620a36b614a1860c3c18"),
+			name: "two leading zeros",
+			owner: felt.UnsafeFromString[felt.Address](
+				"0x009f3a76d3f076c79adb925bfb322d4da753bf32f34f620a36b614a1860c3c18",
+			),
 		},
 		{
-			name:  "three leading zeros",
-			owner: felt.UnsafeFromString[felt.Address]("0x0004fb2ab0254101b7424d9fa99679f6d46a33b999360bce3d8d7f7c9db275ec"),
+			name: "three leading zeros",
+			owner: felt.UnsafeFromString[felt.Address](
+				"0x0004fb2ab0254101b7424d9fa99679f6d46a33b999360bce3d8d7f7c9db275ec",
+			),
 		},
 	}
 }
@@ -76,14 +82,26 @@ func paths() []pathCase {
 		{name: "65-bit/word1-only", path: BitArray{len: 65, words: [4]uint64{0, 1}}},
 		{name: "94-bit", path: BitArray{len: 94, words: [4]uint64{maxUint64, 0x3FFFFFFF}}},
 		{name: "128-bit", path: BitArray{len: 128, words: [4]uint64{maxUint64, maxUint64}}},
-		{name: "128-bit/alternating", path: BitArray{len: 128, words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x5555555555555555}}},
+		{name: "128-bit/alternating", path: BitArray{
+			len: 128, words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x5555555555555555},
+		}},
 		{name: "129-bit/word2-only", path: BitArray{len: 129, words: [4]uint64{0, 0, 1}}},
-		{name: "176-bit", path: BitArray{len: 176, words: [4]uint64{maxUint64, maxUint64, 0xFFFFFFFFFFFF}}},
-		{name: "192-bit", path: BitArray{len: 192, words: [4]uint64{maxUint64, maxUint64, maxUint64}}},
+		{name: "176-bit", path: BitArray{len: 176, words: [4]uint64{
+			maxUint64, maxUint64, 0xFFFFFFFFFFFF,
+		}}},
+		{name: "192-bit", path: BitArray{len: 192, words: [4]uint64{
+			maxUint64, maxUint64, maxUint64,
+		}}},
 		{name: "193-bit/word3-only", path: BitArray{len: 193, words: [4]uint64{0, 0, 0, 1}}},
-		{name: "208-bit", path: BitArray{len: 208, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0xFFFF}}},
-		{name: "251-bit", path: BitArray{len: 251, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF}}},
-		{name: "251-bit/alternating", path: BitArray{len: 251, words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x5555555555555555, 0xAAAAAAAAAAAAAAAA, 0x0555555555555555}}},
+		{name: "208-bit", path: BitArray{len: 208, words: [4]uint64{
+			maxUint64, maxUint64, maxUint64, 0xFFFF,
+		}}},
+		{name: "251-bit", path: BitArray{len: 251, words: [4]uint64{
+			maxUint64, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF,
+		}}},
+		{name: "251-bit/alternating", path: BitArray{len: 251, words: [4]uint64{
+			0xAAAAAAAAAAAAAAAA, 0x5555555555555555, 0xAAAAAAAAAAAAAAAA, 0x0555555555555555,
+		}}},
 	}
 }
 
