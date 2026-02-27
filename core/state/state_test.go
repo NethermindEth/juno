@@ -288,7 +288,7 @@ func TestStateTries(t *testing.T) {
 	stateDB := setupState(t, stateUpdates, 1)
 	root := *stateUpdates[0].NewRoot
 
-	state, err := New(&root, stateDB)
+	state, err := New(&root, stateDB, nil)
 	require.NoError(t, err)
 
 	classTrie, err := state.ClassTrie()
