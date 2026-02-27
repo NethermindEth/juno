@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -29,7 +28,7 @@ import (
 func (h *Handler) SubscribeNewTransactionReceipts(
 	ctx context.Context,
 	senderAddress []felt.Address,
-	finalityStatuses []rpcv9.TxnFinalityStatusWithoutL1,
+	finalityStatuses []TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -47,21 +46,21 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 type receiptsSubscriberState struct {
 	conn       jsonrpc.Conn
 	senderAddr []felt.Address
-	sentCache  *rpccore.SubscriptionCache[rpcv9.SentReceipt, rpcv9.TxnFinalityStatusWithoutL1]
+	sentCache  *rpccore.SubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1]
 }
 
 func newReceiptsSubscriber(
 	conn jsonrpc.Conn,
 	senderAddress []felt.Address,
-	finalityStatuses []rpcv9.TxnFinalityStatusWithoutL1,
+	finalityStatuses []TxnFinalityStatusWithoutL1,
 ) (subscriber, *jsonrpc.Error) {
 	if len(senderAddress) > rpccore.MaxEventFilterKeys {
 		return subscriber{}, rpccore.ErrTooManyAddressesInFilter
 	}
 
 	if len(finalityStatuses) == 0 {
-		finalityStatuses = []rpcv9.TxnFinalityStatusWithoutL1{
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+		finalityStatuses = []TxnFinalityStatusWithoutL1{
+			TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 		}
 	} else {
 		finalityStatuses = utils.Set(finalityStatuses)
@@ -70,19 +69,19 @@ func newReceiptsSubscriber(
 	state := &receiptsSubscriberState{
 		conn:       conn,
 		senderAddr: senderAddress,
-		sentCache:  rpccore.NewSubscriptionCache[rpcv9.SentReceipt, rpcv9.TxnFinalityStatusWithoutL1](),
+		sentCache:  rpccore.NewSubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1](),
 	}
 
 	s := subscriber{
 		onReorg: state.onReorg,
 	}
 
-	if slices.Contains(finalityStatuses, rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnAcceptedOnL2)) {
+	if slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
 		s.onNewHead = state.onNewHead
 		s.onPreLatest = state.onPreLatest
 	}
 
-	if slices.Contains(finalityStatuses, rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)) {
+	if slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnPreConfirmed)) {
 		s.onPendingData = state.onPendingData
 	}
 
@@ -108,7 +107,7 @@ func (s *receiptsSubscriberState) onNewHead(
 	return s.processBlock(
 		id,
 		head,
-		rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 		false,
 	)
 }
@@ -122,7 +121,7 @@ func (s *receiptsSubscriberState) onPreLatest(
 	return s.processBlock(
 		id,
 		preLatest.Block,
-		rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 		true,
 	)
 }
@@ -140,7 +139,7 @@ func (s *receiptsSubscriberState) onPendingData(
 	return s.processBlock(
 		id,
 		pending.GetBlock(),
-		rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed),
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
 		false,
 	)
 }
@@ -148,7 +147,7 @@ func (s *receiptsSubscriberState) onPendingData(
 func (s *receiptsSubscriberState) processBlock(
 	id string,
 	block *core.Block,
-	finalityStatus rpcv9.TxnFinalityStatusWithoutL1,
+	finalityStatus TxnFinalityStatusWithoutL1,
 	isPreLatest bool,
 ) error {
 	for i, txn := range block.Transactions {
@@ -156,16 +155,16 @@ func (s *receiptsSubscriberState) processBlock(
 			continue
 		}
 
-		adaptedReceipt := rpcv9.AdaptReceiptWithBlockInfo(
+		adaptedReceipt := AdaptReceiptWithBlockInfo(
 			block.Receipts[i],
 			txn,
-			rpcv9.TxnFinalityStatus(finalityStatus),
+			TxnFinalityStatus(finalityStatus),
 			block.Hash,
 			block.Number,
 			isPreLatest,
 		)
 
-		sentReceipt := rpcv9.SentReceipt{
+		sentReceipt := SentReceipt{
 			TransactionHash:  *adaptedReceipt.Hash,
 			TransactionIndex: i,
 		}
@@ -183,6 +182,6 @@ func (s *receiptsSubscriberState) processBlock(
 	return nil
 }
 
-func sendTransactionReceipt(w jsonrpc.Conn, receipt *rpcv9.TransactionReceipt, id string) error {
+func sendTransactionReceipt(w jsonrpc.Conn, receipt *TransactionReceipt, id string) error {
 	return sendResponse("starknet_subscriptionNewTransactionReceipts", w, id, receipt)
 }

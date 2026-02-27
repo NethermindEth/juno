@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -20,12 +19,12 @@ import (
 )
 
 func TestStateUpdate_ErrorCases(t *testing.T) {
-	errTests := map[string]rpcv9.BlockID{
-		"latest":        rpcv9.BlockIDLatest(),
-		"pre_confirmed": rpcv9.BlockIDPreConfirmed(),
-		"hash":          rpcv9.BlockIDFromHash(&felt.One),
-		"number":        rpcv9.BlockIDFromNumber(1),
-		"l1_accepted":   rpcv9.BlockIDL1Accepted(),
+	errTests := map[string]rpcv10.BlockID{
+		"latest":        rpcv10.BlockIDLatest(),
+		"pre_confirmed": rpcv10.BlockIDPreConfirmed(),
+		"hash":          rpcv10.BlockIDFromHash(&felt.One),
+		"number":        rpcv10.BlockIDFromNumber(1),
+		"l1_accepted":   rpcv10.BlockIDL1Accepted(),
 	}
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -69,7 +68,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("latest", func(t *testing.T) {
 		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
-		latest := rpcv9.BlockIDLatest()
+		latest := rpcv10.BlockIDLatest()
 		update, rpcErr := handler.StateUpdate(&latest)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
@@ -77,7 +76,7 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("by height", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
-		number := rpcv9.BlockIDFromNumber(targetBlockNumber)
+		number := rpcv10.BlockIDFromNumber(targetBlockNumber)
 		update, rpcErr := handler.StateUpdate(&number)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
@@ -85,7 +84,7 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("by hash", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByHash(update3077642.BlockHash).Return(update3077642, nil)
-		hash := rpcv9.BlockIDFromHash(update3077642.BlockHash)
+		hash := rpcv10.BlockIDFromHash(update3077642.BlockHash)
 		update, rpcErr := handler.StateUpdate(&hash)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
@@ -103,7 +102,7 @@ func TestStateUpdate(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				gwUpdate, err := integGw.StateUpdate(t.Context(), height)
 				require.NoError(t, err)
-				number := rpcv9.BlockIDFromNumber(height)
+				number := rpcv10.BlockIDFromNumber(height)
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
 				update, rpcErr := handler.StateUpdate(&number)
 				require.Nil(t, rpcErr)
@@ -123,7 +122,7 @@ func TestStateUpdate(t *testing.T) {
 			nil,
 		)
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
-		l1AcceptedID := rpcv9.BlockIDL1Accepted()
+		l1AcceptedID := rpcv10.BlockIDL1Accepted()
 		update, rpcErr := handler.StateUpdate(&l1AcceptedID)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
@@ -137,7 +136,7 @@ func TestStateUpdate(t *testing.T) {
 			&preConfirmed,
 			nil,
 		)
-		preConfirmedID := rpcv9.BlockIDPreConfirmed()
+		preConfirmedID := rpcv10.BlockIDPreConfirmed()
 		update, rpcErr := handler.StateUpdate(&preConfirmedID)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
