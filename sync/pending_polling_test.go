@@ -32,7 +32,7 @@ type MockDataSource struct {
 
 // Override BlockPending to simulate errors and/or injected responses
 func (m *MockDataSource) BlockPending(ctx context.Context) (core.Pending, error) {
-	m.numCallsPending += 1
+	m.numCallsPending++
 	if m.numCallsPending <= m.pendingErrorThreshold {
 		return core.Pending{}, errors.New("some error")
 	}
@@ -45,7 +45,7 @@ func (m *MockDataSource) BlockPending(ctx context.Context) (core.Pending, error)
 
 // Override PreConfirmedBlockByNumber to simulate errors and variable tx count
 func (m *MockDataSource) PreConfirmedBlockByNumber(ctx context.Context, number uint64) (core.PreConfirmed, error) {
-	m.numCallsPreConfirmed += 1
+	m.numCallsPreConfirmed++
 	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
 		return core.PreConfirmed{}, errors.New("some error")
 	}
