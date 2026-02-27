@@ -12,7 +12,7 @@ type State interface {
 	StateReader
 
 	// Update applies the given state update at blockNum: registers declared classes,
-	// deploys contracts, applies storage/nonce/class-hash diffs to the stateand updates the tries.
+	// deploys contracts, applies storage/nonce/class-hash diffs to the state and updates the tries.
 	// Verifies state roots before and after the update.
 	// todo: change declaredClasses map[felt.Felt]ClassDefinition to map[felt.ClassHash]ClassDefinition
 	Update(

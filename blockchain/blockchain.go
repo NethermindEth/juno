@@ -316,19 +316,16 @@ func (b *Blockchain) Store(
 			return err
 		}
 
-		if err := core.NewDeprecatedState(txn).Update(
-			block.Number,
-			stateUpdate,
-			newClasses,
-			false,
-		); err != nil {
+		state := core.NewDeprecatedState(txn)
+		err := state.Update(block.Number, stateUpdate, newClasses, false)
+		if err != nil {
 			return err
 		}
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 
-		err := b.transactionLayout.WriteTransactionsAndReceipts(
+		err = b.transactionLayout.WriteTransactionsAndReceipts(
 			txn,
 			block.Number,
 			block.Transactions,
