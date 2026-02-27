@@ -39,7 +39,6 @@ import (
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
-	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -559,12 +558,6 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
-	cfg := make(map[string]any)
-	err := mapstructure.Decode(n.cfg, &cfg)
-	if err != nil {
-		n.log.Error("Error while decoding config to mapstructure", zap.Error(err))
-		return
-	}
 	yamlConfig, err := yaml.Marshal(n.cfg)
 	if err != nil {
 		n.log.Error("Error while marshalling config", zap.Error(err))
