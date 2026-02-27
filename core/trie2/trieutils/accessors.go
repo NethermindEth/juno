@@ -118,29 +118,42 @@ func WriteTrieJournal(w db.KeyValueWriter, journal []byte) error {
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
 func nodeKeyByPath(prefix db.Bucket, owner *felt.Address, path *Path, isLeaf bool) []byte {
-	var (
-		prefixBytes = prefix.Key()
-		ownerBytes  []byte
-		nodeType    []byte
-		pathBytes   = path.EncodedBytes()
+	var ownerLen int
+	if !felt.IsZero(owner) {
+		// felt.Bytes() returns a fixed-size array of 32 bytes
+		ownerLen = 32
+	}
+
+	var nodeType byte
+	if isLeaf {
+		nodeType = leaf.Byte()
+	} else {
+		nodeType = nonLeaf.Byte()
+	}
+
+	pathBytes := path.EncodedBytes()
+
+	const (
+		prefixSize   = 1
+		nodeTypeSize = 1
 	)
 
-	if !felt.IsZero(owner) {
-		ob := owner.Bytes()
-		ownerBytes = ob[:]
+	key := make([]byte, prefixSize+ownerLen+nodeTypeSize+len(pathBytes))
+	dst := key
+
+	dst[0] = byte(prefix)
+	dst = dst[prefixSize:]
+
+	if ownerLen > 0 {
+		ownerBytes := owner.Bytes()
+		copy(dst, ownerBytes[:])
+		dst = dst[ownerLen:]
 	}
 
-	if isLeaf {
-		nodeType = leaf.Bytes()
-	} else {
-		nodeType = nonLeaf.Bytes()
-	}
+	dst[0] = nodeType
+	dst = dst[nodeTypeSize:]
 
-	key := make([]byte, 0, len(prefixBytes)+len(ownerBytes)+len(nodeType)+len(pathBytes))
-	key = append(key, prefixBytes...)
-	key = append(key, ownerBytes...)
-	key = append(key, nodeType...)
-	key = append(key, pathBytes...)
+	copy(dst, pathBytes)
 
 	return key
 }
@@ -190,7 +203,6 @@ func WriteNodeByHash(
 // [1 byte prefix][32 bytes owner][1 byte node-type][8 byte from path][32 byte hash]
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
-
 func nodeKeyByHash(
 	prefix db.Bucket,
 	owner *felt.Address,
@@ -198,50 +210,48 @@ func nodeKeyByHash(
 	hash *felt.Hash,
 	isLeaf bool,
 ) []byte {
-	const pathSignificantBytes = 8
-	var (
-		prefixBytes = prefix.Key()
-		ownerBytes  []byte
-		nodeType    []byte
-		pathBytes   = path.ActiveBytes()
-		hashBytes   = hash.Bytes()
+	var ownerLen int
+	if !felt.IsZero(owner) {
+		// felt.Bytes() returns a fixed-size array of 32 bytes
+		ownerLen = 32
+	}
+
+	var nodeType byte
+	if isLeaf {
+		nodeType = leaf.Byte()
+	} else {
+		nodeType = nonLeaf.Byte()
+	}
+
+	const (
+		prefixSize           = 1
+		nodeTypeSize         = 1
+		pathSignificantBytes = 8
+		hashSize             = 32
 	)
 
-	if !felt.IsZero(owner) {
-		ob := owner.Bytes()
-		ownerBytes = ob[:]
+	key := make([]byte, prefixSize+ownerLen+nodeTypeSize+pathSignificantBytes+hashSize)
+	dst := key
+
+	dst[0] = byte(prefix)
+	dst = dst[prefixSize:]
+
+	if ownerLen > 0 {
+		ownerBytes := owner.Bytes()
+		copy(dst, ownerBytes[:])
+		dst = dst[ownerLen:]
 	}
 
-	if isLeaf {
-		nodeType = leaf.Bytes()
-	} else {
-		nodeType = nonLeaf.Bytes()
-	}
+	dst[0] = nodeType
+	dst = dst[nodeTypeSize:]
 
-	keySize := len(prefixBytes) + len(ownerBytes) + len(nodeType) + len(hashBytes)
-	if len(pathBytes) < pathSignificantBytes {
-		keySize += pathSignificantBytes
-	} else {
-		keySize += len(pathBytes)
-	}
+	bytes := path.Bytes()
+	activeBytes := bytes[path.inactiveBytes():]
+	copy(dst[:pathSignificantBytes], activeBytes)
+	dst = dst[pathSignificantBytes:]
 
-	key := make([]byte, 0, keySize)
-	key = append(key, prefixBytes...)
-	key = append(key, ownerBytes...)
-	key = append(key, nodeType...)
-
-	if len(pathBytes) > 0 {
-		if len(pathBytes) < pathSignificantBytes {
-			key = append(key, pathBytes...)
-			key = append(key, make([]byte, pathSignificantBytes-len(pathBytes))...)
-		} else {
-			key = append(key, pathBytes...)
-		}
-	} else {
-		key = append(key, make([]byte, pathSignificantBytes)...)
-	}
-
-	key = append(key, hashBytes[:]...)
+	hashBytes := hash.Bytes()
+	copy(dst, hashBytes[:])
 
 	return key
 }
