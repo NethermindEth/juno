@@ -196,7 +196,12 @@ func (s *State) Update(
 	}
 
 	// Update the class trie
-	if err := s.updateClassTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
+	err := s.updateClassTrie(
+		update.StateDiff.DeclaredV1Classes,
+		declaredClasses,
+		update.StateDiff.MigratedClasses,
+	)
+	if err != nil {
 		return err
 	}
 
@@ -293,6 +298,22 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 		}
 
 		dirtyClasses[*hash] = nil // mark for deletion
+	}
+
+	// Revert migrated class metadata: restore V1 casm hash in trie
+	for classHash := range update.StateDiff.MigratedClasses {
+		metadata, err := core.GetClassCasmHashMetadata(s.db.disk, &classHash)
+		if err != nil {
+			return fmt.Errorf("get casm metadata for class %s: %w", classHash.String(), err)
+		}
+		if err := metadata.Unmigrate(); err != nil {
+			return fmt.Errorf("unmigrate class %s: %w", classHash.String(), err)
+		}
+		v1CasmHash := metadata.CasmHash() // returns V1 after Unmigrate
+		leafVal := crypto.Poseidon(leafVersion0, (*felt.Felt)(&v1CasmHash))
+		if err := s.classTrie.Update((*felt.Felt)(&classHash), &leafVal); err != nil {
+			return fmt.Errorf("revert class %s in trie: %w", classHash.String(), err)
+		}
 	}
 
 	if err := s.updateContracts(blockNum, &reverseDiff); err != nil {
@@ -570,6 +591,7 @@ func (s *State) flush(
 func (s *State) updateClassTrie(
 	declaredClasses map[felt.Felt]*felt.Felt,
 	classDefs map[felt.Felt]core.ClassDefinition,
+	migratedClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
 	for classHash, compiledClassHash := range declaredClasses {
 		if _, found := classDefs[classHash]; !found {
@@ -578,6 +600,13 @@ func (s *State) updateClassTrie(
 
 		leafVal := crypto.Poseidon(leafVersion0, compiledClassHash)
 		if err := s.classTrie.Update(&classHash, &leafVal); err != nil {
+			return err
+		}
+	}
+
+	for classHash, casmHash := range migratedClasses {
+		leafVal := crypto.Poseidon(leafVersion0, (*felt.Felt)(&casmHash))
+		if err := s.classTrie.Update((*felt.Felt)(&classHash), &leafVal); err != nil {
 			return err
 		}
 	}

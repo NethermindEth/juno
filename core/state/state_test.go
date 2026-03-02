@@ -720,6 +720,82 @@ func TestRevert(t *testing.T) {
 			t.Errorf("key: %v, val: %v", key, val)
 		}
 	})
+
+	// Revert with MigratedClasses: State only restores V1 in the class trie.
+	// Writing/reverting CASM hash metadata is the caller's responsibility.
+	t.Run("revert migrated casm classes with caller-managed metadata", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		sierraHash := felt.FromUint64[felt.SierraClassHash](0x1234)
+		v1CasmHash := felt.FromUint64[felt.CasmClassHash](0x1111)
+		v2CasmHash := felt.FromUint64[felt.CasmClassHash](0x2222)
+		sierraHashFelt := (*felt.Felt)(&sierraHash)
+
+		classes := map[felt.Felt]core.ClassDefinition{
+			*sierraHashFelt: &core.SierraClass{},
+		}
+
+		su0 := &core.StateUpdate{
+			OldRoot: &felt.Zero,
+			StateDiff: &core.StateDiff{
+				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+					*sierraHashFelt: (*felt.Felt)(&v1CasmHash),
+				},
+			},
+		}
+		state, err := New(&felt.Zero, stateDB)
+		require.NoError(t, err)
+		require.NoError(t, state.Update(block0, su0, classes, true))
+		root0, err := state.Commitment()
+		require.NoError(t, err)
+
+		// Caller writes CASM hash metadata (State does not).
+		metadata := core.NewCasmHashMetadataDeclaredV1(block0, &v1CasmHash, &v2CasmHash)
+		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadata))
+
+		su1 := &core.StateUpdate{
+			OldRoot: &root0,
+			StateDiff: &core.StateDiff{
+				MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
+					sierraHash: v2CasmHash,
+				},
+			},
+		}
+		state, err = New(&root0, stateDB)
+		require.NoError(t, err)
+		require.NoError(t, state.Update(block1, su1, nil, true))
+		newRoot, err := state.Commitment()
+		require.NoError(t, err)
+		su1.NewRoot = &newRoot
+
+		// Caller migrates metadata (State does not).
+		require.NoError(t, metadata.Migrate(block1))
+		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadata))
+
+		state, err = New(su1.NewRoot, stateDB)
+		require.NoError(t, err)
+		stateRoot, err := state.Commitment()
+		require.NoError(t, err)
+		assert.Equal(t, *su1.NewRoot, stateRoot, "state root after migration should match new root")
+		gotCasmHash, err := state.CompiledClassHash(&sierraHash)
+		require.NoError(t, err)
+		require.Equal(t, v2CasmHash, gotCasmHash, "CompiledClassHash should return V2 before revert")
+		// Revert: State restores V1 in the class trie only; it does not write metadata.
+		require.NoError(t, state.Revert(block1, su1))
+
+		metadataReverted, err := core.GetClassCasmHashMetadata(stateDB.disk, &sierraHash)
+		require.NoError(t, err)
+		require.NoError(t, metadataReverted.Unmigrate())
+		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadataReverted))
+
+		state, err = New(&root0, stateDB)
+		require.NoError(t, err)
+		gotRoot, err := state.Commitment()
+		require.NoError(t, err)
+		assert.Equal(t, root0, gotRoot, "commitment after revert should match block 0")
+		gotCasmHash, err = state.CompiledClassHash(&sierraHash)
+		require.NoError(t, err)
+		assert.Equal(t, v1CasmHash, gotCasmHash, "CompiledClassHash should return V1 after caller persisted unmigrated metadata")
+	})
 }
 
 func TestContractHistory(t *testing.T) {
