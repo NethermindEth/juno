@@ -938,21 +938,6 @@ func (s *DeprecatedState) revertMigratedCasmClasses(
 
 	for classHash := range migratedCasmClasses {
 		classHashFelt := (*felt.Felt)(&classHash)
-		classDefinition, err := s.Class(classHashFelt)
-		if err != nil {
-			return err
-		}
-
-		stateUpdate, err := GetStateUpdateByBlockNum(s.txn, classDefinition.At)
-		if err != nil {
-			return err
-		}
-		deprecatedCasmHash := stateUpdate.StateDiff.DeclaredV1Classes[*classHashFelt]
-
-		if _, err = classesTrie.Put(classHashFelt, deprecatedCasmHash); err != nil {
-			return fmt.Errorf("revert class %s in trie: %w", classHashFelt, err)
-		}
-
 		casmHashMetadata, err := GetClassCasmHashMetadata(s.txn, &classHash)
 		if err != nil {
 			return err
@@ -960,6 +945,12 @@ func (s *DeprecatedState) revertMigratedCasmClasses(
 
 		if err := casmHashMetadata.Unmigrate(); err != nil {
 			return err
+		}
+
+		deprecatedCasmHash := casmHashMetadata.CasmHash()
+		leafValue := crypto.Poseidon(leafVersion, (*felt.Felt)(&deprecatedCasmHash))
+		if _, err = classesTrie.Put(classHashFelt, &leafValue); err != nil {
+			return fmt.Errorf("revert class %s in trie: %w", classHashFelt, err)
 		}
 
 		err = WriteClassCasmHashMetadata(s.txn, &classHash, &casmHashMetadata)
