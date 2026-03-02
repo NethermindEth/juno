@@ -482,6 +482,33 @@ func storeCasmHashMetadataV1(
 	return nil
 }
 
+// revertCasmHashMetadata reverts CASM hash metadata for declared and migrated classes.
+func revertCasmHashMetadata(
+	r db.KeyValueReader,
+	w db.KeyValueWriter,
+	stateUpdate *core.StateUpdate,
+) error {
+	for sierraClassHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		err := core.DeleteClassCasmHashMetadata(w, (*felt.SierraClassHash)(&sierraClassHash))
+		if err != nil {
+			return err
+		}
+	}
+	for sierraClassHash := range stateUpdate.StateDiff.MigratedClasses {
+		metadata, err := core.GetClassCasmHashMetadata(r, &sierraClassHash)
+		if err != nil {
+			return fmt.Errorf("revert migrated class %s: %w", sierraClassHash.String(), err)
+		}
+		if err := metadata.Unmigrate(); err != nil {
+			return fmt.Errorf("failed to unmigrate class %s: %w", sierraClassHash.String(), err)
+		}
+		if err := core.WriteClassCasmHashMetadata(w, &sierraClassHash, &metadata); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // VerifyBlock assumes the block has already been sanity-checked.
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return verifyBlock(b.database, block)
@@ -663,6 +690,10 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 	state := core.NewDeprecatedState(txn)
 	// revert state
 	if err = state.Revert(blockNumber, stateUpdate); err != nil {
+		return err
+	}
+
+	if err = revertCasmHashMetadata(txn, txn, stateUpdate); err != nil {
 		return err
 	}
 

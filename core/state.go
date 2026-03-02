@@ -724,11 +724,6 @@ func (s *DeprecatedState) removeDeclaredClasses(
 			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
 				return err
 			}
-
-			sierraClassHash := felt.SierraClassHash(*cHash)
-			if err = DeleteClassCasmHashMetadata(s.txn, &sierraClassHash); err != nil {
-				return fmt.Errorf("delete CASM class hash metadata for class %s: %v", cHash, err)
-			}
 		}
 	}
 	return classesCloser()
@@ -951,11 +946,6 @@ func (s *DeprecatedState) revertMigratedCasmClasses(
 		leafValue := crypto.Poseidon(leafVersion, (*felt.Felt)(&deprecatedCasmHash))
 		if _, err = classesTrie.Put(classHashFelt, &leafValue); err != nil {
 			return fmt.Errorf("revert class %s in trie: %w", classHashFelt, err)
-		}
-
-		err = WriteClassCasmHashMetadata(s.txn, &classHash, &casmHashMetadata)
-		if err != nil {
-			return err
 		}
 	}
 

@@ -905,6 +905,12 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 	// Revert block 1
 	require.NoError(t, state.Revert(1, su1))
 
+	// State restores V1 in the class trie; caller must persist unmigrated metadata
+	metadataReverted, err := core.GetClassCasmHashMetadata(txn, &sierraHash)
+	require.NoError(t, err)
+	require.NoError(t, metadataReverted.Unmigrate())
+	require.NoError(t, core.WriteClassCasmHashMetadata(txn, &sierraHash, &metadataReverted))
+
 	// Classes trie and metadata should be back to V1
 	gotRoot, err := state.Commitment()
 	require.NoError(t, err)
