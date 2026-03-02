@@ -844,3 +844,69 @@ func TestCompiledClassHashAt(t *testing.T) {
 		assert.Equal(t, *casmHash2, got)
 	})
 }
+
+func TestRevertMigratedCasmClasses(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
+	state := core.NewDeprecatedState(txn)
+
+	sierraHash := felt.UnsafeFromString[felt.SierraClassHash]("0x1234")
+	v1CasmHash := felt.UnsafeFromString[felt.CasmClassHash]("0x1111")
+	v2CasmHash := felt.UnsafeFromString[felt.CasmClassHash]("0x2222")
+	sierraHashFelt := (*felt.Felt)(&sierraHash)
+
+	classes := map[felt.Felt]core.ClassDefinition{
+		*sierraHashFelt: &core.SierraClass{},
+	}
+
+	// Block 0: declare class with V1 CASM hash
+	su0 := &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+				*sierraHashFelt: (*felt.Felt)(&v1CasmHash),
+			},
+		},
+	}
+	require.NoError(t, state.Update(0, su0, classes, true))
+	root0, err := state.Commitment()
+	require.NoError(t, err)
+
+	// Manually write CasmHashMetadata,
+	// core.State.Update does not; blockchain layer does in production.
+	// Revert relies on the metadata being present.
+	metadata := core.NewCasmHashMetadataDeclaredV1(0, &v1CasmHash, &v2CasmHash)
+	require.NoError(t, core.WriteClassCasmHashMetadata(txn, &sierraHash, &metadata))
+
+	// Block 1: apply migration in trie (MigratedClasses)
+	su1 := &core.StateUpdate{
+		OldRoot: &root0,
+		StateDiff: &core.StateDiff{
+			MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
+				sierraHash: v2CasmHash,
+			},
+		},
+	}
+	require.NoError(t, state.Update(1, su1, nil, true))
+
+	// Simulate block 1 migration: migrate metadata in DB
+	require.NoError(t, metadata.Migrate(1))
+	require.NoError(t, core.WriteClassCasmHashMetadata(txn, &sierraHash, &metadata))
+
+	newRoot, err := state.Commitment()
+	require.NoError(t, err)
+	su1.NewRoot = &newRoot
+
+	// Revert block 1
+	require.NoError(t, state.Revert(1, su1))
+
+	// Classes trie and metadata should be back to V1
+	gotRoot, err := state.Commitment()
+	require.NoError(t, err)
+	assert.Equal(t, root0, gotRoot, "state root after revert should match pre-migration root")
+
+	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
+	require.NoError(t, err)
+	assert.Equal(t, v1CasmHash, gotCasmHash, "CompiledClassHash should return V1 after revert")
+}
