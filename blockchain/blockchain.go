@@ -321,6 +321,7 @@ func (b *Blockchain) Store(
 		if err != nil {
 			return err
 		}
+
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
 		}

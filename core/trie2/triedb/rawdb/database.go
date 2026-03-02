@@ -37,6 +37,7 @@ func (d *Database) readNode(
 ) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+
 	blob, err := trieutils.GetNodeByPath(d.disk, id.Bucket(), owner, path, isLeaf)
 	if err != nil {
 		return nil, err
@@ -62,11 +63,10 @@ func (d *Database) Update(
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
+	batch db.Batch,
 ) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-
-	batch := d.disk.NewBatch()
 
 	var classNodes classNodesMap
 	var contractNodes contractNodesMap
@@ -102,7 +102,7 @@ func (d *Database) Update(
 		}
 	}
 
-	return batch.Write()
+	return nil
 }
 
 func (d *Database) updateNode(
@@ -112,6 +112,10 @@ func (d *Database) updateNode(
 	path *trieutils.Path,
 	n trienode.TrieNode,
 ) error {
+	if batch == nil {
+		return nil
+	}
+
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
 		return trieutils.DeleteNodeByPath(batch, bucket, owner, path, n.IsLeaf())
 	}

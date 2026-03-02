@@ -148,14 +148,17 @@ func TestRawDB(t *testing.T) {
 			}
 		}
 
+		batch := memDB.NewBatch()
 		err := database.Update(
 			&felt.StateRootHash{},
 			&felt.StateRootHash{},
 			1,
 			createMergeNodeSet(basicClassNodes),
 			createContractMergeNodeSet(allContractNodes),
+			batch,
 		)
 		require.NoError(t, err)
+		require.NoError(t, batch.Write())
 
 		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		verifyNode(t, database, classID, &rootPath, rootNode)
@@ -173,14 +176,17 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
+		batch := memDB.NewBatch()
 		err := database.Update(
 			&felt.StateRootHash{},
 			&felt.StateRootHash{},
 			1,
 			createMergeNodeSet(basicClassNodes),
 			nil,
+			batch,
 		)
 		require.NoError(t, err)
+		require.NoError(t, batch.Write())
 
 		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
@@ -189,14 +195,17 @@ func TestRawDB(t *testing.T) {
 			leaf1Path: trienode.NewDeleted(true),
 		}
 
+		batch = memDB.NewBatch()
 		err = database.Update(
 			&felt.StateRootHash{},
 			&felt.StateRootHash{},
 			2,
 			createMergeNodeSet(deletedNodes),
 			nil,
+			batch,
 		)
 		require.NoError(t, err)
+		require.NoError(t, batch.Write())
 
 		reader, err := database.NodeReader(classID)
 		require.NoError(t, err)
@@ -217,14 +226,17 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
+		batch := memDB.NewBatch()
 		err := database.Update(
 			&felt.StateRootHash{},
 			&felt.StateRootHash{},
 			1,
 			createMergeNodeSet(basicClassNodes),
 			nil,
+			batch,
 		)
 		require.NoError(t, err)
+		require.NoError(t, batch.Write())
 
 		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		reader, err := database.NodeReader(classID)
@@ -247,14 +259,17 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
+		batch := memDB.NewBatch()
 		err := database.Update(
 			&felt.StateRootHash{},
 			&felt.StateRootHash{},
 			1,
 			createMergeNodeSet(basicClassNodes),
 			nil,
+			batch,
 		)
 		require.NoError(t, err)
+		require.NoError(t, batch.Write())
 
 		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		verifyNode(t, database, classID, &rootPath, rootNode)
@@ -269,14 +284,17 @@ func TestRawDB(t *testing.T) {
 			newLeafPath: newLeafNode,
 		}
 
+		batch = memDB.NewBatch()
 		err = database.Update(
 			&felt.StateRootHash{},
 			&felt.StateRootHash{},
 			2,
 			createMergeNodeSet(newNodes),
 			nil,
+			batch,
 		)
 		require.NoError(t, err)
+		require.NoError(t, batch.Write())
 
 		verifyNode(t, database, classID, &newLeafPath, newLeafNode)
 		verifyNode(t, database, classID, &rootPath, rootNode)
@@ -288,14 +306,17 @@ func TestRawDB(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)
 
+		batch := memDB.NewBatch()
 		err := database.Update(
 			&felt.StateRootHash{},
 			&felt.StateRootHash{},
 			1,
 			createMergeNodeSet(basicClassNodes),
 			nil,
+			batch,
 		)
 		require.NoError(t, err)
+		require.NoError(t, batch.Write())
 
 		classID := trieutils.NewClassTrieID(felt.StateRootHash{})
 		owner := felt.Address{}

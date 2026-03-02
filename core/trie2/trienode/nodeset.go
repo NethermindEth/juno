@@ -12,14 +12,17 @@ import (
 // Contains a set of nodes, which are indexed by their path in the trie.
 // It is not thread safe.
 type NodeSet struct {
-	Owner   felt.Address // The owner ( contract address)
+	Owner   felt.Address // The owner (contract address)
 	Nodes   map[trieutils.Path]TrieNode
 	updates int // the count of updated and inserted nodes
 	deletes int // the count of deleted nodes
 }
 
 func NewNodeSet(owner felt.Address) NodeSet {
-	return NodeSet{Owner: owner, Nodes: make(map[trieutils.Path]TrieNode)}
+	return NodeSet{
+		Owner: owner,
+		Nodes: make(map[trieutils.Path]TrieNode),
+	}
 }
 
 func (ns *NodeSet) Add(key *trieutils.Path, node TrieNode) {
