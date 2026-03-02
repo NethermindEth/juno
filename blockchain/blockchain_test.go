@@ -801,21 +801,21 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	sierraClassHashFelt := felt.NewUnsafeFromString[felt.Felt](
+	sierraClassHashFelt := felt.UnsafeFromString[felt.Felt](
 		"0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
 	)
-	classDef, err := gw.Class(t.Context(), sierraClassHashFelt)
+	classDef, err := gw.Class(t.Context(), &sierraClassHashFelt)
 	require.NoError(t, err)
 	sierraClass, ok := classDef.(*core.SierraClass)
 	require.True(t, ok, "class must be SierraClass")
 	require.NotNil(t, sierraClass.Compiled, "class must have Compiled set")
 
-	sierraHash := felt.SierraClassHash(*sierraClassHashFelt)
+	sierraHash := felt.SierraClassHash(sierraClassHashFelt)
 	v1CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV1))
 	v2CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
 
 	newClasses := map[felt.Felt]core.ClassDefinition{
-		*sierraClassHashFelt: sierraClass,
+		sierraClassHashFelt: sierraClass,
 	}
 
 	testDB := memory.New()
@@ -844,7 +844,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 		OldRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-				*sierraClassHashFelt: (*felt.Felt)(&v1CasmHash),
+				sierraClassHashFelt: (*felt.Felt)(&v1CasmHash),
 			},
 		},
 	}
@@ -878,14 +878,22 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	}
 	require.NoError(t, chain.Finalise(block1, stateUpdate1, nil, nil))
 
-	// Revert head should revert the state to casm hash v1
-	require.NoError(t, chain.RevertHead())
-
+	// verify the state is migrated
 	state, closer, err := chain.HeadState()
 	require.NoError(t, err)
 	defer func() { _ = closer() }()
-
 	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
+	require.NoError(t, err)
+	assert.Equal(t, v2CasmHash, gotCasmHash, "should return V2 after migrating class")
+
+	// Revert head should revert the state to casm hash v1
+	require.NoError(t, chain.RevertHead())
+
+	state, closer, err = chain.HeadState()
+	require.NoError(t, err)
+	defer func() { _ = closer() }()
+
+	gotCasmHash, err = state.CompiledClassHash(&sierraHash)
 	require.NoError(t, err)
 	assert.Equal(t, v1CasmHash, gotCasmHash, "should return V1 after reverting migrated class")
 

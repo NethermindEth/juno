@@ -850,9 +850,9 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 	state := core.NewDeprecatedState(txn)
 
-	sierraHash := felt.UnsafeFromString[felt.SierraClassHash]("0x1234")
-	v1CasmHash := felt.UnsafeFromString[felt.CasmClassHash]("0x1111")
-	v2CasmHash := felt.UnsafeFromString[felt.CasmClassHash]("0x2222")
+	sierraHash := felt.FromUint64[felt.SierraClassHash](0x1234)
+	v1CasmHash := felt.FromUint64[felt.CasmClassHash](0x1111)
+	v2CasmHash := felt.FromUint64[felt.CasmClassHash](0x2222)
 	sierraHashFelt := (*felt.Felt)(&sierraHash)
 
 	classes := map[felt.Felt]core.ClassDefinition{
@@ -894,6 +894,10 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 	require.NoError(t, metadata.Migrate(1))
 	require.NoError(t, core.WriteClassCasmHashMetadata(txn, &sierraHash, &metadata))
 
+	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
+	require.NoError(t, err)
+	assert.Equal(t, v2CasmHash, gotCasmHash, "should return V2 after migration")
+
 	newRoot, err := state.Commitment()
 	require.NoError(t, err)
 	su1.NewRoot = &newRoot
@@ -906,7 +910,7 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, root0, gotRoot, "state root after revert should match pre-migration root")
 
-	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
+	gotCasmHash, err = state.CompiledClassHash(&sierraHash)
 	require.NoError(t, err)
 	assert.Equal(t, v1CasmHash, gotCasmHash, "CompiledClassHash should return V1 after revert")
 }
