@@ -885,6 +885,9 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
 	require.NoError(t, err)
 	assert.Equal(t, v2CasmHash, gotCasmHash, "should return V2 after migrating class")
+	gotRoot, err := chain.StateCommitment()
+	require.NoError(t, err)
+	assert.Equal(t, stateUpdate1.NewRoot, &gotRoot)
 
 	// Revert head should revert the state to casm hash v1
 	require.NoError(t, chain.RevertHead())
@@ -897,7 +900,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, v1CasmHash, gotCasmHash, "should return V1 after reverting migrated class")
 
-	gotRoot, err := chain.StateCommitment()
+	gotRoot, err = chain.StateCommitment()
 	require.NoError(t, err)
 	assert.Equal(t, stateUpdate0.NewRoot, &gotRoot, "state root after revert should match block 0")
 }
