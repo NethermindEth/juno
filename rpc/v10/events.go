@@ -7,21 +7,30 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 )
 
+type Event struct {
+	From *felt.Felt   `json:"from_address,omitempty"`
+	Keys []*felt.Felt `json:"keys"`
+	Data []*felt.Felt `json:"data"`
+}
+
+type ResultPageRequest struct {
+	ContinuationToken string `json:"continuation_token"`
+	ChunkSize         uint64 `json:"chunk_size" validate:"min=1"`
+}
+
 type EventArgs struct {
 	EventFilter
-	rpcv6.ResultPageRequest
+	ResultPageRequest
 }
 
 type EventFilter struct {
-	FromBlock *rpcv9.BlockID `json:"from_block"`
-	ToBlock   *rpcv9.BlockID `json:"to_block"`
-	Address   addressList    `json:"address"`
-	Keys      [][]felt.Felt  `json:"keys"`
+	FromBlock *BlockID      `json:"from_block"`
+	ToBlock   *BlockID      `json:"to_block"`
+	Address   addressList   `json:"address"`
+	Keys      [][]felt.Felt `json:"keys"`
 }
 
 // addresList is a list of addresses, that can be unmarshalled from a single address
@@ -50,7 +59,7 @@ func (a *addressList) UnmarshalJSON(data []byte) error {
 }
 
 type EmittedEvent struct {
-	*rpcv6.Event
+	*Event
 	BlockNumber      *uint64    `json:"block_number,omitempty"`
 	BlockHash        *felt.Felt `json:"block_hash,omitempty"`
 	TransactionHash  *felt.Felt `json:"transaction_hash"`
@@ -66,10 +75,10 @@ type EventsChunk struct {
 func setEventFilterRange(
 	filter blockchain.EventFilterer,
 	from,
-	to *rpcv9.BlockID,
+	to *BlockID,
 	latestHeight uint64,
 ) error {
-	set := func(filterRange blockchain.EventFilterRange, blockID *rpcv9.BlockID) error {
+	set := func(filterRange blockchain.EventFilterRange, blockID *BlockID) error {
 		if blockID == nil {
 			return nil
 		}
@@ -168,7 +177,7 @@ func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 			TransactionHash:  fEvent.TransactionHash,
 			TransactionIndex: fEvent.TransactionIndex,
 			EventIndex:       fEvent.EventIndex,
-			Event: &rpcv6.Event{
+			Event: &Event{
 				From: fEvent.From,
 				Keys: fEvent.Keys,
 				Data: fEvent.Data,

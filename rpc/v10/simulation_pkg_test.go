@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -62,16 +61,16 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	expected := []SimulatedTransaction{
 		{
 			TransactionTrace: &TransactionTrace{
-				Type: rpcv9.TransactionType(vm.TxnL1Handler),
-				ExecutionResources: &rpcv9.ExecutionResources{
-					InnerExecutionResources: rpcv9.InnerExecutionResources{
+				Type: TransactionType(vm.TxnL1Handler),
+				ExecutionResources: &ExecutionResources{
+					InnerExecutionResources: InnerExecutionResources{
 						L1Gas: 100,
 						L2Gas: 200,
 					},
 					L1DataGas: 50,
 				},
 			},
-			FeeEstimation: rpcv9.FeeEstimate{
+			FeeEstimation: FeeEstimate{
 				L1GasConsumed:     felt.NewFromUint64[felt.Felt](100),
 				L1GasPrice:        felt.NewFromUint64[felt.Felt](1),
 				L2GasConsumed:     felt.NewFromUint64[felt.Felt](200),
@@ -79,20 +78,20 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](50),
 				L1DataGasPrice:    felt.NewFromUint64[felt.Felt](5),
 				OverallFee:        felt.NewFromUint64[felt.Felt](10),
-				Unit:              utils.HeapPtr(rpcv9.WEI),
+				Unit:              utils.HeapPtr(WEI),
 			},
 		},
 		{
 			TransactionTrace: &TransactionTrace{
-				ExecutionResources: &rpcv9.ExecutionResources{
-					InnerExecutionResources: rpcv9.InnerExecutionResources{
+				ExecutionResources: &ExecutionResources{
+					InnerExecutionResources: InnerExecutionResources{
 						L1Gas: 150,
 						L2Gas: 250,
 					},
 					L1DataGas: 70,
 				},
 			},
-			FeeEstimation: rpcv9.FeeEstimate{
+			FeeEstimation: FeeEstimate{
 				L1GasConsumed:     felt.NewFromUint64[felt.Felt](150),
 				L1GasPrice:        felt.NewFromUint64[felt.Felt](2),
 				L2GasConsumed:     felt.NewFromUint64[felt.Felt](250),
@@ -100,7 +99,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](70),
 				L1DataGasPrice:    felt.NewFromUint64[felt.Felt](6),
 				OverallFee:        felt.NewFromUint64[felt.Felt](20),
-				Unit:              utils.HeapPtr(rpcv9.FRI),
+				Unit:              utils.HeapPtr(FRI),
 			},
 		},
 	}

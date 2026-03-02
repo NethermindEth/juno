@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +28,7 @@ func isL1Verified(n uint64, l1 core.L1Head) bool {
 	return false
 }
 
-func (h *Handler) blockByID(blockID *rpcv9.BlockID) (*core.Block, *jsonrpc.Error) {
+func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	var block *core.Block
 	var err error
 
@@ -67,7 +66,7 @@ func (h *Handler) blockByID(blockID *rpcv9.BlockID) (*core.Block, *jsonrpc.Error
 	return block, nil
 }
 
-func (h *Handler) blockTxnsByNumber(blockID *rpcv9.BlockID) ([]core.Transaction, *jsonrpc.Error) {
+func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
 	switch {
 	case blockID.IsPreConfirmed():
 		pending, err := h.PendingData()
@@ -91,7 +90,7 @@ func (h *Handler) blockTxnsByNumber(blockID *rpcv9.BlockID) ([]core.Transaction,
 	}
 }
 
-func (h *Handler) blockHeaderByID(blockID *rpcv9.BlockID) (*core.Header, *jsonrpc.Error) {
+func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
 	switch {
@@ -150,7 +149,7 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) stateByBlockID(
-	blockID *rpcv9.BlockID,
+	blockID *BlockID,
 ) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
 	var reader core.StateReader
 	var closer blockchain.StateCloser
@@ -184,18 +183,18 @@ func (h *Handler) stateByBlockID(
 	return reader, closer, nil
 }
 
-func getTransactionType(t core.Transaction) rpcv9.TransactionType {
+func getTransactionType(t core.Transaction) TransactionType {
 	switch t.(type) {
 	case *core.DeployTransaction:
-		return rpcv9.TxnDeploy
+		return TxnDeploy
 	case *core.InvokeTransaction:
-		return rpcv9.TxnInvoke
+		return TxnInvoke
 	case *core.DeclareTransaction:
-		return rpcv9.TxnDeclare
+		return TxnDeclare
 	case *core.DeployAccountTransaction:
-		return rpcv9.TxnDeployAccount
+		return TxnDeployAccount
 	case *core.L1HandlerTransaction:
-		return rpcv9.TxnL1Handler
+		return TxnL1Handler
 	default:
 		panic("unknown transaction type")
 	}

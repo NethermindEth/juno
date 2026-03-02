@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/jsonrpc"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -18,7 +17,7 @@ import (
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeNewHeads(
 	ctx context.Context,
-	blockID *rpcv9.SubscriptionBlockID,
+	blockID *SubscriptionBlockID,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {

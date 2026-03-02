@@ -13,10 +13,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/crate-crypto/go-ipa/bandersnatch/fp"
 )
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
@@ -90,7 +89,7 @@ func (e EstimateFlag) ToSimulationFlag() (SimulationFlag, error) {
 
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    rpcv9.FeeEstimate `json:"fee_estimation,omitzero"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitzero"`
 }
 
 // SimulateTransactionsResponse represents the response for simulateTransactions.
@@ -172,7 +171,7 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 
 func (h *Handler) SimulateTransactions(
 	ctx context.Context,
-	id *rpcv9.BlockID,
+	id *BlockID,
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
@@ -181,7 +180,7 @@ func (h *Handler) SimulateTransactions(
 
 func (h *Handler) simulateTransactions(
 	ctx context.Context,
-	id *rpcv9.BlockID,
+	id *BlockID,
 	transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 	errOnRevert bool,
@@ -259,21 +258,33 @@ func (h *Handler) simulateTransactions(
 	}, httpHeader, nil
 }
 
+// A new Felt can be created with `felt.FromFelt` in this case
+var RPCVersion3Value = felt.Felt(fp.Element(
+	[4]uint64{
+		18446744073709551521,
+		18446744073709551615,
+		18446744073709551615,
+		576460752303421872,
+	},
+))
+
+// todo(rdr): does this check still make sense. Transaction previous to version 3 might not
+// be allowed anymore
 func isVersion3(version *felt.Felt) bool {
-	return version != nil && version.Equal(&rpcv6.RPCVersion3Value)
+	return version != nil && version.Equal(&RPCVersion3Value)
 }
 
 func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {
-	return (tx.Transaction.Type == rpcv9.TxnDeclare ||
-		tx.Transaction.Type == rpcv9.TxnInvoke) &&
+	return (tx.Transaction.Type == TxnDeclare ||
+		tx.Transaction.Type == TxnInvoke) &&
 		isVersion3(tx.Transaction.Version) &&
 		tx.Transaction.SenderAddress == nil
 }
 
 func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
-	return (tx.Transaction.Type == rpcv9.TxnInvoke ||
-		tx.Transaction.Type == rpcv9.TxnDeployAccount ||
-		tx.Transaction.Type == rpcv9.TxnDeclare) &&
+	return (tx.Transaction.Type == TxnInvoke ||
+		tx.Transaction.Type == TxnDeployAccount ||
+		tx.Transaction.Type == TxnDeclare) &&
 		isVersion3(tx.Transaction.Version) &&
 		tx.Transaction.ResourceBounds == nil
 }
@@ -337,7 +348,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 	}
 	var txnExecutionError vm.TransactionExecutionError
 	if errors.As(err, &txnExecutionError) {
-		return rpcv9.MakeTransactionExecutionError(&txnExecutionError)
+		return MakeTransactionExecutionError(&txnExecutionError)
 	}
 	return rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 }
@@ -385,8 +396,8 @@ func createSimulatedTransactions(
 		trace := utils.HeapPtr(AdaptVMTransactionTrace(&traces[i]))
 
 		// Add root level execution resources
-		trace.ExecutionResources = &rpcv9.ExecutionResources{
-			InnerExecutionResources: rpcv9.InnerExecutionResources{
+		trace.ExecutionResources = &ExecutionResources{
+			InnerExecutionResources: InnerExecutionResources{
 				L1Gas: gasConsumed[i].L1Gas,
 				L2Gas: gasConsumed[i].L2Gas,
 			},
@@ -400,21 +411,21 @@ func createSimulatedTransactions(
 		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3586 //nolint:lll
 		//
 		//nolint:lll // URL exceeds line limit but should remain intact for reference
-		feeUnit := rpcv9.FRI
+		feeUnit := FRI
 		// estimateMessageFee only allow WEI as unit
 		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3605 //nolint:lll
 		//
 		//nolint:lll // URL exceeds line limit but should remain intact for reference
 		if traces[i].Type == vm.TxnL1Handler {
-			feeUnit = rpcv9.WEI
+			feeUnit = WEI
 		}
 
 		switch feeUnit {
-		case rpcv9.WEI:
+		case WEI:
 			l1GasPrice = l1GasPriceWei
 			l2GasPrice = l2GasPriceWei
 			l1DataGasPrice = l1DataGasPriceWei
-		case rpcv9.FRI:
+		case FRI:
 			l1GasPrice = l1GasPriceStrk
 			l2GasPrice = l2GasPriceStrk
 			l1DataGasPrice = l1DataGasPriceStrk
@@ -422,7 +433,7 @@ func createSimulatedTransactions(
 
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
-			FeeEstimation: rpcv9.FeeEstimate{
+			FeeEstimation: FeeEstimate{
 				L1GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L1Gas),
 				L1GasPrice:        l1GasPrice,
 				L2GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L2Gas),

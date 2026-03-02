@@ -22,8 +22,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -184,7 +182,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		keys := make([][]felt.Felt, 1)
 		fromAddr := felt.FromBytes[felt.Address]([]byte("from_address"))
 
-		blockID := rpcv9.SubscriptionBlockID(rpcv9.BlockIDFromNumber(0))
+		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -239,7 +237,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b1,
 		nil,
 		nil,
-		rpcv9.TxnAcceptedOnL2,
+		TxnAcceptedOnL2,
 		false,
 	)
 
@@ -248,7 +246,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b1,
 		nil,
 		nil,
-		rpcv9.TxnAcceptedOnL1,
+		TxnAcceptedOnL1,
 		false,
 	)
 	b2Filtered, b2Emitted := createTestEvents(
@@ -256,7 +254,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2,
 		nil,
 		nil,
-		rpcv9.TxnAcceptedOnL2,
+		TxnAcceptedOnL2,
 		false,
 	)
 
@@ -268,7 +266,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreConfirmedPartial.Block,
 		nil,
 		nil,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 	_, b2PreConfirmedExtendedEmitted := createTestEvents(
@@ -276,7 +274,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreConfirmedExtended.Block,
 		nil,
 		nil,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 
@@ -288,7 +286,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreLatest.Block,
 		nil,
 		nil,
-		rpcv9.TxnAcceptedOnL2,
+		TxnAcceptedOnL2,
 		true,
 	)
 
@@ -299,7 +297,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b3PreConfirmedPartial.Block,
 		nil,
 		nil,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 	_, b3PreConfirmedFullEmitted := createTestEvents(
@@ -307,7 +305,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b3PreConfirmedFull.Block,
 		nil,
 		nil,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 	targetAddrs := []felt.Address{
@@ -320,7 +318,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b1,
 		targetAddrs,
 		nil,
-		rpcv9.TxnAcceptedOnL2,
+		TxnAcceptedOnL2,
 		false,
 	)
 
@@ -335,7 +333,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b1,
 		targetAddrs,
 		keys,
-		rpcv9.TxnAcceptedOnL2,
+		TxnAcceptedOnL2,
 		false,
 	)
 
@@ -345,7 +343,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreConfirmedPartial.Block,
 		targetAddrs,
 		keys,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 
@@ -354,7 +352,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreConfirmedExtended.Block,
 		targetAddrs,
 		keys,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 
@@ -363,7 +361,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2,
 		targetAddrs,
 		keys,
-		rpcv9.TxnAcceptedOnL2,
+		TxnAcceptedOnL2,
 		false,
 	)
 
@@ -386,13 +384,13 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks    func()
 		notify        func()
 		expect        [][]SubscriptionEmittedEvent
-		expectedReorg *rpcv9.ReorgEvent
+		expectedReorg *ReorgEvent
 	}
 
 	type testCase struct {
 		description    string
-		blockID        *rpcv9.SubscriptionBlockID
-		finalityStatus *rpcv9.TxnFinalityStatusWithoutL1
+		blockID        *SubscriptionBlockID
+		finalityStatus *TxnFinalityStatusWithoutL1
 		keys           [][]felt.Felt
 		fromAddrs      []felt.Address
 		steps          []stepInfo
@@ -444,7 +442,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	basicSubscriptionWithPreConfirmed := testCase{
 		description:    "Events from new blocks - status PRE_CONFIRMED",
-		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		blockID:        nil,
 		keys:           nil,
 		fromAddrs:      nil,
@@ -522,7 +520,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	eventsFromHistoricalBlocks := testCase{
 		description: "Events from historical blocks - default status, events from 2 block",
-		blockID:     utils.HeapPtr(rpcv9.SubscriptionBlockID(rpcv9.BlockIDFromNumber(b1.Number))),
+		blockID:     utils.HeapPtr(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
 		keys:        nil,
 		fromAddrs:   nil,
 		setupMocks: func() {
@@ -550,7 +548,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	eventsWithContinuationToken := testCase{
 		description: "Events with continuation token - default status",
-		blockID:     utils.HeapPtr(rpcv9.SubscriptionBlockID(rpcv9.BlockIDFromNumber(b1.Number))),
+		blockID:     utils.HeapPtr(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
 		keys:        nil,
 		fromAddrs:   nil,
 		setupMocks: func() {
@@ -581,7 +579,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreConfirmedPartial.Block,
 		targetAddrs,
 		nil,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 
@@ -590,7 +588,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2PreConfirmedExtended.Block,
 		targetAddrs,
 		nil,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 
@@ -599,7 +597,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2,
 		targetAddrs,
 		nil,
-		rpcv9.TxnAcceptedOnL2,
+		TxnAcceptedOnL2,
 		false,
 	)
 
@@ -607,7 +605,7 @@ func TestSubscribeEvents(t *testing.T) {
 	eventsWithFromAddressAndPreConfirmed := testCase{
 		description:    "Events with from_address filter, finality PRE_CONFIRMED",
 		blockID:        nil,
-		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		fromAddrs:      targetAddrs,
 		keys:           nil,
 		setupMocks: func() {
@@ -650,7 +648,7 @@ func TestSubscribeEvents(t *testing.T) {
 	eventsWithAllFilterAndPreConfirmed := testCase{
 		description:    "Events with from_address and key, finality PRE_CONFIRMED",
 		blockID:        nil,
-		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		fromAddrs:      targetAddrs,
 		keys:           keys,
 		setupMocks: func() {
@@ -691,7 +689,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	deduplication := testCase{
 		description:    "deduplicate events",
-		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
 				mockChain,
@@ -753,7 +751,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	deduplicationWithPreLatestOnStart := testCase{
 		description:    "deduplicate events with prelatest on start",
-		finalityStatus: utils.HeapPtr(rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed)),
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
 				mockChain,
@@ -821,7 +819,7 @@ func TestSubscribeEvents(t *testing.T) {
 				notify: func() {
 					handler.reorgs.Send(&reorg)
 				},
-				expectedReorg: &rpcv9.ReorgEvent{
+				expectedReorg: &ReorgEvent{
 					StartBlockHash: reorg.StartBlockHash,
 					StartBlockNum:  reorg.StartBlockNum,
 					EndBlockHash:   reorg.EndBlockHash,
@@ -955,8 +953,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				conn,
 				id,
 				txHash,
-				rpcv9.TxnStatusAcceptedOnL2,
-				rpcv9.TxnFailure,
+				TxnStatusAcceptedOnL2,
+				TxnFailure,
 				"some error",
 			)
 		})
@@ -973,8 +971,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				conn,
 				id,
 				txHash,
-				rpcv9.TxnStatusAcceptedOnL1,
-				rpcv9.TxnSuccess,
+				TxnStatusAcceptedOnL1,
+				TxnSuccess,
 				"",
 			)
 		})
@@ -999,9 +997,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		txToBroadcast := BroadcastedTransaction{
-			BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-				Transaction: *rpcv9.AdaptTransaction(block.Transactions[0]),
-			},
+			Transaction: *AdaptCoreTransaction(block.Transactions[0]),
 		}
 
 		var tempGatewayResponse struct {
@@ -1037,8 +1033,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			(*felt.Felt)(&txHash),
-			rpcv9.TxnStatusReceived,
-			rpcv9.UnknownExecution,
+			TxnStatusReceived,
+			UnknownExecution,
 			"",
 		)
 		// Candidate Status
@@ -1065,14 +1061,14 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			(*felt.Felt)(&txHash),
-			rpcv9.TxnStatusCandidate,
-			rpcv9.UnknownExecution,
+			TxnStatusCandidate,
+			UnknownExecution,
 			"",
 		)
 		require.Equal(t, block.Transactions[0].Hash(), (*felt.Felt)(&txHash))
 
 		// PreConfirmed Status
-		rpcTx := rpcv9.AdaptTransaction(block.Transactions[0])
+		rpcTx := AdaptCoreTransaction(block.Transactions[0])
 		rpcTx.Hash = (*felt.Felt)(&txHash)
 
 		preConfirmed = &core.PreConfirmed{
@@ -1098,8 +1094,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			(*felt.Felt)(&txHash),
-			rpcv9.TxnStatusPreConfirmed,
-			rpcv9.TxnSuccess,
+			TxnStatusPreConfirmed,
+			TxnSuccess,
 			"",
 		)
 
@@ -1136,8 +1132,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			(*felt.Felt)(&txHash),
-			rpcv9.TxnStatusAcceptedOnL2,
-			rpcv9.TxnSuccess,
+			TxnStatusAcceptedOnL2,
+			TxnSuccess,
 			"",
 		)
 
@@ -1162,8 +1158,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			(*felt.Felt)(&txHash),
-			rpcv9.TxnStatusAcceptedOnL1,
-			rpcv9.TxnSuccess,
+			TxnStatusAcceptedOnL1,
+			TxnSuccess,
 			"",
 		)
 	})
@@ -1224,8 +1220,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			targetTxn.Hash(),
-			rpcv9.TxnStatusPreConfirmed,
-			rpcv9.TxnSuccess,
+			TxnStatusPreConfirmed,
+			TxnSuccess,
 			"",
 		)
 
@@ -1236,8 +1232,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			targetTxn.Hash(),
-			rpcv9.TxnStatusAcceptedOnL2,
-			rpcv9.TxnSuccess,
+			TxnStatusAcceptedOnL2,
+			TxnSuccess,
 			"",
 		)
 	})
@@ -1277,8 +1273,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			conn,
 			id,
 			targetTxn.Hash(),
-			rpcv9.TxnStatusPreConfirmed,
-			rpcv9.TxnSuccess,
+			TxnStatusPreConfirmed,
+			TxnSuccess,
 			"",
 		)
 
@@ -1293,7 +1289,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			EndBlockNum: 2,
 		}
 		handler.reorgs.Send(&reorg)
-		expectedReorgEvent := rpcv9.ReorgEvent{
+		expectedReorgEvent := ReorgEvent{
 			StartBlockHash: reorg.StartBlockHash,
 			StartBlockNum:  reorg.StartBlockNum,
 			EndBlockHash:   reorg.EndBlockHash,
@@ -1314,7 +1310,7 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, log)
 
-		blockID := rpcv9.SubscriptionBlockID(rpcv9.BlockIDFromNumber(0))
+		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -1365,11 +1361,11 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
 	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
-	blockIDLatest := rpcv9.BlockIDLatest()
+	blockIDLatest := BlockIDLatest()
 	subID, conn := createTestNewHeadsWebsocket(
 		t,
 		handler,
-		(*rpcv9.SubscriptionBlockID)(&blockIDLatest),
+		(*SubscriptionBlockID)(&blockIDLatest),
 	)
 
 	// Receive one historical head
@@ -1416,11 +1412,11 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
 	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
-	blockID := rpcv9.BlockIDFromNumber(block1.Number)
+	blockID := BlockIDFromNumber(block1.Number)
 	subID, conn := createTestNewHeadsWebsocket(
 		t,
 		handler,
-		(*rpcv9.SubscriptionBlockID)(&blockID),
+		(*SubscriptionBlockID)(&blockID),
 	)
 
 	// Receive two historical heads
@@ -1455,11 +1451,11 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
 	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
-	blockIDLatest := rpcv9.BlockIDLatest()
+	blockIDLatest := BlockIDLatest()
 	subID, conn := createTestNewHeadsWebsocket(
 		t,
 		handler,
-		(*rpcv9.SubscriptionBlockID)(&blockIDLatest),
+		(*SubscriptionBlockID)(&blockIDLatest),
 	)
 
 	// Receive one historical head
@@ -1474,7 +1470,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 		EndBlockNum:    block1.Number,
 	}
 	handler.reorgs.Send(&reorg)
-	expectedReorgEvent := rpcv9.ReorgEvent{
+	expectedReorgEvent := ReorgEvent{
 		StartBlockHash: reorg.StartBlockHash,
 		StartBlockNum:  reorg.StartBlockNum,
 		EndBlockHash:   reorg.EndBlockHash,
@@ -1509,7 +1505,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
 	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil).Times(2)
 
-	blockIDLatest := rpcv9.SubscriptionBlockID(rpcv9.BlockIDLatest())
+	blockIDLatest := SubscriptionBlockID(BlockIDLatest())
 	// Create two subscriber
 	subID1, conn1 := createTestNewHeadsWebsocket(t, handler, &blockIDLatest)
 	subID2, conn2 := createTestNewHeadsWebsocket(t, handler, &blockIDLatest)
@@ -1573,7 +1569,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	toTransactionsWithFinalityStatus := func(
 		txs []core.Transaction,
-		finalityStatus rpcv9.TxnStatusWithoutL1,
+		finalityStatus TxnStatusWithoutL1,
 		includeProofFacts bool,
 	) []*SubscriptionNewTransaction {
 		txsWithStatus := make([]*SubscriptionNewTransaction, len(txs))
@@ -1609,12 +1605,12 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		description   string
 		notify        func()
 		expect        [][]*SubscriptionNewTransaction
-		expectedReorg *rpcv9.ReorgEvent
+		expectedReorg *ReorgEvent
 	}
 
 	type testCase struct {
 		description   string
-		statuses      []rpcv9.TxnStatusWithoutL1
+		statuses      []TxnStatusWithoutL1
 		senderAddress []felt.Address
 		tags          SubscriptionTags
 		steps         []stepInfo
@@ -1634,7 +1630,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						newHead1.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 						false,
 					),
 				},
@@ -1654,7 +1650,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreLatest.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+						TxnStatusWithoutL1(TxnAcceptedOnL2),
 						false,
 					),
 				},
@@ -1671,7 +1667,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	onlyPreConfirmed := testCase{
 		description:   "Basic subcription - only PRE_CONFIRMED",
-		statuses:      []rpcv9.TxnStatusWithoutL1{rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed)},
+		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusPreConfirmed)},
 		senderAddress: nil,
 		steps: []stepInfo{
 			{
@@ -1682,7 +1678,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedPartial.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -1695,7 +1691,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedFull.Block.Transactions[partialPreConfirmedCount:],
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -1715,7 +1711,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedPartial.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -1732,7 +1728,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	onlyCandidate := testCase{
 		description:   "Basic subcription - only CANDIDATE",
-		statuses:      []rpcv9.TxnStatusWithoutL1{rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate)},
+		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusCandidate)},
 		senderAddress: nil,
 		steps: []stepInfo{
 			{
@@ -1750,7 +1746,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedPartial.CandidateTxs,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
+						TxnStatusWithoutL1(TxnStatusCandidate),
 						false,
 					),
 				},
@@ -1774,11 +1770,11 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	allStatuses := testCase{
 		description: "Basic Subscription- all statuses",
-		statuses: []rpcv9.TxnStatusWithoutL1{
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+		statuses: []TxnStatusWithoutL1{
+			TxnStatusWithoutL1(TxnStatusReceived),
+			TxnStatusWithoutL1(TxnStatusCandidate),
+			TxnStatusWithoutL1(TxnStatusPreConfirmed),
+			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
 		senderAddress: nil,
 		steps: []stepInfo{
@@ -1790,7 +1786,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			// 	expect: [][]*SubscriptionNewTransaction{
 			// 		toTransactionsWithFinalityStatus(
 			// 			newHead2.Transactions[:1],
-			// 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
+			// 			TxnStatusWithoutL1(TxnStatusReceived),
 			// 		),
 			// 	},
 			// },
@@ -1802,7 +1798,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						newHead1.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 						false,
 					),
 				},
@@ -1815,12 +1811,12 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedPartial.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedPartial.CandidateTxs,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
+						TxnStatusWithoutL1(TxnStatusCandidate),
 						false,
 					),
 				},
@@ -1833,7 +1829,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedExtended.Block.Transactions[partialPreConfirmedCount:],
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -1846,7 +1842,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedFull.Block.Transactions[extendedPreConfirmedCount:],
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -1859,7 +1855,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreLatest.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+						TxnStatusWithoutL1(TxnAcceptedOnL2),
 						false,
 					),
 				},
@@ -1874,7 +1870,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	}
 
-	senderAddress := rpcv9.AdaptTransaction(newHead2.Transactions[0]).SenderAddress
+	senderAddress := AdaptCoreTransaction(newHead2.Transactions[0]).SenderAddress
 	senderFilter := []felt.Address{felt.Address(*senderAddress)}
 	senderTransactions := make([]core.Transaction, 0)
 	for _, txn := range newHead2.Transactions {
@@ -1885,11 +1881,11 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	allStatusesWithFilter := testCase{
 		description: "Subscription with sender filter - all statuses",
-		statuses: []rpcv9.TxnStatusWithoutL1{
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+		statuses: []TxnStatusWithoutL1{
+			TxnStatusWithoutL1(TxnStatusReceived),
+			TxnStatusWithoutL1(TxnStatusCandidate),
+			TxnStatusWithoutL1(TxnStatusPreConfirmed),
+			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
 		senderAddress: []felt.Address{felt.Address(*senderAddress)},
 		steps: []stepInfo{
@@ -1901,7 +1897,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			// 	expect: [][]*SubscriptionNewTransaction{
 			// 		toTransactionsWithFinalityStatus(
 			// 			newHead2.Transactions[:1],
-			// 			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
+			// 			TxnStatusWithoutL1(TxnStatusReceived),
 			// 		),
 			// 	},
 			// },
@@ -1913,7 +1909,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						senderTransactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
+						TxnStatusWithoutL1(TxnStatusCandidate),
 						false,
 					),
 				},
@@ -1926,7 +1922,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						senderTransactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -1939,7 +1935,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						senderTransactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+						TxnStatusWithoutL1(TxnAcceptedOnL2),
 						false,
 					),
 				},
@@ -1960,7 +1956,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreLatest.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 						false,
 					),
 				},
@@ -1980,7 +1976,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreLatest.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 						false,
 					),
 				},
@@ -1997,11 +1993,11 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	deduplication := testCase{
 		description: "deduplicate transactions",
-		statuses: []rpcv9.TxnStatusWithoutL1{
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusReceived),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
-			rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+		statuses: []TxnStatusWithoutL1{
+			TxnStatusWithoutL1(TxnStatusReceived),
+			TxnStatusWithoutL1(TxnStatusCandidate),
+			TxnStatusWithoutL1(TxnStatusPreConfirmed),
+			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
 		senderAddress: nil,
 		steps: []stepInfo{
@@ -2013,12 +2009,12 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedPartial.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedPartial.CandidateTxs,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
+						TxnStatusWithoutL1(TxnStatusCandidate),
 						false,
 					),
 				},
@@ -2031,7 +2027,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedExtended.Block.Transactions[partialPreConfirmedCount:],
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -2044,7 +2040,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreLatest.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 						false,
 					),
 				},
@@ -2057,12 +2053,12 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedPartial.Block.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedPartial.CandidateTxs,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusCandidate),
+						TxnStatusWithoutL1(TxnStatusCandidate),
 						false,
 					),
 				},
@@ -2082,7 +2078,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedExtended.Block.Transactions[partialPreConfirmedCount:],
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusPreConfirmed),
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
 				},
@@ -2110,7 +2106,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				notify: func() {
 					syncer.reorgs.Send(&reorg)
 				},
-				expectedReorg: &rpcv9.ReorgEvent{
+				expectedReorg: &ReorgEvent{
 					StartBlockHash: reorg.StartBlockHash,
 					StartBlockNum:  reorg.StartBlockNum,
 					EndBlockHash:   reorg.EndBlockHash,
@@ -2179,7 +2175,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						proofFactsBlock.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 						true,
 					),
 				},
@@ -2201,7 +2197,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						proofFactsBlock.Transactions,
-						rpcv9.TxnStatusWithoutL1(rpcv9.TxnStatusAcceptedOnL2),
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 						false,
 					),
 				},
@@ -2302,13 +2298,13 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	type stepInfo struct {
 		description   string
 		notify        func()
-		expect        [][]*rpcv9.TransactionReceipt
-		expectedReorg *rpcv9.ReorgEvent
+		expect        [][]*TransactionReceipt
+		expectedReorg *ReorgEvent
 	}
 
 	type testCase struct {
 		description   string
-		statuses      []rpcv9.TxnFinalityStatusWithoutL1
+		statuses      []TxnFinalityStatusWithoutL1
 		senderAddress []felt.Address
 		steps         []stepInfo
 	}
@@ -2316,16 +2312,16 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	toAdaptedReceiptsWithFilter := func(
 		b *core.Block,
 		senderAddress []felt.Address,
-		finalityStatus rpcv9.TxnFinalityStatus,
+		finalityStatus TxnFinalityStatus,
 		isPreLatest bool,
-	) []*rpcv9.TransactionReceipt {
-		receipts := make([]*rpcv9.TransactionReceipt, 0)
+	) []*TransactionReceipt {
+		receipts := make([]*TransactionReceipt, 0)
 		for i, receipt := range b.Receipts {
 			txn := b.Transactions[i]
 			if filterTxBySender(txn, senderAddress) {
 				receipts = append(
 					receipts,
-					rpcv9.AdaptReceiptWithBlockInfo(
+					AdaptReceiptWithBlockInfo(
 						receipt,
 						txn,
 						finalityStatus,
@@ -2360,8 +2356,8 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, rpcv9.TxnAcceptedOnL2, false),
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
 				},
 			},
 			{
@@ -2369,18 +2365,18 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{},
+				expect: [][]*TransactionReceipt{},
 			},
 			{
 				description: "on next head",
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						newHead2,
 						nil,
-						rpcv9.TxnAcceptedOnL2,
+						TxnAcceptedOnL2,
 						false,
 					),
 				},
@@ -2390,8 +2386,8 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	onlyPreConfirmed := testCase{
 		description: "Basic subscription with only PRE_CONFIRMED status",
-		statuses: []rpcv9.TxnFinalityStatusWithoutL1{
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed),
+		statuses: []TxnFinalityStatusWithoutL1{
+			TxnFinalityStatusWithoutL1(TxnPreConfirmed),
 		},
 		steps: []stepInfo{
 			{
@@ -2399,18 +2395,18 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{},
+				expect: [][]*TransactionReceipt{},
 			},
 			{
 				description: "on pre_confirmed",
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					),
 				},
@@ -2420,11 +2416,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedExtended)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedExtended.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					)[partialPreConfirmedCount:],
 				},
@@ -2434,16 +2430,16 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{},
+				expect: [][]*TransactionReceipt{},
 			},
 		},
 	}
 
 	allStatuses := testCase{
 		description: "Basic subscription with all statuses",
-		statuses: []rpcv9.TxnFinalityStatusWithoutL1{
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed),
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+		statuses: []TxnFinalityStatusWithoutL1{
+			TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+			TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 		},
 		steps: []stepInfo{
 			{
@@ -2451,8 +2447,8 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, rpcv9.TxnAcceptedOnL2, false),
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
 				},
 			},
 			{
@@ -2460,11 +2456,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					),
 				},
@@ -2474,11 +2470,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedExtended)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedExtended.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					)[partialPreConfirmedCount:],
 				},
@@ -2488,30 +2484,30 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead2, nil, rpcv9.TxnAcceptedOnL2, false),
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2, false),
 				},
 			},
 		},
 	}
 
-	senderAddress := rpcv9.AdaptTransaction(newHead2.Transactions[0]).SenderAddress
+	senderAddress := AdaptCoreTransaction(newHead2.Transactions[0]).SenderAddress
 	senderFilter := []felt.Address{
 		felt.Address(*senderAddress),
 	}
 	b2PreConfirmedPartialFilteredReceipts := toAdaptedReceiptsWithFilter(
 		b2PreConfirmedPartial.Block,
 		senderFilter,
-		rpcv9.TxnPreConfirmed,
+		TxnPreConfirmed,
 		false,
 	)
 
 	allStatusesWithFilter := testCase{
 		description:   "subscription with filter and all statuses",
 		senderAddress: senderFilter,
-		statuses: []rpcv9.TxnFinalityStatusWithoutL1{
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed),
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+		statuses: []TxnFinalityStatusWithoutL1{
+			TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+			TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 		},
 		steps: []stepInfo{
 			{
@@ -2519,7 +2515,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					b2PreConfirmedPartialFilteredReceipts,
 				},
 			},
@@ -2528,11 +2524,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedFull)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedFull.Block,
 						senderFilter,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					)[len(b2PreConfirmedPartialFilteredReceipts):],
 				},
@@ -2542,11 +2538,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						newHead2,
 						senderFilter,
-						rpcv9.TxnAcceptedOnL2,
+						TxnAcceptedOnL2,
 						false,
 					),
 				},
@@ -2564,11 +2560,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preLatest.Send(&b1PreLatest)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b1PreLatest.Block,
 						nil,
-						rpcv9.TxnAcceptedOnL2,
+						TxnAcceptedOnL2,
 						true,
 					),
 				},
@@ -2578,25 +2574,25 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{},
+				expect: [][]*TransactionReceipt{},
 			},
 			{
 				description: "pre-latest becomes new head, without duplicates",
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{},
+				expect: [][]*TransactionReceipt{},
 			},
 			{
 				description: "pre-confirmed becomes pre-latest",
 				notify: func() {
 					syncer.preLatest.Send(&b2PreLatest)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreLatest.Block,
 						nil,
-						rpcv9.TxnAcceptedOnL2,
+						TxnAcceptedOnL2,
 						true,
 					),
 				},
@@ -2606,16 +2602,16 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{},
+				expect: [][]*TransactionReceipt{},
 			},
 		},
 	}
 
 	receiptDeduplication := testCase{
 		description: "deduplicate receipts",
-		statuses: []rpcv9.TxnFinalityStatusWithoutL1{
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnPreConfirmed),
-			rpcv9.TxnFinalityStatusWithoutL1(rpcv9.TxnAcceptedOnL2),
+		statuses: []TxnFinalityStatusWithoutL1{
+			TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+			TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 		},
 		steps: []stepInfo{
 			{
@@ -2623,11 +2619,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b1PreConfirmedPartial)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b1PreConfirmedPartial.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					),
 				},
@@ -2637,11 +2633,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b1PreConfirmedExtended)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b1PreConfirmedExtended.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					)[partialPreConfirmedCount:],
 				},
@@ -2651,11 +2647,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preLatest.Send(&b1PreLatest)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b1PreLatest.Block,
 						nil,
-						rpcv9.TxnAcceptedOnL2,
+						TxnAcceptedOnL2,
 						true,
 					),
 				},
@@ -2665,11 +2661,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					),
 				},
@@ -2679,18 +2675,18 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{},
+				expect: [][]*TransactionReceipt{},
 			},
 			{
 				description: "pre_confirmed update - without duplicates",
 				notify: func() {
 					syncer.pendingData.Send(&b2PreConfirmedFull)
 				},
-				expect: [][]*rpcv9.TransactionReceipt{
+				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedFull.Block,
 						nil,
-						rpcv9.TxnPreConfirmed,
+						TxnPreConfirmed,
 						false,
 					)[partialPreConfirmedCount:],
 				},
@@ -2717,7 +2713,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.reorgs.Send(&reorg)
 				},
-				expectedReorg: &rpcv9.ReorgEvent{
+				expectedReorg: &ReorgEvent{
 					StartBlockHash: reorg.StartBlockHash,
 					StartBlockNum:  reorg.StartBlockNum,
 					EndBlockHash:   reorg.EndBlockHash,
@@ -2880,7 +2876,7 @@ func TestUnsubscribe(t *testing.T) {
 }
 
 func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte, error) {
-	return json.Marshal(rpcv9.SubscriptionResponse{
+	return json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
 		Params: map[string]any{
@@ -2907,8 +2903,8 @@ func assertNextTxnStatus(
 	conn net.Conn,
 	id SubscriptionID,
 	txHash *felt.Felt,
-	finality rpcv9.TxnStatus,
-	execution rpcv9.TxnExecutionStatus,
+	finality TxnStatus,
+	execution TxnExecutionStatus,
 	failureReason string,
 ) {
 	t.Helper()
@@ -2918,9 +2914,9 @@ func assertNextTxnStatus(
 		conn,
 		id,
 		"starknet_subscriptionTransactionStatus",
-		rpcv9.SubscriptionTransactionStatus{
+		SubscriptionTransactionStatus{
 			TransactionHash: txHash,
-			Status: rpcv9.TransactionStatus{
+			Status: TransactionStatus{
 				Finality:      finality,
 				Execution:     execution,
 				FailureReason: failureReason,
@@ -2972,7 +2968,7 @@ func assertNextReceipts(
 	t *testing.T,
 	conn net.Conn,
 	id SubscriptionID,
-	receipts []*rpcv9.TransactionReceipt,
+	receipts []*TransactionReceipt,
 ) {
 	t.Helper()
 
@@ -3005,7 +3001,7 @@ func assertNextHead(
 	assertNextMessage(t, conn, id, "starknet_subscriptionNewHeads", blockHeader)
 }
 
-func assertNextReorg(t *testing.T, conn net.Conn, id SubscriptionID, reorg *rpcv9.ReorgEvent) {
+func assertNextReorg(t *testing.T, conn net.Conn, id SubscriptionID, reorg *ReorgEvent) {
 	t.Helper()
 
 	assertNextMessage(t, conn, id, "starknet_subscriptionReorg", reorg)
@@ -3079,7 +3075,7 @@ func createTestEvents(
 	b *core.Block,
 	fromAddresses []felt.Address,
 	keys [][]felt.Felt,
-	finalityStatus rpcv9.TxnFinalityStatus,
+	finalityStatus TxnFinalityStatus,
 	isPreLatest bool,
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
@@ -3114,7 +3110,7 @@ func createTestEvents(
 			})
 			responses = append(responses, SubscriptionEmittedEvent{
 				EmittedEvent: EmittedEvent{
-					Event: &rpcv6.Event{
+					Event: &Event{
 						From: event.From,
 						Keys: event.Keys,
 						Data: event.Data,
@@ -3137,8 +3133,8 @@ func createTestEventsWebsocket(
 	h *Handler,
 	fromAddrs []felt.Address,
 	keys [][]felt.Felt,
-	blockID *rpcv9.SubscriptionBlockID,
-	finalityStatus *rpcv9.TxnFinalityStatusWithoutL1,
+	blockID *SubscriptionBlockID,
+	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
@@ -3160,7 +3156,7 @@ func createTestTxStatusWebsocket(
 func createTestNewTransactionsWebsocket(
 	t *testing.T,
 	h *Handler,
-	finalityStatus []rpcv9.TxnStatusWithoutL1,
+	finalityStatus []TxnStatusWithoutL1,
 	senderAddress []felt.Address,
 	tags SubscriptionTags,
 ) (SubscriptionID, net.Conn) {
@@ -3175,7 +3171,7 @@ func createTestTransactionReceiptsWebsocket(
 	t *testing.T,
 	h *Handler,
 	senderAddress []felt.Address,
-	finalityStatus []rpcv9.TxnFinalityStatusWithoutL1,
+	finalityStatus []TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
@@ -3187,7 +3183,7 @@ func createTestTransactionReceiptsWebsocket(
 func createTestNewHeadsWebsocket(
 	t *testing.T,
 	h *Handler,
-	blockID *rpcv9.SubscriptionBlockID,
+	blockID *SubscriptionBlockID,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 

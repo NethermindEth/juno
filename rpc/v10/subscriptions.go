@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"go.uber.org/zap"
 )
@@ -152,7 +151,7 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 // resolveBlockRange returns the start and latest headers based on the blockID.
 // It will also do some sanity checks and return errors if the blockID is invalid.
 func (h *Handler) resolveBlockRange(
-	blockID *rpcv9.SubscriptionBlockID,
+	blockID *SubscriptionBlockID,
 ) (*core.Header, *core.Header, *jsonrpc.Error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
@@ -163,7 +162,7 @@ func (h *Handler) resolveBlockRange(
 		return latestHeader, latestHeader, nil
 	}
 
-	startHeader, rpcErr := h.blockHeaderByID((*rpcv9.BlockID)(blockID))
+	startHeader, rpcErr := h.blockHeaderByID((*BlockID)(blockID))
 	if rpcErr != nil {
 		return nil, nil, rpcErr
 	}
@@ -198,7 +197,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 }
 
 func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
-	return sendResponse("starknet_subscriptionReorg", w, id, &rpcv9.ReorgEvent{
+	return sendResponse("starknet_subscriptionReorg", w, id, &ReorgEvent{
 		StartBlockHash: reorg.StartBlockHash,
 		StartBlockNum:  reorg.StartBlockNum,
 		EndBlockHash:   reorg.EndBlockHash,
@@ -207,7 +206,7 @@ func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
 }
 
 func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
-	resp, err := json.Marshal(rpcv9.SubscriptionResponse{
+	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
 		Params: map[string]any{

@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
@@ -23,6 +24,8 @@ func validateResourceBounds(fl validator.FieldLevel) bool {
 	case rpcv8.Transaction:
 		return req.ResourceBounds != nil
 	case rpcv9.Transaction:
+		return req.ResourceBounds != nil
+	case rpcv10.Transaction:
 		return req.ResourceBounds != nil
 	default:
 		return false
@@ -83,6 +86,12 @@ func Validator() *validator.Validate {
 			}
 			panic("not an rpc v9 TransactionType")
 		}, rpcv9.TransactionType(0))
+		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
+			if t, ok := field.Interface().(rpcv10.TransactionType); ok {
+				return t.String()
+			}
+			panic("not an rpc v10 TransactionType")
+		}, rpcv10.TransactionType(0))
 		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
 			if b, ok := field.Interface().(utils.Base64); ok {
 				return string(b)

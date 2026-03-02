@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -117,7 +116,7 @@ func TestSimulateTransactions(t *testing.T) {
 					})
 			},
 			simulationFlags: []rpcv10.SimulationFlag{rpcv10.SkipValidateFlag},
-			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpcv9.TransactionExecutionErrorData{
+			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpcv10.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
 			}),
@@ -161,7 +160,7 @@ func TestSimulateTransactions(t *testing.T) {
 			test.mockBehavior(mockReader, mockVM, mockState)
 			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
-			blockID := rpcv9.BlockIDLatest()
+			blockID := rpcv10.BlockIDLatest()
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
 				t.Context(),
 				&blockID,
@@ -176,7 +175,7 @@ func TestSimulateTransactions(t *testing.T) {
 			require.Nil(t, err)
 			require.Equal(
 				t,
-				httpHeader.Get(rpcv9.ExecutionStepsHeader),
+				httpHeader.Get(rpcv10.ExecutionStepsHeader),
 				strconv.FormatUint(test.stepsUsed, 10),
 			)
 			require.Equal(t, test.simulatedTxs, simulatedTxs.SimulatedTransactions)
@@ -213,11 +212,9 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			name: "declare transaction without sender address",
 			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-						Transaction: rpcv9.Transaction{
-							Version: &version3,
-							Type:    rpcv9.TxnDeclare,
-						},
+					Transaction: rpcv10.Transaction{
+						Version: &version3,
+						Type:    rpcv10.TxnDeclare,
 					},
 				},
 			},
@@ -230,12 +227,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			name: "declare transaction without resource bounds",
 			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-						Transaction: rpcv9.Transaction{
-							Version:       &version3,
-							Type:          rpcv9.TxnDeclare,
-							SenderAddress: &felt.Zero,
-						},
+					Transaction: rpcv10.Transaction{
+						Version:       &version3,
+						Type:          rpcv10.TxnDeclare,
+						SenderAddress: &felt.Zero,
 					},
 				},
 			},
@@ -248,11 +243,9 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			name: "invoke transaction without sender address",
 			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-						Transaction: rpcv9.Transaction{
-							Version: &version3,
-							Type:    rpcv9.TxnInvoke,
-						},
+					Transaction: rpcv10.Transaction{
+						Version: &version3,
+						Type:    rpcv10.TxnInvoke,
 					},
 				},
 			},
@@ -265,12 +258,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			name: "invoke transaction without resource bounds",
 			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-						Transaction: rpcv9.Transaction{
-							Version:       &version3,
-							Type:          rpcv9.TxnInvoke,
-							SenderAddress: &felt.Zero,
-						},
+					Transaction: rpcv10.Transaction{
+						Version:       &version3,
+						Type:          rpcv10.TxnInvoke,
+						SenderAddress: &felt.Zero,
 					},
 				},
 			},
@@ -283,11 +274,9 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			name: "deploy account transaction without resource bounds",
 			transactions: []rpcv10.BroadcastedTransaction{
 				{
-					BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-						Transaction: rpcv9.Transaction{
-							Version: &version3,
-							Type:    rpcv9.TxnDeployAccount,
-						},
+					Transaction: rpcv10.Transaction{
+						Version: &version3,
+						Type:    rpcv10.TxnDeployAccount,
 					},
 				},
 			},
@@ -314,7 +303,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
-			blockID := rpcv9.BlockIDLatest()
+			blockID := rpcv10.BlockIDLatest()
 			_, _, err := handler.SimulateTransactions(
 				t.Context(),
 				&blockID,
@@ -442,26 +431,24 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			senderAddr := felt.FromUint64[felt.Felt](1)
 			nonce := felt.FromUint64[felt.Felt](1)
 			broadcastedTxns := []rpcv10.BroadcastedTransaction{{
-				BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-					Transaction: rpcv9.Transaction{
-						Version:       &version3,
-						Type:          rpcv9.TxnInvoke,
-						SenderAddress: &senderAddr,
-						Nonce:         &nonce,
-						Tip:           &felt.Zero,
-						CallData:      &[]*felt.Felt{},
-						Signature:     &[]*felt.Felt{&felt.Zero},
-						ResourceBounds: &rpcv9.ResourceBoundsMap{
-							L1Gas: &rpcv9.ResourceBounds{
-								MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
-								MaxPricePerUnit: &felt.Zero,
-							},
-							L1DataGas: &rpcv9.ResourceBounds{
-								MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
-								MaxPricePerUnit: &felt.Zero,
-							},
-							L2Gas: &rpcv9.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
+				Transaction: rpcv10.Transaction{
+					Version:       &version3,
+					Type:          rpcv10.TxnInvoke,
+					SenderAddress: &senderAddr,
+					Nonce:         &nonce,
+					Tip:           &felt.Zero,
+					CallData:      &[]*felt.Felt{},
+					Signature:     &[]*felt.Felt{&felt.Zero},
+					ResourceBounds: &rpcv10.ResourceBoundsMap{
+						L1Gas: &rpcv10.ResourceBounds{
+							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
+							MaxPricePerUnit: &felt.Zero,
 						},
+						L1DataGas: &rpcv10.ResourceBounds{
+							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
+							MaxPricePerUnit: &felt.Zero,
+						},
+						L2Gas: &rpcv10.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
 					},
 				},
 			}}
@@ -479,7 +466,7 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 
 			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
-			blockID := rpcv9.BlockIDLatest()
+			blockID := rpcv10.BlockIDLatest()
 			simulatedTxs, _, err := handler.SimulateTransactions(
 				t.Context(),
 				&blockID,

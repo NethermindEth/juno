@@ -7,9 +7,19 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/ethereum/go-ethereum/common"
 )
+
+// MsgFromL1 represents a message sent from L1 to L2.
+type MsgFromL1 struct {
+	// The address of the L1 contract sending the message.
+	From common.Address `json:"from_address" validate:"required"`
+	// The address of the L2 contract receiving the message.
+	To felt.Felt `json:"to_address" validate:"required"`
+	// The payload of the message.
+	Payload  []felt.Felt `json:"payload" validate:"required"`
+	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
+}
 
 /*
 ***************************************************
@@ -22,8 +32,8 @@ func (h *Handler) EstimateFee(
 	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
 	estimateFlags []EstimateFlag,
-	id *rpcv9.BlockID,
-) ([]rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
+	id *BlockID,
+) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	simulationFlags := make([]SimulationFlag, 0, len(estimateFlags)+1)
 	for _, flag := range estimateFlags {
 		simulationFlag, err := flag.ToSimulationFlag()
@@ -46,7 +56,7 @@ func (h *Handler) EstimateFee(
 	}
 
 	simulatedTransactions := txnResults.SimulatedTransactions
-	feeEstimates := make([]rpcv9.FeeEstimate, len(simulatedTransactions))
+	feeEstimates := make([]FeeEstimate, len(simulatedTransactions))
 	for i := range feeEstimates {
 		feeEstimates[i] = simulatedTransactions[i].FeeEstimation
 	}
@@ -55,8 +65,8 @@ func (h *Handler) EstimateFee(
 }
 
 func (h *Handler) EstimateMessageFee(
-	ctx context.Context, msg *rpcv6.MsgFromL1, id *rpcv9.BlockID,
-) (rpcv9.FeeEstimate, http.Header, *jsonrpc.Error) {
+	ctx context.Context, msg *MsgFromL1, id *BlockID,
+) (FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
 	calldata[0] = felt.NewFromBytes[felt.Felt](msg.From.Bytes())
@@ -66,28 +76,26 @@ func (h *Handler) EstimateMessageFee(
 
 	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
-		return rpcv9.FeeEstimate{}, nil, rpcErr
+		return FeeEstimate{}, nil, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateMessageFee")
 
 	if _, err := state.ContractClassHash(&msg.To); err != nil {
-		return rpcv9.FeeEstimate{}, nil, rpccore.ErrContractNotFound
+		return FeeEstimate{}, nil, rpccore.ErrContractNotFound
 	}
 
 	tx := BroadcastedTransaction{
-		BroadcastedTransaction: rpcv9.BroadcastedTransaction{
-			Transaction: rpcv9.Transaction{
-				Type:               rpcv9.TxnL1Handler,
-				ContractAddress:    &msg.To,
-				EntryPointSelector: &msg.Selector,
-				CallData:           &calldata,
-				Version:            &felt.Zero, // Needed for transaction hash calculation.
-				Nonce:              &felt.Zero, // Needed for transaction hash calculation.
-			},
-			// Needed to marshal to blockifier type.
-			// Must be greater than zero to successfully execute transaction.
-			PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
+		Transaction: Transaction{
+			Type:               TxnL1Handler,
+			ContractAddress:    &msg.To,
+			EntryPointSelector: &msg.Selector,
+			CallData:           &calldata,
+			Version:            &felt.Zero, // Needed for transaction hash calculation.
+			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
 		},
+		// Needed to marshal to blockifier type.
+		// Must be greater than zero to successfully execute transaction.
+		PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 	}
 
 	bcTxn := [1]BroadcastedTransaction{tx}
@@ -99,10 +107,10 @@ func (h *Handler) EstimateMessageFee(
 	)
 	if err != nil {
 		if err.Code == rpccore.ErrTransactionExecutionError.Code {
-			data := err.Data.(rpcv9.TransactionExecutionErrorData)
-			return rpcv9.FeeEstimate{}, httpHeader, rpcv9.MakeContractError(data.ExecutionError)
+			data := err.Data.(TransactionExecutionErrorData)
+			return FeeEstimate{}, httpHeader, MakeContractError(data.ExecutionError)
 		}
-		return rpcv9.FeeEstimate{}, httpHeader, err
+		return FeeEstimate{}, httpHeader, err
 	}
 	return estimates[0], httpHeader, nil
 }
