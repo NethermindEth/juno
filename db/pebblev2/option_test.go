@@ -20,10 +20,14 @@ const (
 )
 
 func TestOptions(t *testing.T) {
+	logLevel := utils.NewLogLevel(utils.ERROR)
+	logger, err := utils.NewZapLogger(logLevel, utils.WithColour(true))
+	require.NoError(t, err)
+
 	options := []pebblev2.Option{
 		pebblev2.WithCacheSize(testCacheSizeMB),
 		pebblev2.WithMaxOpenFiles(testMaxOpenFiles),
-		pebblev2.WithLogger(true),
+		pebblev2.WithLogger(logger),
 		pebblev2.WithMemtableSize(testMemtableSizeMB),
 		pebblev2.WithMemtableCount(testMemtableCount),
 	}

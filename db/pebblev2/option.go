@@ -34,14 +34,9 @@ func WithMaxOpenFiles(maxOpenFiles int) Option {
 	}
 }
 
-func WithLogger(colouredLogger bool) Option {
+func WithLogger(logger pebble.Logger) Option {
 	return func(opts *pebble.Options) error {
-		log := utils.NewLogLevel(utils.ERROR)
-		dbLog, err := utils.NewZapLogger(log, colouredLogger)
-		if err != nil {
-			return fmt.Errorf("create DB logger: %w", err)
-		}
-		opts.Logger = dbLog
+		opts.Logger = logger
 		return nil
 	}
 }

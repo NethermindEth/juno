@@ -158,11 +158,19 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
+		// note(rdr): A dedicated logger with level Error to avoid noise.
+		var dbLog *utils.ZapLogger
+		dbLog, err = utils.NewZapLogger(
+			utils.NewLogLevel(utils.ERROR), utils.WithColour(cfg.Colour),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("create DB logger: %w", err)
+		}
 		database, err = pebblev2.New(
 			cfg.DatabasePath,
 			pebblev2.WithCacheSize(cfg.DBCacheSize),
 			pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
-			pebblev2.WithLogger(cfg.Colour),
+			pebblev2.WithLogger(dbLog),
 			pebblev2.WithCompactionConcurrency(cfg.DBCompactionConcurrency),
 			pebblev2.WithMemtableSize(cfg.DBMemtableSize),
 			pebblev2.WithMemtableCount(cfg.DBMemtableCount),
