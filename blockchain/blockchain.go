@@ -485,7 +485,7 @@ func storeCasmHashMetadataV1(
 // revertCasmHashMetadata reverts CASM hash metadata for declared and migrated classes.
 func revertCasmHashMetadata(
 	r db.KeyValueReader,
-	w db.KeyValueWriter,
+	w db.Batch,
 	stateUpdate *core.StateUpdate,
 ) error {
 	for sierraClassHash := range stateUpdate.StateDiff.DeclaredV1Classes {
