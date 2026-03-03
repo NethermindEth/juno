@@ -794,7 +794,7 @@ func TestRevert(t *testing.T) {
 		assert.Equal(t, root0, gotRoot, "commitment after revert should match block 0")
 		gotCasmHash, err = state.CompiledClassHash(&sierraHash)
 		require.NoError(t, err)
-		assert.Equal(t, v1CasmHash, gotCasmHash, "CompiledClassHash should return V1 after caller persisted unmigrated metadata")
+		assert.Equal(t, v1CasmHash, gotCasmHash, "should return V1 after caller persisted metadata")
 	})
 }
 
