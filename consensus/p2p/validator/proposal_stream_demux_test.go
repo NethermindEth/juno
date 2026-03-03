@@ -41,7 +41,7 @@ const (
 var network = &utils.Mainnet
 
 func TestProposalStreamDemux(t *testing.T) {
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
+	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
 	require.NoError(t, err)
 
 	nodes := testutils.BuildNetworks(t, testutils.NewAdjacentNodes(1))

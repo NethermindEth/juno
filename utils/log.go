@@ -130,12 +130,29 @@ func NewNopZapLogger() *ZapLogger {
 	}
 }
 
-func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
+type loggerConfig struct {
+	colour bool
+}
+
+type LoggerOption func(*loggerConfig)
+
+func WithColour(colour bool) LoggerOption {
+	return func(cfg *loggerConfig) {
+		cfg.colour = colour
+	}
+}
+
+func NewZapLogger(logLevel *LogLevel, opts ...LoggerOption) (*ZapLogger, error) {
+	var cfg loggerConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	config := zap.NewProductionConfig()
 	config.Sampling = nil
 	config.Encoding = "console"
 	config.EncoderConfig.EncodeLevel = capitalColorLevelEncoder
-	if !colour {
+	if !cfg.colour {
 		config.EncoderConfig.EncodeLevel = capitalLevelEncoder
 	}
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {

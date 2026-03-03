@@ -148,7 +148,7 @@ type Node struct {
 // Any errors while parsing the config on creating logger will be returned.
 // Todo: (immediate follow-up PR) tidy this function up.
 func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
-	log, err := utils.NewZapLogger(logLevel, cfg.Colour)
+	log, err := utils.NewZapLogger(logLevel, utils.WithColour(cfg.Colour))
 	if err != nil {
 		return nil, err
 	}

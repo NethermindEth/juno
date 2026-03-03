@@ -39,7 +39,7 @@ const (
 var allBatchSizes = []int{1, 0, 3, 2, 4, 0, 1}
 
 func TestProposer(t *testing.T) {
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
+	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
 	require.NoError(t, err)
 
 	proposerAddr := starknet.Address(felt.Zero)

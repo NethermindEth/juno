@@ -34,7 +34,7 @@ const (
 var network = &utils.Mainnet
 
 func TestVoteBroadcastersAndListeners(t *testing.T) {
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
+	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
 	require.NoError(t, err)
 
 	prevotes := make([]starknet.Prevote, voteCount)

@@ -234,7 +234,7 @@ func setup(
 	)
 	blockGenerator.mine(t, dataSource, 10)
 
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), false)
+	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel))
 	require.NoError(t, err)
 
 	blockchain := blockchain.New(synchronizerDatabase, network)

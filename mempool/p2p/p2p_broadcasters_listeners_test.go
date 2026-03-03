@@ -42,7 +42,7 @@ func (m mockMempool) Push(ctx context.Context, tx *mempool.BroadcastedTransactio
 }
 
 func TestMempoolBroadcastersAndListeners(t *testing.T) {
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
+	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
 	require.NoError(t, err)
 
 	transactions := make([][]mempool.BroadcastedTransaction, nodeCount)

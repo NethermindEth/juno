@@ -17,7 +17,7 @@ const (
 
 func TestOptions(t *testing.T) {
 	logLevel := utils.NewLogLevel(utils.ERROR)
-	logger, err := utils.NewZapLogger(logLevel, true)
+	logger, err := utils.NewZapLogger(logLevel, utils.WithColour(true))
 	require.NoError(t, err)
 
 	options := []pebble.Option{

@@ -99,7 +99,7 @@ func TestLogLevelType(t *testing.T) {
 func TestZapWithColour(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level: "+str, func(t *testing.T) {
-			_, err := utils.NewZapLogger(level, true)
+			_, err := utils.NewZapLogger(level, utils.WithColour(true))
 			assert.NoError(t, err)
 		})
 	}
@@ -108,7 +108,7 @@ func TestZapWithColour(t *testing.T) {
 func TestZapWithoutColour(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level: "+str, func(t *testing.T) {
-			_, err := utils.NewZapLogger(level, false)
+			_, err := utils.NewZapLogger(level)
 			assert.NoError(t, err)
 		})
 	}
@@ -222,14 +222,14 @@ func TestMarshalYAML(t *testing.T) {
 func TestIsTraceEnabled(t *testing.T) {
 	t.Run("Trace enabled", func(t *testing.T) {
 		logLevel := utils.NewLogLevel(utils.TRACE)
-		logger, err := utils.NewZapLogger(logLevel, false)
+		logger, err := utils.NewZapLogger(logLevel)
 		require.NoError(t, err)
 		assert.True(t, logger.IsTraceEnabled())
 	})
 
 	t.Run("Trace disabled", func(t *testing.T) {
 		logLevel := utils.NewLogLevel(utils.INFO)
-		logger, err := utils.NewZapLogger(logLevel, false)
+		logger, err := utils.NewZapLogger(logLevel)
 		require.NoError(t, err)
 		assert.False(t, logger.IsTraceEnabled())
 	})

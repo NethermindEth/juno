@@ -46,7 +46,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 	t.Run(
 		fmt.Sprintf("%d nodes, each sending %d messages", nodeCount, messageCount),
 		func(t *testing.T) {
-			logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
+			logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
 			require.NoError(t, err)
 
 			nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(nodeCount))
@@ -157,7 +157,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 		})
 
 	t.Run("canceled context", func(t *testing.T) {
-		logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
+		logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
 		require.NoError(t, err)
 
 		nodes := testutils.BuildNetworks(t, testutils.NewAdjacentNodes(1))

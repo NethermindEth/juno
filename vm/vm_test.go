@@ -176,7 +176,7 @@ func TestCallCairo(t *testing.T) {
 	require.NoError(t, state.Update(0, &firstStateUpdate, declaredClass, false))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
-	log, err := utils.NewZapLogger(logLevel, false)
+	log, err := utils.NewZapLogger(logLevel)
 	require.NoError(t, err)
 
 	// test_storage_read
@@ -268,7 +268,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	}, false))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
-	log, err := utils.NewZapLogger(logLevel, false)
+	log, err := utils.NewZapLogger(logLevel)
 	require.NoError(t, err)
 
 	callInfo := &CallInfo{
