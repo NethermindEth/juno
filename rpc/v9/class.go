@@ -10,13 +10,33 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 )
 
 type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]
+
+// https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L268-L280
+type Class struct {
+	SierraProgram        []*felt.Felt           `json:"sierra_program,omitempty"`
+	Program              string                 `json:"program,omitempty"`
+	ContractClassVersion string                 `json:"contract_class_version,omitempty"`
+	EntryPoints          ClassEntryPointsByType `json:"entry_points_by_type"`
+	Abi                  any                    `json:"abi"`
+}
+
+type ClassEntryPointsByType struct {
+	Constructor []ClassEntryPoint `json:"CONSTRUCTOR"`
+	External    []ClassEntryPoint `json:"EXTERNAL"`
+	L1Handler   []ClassEntryPoint `json:"L1_HANDLER"`
+}
+
+type ClassEntryPoint struct {
+	Index    *uint64    `json:"function_idx,omitempty"`
+	Offset   *felt.Felt `json:"offset,omitempty"`
+	Selector *felt.Felt `json:"selector"`
+}
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.3.0/api/starknet_api_openrpc.json#L2344
 type FunctionCall struct {
@@ -71,7 +91,7 @@ func AdaptDeclaredClass(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L410
-func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*rpcv6.Class, *jsonrpc.Error) {
+func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
 	state, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -83,24 +103,24 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*rpcv6.Class, *jsonr
 		return nil, rpccore.ErrClassHashNotFound
 	}
 
-	var rpcClass *rpcv6.Class
+	var rpcClass *Class
 	switch c := declared.Class.(type) {
 	case *core.DeprecatedCairoClass:
-		rpcClass = &rpcv6.Class{
+		rpcClass = &Class{
 			Abi:     c.Abi,
 			Program: c.Program,
-			EntryPoints: rpcv6.EntryPoints{
+			EntryPoints: ClassEntryPointsByType{
 				Constructor: adaptDeprecatedCairoEntryPoints(c.Constructors),
 				External:    adaptDeprecatedCairoEntryPoints(c.Externals),
 				L1Handler:   adaptDeprecatedCairoEntryPoints(c.L1Handlers),
 			},
 		}
 	case *core.SierraClass:
-		rpcClass = &rpcv6.Class{
+		rpcClass = &Class{
 			Abi:                  c.Abi,
 			SierraProgram:        c.Program,
 			ContractClassVersion: c.SemanticVersion,
-			EntryPoints: rpcv6.EntryPoints{
+			EntryPoints: ClassEntryPointsByType{
 				Constructor: adaptCairo1EntryPoints(c.EntryPoints.Constructor),
 				External:    adaptCairo1EntryPoints(c.EntryPoints.External),
 				L1Handler:   adaptCairo1EntryPoints(c.EntryPoints.L1Handler),
@@ -117,7 +137,7 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*rpcv6.Class, *jsonr
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L499
-func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*rpcv6.Class, *jsonrpc.Error) {
+func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Error) {
 	classHash, err := h.ClassHashAt(id, address)
 	if err != nil {
 		return nil, err
@@ -144,10 +164,10 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	return &classHash, nil
 }
 
-func adaptDeprecatedCairoEntryPoints(entryPoints []core.DeprecatedEntryPoint) []rpcv6.EntryPoint {
-	adaptedEntryPoints := make([]rpcv6.EntryPoint, len(entryPoints))
+func adaptDeprecatedCairoEntryPoints(entryPoints []core.DeprecatedEntryPoint) []ClassEntryPoint {
+	adaptedEntryPoints := make([]ClassEntryPoint, len(entryPoints))
 	for i, entryPoint := range entryPoints {
-		adaptedEntryPoints[i] = rpcv6.EntryPoint{
+		adaptedEntryPoints[i] = ClassEntryPoint{
 			Offset:   entryPoint.Offset,
 			Selector: entryPoint.Selector,
 		}
@@ -155,10 +175,10 @@ func adaptDeprecatedCairoEntryPoints(entryPoints []core.DeprecatedEntryPoint) []
 	return adaptedEntryPoints
 }
 
-func adaptCairo1EntryPoints(entryPoints []core.SierraEntryPoint) []rpcv6.EntryPoint {
-	adaptedEntryPoints := make([]rpcv6.EntryPoint, len(entryPoints))
+func adaptCairo1EntryPoints(entryPoints []core.SierraEntryPoint) []ClassEntryPoint {
+	adaptedEntryPoints := make([]ClassEntryPoint, len(entryPoints))
 	for i, entryPoint := range entryPoints {
-		adaptedEntryPoints[i] = rpcv6.EntryPoint{
+		adaptedEntryPoints[i] = ClassEntryPoint{
 			Index:    &entryPoint.Index,
 			Selector: entryPoint.Selector,
 		}

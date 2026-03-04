@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -281,7 +280,7 @@ func TestClassHashAt(t *testing.T) {
 func assertEqualDeprecatedCairoClass(
 	t *testing.T,
 	deprecatedCairoClass *core.DeprecatedCairoClass,
-	class *rpcv6.Class,
+	class *rpcv9.Class,
 ) {
 	assert.Equal(t, deprecatedCairoClass.Program, class.Program)
 	assert.Equal(t, deprecatedCairoClass.Abi, class.Abi.(json.RawMessage))
@@ -332,7 +331,7 @@ func assertEqualDeprecatedCairoClass(
 	}
 }
 
-func assertEqualSierraClass(t *testing.T, sierraClass *core.SierraClass, class *rpcv6.Class) {
+func assertEqualSierraClass(t *testing.T, sierraClass *core.SierraClass, class *rpcv9.Class) {
 	assert.Equal(t, sierraClass.Program, class.SierraProgram)
 	assert.Equal(t, sierraClass.Abi, class.Abi.(string))
 	assert.Equal(t, sierraClass.SemanticVersion, class.ContractClassVersion)
