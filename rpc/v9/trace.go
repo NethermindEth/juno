@@ -27,7 +27,7 @@ type TransactionTrace struct {
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
 	FunctionInvocation    *ExecuteInvocation  `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
-	StateDiff             *rpcv6.StateDiff    `json:"state_diff,omitempty"`
+	StateDiff             *StateDiff    `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
 
