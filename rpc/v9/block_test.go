@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -674,7 +673,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        utils.HeapPtr(rpcv6.Blob),
+			L1DAMode:        utils.HeapPtr(rpcv9.Blob),
 			L1GasPrice: &rpcv9.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
