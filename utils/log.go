@@ -132,6 +132,7 @@ func NewNopZapLogger() *ZapLogger {
 
 type loggerConfig struct {
 	colour bool
+	json   bool
 }
 
 type LoggerOption func(*loggerConfig)
@@ -142,21 +143,46 @@ func WithColour(colour bool) LoggerOption {
 	}
 }
 
+func WithJSON(json bool) LoggerOption {
+	return func(cfg *loggerConfig) {
+		cfg.json = json
+	}
+}
+
 func NewZapLogger(logLevel *LogLevel, opts ...LoggerOption) (*ZapLogger, error) {
 	var cfg loggerConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
+	// todo(rdr): I don't like that we have 3 `if cfg.json`. A better local
+	// execution flow should be added
+
+	encoderConfig := zap.NewProductionEncoderConfig()
+	if cfg.json {
+		encoderConfig.EncodeLevel = capitalLevelEncoder
+		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	} else {
+		encoderConfig.EncodeLevel = capitalColorLevelEncoder
+		if !cfg.colour {
+			encoderConfig.EncodeLevel = capitalLevelEncoder
+		}
+		encoderConfig.EncodeTime = func(
+			t time.Time, enc zapcore.PrimitiveArrayEncoder,
+		) {
+			enc.AppendString(
+				t.Local().Format("15:04:05.000 02/01/2006 -07:00"),
+			)
+		}
+	}
+
 	config := zap.NewProductionConfig()
 	config.Sampling = nil
-	config.Encoding = "console"
-	config.EncoderConfig.EncodeLevel = capitalColorLevelEncoder
-	if !cfg.colour {
-		config.EncoderConfig.EncodeLevel = capitalLevelEncoder
-	}
-	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
+	config.EncoderConfig = encoderConfig
+	if cfg.json {
+		config.Encoding = "json"
+	} else {
+		config.Encoding = "console"
 	}
 	config.Level = logLevel.atomicLevel
 

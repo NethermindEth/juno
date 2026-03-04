@@ -32,6 +32,7 @@
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests. |
 | `http-update-host` | `"localhost"` | The interface on which the log level and gateway timeouts HTTP server will listen for requests. |
 | `http-update-port` |  | The port on which the log level and gateway timeouts HTTP server will listen for requests. |
+| `log-json` |  | Use JSON encoding for log output. |
 | `log-level` | `"info"` | Options: trace, debug, info, warn, error. |
 | `max-vm-queue` | `72` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `36` | Maximum number for VM instances to be used for RPC calls concurrently |

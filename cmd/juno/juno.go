@@ -40,6 +40,7 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 const (
 	configF                             = "config"
 	logLevelF                           = "log-level"
+	logJSONF                            = "log-json"
 	httpF                               = "http"
 	httpHostF                           = "http-host"
 	httpPortF                           = "http-port"
@@ -107,6 +108,7 @@ const (
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 
 	defaultConfig                             = ""
+	defaultLogJSON                            = false
 	defaultHost                               = "localhost"
 	defaultHTTP                               = false
 	defaultHTTPPort                           = 6060
@@ -165,6 +167,7 @@ const (
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
+	logJSONUsage                          = "Use JSON encoding for log output."
 	httpUsage                             = "Enables the HTTP RPC server on the default port and interface."
 	httpHostUsage                         = "The interface on which the HTTP RPC server will listen for requests."
 	httpPortUsage                         = "The port on which the HTTP server will listen for requests."
@@ -387,6 +390,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().String(logLevelF, utils.INFO.String(), logLevelFlagUsage)
+	junoCmd.Flags().Bool(logJSONF, defaultLogJSON, logJSONUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaultHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)

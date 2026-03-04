@@ -59,6 +59,7 @@ const (
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel                 string        `mapstructure:"log-level"`
+	LogJSON                  bool          `mapstructure:"log-json"`
 	HTTP                     bool          `mapstructure:"http"`
 	HTTPHost                 string        `mapstructure:"http-host"`
 	HTTPPort                 uint16        `mapstructure:"http-port"`
@@ -148,7 +149,11 @@ type Node struct {
 // Any errors while parsing the config on creating logger will be returned.
 // Todo: (immediate follow-up PR) tidy this function up.
 func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
-	log, err := utils.NewZapLogger(logLevel, utils.WithColour(cfg.Colour))
+	log, err := utils.NewZapLogger(
+		logLevel,
+		utils.WithColour(cfg.Colour),
+		utils.WithJSON(cfg.LogJSON),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +166,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		// note(rdr): A dedicated logger with level Error to avoid noise.
 		var dbLog *utils.ZapLogger
 		dbLog, err = utils.NewZapLogger(
-			utils.NewLogLevel(utils.ERROR), utils.WithColour(cfg.Colour),
+			utils.NewLogLevel(utils.ERROR),
+			utils.WithColour(cfg.Colour),
+			utils.WithJSON(cfg.LogJSON),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("create DB logger: %w", err)
