@@ -41,6 +41,7 @@ type service struct {
 	isShutdown         atomic.Bool
 	passedCtxCheck     barrier
 	finishedNonDelayed barrier
+	shutdownComplete   barrier
 }
 
 func NewService(tracker waitGroup, nonDelayed, delayed int) *service {
@@ -48,6 +49,7 @@ func NewService(tracker waitGroup, nonDelayed, delayed int) *service {
 		tracker:            tracker,
 		passedCtxCheck:     newBarrier(nonDelayed + delayed),
 		finishedNonDelayed: newBarrier(nonDelayed),
+		shutdownComplete:   newBarrier(1),
 	}
 }
 
@@ -66,6 +68,7 @@ func (s *service) handle(ctx context.Context, isDelayed bool) bool {
 	// after Wait() completes.
 	if isDelayed {
 		s.finishedNonDelayed.done()
+		s.shutdownComplete.done()
 	} else {
 		defer s.finishedNonDelayed.check()
 	}
@@ -93,4 +96,5 @@ func (s *service) run(ctx context.Context) {
 	s.tracker.Wait()
 	// Set isShutdown to true after finishing wait, so we can panic any subsequent acquisitions
 	s.isShutdown.Store(true)
+	s.shutdownComplete.check()
 }
