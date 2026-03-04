@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -93,11 +92,11 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 
 	// Adapt events
-	adaptedEvents := make([]rpcv6.OrderedEvent, len(vmFnInvocation.Events))
+	adaptedEvents := make([]OrderedEvent, len(vmFnInvocation.Events))
 	for index := range vmFnInvocation.Events {
 		vmEvent := &vmFnInvocation.Events[index]
 
-		adaptedEvents[index] = rpcv6.OrderedEvent{
+		adaptedEvents[index] = OrderedEvent{
 			Order: vmEvent.Order,
 			Keys:  vmEvent.Keys,
 			Data:  vmEvent.Data,
@@ -105,11 +104,11 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]rpcv6.OrderedL2toL1Message, len(vmFnInvocation.Messages))
+	adaptedMessages := make([]OrderedL2toL1Message, len(vmFnInvocation.Messages))
 	for index := range vmFnInvocation.Messages {
 		vmMessage := &vmFnInvocation.Messages[index]
 
-		adaptedMessages[index] = rpcv6.OrderedL2toL1Message{
+		adaptedMessages[index] = OrderedL2toL1Message{
 			Order: vmMessage.Order,
 			From:  vmMessage.From,
 			// todo(rdr): we shouldn't need to do this casting but it affects a lot of code to
@@ -229,11 +228,11 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt events
-	adaptedEvents := make([]rpcv6.OrderedEvent, len(snFnInvocation.Events))
+	adaptedEvents := make([]OrderedEvent, len(snFnInvocation.Events))
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
 
-		adaptedEvents[index] = rpcv6.OrderedEvent{
+		adaptedEvents[index] = OrderedEvent{
 			Order: snEvent.Order,
 			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
 			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
@@ -241,13 +240,13 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]rpcv6.OrderedL2toL1Message, len(snFnInvocation.Messages))
+	adaptedMessages := make([]OrderedL2toL1Message, len(snFnInvocation.Messages))
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 
 		toAddr, _ := felt.FromString[felt.Felt](snMessage.ToAddr)
 
-		adaptedMessages[index] = rpcv6.OrderedL2toL1Message{
+		adaptedMessages[index] = OrderedL2toL1Message{
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      &toAddr,
