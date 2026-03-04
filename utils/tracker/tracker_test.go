@@ -71,12 +71,10 @@ func runTest(
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	success := atomic.Uint32{}
 	service := NewService(tracker(ctx), nonDelayed, delayed)
 
-	clientWg := conc.NewWaitGroup()
+	// Start server go routines
 	serverWg := conc.NewWaitGroup()
-
 	serverWg.Go(func() {
 		service.run(ctx)
 	})
@@ -89,6 +87,10 @@ func runTest(
 		})
 	}
 
+	// Start client go routines
+	clientWg := conc.NewWaitGroup()
+
+	success := atomic.Uint32{}
 	for isDelayed, count := range map[bool]int{false: nonDelayed, true: delayed} {
 		for range count {
 			clientWg.Go(func() {
