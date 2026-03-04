@@ -336,7 +336,6 @@ func assertTransactionsWithReceiptsEq(
 		)
 
 		actualTx := *actual[i].Transaction
-		actualTx.Hash = nil
 		require.Equal(t, adaptedTransaction, actualTx)
 		require.Equal(t, adaptedReceipt, actual[i].Receipt)
 	}

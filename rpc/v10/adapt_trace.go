@@ -206,11 +206,11 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
 	}
 
 	// Adapt declared classes
-	adaptedDeclaredClasses := make([]DeclaredClassDiff, len(vmStateDiff.DeclaredClasses))
+	adaptedDeclaredClasses := make([]DeclaredClass, len(vmStateDiff.DeclaredClasses))
 	for index := range vmStateDiff.DeclaredClasses {
 		vmDeclaredClass := &vmStateDiff.DeclaredClasses[index]
 
-		adaptedDeclaredClasses[index] = DeclaredClassDiff{
+		adaptedDeclaredClasses[index] = DeclaredClass{
 			ClassHash:         vmDeclaredClass.ClassHash,
 			CompiledClassHash: vmDeclaredClass.CompiledClassHash,
 		}

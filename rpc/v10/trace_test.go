@@ -1029,7 +1029,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				DeprecatedDeclaredClasses: []*felt.Felt{
 					&felt.Zero,
 				},
-				DeclaredClasses: []rpcv10.DeclaredClassDiff{
+				DeclaredClasses: []rpcv10.DeclaredClass{
 					{
 						ClassHash:         felt.Zero,
 						CompiledClassHash: felt.Zero,

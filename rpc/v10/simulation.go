@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/crate-crypto/go-ipa/bandersnatch/fp"
 )
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
@@ -258,20 +257,12 @@ func (h *Handler) simulateTransactions(
 	}, httpHeader, nil
 }
 
-// A new Felt can be created with `felt.FromFelt` in this case
-var RPCVersion3Value = felt.Felt(fp.Element(
-	[4]uint64{
-		18446744073709551521,
-		18446744073709551615,
-		18446744073709551615,
-		576460752303421872,
-	},
-))
+var RPCVersion3Value = felt.NewFromUint64[felt.Felt](3)
 
 // todo(rdr): does this check still make sense. Transaction previous to version 3 might not
 // be allowed anymore
 func isVersion3(version *felt.Felt) bool {
-	return version != nil && version.Equal(&RPCVersion3Value)
+	return version != nil && version.Equal(RPCVersion3Value)
 }
 
 func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {

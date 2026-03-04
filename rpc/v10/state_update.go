@@ -40,7 +40,7 @@ type DeployedContract struct {
 	ClassHash felt.Felt `json:"class_hash"`
 }
 
-type DeclaredClassDiff struct {
+type DeclaredClass struct {
 	ClassHash         felt.Felt `json:"class_hash"`
 	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
 }
@@ -55,7 +55,7 @@ type StateDiff struct {
 	Nonces                    []Nonce                 `json:"nonces"`
 	DeployedContracts         []DeployedContract      `json:"deployed_contracts"`
 	DeprecatedDeclaredClasses []*felt.Felt            `json:"deprecated_declared_classes"`
-	DeclaredClasses           []DeclaredClassDiff     `json:"declared_classes"`
+	DeclaredClasses           []DeclaredClass         `json:"declared_classes"`
 	ReplacedClasses           []ReplacedClass         `json:"replaced_classes"`
 	MigratedCompiledClasses   []MigratedCompiledClass `json:"migrated_compiled_classes"`
 }
@@ -122,9 +122,9 @@ func (h *Handler) StateUpdate(id *BlockID) (StateUpdate, *jsonrpc.Error) {
 	}
 
 	index = 0
-	declaredClasses := make([]DeclaredClassDiff, len(update.StateDiff.DeclaredV1Classes))
+	declaredClasses := make([]DeclaredClass, len(update.StateDiff.DeclaredV1Classes))
 	for classHash, compiledClassHash := range update.StateDiff.DeclaredV1Classes {
-		declaredClasses[index] = DeclaredClassDiff{
+		declaredClasses[index] = DeclaredClass{
 			ClassHash:         classHash,
 			CompiledClassHash: *compiledClassHash,
 		}
