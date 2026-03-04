@@ -398,37 +398,40 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 }
 
 // Transaction represents a Starknet transaction in the RPC API.
+//
+//nolint:lll // We can't break the json tags lines
 type Transaction struct {
 	Hash                  *felt.Felt            `json:"transaction_hash,omitempty"`
 	Type                  TransactionType       `json:"type" validate:"required"`
-	Version               *felt.Felt            `json:"version,omitempty" validate:"required,version_0x3"` //nolint:lll,nolintlint // conflicting line limits
+	Version               *felt.Felt            `json:"version,omitempty" validate:"required,version_0x3"`
 	Nonce                 *felt.Felt            `json:"nonce,omitempty" validate:"required"`
 	MaxFee                *felt.Felt            `json:"max_fee,omitempty"`
 	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"` //nolint:lll // tag
-	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`            //nolint:lll // tag
-	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`  //nolint:lll // tag
-	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`               //nolint:lll // tag
+	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
 	Signature             *[]*felt.Felt         `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"` //nolint:lll,nolintlint // conflicting line limits
+	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
 	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
-	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"resource_bounds_required"` //nolint:lll,nolintlint // conflicting line limits
+	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
 	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
 	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required"`
-	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"` //nolint:lll // tag
-	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`                                    //nolint:lll,nolintlint // conflicting line limits
-	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`                                      //nolint:lll,nolintlint // conflicting line limits
-	ProofFacts            []*felt.Felt          `json:"proof_facts,omitempty"`
+	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
+	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`
+	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`
+	ProofFacts            []felt.Felt           `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
 // BroadcastedTransaction represents a transaction submitted via the RPC API.
+//
+//nolint:lll // We can't break the json tags lines
 type BroadcastedTransaction struct {
 	Transaction
-	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`    //nolint:lll // validate tag
-	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"` //nolint:lll // validate tag
-	Proof         utils.Base64    `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`     //nolint:lll // validate tag
-	ProofFacts    []felt.Felt     `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
+	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
+	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
+	Proof         utils.Base64    `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
 }
 
 type TransactionExecutionErrorData struct {
