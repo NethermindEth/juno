@@ -76,8 +76,16 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 			handleNotFound(dir, queryArg, w)
 			return
 		}
-		_, err = w.Write(read) //nolint:gosec // G705: no danger, test environment
-		require.NoError(t, err, "failed to write response")
+		//nolint:gosec // looks like a false positive from gosec.
+		_, err = w.Write(read)
+		// Only report write errors if the client is still connected.
+		// When a test's context is cancelled mid-request the client
+		// closes the connection, causing the write to fail with
+		// platform-specific errors (EPIPE, net.ErrClosed, etc.).
+		// Checking r.Context() catches all of these generically.
+		if err != nil && r.Context().Err() == nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 }
 
