@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -133,6 +134,7 @@ func NewNopZapLogger() *ZapLogger {
 type loggerConfig struct {
 	colour bool
 	json   bool
+	writer io.Writer
 }
 
 type LoggerOption func(*loggerConfig)
@@ -146,6 +148,13 @@ func WithColour(colour bool) LoggerOption {
 func WithJSON(json bool) LoggerOption {
 	return func(cfg *loggerConfig) {
 		cfg.json = json
+	}
+}
+
+// note(rdr): functionality wise so far this is only used for testing purposes
+func WithWriter(w io.Writer) LoggerOption {
+	return func(cfg *loggerConfig) {
+		cfg.writer = w
 	}
 }
 
@@ -174,6 +183,21 @@ func NewZapLogger(logLevel *LogLevel, opts ...LoggerOption) (*ZapLogger, error) 
 				t.Local().Format("15:04:05.000 02/01/2006 -07:00"),
 			)
 		}
+	}
+
+	if cfg.writer != nil {
+		var encoder zapcore.Encoder
+		if cfg.json {
+			encoder = zapcore.NewJSONEncoder(encoderConfig)
+		} else {
+			encoder = zapcore.NewConsoleEncoder(encoderConfig)
+		}
+		core := zapcore.NewCore(
+			encoder,
+			zapcore.AddSync(cfg.writer),
+			logLevel.atomicLevel,
+		)
+		return NewZapLoggerWithCore(core), nil
 	}
 
 	config := zap.NewProductionConfig()

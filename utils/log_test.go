@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v3"
 )
 
@@ -97,21 +98,142 @@ func TestLogLevelType(t *testing.T) {
 }
 
 func TestZapWithColour(t *testing.T) {
-	for level, str := range levelStrings {
-		t.Run("level: "+str, func(t *testing.T) {
-			_, err := utils.NewZapLogger(level, utils.WithColour(true))
-			assert.NoError(t, err)
-		})
-	}
+	var buf bytes.Buffer
+	logLevel := utils.NewLogLevel(utils.INFO)
+	logger, err := utils.NewZapLogger(
+		logLevel, utils.WithWriter(&buf), utils.WithColour(true),
+	)
+	require.NoError(t, err)
+
+	logger.Info("colour test message")
+
+	output := buf.String()
+	assert.Contains(t, output, "colour test message")
+	assert.Contains(t, output, "\x1b[")
 }
 
 func TestZapWithoutColour(t *testing.T) {
-	for level, str := range levelStrings {
-		t.Run("level: "+str, func(t *testing.T) {
-			_, err := utils.NewZapLogger(level)
-			assert.NoError(t, err)
-		})
-	}
+	var buf bytes.Buffer
+	logLevel := utils.NewLogLevel(utils.INFO)
+	logger, err := utils.NewZapLogger(
+		logLevel, utils.WithWriter(&buf),
+	)
+	require.NoError(t, err)
+
+	logger.Info("no colour message")
+
+	output := buf.String()
+	assert.Contains(t, output, "no colour message")
+	assert.NotContains(t, output, "\x1b[")
+}
+
+func TestZapWithJSON(t *testing.T) {
+	logLevel := utils.NewLogLevel(utils.INFO)
+
+	t.Run("produces valid JSON output", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger, err := utils.NewZapLogger(
+			logLevel, utils.WithJSON(true), utils.WithWriter(&buf),
+		)
+		require.NoError(t, err)
+
+		logger.Info("test message", zap.String("key", "value"))
+
+		var m map[string]any
+		err = json.Unmarshal(buf.Bytes(), &m)
+		require.NoError(t, err)
+		assert.Equal(t, "test message", m["msg"])
+		assert.Equal(t, "value", m["key"])
+		assert.Equal(t, "INFO", m["level"])
+	})
+
+	t.Run("console output is not JSON", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger, err := utils.NewZapLogger(
+			logLevel, utils.WithJSON(false), utils.WithWriter(&buf),
+		)
+		require.NoError(t, err)
+
+		logger.Info("hello console")
+
+		output := buf.String()
+		assert.Contains(t, output, "hello console")
+
+		var m map[string]any
+		err = json.Unmarshal(buf.Bytes(), &m)
+		assert.Error(t, err, "console output should not be valid JSON")
+	})
+
+	t.Run("JSON ignores colour option", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger, err := utils.NewZapLogger(
+			logLevel,
+			utils.WithJSON(true),
+			utils.WithColour(true),
+			utils.WithWriter(&buf),
+		)
+		require.NoError(t, err)
+
+		logger.Info("json colour test")
+
+		output := buf.String()
+		assert.NotContains(t, output, "\x1b[")
+
+		var m map[string]any
+		err = json.Unmarshal(buf.Bytes(), &m)
+		require.NoError(t, err)
+		assert.Equal(t, "INFO", m["level"])
+	})
+
+	t.Run("JSON timestamp is ISO8601", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger, err := utils.NewZapLogger(
+			logLevel, utils.WithJSON(true), utils.WithWriter(&buf),
+		)
+		require.NoError(t, err)
+
+		logger.Info("timestamp test")
+
+		var m map[string]any
+		err = json.Unmarshal(buf.Bytes(), &m)
+		require.NoError(t, err)
+
+		ts, ok := m["ts"].(string)
+		require.True(t, ok)
+		_, err = time.Parse("2006-01-02T15:04:05.000Z0700", ts)
+		assert.NoError(t, err)
+	})
+}
+
+func TestConsoleOutput(t *testing.T) {
+	t.Run("timestamp format", func(t *testing.T) {
+		var buf bytes.Buffer
+		logLevel := utils.NewLogLevel(utils.INFO)
+		logger, err := utils.NewZapLogger(
+			logLevel, utils.WithWriter(&buf),
+		)
+		require.NoError(t, err)
+
+		logger.Info("timestamp test")
+
+		output := buf.String()
+		pattern := `\d{2}:\d{2}:\d{2}\.\d{3} \d{2}/\d{2}/\d{4} [+-]\d{2}:\d{2}`
+		assert.Regexp(t, regexp.MustCompile(pattern), output)
+	})
+
+	t.Run("TRACE level is cyan with colour", func(t *testing.T) {
+		var buf bytes.Buffer
+		logLevel := utils.NewLogLevel(utils.TRACE)
+		logger, err := utils.NewZapLogger(
+			logLevel, utils.WithWriter(&buf), utils.WithColour(true),
+		)
+		require.NoError(t, err)
+
+		logger.Trace("cyan trace message")
+
+		output := buf.String()
+		assert.Contains(t, output, "\x1b[36mTRACE\x1b[0m")
+	})
 }
 
 func TestHTTPLogSettings(t *testing.T) {
@@ -236,39 +358,31 @@ func TestIsTraceEnabled(t *testing.T) {
 }
 
 func TestTrace(t *testing.T) {
-	t.Run("Trace with trace level enabled", func(t *testing.T) {
-		logLevel := utils.NewLogLevel(utils.TRACE)
-
+	t.Run("enabled", func(t *testing.T) {
 		var buf bytes.Buffer
-		core := zapcore.NewCore(
-			zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
-			zapcore.AddSync(&buf),
-			logLevel.Level(),
+		logLevel := utils.NewLogLevel(utils.TRACE)
+		logger, err := utils.NewZapLogger(
+			logLevel, utils.WithWriter(&buf),
 		)
-		zapLogger := utils.NewZapLoggerWithCore(core)
+		require.NoError(t, err)
 
-		expectedMessage := "trace message"
-		zapLogger.Trace(expectedMessage)
+		logger.Trace("trace message")
 
-		logOutput := buf.String()
-		assert.Contains(t, logOutput, expectedMessage)
+		output := buf.String()
+		assert.Contains(t, output, "trace message")
+		assert.Contains(t, output, "TRACE")
 	})
 
-	t.Run("Trace with trace level disabled", func(t *testing.T) {
-		logLevel := utils.NewLogLevel(utils.INFO)
-
+	t.Run("disabled", func(t *testing.T) {
 		var buf bytes.Buffer
-		core := zapcore.NewCore(
-			zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
-			zapcore.AddSync(&buf),
-			logLevel.Level(),
+		logLevel := utils.NewLogLevel(utils.INFO)
+		logger, err := utils.NewZapLogger(
+			logLevel, utils.WithWriter(&buf),
 		)
-		zapLogger := utils.NewZapLoggerWithCore(core)
+		require.NoError(t, err)
 
-		expectedMessage := "trace message"
-		zapLogger.Trace(expectedMessage)
+		logger.Trace("trace message")
 
-		logOutput := buf.String()
-		assert.NotContains(t, logOutput, expectedMessage)
+		assert.Empty(t, buf.String())
 	})
 }
