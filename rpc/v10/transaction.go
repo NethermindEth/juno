@@ -25,7 +25,7 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 	if includeProofFacts {
 		if invokeTx, ok := coreTx.(*core.InvokeTransaction); ok {
 			if invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
-				tx.ProofFacts = invokeTx.ProofFacts
+				tx.ProofFacts = &invokeTx.ProofFacts
 			}
 		}
 	}
@@ -39,12 +39,7 @@ func AdaptBroadcastedTransaction(
 	broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
-	isInvokeV3 := broadcastedTxn.Transaction.Type == TxnInvoke
-
 	feederTxn := AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
-	if isInvokeV3 && len(broadcastedTxn.ProofFacts) > 0 {
-		setProofFacts(&feederTxn, broadcastedTxn)
-	}
 
 	txn, err := sn2core.AdaptTransaction(&feederTxn)
 	if err != nil {
@@ -81,15 +76,6 @@ func AdaptBroadcastedTransaction(
 	}
 
 	return txn, declaredClass, paidFeeOnL1, nil
-}
-
-func setProofFacts(feederTxn *starknet.Transaction, broadcastedTxn *BroadcastedTransaction) {
-	proofFactsPtrs := make([]*felt.Felt, len(broadcastedTxn.ProofFacts))
-	for i := range broadcastedTxn.ProofFacts {
-		proofFact := broadcastedTxn.ProofFacts[i]
-		proofFactsPtrs[i] = &proofFact
-	}
-	feederTxn.ProofFacts = &proofFactsPtrs
 }
 
 func handleDeclaredClass(
@@ -269,7 +255,7 @@ func (h *Handler) pushToFeederGateway(
 		tx.ContractClass = newContractClass
 	}
 
-	payload := adaptRPCTxToFeederPayload(tx)
+	payload := AdaptRPCTxToAddTxGatewayPayload(tx)
 	txJSON, err := json.Marshal(&payload)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
@@ -304,24 +290,6 @@ func (h *Handler) pushToFeederGateway(
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil
-}
-
-type addTxGatewayPayload struct {
-	AddTxGatewayPayload
-	Proof      utils.Base64 `json:"proof,omitempty"`
-	ProofFacts []felt.Felt  `json:"proof_facts,omitempty"`
-}
-
-func adaptRPCTxToFeederPayload(
-	tx *BroadcastedTransaction,
-) addTxGatewayPayload {
-	var payload addTxGatewayPayload
-	payload.AddTxGatewayPayload = AdaptRPCTxToAddTxGatewayPayload(tx)
-	if tx.Transaction.Type == TxnInvoke && isVersion3(tx.Transaction.Version) {
-		payload.Proof = tx.Proof
-		payload.ProofFacts = tx.ProofFacts
-	}
-	return payload
 }
 
 func (h *Handler) TransactionStatus(

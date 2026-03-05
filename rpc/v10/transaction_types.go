@@ -421,7 +421,7 @@ type Transaction struct {
 	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
 	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`
 	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`
-	ProofFacts            []felt.Felt           `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
+	ProofFacts            *[]*felt.Felt         `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
 // BroadcastedTransaction represents a transaction submitted via the RPC API.

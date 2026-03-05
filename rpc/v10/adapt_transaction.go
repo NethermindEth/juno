@@ -22,6 +22,7 @@ var ErrTransactionNotFound = errors.New("transaction not found")
 type AddTxGatewayPayload struct {
 	starknet.Transaction
 	ContractClass json.RawMessage `json:"contract_class,omitempty"`
+	Proof         utils.Base64    `json:"proof,omitempty"`
 }
 
 // AdaptCoreTransaction adapts a core.Transaction to a local *Transaction.
@@ -168,6 +169,7 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 		FeeDAMode:             feeDAModePtr,
 		AccountDeploymentData: rpcTx.AccountDeploymentData,
 		PaymasterData:         rpcTx.PaymasterData,
+		ProofFacts:            rpcTx.ProofFacts,
 	}
 }
 
@@ -175,6 +177,7 @@ func AdaptRPCTxToAddTxGatewayPayload(rpcTx *BroadcastedTransaction) AddTxGateway
 	return AddTxGatewayPayload{
 		Transaction:   AdaptRPCTxToFeederTx(&rpcTx.Transaction),
 		ContractClass: rpcTx.ContractClass,
+		Proof:         rpcTx.Proof,
 	}
 }
 
