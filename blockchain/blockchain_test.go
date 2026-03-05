@@ -794,6 +794,225 @@ func TestRevert(t *testing.T) {
 	})
 }
 
+// TestRevertHeadMigratedCasmClasses ensures that after storing a block with
+// MigratedClasses and then reverting, the classes trie and CASM hash metadata
+// are correctly reverted to V1.
+func TestRevertHeadMigratedCasmClasses(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Integration)
+	gw := adaptfeeder.New(client)
+
+	sierraClassHashFelt := felt.UnsafeFromString[felt.Felt](
+		"0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
+	)
+	classDef, err := gw.Class(t.Context(), &sierraClassHashFelt)
+	require.NoError(t, err)
+	sierraClass, ok := classDef.(*core.SierraClass)
+	require.True(t, ok, "class must be SierraClass")
+	require.NotNil(t, sierraClass.Compiled, "class must have Compiled set")
+
+	sierraHash := felt.SierraClassHash(sierraClassHashFelt)
+	v1CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV1))
+	v2CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
+
+	newClasses := map[felt.Felt]core.ClassDefinition{
+		sierraClassHashFelt: sierraClass,
+	}
+
+	testDB := memory.New()
+	chain := blockchain.New(testDB, &utils.Integration)
+
+	receipts0 := make([]*core.TransactionReceipt, 0)
+	//nolint:dupl // Similar to block0 in `TestRevertHeadDeclaredV2CasmClasses`
+	block0 := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &felt.Zero,
+			Number:           0,
+			SequencerAddress: &felt.Zero,
+			EventsBloom:      core.EventsBloom(receipts0),
+			L1GasPriceETH:    &felt.Zero,
+			L1GasPriceSTRK:   &felt.Zero,
+			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L2GasPrice:       &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L1DAMode:         core.Calldata,
+			// V1 CASM hash is used for classes declared before protocol version 0.14.1
+			ProtocolVersion: core.Ver0_14_0.String(),
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts0,
+	}
+
+	stateUpdate0 := &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+				sierraClassHashFelt: (*felt.Felt)(&v1CasmHash),
+			},
+		},
+	}
+	require.NoError(t, chain.Finalise(block0, stateUpdate0, newClasses, nil))
+
+	receipts1 := make([]*core.TransactionReceipt, 0)
+	//nolint:dupl // Similar to block1 in `TestRevertHeadDeclaredV2CasmClasses`
+	block1 := &core.Block{
+		Header: &core.Header{
+			ParentHash:       block0.Hash,
+			Number:           1,
+			SequencerAddress: &felt.Zero,
+			EventsBloom:      core.EventsBloom(receipts1),
+			L1GasPriceETH:    &felt.Zero,
+			L1GasPriceSTRK:   &felt.Zero,
+			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L2GasPrice:       &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L1DAMode:         core.Calldata,
+			// V2 CASM hash is used for classes declared from protocol version 0.14.1 onwards
+			ProtocolVersion: core.Ver0_14_1.String(),
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts1,
+	}
+
+	stateUpdate1 := &core.StateUpdate{
+		StateDiff: &core.StateDiff{
+			MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
+				sierraHash: v2CasmHash,
+			},
+		},
+	}
+	require.NoError(t, chain.Finalise(block1, stateUpdate1, nil, nil))
+
+	// verify the state is migrated
+	state, closer, err := chain.HeadState()
+	require.NoError(t, err)
+	defer func() { _ = closer() }()
+	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
+	require.NoError(t, err)
+	assert.Equal(t, v2CasmHash, gotCasmHash, "should return V2 after migrating class")
+	gotRoot, err := chain.StateCommitment()
+	require.NoError(t, err)
+	assert.Equal(t, stateUpdate1.NewRoot, &gotRoot)
+
+	// Revert head should revert the state to casm hash v1
+	require.NoError(t, chain.RevertHead())
+
+	state, closer, err = chain.HeadState()
+	require.NoError(t, err)
+	defer func() { _ = closer() }()
+
+	gotCasmHash, err = state.CompiledClassHash(&sierraHash)
+	require.NoError(t, err)
+	assert.Equal(t, v1CasmHash, gotCasmHash, "should return V1 after reverting migrated class")
+
+	gotRoot, err = chain.StateCommitment()
+	require.NoError(t, err)
+	assert.Equal(t, stateUpdate0.NewRoot, &gotRoot, "state root after revert should match block 0")
+}
+
+// TestRevertHeadDeclaredV2CasmClasses ensures that after storing a block with
+// DeclaredV1Classes under protocol >= 0.14.1 (V2 CASM hash path) and then
+// reverting, the class metadata is correctly deleted.
+func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
+	network := &utils.Integration
+	client := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(client)
+
+	sierraClassHashFelt := felt.UnsafeFromString[felt.Felt](
+		"0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
+	)
+	classDef, err := gw.Class(t.Context(), &sierraClassHashFelt)
+	require.NoError(t, err)
+
+	sierraClass, ok := classDef.(*core.SierraClass)
+	require.True(t, ok, "class must be a SierraClass")
+	require.NotNil(t, sierraClass.Compiled, "class must be compiled")
+
+	sierraHash := felt.SierraClassHash(sierraClassHashFelt)
+	v2CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
+
+	newClasses := map[felt.Felt]core.ClassDefinition{
+		sierraClassHashFelt: sierraClass,
+	}
+
+	testDB := memory.New()
+	chain := blockchain.New(testDB, network)
+
+	// Block 0: empty genesis block so we have a head after reverting block 1
+	receipts0 := make([]*core.TransactionReceipt, 0)
+	//nolint:dupl // Similar to block0 in `TestRevertHeadMigratedClass`
+	block0 := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &felt.Zero,
+			Number:           0,
+			SequencerAddress: &felt.Zero,
+			EventsBloom:      core.EventsBloom(receipts0),
+			L1GasPriceETH:    &felt.Zero,
+			L1GasPriceSTRK:   &felt.Zero,
+			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L2GasPrice:       &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L1DAMode:         core.Calldata,
+			ProtocolVersion:  core.Ver0_14_1.String(),
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts0,
+	}
+	stateUpdate0 := &core.StateUpdate{
+		OldRoot:   &felt.Zero,
+		StateDiff: &core.StateDiff{},
+	}
+	require.NoError(t, chain.Finalise(block0, stateUpdate0, nil, nil))
+
+	// Block 1: declare a class with V2 CASM hash (protocol >= 0.14.1)
+	receipts1 := make([]*core.TransactionReceipt, 0)
+	//nolint:dupl // Similar to block1 in `TestRevertHeadMigratedClass`
+	block1 := &core.Block{
+		Header: &core.Header{
+			ParentHash:       block0.Hash,
+			Number:           1,
+			SequencerAddress: &felt.Zero,
+			EventsBloom:      core.EventsBloom(receipts1),
+			L1GasPriceETH:    &felt.Zero,
+			L1GasPriceSTRK:   &felt.Zero,
+			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L2GasPrice:       &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
+			L1DAMode:         core.Calldata,
+			// V2 CASM hash path: protocol >= 0.14.1
+			ProtocolVersion: core.Ver0_14_1.String(),
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts1,
+	}
+
+	stateUpdate1 := &core.StateUpdate{
+		StateDiff: &core.StateDiff{
+			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+				sierraClassHashFelt: (*felt.Felt)(&v2CasmHash),
+			},
+		},
+	}
+	require.NoError(t, chain.Finalise(block1, stateUpdate1, newClasses, nil))
+
+	// Verify the class exists in state with the V2 CASM hash
+	state, closer, err := chain.HeadState()
+	require.NoError(t, err)
+	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
+	require.NoError(t, err)
+	assert.Equal(t, v2CasmHash, gotCasmHash, "should return V2 CASM hash after declaring class")
+	require.NoError(t, closer())
+
+	// Revert head should delete the class metadata entirely
+	require.NoError(t, chain.RevertHead())
+
+	state, closer, err = chain.HeadState()
+	require.NoError(t, err)
+	defer func() { _ = closer() }()
+
+	_, err = state.CompiledClassHash(&sierraHash)
+	assert.Error(t, err, "should error after reverting declared V2 class")
+
+	gotRoot, err := chain.StateCommitment()
+	require.NoError(t, err)
+	assert.Equal(t, stateUpdate0.NewRoot, &gotRoot, "state root after revert should match block 0")
+}
+
 func TestL1Update(t *testing.T) {
 	heads := []*core.L1Head{
 		{
@@ -832,4 +1051,11 @@ func TestSubscribeL1Head(t *testing.T) {
 	got, ok := <-sub.Recv()
 	require.True(t, ok)
 	assert.Equal(t, l1Head, got)
+}
+
+func TestStateCommitmentEmptyChain(t *testing.T) {
+	chain := blockchain.New(memory.New(), &utils.Mainnet)
+	commitment, err := chain.StateCommitment()
+	require.NoError(t, err)
+	assert.Equal(t, felt.Felt{}, commitment)
 }

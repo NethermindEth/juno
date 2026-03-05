@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -35,30 +34,7 @@ var (
 	}
 )
 
-var _ StateReader = &State{}
-
-//go:generate mockgen -destination=../../mocks/mock_state_reader.go -package=mocks github.com/NethermindEth/juno/core/state StateReader
-type StateReader interface {
-	ContractReader
-	ClassReader
-	TrieProvider
-}
-
-type ContractReader interface {
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
-}
-
-type ClassReader interface {
-	Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error)
-}
-
-type TrieProvider interface {
-	ClassTrie() (commontrie.Trie, error)
-	ContractTrie() (commontrie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error)
-}
+var _ core.State = &State{}
 
 type State struct {
 	initRoot     felt.Felt
@@ -147,20 +123,40 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, erro
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *State) ClassTrie() (commontrie.Trie, error) {
+func (s *State) ClassTrie() (core.Trie, error) {
 	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (commontrie.Trie, error) {
+func (s *State) ContractTrie() (core.Trie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
+func (s *State) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHash(), nil
+}
+
+func (s *State) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashV2(), nil
+}
+
 // Returns the state commitment
-func (s *State) Commitment() (felt.Felt, error) {
+func (s *State) Commitment(protocolVersion string) (felt.Felt, error) {
 	contractRoot, err := s.contractTrie.Hash()
 	if err != nil {
 		return felt.Felt{}, err
@@ -169,19 +165,21 @@ func (s *State) Commitment() (felt.Felt, error) {
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	return stateCommitment(&contractRoot, &classRoot), nil
+	return stateCommitment(&contractRoot, &classRoot, protocolVersion), nil
 }
 
 // Applies a state update to a given state. If any error is encountered, state is not updated.
 // After a state update is applied, the root of the state must match the given new root in the state update.
 // TODO(weiihann): deal with flush atomicity
 func (s *State) Update(
-	blockNum uint64,
+	header *core.Header,
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.ClassDefinition,
 	skipVerifyNewRoot bool,
 ) error {
-	if err := s.verifyComm(update.OldRoot); err != nil {
+	blockNum := header.Number
+	protocolVersion := header.ProtocolVersion
+	if err := s.verifyComm(update.OldRoot, protocolVersion); err != nil {
 		return err
 	}
 
@@ -200,7 +198,12 @@ func (s *State) Update(
 	}
 
 	// Update the class trie
-	if err := s.updateClassTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
+	err := s.updateClassTrie(
+		update.StateDiff.DeclaredV1Classes,
+		declaredClasses,
+		update.StateDiff.MigratedClasses,
+	)
+	if err != nil {
 		return err
 	}
 
@@ -225,7 +228,7 @@ func (s *State) Update(
 		return err
 	}
 
-	newComm, stateUpdate, err := s.commit()
+	newComm, stateUpdate, err := s.commit(protocolVersion)
 	if err != nil {
 		return err
 	}
@@ -258,9 +261,11 @@ func (s *State) Update(
 // Revert a given state update. The block number is the block number of the state update.
 //
 //nolint:gocyclo
-func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
+func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
+	blockNum := header.Number
+	protocolVersion := header.ProtocolVersion
 	// Ensure the current root is the same as the new root
-	if err := s.verifyComm(update.NewRoot); err != nil {
+	if err := s.verifyComm(update.NewRoot, protocolVersion); err != nil {
 		return err
 	}
 
@@ -299,6 +304,22 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 		dirtyClasses[*hash] = nil // mark for deletion
 	}
 
+	// Revert migrated class metadata: restore V1 casm hash in trie
+	for classHash := range update.StateDiff.MigratedClasses {
+		metadata, err := core.GetClassCasmHashMetadata(s.db.disk, &classHash)
+		if err != nil {
+			return fmt.Errorf("get casm metadata for class %s: %w", classHash.String(), err)
+		}
+		if err := metadata.Unmigrate(); err != nil {
+			return fmt.Errorf("unmigrate class %s: %w", classHash.String(), err)
+		}
+		v1CasmHash := metadata.CasmHash() // returns V1 after Unmigrate
+		leafVal := crypto.Poseidon(leafVersion0, (*felt.Felt)(&v1CasmHash))
+		if err := s.classTrie.Update((*felt.Felt)(&classHash), &leafVal); err != nil {
+			return fmt.Errorf("revert class %s in trie: %w", classHash.String(), err)
+		}
+	}
+
 	if err := s.updateContracts(blockNum, &reverseDiff); err != nil {
 		return fmt.Errorf("update contracts: %v", err)
 	}
@@ -307,7 +328,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 		s.stateObjects[addr] = nil // mark for deletion
 	}
 
-	newComm, stateUpdate, err := s.commit()
+	newComm, stateUpdate, err := s.commit(protocolVersion)
 	if err != nil {
 		return err
 	}
@@ -382,7 +403,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core
 }
 
 //nolint:gocyclo
-func (s *State) commit() (felt.Felt, stateUpdate, error) {
+func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	// Sort in descending order of the number of storage changes
 	// so that we start with the heaviest update first
 	keys := slices.SortedStableFunc(maps.Keys(s.stateObjects), s.compareContracts)
@@ -479,7 +500,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 		return felt.Zero, emptyStateUpdate, err
 	}
 
-	newComm := stateCommitment(&contractRoot, &classRoot)
+	newComm := stateCommitment(&contractRoot, &classRoot, protocolVersion)
 
 	su := stateUpdate{
 		prevComm:      s.initRoot,
@@ -574,6 +595,7 @@ func (s *State) flush(
 func (s *State) updateClassTrie(
 	declaredClasses map[felt.Felt]*felt.Felt,
 	classDefs map[felt.Felt]core.ClassDefinition,
+	migratedClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
 	for classHash, compiledClassHash := range declaredClasses {
 		if _, found := classDefs[classHash]; !found {
@@ -586,11 +608,18 @@ func (s *State) updateClassTrie(
 		}
 	}
 
+	for classHash, casmHash := range migratedClasses {
+		leafVal := crypto.Poseidon(leafVersion0, (*felt.Felt)(&casmHash))
+		if err := s.classTrie.Update((*felt.Felt)(&classHash), &leafVal); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (s *State) verifyComm(comm *felt.Felt) error {
-	curComm, err := s.Commitment()
+func (s *State) verifyComm(comm *felt.Felt, protocolVersion string) error {
+	curComm, err := s.Commitment(protocolVersion)
 	if err != nil {
 		return err
 	}
@@ -695,6 +724,17 @@ func (s *State) ContractNonceAt(addr *felt.Felt, blockNum uint64) (felt.Felt, er
 func (s *State) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
 	prefix := db.ContractClassHashHistoryKey(addr)
 	return s.getHistoricalValue(prefix, blockNum)
+}
+
+func (s *State) CompiledClassHashAt(
+	classHash *felt.SierraClassHash,
+	blockNumber uint64,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(blockNumber)
 }
 
 func (s *State) getHistoricalValue(prefix []byte, blockNum uint64) (felt.Felt, error) {
@@ -809,9 +849,15 @@ func (s *State) compareContracts(a, b felt.Felt) int {
 	return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
 }
 
-// Calculate the commitment of the state
-func stateCommitment(contractRoot, classRoot *felt.Felt) felt.Felt {
-	if classRoot.IsZero() {
+// Calculate the commitment of the state.
+// Since v0.14.0, the Poseidon hash is always applied even when classRoot is zero.
+func stateCommitment(contractRoot, classRoot *felt.Felt, protocolVersion string) felt.Felt {
+	if classRoot.IsZero() && contractRoot.IsZero() {
+		return felt.Zero
+	}
+
+	ver, _ := core.ParseBlockVersion(protocolVersion)
+	if classRoot.IsZero() && ver.LessThan(core.Ver0_14_0) {
 		return *contractRoot
 	}
 

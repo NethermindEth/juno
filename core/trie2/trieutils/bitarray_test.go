@@ -2089,3 +2089,277 @@ func TestSubset(t *testing.T) {
 		})
 	}
 }
+
+// serializationCases are shared by TestWrite, TestEncodedBytes, and TestEncodedString.
+// They must produce the same byte sequence: the minimal big-endian
+// encoding of the bit array's significant bytes, followed by its bit length.
+//
+// Expected format: [active_bytes...] [b.len]
+// where active_bytes = ceil(b.len / 8) bytes from the big-endian Bytes() representation.
+func serializationCases() []struct {
+	name      string
+	ba        BitArray
+	wantBytes []byte
+} {
+	return []struct {
+		name      string
+		ba        BitArray
+		wantBytes []byte
+	}{
+		{
+			// No active bytes, just the length byte.
+			name:      "empty",
+			ba:        BitArray{len: 0, words: [4]uint64{0, 0, 0, 0}},
+			wantBytes: []byte{0x00},
+		},
+		{
+			// 1 active byte; bit value is 1.
+			name:      "1 bit / set",
+			ba:        BitArray{len: 1, words: [4]uint64{1, 0, 0, 0}},
+			wantBytes: []byte{0x01, 0x01},
+		},
+		{
+			// 1 active byte; bit value is 0.
+			name:      "1 bit / unset",
+			ba:        BitArray{len: 1, words: [4]uint64{0, 0, 0, 0}},
+			wantBytes: []byte{0x00, 0x01},
+		},
+		{
+			// Still fits in 1 byte (len 7 → ceil(7/8)=1 active byte).
+			name:      "7 bits",
+			ba:        BitArray{len: 7, words: [4]uint64{0x7F, 0, 0, 0}},
+			wantBytes: []byte{0x7F, 0x07},
+		},
+		{
+			// Exact byte boundary: 1 active byte, all bits set.
+			name:      "8 bits / all set",
+			ba:        BitArray{len: 8, words: [4]uint64{0xFF, 0, 0, 0}},
+			wantBytes: []byte{0xFF, 0x08},
+		},
+		{
+			// Exact byte boundary: 1 active byte, all bits cleared.
+			name:      "8 bits / all zeros",
+			ba:        BitArray{len: 8, words: [4]uint64{0, 0, 0, 0}},
+			wantBytes: []byte{0x00, 0x08},
+		},
+		{
+			// Just past the first byte boundary (2 active bytes).
+			name:      "9 bits",
+			ba:        BitArray{len: 9, words: [4]uint64{0x1FF, 0, 0, 0}},
+			wantBytes: []byte{0x01, 0xFF, 0x09},
+		},
+		{
+			// 2 active bytes; taken from the existing TestWriteAndUnmarshalBinary suite.
+			name:      "10 bits",
+			ba:        BitArray{len: 10, words: [4]uint64{0x3FF, 0, 0, 0}},
+			wantBytes: []byte{0x03, 0xFF, 0x0A},
+		},
+		{
+			// 2 active bytes, alternating-bit pattern (0xAAAA).
+			name:      "16 bits / sparse",
+			ba:        BitArray{len: 16, words: [4]uint64{0xAAAA, 0, 0, 0}},
+			wantBytes: []byte{0xAA, 0xAA, 0x10},
+		},
+		{
+			// Just under the 64-bit boundary (8 active bytes).
+			name: "63 bits",
+			ba:   BitArray{len: 63, words: [4]uint64{ones63, 0, 0, 0}},
+			wantBytes: []byte{
+				0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // big-endian ones63
+				0x3F, // 63
+			},
+		},
+		{
+			// Exact 64-bit (word) boundary: 8 active bytes.
+			name: "64 bits / word boundary",
+			ba:   BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
+			wantBytes: []byte{
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // big-endian maxUint64
+				0x40, // 64
+			},
+		},
+		{
+			// Just past the 64-bit boundary (9 active bytes).
+			// words[1]=1 contributes the 65th bit; Bytes()[23] == 0x01.
+			name: "65 bits",
+			ba:   BitArray{len: 65, words: [4]uint64{maxUint64, 1, 0, 0}},
+			wantBytes: []byte{
+				0x01,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // maxUint64
+				0x41, // 65
+			},
+		},
+		{
+			// Just under the 128-bit boundary (16 active bytes).
+			name: "127 bits",
+			ba:   BitArray{len: 127, words: [4]uint64{maxUint64, ones63, 0, 0}},
+			wantBytes: []byte{
+				// big-endian of ones63 (words[1])
+				0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				// big-endian of maxUint64 (words[0])
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0x7F, // 127
+			},
+		},
+		{
+			// Exact 128-bit (two-word) boundary: 16 active bytes.
+			// len=128 is also the threshold where the length byte itself >= 0x80,
+			// which exposes the UTF-8 encoding difference in EncodedString.
+			name: "128 bits / word boundary",
+			ba:   BitArray{len: 128, words: [4]uint64{maxUint64, maxUint64, 0, 0}},
+			wantBytes: []byte{
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0x80, // 128
+			},
+		},
+		{
+			// Exact 192-bit (three-word) boundary: 24 active bytes.
+			name: "192 bits / word boundary",
+			ba:   BitArray{len: 192, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0}},
+			wantBytes: []byte{
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xC0, // 192
+			},
+		},
+		{
+			// Full 251-bit StarkNet trie key: 32 active bytes (all four words used).
+			// words[3]=0x07FFFFFFFFFFFFFF gives leading byte 0x07.
+			name: "251 bits / full StarkNet key",
+			ba:   BitArray{len: 251, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF}},
+			wantBytes: []byte{
+				0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFB, // 251
+			},
+		},
+		{
+			// 251-bit key with a sparse lower word to verify per-word byte ordering.
+			// words[0]=0xAAAAAAAAAAAAAAAA → big-endian last 8 bytes are all 0xAA.
+			name: "251 bits / sparse lower word",
+			ba: BitArray{len: 251, words: [4]uint64{
+				0xAAAAAAAAAAAAAAAA, maxUint64, maxUint64, 0x07FFFFFFFFFFFFFF,
+			}},
+			wantBytes: []byte{
+				0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // words[3]
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // words[2]
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // words[1]
+				0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, // words[0]
+				0xFB, // 251
+			},
+		},
+	}
+}
+
+// TestWrite verifies that BitArray.Write produces the expected byte sequence
+// (active bytes + length byte).
+func TestWrite(t *testing.T) {
+	for _, tt := range serializationCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := new(bytes.Buffer)
+			n, err := tt.ba.Write(buf)
+			require.NoError(t, err)
+			assert.Equal(t, len(tt.wantBytes), n, "BitArray.Write: wrong byte count")
+			assert.Equal(t, tt.wantBytes, buf.Bytes(), "BitArray.Write: wrong bytes")
+		})
+	}
+}
+
+// TestEncodedBytes verifies that BitArray.EncodedBytes returns the expected byte
+// slice (active bytes + length byte) and that its output is consistent with Write.
+func TestEncodedBytes(t *testing.T) {
+	for _, tt := range serializationCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.ba.EncodedBytes()
+			assert.Equal(t, tt.wantBytes, got, "BitArray.EncodedBytes: wrong bytes")
+
+			// EncodedBytes must be consistent with Write.
+			buf := new(bytes.Buffer)
+			_, _ = tt.ba.Write(buf)
+			assert.Equal(t, buf.Bytes(), got, "EncodedBytes: output inconsistent with Write")
+
+			// Verify that modifying the returned slice does not affect internal state.
+			if len(got) > 0 {
+				got[0] ^= 0xFF
+				assert.Equal(
+					t,
+					tt.wantBytes,
+					tt.ba.EncodedBytes(),
+					"EncodedBytes: returned slice shares memory with BitArray",
+				)
+			}
+		})
+	}
+}
+
+// TestEncodedString verifies that EncodedString returns a string whose bytes are
+// identical to those produced by EncodedBytes: active bytes in big-endian order
+// followed by the bit length as a single byte.
+func TestEncodedString(t *testing.T) {
+	for _, tt := range serializationCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			want := string(tt.wantBytes)
+			assert.Equal(t, want, tt.ba.EncodedString(), "BitArray.EncodedString: wrong result")
+		})
+	}
+}
+
+// BenchmarkWrite compares the performance of BitArray.Write
+// across the shared serialisation cases.
+func BenchmarkWrite(b *testing.B) {
+	cases := serializationCases()
+
+	b.Run("benchmark", func(b *testing.B) {
+		b.ReportAllocs()
+		buf := new(bytes.Buffer)
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			buf.Reset()
+			_, _ = tc.ba.Write(buf)
+		}
+	})
+}
+
+// BenchmarkEncodedBytes compares the performance of BitArray.EncodedBytes method.
+func BenchmarkEncodedBytes(b *testing.B) {
+	cases := serializationCases()
+
+	b.Run("without-inline-optimization", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			sink = tc.ba.EncodedBytes()
+		}
+	})
+
+	b.Run("with-inline-optimization", func(b *testing.B) {
+		b.ReportAllocs()
+		// to avoid compiler optimization while still inlining the function
+		var s byte
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			s ^= tc.ba.EncodedBytes()[0]
+		}
+		_ = s
+	})
+}
+
+// BenchmarkEncodedString compares the performance of BitArray.EncodedString
+func BenchmarkEncodedString(b *testing.B) {
+	cases := serializationCases()
+	// to avoid compiler optimization
+	var sinkStr string
+
+	b.Run("benchmark", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := range b.N {
+			tc := &cases[i%len(cases)]
+			sinkStr = tc.ba.EncodedString()
+		}
+	})
+	_ = sinkStr
+}

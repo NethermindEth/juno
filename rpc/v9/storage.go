@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -209,7 +208,7 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	return nil
 }
 
-func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+func getClassProof(tr core.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 	// TODO(maksym): remove after trie2 integration. RPC packages shouldn't
 	// care about which trie implementation is being used and the output format should be the same
 	t, ok := tr.(*trie.Trie)
@@ -228,7 +227,7 @@ func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, erro
 }
 
 func getContractProof(
-	tr commontrie.Trie,
+	tr core.Trie,
 	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {

@@ -15,7 +15,6 @@ import (
 const (
 	maxUint64       = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
 	maxUint8        = uint8(math.MaxUint8)
-	bytes32         = 32
 	MaxBitArraySize = 33 // (1 + 4 * 8) bytes
 )
 
@@ -52,13 +51,23 @@ func (b *BitArray) Len() uint8 {
 // Returns the bytes representation of the bit array in big endian format
 func (b *BitArray) Bytes() [32]byte {
 	var res [32]byte
-
-	binary.BigEndian.PutUint64(res[0:8], b.words[3])
-	binary.BigEndian.PutUint64(res[8:16], b.words[2])
-	binary.BigEndian.PutUint64(res[16:24], b.words[1])
-	binary.BigEndian.PutUint64(res[24:32], b.words[0])
-
+	b.writeBytesTo(res[:])
 	return res
+}
+
+// Writes the bytes representation of the bit array to a given slice in big endian format.
+// The slice must be at least 32 bytes long.
+func (b *BitArray) BytesTo(dst []byte) {
+	b.writeBytesTo(dst)
+}
+
+// Writes the bytes representation of the bit array to a given slice in big endian format.
+// The slice must be at least 32 bytes long. Used to avoid heap allocations.
+func (b *BitArray) writeBytesTo(dst []byte) {
+	binary.BigEndian.PutUint64(dst[0:8], b.words[3])
+	binary.BigEndian.PutUint64(dst[8:16], b.words[2])
+	binary.BigEndian.PutUint64(dst[16:24], b.words[1])
+	binary.BigEndian.PutUint64(dst[24:32], b.words[0])
 }
 
 // Sets the bit array to the least significant 'n' bits of x.
@@ -446,26 +455,47 @@ func (b *BitArray) IsEmpty() bool {
 }
 
 // Serialises the BitArray into a bytes buffer in the following format:
-// - First few bytes: the necessary bytes included in big endian order
-// - Last byte: length of the bit array (0-255)
+//   - First few bytes: the necessary bytes included in big endian order
+//   - Last byte: length of the bit array (0-255)
+//
+// Returns the number of bytes written. The returned error is always nil.
+//
 // Example:
 //
 //	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
-	n, err := buf.Write(b.ActiveBytes())
+	bytes := b.Bytes()
+	bytesWritten, _ := buf.Write(bytes[b.inactiveBytes():])
 
-	if err := buf.WriteByte(b.len); err != nil {
-		return 0, err
-	}
-
-	return n + 1, err
+	buf.WriteByte(b.len)
+	return bytesWritten + 1, nil
 }
 
-// Returns the encoded bytes of the bit array.
+// Serialises the BitArray into a bytes buffer in the following format:
+//   - First few bytes: the necessary bytes included in big endian order
+//   - Last byte: length of the bit array (0-255)
+//
+// Same as Write(buf), but returns a new slice instead of writing to a buffer.
+//
+// Example:
+//
+//	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) EncodedBytes() []byte {
-	encode := b.ActiveBytes()
-	encode = append(encode, b.len)
-	return encode
+	var encoding [33]byte
+	b.writeBytesTo(encoding[:32])
+	encoding[32] = b.len
+
+	return encoding[b.inactiveBytes():]
+}
+
+// Serialises the BitArray into a given slice in the following format:
+//   - The first 32 bytes: all bytes in big endian order (including inactive bytes)
+//   - Last byte: length of the bit array (0-255)
+//
+// The slice must be at least 33 bytes long.
+func (b *BitArray) EncodeBytesTo(dst []byte) {
+	b.writeBytesTo(dst[:32])
+	dst[32] = b.len
 }
 
 // Deserialises the BitArray from a bytes buffer in the following format:
@@ -479,18 +509,23 @@ func (b *BitArray) UnmarshalBinary(data []byte) error {
 		return errors.New("empty data")
 	}
 
+	// Get the total number of bytes needed to represent the bit array
 	length := data[len(data)-1]
-	byteCount := (int(length) + 7) / 8 // Get the total number of bytes needed to represent the bit array
+	byteCount := (int(length) + 7) / 8
 
 	if len(data) > byteCount+1 {
-		return fmt.Errorf("invalid data length: got %d bytes, expected <= %d", len(data), byteCount+1)
+		return fmt.Errorf(
+			"invalid data length: got %d bytes, expected <= %d",
+			len(data),
+			byteCount+1,
+		)
 	}
-
 	b.len = length
 
 	var bs [32]byte
 	bitArrBytes := data[:len(data)-1]
-	copy(bs[32-len(bitArrBytes):], bitArrBytes) // Fill up the non-zero bytes at the end of the byte array
+	// Fill up the non-zero bytes at the end of the byte array
+	copy(bs[32-len(bitArrBytes):], bitArrBytes)
 	b.setBytes32(bs[:])
 
 	return nil
@@ -665,7 +700,7 @@ func (b *BitArray) SetBit(bit uint8) *BitArray {
 
 // Returns the length of the encoded bit array in bytes.
 func (b *BitArray) EncodedLen() uint {
-	return b.byteCount() + 1
+	return b.activeBytes() + 1
 }
 
 // Returns a deep copy of the bit array.
@@ -676,12 +711,9 @@ func (b *BitArray) Copy() BitArray {
 }
 
 // Returns the encoded string representation of the bit array.
+// Same as EncodedBytes(), but wrapped within a string.
 func (b *BitArray) EncodedString() string {
-	bt := b.ActiveBytes()
-	res := make([]byte, len(bt)+1)
-	copy(res[:len(res)-1], bt)
-	res[len(res)-1] = b.len
-	return string(res)
+	return string(b.EncodedBytes())
 }
 
 // Returns a string representation of the bit array.
@@ -709,24 +741,14 @@ func (b *BitArray) setBytes32(data []byte) {
 
 // Returns the minimum number of bytes needed to represent the bit array.
 // It rounds up to the nearest byte.
-func (b *BitArray) byteCount() uint {
+func (b *BitArray) activeBytes() uint {
 	const bits8 = 8
 	return (uint(b.len) + (bits8 - 1)) / uint(bits8)
 }
 
-// Returns a slice containing only the bytes that are actually used by the bit array,
-// as specified by the length. The returned slice is in big-endian order.
-//
-// Example:
-//
-//	len = 10, words = [0x3FF, 0, 0, 0] -> [0x03, 0xFF]
-func (b *BitArray) ActiveBytes() []byte {
-	if b.len == 0 {
-		return nil
-	}
-
-	wordsBytes := b.Bytes()
-	return wordsBytes[32-b.byteCount():]
+// Returns all the unused bytes of the byte array
+func (b *BitArray) inactiveBytes() uint {
+	return 32 - b.activeBytes()
 }
 
 func (b *BitArray) rsh64(x *BitArray) {
