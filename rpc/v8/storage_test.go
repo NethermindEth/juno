@@ -425,6 +425,7 @@ func TestStorageProof(t *testing.T) {
 		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil).Times(1)
 		classHash := new(felt.Felt).SetUint64(1234)
 		mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(key).Return(tempTrie, nil).Times(1)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
@@ -490,6 +491,7 @@ func TestStorageProof(t *testing.T) {
 		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil)
 		classHash := new(felt.Felt).SetUint64(1234)
 		mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil)
+		mockState.EXPECT().ContractStorageTrie(key).Return(tempTrie, nil)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, []felt.Felt{*key}, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
@@ -812,7 +814,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 					{
 						Nonce:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
 						ClassHash:   felt.NewUnsafeFromString[felt.Felt]("0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
-						StorageRoot: felt.NewUnsafeFromString[felt.Felt]("0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
+						StorageRoot: felt.NewUnsafeFromString[felt.Felt]("0x1aa6adf86b97c95ed275c627f39ee62d26314a05bc8fc8b85669dec1f088211"),
 					},
 				},
 				Nodes: []*rpc.HashToNode{
