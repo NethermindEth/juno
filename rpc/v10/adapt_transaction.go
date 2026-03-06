@@ -323,6 +323,10 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 		tx.AccountDeploymentData = &t.AccountDeploymentData
 		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
 		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+
+		if t.ProofFacts != nil {
+			tx.ProofFacts = &t.ProofFacts
+		}
 	}
 	return tx
 }

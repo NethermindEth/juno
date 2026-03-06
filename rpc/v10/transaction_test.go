@@ -790,7 +790,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			require.Nil(t, rpcErr)
 			require.NotNil(t, tx)
 			require.NotNil(t, tx.ProofFacts)
-			require.Equal(t, len(invokeTxCore.ProofFacts), len(tx.ProofFacts))
+			require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
 		})
 		t.Run("WithoutResponseFlag", func(t *testing.T) {
 			tx, rpcErr := h.TransactionByBlockIDAndIndex(&blockID, 0, rpcv10.ResponseFlags{})
@@ -1317,14 +1317,13 @@ func TestAddTransaction(t *testing.T) {
 		"invoke v3 with proof_facts": {
 			txn: func() rpcv10.BroadcastedTransaction {
 				base := createBaseInvokeTransactionV3()
-				proofFacts := []felt.Felt{
-					felt.FromUint64[felt.Felt](100),
-					felt.FromUint64[felt.Felt](200),
+				base.ProofFacts = []*felt.Felt{
+					felt.NewFromUint64[felt.Felt](100),
+					felt.NewFromUint64[felt.Felt](200),
 				}
 				return rpcv10.BroadcastedTransaction{
 					Transaction: *rpcv10.AdaptCoreTransaction(&base),
 					Proof:       "AAAAAQAAAAIAAAAD",
-					ProofFacts:  proofFacts,
 				}
 			}(),
 			expectedJSON: `{
@@ -1828,8 +1827,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
 				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+				ProofFacts:    &[]*felt.Felt{&proofFact},
 			},
-			ProofFacts: []felt.Felt{proofFact},
 		}
 
 		validate := validator.Validator()
@@ -1873,7 +1872,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
 		proofFact := felt.FromUint64[felt.Felt](100)
 		correctBroadcastedTxn.Proof = utils.Base64("AAAAAQAAAAIAAAAD")
-		correctBroadcastedTxn.ProofFacts = []felt.Felt{proofFact}
+		correctBroadcastedTxn.ProofFacts = &[]*felt.Felt{&proofFact}
 
 		validate := validator.Validator()
 		err := validate.Struct(correctBroadcastedTxn.Transaction)

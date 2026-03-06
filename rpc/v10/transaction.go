@@ -19,13 +19,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// AdaptTransaction adapts a core.Transaction to a local *Transaction.
+// It's a wrapper around AdaptCoreTransaction that allows to exclude proof facts
+// from the transaction. If includeProofFacts is false, the proof facts are set to nil,
+// otherwise they're returned as is.
 func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transaction {
 	tx := *AdaptCoreTransaction(coreTx)
 
-	if includeProofFacts {
+	if !includeProofFacts {
 		if invokeTx, ok := coreTx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
-				tx.ProofFacts = &invokeTx.ProofFacts
+			if invokeTx.Version.Is(3) {
+				tx.ProofFacts = nil
 			}
 		}
 	}
