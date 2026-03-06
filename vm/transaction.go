@@ -70,6 +70,7 @@ type Transaction struct {
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty"`
 	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty"`
 	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty"`
+	ProofFacts            *[]*felt.Felt                `json:"proof_facts,omitempty"`
 }
 
 type DataAvailabilityMode uint32
@@ -157,7 +158,11 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 			tx.AccountDeploymentData = nilToZero(t.AccountDeploymentData)
 			tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
 			tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+			if t.ProofFacts != nil {
+				tx.ProofFacts = &t.ProofFacts
+			}
 		}
+
 	case *core.DeployTransaction:
 		return &Transaction{
 			ClassHash:           t.ClassHash,

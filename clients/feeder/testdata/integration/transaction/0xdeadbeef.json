@@ -1,0 +1,45 @@
+{
+  "execution_status": "SUCCEEDED",
+  "finality_status": "ACCEPTED_ON_L1",
+  "status": "ACCEPTED_ON_L1",
+  "block_hash": "0x1",
+  "block_number": 1,
+  "transaction_index": 0,
+  "transaction": {
+    "transaction_hash": "0xdeadbeef",
+    "version": "0x3",
+    "signature": [
+      "0x1",
+      "0x2"
+    ],
+    "nonce": "0x1",
+    "nonce_data_availability_mode": 0,
+    "fee_data_availability_mode": 0,
+    "resource_bounds": {
+      "L1_GAS": {
+        "max_amount": "0x1",
+        "max_price_per_unit": "0x1"
+      },
+      "L1_DATA_GAS": {
+        "max_amount": "0x0",
+        "max_price_per_unit": "0x0"
+      },
+      "L2_GAS": {
+        "max_amount": "0x0",
+        "max_price_per_unit": "0x0"
+      }
+    },
+    "tip": "0x0",
+    "paymaster_data": [],
+    "sender_address": "0x1",
+    "calldata": [
+      "0x1"
+    ],
+    "account_deployment_data": [],
+    "type": "INVOKE_FUNCTION",
+    "proof_facts": [
+      "0x64",
+      "0xc8"
+    ]
+  }
+}

@@ -1,10 +1,12 @@
 package vm
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -126,6 +128,46 @@ func TestTransactionMarshal(t *testing.T) {
                     }
                 },
                 "txn_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"
+            }`,
+		},
+		"invoke v3 with proof_facts": {
+			// Synthetic fixture: no real on-chain tx carries proof_facts yet, so 0xdeadbeef is a
+			// handcrafted invoke v3 transaction stored in testdata with the field set.
+			Hash: felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef"),
+			Expected: `{
+                "query_bit": false,
+                "txn": {
+                    "Invoke": {
+                        "V3": {
+                            "version": "0x3",
+                            "sender_address": "0x1",
+                            "signature": ["0x1", "0x2"],
+                            "calldata": ["0x1"],
+                            "nonce": "0x1",
+                            "resource_bounds": {
+                                "L1_GAS": {
+                                    "max_amount": "0x1",
+                                    "max_price_per_unit": "0x1"
+                                },
+                                "L1_DATA": {
+                                    "max_amount": "0x0",
+                                    "max_price_per_unit": "0x0"
+                                },
+                                "L2_GAS": {
+                                    "max_amount": "0x0",
+                                    "max_price_per_unit": "0x0"
+                                }
+                            },
+                            "tip": "0x0",
+                            "nonce_data_availability_mode": "L1",
+                            "fee_data_availability_mode": "L1",
+                            "account_deployment_data": [],
+                            "paymaster_data": [],
+                            "proof_facts": ["0x64", "0xc8"]
+                        }
+                    }
+                },
+                "txn_hash": "0xdeadbeef"
             }`,
 		},
 		"deploy v0": {
@@ -327,5 +369,48 @@ func TestTransactionMarshal(t *testing.T) {
 			require.NoError(t, err)
 			assert.JSONEq(t, test.Expected, string(jsonB))
 		})
+	}
+}
+
+// TestVMTransactionFieldsMatchStarknetTransaction ensures that vm.Transaction stays in sync with
+// starknet.Transaction. If a new field is added to starknet.Transaction, this test will fail as a
+// reminder to update vm.Transaction (and its adaptTransaction function) accordingly.
+//
+// The following fields are intentionally absent from vm.Transaction:
+//   - Hash: passed separately via the txn_hash field in the marshalTxn wrapper
+//   - Type: not needed by the VM; the tx type is encoded in the JSON structure key
+func TestVMTransactionFieldsMatchStarknetTransaction(t *testing.T) {
+	// Fields in starknet.Transaction that are intentionally absent from vm.Transaction.
+	omittedFromVM := map[string]bool{
+		"Hash": true,
+		"Type": true,
+	}
+
+	starknetType := reflect.TypeOf(starknet.Transaction{})
+	vmType := reflect.TypeOf(Transaction{})
+
+	vmFields := make(map[string]bool, vmType.NumField())
+	for i := range vmType.NumField() {
+		vmFields[vmType.Field(i).Name] = true
+	}
+
+	starknetFields := make(map[string]bool, starknetType.NumField())
+	for i := range starknetType.NumField() {
+		starknetFields[starknetType.Field(i).Name] = true
+	}
+
+	// Every starknet field (except intentionally omitted ones) must be present in vm.Transaction.
+	for i := range starknetType.NumField() {
+		name := starknetType.Field(i).Name
+		if omittedFromVM[name] {
+			continue
+		}
+		assert.True(t, vmFields[name], "vm.Transaction is missing field %q present in starknet.Transaction", name)
+	}
+
+	// Every vm field must be present in starknet.Transaction (no extra fields).
+	for i := range vmType.NumField() {
+		name := vmType.Field(i).Name
+		assert.True(t, starknetFields[name], "vm.Transaction has extra field %q not present in starknet.Transaction", name)
 	}
 }
