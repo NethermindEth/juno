@@ -41,7 +41,7 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			handler := rpcv10.New(chain, mockSyncReader, nil, log)
 
-			update, rpcErr := handler.StateUpdate(&id)
+			update, rpcErr := handler.StateUpdate(&id, nil)
 			assert.Empty(t, update)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -69,7 +69,7 @@ func TestStateUpdate(t *testing.T) {
 		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
 		latest := rpcv10.BlockIDLatest()
-		update, rpcErr := handler.StateUpdate(&latest)
+		update, rpcErr := handler.StateUpdate(&latest, nil)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
 	})
@@ -77,7 +77,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("by height", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
 		number := rpcv10.BlockIDFromNumber(targetBlockNumber)
-		update, rpcErr := handler.StateUpdate(&number)
+		update, rpcErr := handler.StateUpdate(&number, nil)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
 	})
@@ -85,7 +85,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("by hash", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByHash(update3077642.BlockHash).Return(update3077642, nil)
 		hash := rpcv10.BlockIDFromHash(update3077642.BlockHash)
-		update, rpcErr := handler.StateUpdate(&hash)
+		update, rpcErr := handler.StateUpdate(&hash, nil)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
 	})
@@ -104,7 +104,7 @@ func TestStateUpdate(t *testing.T) {
 				require.NoError(t, err)
 				number := rpcv10.BlockIDFromNumber(height)
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
-				update, rpcErr := handler.StateUpdate(&number)
+				update, rpcErr := handler.StateUpdate(&number, nil)
 				require.Nil(t, rpcErr)
 
 				assertStateUpdateEq(t, gwUpdate, &update)
@@ -123,7 +123,7 @@ func TestStateUpdate(t *testing.T) {
 		)
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
 		l1AcceptedID := rpcv10.BlockIDL1Accepted()
-		update, rpcErr := handler.StateUpdate(&l1AcceptedID)
+		update, rpcErr := handler.StateUpdate(&l1AcceptedID, nil)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
 	})
@@ -137,9 +137,46 @@ func TestStateUpdate(t *testing.T) {
 			nil,
 		)
 		preConfirmedID := rpcv10.BlockIDPreConfirmed()
-		update, rpcErr := handler.StateUpdate(&preConfirmedID)
+		update, rpcErr := handler.StateUpdate(&preConfirmedID, nil)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
+	})
+
+	t.Run("contract_addresses filter", func(t *testing.T) {
+		storageFilterAddr := felt.UnsafeFromString[felt.Address]("0x2")
+		nonceFilterAddr := felt.UnsafeFromString[felt.Address]("0x395a96a5b6343fc0f543692fd36e7034b54c2a276cd1a021e8c0b02aee1f43")
+
+		t.Run("filter by multiple addresses", func(t *testing.T) {
+			mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
+			mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
+			id := rpcv10.BlockIDLatest()
+			filter := rpcv10.AddressList{
+				storageFilterAddr,
+				nonceFilterAddr,
+			}
+
+			update, rpcErr := handler.StateUpdate(&id, filter)
+			require.Nil(t, rpcErr)
+
+			require.Len(t, update.StateDiff.StorageDiffs, 1)
+			assert.Equal(t, felt.Felt(storageFilterAddr), update.StateDiff.StorageDiffs[0].Address)
+			require.Len(t, update.StateDiff.Nonces, 1)
+			assert.Equal(t, felt.Felt(nonceFilterAddr), update.StateDiff.Nonces[0].ContractAddress)
+			// Class declarations unaffected
+			assert.Len(t, update.StateDiff.DeclaredClasses, len(update3077642.StateDiff.DeclaredV1Classes))
+			assert.Len(t, update.StateDiff.DeprecatedDeclaredClasses, len(update3077642.StateDiff.DeclaredV0Classes))
+		})
+
+		t.Run("empty filter returns full state diff", func(t *testing.T) {
+			preConfirmed := core.NewPreConfirmed(nil, update3077642, nil, nil)
+			mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+			id := rpcv10.BlockIDPreConfirmed()
+			emptyFilter := rpcv10.AddressList{}
+
+			update, rpcErr := handler.StateUpdate(&id, emptyFilter)
+			require.Nil(t, rpcErr)
+			assertStateUpdateEq(t, update3077642, &update)
+		})
 	})
 }
 

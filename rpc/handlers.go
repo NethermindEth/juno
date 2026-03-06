@@ -199,8 +199,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.TransactionByBlockIDAndIndex,
 		},
 		{
-			Name:    "starknet_getStateUpdate",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Name: "starknet_getStateUpdate",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "contract_addresses", Optional: true},
+			},
 			Handler: h.rpcv10Handler.StateUpdate,
 		},
 		{

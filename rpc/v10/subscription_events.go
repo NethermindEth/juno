@@ -23,7 +23,7 @@ const subscribeEventsChunkSize = 1024
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeEvents(
 	ctx context.Context,
-	fromAddrs addressList,
+	fromAddrs AddressList,
 	keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,

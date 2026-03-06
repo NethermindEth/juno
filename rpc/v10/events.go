@@ -29,15 +29,15 @@ type EventArgs struct {
 type EventFilter struct {
 	FromBlock *BlockID      `json:"from_block"`
 	ToBlock   *BlockID      `json:"to_block"`
-	Address   addressList   `json:"address"`
+	Address   AddressList   `json:"address"`
 	Keys      [][]felt.Felt `json:"keys"`
 }
 
-// addresList is a list of addresses, that can be unmarshalled from a single address
+// AddressList is a list of addresses, that can be unmarshalled from a single address
 // or a list of addresses. It also removes duplicates from the list.
-type addressList []felt.Address
+type AddressList []felt.Address
 
-func (a *addressList) UnmarshalJSON(data []byte) error {
+func (a *AddressList) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" || string(data) == "[]" {
 		*a = make([]felt.Address, 0)
 		return nil
@@ -56,6 +56,18 @@ func (a *addressList) UnmarshalJSON(data []byte) error {
 
 	*a = utils.Set(list)
 	return nil
+}
+
+func (a AddressList) contains(addr felt.Felt) bool {
+	if len(a) == 0 {
+		return true
+	}
+	for _, v := range a {
+		if felt.Felt(v) == addr {
+			return true
+		}
+	}
+	return false
 }
 
 type EmittedEvent struct {
