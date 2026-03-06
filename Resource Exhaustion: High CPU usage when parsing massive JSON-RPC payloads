@@ -1,0 +1,17 @@
+Description
+During a security audit of Juno, I identified that the node is susceptible to high CPU consumption when processing extremely large JSON-RPC payloads (e.g., 50MB+), even if they are ultimately rejected by internal slice limits.
+
+Technical Details
+The Guard: Juno correctly enforces a limit of 50,000 items in rpc/rpccore/limit_slice.go via functionCalldataLimit.
+
+The Weakness: The HTTP server attempts to unmarshal the entire JSON object into memory and CPU registers before validating the length of the calldata array.
+
+Observed Behavior: Sending a payload with 1,000,000 elements caused a CPU spike to 60% on the testing machine, despite an immediate Invalid Params response.
+
+Proof of Concept (PoC)
+Bash
+python3 -c "print('{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"starknet_call\",\"params\":[{\"contract_address\":\"0x0\",\"entry_point_selector\":\"0x0\",\"calldata\":[' + ','.join(['\"0x1\"']*1000000) + ']},\"latest\"]}')" > stress.json
+curl -X POST -H "Content-Type: application/json" -d @stress.json http://localhost:6060
+Suggested Mitigation
+Implement a MaxBodySize limit at the HTTP transport layer to drop requests exceeding a reasonable threshold (e.g., 5-10MB) before they reach the JSON parser.
+
