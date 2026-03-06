@@ -2132,8 +2132,8 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 			},
 		},
-		ProofFacts: []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](999),
+		ProofFacts: []felt.Felt{
+			felt.FromUint64[felt.Felt](999),
 		},
 	}
 	proofFactsBlock := &core.Block{

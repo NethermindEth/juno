@@ -294,7 +294,7 @@ type InvokeTransaction struct {
 	// From RPC spec: The storage domain of the account's balance from which fee will be charged
 	FeeDAMode DataAvailabilityMode
 	// From RPC spec: optional field, proof facts for the transaction
-	ProofFacts []*felt.Felt `cbor:",omitempty"`
+	ProofFacts []felt.Felt `cbor:",omitempty"`
 }
 
 func (i *InvokeTransaction) TxVersion() *TransactionVersion {
@@ -489,7 +489,12 @@ func invokeTransactionHash(i *InvokeTransaction, n *utils.Network) (felt.Felt, e
 		}
 
 		if len(i.ProofFacts) > 0 {
-			proofFactsHash := crypto.PoseidonArray(i.ProofFacts...)
+			proofFacts := make([]*felt.Felt, len(i.ProofFacts))
+			for i, proofFact := range i.ProofFacts {
+				proofFacts[i] = &proofFact
+			}
+
+			proofFactsHash := crypto.PoseidonArray(proofFacts...)
 			hashElems = append(hashElems, &proofFactsHash)
 		}
 

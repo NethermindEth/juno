@@ -504,11 +504,10 @@ func TestTransactionByHash(t *testing.T) {
 				// Mock the gateway to include proof_facts for "INVOKE v3 with response flags" test
 				invokeTx, ok := tx.(*core.InvokeTransaction)
 				if ok && invokeTx.Version.Is(3) && test.responseFlags.IncludeProofFacts {
-					proofFacts := []*felt.Felt{
-						felt.NewFromUint64[felt.Felt](100),
-						felt.NewFromUint64[felt.Felt](200),
+					invokeTx.ProofFacts = []felt.Felt{
+						felt.FromUint64[felt.Felt](100),
+						felt.FromUint64[felt.Felt](200),
 					}
-					invokeTx.ProofFacts = proofFacts
 				}
 				return tx, nil
 			}).Times(1)
@@ -1317,9 +1316,9 @@ func TestAddTransaction(t *testing.T) {
 		"invoke v3 with proof_facts": {
 			txn: func() rpcv10.BroadcastedTransaction {
 				base := createBaseInvokeTransactionV3()
-				base.ProofFacts = []*felt.Felt{
-					felt.NewFromUint64[felt.Felt](100),
-					felt.NewFromUint64[felt.Felt](200),
+				base.ProofFacts = []felt.Felt{
+					felt.FromUint64[felt.Felt](100),
+					felt.FromUint64[felt.Felt](200),
 				}
 				return rpcv10.BroadcastedTransaction{
 					Transaction: *rpcv10.AdaptCoreTransaction(&base),
@@ -1817,7 +1816,6 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	t.Run("RejectProofFactsForNonInvoke", func(t *testing.T) {
-		proofFact := felt.FromUint64[felt.Felt](100)
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{
 			Transaction: rpcv10.Transaction{
 				Type:    rpcv10.TxnDeclare,
@@ -1827,7 +1825,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
 				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
-				ProofFacts:    &[]*felt.Felt{&proofFact},
+				ProofFacts:    &[]felt.Felt{felt.FromUint64[felt.Felt](100)},
 			},
 		}
 
@@ -1870,9 +1868,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
-		proofFact := felt.FromUint64[felt.Felt](100)
 		correctBroadcastedTxn.Proof = utils.Base64("AAAAAQAAAAIAAAAD")
-		correctBroadcastedTxn.ProofFacts = &[]*felt.Felt{&proofFact}
+		correctBroadcastedTxn.ProofFacts = &[]felt.Felt{felt.FromUint64[felt.Felt](100)}
 
 		validate := validator.Validator()
 		err := validate.Struct(correctBroadcastedTxn.Transaction)
