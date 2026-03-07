@@ -211,8 +211,10 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		database := newDB()
 		defer database.Close()
 
-		for _, kv := range [][2]string{{"k1", "v1"}, {"k2", "v2"}, {"k3", "v3"}} {
-			err := database.Put([]byte(kv[0]), []byte(kv[1]))
+		content := map[string]string{"k1": "v1", "k2": "v2", "k3": "v3"}
+
+		for key, val := range content {
+			err := database.Put([]byte(key), []byte(val))
 			require.NoError(t, err)
 		}
 
