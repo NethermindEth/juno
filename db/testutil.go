@@ -207,6 +207,67 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		}
 	})
 
+	t.Run("IteratorReverseIteration", func(t *testing.T) {
+		database := newDB()
+		defer database.Close()
+
+		for _, kv := range [][2]string{{"k1", "v1"}, {"k2", "v2"}, {"k3", "v3"}} {
+			err := database.Put([]byte(kv[0]), []byte(kv[1]))
+			require.NoError(t, err)
+		}
+
+		t.Run("Prev at beginning invalidates iterator", func(t *testing.T) {
+			it, err := database.NewIterator(nil, false)
+			require.NoError(t, err)
+			defer it.Close()
+
+			require.True(t, it.First())
+			require.Equal(t, "k1", string(it.Key()))
+
+			require.False(t, it.Prev())
+			require.False(t, it.Valid(), "Valid() must return false after Prev() goes past beginning")
+		})
+
+		t.Run("Seek past end then Prev lands on last key", func(t *testing.T) {
+			it, err := database.NewIterator(nil, false)
+			require.NoError(t, err)
+			defer it.Close()
+
+			require.False(t, it.Seek([]byte("zzz")), "Seek past all keys must return false")
+			require.True(t, it.Prev(), "Prev after out-of-range Seek must return true")
+			require.True(t, it.Valid())
+			require.Equal(t, "k3", string(it.Key()))
+		})
+
+		t.Run("Full reverse iteration via Seek upper bound", func(t *testing.T) {
+			it, err := database.NewIterator(nil, false)
+			require.NoError(t, err)
+			defer it.Close()
+
+			it.Seek([]byte("zzz"))
+			var keys []string
+			for it.Prev(); it.Valid(); it.Prev() {
+				keys = append(keys, string(it.Key()))
+			}
+			require.Equal(t, []string{"k3", "k2", "k1"}, keys)
+		})
+
+		t.Run("Seek exact match then reverse", func(t *testing.T) {
+			it, err := database.NewIterator(nil, false)
+			require.NoError(t, err)
+			defer it.Close()
+
+			require.True(t, it.Seek([]byte("k2")))
+			require.Equal(t, "k2", string(it.Key()))
+
+			require.True(t, it.Prev())
+			require.Equal(t, "k1", string(it.Key()))
+
+			require.False(t, it.Prev())
+			require.False(t, it.Valid())
+		})
+	})
+
 	t.Run("KeyValueOperations", func(t *testing.T) {
 		database := newDB()
 		defer database.Close()

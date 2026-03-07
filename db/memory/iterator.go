@@ -40,6 +40,9 @@ func (i *iterator) Prev() bool {
 	}
 
 	if i.curInd == 0 {
+		// consistent with pebble's behaviour when Prev() is called on the first key:
+		// iterator becomes invalid
+		i.curInd = -1
 		return false
 	}
 
@@ -110,6 +113,9 @@ func (i *iterator) Seek(key []byte) bool {
 		}
 	}
 
+	// key is past all entries: position one past the end so that Prev() gives the last valid key,
+	// consistent with pebble's behaviour when SeekGE finds no key within the iterator bounds.
+	i.curInd = len(i.keys)
 	return false
 }
 
