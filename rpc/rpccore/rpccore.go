@@ -80,10 +80,13 @@ var (
 	ErrInvalidSubscriptionID             = &jsonrpc.Error{Code: 66, Message: "Invalid subscription id"}
 	ErrTooManyAddressesInFilter          = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
 	ErrTooManyBlocksBack                 = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", MaxBlocksBack)}
-	ErrCallOnPending                     = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
+	ErrInvalidProof                      = &jsonrpc.Error{Code: 69, Message: "The proof field in the invoke v3 transaction is invalid"}
 	ErrCallOnPreConfirmed                = &jsonrpc.Error{
 		Code: 70, Message: "This method does not support being called on the pre_confirmed block",
 	}
+	// TODO: This error is not present in the spec and should be removed.
+	// Giving it a temporary code 71 for now to avoid conflicts with existing errors.
+	ErrCallOnPending = &jsonrpc.Error{Code: 71, Message: "This method does not support being called on the pending block"}
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}

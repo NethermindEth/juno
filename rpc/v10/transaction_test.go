@@ -1447,6 +1447,13 @@ func TestAddTransaction(t *testing.T) {
 							" message: 'Invalid transaction nonce. Expected: 2176, got: 845.' }",
 					),
 			},
+			{
+				name: "Invalid Proof error",
+				gatewayError: &gateway.Error{
+					Code: gateway.InvalidProof,
+				},
+				expectedError: rpccore.ErrInvalidProof,
+			},
 		}
 
 		for _, tc := range errorTests {

@@ -422,6 +422,8 @@ func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 		return rpccore.ErrReplacementTransactionUnderPriced
 	case gateway.FeeBelowMinimum:
 		return rpccore.ErrFeeBelowMinimum
+	case gateway.InvalidProof:
+		return rpccore.ErrInvalidProof
 	default:
 		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}

@@ -36,6 +36,7 @@ var (
 	InvalidContractClassVersion       ErrorCode = "StarknetErrorCode.INVALID_CONTRACT_CLASS_VERSION"
 	FeeBelowMinimum                   ErrorCode = "StarknetErrorCode.FEE_BELOW_MINIMUM"
 	ReplacementTransactionUnderPriced ErrorCode = "StarknetErrorCode.REPLACEMENT_TRANSACTION_UNDERPRICED"
+	InvalidProof                      ErrorCode = "StarknetErrorCode.INVALID_PROOF"
 )
 
 type Client struct {
