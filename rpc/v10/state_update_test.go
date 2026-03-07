@@ -144,7 +144,9 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("contract_addresses filter", func(t *testing.T) {
 		storageFilterAddr := felt.UnsafeFromString[felt.Address]("0x2")
-		nonceFilterAddr := felt.UnsafeFromString[felt.Address]("0x395a96a5b6343fc0f543692fd36e7034b54c2a276cd1a021e8c0b02aee1f43")
+		nonceFilterAddr := felt.UnsafeFromString[felt.Address](
+			"0x395a96a5b6343fc0f543692fd36e7034b54c2a276cd1a021e8c0b02aee1f43",
+		)
 
 		t.Run("filter by multiple addresses", func(t *testing.T) {
 			mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
@@ -164,7 +166,11 @@ func TestStateUpdate(t *testing.T) {
 			assert.Equal(t, felt.Felt(nonceFilterAddr), update.StateDiff.Nonces[0].ContractAddress)
 			// Class declarations unaffected
 			assert.Len(t, update.StateDiff.DeclaredClasses, len(update3077642.StateDiff.DeclaredV1Classes))
-			assert.Len(t, update.StateDiff.DeprecatedDeclaredClasses, len(update3077642.StateDiff.DeclaredV0Classes))
+			assert.Len(
+				t,
+				update.StateDiff.DeprecatedDeclaredClasses,
+				len(update3077642.StateDiff.DeclaredV0Classes),
+			)
 		})
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
