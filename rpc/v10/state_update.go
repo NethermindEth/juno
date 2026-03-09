@@ -96,11 +96,11 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	storageDiffs := make([]StorageDiff, 0, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
+		entries := make([]Entry, len(diffs))
 		if !contractAddresses.Contains((*felt.Address)(&addr)) {
 			continue
 		}
 		entryIdx := 0
-		entries := make([]Entry, len(diffs))
 		for key, value := range diffs {
 			entries[entryIdx] = Entry{
 				Key:   key,
