@@ -260,7 +260,6 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	//nolint:gosec // G118: cancel called on quit signal
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		<-quit
@@ -290,6 +289,7 @@ func main() {
 	})
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
+		cancel()
 		os.Exit(1)
 	}
 }
