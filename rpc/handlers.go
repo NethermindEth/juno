@@ -218,9 +218,12 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name: "starknet_getStorageAt",
 			Params: []jsonrpc.Parameter{
-				{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"},
+				{Name: "contract_address"},
+				{Name: "key"},
+				{Name: "block_id"},
+				{Name: "response_flags", Optional: true},
 			},
-			Handler: h.rpcv9Handler.StorageAt,
+			Handler: h.rpcv10Handler.StorageAt,
 		},
 		{
 			Name:    "starknet_getClassHashAt",
