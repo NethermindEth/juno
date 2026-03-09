@@ -66,11 +66,18 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 			return
 		}
 
+		// Ensure the file name is a single path component without separators or parent directory references.
+		fileBase := fileName[0]
+		if strings.Contains(fileBase, "/") || strings.Contains(fileBase, "\\") || strings.Contains(fileBase, "..") {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		dataPath, err := findTargetDirectory("clients/feeder/testdata")
 		if err != nil {
 			t.Fatalf("failed to find testdata directory: %v", err)
 		}
-		path := filepath.Join(dataPath, network.String(), dir, fileName[0]+".json")
+		path := filepath.Join(dataPath, network.String(), dir, fileBase+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
 			handleNotFound(dir, queryArg, w)
