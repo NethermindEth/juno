@@ -2,6 +2,7 @@ package rpcv10
 
 import (
 	"encoding/json"
+	"slices"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core/felt"
@@ -58,16 +59,11 @@ func (a *AddressList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (a AddressList) contains(addr felt.Felt) bool {
+func (a AddressList) Contains(addr *felt.Address) bool {
 	if len(a) == 0 {
 		return true
 	}
-	for _, v := range a {
-		if felt.Felt(v) == addr {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(a, *addr)
 }
 
 type EmittedEvent struct {

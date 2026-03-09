@@ -143,7 +143,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("contract_addresses filter", func(t *testing.T) {
-		storageFilterAddr := felt.UnsafeFromString[felt.Address]("0x2")
+		storageFilterAddr := felt.FromUint64[felt.Address](0x2)
 		nonceFilterAddr := felt.UnsafeFromString[felt.Address](
 			"0x395a96a5b6343fc0f543692fd36e7034b54c2a276cd1a021e8c0b02aee1f43",
 		)

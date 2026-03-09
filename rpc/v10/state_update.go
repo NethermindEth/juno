@@ -86,7 +86,7 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	nonces := make([]Nonce, 0, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		if contractAddresses.contains(addr) {
+		if contractAddresses.Contains((*felt.Address)(&addr)) {
 			nonces = append(nonces, Nonce{
 				ContractAddress: addr,
 				Nonce:           *nonce,
@@ -96,15 +96,17 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	storageDiffs := make([]StorageDiff, 0, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
-		if !contractAddresses.contains(addr) {
+		if !contractAddresses.Contains((*felt.Address)(&addr)) {
 			continue
 		}
-		entries := make([]Entry, 0, len(diffs))
+		entryIdx := 0
+		entries := make([]Entry, len(diffs))
 		for key, value := range diffs {
-			entries = append(entries, Entry{
+			entries[entryIdx] = Entry{
 				Key:   key,
 				Value: *value,
-			})
+			}
+			entryIdx++
 		}
 		storageDiffs = append(storageDiffs, StorageDiff{
 			Address:        addr,
@@ -114,7 +116,7 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	deployedContracts := make([]DeployedContract, 0, len(update.StateDiff.DeployedContracts))
 	for addr, classHash := range update.StateDiff.DeployedContracts {
-		if contractAddresses.contains(addr) {
+		if contractAddresses.Contains((*felt.Address)(&addr)) {
 			deployedContracts = append(deployedContracts, DeployedContract{
 				Address:   addr,
 				ClassHash: *classHash,
@@ -122,17 +124,19 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 		}
 	}
 
-	declaredClasses := make([]DeclaredClass, 0, len(update.StateDiff.DeclaredV1Classes))
+	index := 0
+	declaredClasses := make([]DeclaredClass, len(update.StateDiff.DeclaredV1Classes))
 	for classHash, compiledClassHash := range update.StateDiff.DeclaredV1Classes {
-		declaredClasses = append(declaredClasses, DeclaredClass{
+		declaredClasses[index] = DeclaredClass{
 			ClassHash:         classHash,
 			CompiledClassHash: *compiledClassHash,
-		})
+		}
+		index++
 	}
 
 	replacedClasses := make([]ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
 	for addr, classHash := range update.StateDiff.ReplacedClasses {
-		if contractAddresses.contains(addr) {
+		if contractAddresses.Contains((*felt.Address)(&addr)) {
 			replacedClasses = append(replacedClasses, ReplacedClass{
 				ClassHash:       *classHash,
 				ContractAddress: addr,
@@ -140,12 +144,14 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 		}
 	}
 
-	migratedCompiledClasses := make([]MigratedCompiledClass, 0, len(update.StateDiff.MigratedClasses))
+	index = 0
+	migratedCompiledClasses := make([]MigratedCompiledClass, len(update.StateDiff.MigratedClasses))
 	for classHash, casmClassHash := range update.StateDiff.MigratedClasses {
-		migratedCompiledClasses = append(migratedCompiledClasses, MigratedCompiledClass{
+		migratedCompiledClasses[index] = MigratedCompiledClass{
 			ClassHash:         classHash,
 			CompiledClassHash: casmClassHash,
-		})
+		}
+		index++
 	}
 
 	return StateUpdate{

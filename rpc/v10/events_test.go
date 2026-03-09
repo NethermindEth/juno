@@ -1,6 +1,7 @@
 package rpcv10_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -823,5 +824,99 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 		require.Equal(t, expected.From, actual.From)
 		require.Equal(t, expected.Keys, actual.Keys)
 		require.Equal(t, expected.Data, actual.Data)
+	}
+}
+
+func TestAddressListUnmarshalJSON(t *testing.T) {
+	addr1 := felt.FromUint64[felt.Address](0x1)
+	addr2 := felt.FromUint64[felt.Address](0x2)
+
+	tests := []struct {
+		name    string
+		input   string
+		want    rpc.AddressList
+		wantErr bool
+	}{
+		{
+			name:  "null",
+			input: "null",
+			want:  rpc.AddressList{},
+		},
+		{
+			name:  "empty array",
+			input: "[]",
+			want:  rpc.AddressList{},
+		},
+		{
+			name:  "single address",
+			input: `"0x1"`,
+			want:  rpc.AddressList{addr1},
+		},
+		{
+			name:  "array of addresses",
+			input: `["0x1","0x2"]`,
+			want:  rpc.AddressList{addr1, addr2},
+		},
+		{
+			name:  "array with duplicates",
+			input: `["0x1","0x1"]`,
+			want:  rpc.AddressList{addr1},
+		},
+		{
+			name:    "invalid JSON",
+			input:   "not-json",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got rpc.AddressList
+			err := json.Unmarshal([]byte(tt.input), &got)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestAddressListContains(t *testing.T) {
+	addr1 := felt.FromUint64[felt.Address](0x1)
+	addr2 := felt.FromUint64[felt.Address](0x2)
+	addr3 := felt.FromUint64[felt.Address](0x3)
+
+	tests := []struct {
+		name string
+		list rpc.AddressList
+		addr felt.Address
+		want bool
+	}{
+		{
+			name: "empty list is wildcard",
+			list: rpc.AddressList{},
+			addr: addr1,
+			want: true,
+		},
+		{
+			name: "address in list",
+			list: rpc.AddressList{addr1, addr2},
+			addr: addr1,
+			want: true,
+		},
+		{
+			name: "address not in list",
+			list: rpc.AddressList{addr1, addr2},
+			addr: addr3,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, tt.list.Contains(&tt.addr))
+		})
 	}
 }
