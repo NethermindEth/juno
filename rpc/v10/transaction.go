@@ -296,7 +296,7 @@ func adaptRPCTxToFeederPayload(
 	var payload addTxGatewayPayload
 	rpcv9Payload := rpcv9.AdaptRPCTxToAddTxGatewayPayload(&tx.BroadcastedTransaction)
 	payload.AddTxGatewayPayload = rpcv9Payload
-	if tx.Transaction.Type == rpcv9.TxnInvoke && isVersion3(tx.Transaction.Version) {
+	if tx.Transaction.Type == rpcv9.TxnInvoke {
 		payload.Proof = tx.Proof
 		payload.ProofFacts = tx.ProofFacts
 	}
