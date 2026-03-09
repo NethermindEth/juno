@@ -175,6 +175,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	}
 
 	id := h.idgen()
+	//nolint:gosec // G118: cancel called in unsubscribe()
 	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
 	sub := &subscription{
 		cancel: subscriptionCtxCancel,

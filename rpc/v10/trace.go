@@ -223,7 +223,8 @@ func traceTransactionsWithState(
 		}
 
 		traces[index] = TracedBlockTransaction{
-			TraceRoot:       &trace,
+			TraceRoot: &trace,
+			//nolint:gosec // G602: index bounded by len(Traces) which matches len(transactions)
 			TransactionHash: transactions[index].Hash(),
 		}
 	}

@@ -71,12 +71,11 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 			t.Fatalf("failed to find testdata directory: %v", err)
 		}
 		path := filepath.Join(dataPath, network.String(), dir, fileName[0]+".json")
-		read, err := os.ReadFile(path) //nolint:gosec // G703: no danger, test environment
+		read, err := os.ReadFile(path)
 		if err != nil {
 			handleNotFound(dir, queryArg, w)
 			return
 		}
-		//nolint:gosec // looks like a false positive from gosec.
 		_, err = w.Write(read)
 		// Only report write errors if the client is still connected.
 		// When a test's context is cancelled mid-request the client

@@ -23,6 +23,7 @@ type Result struct {
 type Pipeline[I any] func(*resources) <-chan I
 
 func (p Pipeline[I]) Run(ctx context.Context) (<-chan I, func() Result) {
+	//nolint:gosec // G118: cancel is stored in r.cancel and called on error
 	ctx, cancel := context.WithCancel(ctx)
 	r := resources{
 		g:      errgroup.Group{},
