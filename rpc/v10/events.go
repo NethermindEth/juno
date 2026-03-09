@@ -60,10 +60,8 @@ func (a *AddressList) UnmarshalJSON(data []byte) error {
 }
 
 func (a AddressList) Contains(addr *felt.Address) bool {
-	if len(a) == 0 {
-		return true
-	}
-	return slices.Contains(a, *addr)
+	// If the list is empty, it means that that all the addresses should be included
+	return len(a) == 0 || slices.Contains(a, *addr)
 }
 
 type EmittedEvent struct {
