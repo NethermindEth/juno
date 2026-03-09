@@ -260,9 +260,6 @@ func getContractProof(
 
 		contractStorageTrie, err := state.ContractStorageTrie(&contract)
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
-				continue
-			}
 			return nil, err
 		}
 

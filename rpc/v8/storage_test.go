@@ -421,6 +421,7 @@ func TestStorageProof(t *testing.T) {
 	t.Run("storage trie address exists in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
+		mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)
 		nonce := new(felt.Felt).SetUint64(121)
 		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil).Times(1)
 		classHash := new(felt.Felt).SetUint64(1234)
@@ -438,6 +439,40 @@ func TestStorageProof(t *testing.T) {
 		require.Equal(t, classHash, ld.ClassHash)
 
 		verifyIf(t, &trieRoot, key, value, proof.ContractsProof.Nodes, tempTrie.HashFn())
+	})
+	t.Run("contract leaf StorageRoot is the contract storage trie root, not the global contracts trie root", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
+			Return(headBlock.Header, nil)
+
+		// Build a separate storage trie with different contents so its root differs from the contracts trie root.
+		contractStorageTrie := emptyTrie(t)
+		storageKey := felt.NewFromUint64[felt.Felt](99)
+		storageVal := felt.NewFromUint64[felt.Felt](999)
+		_, _ = contractStorageTrie.Put(storageKey, storageVal)
+		_ = contractStorageTrie.Commit()
+		expectedStorageRoot, err := contractStorageTrie.Hash()
+		require.NoError(t, err)
+
+		// Sanity: the contract storage root must differ from the contracts trie root.
+		require.NotEqual(t, trieRoot, expectedStorageRoot,
+			"test setup error: storage trie root should differ from contracts trie root")
+
+		nonce := felt.NewFromUint64[felt.Felt](42)
+		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil).Times(1)
+		classHash := felt.NewFromUint64[felt.Felt](5678)
+		mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(key).Return(contractStorageTrie, nil).Times(1)
+
+		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*key}, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+
+		require.NotNil(t, proof.ContractsProof.LeavesData[0])
+		ld := proof.ContractsProof.LeavesData[0]
+		require.Equal(t, nonce, ld.Nonce)
+		require.Equal(t, classHash, ld.ClassHash)
+		require.Equal(t, &expectedStorageRoot, ld.StorageRoot,
+			"StorageRoot should be the contract's storage trie root, not the global contracts trie root")
 	})
 	t.Run("contract storage trie address does not exist in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
