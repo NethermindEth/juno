@@ -274,7 +274,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 	}, nil
 }
 
-// BlockWithTxHashes returns the block information with transaction receipts given a block ID.
+// BlockWithReceipts returns the block information with transaction receipts given a block ID.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L99

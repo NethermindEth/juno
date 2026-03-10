@@ -316,7 +316,7 @@ func AdaptFeederBlockTrace(
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
-	// Adapt every feeder block trace to rpc v9 trace
+	// Adapt every feeder block trace to rpc v10 trace
 	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]

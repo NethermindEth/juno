@@ -210,7 +210,7 @@ func traceTransactionsWithState(
 	// Adapt traces
 	traces := make([]TracedBlockTransaction, len(executionResult.Traces))
 	for index := range executionResult.Traces {
-		// Adapt vm transaction trace to rpc v9 trace and add root level execution resources
+		// Adapt vm transaction trace to rpc v10 trace and add root level execution resources
 		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
 
 		trace.ExecutionResources = &ExecutionResources{
