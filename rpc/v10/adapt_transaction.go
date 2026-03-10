@@ -44,7 +44,7 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 	case *core.DeclareTransaction:
 		txn = adaptDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
-		txn = adaptDeployAccountTrandaction(v)
+		txn = adaptDeployAccountTransaction(v)
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
@@ -356,7 +356,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transaction {
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
 	tx := &Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
