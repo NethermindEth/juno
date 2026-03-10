@@ -3,6 +3,7 @@ package rpcv10_test
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -62,6 +63,123 @@ func TestStorageResponseFlags_UnmarshalJSON(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStorageAtResult_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	value := "0xdeadbeef"
+	valueFelt := felt.UnsafeFromString[felt.Felt](value)
+
+	t.Run("includeLastUpdateBlock == false", func(t *testing.T) {
+		t.Parallel()
+		result := rpc.StorageAtResult{Value: valueFelt, LastUpdateBlock: 1234}
+		result.IncludeLastUpdateBlock(new(false))
+
+		data, err := json.Marshal(&result)
+		require.NoError(t, err)
+
+		assert.JSONEq(t, strconv.Quote(value), string(data))
+	})
+
+	t.Run("includeLastUpdateBlock == true", func(t *testing.T) {
+		t.Parallel()
+		result := rpc.StorageAtResult{Value: valueFelt, LastUpdateBlock: 0}
+		result.IncludeLastUpdateBlock(new(true))
+
+		data, err := json.Marshal(&result)
+		require.NoError(t, err)
+
+		expected := `{"value":"` + value + `","last_update_block":0}`
+		assert.JSONEq(t, expected, string(data))
+	})
+
+	t.Run("marshal then unmarshal plain felt round-trips", func(t *testing.T) {
+		t.Parallel()
+		original := rpc.StorageAtResult{Value: valueFelt}
+
+		data, err := json.Marshal(&original)
+		require.NoError(t, err)
+
+		var restored rpc.StorageAtResult
+		require.NoError(t, json.Unmarshal(data, &restored))
+
+		assert.Equal(t, valueFelt, restored.Value)
+		assert.False(t, restored.IncludeLastUpdateBlock(nil))
+		assert.Zero(t, restored.LastUpdateBlock)
+	})
+
+	t.Run("marshal then unmarshal object round-trips", func(t *testing.T) {
+		t.Parallel()
+		original := rpc.StorageAtResult{Value: valueFelt, LastUpdateBlock: 7}
+		original.IncludeLastUpdateBlock(new(true))
+
+		data, err := json.Marshal(&original)
+		require.NoError(t, err)
+
+		var restored rpc.StorageAtResult
+		require.NoError(t, json.Unmarshal(data, &restored))
+
+		assert.Equal(t, valueFelt, restored.Value)
+		assert.Equal(t, original.LastUpdateBlock, restored.LastUpdateBlock)
+		assert.True(t, restored.IncludeLastUpdateBlock(nil))
+	})
+}
+
+func TestStorageAtResult_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	value := "0xdeadbeef"
+	valueFelt := felt.UnsafeFromString[felt.Felt](value)
+
+	t.Run("plain felt string", func(t *testing.T) {
+		t.Parallel()
+		var result rpc.StorageAtResult
+		err := json.Unmarshal([]byte(strconv.Quote(value)), &result)
+		require.NoError(t, err)
+
+		assert.Equal(t, valueFelt, result.Value)
+		assert.Zero(t, result.LastUpdateBlock)
+		assert.False(t, result.IncludeLastUpdateBlock(nil))
+	})
+
+	t.Run("object with value and last_update_block", func(t *testing.T) {
+		t.Parallel()
+		var result rpc.StorageAtResult
+		err := json.Unmarshal([]byte(`{"value":"`+value+`","last_update_block":5}`), &result)
+		require.NoError(t, err)
+
+		assert.Equal(t, valueFelt, result.Value)
+		assert.Equal(t, uint64(5), result.LastUpdateBlock)
+		assert.True(t, result.IncludeLastUpdateBlock(nil))
+	})
+
+	t.Run("object with zero values", func(t *testing.T) {
+		t.Parallel()
+		var result rpc.StorageAtResult
+		err := json.Unmarshal([]byte(`{"value":"0x0","last_update_block":0}`), &result)
+		require.NoError(t, err)
+
+		assert.Equal(t, felt.Zero, result.Value)
+		assert.Equal(t, uint64(0), result.LastUpdateBlock)
+		assert.True(t, result.IncludeLastUpdateBlock(nil))
+	})
+
+	t.Run("plain felt zero", func(t *testing.T) {
+		t.Parallel()
+		var result rpc.StorageAtResult
+		err := json.Unmarshal([]byte(`"0x0"`), &result)
+		require.NoError(t, err)
+
+		assert.Equal(t, felt.Zero, result.Value)
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		t.Parallel()
+		var result rpc.StorageAtResult
+		err := json.Unmarshal([]byte(`not_valid`), &result)
+		require.Error(t, err)
+	})
 }
 
 func TestStorageAt(t *testing.T) {

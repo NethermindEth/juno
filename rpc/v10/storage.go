@@ -12,10 +12,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// StorageResponseFlags represents the flags for the `starknet_getStorageAt` operation.
 type StorageResponseFlags struct {
 	IncludeLastUpdateBlock bool
 }
 
+// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageResponseFlags.
 func (f *StorageResponseFlags) UnmarshalJSON(data []byte) error {
 	var flags []string
 	if err := json.Unmarshal(data, &flags); err != nil {
@@ -35,10 +37,38 @@ func (f *StorageResponseFlags) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// @todo add marshal and unmarshal logic to make it follow the spec
-type StorageResult struct {
+// StorageAtResult represents the result of a `starknet_getStorageAt` operation.
+type StorageAtResult struct {
+	// used in the marshal and unmarshal logic
+	includeLastUpdateBlock bool
+
 	Value           felt.Felt `json:"value"`
 	LastUpdateBlock uint64    `json:"last_update_block"`
+}
+
+// MarshalJSON implements the [json.Marshaler] interface for StorageAtResult.
+func (s *StorageAtResult) MarshalJSON() ([]byte, error) {
+	if s.includeLastUpdateBlock {
+		type storageResultAlias StorageAtResult
+		return json.Marshal((*storageResultAlias)(s))
+	}
+
+	return s.Value.MarshalJSON()
+}
+
+// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResult.
+func (s *StorageAtResult) UnmarshalJSON(data []byte) error {
+	type storageResultAlias StorageAtResult
+	var alias storageResultAlias
+
+	if err := json.Unmarshal(data, &alias); err == nil {
+		alias.includeLastUpdateBlock = true
+		*s = StorageAtResult(alias)
+		return nil
+	}
+
+	s.includeLastUpdateBlock = false
+	return s.Value.UnmarshalJSON(data)
 }
 
 // @todo verify the entire logic, partially created by Claude
@@ -49,8 +79,8 @@ type StorageResult struct {
 // https://github.com/starkware-libs/starknet-specs/blob/d6dc6ad31a1bb61c287d862ca4bdef4eb66a59a2/api/starknet_api_openrpc.json#L197
 func (h *Handler) StorageAt(
 	address, key *felt.Felt, id *BlockID, flags StorageResponseFlags,
-) (StorageResult, *jsonrpc.Error) {
-	var result StorageResult
+) (StorageAtResult, *jsonrpc.Error) {
+	var result StorageAtResult
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return result, rpcErr
