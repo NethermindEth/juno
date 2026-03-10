@@ -86,7 +86,8 @@ func TestUpdate(t *testing.T) {
 			OldRoot: oldRoot,
 		}
 		stateDB := setupState(t, stateUpdates, 0)
-		state, err := New(&felt.Zero, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 		err = state.Update(&core.Header{Number: block0}, su, nil, false)
 		require.Error(t, err)
@@ -100,7 +101,8 @@ func TestUpdate(t *testing.T) {
 			StateDiff: new(core.StateDiff),
 		}
 		stateDB := setupState(t, stateUpdates, 0)
-		state, err := New(&felt.Zero, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 		err = state.Update(&core.Header{Number: block0}, su, nil, false)
 		require.Error(t, err)
@@ -109,13 +111,15 @@ func TestUpdate(t *testing.T) {
 	t.Run("post v0.11.0 declared classes affect root", func(t *testing.T) {
 		t.Run("without class definition", func(t *testing.T) {
 			stateDB := setupState(t, stateUpdates, 3)
-			state, err := New(stateUpdates[3].OldRoot, stateDB, nil)
+			batch := stateDB.disk.NewBatch()
+			state, err := New(stateUpdates[3].OldRoot, stateDB, batch)
 			require.NoError(t, err)
 			require.Error(t, state.Update(&core.Header{Number: block3}, stateUpdates[3], nil, false))
 		})
 		t.Run("with class definition", func(t *testing.T) {
 			stateDB := setupState(t, stateUpdates, 3)
-			state, err := New(stateUpdates[3].OldRoot, stateDB, nil)
+			batch := stateDB.disk.NewBatch()
+			state, err := New(stateUpdates[3].OldRoot, stateDB, batch)
 			require.NoError(t, err)
 			require.NoError(t, state.Update(&core.Header{Number: block3}, su3, su3DeclaredClasses(), false))
 		})
@@ -123,7 +127,8 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("update noClassContracts storage", func(t *testing.T) {
 		stateDB := setupState(t, stateUpdates, 5)
-		state, err := New(stateUpdates[4].NewRoot, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(stateUpdates[4].NewRoot, stateDB, batch)
 		require.NoError(t, err)
 
 		gotValue, err := state.ContractStorage(scAddr, scKey)
@@ -151,7 +156,8 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 		stateDB := setupState(t, stateUpdates, 5)
-		state, err := New(stateUpdates[4].NewRoot, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(stateUpdates[4].NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		err = state.Update(&core.Header{Number: block5}, su5, nil, false)
 		require.ErrorIs(t, err, ErrContractNotDeployed)
@@ -166,7 +172,8 @@ func TestContractClassHash(t *testing.T) {
 	su1 := stateUpdates[1]
 
 	stateDB := setupState(t, stateUpdates, 2)
-	state, err := New(su1.NewRoot, stateDB, nil)
+	batch := stateDB.disk.NewBatch()
+	state, err := New(su1.NewRoot, stateDB, batch)
 	require.NoError(t, err)
 
 	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
@@ -289,7 +296,8 @@ func TestStateTries(t *testing.T) {
 	stateDB := setupState(t, stateUpdates, 1)
 	root := *stateUpdates[0].NewRoot
 
-	state, err := New(&root, stateDB, nil)
+	batch := stateDB.disk.NewBatch()
+	state, err := New(&root, stateDB, batch)
 	require.NoError(t, err)
 
 	classTrie, err := state.ClassTrie()
@@ -313,7 +321,8 @@ func TestContractDeployedAt(t *testing.T) {
 	root := *stateUpdates[1].NewRoot
 
 	t.Run("deployed on genesis", func(t *testing.T) {
-		state, err := New(&root, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(&root, stateDB, batch)
 		require.NoError(t, err)
 
 		d0 := felt.NewUnsafeFromString[felt.Felt](
@@ -329,7 +338,8 @@ func TestContractDeployedAt(t *testing.T) {
 	})
 
 	t.Run("deployed after genesis", func(t *testing.T) {
-		state, err := New(&root, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(&root, stateDB, batch)
 		require.NoError(t, err)
 
 		d1 := felt.NewUnsafeFromString[felt.Felt](
@@ -345,7 +355,8 @@ func TestContractDeployedAt(t *testing.T) {
 	})
 
 	t.Run("not deployed", func(t *testing.T) {
-		state, err := New(&root, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(&root, stateDB, batch)
 		require.NoError(t, err)
 
 		notDeployed := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
@@ -880,7 +891,8 @@ func TestContractHistory(t *testing.T) {
 
 	t.Run("empty", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		state, err := New(&felt.Zero, stateDB, nil)
+		batch := stateDB.disk.NewBatch()
+		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 
 		nonce, err := state.ContractNonceAt(addr, block0)

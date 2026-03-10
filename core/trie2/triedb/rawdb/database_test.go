@@ -302,6 +302,21 @@ func TestRawDB(t *testing.T) {
 		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
 	})
 
+	t.Run("Update with nil batch returns error", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB)
+
+		err := database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			1,
+			createMergeNodeSet(basicClassNodes),
+			nil,
+			nil,
+		)
+		require.Error(t, err)
+	})
+
 	t.Run("Concurrent reads", func(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB)

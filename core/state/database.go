@@ -16,14 +16,12 @@ const (
 )
 
 type StateDB struct {
-	disk       db.KeyValueStore
-	triedb     database.TrieDB
-	stateCache *stateCache
+	disk   db.KeyValueStore
+	triedb database.TrieDB
 }
 
 func NewStateDB(disk db.KeyValueStore, triedb database.TrieDB) *StateDB {
-	stateCache := newStateCache()
-	return &StateDB{disk: disk, triedb: triedb, stateCache: &stateCache}
+	return &StateDB{disk: disk, triedb: triedb}
 }
 
 // Opens a class trie for the given state root

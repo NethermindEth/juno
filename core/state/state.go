@@ -49,6 +49,9 @@ type State struct {
 }
 
 func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
+	if batch == nil {
+		return nil, errors.New("batch is nil")
+	}
 	contractTrie, err := db.ContractTrie(stateRoot)
 	if err != nil {
 		return nil, err
@@ -70,10 +73,6 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 }
 
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, addr); classHash != nil {
-		return *classHash, nil
-	}
-
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		return felt.Felt{}, err
@@ -82,10 +81,6 @@ func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	if nonce := s.db.stateCache.getNonce(&s.initRoot, addr); nonce != nil {
-		return *nonce, nil
-	}
-
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		return felt.Felt{}, err
@@ -94,10 +89,6 @@ func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	if storage := s.db.stateCache.getStorageDiff(&s.initRoot, addr, key); storage != nil {
-		return *storage, nil
-	}
-
 	obj, err := s.getStateObject(addr)
 	if err != nil {
 		return felt.Felt{}, err
@@ -259,17 +250,7 @@ func (s *State) Update(
 		}
 	}
 
-	s.db.stateCache.PushLayer(&newComm, &stateUpdate.prevComm, &diffCache{
-		storageDiffs:      update.StateDiff.StorageDiffs,
-		nonces:            update.StateDiff.Nonces,
-		deployedContracts: update.StateDiff.ReplacedClasses,
-	})
-
-	if s.batch != nil {
-		return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
-	}
-
-	return nil
+	return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
 }
 
 // Revert a given state update. The block number is the block number of the state update.
@@ -358,10 +339,6 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 		if err := s.deleteHistory(blockNum, update.StateDiff); err != nil {
 			return err
 		}
-	}
-
-	if err := s.db.stateCache.PopLayer(update.NewRoot, update.OldRoot); err != nil {
-		return err
 	}
 
 	return nil
@@ -536,14 +513,15 @@ func (s *State) flush(
 	classes map[felt.Felt]core.ClassDefinition,
 	storeHistory bool,
 ) error {
-	if err := s.db.triedb.Update(
+	err := s.db.triedb.Update(
 		(*felt.StateRootHash)(&update.curComm),
 		(*felt.StateRootHash)(&update.prevComm),
 		blockNum,
 		update.classNodes,
 		update.contractNodes,
 		s.batch,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
