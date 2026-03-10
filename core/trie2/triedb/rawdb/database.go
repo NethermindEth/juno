@@ -1,6 +1,7 @@
 package rawdb
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -113,7 +114,7 @@ func (d *Database) updateNode(
 	n trienode.TrieNode,
 ) error {
 	if batch == nil {
-		return nil
+		return errors.New("updateNode called with nil batch")
 	}
 
 	if _, deleted := n.(*trienode.DeletedNode); deleted {
