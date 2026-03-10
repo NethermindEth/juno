@@ -69,9 +69,10 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 		// Ensure the file name is a single path component
 		// without separators or parent directory references.
 		fileBase := fileName[0]
-		if strings.Contains(fileBase, "/") ||
+		isValidPath := strings.Contains(fileBase, "/") ||
 			strings.Contains(fileBase, "\\") ||
-			strings.Contains(fileBase, "..") {
+			strings.Contains(fileBase, "..")
+		if isValidPath {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
