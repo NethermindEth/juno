@@ -259,25 +259,17 @@ func (h *Handler) simulateTransactions(
 
 var RPCVersion3Value = felt.NewFromUint64[felt.Felt](3)
 
-// todo(rdr): does this check still make sense. Transaction previous to version 3 might not
-// be allowed anymore
-func isVersion3(version *felt.Felt) bool {
-	return version != nil && version.Equal(RPCVersion3Value)
-}
-
 func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {
-	return (tx.Transaction.Type == TxnDeclare ||
-		tx.Transaction.Type == TxnInvoke) &&
-		isVersion3(tx.Transaction.Version) &&
-		tx.Transaction.SenderAddress == nil
+	return (tx.Type == TxnDeclare ||
+		tx.Type == TxnInvoke) &&
+		tx.SenderAddress == nil
 }
 
 func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
-	return (tx.Transaction.Type == TxnInvoke ||
-		tx.Transaction.Type == TxnDeployAccount ||
-		tx.Transaction.Type == TxnDeclare) &&
-		isVersion3(tx.Transaction.Version) &&
-		tx.Transaction.ResourceBounds == nil
+	return (tx.Type == TxnInvoke ||
+		tx.Type == TxnDeployAccount ||
+		tx.Type == TxnDeclare) &&
+		tx.ResourceBounds == nil
 }
 
 func (h *Handler) prepareTransactions(

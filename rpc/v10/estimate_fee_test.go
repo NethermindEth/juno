@@ -156,7 +156,7 @@ func TestEstimateFee(t *testing.T) {
 		expectedErr := &jsonrpc.Error{
 			Code:    jsonrpc.InvalidParams,
 			Message: "Invalid Params",
-			Data:    "invalid program",
+			Data:    "resource_bounds is required for this transaction type",
 		}
 		require.Equal(t, expectedErr, err)
 	})

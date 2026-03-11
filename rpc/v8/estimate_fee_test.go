@@ -131,10 +131,11 @@ func TestEstimateFee(t *testing.T) {
 		toFelt := func(hex string) *felt.Felt {
 			return felt.NewUnsafeFromString[felt.Felt](hex)
 		}
+
 		invalidTx := rpc.BroadcastedTransaction{
 			Transaction: rpc.Transaction{
 				Type:          rpc.TxnDeclare,
-				Version:       toFelt("0x1"),
+				Version:       toFelt("0x3"),
 				Nonce:         toFelt("0x0"),
 				MaxFee:        toFelt("0x1"),
 				SenderAddress: toFelt("0x2"),
@@ -153,7 +154,7 @@ func TestEstimateFee(t *testing.T) {
 		expectedErr := &jsonrpc.Error{
 			Code:    jsonrpc.InvalidParams,
 			Message: "Invalid Params",
-			Data:    "invalid program",
+			Data:    "resource_bounds is required for this transaction type",
 		}
 		require.Equal(t, expectedErr, err)
 	})
