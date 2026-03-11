@@ -21,7 +21,7 @@ func TestVersion0x3Validation(t *testing.T) {
 		name     string
 		invokeTx func(version string) any
 	}{
-		{
+		{ //nolint:dupl // Similar invokeTx between rpc versions
 			name: "v8",
 			invokeTx: func(version string) any {
 				daMode := rpcv8.DAModeL1
@@ -45,7 +45,7 @@ func TestVersion0x3Validation(t *testing.T) {
 				}
 			},
 		},
-		{
+		{ //nolint:dupl // Similar invokeTx between rpc versions
 			name: "v9",
 			invokeTx: func(version string) any {
 				daMode := rpcv9.DAModeL1
@@ -69,7 +69,7 @@ func TestVersion0x3Validation(t *testing.T) {
 				}
 			},
 		},
-		{
+		{ //nolint:dupl // Similar invokeTx between rpc versions
 			name: "v10",
 			invokeTx: func(version string) any {
 				daMode := rpcv10.DAModeL1
