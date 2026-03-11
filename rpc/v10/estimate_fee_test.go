@@ -133,7 +133,7 @@ func TestEstimateFee(t *testing.T) {
 		invalidTx := rpcv10.BroadcastedTransaction{
 			Transaction: rpcv10.Transaction{
 				Type:          rpcv10.TxnDeclare,
-				Version:       toFelt("0x1"),
+				Version:       toFelt("0x3"),
 				Nonce:         toFelt("0x0"),
 				MaxFee:        toFelt("0x1"),
 				SenderAddress: toFelt("0x2"),

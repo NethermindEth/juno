@@ -131,7 +131,6 @@ func TestEstimateFee(t *testing.T) {
 		toFelt := func(hex string) *felt.Felt {
 			return felt.NewUnsafeFromString[felt.Felt](hex)
 		}
-
 		invalidTx := rpc.BroadcastedTransaction{
 			Transaction: rpc.Transaction{
 				Type:          rpc.TxnDeclare,

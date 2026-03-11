@@ -257,8 +257,6 @@ func (h *Handler) simulateTransactions(
 	}, httpHeader, nil
 }
 
-var RPCVersion3Value = felt.NewFromUint64[felt.Felt](3)
-
 func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {
 	return (tx.Type == TxnDeclare ||
 		tx.Type == TxnInvoke) &&

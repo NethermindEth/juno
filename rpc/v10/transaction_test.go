@@ -1940,7 +1940,7 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 }
 
 func TestResourceBoundsValidation(t *testing.T) {
-	invalidInvokeV3 := `{
+	const invalidInvokeV3 = `{
 		"type": "INVOKE",
 		"sender_address": "0xf9e998b2853e6d01f3ae3c598c754c1b9a7bd398fec7657de022f3b778679",
 		"calldata": [
@@ -1972,7 +1972,7 @@ func TestResourceBoundsValidation(t *testing.T) {
 		"fee_data_availability_mode": "L1",
 		"account_deployment_data": []
 	}`
-	validInvokeV3 := `{
+	const validInvokeV3 = `{
 		"type": "INVOKE",
 		"sender_address": "0xf9e998b2853e6d01f3ae3c598c754c1b9a7bd398fec7657de022f3b778679",
 		"calldata": [
@@ -2008,7 +2008,7 @@ func TestResourceBoundsValidation(t *testing.T) {
 		"fee_data_availability_mode": "L1",
 		"account_deployment_data": []
 	}`
-	invokeV1 := `{
+	const invokeV1 = `{
 		"type": "INVOKE",
 		"sender_address": "0x4a7876e03402cf253efdb3b17c760ee7349c7ec2876059b83ec2c92ca451e16",
 		"calldata": [
@@ -2024,24 +2024,38 @@ func TestResourceBoundsValidation(t *testing.T) {
 	}`
 
 	tests := []struct {
-		name    string
-		txnJSON string
-		wantErr bool
+		name        string
+		txnJSON     string
+		wantErr     bool
+		expectedErr []string
 	}{
 		{
-			name:    "Invalid v3 - resource_bounds not fully populated",
+			name:    "invalid v3 - resource_bounds not fully populated",
 			txnJSON: invalidInvokeV3,
 			wantErr: true,
+			expectedErr: []string{
+				"Error:Field validation for 'L1DataGas' failed on the 'required' tag",
+			},
 		},
 		{
-			name:    "valid v3 - resource_bounds fully populated",
-			txnJSON: validInvokeV3,
-			wantErr: false,
+			name:        "valid v3 - resource_bounds fully populated",
+			txnJSON:     validInvokeV3,
+			wantErr:     false,
+			expectedErr: []string{},
 		},
 		{
-			name:    "valid v1",
+			name:    "valid v1 - rejected as not supported",
 			txnJSON: invokeV1,
 			wantErr: true,
+			expectedErr: []string{
+				"Error:Field validation for 'Version' failed on the 'version_0x3' tag",
+				"Error:Field validation for 'ResourceBounds' failed on the 'resource_bounds_required' tag",
+				"Error:Field validation for 'Tip' failed on the 'required' tag",
+				"Error:Field validation for 'PaymasterData' failed on the 'required' tag",
+				"Error:Field validation for 'AccountDeploymentData' failed on the 'required_if' tag",
+				"Error:Field validation for 'NonceDAMode' failed on the 'required' tag",
+				"Error:Field validation for 'FeeDAMode' failed on the 'required' tag",
+			},
 		},
 	}
 
@@ -2054,7 +2068,9 @@ func TestResourceBoundsValidation(t *testing.T) {
 
 			err := validate.Struct(txn)
 			if tt.wantErr {
-				assert.Error(t, err, "Expected validation to fail, but it passed")
+				for _, line := range tt.expectedErr {
+					assert.ErrorContains(t, err, line, "")
+				}
 			} else {
 				assert.NoError(t, err, "Expected validation to pass, but it failed")
 			}
