@@ -1,0 +1,43 @@
+package feeder
+
+import (
+	"fmt"
+	"net/http"
+	"testing"
+
+	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestNewTestServerRejectsPathTraversal(t *testing.T) {
+	srv := newTestServer(t, &utils.Mainnet)
+	t.Cleanup(srv.Close)
+	ctx := t.Context()
+
+	tests := []struct {
+		name       string
+		blockParam string
+	}{
+		{"parent directory traversal", "../parent"},
+		{"deep traversal", "../../etc/passwd"},
+		{"forward slash in name", "sub/dir"},
+		{"backslash in name", "sub\\dir"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			url := fmt.Sprintf("%s/get_block?blockNumber=%s", srv.URL, tc.blockParam)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			require.NoError(t, err)
+			req.Header.Set("User-Agent", "Juno/v0.0.1-test Starknet Implementation")
+			req.Header.Set("X-Throttling-Bypass", "API_KEY")
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		})
+	}
+}
