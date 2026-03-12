@@ -127,18 +127,15 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction with invalid contract class", func(t *testing.T) {
-		toFelt := func(hex string) *felt.Felt {
-			return felt.NewUnsafeFromString[felt.Felt](hex)
-		}
 		invalidTx := rpcv10.BroadcastedTransaction{
 			Transaction: rpcv10.Transaction{
 				Type:          rpcv10.TxnDeclare,
-				Version:       toFelt("0x3"),
-				Nonce:         toFelt("0x0"),
-				MaxFee:        toFelt("0x1"),
-				SenderAddress: toFelt("0x2"),
+				Version:       felt.NewUnsafeFromString[felt.Felt]("0x3"),
+				Nonce:         felt.NewUnsafeFromString[felt.Felt]("0x0"),
+				MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x2"),
 				Signature: &[]*felt.Felt{
-					toFelt("0x123"),
+					felt.NewUnsafeFromString[felt.Felt]("0x123"),
 				},
 			},
 			ContractClass: json.RawMessage(`{}`),

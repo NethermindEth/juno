@@ -2034,7 +2034,7 @@ func TestResourceBoundsValidation(t *testing.T) {
 			txnJSON: invalidInvokeV3,
 			wantErr: true,
 			expectedErr: []string{
-				"Error:Field validation for 'L1DataGas' failed on the 'required' tag",
+				"'L1DataGas' failed on the 'required' tag",
 			},
 		},
 		{
@@ -2048,13 +2048,13 @@ func TestResourceBoundsValidation(t *testing.T) {
 			txnJSON: invokeV1,
 			wantErr: true,
 			expectedErr: []string{
-				"Error:Field validation for 'Version' failed on the 'version_0x3' tag",
-				"Error:Field validation for 'ResourceBounds' failed on the 'resource_bounds_required' tag",
-				"Error:Field validation for 'Tip' failed on the 'required' tag",
-				"Error:Field validation for 'PaymasterData' failed on the 'required' tag",
-				"Error:Field validation for 'AccountDeploymentData' failed on the 'required_if' tag",
-				"Error:Field validation for 'NonceDAMode' failed on the 'required' tag",
-				"Error:Field validation for 'FeeDAMode' failed on the 'required' tag",
+				"'Version' failed on the 'version_0x3' tag",
+				"'ResourceBounds' failed on the 'resource_bounds_required' tag",
+				"'Tip' failed on the 'required' tag",
+				"'PaymasterData' failed on the 'required' tag",
+				"'AccountDeploymentData' failed on the 'required_if' tag",
+				"'NonceDAMode' failed on the 'required' tag",
+				"'FeeDAMode' failed on the 'required' tag",
 			},
 		},
 	}
