@@ -19,16 +19,20 @@ func TestNewTestServerRejectsPathTraversal(t *testing.T) {
 		name       string
 		blockParam string
 	}{
-		{"parent directory traversal", "../parent"},
-		{"deep traversal", "../../etc/passwd"},
+		// Traversal values that resolve to an existing fixture
+		{"parent dir resolves to existing fixture", "../block/0"},
+		{"deep traversal resolves to existing fixture", "../../mainnet/block/0"},
+		// Percent-encoded traversal
+		{"percent-encoded traversal", "..%2Fblock%2F0"},
+		// Separators and backslash
 		{"forward slash in name", "sub/dir"},
 		{"backslash in name", "sub\\dir"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			url := fmt.Sprintf("%s/get_block?blockNumber=%s", srv.URL, tc.blockParam)
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			raw := fmt.Sprintf("%s/get_block?blockNumber=%s", srv.URL, tc.blockParam)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, http.NoBody)
 			require.NoError(t, err)
 			req.Header.Set("User-Agent", "Juno/v0.0.1-test Starknet Implementation")
 			req.Header.Set("X-Throttling-Bypass", "API_KEY")
