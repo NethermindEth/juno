@@ -41,13 +41,13 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.log.Error("Failed to get contract nonce", zap.Error(err))
-		return nil, rpccore.ErrInternal
+		h.log.Error("Failed to get contract class hash", zap.Error(err))
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	value, err := stateReader.ContractStorage(address, key)
 	if err != nil {
-		return nil, rpccore.ErrInternal
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	return &value, nil

@@ -71,8 +71,6 @@ func (s *StorageAtResult) UnmarshalJSON(data []byte) error {
 	return s.Value.UnmarshalJSON(data)
 }
 
-// @todo verify the entire logic, partially created by Claude
-
 // StorageAt gets the value of the storage at the given address and key.
 //
 // It follows the specification defined here:
@@ -81,12 +79,18 @@ func (h *Handler) StorageAt(
 	address, key *felt.Felt, id *BlockID, flags StorageResponseFlags,
 ) (StorageAtResult, *jsonrpc.Error) {
 	var result StorageAtResult
+	result.includeLastUpdateBlock = flags.IncludeLastUpdateBlock
+
+	// # get storage value from state
+
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return result, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
+	// This checks if the contract exists because if a key doesn't exist in contract storage,
+	// the returned value is always zero and error is nil.
 	_, err := stateReader.ContractClassHash(address)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -107,74 +111,21 @@ func (h *Handler) StorageAt(
 		return result, nil
 	}
 
-	blockNumber, rpcErr := h.resolveBlockNumber(id)
+	// # get last update block number from history
+
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return result, rpcErr
 	}
 
-	lastUpdateBlock, rpcErr := h.findStorageLastUpdateBlock(address, key, blockNumber)
-	if rpcErr != nil {
-		return result, rpcErr
+	historyPrefix := db.ContractStorageHistoryKey(address, key)
+	lastUpdateBlock, _, err := h.bcReader.HistoryBlockNumber(historyPrefix, header.Number)
+	if err != nil {
+		h.log.Error("Failed to find storage last update block", zap.Error(err))
+		return result, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	result.LastUpdateBlock = lastUpdateBlock
+
 	return result, nil
-}
-
-func (h *Handler) resolveBlockNumber(id *BlockID) (uint64, *jsonrpc.Error) {
-	switch {
-	case id.IsPreConfirmed():
-		pending, err := h.PendingData()
-		if err != nil {
-			return 0, rpccore.ErrBlockNotFound
-		}
-		return pending.GetBlock().Number, nil
-	case id.IsLatest():
-		header, err := h.bcReader.HeadsHeader()
-		if err != nil {
-			return 0, rpccore.ErrBlockNotFound
-		}
-		return header.Number, nil
-	case id.IsHash():
-		num, err := h.bcReader.BlockNumberByHash(id.Hash())
-		if err != nil {
-			return 0, rpccore.ErrBlockNotFound
-		}
-		return num, nil
-	case id.IsNumber():
-		return id.Number(), nil
-	case id.IsL1Accepted():
-		l1Head, err := h.bcReader.L1Head()
-		if err != nil {
-			return 0, rpccore.ErrBlockNotFound
-		}
-		return l1Head.BlockNumber, nil
-	default:
-		panic("unknown block id type")
-	}
-}
-
-// findStorageLastUpdateBlock iterates backwards through state updates to find
-// the most recent block that modified the given storage slot.
-func (h *Handler) findStorageLastUpdateBlock(
-	address, key *felt.Felt, upToBlock uint64,
-) (uint64, *jsonrpc.Error) {
-	for blockNum := int64(upToBlock); blockNum >= 0; blockNum-- {
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(uint64(blockNum))
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
-				continue
-			}
-			h.log.Error("Failed to get state update", zap.Error(err))
-			return 0, rpccore.ErrInternal
-		}
-
-		if storageDiff, ok := stateUpdate.StateDiff.StorageDiffs[*address]; ok {
-			if _, ok := storageDiff[*key]; ok {
-				return uint64(blockNum), nil
-			}
-		}
-	}
-
-	return 0, nil
 }
