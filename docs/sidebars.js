@@ -15,6 +15,7 @@ const sidebars = {
         "updating",
         "tuning",
         "running-on-gcp",
+        "running-on-kubernetes",
         "plugins",
       ],
     },

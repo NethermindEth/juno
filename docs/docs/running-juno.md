@@ -10,6 +10,7 @@ You can run a Juno node using several methods:
 - [Standalone binary](#standalone-binary)
 - [Building from source](#building-from-source)
 - [Google Cloud Platform (GCP)](running-on-gcp)
+- [Kubernetes with Helm](running-on-kubernetes)
 
 :::tip
 You can use a snapshot to quickly synchronise your node with the network. Check out the [Database Snapshots](snapshots) guide to get started.
