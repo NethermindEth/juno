@@ -108,10 +108,11 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("internal error while retrieving key", func(t *testing.T) {
+		internalErr := errors.New("some internal error")
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 		mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).
-			Return(felt.Felt{}, errors.New("some internal error"))
+			Return(felt.Felt{}, internalErr)
 
 		blockID := blockIDLatest(t)
 		storageValue, rpcErr := handler.StorageAt(
@@ -120,7 +121,7 @@ func TestStorageAt(t *testing.T) {
 			&blockID,
 		)
 		assert.Nil(t, storageValue)
-		assert.Equal(t, rpccore.ErrInternal, rpcErr)
+		assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr), rpcErr)
 	})
 
 	expectedStorage := felt.NewFromUint64[felt.Felt](1)
