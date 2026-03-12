@@ -47,34 +47,36 @@ type StorageAtResult struct {
 }
 
 // MarshalJSON implements the [json.Marshaler] interface for StorageAtResult.
-func (s *StorageAtResult) MarshalJSON() ([]byte, error) {
-	if s.includeLastUpdateBlock {
+func (st *StorageAtResult) MarshalJSON() ([]byte, error) {
+	if st.includeLastUpdateBlock {
 		type storageResultAlias StorageAtResult
-		return json.Marshal((*storageResultAlias)(s))
+		return json.Marshal((*storageResultAlias)(st))
 	}
 
-	return s.Value.MarshalJSON()
+	return st.Value.MarshalJSON()
 }
 
 // UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResult.
-func (s *StorageAtResult) UnmarshalJSON(data []byte) error {
+func (st *StorageAtResult) UnmarshalJSON(data []byte) error {
 	type storageResultAlias StorageAtResult
 	var alias storageResultAlias
 
 	if err := json.Unmarshal(data, &alias); err == nil {
 		alias.includeLastUpdateBlock = true
-		*s = StorageAtResult(alias)
+		*st = StorageAtResult(alias)
 		return nil
 	}
 
-	s.includeLastUpdateBlock = false
-	return s.Value.UnmarshalJSON(data)
+	st.includeLastUpdateBlock = false
+	return st.Value.UnmarshalJSON(data)
 }
 
 // StorageAt gets the value of the storage at the given address and key.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/d6dc6ad31a1bb61c287d862ca4bdef4eb66a59a2/api/starknet_api_openrpc.json#L197
+//
+//nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) StorageAt(
 	address, key *felt.Felt, id *BlockID, flags StorageResponseFlags,
 ) (StorageAtResult, *jsonrpc.Error) {

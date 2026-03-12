@@ -495,7 +495,6 @@ func TestStorageAt(t *testing.T) {
 			assert.Equal(t, uint64(0), result.LastUpdateBlock)
 			assert.True(t, result.IncludeLastUpdateBlock(nil))
 		})
-
 	})
 
 	t.Run("error: internal error with data", func(t *testing.T) {

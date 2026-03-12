@@ -169,7 +169,11 @@ func StateHashToTrieRootsKey(stateCommitment *felt.StateRootHash) []byte {
 //
 // Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
 // exists for the prefix.
-func HistoryLastUpdateBlock(reader KeyValueReader, historyKeyPrefix []byte, upToBlock uint64) (uint64, bool, error) {
+func HistoryLastUpdateBlock(
+	reader KeyValueReader,
+	historyKeyPrefix []byte,
+	upToBlock uint64,
+) (uint64, bool, error) {
 	it, err := reader.NewIterator(historyKeyPrefix, true)
 	if err != nil {
 		return 0, false, err
@@ -187,10 +191,8 @@ func HistoryLastUpdateBlock(reader KeyValueReader, historyKeyPrefix []byte, upTo
 		if !it.Prev() || !it.Valid() {
 			return 0, false, nil
 		}
-	} else {
-		if !it.Prev() || !it.Valid() {
-			return 0, false, nil
-		}
+	} else if !it.Prev() || !it.Valid() {
+		return 0, false, nil
 	}
 
 	foundKey := it.Key()
