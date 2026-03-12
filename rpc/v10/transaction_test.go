@@ -1675,11 +1675,11 @@ func TestTransactionStatus(t *testing.T) {
 			},
 		},
 		{
-			description: "status ACCEPTED_ON_L2 from pre-latest",
+			description: "status PRE_CONFIRMED from pre-latest",
 			network:     &utils.Mainnet,
 			txHash:      targetTxnHash,
 			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusAcceptedOnL2,
+				Finality:  rpcv10.TxnStatusPreConfirmed,
 				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {

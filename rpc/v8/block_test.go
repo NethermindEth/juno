@@ -696,7 +696,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			txsWithReceipt[i] = rpcv8.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpcv8.AdaptReceipt(receipt, tx, rpcv8.TxnAcceptedOnL2, nil, 0),
+				Receipt:     rpcv8.AdaptReceipt(receipt, tx, rpcv8.TxnPending, nil, 0),
 			}
 		}
 

@@ -80,6 +80,7 @@ const (
 	TxnStatusRejected
 	TxnStatusAcceptedOnL2
 	TxnStatusAcceptedOnL1
+	TxnStatusPending
 )
 
 func (s TxnStatus) MarshalText() ([]byte, error) {
@@ -92,6 +93,8 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnStatusAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnStatusPending:
+		return []byte("PENDING"), nil
 	default:
 		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
 	}
@@ -120,6 +123,7 @@ type TxnFinalityStatus uint8
 const (
 	TxnAcceptedOnL2 TxnFinalityStatus = iota + 3
 	TxnAcceptedOnL1
+	TxnPending
 )
 
 func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
@@ -128,6 +132,8 @@ func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnPending:
+		return []byte("PENDING"), nil
 	default:
 		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
@@ -592,7 +598,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 
 		receipt := pendingB.Receipts[pendingBIndex]
-		return AdaptReceipt(receipt, txn, TxnAcceptedOnL2, nil, 0), nil
+		return AdaptReceipt(receipt, txn, TxnPending, nil, 0), nil
 	}
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, idx)

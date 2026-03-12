@@ -125,7 +125,7 @@ func (s *receiptsSubscriberState) onPreLatest(
 	return s.processBlock(
 		id,
 		preLatest.Block,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
 		true,
 	)
 }

@@ -846,7 +846,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
 					"block_number": 0,
-					"finality_status": "ACCEPTED_ON_L2",
+					"finality_status": "PRE_CONFIRMED",
+					"block_number": 0,
 					"execution_status": "SUCCEEDED",
 					"messages_sent": [
 						{
@@ -894,7 +895,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
-					"finality_status": "ACCEPTED_ON_L2",
+					"block_number": 0,
+					"finality_status": "PRE_CONFIRMED",
 					"execution_status": "SUCCEEDED",
 					"messages_sent": [
 						{
@@ -1804,7 +1806,7 @@ func TestTransactionStatus(t *testing.T) {
 
 				status, err := handler.TransactionStatus(ctx, preLatestTx.Hash())
 				require.Nil(t, err)
-				require.Equal(t, rpc.TxnStatusAcceptedOnL2, status.Finality)
+				require.Equal(t, rpc.TxnStatusPreConfirmed, status.Finality)
 				require.Equal(t, rpc.TxnSuccess, status.Execution)
 			})
 		})

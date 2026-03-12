@@ -727,7 +727,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
-					"finality_status": "ACCEPTED_ON_L2",
+					"finality_status": "PENDING",
 					"execution_status": "SUCCEEDED",
 					"messages_sent": [
 						{

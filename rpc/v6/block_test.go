@@ -720,7 +720,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			expectedTxsWithReceipt[i] = rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL2, nil, 0, true),
+				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnPending, nil, 0, true),
 			}
 		}
 

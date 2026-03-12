@@ -297,10 +297,6 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 		finalityStatus = TxnAcceptedOnL2
 	case BlockPreConfirmed:
 		finalityStatus = TxnPreConfirmed
-		// legacy pending block
-		if block.ParentHash != nil {
-			finalityStatus = TxnAcceptedOnL2
-		}
 	default:
 		return nil, rpccore.ErrInternal.CloneWithData(fmt.Errorf("unknown block status '%v'", s))
 	}

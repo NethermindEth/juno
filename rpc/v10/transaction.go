@@ -532,7 +532,7 @@ func (h *Handler) getPendingTransactionReceipt(
 	isPreLatest := false
 	if parentHash != nil {
 		// pre-latest block or pending block
-		status = TxnAcceptedOnL2
+		status = TxnPreConfirmed
 		// If pending data is pre_confirmed receipt is coming from pre_latest
 		isPreLatest = pending.Variant() == core.PreConfirmedBlockVariant
 	}

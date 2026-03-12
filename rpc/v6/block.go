@@ -232,9 +232,14 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		return nil, rpcErr
 	}
 
-	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == BlockAcceptedL1 {
+	var finalityStatus TxnFinalityStatus
+	switch blockStatus {
+	case BlockAcceptedL1:
 		finalityStatus = TxnAcceptedOnL1
+	case BlockPending:
+		finalityStatus = TxnPending
+	default:
+		finalityStatus = TxnAcceptedOnL2
 	}
 
 	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))

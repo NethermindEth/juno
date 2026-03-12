@@ -81,6 +81,7 @@ const (
 	TxnStatusAcceptedOnL2
 	TxnStatusReceived
 	TxnStatusRejected
+	TxnStatusPending
 )
 
 func (s TxnStatus) MarshalText() ([]byte, error) {
@@ -93,6 +94,8 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnStatusAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnStatusPending:
+		return []byte("PENDING"), nil
 	default:
 		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
 	}
@@ -121,6 +124,7 @@ type TxnFinalityStatus uint8
 const (
 	TxnAcceptedOnL1 TxnFinalityStatus = iota + 1
 	TxnAcceptedOnL2
+	TxnPending
 )
 
 func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
@@ -129,6 +133,8 @@ func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnPending:
+		return []byte("PENDING"), nil
 	default:
 		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
@@ -584,9 +590,11 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	status := TxnAcceptedOnL2
-
-	if blockHash != nil {
+	var status TxnFinalityStatus
+	if blockHash == nil {
+		status = TxnPending
+	} else {
+		status = TxnAcceptedOnL2
 		l1H, jsonErr := h.l1Head()
 		if jsonErr != nil {
 			return nil, jsonErr
@@ -732,8 +740,12 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
 	case nil:
+		finality := TxnStatus(receipt.FinalityStatus)
+		if receipt.FinalityStatus == TxnPending {
+			finality = TxnStatusPending
+		}
 		return &TransactionStatus{
-			Finality:  TxnStatus(receipt.FinalityStatus),
+			Finality:  finality,
 			Execution: receipt.ExecutionStatus,
 		}, nil
 	case rpccore.ErrTxnHashNotFound:

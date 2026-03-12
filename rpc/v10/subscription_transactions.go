@@ -138,7 +138,7 @@ func (s *transactionsSubscriberState) onPreLatest(
 	return s.processBlock(
 		id,
 		preLatest.Block,
-		TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
+		TxnStatusWithoutL1(TxnStatusPreConfirmed),
 	)
 }
 

@@ -151,7 +151,7 @@ func (s *eventSubscriberState) onPreLatest(
 	_ *subscription,
 	preLatest *core.PreLatest,
 ) error {
-	return s.processBlock(ctx, id, preLatest.Block, TxnAcceptedOnL2)
+	return s.processBlock(ctx, id, preLatest.Block, TxnPreConfirmed)
 }
 
 func (s *eventSubscriberState) onPendingData(
@@ -276,11 +276,7 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 			var finalityStatus TxnFinalityStatus
 			switch {
 			case *event.BlockNumber > height: // pre_confirmed or pre_latest block
-				if event.BlockParentHash == nil {
-					finalityStatus = TxnPreConfirmed
-				} else {
-					finalityStatus = TxnAcceptedOnL2
-				}
+				finalityStatus = TxnPreConfirmed
 			case *event.BlockNumber <= s.l1HeadNumber:
 				finalityStatus = TxnAcceptedOnL1
 			default: // Canonical block not finalised on L1

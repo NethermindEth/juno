@@ -739,7 +739,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
 
 		expectedReceipt := rpc.TransactionReceipt{
-			FinalityStatus:  rpc.TxnAcceptedOnL2,
+			FinalityStatus:  rpc.TxnPending,
 			ExecutionStatus: rpc.TxnSuccess,
 			Type:            rpc.TxnInvoke,
 			Hash:            tx0HashInBlock4850,
