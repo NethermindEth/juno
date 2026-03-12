@@ -23,10 +23,15 @@ const (
 	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
 	StateUpdatesByBlockNumber
 	ClassesTrie
+	// ContractStorageHistory + Contract address + storage location + block number -> old value.
+	// For these three history buckets, the block number is when the current value was set, and
+	// the old value is the value before that.
 	ContractStorageHistory
+	// ContractNonceHistory + Contract address + block number -> old nonce.
 	ContractNonceHistory
+	// ContractClassHashHistory + Contract address + block number -> old class hash.
 	ContractClassHashHistory
-	ContractDeploymentHeight
+	ContractDeploymentHeight // maps contract addresses to their deployment block number
 	L1Height
 	DeprecatedSchemaVersion
 	Unused // Previously used for storing Pending Block
