@@ -808,9 +808,12 @@ func TestRevert(t *testing.T) {
 				},
 			},
 		}
-		state, err := New(&felt.Zero, stateDB)
+
+		batch := stateDB.disk.NewBatch()
+		state, err := New(&felt.Zero, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, classes, true))
+		require.NoError(t, batch.Write())
 		root0, err := state.Commitment("")
 		require.NoError(t, err)
 
@@ -826,9 +829,12 @@ func TestRevert(t *testing.T) {
 				},
 			},
 		}
-		state, err = New(&root0, stateDB)
+
+		batch = stateDB.disk.NewBatch()
+		state, err = New(&root0, stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block1}, su1, nil, true))
+		require.NoError(t, batch.Write())
 		newRoot, err := state.Commitment("")
 		require.NoError(t, err)
 		su1.NewRoot = &newRoot
@@ -837,7 +843,8 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, metadata.Migrate(block1))
 		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadata))
 
-		state, err = New(su1.NewRoot, stateDB)
+		batch = stateDB.disk.NewBatch()
+		state, err = New(su1.NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		stateRoot, err := state.Commitment("")
 		require.NoError(t, err)
@@ -847,13 +854,15 @@ func TestRevert(t *testing.T) {
 		require.Equal(t, v2CasmHash, gotCasmHash, "CompiledClassHash should return V2 before revert")
 		// Revert: State restores V1 in the class trie only; it does not write metadata.
 		require.NoError(t, state.Revert(&core.Header{Number: block1}, su1))
+		require.NoError(t, batch.Write())
 
 		metadataReverted, err := core.GetClassCasmHashMetadata(stateDB.disk, &sierraHash)
 		require.NoError(t, err)
 		require.NoError(t, metadataReverted.Unmigrate())
 		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadataReverted))
 
-		state, err = New(&root0, stateDB)
+		batch = stateDB.disk.NewBatch()
+		state, err = New(&root0, stateDB, batch)
 		require.NoError(t, err)
 		gotRoot, err := state.Commitment("")
 		require.NoError(t, err)
@@ -1201,7 +1210,8 @@ func TestStateCommitmentPre014ReturnsContractRoot(t *testing.T) {
 	// Pre-0.14 with no declared classes (classRoot == 0): commitment must equal
 	// the raw contractRoot, not a Poseidon hash.
 	stateDB := newTestStateDB()
-	state, err := New(&felt.Zero, stateDB)
+	batch := stateDB.disk.NewBatch()
+	state, err := New(&felt.Zero, stateDB, batch)
 	require.NoError(t, err)
 
 	storageKey := felt.NewFromUint64[felt.Felt](0)

@@ -166,7 +166,6 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	require.NoError(t, err)
 	err = state.Update(&core.Header{Number: 1}, stateUpdate, classes2, false)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(1, stateUpdate, classes2, false))
 	require.NoError(t, batch.Write())
 
 	historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
