@@ -79,7 +79,7 @@ func (st *StorageAtResult) UnmarshalJSON(data []byte) error {
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) StorageAt(
 	address, key *felt.Felt, id *BlockID, flags StorageResponseFlags,
-) (StorageAtResult, *jsonrpc.Error) {
+) (*StorageAtResult, *jsonrpc.Error) {
 	var result StorageAtResult
 	result.includeLastUpdateBlock = flags.IncludeLastUpdateBlock
 
@@ -87,7 +87,7 @@ func (h *Handler) StorageAt(
 
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
-		return result, rpcErr
+		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
@@ -96,38 +96,38 @@ func (h *Handler) StorageAt(
 	_, err := stateReader.ContractClassHash(address)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return result, rpccore.ErrContractNotFound
+			return nil, rpccore.ErrContractNotFound
 		}
 		h.log.Error("Failed to get contract class hash", zap.Error(err))
-		return result, rpccore.ErrInternal.CloneWithData(err)
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	value, err := stateReader.ContractStorage(address, key)
 	if err != nil {
-		return result, rpccore.ErrInternal.CloneWithData(err)
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	result.Value = value
 
 	if !flags.IncludeLastUpdateBlock {
-		return result, nil
+		return &result, nil
 	}
 
 	// # get last update block number from history
 
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
-		return result, rpcErr
+		return nil, rpcErr
 	}
 
 	historyPrefix := db.ContractStorageHistoryKey(address, key)
 	lastUpdateBlock, _, err := h.bcReader.HistoryBlockNumber(historyPrefix, header.Number)
 	if err != nil {
 		h.log.Error("Failed to find storage last update block", zap.Error(err))
-		return result, rpccore.ErrInternal.CloneWithData(err)
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	result.LastUpdateBlock = lastUpdateBlock
 
-	return result, nil
+	return &result, nil
 }
