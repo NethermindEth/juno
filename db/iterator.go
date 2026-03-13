@@ -11,10 +11,12 @@ type Iterator interface {
 	// Valid returns true if the iterator is positioned at a valid key/value pair.
 	Valid() bool
 
-	// First moves the iterator to the first key/value pair.
+	// First moves the iterator to the first key/value pair. Returns true
+	// if the iterator is pointing at a valid entry and false otherwise.
 	First() bool
 
-	// Prev moves the iterator to the previous key/value pair
+	// Prev moves the iterator to the previous key/value pair. Returns true
+	// if the iterator is pointing at a valid entry and false otherwise.
 	Prev() bool
 
 	// Next moves the iterator to the next key/value pair. It returns whether the
@@ -38,6 +40,7 @@ type Iterator interface {
 	UncopiedValue() ([]byte, error)
 
 	// Seek would seek to the provided key if present. If absent, it would seek to the next
-	// key in lexicographical order
+	// key in lexicographical order. Returns true if the iterator is pointing at a valid entry
+	// and false otherwise.
 	Seek(key []byte) bool
 }
