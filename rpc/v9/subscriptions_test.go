@@ -2742,7 +2742,8 @@ func assertNextEvents(
 	}
 }
 
-func assertNoEvents(t *testing.T, conn net.Conn, waitDuration time.Duration) { //nolint:unparam
+//nolint:unparam // waitDuration is always 50ms in tests but kept as a param for clarity
+func assertNoEvents(t *testing.T, conn net.Conn, waitDuration time.Duration) {
 	t.Helper()
 
 	// Set a read deadline to wait for the specified duration
