@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	PathScheme string = "path"
-	HashScheme string = "hash"
-	RawScheme  string = "raw"
+	PathScheme = iota + 1
+	HashScheme
+	RawScheme
 )
 
 type Config struct {
