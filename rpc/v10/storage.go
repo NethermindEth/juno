@@ -30,7 +30,7 @@ func (f *StorageAtResponseFlags) UnmarshalJSON(data []byte) error {
 		case "INCLUDE_LAST_UPDATE_BLOCK":
 			f.IncludeLastUpdateBlock = true
 		default:
-			return fmt.Errorf("unknown storage response flag: %s", flag)
+			return fmt.Errorf("unknown flag: %s", flag)
 		}
 	}
 

@@ -40,7 +40,7 @@ func TestStorageResponseFlags_UnmarshalJSON(t *testing.T) {
 		{
 			name:          "unknown flag",
 			json:          `["UNKNOWN_FLAG"]`,
-			expectedError: "unknown storage response flag: UNKNOWN_FLAG",
+			expectedError: "unknown flag: UNKNOWN_FLAG",
 		},
 		{
 			name:          "invalid json",
