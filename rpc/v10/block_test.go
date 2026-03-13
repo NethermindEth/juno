@@ -992,11 +992,9 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	var invokeV3Count int
 	for _, tx := range block.Transactions {
 		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version != nil && invokeTx.Version.Is(3) {
-				invokeV3Count++
-				if invokeTx.ProofFacts != nil {
-					invokeV3WithProofFactsCount++
-				}
+			invokeV3Count++
+			if invokeTx.ProofFacts != nil {
+				invokeV3WithProofFactsCount++
 			}
 		}
 	}
@@ -1099,10 +1097,8 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	// Count invoke v3 transactions
 	var invokeV3Count int
 	for _, tx := range block.Transactions {
-		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version != nil && invokeTx.Version.Is(3) {
-				invokeV3Count++
-			}
+		if _, ok := tx.(*core.InvokeTransaction); ok {
+			invokeV3Count++
 		}
 	}
 	require.Greater(

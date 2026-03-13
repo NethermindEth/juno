@@ -26,7 +26,7 @@ import (
 func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transaction {
 	tx := *AdaptCoreTransaction(coreTx)
 
-	if invokeTx, ok := coreTx.(*core.InvokeTransaction); ok && invokeTx.Version.Is(3) {
+	if _, ok := coreTx.(*core.InvokeTransaction); ok {
 		if !includeProofFacts {
 			tx.ProofFacts = nil
 		} else if tx.ProofFacts == nil {

@@ -555,7 +555,7 @@ func TestTransactionByHash(t *testing.T) {
 				}
 				// Mock the gateway to include proof_facts for "INVOKE v3 with response flags" test
 				invokeTx, ok := tx.(*core.InvokeTransaction)
-				if ok && invokeTx.Version.Is(3) && test.withProofFacts {
+				if ok && test.withProofFacts {
 					invokeTx.ProofFacts = []felt.Felt{
 						felt.FromUint64[felt.Felt](100),
 						felt.FromUint64[felt.Felt](200),
