@@ -23,10 +23,12 @@ helm repo update
 ## 2. Install the chart
 
 ```bash
-helm install my-juno nethermind/juno
+# For testing (disables L1 verification, no Ethereum node required)
+helm install my-juno nethermind/juno \
+  --set juno.extraArgs[0]="--disable-l1-verification"
 ```
 
-This installs Juno with the default configuration (Sepolia network). To customize the deployment, create a `values.yaml` file:
+This installs Juno with the default configuration (Sepolia network) and disables L1 verification so it can start without an Ethereum node. For production use or to enable full L1 verification, configure an Ethereum node endpoint via `juno.extraArgs` in a `values.yaml` file, for example:
 
 ```yaml title="values.yaml"
 juno:
@@ -258,7 +260,7 @@ helm uninstall my-juno
 Uninstalling the chart does **not** delete the PersistentVolumeClaim. To fully remove the data, delete the PVC manually:
 
 ```bash
-kubectl delete pvc -l app.kubernetes.io/name=juno
+kubectl delete pvc -l "app.kubernetes.io/name=juno,app.kubernetes.io/instance=my-juno"
 ```
 
 :::
