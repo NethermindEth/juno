@@ -879,7 +879,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 				if len(step.expect) == 0 {
 					// If no events are expected, wait for a short period to ensure no events are sent
-					assertNoEvents(t, conn, 50*time.Millisecond)
+					assertNoEvents(t, conn)
 				} else {
 					for _, expectedEvents := range step.expect {
 						assertNextEvents(t, conn, subID, expectedEvents)
@@ -1229,7 +1229,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		// No status update should be emitted when the status doesn't change.
 		mockSyncer.EXPECT().PendingData().Return(preConfirmedData2, nil)
 		handler.preLatestFeed.Send(preLatest)
-		assertNoEvents(t, conn, 50*time.Millisecond)
+		assertNoEvents(t, conn)
 	})
 
 	t.Run("returns reorg event", func(t *testing.T) {
@@ -2301,7 +2301,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 				if len(step.expect) == 0 {
 					// If no transactions are expected, wait for a short period to ensure no transactions are sent
-					assertNoEvents(t, conn, 50*time.Millisecond)
+					assertNoEvents(t, conn)
 				} else {
 					for _, expectedTransactions := range step.expect {
 						assertNextTransactions(t, conn, subID, expectedTransactions)
@@ -2832,7 +2832,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 				if len(step.expect) == 0 {
 					// If no receipts are expected, wait for a short period to ensure no receipts are sent
-					assertNoEvents(t, conn, 50*time.Millisecond)
+					assertNoEvents(t, conn)
 				} else {
 					for _, expectedReceipts := range step.expect {
 						assertNextReceipts(t, conn, subID, expectedReceipts)
@@ -3021,11 +3021,11 @@ func assertNextEvents(
 	}
 }
 
-func assertNoEvents(t *testing.T, conn net.Conn, waitDuration time.Duration) {
+func assertNoEvents(t *testing.T, conn net.Conn) {
 	t.Helper()
 
-	// Set a read deadline to wait for the specified duration
-	require.NoError(t, conn.SetReadDeadline(time.Now().Add(waitDuration)))
+	// Set a read deadline to wait for 50ms
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(50*time.Millisecond)))
 
 	// Try to read from the connection - this should timeout if no events are sent
 	buffer := make([]byte, 1024)
