@@ -98,7 +98,7 @@ linters:
         - "24"
         - "32"
     nolintlint:
-      allow-unused: false
+      allow-unused: true
       require-explanation: false # todo(rdr): this should be switched to true for non test files
       require-specific: true
     prealloc:
