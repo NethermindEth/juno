@@ -2,7 +2,6 @@ package rpcv10_test
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -1174,51 +1173,4 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 			}
 		})
 	})
-}
-
-func blockIDPreConfirmed(t *testing.T) rpcv10.BlockID {
-	t.Helper()
-
-	blockID := rpcv10.BlockID{}
-	require.NoError(t, blockID.UnmarshalJSON([]byte(`"pre_confirmed"`)))
-	return blockID
-}
-
-func blockIDLatest(t *testing.T) rpcv10.BlockID {
-	t.Helper()
-
-	blockID := rpcv10.BlockID{}
-	require.NoError(t, blockID.UnmarshalJSON([]byte(`"latest"`)))
-	return blockID
-}
-
-func blockIDHash(t *testing.T, val *felt.Felt) rpcv10.BlockID {
-	t.Helper()
-
-	blockID := rpcv10.BlockID{}
-	require.NoError(
-		t,
-		blockID.UnmarshalJSON(
-			[]byte(fmt.Sprintf(`{ "block_hash" : %q }`, val.String())),
-		),
-	)
-	return blockID
-}
-
-func blockIDNumber(t *testing.T, val uint64) rpcv10.BlockID {
-	t.Helper()
-
-	blockID := rpcv10.BlockID{}
-	require.NoError(t,
-		blockID.UnmarshalJSON([]byte(fmt.Sprintf(`{ "block_number" : %d}`, val))),
-	)
-	return blockID
-}
-
-func blockIDL1Accepted(t *testing.T) rpcv10.BlockID {
-	t.Helper()
-
-	blockID := rpcv10.BlockID{}
-	require.NoError(t, blockID.UnmarshalJSON([]byte(`"l1_accepted"`)))
-	return blockID
 }

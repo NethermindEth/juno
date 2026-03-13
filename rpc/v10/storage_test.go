@@ -85,7 +85,7 @@ func TestStorageAt(t *testing.T) {
 		t.Run("empty blockchain", func(t *testing.T) {
 			mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
-			blockID := blockIDLatest(t)
+			blockID := rpc.BlockIDLatest()
 			_, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -98,7 +98,7 @@ func TestStorageAt(t *testing.T) {
 		t.Run("non-existent block hash", func(t *testing.T) {
 			mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 
-			blockID := blockIDHash(t, &felt.Zero)
+			blockID := rpc.BlockIDFromHash(&felt.Zero)
 			_, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -111,7 +111,7 @@ func TestStorageAt(t *testing.T) {
 		t.Run("non-existent block number", func(t *testing.T) {
 			mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
 
-			blockID := blockIDNumber(t, 0)
+			blockID := rpc.BlockIDFromNumber(0)
 			_, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -125,7 +125,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, db.ErrKeyNotFound)
 
-			blockID := blockIDLatest(t)
+			blockID := rpc.BlockIDLatest()
 			_, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -140,7 +140,7 @@ func TestStorageAt(t *testing.T) {
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(felt.Zero, nil)
 
-			blockID := blockIDLatest(t)
+			blockID := rpc.BlockIDLatest()
 			result, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -158,7 +158,7 @@ func TestStorageAt(t *testing.T) {
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).
 				Return(felt.Felt{}, internalErr)
 
-			blockID := blockIDLatest(t)
+			blockID := rpc.BlockIDLatest()
 			_, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -173,7 +173,7 @@ func TestStorageAt(t *testing.T) {
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
 
-			blockID := blockIDLatest(t)
+			blockID := rpc.BlockIDLatest()
 			result, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -189,7 +189,7 @@ func TestStorageAt(t *testing.T) {
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
 
-			blockID := blockIDHash(t, &felt.Zero)
+			blockID := rpc.BlockIDFromHash(&felt.Zero)
 			result, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -205,7 +205,7 @@ func TestStorageAt(t *testing.T) {
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
 
-			blockID := blockIDNumber(t, 0)
+			blockID := rpc.BlockIDFromNumber(0)
 			result, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -236,7 +236,7 @@ func TestStorageAt(t *testing.T) {
 			mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 			mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
 				Return(mockState, nopCloser, nil)
-			preConfirmedID := blockIDPreConfirmed(t)
+			preConfirmedID := rpc.BlockIDPreConfirmed()
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, noFlags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, noFlags.IncludeLastUpdateBlock)
@@ -256,7 +256,7 @@ func TestStorageAt(t *testing.T) {
 			mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
 			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
-			blockID := blockIDL1Accepted(t)
+			blockID := rpc.BlockIDL1Accepted()
 			result, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID, noFlags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, noFlags.IncludeLastUpdateBlock)
@@ -280,7 +280,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().HistoryBlockNumber(historyPrefix, blockNumber).
 				Return(lastUpdateBlockNum, true, nil)
 
-			blockID := blockIDNumber(t, blockNumber)
+			blockID := rpc.BlockIDFromNumber(blockNumber)
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, flags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
@@ -297,7 +297,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().HistoryBlockNumber(historyPrefix, latestBlockNumber).
 				Return(lastUpdateBlockNum, true, nil)
 
-			blockID := blockIDLatest(t)
+			blockID := rpc.BlockIDLatest()
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, flags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
@@ -317,7 +317,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().HistoryBlockNumber(historyPrefix, blockNumber).
 				Return(lastUpdateBlockNum, true, nil)
 
-			blockID := blockIDHash(t, &blockHash)
+			blockID := rpc.BlockIDFromHash(&blockHash)
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, flags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
@@ -345,7 +345,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().HistoryBlockNumber(historyPrefix, l1HeadBlockNumber).
 				Return(lastUpdateBlockNum, true, nil)
 
-			blockID := blockIDL1Accepted(t)
+			blockID := rpc.BlockIDL1Accepted()
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, flags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
@@ -363,7 +363,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().HistoryBlockNumber(historyPrefix, blockNumber).
 				Return(uint64(0), false, nil)
 
-			blockID := blockIDNumber(t, blockNumber)
+			blockID := rpc.BlockIDFromNumber(blockNumber)
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, flags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
@@ -377,7 +377,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(blockNumber).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, dbErr)
 
-		blockID := blockIDNumber(t, blockNumber)
+		blockID := rpc.BlockIDFromNumber(blockNumber)
 		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageResponseFlags{})
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(dbErr), rpcErr)
 	})
@@ -387,7 +387,7 @@ func TestStorageAt(t *testing.T) {
 
 		mockReader.EXPECT().StateAtBlockNumber(blockNumber).Return(nil, nil, db.ErrKeyNotFound)
 
-		blockID := blockIDNumber(t, blockNumber)
+		blockID := rpc.BlockIDFromNumber(blockNumber)
 		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageResponseFlags{})
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -398,7 +398,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(blockNumber).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, db.ErrKeyNotFound)
 
-		blockID := blockIDNumber(t, blockNumber)
+		blockID := rpc.BlockIDFromNumber(blockNumber)
 		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageResponseFlags{})
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
