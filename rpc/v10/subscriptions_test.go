@@ -2116,8 +2116,27 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	}
 
-	// Create a block with Invoke V3 transaction with proof facts for testing
+	// Create a block with two Invoke V3 transactions (one with proof facts, one without),
+	// for proof facts testing.
 	invokeV3WithProofFacts := &core.InvokeTransaction{
+		TransactionHash: felt.NewFromUint64[felt.Felt](124),
+		Version:         new(core.TransactionVersion).SetUint64(3),
+		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
+		Nonce:           felt.NewFromUint64[felt.Felt](1),
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
+			},
+		},
+		ProofFacts: []felt.Felt{felt.FromUint64[felt.Felt](999)},
+	}
+
+	invokeV3WithoutProofFacts := &core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](123),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
@@ -2132,17 +2151,16 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 			},
 		},
-		ProofFacts: []felt.Felt{
-			felt.FromUint64[felt.Felt](999),
-		},
+		// ProofFacts intentionally absent
 	}
+
 	proofFactsBlock := &core.Block{
 		Header: &core.Header{
 			Hash:             felt.NewFromUint64[felt.Felt](99999),
 			ParentHash:       newHead2.ParentHash,
 			Number:           newHead2.Number + 1,
 			SequencerAddress: newHead2.SequencerAddress,
-			TransactionCount: 1,
+			TransactionCount: 2,
 			Timestamp:        newHead2.Timestamp + 1,
 			ProtocolVersion:  newHead2.ProtocolVersion,
 			L1GasPriceETH:    newHead2.L1GasPriceETH,
@@ -2151,10 +2169,14 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			L1DataGasPrice:   newHead2.L1DataGasPrice,
 			L1DAMode:         newHead2.L1DAMode,
 		},
-		Transactions: []core.Transaction{invokeV3WithProofFacts},
+		Transactions: []core.Transaction{invokeV3WithProofFacts, invokeV3WithoutProofFacts},
 		Receipts: []*core.TransactionReceipt{
 			{
 				TransactionHash: invokeV3WithProofFacts.TransactionHash,
+				Events:          []*core.Event{},
+			},
+			{
+				TransactionHash: invokeV3WithoutProofFacts.TransactionHash,
 				Events:          []*core.Event{},
 			},
 		},
@@ -2205,6 +2227,28 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	}
 
+	noProofFactsWithTag := testCase{
+		description:   "Returns empty proof_facts array for INVOKE v3 with no proof_facts when INCLUDE_PROOF_FACTS tag is set",
+		statuses:      nil,
+		senderAddress: nil,
+		tags:          SubscriptionTags{IncludeProofFacts: true},
+		steps: []stepInfo{
+			{
+				description: "on new head with invoke v3 transaction without proof facts",
+				notify: func() {
+					syncer.newHeads.Send(proofFactsBlock)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						proofFactsBlock.Transactions,
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
+						true,
+					),
+				},
+			},
+		},
+	}
+
 	testCases := []testCase{
 		defaultFinality, // onlyAcceptedOnL2
 		onlyPreConfirmed,
@@ -2216,6 +2260,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		reorgEvent,
 		proofFactsWithTag,
 		proofFactsWithoutTag,
+		noProofFactsWithTag,
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {

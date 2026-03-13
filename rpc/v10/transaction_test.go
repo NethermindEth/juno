@@ -95,10 +95,11 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 
 func TestTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
-		hash          string
-		network       *utils.Network
-		expected      string
-		responseFlags rpcv10.ResponseFlags
+		hash           string
+		network        *utils.Network
+		expected       string
+		responseFlags  rpcv10.ResponseFlags
+		withProofFacts bool
 	}{
 		"DECLARE v1": {
 			hash:    "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
@@ -437,8 +438,9 @@ func TestTransactionByHash(t *testing.T) {
 			}`,
 		},
 		"INVOKE v3 with response flags": {
-			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network: &utils.Integration,
+			hash:           "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
+			network:        &utils.Integration,
+			withProofFacts: true,
 			expected: `{
 				"type": "INVOKE",
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -486,6 +488,56 @@ func TestTransactionByHash(t *testing.T) {
 			}`,
 			responseFlags: rpcv10.ResponseFlags{IncludeProofFacts: true},
 		},
+		"INVOKE v3 with response flags and no proof facts": {
+			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
+			network: &utils.Integration,
+			expected: `{
+				"type": "INVOKE",
+				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
+				"version": "0x3",
+				"signature": [
+					"0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16",
+					"0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5"
+				],
+				"nonce": "0xe97",
+				"resource_bounds": {
+					"l1_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x5af3107a4000"
+					},
+					"l1_data_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x5af3107a4000"
+					},
+					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"sender_address": "0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41",
+				"calldata": [
+					"0x2",
+					"0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684",
+					"0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c",
+					"0x0",
+					"0x4",
+					"0x4c312760dfd17a954cdd09e76aa9f149f806d88ec3e402ffaf5c4926f568a42",
+					"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
+					"0x4",
+					"0x1",
+					"0x5",
+					"0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684",
+					"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
+					"0x1",
+					"0x7fe4fd616c7fece1244b3616bb516562e230be8c9f29668b46ce0369d5ca829",
+					"0x287acddb27a2f9ba7f2612d72788dc96a5b30e401fc1e8072250940e024a587"
+				],
+				"account_deployment_data": [],
+				"nonce_data_availability_mode": "L1",
+				"fee_data_availability_mode": "L1",
+				"proof_facts": []
+			}`,
+			responseFlags: rpcv10.ResponseFlags{IncludeProofFacts: true},
+		},
 	}
 
 	for name, test := range tests {
@@ -503,7 +555,7 @@ func TestTransactionByHash(t *testing.T) {
 				}
 				// Mock the gateway to include proof_facts for "INVOKE v3 with response flags" test
 				invokeTx, ok := tx.(*core.InvokeTransaction)
-				if ok && invokeTx.Version.Is(3) && test.responseFlags.IncludeProofFacts {
+				if ok && invokeTx.Version.Is(3) && test.withProofFacts {
 					invokeTx.ProofFacts = []felt.Felt{
 						felt.FromUint64[felt.Felt](100),
 						felt.FromUint64[felt.Felt](200),
@@ -796,6 +848,17 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			require.Nil(t, rpcErr)
 			require.NotNil(t, tx)
 			require.Nil(t, tx.ProofFacts)
+		})
+
+		blockID2 := rpcv10.BlockIDFromNumber(2)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(2), uint64(0)).
+			Return(invokeTxCore, nil)
+		t.Run("WithResponseFlag and empty proof facts", func(t *testing.T) {
+			tx, rpcErr := h.TransactionByBlockIDAndIndex(&blockID2, 0, rpcv10.ResponseFlags{IncludeProofFacts: true})
+			require.Nil(t, rpcErr)
+			require.NotNil(t, tx)
+			require.NotNil(t, tx.ProofFacts)
+			require.Empty(t, *tx.ProofFacts)
 		})
 	})
 }

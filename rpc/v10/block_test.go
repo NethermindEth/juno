@@ -1002,9 +1002,15 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	}
 	require.Greater(
 		t,
-		invokeV3WithProofFactsCount,
+		invokeV3Count,
 		0,
-		"Block should contain at least one invoke v3 transaction with proof_facts",
+		"Block should contain at least one invoke v3 transaction",
+	)
+	require.Equal(
+		t,
+		invokeV3Count,
+		invokeV3WithProofFactsCount,
+		"All invoke v3 transactions should have proof_facts set when flag is included",
 	)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -1050,9 +1056,9 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 		// Verify number of transactions with proof_facts matches expected
 		require.Equal(
 			t,
-			invokeV3WithProofFactsCount,
+			invokeV3Count,
 			txsWithProofFactsCount,
-			"Number of transactions with proof_facts should match",
+			"All invoke v3 transactions should have proof_facts set when flag is included",
 		)
 	})
 
@@ -1090,20 +1096,20 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		"Block should have receipts for all transactions",
 	)
 
-	// Count invoke v3 transactions with proof_facts
-	var invokeV3WithProofFactsCount int
+	// Count invoke v3 transactions
+	var invokeV3Count int
 	for _, tx := range block.Transactions {
 		if invokeTx, ok := tx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version != nil && invokeTx.Version.Is(3) && invokeTx.ProofFacts != nil {
-				invokeV3WithProofFactsCount++
+			if invokeTx.Version != nil && invokeTx.Version.Is(3) {
+				invokeV3Count++
 			}
 		}
 	}
 	require.Greater(
 		t,
-		invokeV3WithProofFactsCount, 0,
-		"Block should contain at least one invoke v3 transaction with proof_facts",
-	)
+		invokeV3Count,
+		0,
+		"Block should contain at least one invoke v3 transaction")
 
 	// Count all transactions
 	totalTxCount := len(block.Transactions)
@@ -1148,9 +1154,9 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		// Verify number of transactions with proof_facts matches expected
 		require.Equal(
 			t,
-			invokeV3WithProofFactsCount,
+			invokeV3Count,
 			txsWithProofFactsCount,
-			"Number of transactions with proof_facts should match",
+			"All invoke v3 transactions should have proof_facts set when flag is included",
 		)
 	})
 

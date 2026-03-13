@@ -26,11 +26,14 @@ import (
 func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transaction {
 	tx := *AdaptCoreTransaction(coreTx)
 
-	if !includeProofFacts {
-		if invokeTx, ok := coreTx.(*core.InvokeTransaction); ok {
-			if invokeTx.Version.Is(3) {
-				tx.ProofFacts = nil
-			}
+	if invokeTx, ok := coreTx.(*core.InvokeTransaction); ok && invokeTx.Version.Is(3) {
+		if !includeProofFacts {
+			tx.ProofFacts = nil
+		} else if tx.ProofFacts == nil {
+			// When proof facts are requested for INVOKE V3 transactions,
+			// but they are not available, return an empty array
+			emptyProofFacts := []felt.Felt{}
+			tx.ProofFacts = &emptyProofFacts
 		}
 	}
 
