@@ -21,7 +21,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -297,7 +296,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 		},
 	}
 
-	validate := validator.Validator()
+	validate := rpcv10.Validator()
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

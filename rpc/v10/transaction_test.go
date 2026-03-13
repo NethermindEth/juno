@@ -23,7 +23,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -1880,7 +1879,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Proof: "AAAAAQAAAAIAAAAD",
 		}
 
-		validate := validator.Validator()
+		validate := rpcv10.Validator()
 		err := validate.Struct(broadcastedTxn)
 		require.Error(
 			t,
@@ -1903,7 +1902,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			},
 		}
 
-		validate := validator.Validator()
+		validate := rpcv10.Validator()
 		err := validate.Struct(broadcastedTxn)
 		require.Error(
 			t,
@@ -1920,7 +1919,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
 		correctBroadcastedTxn.Proof = utils.Base64("not-valid-base64")
 
-		validate := validator.Validator()
+		validate := rpcv10.Validator()
 		err := validate.Struct(correctBroadcastedTxn)
 		require.Error(
 			t,
@@ -1932,7 +1931,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	t.Run("AcceptEmptyProofOnInvoke", func(t *testing.T) {
 		correctBroadcastedTxn.Proof = utils.Base64("")
 
-		validate := validator.Validator()
+		validate := rpcv10.Validator()
 		err := validate.Struct(correctBroadcastedTxn)
 		require.NoError(
 			t,
@@ -1945,7 +1944,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		correctBroadcastedTxn.Proof = utils.Base64("AAAAAQAAAAIAAAAD")
 		correctBroadcastedTxn.ProofFacts = &[]felt.Felt{felt.FromUint64[felt.Felt](100)}
 
-		validate := validator.Validator()
+		validate := rpcv10.Validator()
 		err := validate.Struct(correctBroadcastedTxn.Transaction)
 		require.NoError(t,
 			err,
@@ -2126,7 +2125,7 @@ func TestResourceBoundsValidation(t *testing.T) {
 		},
 	}
 
-	validate := validator.Validator()
+	validate := rpcv10.Validator()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

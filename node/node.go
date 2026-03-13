@@ -29,6 +29,9 @@ import (
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -36,7 +39,6 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/upgrader"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/sourcegraph/conc"
@@ -378,7 +380,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 
 	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, log).
-		WithValidator(validator.Validator()).
+		WithValidator(rpcv10.Validator()).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV10, pathV10 := rpcHandler.MethodsV0_10()
 	if err = jsonrpcServerV10.RegisterMethods(methodsV10...); err != nil {
@@ -386,7 +388,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 
 	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).
-		WithValidator(validator.Validator()).
+		WithValidator(rpcv9.Validator()).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
 	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
@@ -394,7 +396,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).
-		WithValidator(validator.Validator()).
+		WithValidator(rpcv8.Validator()).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
