@@ -2228,7 +2228,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	noProofFactsWithTag := testCase{
-		description:   "Returns empty proof_facts array for INVOKE v3 with no proof_facts when INCLUDE_PROOF_FACTS tag is set",
+		description:   "Empty slice for INVOKE v3 with no proof_facts when INCLUDE_PROOF_FACTS is set",
 		statuses:      nil,
 		senderAddress: nil,
 		tags:          SubscriptionTags{IncludeProofFacts: true},

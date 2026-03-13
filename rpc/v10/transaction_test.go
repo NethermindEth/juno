@@ -854,7 +854,11 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(2), uint64(0)).
 			Return(invokeTxCore, nil)
 		t.Run("WithResponseFlag and empty proof facts", func(t *testing.T) {
-			tx, rpcErr := h.TransactionByBlockIDAndIndex(&blockID2, 0, rpcv10.ResponseFlags{IncludeProofFacts: true})
+			tx, rpcErr := h.TransactionByBlockIDAndIndex(
+				&blockID2,
+				0,
+				rpcv10.ResponseFlags{IncludeProofFacts: true},
+			)
 			require.Nil(t, rpcErr)
 			require.NotNil(t, tx)
 			require.NotNil(t, tx.ProofFacts)
