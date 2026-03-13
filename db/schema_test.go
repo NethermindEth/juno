@@ -11,8 +11,8 @@ import (
 )
 
 func TestHistoryLastUpdateBlock(t *testing.T) {
-	addr := new(felt.Felt).SetUint64(1)
-	loc := new(felt.Felt).SetUint64(2)
+	addr := felt.NewFromUint64[felt.Felt](1)
+	loc := felt.NewFromUint64[felt.Felt](2)
 	prefix := db.ContractStorageHistoryKey(addr, loc)
 
 	putAt := func(t *testing.T, database db.KeyValueStore, blockNum uint64) {

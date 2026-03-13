@@ -83,8 +83,6 @@ func (h *Handler) StorageAt(
 	var result StorageAtResult
 	result.includeLastUpdateBlock = flags.IncludeLastUpdateBlock
 
-	// # get storage value from state
-
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -102,18 +100,14 @@ func (h *Handler) StorageAt(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	value, err := stateReader.ContractStorage(address, key)
+	result.Value, err = stateReader.ContractStorage(address, key)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	result.Value = value
-
 	if !flags.IncludeLastUpdateBlock {
 		return &result, nil
 	}
-
-	// # get last update block number from history
 
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
@@ -123,7 +117,11 @@ func (h *Handler) StorageAt(
 	historyPrefix := db.ContractStorageHistoryKey(address, key)
 	lastUpdateBlock, _, err := h.bcReader.HistoryBlockNumber(historyPrefix, header.Number)
 	if err != nil {
-		h.log.Error("Failed to find storage last update block", zap.Error(err))
+		h.log.Error(
+			"Failed to find last updated block for storage key",
+			zap.Error(err),
+			zap.String("storage key", key.String()),
+		)
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
