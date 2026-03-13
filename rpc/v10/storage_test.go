@@ -413,7 +413,9 @@ func TestStorageAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, dbErr)
 
 		blockID := rpc.BlockIDFromNumber(blockNumber)
-		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{})
+		_, rpcErr := handler.StorageAt(
+			&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{},
+		)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(dbErr), rpcErr)
 	})
 
@@ -423,7 +425,9 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(blockNumber).Return(nil, nil, db.ErrKeyNotFound)
 
 		blockID := rpc.BlockIDFromNumber(blockNumber)
-		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{})
+		_, rpcErr := handler.StorageAt(
+			&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{},
+		)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -434,7 +438,9 @@ func TestStorageAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, db.ErrKeyNotFound)
 
 		blockID := rpc.BlockIDFromNumber(blockNumber)
-		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{})
+		_, rpcErr := handler.StorageAt(
+			&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{},
+		)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 }
