@@ -24,18 +24,18 @@ func TestStorageResponseFlags_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name          string
 		json          string
-		expected      rpc.StorageResponseFlags
+		expected      rpc.StorageAtResponseFlags
 		expectedError string
 	}{
 		{
 			name:     "empty array",
 			json:     `[]`,
-			expected: rpc.StorageResponseFlags{IncludeLastUpdateBlock: false},
+			expected: rpc.StorageAtResponseFlags{IncludeLastUpdateBlock: false},
 		},
 		{
 			name:     "with INCLUDE_LAST_UPDATE_BLOCK",
 			json:     `["INCLUDE_LAST_UPDATE_BLOCK"]`,
-			expected: rpc.StorageResponseFlags{IncludeLastUpdateBlock: true},
+			expected: rpc.StorageAtResponseFlags{IncludeLastUpdateBlock: true},
 		},
 		{
 			name:          "unknown flag",
@@ -52,7 +52,7 @@ func TestStorageResponseFlags_UnmarshalJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			var flags rpc.StorageResponseFlags
+			var flags rpc.StorageAtResponseFlags
 			err := json.Unmarshal([]byte(tt.json), &flags)
 
 			if tt.expectedError != "" {
@@ -80,7 +80,7 @@ func TestStorageAt(t *testing.T) {
 	expectedStorage := felt.FromUint64[felt.Felt](1)
 
 	t.Run("no flags", func(t *testing.T) {
-		noFlags := rpc.StorageResponseFlags{}
+		noFlags := rpc.StorageAtResponseFlags{}
 
 		t.Run("empty blockchain", func(t *testing.T) {
 			mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -264,7 +264,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("with IncludeLastUpdateBlock flag", func(t *testing.T) {
-		flags := rpc.StorageResponseFlags{IncludeLastUpdateBlock: true}
+		flags := rpc.StorageAtResponseFlags{IncludeLastUpdateBlock: true}
 		historyPrefix := db.ContractStorageHistoryKey(&targetAddress, &targetSlot)
 
 		t.Run("blockID - number", func(t *testing.T) {
@@ -378,7 +378,7 @@ func TestStorageAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, dbErr)
 
 		blockID := rpc.BlockIDFromNumber(blockNumber)
-		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageResponseFlags{})
+		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{})
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(dbErr), rpcErr)
 	})
 
@@ -388,7 +388,7 @@ func TestStorageAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(blockNumber).Return(nil, nil, db.ErrKeyNotFound)
 
 		blockID := rpc.BlockIDFromNumber(blockNumber)
-		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageResponseFlags{})
+		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{})
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -399,14 +399,14 @@ func TestStorageAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, db.ErrKeyNotFound)
 
 		blockID := rpc.BlockIDFromNumber(blockNumber)
-		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageResponseFlags{})
+		_, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, rpc.StorageAtResponseFlags{})
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 }
 
 func validateStorageAtJSON(
 	t *testing.T,
-	result *rpc.StorageAtResult,
+	result *rpc.StorageAtResponse,
 	includeLastUpdateBlock bool,
 ) {
 	data, err := json.Marshal(result)
@@ -424,7 +424,7 @@ func validateStorageAtJSON(
 		assert.JSONEq(t, strconv.Quote(result.Value.String()), string(data))
 	}
 
-	var newResult rpc.StorageAtResult
+	var newResult rpc.StorageAtResponse
 	err = json.Unmarshal(data, &newResult)
 	require.NoError(t, err)
 	assert.Exactly(t, *result, newResult)

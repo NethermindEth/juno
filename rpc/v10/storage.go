@@ -12,18 +12,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// StorageResponseFlags represents the flags for the `starknet_getStorageAt` operation.
-type StorageResponseFlags struct {
+// StorageAtResponseFlags represents the flags for the `starknet_getStorageAt` operation.
+type StorageAtResponseFlags struct {
 	IncludeLastUpdateBlock bool
 }
 
-// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageResponseFlags.
-func (f *StorageResponseFlags) UnmarshalJSON(data []byte) error {
+// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResponseFlags.
+func (f *StorageAtResponseFlags) UnmarshalJSON(data []byte) error {
 	var flags []string
 	if err := json.Unmarshal(data, &flags); err != nil {
 		return err
 	}
-	*f = StorageResponseFlags{}
+	*f = StorageAtResponseFlags{}
 
 	for _, flag := range flags {
 		switch flag {
@@ -37,8 +37,8 @@ func (f *StorageResponseFlags) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// StorageAtResult represents the result of a `starknet_getStorageAt` operation.
-type StorageAtResult struct {
+// StorageAtResponse represents the result of a `starknet_getStorageAt` operation.
+type StorageAtResponse struct {
 	// used in the marshal and unmarshal logic
 	includeLastUpdateBlock bool
 
@@ -46,24 +46,24 @@ type StorageAtResult struct {
 	LastUpdateBlock uint64    `json:"last_update_block"`
 }
 
-// MarshalJSON implements the [json.Marshaler] interface for StorageAtResult.
-func (st *StorageAtResult) MarshalJSON() ([]byte, error) {
+// MarshalJSON implements the [json.Marshaler] interface for StorageAtResponse.
+func (st *StorageAtResponse) MarshalJSON() ([]byte, error) {
 	if st.includeLastUpdateBlock {
-		type storageResultAlias StorageAtResult
+		type storageResultAlias StorageAtResponse
 		return json.Marshal((*storageResultAlias)(st))
 	}
 
 	return st.Value.MarshalJSON()
 }
 
-// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResult.
-func (st *StorageAtResult) UnmarshalJSON(data []byte) error {
-	type storageResultAlias StorageAtResult
+// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResponse.
+func (st *StorageAtResponse) UnmarshalJSON(data []byte) error {
+	type storageResultAlias StorageAtResponse
 	var alias storageResultAlias
 
 	if err := json.Unmarshal(data, &alias); err == nil {
 		alias.includeLastUpdateBlock = true
-		*st = StorageAtResult(alias)
+		*st = StorageAtResponse(alias)
 		return nil
 	}
 
@@ -78,9 +78,9 @@ func (st *StorageAtResult) UnmarshalJSON(data []byte) error {
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) StorageAt(
-	address, key *felt.Felt, id *BlockID, flags StorageResponseFlags,
-) (*StorageAtResult, *jsonrpc.Error) {
-	var result StorageAtResult
+	address, key *felt.Felt, id *BlockID, flags StorageAtResponseFlags,
+) (*StorageAtResponse, *jsonrpc.Error) {
+	var result StorageAtResponse
 	result.includeLastUpdateBlock = flags.IncludeLastUpdateBlock
 
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
