@@ -188,10 +188,9 @@ func HistoryLastUpdateBlock(
 		if seekedBlock == upToBlock {
 			return upToBlock, true, nil
 		}
-		if !it.Prev() || !it.Valid() {
-			return 0, false, nil
-		}
-	} else if !it.Prev() || !it.Valid() {
+	}
+
+	if !it.Prev() {
 		return 0, false, nil
 	}
 
