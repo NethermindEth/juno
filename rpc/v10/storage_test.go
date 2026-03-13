@@ -351,6 +351,41 @@ func TestStorageAt(t *testing.T) {
 			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
 		})
 
+		t.Run("blockID - pre_confirmed", func(t *testing.T) {
+			preConfirmedBlockNumber := uint64(3)
+			lastUpdateBlockNum := uint64(1)
+
+			preConfirmedStateDiff := core.EmptyStateDiff()
+			preConfirmedStateDiff.
+				StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
+			preConfirmedStateDiff.
+				DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
+
+			preConfirmed := core.PreConfirmed{
+				Block: &core.Block{
+					Header: &core.Header{
+						Number: preConfirmedBlockNumber,
+					},
+				},
+				StateUpdate: &core.StateUpdate{
+					StateDiff: &preConfirmedStateDiff,
+				},
+			}
+
+			// PendingData is called twice: once in PendingState (via stateByBlockID)
+			// and once in blockHeaderByID.
+			mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil).Times(2)
+			mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
+				Return(mockState, nopCloser, nil)
+			mockReader.EXPECT().HistoryBlockNumber(historyPrefix, preConfirmedBlockNumber).
+				Return(lastUpdateBlockNum, true, nil)
+
+			preConfirmedID := rpc.BlockIDPreConfirmed()
+			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, flags)
+			require.Nil(t, rpcErr)
+			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
+		})
+
 		t.Run("no history entry (storage never updated)", func(t *testing.T) {
 			blockNumber := uint64(4)
 
