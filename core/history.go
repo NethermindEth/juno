@@ -73,6 +73,10 @@ func (s *deprecatedStateHistory) ContractStorage(addr, key *felt.Felt) (felt.Fel
 	return val, nil
 }
 
+func (s *deprecatedStateHistory) ContractStorageLastUpdatedBlock(addr, key *felt.Felt) (uint64, bool, error) {
+	return s.state.ContractStorageLastUpdatedAt(addr, key, s.blockNumber)
+}
+
 func (s *deprecatedStateHistory) checkDeployed(addr *felt.Felt) error {
 	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNumber)
 	if err != nil {
