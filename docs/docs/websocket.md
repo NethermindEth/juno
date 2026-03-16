@@ -285,14 +285,14 @@ $ websocat -v ws://localhost:6061
 
 Juno supports the following Starknet API versions:
 
-- **v0.10.0**: Accessible via endpoint `/ws/v0_10`
+- **v0.10.1**: Accessible via endpoint `/ws/v0_10`
 - **v0.9.0**: Accessible via endpoint `/ws/v0_9`
 - **v0.8.1**: Accessible via endpoint `/ws/v0_8`
 
 To use a specific API version, specify the version endpoint in your WS calls:
 
 <Tabs>
-<TabItem value="v10" label="v0.10.0">
+<TabItem value="v10" label="v0.10.1">
 
 ```bash
 # wscat
