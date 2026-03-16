@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/utils"
@@ -68,12 +67,6 @@ func Validator() *validator.Validate {
 			}
 			panic("not an rpc v6 TransactionType")
 		}, rpcv6.TransactionType(0))
-		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
-			if t, ok := field.Interface().(rpcv7.TransactionType); ok {
-				return t.String()
-			}
-			panic("not an rpc v7 TransactionType")
-		}, rpcv7.TransactionType(0))
 		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
 			if t, ok := field.Interface().(rpcv8.TransactionType); ok {
 				return t.String()
