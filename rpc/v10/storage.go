@@ -109,13 +109,7 @@ func (h *Handler) StorageAt(
 		return &result, nil
 	}
 
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	historyPrefix := db.ContractStorageHistoryKey(address, key)
-	lastUpdateBlock, _, err := h.bcReader.HistoryBlockNumber(historyPrefix, header.Number)
+	lastUpdateBlock, _, err := stateReader.ContractStorageLastUpdatedBlock(address, key)
 	if err != nil {
 		h.log.Error(
 			"Failed to find last updated block for storage key",

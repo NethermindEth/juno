@@ -24,7 +24,6 @@ type cacheNode struct {
 
 // stateCache is a clean, in-memory cache of the state, where the stateDiffs are stored. After every state update,
 // a new layer - a stateDiff associated with the state root is added to the cache. The state cache is implemented as a linked list.
-
 type stateCache struct {
 	rootMap    map[felt.Felt]*cacheNode
 	oldestNode *cacheNode
