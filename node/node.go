@@ -401,33 +401,15 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log).
-		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
-	methodsV07, pathV07 := rpcHandler.MethodsV0_7()
-	if err = jsonrpcServerV07.RegisterMethods(methodsV07...); err != nil {
-		return nil, err
-	}
-
-	jsonrpcServerV06 := jsonrpc.NewServer(maxGoroutines, log).
-		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
-	methodsV06, pathV06 := rpcHandler.MethodsV0_6()
-	if err = jsonrpcServerV06.RegisterMethods(methodsV06...); err != nil {
-		return nil, err
-	}
-
 	rpcServers := map[string]*jsonrpc.Server{
 		"/":              jsonrpcServerV08,
 		pathV10:          jsonrpcServerV10,
 		pathV09:          jsonrpcServerV09,
 		pathV08:          jsonrpcServerV08,
-		pathV07:          jsonrpcServerV07,
-		pathV06:          jsonrpcServerV06,
 		"/rpc":           jsonrpcServerV08,
 		"/rpc" + pathV10: jsonrpcServerV10,
 		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
-		"/rpc" + pathV07: jsonrpcServerV07,
-		"/rpc" + pathV06: jsonrpcServerV06,
 	}
 	if cfg.HTTP {
 		readinessHandlers := NewReadinessHandlers(chain, synchronizer, cfg.ReadinessBlockTolerance)
@@ -467,12 +449,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetrics := makeRPCMetrics(pathV10, pathV09, pathV08, pathV07, pathV06)
+		rpcMetrics := makeRPCMetrics(pathV10, pathV09, pathV08)
 		jsonrpcServerV10.WithListener(rpcMetrics[0])
 		jsonrpcServerV09.WithListener(rpcMetrics[1])
 		jsonrpcServerV08.WithListener(rpcMetrics[2])
-		jsonrpcServerV07.WithListener(rpcMetrics[3])
-		jsonrpcServerV06.WithListener(rpcMetrics[4])
 		if !cfg.Sequencer {
 			client.WithListener(makeFeederMetrics())
 			gatewayClient.WithListener(makeGatewayMetrics())
