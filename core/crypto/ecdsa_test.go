@@ -19,13 +19,19 @@ func TestVerify(t *testing.T) {
 		errorMsg string
 	}{
 		"success": {
-			key:    "0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca",
+			key:    "0x0753d1b6477f04a556893a445ea6fd8b1dafad709cac1429fcce122f5960f80",
 			msg:    "0x0000000000000000000000000000000000000000000000000000000000000002",
-			sigR:   "0x0411494b501a98abd8262b0da1351e17899a0c4ef23dd2f96fec5ba847310b20",
-			sigS:   "0x0405c3191ab3883ef2b763af35bc5f5d15b3b4e99461d70e84c654a351a7c81b",
+			sigR:   "0x5659b0a5c8aa454aeefd74a8c1319a67c9f1e60534b6cc7063933d342ff8d92",
+			sigS:   "0x27c6621925d2754a8e06c103dd261c08cb47ff2579f2414355c9311d95e8b6b",
 			result: true,
 		},
-		"fail": {
+		"fail: non-low-s signature": {
+			key:  "0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca",
+			msg:  "0x0000000000000000000000000000000000000000000000000000000000000002",
+			sigR: "0x0411494b501a98abd8262b0da1351e17899a0c4ef23dd2f96fec5ba847310b20",
+			sigS: "0x0405c3191ab3883ef2b763af35bc5f5d15b3b4e99461d70e84c654a351a7c81b",
+		},
+		"fail: wrong key": {
 			key:  "0x077a4b314db07c45076d11f62b6f9e748a39790441823307743cf00d6597ea43",
 			msg:  "0x0397e76d1667c4454bfb83514e120583af836f8e32a516765497823eabe16a3f",
 			sigR: "0x0173fd03d8b008ee7432977ac27d1e9d1a1f6c98b1a2f05fa84a21c84c44e882",
@@ -62,17 +68,17 @@ var benchVerifyR bool
 func BenchmarkVerify(b *testing.B) {
 	signature := crypto.Signature{
 		R: felt.UnsafeFromString[felt.Felt](
-			"0x0411494b501a98abd8262b0da1351e17899a0c4ef23dd2f96fec5ba847310b20",
+			"0x5659b0a5c8aa454aeefd74a8c1319a67c9f1e60534b6cc7063933d342ff8d92",
 		),
 		S: felt.UnsafeFromString[felt.Felt](
-			"0x0405c3191ab3883ef2b763af35bc5f5d15b3b4e99461d70e84c654a351a7c81b",
+			"0x27c6621925d2754a8e06c103dd261c08cb47ff2579f2414355c9311d95e8b6b",
 		),
 	}
 	msg := felt.UnsafeFromString[felt.Felt](
 		"0x0000000000000000000000000000000000000000000000000000000000000002",
 	)
 	publicKey := crypto.NewPublicKey(felt.NewUnsafeFromString[felt.Felt](
-		"0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca",
+		"0x0753d1b6477f04a556893a445ea6fd8b1dafad709cac1429fcce122f5960f80",
 	))
 
 	var verified bool
