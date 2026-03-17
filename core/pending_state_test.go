@@ -23,36 +23,32 @@ func TestPendingState(t *testing.T) {
 	replacedAddr := felt.NewRandom[felt.Felt]()
 	replacedClassHash := felt.NewRandom[felt.Felt]()
 
-	pending := core.Pending{
-		Block: nil,
-		StateUpdate: &core.StateUpdate{
-			BlockHash: nil,
-			NewRoot:   nil,
-			OldRoot:   nil,
-			StateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*deployedAddr:  deployedClassHash,
-					*deployedAddr2: deployedClassHash,
-				},
-				ReplacedClasses: map[felt.Felt]*felt.Felt{
-					*replacedAddr: replacedClassHash,
-				},
-				Nonces: map[felt.Felt]*felt.Felt{
-					*deployedAddr: new(felt.Felt).SetUint64(44),
-				},
-				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					*deployedAddr: {
-						*new(felt.Felt).SetUint64(44): new(felt.Felt).SetUint64(37),
-					},
-				},
+	stateDiff := &core.StateDiff{
+		DeployedContracts: map[felt.Felt]*felt.Felt{
+			*deployedAddr:  deployedClassHash,
+			*deployedAddr2: deployedClassHash,
+		},
+		ReplacedClasses: map[felt.Felt]*felt.Felt{
+			*replacedAddr: replacedClassHash,
+		},
+		Nonces: map[felt.Felt]*felt.Felt{
+			*deployedAddr: new(felt.Felt).SetUint64(44),
+		},
+		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			*deployedAddr: {
+				*new(felt.Felt).SetUint64(44): new(felt.Felt).SetUint64(37),
 			},
 		},
-		NewClasses: map[felt.Felt]core.ClassDefinition{
-			*deployedClassHash: &core.DeprecatedCairoClass{},
-		},
 	}
+
+	newClasses := map[felt.Felt]core.ClassDefinition{
+		*deployedClassHash: &core.DeprecatedCairoClass{},
+	}
+
+	const pendingBlockNumber = uint64(5)
+
 	state := core.NewPendingState(
-		pending.StateUpdate.StateDiff, pending.NewClasses, mockState, pending.Block.Number,
+		stateDiff, newClasses, mockState, pendingBlockNumber,
 	)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
@@ -124,6 +120,25 @@ func TestPendingState(t *testing.T) {
 			assert.Equal(t, expectedValue, &cV)
 		})
 	})
+	t.Run("ContractStorageLastUpdatedBlock", func(t *testing.T) {
+		t.Run("from pending", func(t *testing.T) {
+			blockNum, found, err := state.ContractStorageLastUpdatedBlock(deployedAddr, new(felt.Felt).SetUint64(44))
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, pendingBlockNumber, blockNum)
+		})
+		t.Run("from head", func(t *testing.T) {
+			expectedBlock := uint64(3)
+			mockState.EXPECT().ContractStorageLastUpdatedBlock(
+				gomock.Any(), gomock.Any(),
+			).Return(expectedBlock, true, nil)
+
+			blockNum, found, err := state.ContractStorageLastUpdatedBlock(&felt.Zero, &felt.Zero)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, expectedBlock, blockNum)
+		})
+	})
 	t.Run("Class", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
 			pC, pErr := state.Class(deployedClassHash)
@@ -140,46 +155,5 @@ func TestPendingState(t *testing.T) {
 			_, ok := pC.Class.(*core.SierraClass)
 			assert.True(t, ok)
 		})
-	})
-}
-
-func TestPendingStateContractStorageLastUpdatedBlock(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	mockState := mocks.NewMockStateReader(mockCtrl)
-
-	addr := felt.NewRandom[felt.Felt]()
-	key := felt.NewFromUint64[felt.Felt](44)
-	value := felt.NewFromUint64[felt.Felt](37)
-
-	const pendingBlockNumber = uint64(5)
-
-	state := core.NewPendingState(
-		&core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*key: value},
-			},
-		},
-		nil,
-		mockState,
-		pendingBlockNumber,
-	)
-
-	t.Run("from pending returns pending block number", func(t *testing.T) {
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(addr, key)
-		require.NoError(t, err)
-		assert.True(t, found)
-		assert.Equal(t, pendingBlockNumber, blockNum)
-	})
-
-	t.Run("from head when key not in pending diff", func(t *testing.T) {
-		expectedBlock := uint64(3)
-		mockState.EXPECT().ContractStorageLastUpdatedBlock(
-			gomock.Any(), gomock.Any(),
-		).Return(expectedBlock, true, nil)
-
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(&felt.Zero, &felt.Zero)
-		require.NoError(t, err)
-		assert.True(t, found)
-		assert.Equal(t, expectedBlock, blockNum)
 	})
 }
