@@ -28,6 +28,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+var validate = rpcv10.Validator()
+
 // loadBlockFromFeederTestdata loads a block from feeder testdata and adapts it to core.Block.
 // This allows us to use testdata blocks without fetching from a real gateway.
 func loadBlockFromFeederTestdata(
@@ -1879,7 +1881,6 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Proof: "AAAAAQAAAAIAAAAD",
 		}
 
-		validate := rpcv10.Validator()
 		err := validate.Struct(broadcastedTxn)
 		require.Error(
 			t,
@@ -1902,7 +1903,6 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			},
 		}
 
-		validate := rpcv10.Validator()
 		err := validate.Struct(broadcastedTxn)
 		require.Error(
 			t,
@@ -1919,7 +1919,6 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
 		correctBroadcastedTxn.Proof = utils.Base64("not-valid-base64")
 
-		validate := rpcv10.Validator()
 		err := validate.Struct(correctBroadcastedTxn)
 		require.Error(
 			t,
@@ -1931,7 +1930,6 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	t.Run("AcceptEmptyProofOnInvoke", func(t *testing.T) {
 		correctBroadcastedTxn.Proof = utils.Base64("")
 
-		validate := rpcv10.Validator()
 		err := validate.Struct(correctBroadcastedTxn)
 		require.NoError(
 			t,
@@ -1944,7 +1942,6 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		correctBroadcastedTxn.Proof = utils.Base64("AAAAAQAAAAIAAAAD")
 		correctBroadcastedTxn.ProofFacts = &[]felt.Felt{felt.FromUint64[felt.Felt](100)}
 
-		validate := rpcv10.Validator()
 		err := validate.Struct(correctBroadcastedTxn.Transaction)
 		require.NoError(t,
 			err,
@@ -2124,8 +2121,6 @@ func TestResourceBoundsValidation(t *testing.T) {
 			},
 		},
 	}
-
-	validate := rpcv10.Validator()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

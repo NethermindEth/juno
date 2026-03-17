@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,7 +75,7 @@ func TestLazySlice(t *testing.T) {
 			Data: make([]RandType, 10),
 		}
 
-		validate := rpcv9.Validator()
+		validate := validator.New()
 		err := validate.Struct(withEmptyValues)
 		require.Error(t, err, "Validation is not working for the values inside the Data slice")
 	})
