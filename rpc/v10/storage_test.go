@@ -343,8 +343,6 @@ func TestStorageAt(t *testing.T) {
 
 			preConfirmedStateDiff := core.EmptyStateDiff()
 			preConfirmedStateDiff.
-				StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
-			preConfirmedStateDiff.
 				DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
 
 			preConfirmed := core.PreConfirmed{
@@ -358,16 +356,42 @@ func TestStorageAt(t *testing.T) {
 				},
 			}
 
-			mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
-			mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
-				Return(mockState, nopCloser, nil)
-			mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
-				Return(lastUpdateBlockNum, true, nil)
+			t.Run(
+				"no storage update for the target key - returns latest block number",
+				func(t *testing.T) {
+					preConfirmedStateDiff.
+						StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{
+						*felt.NewRandom[felt.Felt](): felt.NewRandom[felt.Felt](), // unrelated key
+					}
 
-			preConfirmedID := rpc.BlockIDPreConfirmed()
-			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, flags)
-			require.Nil(t, rpcErr)
-			validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
+					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
+						Return(mockState, nopCloser, nil)
+					mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
+						Return(lastUpdateBlockNum, true, nil)
+
+					preConfirmedID := rpc.BlockIDPreConfirmed()
+					result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, flags)
+					require.Nil(t, rpcErr)
+					validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
+				})
+
+			t.Run(
+				"with storage update for the target key - returns pre_confirmed block number",
+				func(t *testing.T) {
+					preConfirmedStateDiff.
+						StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
+
+					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
+						Return(mockState, nopCloser, nil)
+
+					preConfirmedID := rpc.BlockIDPreConfirmed()
+					result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, flags)
+					require.Nil(t, rpcErr)
+					validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
+				})
+
 		})
 
 		t.Run("no history entry (storage never updated)", func(t *testing.T) {
