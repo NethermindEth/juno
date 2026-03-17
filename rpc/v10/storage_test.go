@@ -273,7 +273,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().StateAtBlockNumber(blockNumber).Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
-			mockState.EXPECT().StorageLastUpdateBlock(&targetAddress, &targetSlot).
+			mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 				Return(lastUpdateBlockNum, true, nil)
 
 			blockID := rpc.BlockIDFromNumber(blockNumber)
@@ -288,7 +288,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
-			mockState.EXPECT().StorageLastUpdateBlock(&targetAddress, &targetSlot).
+			mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 				Return(lastUpdateBlockNum, true, nil)
 
 			blockID := rpc.BlockIDLatest()
@@ -304,7 +304,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().StateAtBlockHash(&blockHash).Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
-			mockState.EXPECT().StorageLastUpdateBlock(&targetAddress, &targetSlot).
+			mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 				Return(lastUpdateBlockNum, true, nil)
 
 			blockID := rpc.BlockIDFromHash(&blockHash)
@@ -328,7 +328,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
-			mockState.EXPECT().StorageLastUpdateBlock(&targetAddress, &targetSlot).
+			mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 				Return(lastUpdateBlockNum, true, nil)
 
 			blockID := rpc.BlockIDL1Accepted()
@@ -361,7 +361,7 @@ func TestStorageAt(t *testing.T) {
 			mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 			mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 				Return(mockState, nopCloser, nil)
-			mockState.EXPECT().StorageLastUpdateBlock(&targetAddress, &targetSlot).
+			mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 				Return(lastUpdateBlockNum, true, nil)
 
 			preConfirmedID := rpc.BlockIDPreConfirmed()
@@ -376,7 +376,7 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().StateAtBlockNumber(blockNumber).Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 			mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(expectedStorage, nil)
-			mockState.EXPECT().StorageLastUpdateBlock(&targetAddress, &targetSlot).
+			mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 				Return(uint64(0), false, nil)
 
 			blockID := rpc.BlockIDFromNumber(blockNumber)

@@ -51,7 +51,9 @@ func TestPendingState(t *testing.T) {
 			*deployedClassHash: &core.DeprecatedCairoClass{},
 		},
 	}
-	state := core.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
+	state := core.NewPendingState(
+		pending.StateUpdate.StateDiff, pending.NewClasses, mockState, pending.Block.Number,
+	)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {

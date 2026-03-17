@@ -226,22 +226,6 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockReader)(nil).Height))
 }
 
-// HistoryBlockNumber mocks base method.
-func (m *MockReader) HistoryBlockNumber(historyKeyPrefix []byte, upToBlock uint64) (uint64, bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HistoryBlockNumber", historyKeyPrefix, upToBlock)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// HistoryBlockNumber indicates an expected call of HistoryBlockNumber.
-func (mr *MockReaderMockRecorder) HistoryBlockNumber(historyKeyPrefix, upToBlock any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HistoryBlockNumber", reflect.TypeOf((*MockReader)(nil).HistoryBlockNumber), historyKeyPrefix, upToBlock)
-}
-
 // L1HandlerTxnHash mocks base method.
 func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 	m.ctrl.T.Helper()
