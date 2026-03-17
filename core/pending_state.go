@@ -11,20 +11,23 @@ import (
 var feltOne = new(felt.Felt).SetUint64(1)
 
 type PendingState struct {
-	stateDiff  *StateDiff
-	newClasses map[felt.Felt]ClassDefinition
-	head       StateReader
+	stateDiff          *StateDiff
+	newClasses         map[felt.Felt]ClassDefinition
+	head               StateReader
+	pendingBlockNumber uint64
 }
 
 func NewPendingState(
 	stateDiff *StateDiff,
 	newClasses map[felt.Felt]ClassDefinition,
 	head StateReader,
+	headBlockNumber uint64,
 ) *PendingState {
 	return &PendingState{
-		stateDiff:  stateDiff,
-		newClasses: newClasses,
-		head:       head,
+		stateDiff:          stateDiff,
+		newClasses:         newClasses,
+		head:               head,
+		pendingBlockNumber: headBlockNumber,
 	}
 }
 
@@ -60,6 +63,19 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 		return felt.Felt{}, nil
 	}
 	return p.head.ContractStorage(addr, key)
+}
+
+// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage slot key of a given contract was last updated.
+func (p *PendingState) ContractStorageLastUpdatedBlock(
+	addr, key *felt.Felt,
+) (uint64, bool, error) {
+
+	if diffs, found := p.stateDiff.StorageDiffs[*addr]; found {
+		if _, found := diffs[*key]; found {
+			return p.pendingBlockNumber, true, nil
+		}
+	}
+	return p.head.ContractStorageLastUpdatedBlock(addr, key)
 }
 
 func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
