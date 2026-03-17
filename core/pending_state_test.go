@@ -122,7 +122,9 @@ func TestPendingState(t *testing.T) {
 	})
 	t.Run("ContractStorageLastUpdatedBlock", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
-			blockNum, found, err := state.ContractStorageLastUpdatedBlock(deployedAddr, new(felt.Felt).SetUint64(44))
+			blockNum, found, err := state.ContractStorageLastUpdatedBlock(
+				deployedAddr, new(felt.Felt).SetUint64(44),
+			)
 			require.NoError(t, err)
 			assert.True(t, found)
 			assert.Equal(t, pendingBlockNumber, blockNum)

@@ -391,7 +391,6 @@ func TestStorageAt(t *testing.T) {
 					require.Nil(t, rpcErr)
 					validateStorageAtJSON(t, result, flags.IncludeLastUpdateBlock)
 				})
-
 		})
 
 		t.Run("no history entry (storage never updated)", func(t *testing.T) {
