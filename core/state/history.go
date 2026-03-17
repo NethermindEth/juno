@@ -59,6 +59,10 @@ func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return ret, nil
 }
 
+func (s *stateHistory) ContractStorageLastUpdatedBlock(addr, key *felt.Felt) (uint64, bool, error) {
+	return s.state.ContractStorageLastUpdatedAt(addr, key, s.blockNum)
+}
+
 // Checks if the contract is deployed at the given block number.
 func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNum)
