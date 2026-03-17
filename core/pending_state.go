@@ -21,13 +21,13 @@ func NewPendingState(
 	stateDiff *StateDiff,
 	newClasses map[felt.Felt]ClassDefinition,
 	head StateReader,
-	headBlockNumber uint64,
+	pendingBlockNumber uint64,
 ) *PendingState {
 	return &PendingState{
 		stateDiff:          stateDiff,
 		newClasses:         newClasses,
 		head:               head,
-		pendingBlockNumber: headBlockNumber,
+		pendingBlockNumber: pendingBlockNumber,
 	}
 }
 
