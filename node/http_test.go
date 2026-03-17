@@ -118,12 +118,13 @@ func freePort() (uint16, error) {
 
 func waitForPort(ctx context.Context, port uint16) error {
 	addr := net.JoinHostPort("localhost", strconv.Itoa(int(port)))
+	dialer := &net.Dialer{Timeout: 50 * time.Millisecond}
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			conn, err := net.DialTimeout("tcp", addr, 50*time.Millisecond)
+			conn, err := dialer.DialContext(ctx, "tcp", addr)
 			if err == nil {
 				conn.Close()
 				return nil
@@ -152,7 +153,9 @@ func TestHTTPServer_Lifecycle(t *testing.T) {
 	require.NoError(t, waitForPort(context.Background(), port))
 
 	// Test reachability
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf("http://localhost:%d", port), http.NoBody)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	resp.Body.Close()
@@ -181,14 +184,19 @@ func TestHTTPServer_JSONRPC(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go srv.Run(ctx)
+	go func() {
+		_ = srv.Run(ctx)
+	}()
 	require.NoError(t, waitForPort(ctx, port))
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 
 	t.Run("Valid POST", func(t *testing.T) {
 		body := `{"jsonrpc":"2.0","method":"test_method","id":1}`
-		resp, err := http.Post(url, "application/json", strings.NewReader(body))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -196,14 +204,19 @@ func TestHTTPServer_JSONRPC(t *testing.T) {
 
 	t.Run("Reject Non-JSON Content-Type", func(t *testing.T) {
 		body := `{"jsonrpc":"2.0","method":"test_method","id":1}`
-		resp, err := http.Post(url, "text/plain", strings.NewReader(body))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "text/plain")
+		resp, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
 		assert.Less(t, resp.StatusCode, 500)
 	})
 
 	t.Run("GET request to / returns 200", func(t *testing.T) {
-		resp, err := http.Get(url)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+		require.NoError(t, err)
+		resp, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -221,11 +234,14 @@ func TestHTTPServer_Websocket(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go srv.Run(ctx)
+	go func() {
+		_ = srv.Run(ctx)
+	}()
 	require.NoError(t, waitForPort(ctx, port))
 
 	// WebSocket handshake
-	conn, err := net.Dial("tcp", net.JoinHostPort("localhost", strconv.Itoa(int(port))))
+	dialer := &net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort("localhost", strconv.Itoa(int(port))))
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -254,10 +270,14 @@ func TestHTTPServer_Metrics(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go srv.Run(ctx)
+	go func() {
+		_ = srv.Run(ctx)
+	}()
 	require.NoError(t, waitForPort(ctx, port))
 
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", port))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://localhost:%d/metrics", port), http.NoBody)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -272,10 +292,14 @@ func TestHTTPServer_PPROF(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go srv.Run(ctx)
+	go func() {
+		_ = srv.Run(ctx)
+	}()
 	require.NoError(t, waitForPort(ctx, port))
 
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/debug/pprof/", port))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://localhost:%d/debug/pprof/", port), http.NoBody)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
