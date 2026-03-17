@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	_ "github.com/NethermindEth/juno/encoder/registry"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -144,6 +145,45 @@ func TestStateHistory(t *testing.T) {
 			got, err := snapshotAfterChange.CompiledClassHash(sierraClassHash)
 			require.NoError(t, err)
 			require.Equal(t, *casmHashV2, got)
+		})
+	})
+
+	t.Run("ContractStorageLastUpdatedBlock", func(t *testing.T) {
+		t.Run("returns not found before any storage update", func(t *testing.T) {
+			blockNum, found, err := snapshotBeforeDeployment.ContractStorageLastUpdatedBlock(
+				addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.False(t, found)
+			assert.Equal(t, uint64(0), blockNum)
+		})
+
+		t.Run("returns deployment height at deployment snapshot", func(t *testing.T) {
+			blockNum, found, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
+				addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, deployedHeight, blockNum)
+		})
+
+		t.Run("returns change height after storage was updated", func(t *testing.T) {
+			blockNum, found, err := snapshotAfterChange.ContractStorageLastUpdatedBlock(
+				addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, changeHeight, blockNum)
+		})
+
+		t.Run("returns not found for a key that was never updated", func(t *testing.T) {
+			unknownKey := felt.NewFromUint64[felt.Felt](999)
+			blockNum, found, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
+				addr, unknownKey,
+			)
+			require.NoError(t, err)
+			assert.False(t, found)
+			assert.Equal(t, uint64(0), blockNum)
 		})
 	})
 

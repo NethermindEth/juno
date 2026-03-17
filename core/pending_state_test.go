@@ -142,3 +142,44 @@ func TestPendingState(t *testing.T) {
 		})
 	})
 }
+
+func TestPendingStateContractStorageLastUpdatedBlock(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockState := mocks.NewMockStateReader(mockCtrl)
+
+	addr := felt.NewRandom[felt.Felt]()
+	key := felt.NewFromUint64[felt.Felt](44)
+	value := felt.NewFromUint64[felt.Felt](37)
+
+	const pendingBlockNumber = uint64(5)
+
+	state := core.NewPendingState(
+		&core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*addr: {*key: value},
+			},
+		},
+		nil,
+		mockState,
+		pendingBlockNumber,
+	)
+
+	t.Run("from pending returns pending block number", func(t *testing.T) {
+		blockNum, found, err := state.ContractStorageLastUpdatedBlock(addr, key)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, pendingBlockNumber, blockNum)
+	})
+
+	t.Run("from head when key not in pending diff", func(t *testing.T) {
+		expectedBlock := uint64(3)
+		mockState.EXPECT().ContractStorageLastUpdatedBlock(
+			gomock.Any(), gomock.Any(),
+		).Return(expectedBlock, true, nil)
+
+		blockNum, found, err := state.ContractStorageLastUpdatedBlock(&felt.Zero, &felt.Zero)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, expectedBlock, blockNum)
+	})
+}
