@@ -207,8 +207,10 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 	return update, nil
 }
 
-func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
-	queryURL := c.buildQueryString("get_transaction", map[string]string{
+func (c *Client) TransactionStatus(
+	ctx context.Context, transactionHash *felt.Felt,
+) (*starknet.TransactionStatus, error) {
+	queryURL := c.buildQueryString("get_transaction_status", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
 
@@ -246,7 +248,7 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash":   classHash.String(),
-		"blockNumber": "pending",
+		"blockNumber": "latest",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -268,7 +270,7 @@ func (c *Client) CasmClassDefinition(
 ) (*starknet.CasmClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
 		"classHash":   classHash.String(),
-		"blockNumber": "pending",
+		"blockNumber": "latest",
 	})
 
 	body, err := c.get(ctx, queryURL)

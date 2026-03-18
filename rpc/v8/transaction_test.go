@@ -20,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -1754,7 +1753,7 @@ func TestResourceBoundsValidation(t *testing.T) {
 		},
 	}
 
-	validate := validator.Validator()
+	validate := rpc.Validator()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -89,10 +88,6 @@ type FunctionCall struct {
 	ContractAddress    felt.Felt   `json:"contract_address"`
 	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
 	Calldata           []felt.Felt `json:"calldata"`
-}
-
-func (g *GenesisConfig) Validate() error {
-	return validator.Validator().Struct(g)
 }
 
 // GenesisStateDiff builds the genesis state given the genesis-config data.
