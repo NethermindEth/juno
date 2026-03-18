@@ -1,4 +1,4 @@
-package node
+package node_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ func TestHandleReadySync(t *testing.T) {
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	readinessBlockTolerance := uint(6)
-	readinessHandlers := NewReadinessHandlers(mockReader, synchronizer, readinessBlockTolerance)
+	readinessHandlers := node.NewReadinessHandlers(mockReader, synchronizer, readinessBlockTolerance)
 	ctx := t.Context()
 
 	t.Run("ready and blockNumber outside blockRange to highestBlock", func(t *testing.T) {
@@ -89,7 +90,7 @@ func TestHandleLive(t *testing.T) {
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	readinessBlockTolerance := uint(6)
-	readinessHandlers := NewReadinessHandlers(mockReader, synchronizer, readinessBlockTolerance)
+	readinessHandlers := node.NewReadinessHandlers(mockReader, synchronizer, readinessBlockTolerance)
 	ctx := t.Context()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/live", http.NoBody)
@@ -102,32 +103,30 @@ func TestHandleLive(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
-func freePort() (uint16, error) {
+func freePort(t *testing.T) uint16 {
+	t.Helper()
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
+	require.NoError(t, err)
 
 	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
+	require.NoError(t, err)
 	defer l.Close()
-	return uint16(l.Addr().(*net.TCPAddr).Port), nil
+	return uint16(l.Addr().(*net.TCPAddr).Port)
 }
 
-func waitForPort(ctx context.Context, port uint16) error {
+func waitForPort(t *testing.T, ctx context.Context, port uint16) {
+	t.Helper()
 	addr := net.JoinHostPort("localhost", strconv.Itoa(int(port)))
 	dialer := &net.Dialer{Timeout: 50 * time.Millisecond}
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		default:
 			conn, err := dialer.DialContext(ctx, "tcp", addr)
 			if err == nil {
 				conn.Close()
-				return nil
+				return
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
@@ -135,25 +134,27 @@ func waitForPort(ctx context.Context, port uint16) error {
 }
 
 func TestHTTPServer_Lifecycle(t *testing.T) {
-	port, err := freePort()
-	require.NoError(t, err)
+	port := freePort(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	srv := makeHTTPService("localhost", port, handler)
+	srv := node.MakeHTTPService("localhost", port, handler)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- srv.Run(ctx)
 	}()
 
-	require.NoError(t, waitForPort(context.Background(), port))
+	waitCtx, waitCancel := context.WithTimeout(t.Context(), time.Second)
+	defer waitCancel()
+	waitForPort(t, waitCtx, port)
+	require.NoError(t, waitCtx.Err())
 
 	// Test reachability
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf("http://localhost:%d", port), http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, fmt.Sprintf("http://localhost:%d", port), http.NoBody)
 	require.NoError(t, err)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
@@ -165,13 +166,12 @@ func TestHTTPServer_Lifecycle(t *testing.T) {
 }
 
 func TestHTTPServer_JSONRPC(t *testing.T) {
-	port, err := freePort()
-	require.NoError(t, err)
+	port := freePort(t)
 
 	log := utils.NewNopZapLogger()
 	server := jsonrpc.NewServer(1, log)
 	// Register a dummy method to avoid 404/MethodNotFound
-	err = server.RegisterMethods(jsonrpc.Method{
+	err := server.RegisterMethods(jsonrpc.Method{
 		Name: "test_method",
 		Handler: func() (string, *jsonrpc.Error) {
 			return "ok", nil
@@ -179,21 +179,25 @@ func TestHTTPServer_JSONRPC(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	srv := makeRPCOverHTTP("localhost", port, map[string]*jsonrpc.Server{"/": server}, nil, log, false, false, 0)
+	srv := node.MakeRPCOverHTTP("localhost", port, map[string]*jsonrpc.Server{"/": server}, nil, log, false, false, 0)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go func() {
 		_ = srv.Run(ctx)
 	}()
-	require.NoError(t, waitForPort(ctx, port))
+
+	waitCtx, waitCancel := context.WithTimeout(t.Context(), time.Second)
+	defer waitCancel()
+	waitForPort(t, waitCtx, port)
+	require.NoError(t, waitCtx.Err())
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 
 	t.Run("Valid POST", func(t *testing.T) {
 		body := `{"jsonrpc":"2.0","method":"test_method","id":1}`
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, url, strings.NewReader(body))
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
@@ -204,7 +208,7 @@ func TestHTTPServer_JSONRPC(t *testing.T) {
 
 	t.Run("Reject Non-JSON Content-Type", func(t *testing.T) {
 		body := `{"jsonrpc":"2.0","method":"test_method","id":1}`
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, url, strings.NewReader(body))
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "text/plain")
 		resp, err := http.DefaultClient.Do(req)
@@ -214,7 +218,7 @@ func TestHTTPServer_JSONRPC(t *testing.T) {
 	})
 
 	t.Run("GET request to / returns 200", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody)
 		require.NoError(t, err)
 		resp, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -224,24 +228,27 @@ func TestHTTPServer_JSONRPC(t *testing.T) {
 }
 
 func TestHTTPServer_Websocket(t *testing.T) {
-	port, err := freePort()
-	require.NoError(t, err)
+	port := freePort(t)
 
 	log := utils.NewNopZapLogger()
 	server := jsonrpc.NewServer(1, log)
-	srv := makeRPCOverWebsocket("localhost", port, map[string]*jsonrpc.Server{"/": server}, log, false, false)
+	srv := node.MakeRPCOverWebsocket("localhost", port, map[string]*jsonrpc.Server{"/": server}, log, false, false)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go func() {
 		_ = srv.Run(ctx)
 	}()
-	require.NoError(t, waitForPort(ctx, port))
+
+	waitCtx, waitCancel := context.WithTimeout(t.Context(), time.Second)
+	defer waitCancel()
+	waitForPort(t, waitCtx, port)
+	require.NoError(t, waitCtx.Err())
 
 	// WebSocket handshake
 	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort("localhost", strconv.Itoa(int(port))))
+	conn, err := dialer.DialContext(t.Context(), "tcp", net.JoinHostPort("localhost", strconv.Itoa(int(port))))
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -261,21 +268,21 @@ func TestHTTPServer_Websocket(t *testing.T) {
 	assert.Contains(t, string(buf[:n]), "101 Switching Protocols")
 }
 
-func TestHTTPServer_Metrics(t *testing.T) {
-	port, err := freePort()
-	require.NoError(t, err)
-
-	srv := makeMetrics("localhost", port)
-
-	ctx, cancel := context.WithCancel(context.Background())
+func testEndpointReachability(t *testing.T, srv interface{ Run(context.Context) error }, port uint16, path string) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go func() {
 		_ = srv.Run(ctx)
 	}()
-	require.NoError(t, waitForPort(ctx, port))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://localhost:%d/metrics", port), http.NoBody)
+	waitCtx, waitCancel := context.WithTimeout(t.Context(), time.Second)
+	defer waitCancel()
+	waitForPort(t, waitCtx, port)
+	require.NoError(t, waitCtx.Err())
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, fmt.Sprintf("http://localhost:%d%s", port, path), http.NoBody)
 	require.NoError(t, err)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
@@ -283,24 +290,14 @@ func TestHTTPServer_Metrics(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
+func TestHTTPServer_Metrics(t *testing.T) {
+	port := freePort(t)
+	srv := node.MakeMetrics("localhost", port)
+	testEndpointReachability(t, srv, port, "/metrics")
+}
+
 func TestHTTPServer_PPROF(t *testing.T) {
-	port, err := freePort()
-	require.NoError(t, err)
-
-	srv := makePPROF("localhost", port)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		_ = srv.Run(ctx)
-	}()
-	require.NoError(t, waitForPort(ctx, port))
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://localhost:%d/debug/pprof/", port), http.NoBody)
-	require.NoError(t, err)
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	port := freePort(t)
+	srv := node.MakePPROF("localhost", port)
+	testEndpointReachability(t, srv, port, "/debug/pprof/")
 }

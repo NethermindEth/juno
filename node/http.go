@@ -69,7 +69,7 @@ func (h *httpService) withWriteTimeout(d time.Duration) *httpService {
 	return h
 }
 
-func makeHTTPService(host string, port uint16, handler http.Handler) *httpService {
+func MakeHTTPService(host string, port uint16, handler http.Handler) *httpService {
 	portStr := strconv.FormatUint(uint64(port), 10)
 	return &httpService{
 		srv: &http.Server{
@@ -93,7 +93,7 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 	}
 }
 
-func makeRPCOverHTTP(
+func MakeRPCOverHTTP(
 	host string,
 	port uint16,
 	servers map[string]*jsonrpc.Server,
@@ -126,14 +126,14 @@ func makeRPCOverHTTP(
 		handler = cors.Default().Handler(handler)
 	}
 
-	svc := makeHTTPService(host, port, handler)
+	svc := MakeHTTPService(host, port, handler)
 	if rpcRequestTimeout > 0 {
 		svc = svc.withWriteTimeout(rpcRequestTimeout + 5*time.Second)
 	}
 	return svc
 }
 
-func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
+func MakeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
 	log utils.StructuredLogger, metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
@@ -160,20 +160,20 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 		handler = cors.Default().Handler(handler)
 	}
 
-	httpServ := makeHTTPService(host, port, handler)
+	httpServ := MakeHTTPService(host, port, handler)
 	httpServ.registerOnShutdown(func() {
 		close(shutdown)
 	})
 	return httpServ
 }
 
-func makeMetrics(host string, port uint16) *httpService {
-	return makeHTTPService(host, port,
+func MakeMetrics(host string, port uint16) *httpService {
+	return MakeHTTPService(host, port,
 		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
 // Create a new service that updates the log level and timeouts settings.
-func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
+func MakeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
 		utils.HTTPLogSettings(w, r, logLevel)
@@ -182,7 +182,7 @@ func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, f
 		feeder.HTTPTimeoutsSettings(w, r, feederClient)
 	})
 	var handler http.Handler = mux
-	return makeHTTPService(host, port, handler)
+	return MakeHTTPService(host, port, handler)
 }
 
 type grpcService struct {
@@ -221,7 +221,7 @@ func (g *grpcService) Run(ctx context.Context) error {
 	}
 }
 
-func makeGRPC(host string, port uint16, database db.KeyValueStore, version string) *grpcService {
+func MakeGRPC(host string, port uint16, database db.KeyValueStore, version string) *grpcService {
 	srv := grpc.NewServer()
 	gen.RegisterKVServer(srv, junogrpc.New(database, version))
 	return &grpcService{
@@ -231,14 +231,14 @@ func makeGRPC(host string, port uint16, database db.KeyValueStore, version strin
 	}
 }
 
-func makePPROF(host string, port uint16) *httpService {
+func MakePPROF(host string, port uint16) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	return makeHTTPService(host, port, mux)
+	return MakeHTTPService(host, port, mux)
 }
 
 type readinessHandlers struct {

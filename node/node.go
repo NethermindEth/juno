@@ -420,7 +420,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 		services = append(
 			services,
-			makeRPCOverHTTP(
+			MakeRPCOverHTTP(
 				cfg.HTTPHost,
 				cfg.HTTPPort,
 				rpcServers,
@@ -434,13 +434,13 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 	if cfg.Websocket {
 		services = append(services,
-			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+			MakeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.HTTPUpdatePort != 0 {
 		log.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
 			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
 		)
-		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
+		earlyServices = append(earlyServices, MakeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()
@@ -463,13 +463,13 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
 			}
 		}
-		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
+		earlyServices = append(earlyServices, MakeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
-		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
+		services = append(services, MakeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
 	}
 	if cfg.Pprof {
-		services = append(services, makePPROF(cfg.PprofHost, cfg.PprofPort))
+		services = append(services, MakePPROF(cfg.PprofHost, cfg.PprofPort))
 	}
 
 	n := &Node{
