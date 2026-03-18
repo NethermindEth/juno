@@ -119,7 +119,7 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 			dir = "state_update_with_block"
 		}
 
-	case strings.HasSuffix(path, "get_transaction"):
+	case strings.HasSuffix(path, "get_transaction_status"):
 		dir = "transaction"
 		queryArg = "transactionHash"
 
