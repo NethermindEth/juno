@@ -159,7 +159,8 @@ pub fn append_gas_and_fee(tx_execution_info: &TransactionExecutionInfo, reader_h
         .receipt
         .resources
         .computation
-        .total_vm_resources()
+        .total_extended_vm_resources()
+        .vm_resources
         .n_steps
         .try_into()
         .unwrap_or(u64::MAX);
