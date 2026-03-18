@@ -44,7 +44,7 @@ func TestLazySlice(t *testing.T) {
 		runTest[rpcv9.FunctionCall, rpccore.FunctionCalldataLimit](
 			t,
 			func(length int) []byte {
-				return []byte(`{"calldata":` + jsonArrayString("0", length) + `}`)
+				return []byte(`{"calldata":` + jsonArrayString(`"0x0"`, length) + `}`)
 			},
 			func(length int) rpcv9.FunctionCall {
 				return rpcv9.FunctionCall{
@@ -56,6 +56,12 @@ func TestLazySlice(t *testing.T) {
 			// Cannot test full struct for FunctionCall because its json encoding is not roundtrip
 			nil,
 		)
+	})
+
+	t.Run("FunctionCall rejects non-hex calldata", func(t *testing.T) {
+		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":["123"]}`))
+		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":["abcd"]}`))
+		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":[123]}`))
 	})
 
 	// This test ensures that the validation logic works for the values inside the Data slice.
