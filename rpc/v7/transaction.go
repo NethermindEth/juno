@@ -523,7 +523,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			break
 		}
 
-		txStatus, err := h.feederClient.Transaction(ctx, &hash)
+		txStatus, err := h.feederClient.TransactionStatus(ctx, &hash)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
