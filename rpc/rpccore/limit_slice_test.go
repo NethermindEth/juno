@@ -62,6 +62,7 @@ func TestLazySlice(t *testing.T) {
 		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":["123"]}`))
 		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":["abcd"]}`))
 		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":[123]}`))
+		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":"0x1g"}`))
 	})
 
 	// This test ensures that the validation logic works for the values inside the Data slice.

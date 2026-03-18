@@ -59,17 +59,17 @@ func (l *LimitSlice[T, L]) UnmarshalJSON(data []byte) error {
 	return expectDelim(decoder, ']')
 }
 
-// LimitSliceHexOnly is like LimitSlice[T, L] but only accepts 0x-prefixed
+// LimitSliceHex is like LimitSlice[T, L] but only accepts 0x-prefixed
 // hexadecimal strings during JSON unmarshaling, rejecting decimal and bare-hex
-type LimitSliceHexOnly[T any, L Limit] struct {
+type LimitSliceHex[T any, L Limit] struct {
 	Data []T `validate:"dive"`
 }
 
-func (h LimitSliceHexOnly[T, L]) MarshalJSON() ([]byte, error) {
+func (h LimitSliceHex[T, L]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(h.Data)
 }
 
-func (h *LimitSliceHexOnly[T, L]) UnmarshalJSON(data []byte) error {
+func (h *LimitSliceHex[T, L]) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
 	if err := expectDelim(decoder, '['); err != nil {

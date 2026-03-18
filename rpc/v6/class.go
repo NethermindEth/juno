@@ -36,7 +36,7 @@ type EntryPoint struct {
 	Selector *felt.Felt `json:"selector"`
 }
 
-type CalldataInputs = rpccore.LimitSliceHexOnly[felt.Felt, rpccore.FunctionCalldataLimit]
+type CalldataInputs = rpccore.LimitSliceHex[felt.Felt, rpccore.FunctionCalldataLimit]
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.3.0/api/starknet_api_openrpc.json#L2344
 type FunctionCall struct {
