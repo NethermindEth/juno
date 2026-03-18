@@ -85,8 +85,10 @@ impl FunctionInvocation {
             .summarize(versioned_constants)
             .to_partial_gas_vector(versioned_constants, gas_vector_computation_mode);
 
-        let execution_resources =
-            ExecutionResources::from_resources_and_gas_vector(val.resources, gas_consumed);
+        let execution_resources = ExecutionResources::from_resources_and_gas_vector(
+            val.resources.vm_resources,
+            gas_consumed,
+        );
 
         FunctionInvocation {
             entry_point_type: val.call.entry_point_type,
