@@ -207,8 +207,10 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 	return update, nil
 }
 
-func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
-	queryURL := c.buildQueryString("get_transaction", map[string]string{
+func (c *Client) TransactionStatus(
+	ctx context.Context, transactionHash *felt.Felt,
+) (*starknet.TransactionStatus, error) {
+	queryURL := c.buildQueryString("get_transaction_status", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
 

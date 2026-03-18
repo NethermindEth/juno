@@ -73,7 +73,7 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 // Transaction gets the transaction for a given transaction hash from the feeder,
 // then adapts it to the appropriate core.Transaction types.
 func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	response, err := f.client.Transaction(ctx, transactionHash)
+	response, err := f.client.TransactionStatus(ctx, transactionHash)
 	if err != nil {
 		return nil, err
 	}

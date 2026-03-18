@@ -293,7 +293,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("invoke transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		response, err := clientGoerli.TransactionStatus(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -315,7 +315,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("deploy transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		response, err := clientGoerli.TransactionStatus(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -335,7 +335,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("deploy account transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2")
-		response, err := clientMainnet.Transaction(ctx, hash)
+		response, err := clientMainnet.TransactionStatus(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -358,7 +358,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("declare transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		response, err := clientGoerli.TransactionStatus(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -379,7 +379,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("l1handler transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8")
-		response, err := clientMainnet.Transaction(ctx, hash)
+		response, err := clientMainnet.TransactionStatus(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
@@ -522,7 +522,7 @@ func TestTransactionV3(t *testing.T) {
 
 	for description, want := range tests {
 		t.Run(description, func(t *testing.T) {
-			status, err := client.Transaction(ctx, want.Hash())
+			status, err := client.TransactionStatus(ctx, want.Hash())
 			require.NoError(t, err)
 			tx, err := sn2core.AdaptTransaction(status.Transaction)
 			require.NoError(t, err)

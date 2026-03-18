@@ -331,7 +331,7 @@ func (h *Handler) TransactionStatus(
 				break
 			}
 
-			txStatus, err = h.feederClient.Transaction(ctx, hash)
+			txStatus, err = h.feederClient.TransactionStatus(ctx, hash)
 			if err != nil {
 				return TransactionStatus{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 			}
