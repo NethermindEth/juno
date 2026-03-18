@@ -1544,16 +1544,11 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{},
 			},
 			{
-				description: "pre_confirmed becomes pre_latest",
+				description: "pre_confirmed becomes pre_latest (no stream for ACCEPTED_ON_L2-only subscriber)",
 				notify: func() {
 					syncer.preLatest.Send(&b2PreLatest)
 				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						b2PreLatest.Block.Transactions,
-						TxnStatusWithoutL1(TxnStatusPreConfirmed),
-					),
-				},
+				expect: [][]*SubscriptionNewTransaction{},
 			},
 			{
 				description: "pre_latest become new head",
@@ -1823,16 +1818,11 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		senderAddress: nil,
 		steps: []stepInfo{
 			{
-				description: "on pre-latest block",
+				description: "on pre-latest block (no stream for ACCEPTED_ON_L2-only subscriber)",
 				notify: func() {
 					syncer.preLatest.Send(&b1PreLatest)
 				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						b1PreLatest.Block.Transactions,
-						TxnStatusWithoutL1(TxnStatusPreConfirmed),
-					),
-				},
+				expect: [][]*SubscriptionNewTransaction{},
 			},
 			{
 				description: "pre-latest becomes new head",
@@ -1847,16 +1837,11 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				},
 			},
 			{
-				description: "on new pre-latest block",
+				description: "on new pre-latest block (no stream for ACCEPTED_ON_L2-only subscriber)",
 				notify: func() {
 					syncer.preLatest.Send(&b2PreLatest)
 				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						b2PreLatest.Block.Transactions,
-						TxnStatusWithoutL1(TxnStatusPreConfirmed),
-					),
-				},
+				expect: [][]*SubscriptionNewTransaction{},
 			},
 			{
 				description: "pre-latest becomes new head",
@@ -2317,18 +2302,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		statuses:    nil,
 		steps: []stepInfo{
 			{
-				description: "on pre-latest block",
+				description: "on pre-latest block (no stream for ACCEPTED_ON_L2-only subscriber)",
 				notify: func() {
 					syncer.preLatest.Send(&b1PreLatest)
 				},
-				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						b1PreLatest.Block,
-						nil,
-						TxnPreConfirmed,
-						true,
-					),
-				},
+				expect: [][]*TransactionReceipt{},
 			},
 			{
 				description: "on new pre-confirmed block - no stream",
@@ -2352,18 +2330,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				},
 			},
 			{
-				description: "pre-confirmed becomes pre-latest",
+				description: "pre-confirmed becomes pre-latest (no stream for ACCEPTED_ON_L2-only subscriber)",
 				notify: func() {
 					syncer.preLatest.Send(&b2PreLatest)
 				},
-				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						b2PreLatest.Block,
-						nil,
-						TxnPreConfirmed,
-						true,
-					),
-				},
+				expect: [][]*TransactionReceipt{},
 			},
 			{
 				description: "pre-latest becomes new head",

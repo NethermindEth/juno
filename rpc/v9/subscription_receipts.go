@@ -82,11 +82,11 @@ func newReceiptsSubscriber(
 
 	if slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
 		s.onNewHead = state.onNewHead
-		s.onPreLatest = state.onPreLatest
 	}
 
 	if slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnPreConfirmed)) {
 		s.onPendingData = state.onPendingData
+		s.onPreLatest = state.onPreLatest
 	}
 
 	return s, nil
