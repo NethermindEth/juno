@@ -74,6 +74,8 @@ func (p *PendingState) ContractStorageLastUpdatedBlock(
 		if _, found := diffs[*key]; found {
 			return p.pendingBlockNumber, true, nil
 		}
+	}
+	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
 		return 0, false, nil
 	}
 	return p.head.ContractStorageLastUpdatedBlock(addr, key)
