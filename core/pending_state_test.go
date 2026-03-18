@@ -129,6 +129,14 @@ func TestPendingState(t *testing.T) {
 			assert.True(t, found)
 			assert.Equal(t, pendingBlockNumber, blockNum)
 		})
+		t.Run("deployed contract with unchanged storage key", func(t *testing.T) {
+			blockNum, found, err := state.ContractStorageLastUpdatedBlock(
+				deployedAddr, new(felt.Felt).SetUint64(0xDEADBEEF),
+			)
+			require.NoError(t, err)
+			assert.False(t, found)
+			assert.Equal(t, uint64(0), blockNum)
+		})
 		t.Run("from head", func(t *testing.T) {
 			expectedBlock := uint64(3)
 			mockState.EXPECT().ContractStorageLastUpdatedBlock(
