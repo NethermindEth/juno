@@ -306,9 +306,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Revert(&core.Header{Number: block2}, storageStateUpdate))
 		require.NoError(t, batch.Write())
 
-		reader, err = NewStateReader(storageStateUpdate.OldRoot, stateDB)
-		require.NoError(t, err)
-		storage, sErr := reader.ContractStorage(&su1FirstDeployedAddress, replacedVal)
+		storage, sErr := state.ContractStorage(&su1FirstDeployedAddress, replacedVal)
 		require.NoError(t, sErr)
 		assert.Equal(t, felt.Zero, storage)
 	})
