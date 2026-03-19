@@ -1,0 +1,6 @@
+{
+    "tx_status": "ACCEPTED_ON_L1",
+    "finality_status": "ACCEPTED_ON_L1",
+    "execution_status": "SUCCEEDED",
+    "block_hash": "0x01010101"
+}

@@ -1,0 +1,6 @@
+{
+    "tx_status": "RECEIVED",
+    "finality_status": "RECEIVED",
+    "execution_status": "SUCCEEDED",
+    "block_hash": "0x01010101"
+}

@@ -1,0 +1,7 @@
+{
+    "tx_status": "REVERTED",
+    "finality_status": "ACCEPTED_ON_L2",
+    "execution_status": "REVERTED",
+    "block_hash": "0x01010101",
+    "tx_revert_reason": "some error"
+}
