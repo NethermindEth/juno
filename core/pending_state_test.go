@@ -42,7 +42,7 @@ func TestPendingState(t *testing.T) {
 			*deployedAddr: {
 				*key: value,
 			},
-			(felt.Felt)(*existingContractAddr): {
+			felt.Felt(*existingContractAddr): {
 				*key: value,
 			},
 		},

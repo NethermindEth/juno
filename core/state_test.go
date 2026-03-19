@@ -974,7 +974,7 @@ func TestDeprecatedStateContractStorageLastUpdatedBlock(t *testing.T) {
 	state := core.NewDeprecatedState(txn)
 
 	addr := felt.FromUint64[felt.Address](1)
-	addrFelt := (felt.Felt)(addr)
+	addrFelt := felt.Felt(addr)
 	key := felt.NewFromUint64[felt.Felt](2)
 	value := felt.NewFromUint64[felt.Felt](100)
 

@@ -951,7 +951,7 @@ func TestContractHistory(t *testing.T) {
 
 func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	addr := felt.FromUint64[felt.Address](1)
-	addrFelt := (felt.Felt)(addr)
+	addrFelt := felt.Felt(addr)
 	key := felt.NewFromUint64[felt.Felt](10)
 	value := felt.NewFromUint64[felt.Felt](99)
 

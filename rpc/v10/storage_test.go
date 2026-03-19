@@ -74,7 +74,7 @@ func TestStorageAt(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, log)
 
 	targetAddress := felt.FromUint64[felt.Address](1234)
-	targetAddressFelt := (felt.Felt)(targetAddress)
+	targetAddressFelt := felt.Felt(targetAddress)
 	targetSlot := felt.FromUint64[felt.Felt](5678)
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
@@ -365,7 +365,10 @@ func TestStorageAt(t *testing.T) {
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 						Return(mockState, nopCloser, nil)
 					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
-					mockState.EXPECT().ContractStorage(&targetAddressFelt, &targetSlot).Return(expectedStorage, nil)
+					mockState.EXPECT().ContractStorage(
+						&targetAddressFelt,
+						&targetSlot,
+					).Return(expectedStorage, nil)
 					mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 						Return(lastUpdateBlockNum, true, nil)
 
