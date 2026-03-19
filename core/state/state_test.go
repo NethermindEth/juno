@@ -494,9 +494,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Revert(&core.Header{Number: block2}, storageStateUpdate))
 		require.NoError(t, batch.Write())
 
-		reader, err = NewStateReader(storageStateUpdate.OldRoot, stateDB)
-		require.NoError(t, err)
-		storage, sErr := reader.ContractStorage(&su1FirstDeployedAddress, replacedVal)
+		storage, sErr := state.ContractStorage(&su1FirstDeployedAddress, replacedVal)
 		require.NoError(t, sErr)
 		assert.Equal(t, felt.Zero, storage)
 	})
@@ -888,7 +886,7 @@ func TestRevert(t *testing.T) {
 }
 
 func TestContractHistory(t *testing.T) {
-	addr := felt.NewUnsafeFromString[felt.Felt]("0x1234567890abcdef")
+	addr := felt.UnsafeFromString[felt.Felt]("0x1234567890abcdef")
 	classHash := felt.NewUnsafeFromString[felt.Felt]("0xc1a55")
 	nonce := felt.NewUnsafeFromString[felt.Felt]("0xace")
 	storageKey := felt.NewUnsafeFromString[felt.Felt]("0x5107e")
@@ -903,12 +901,12 @@ func TestContractHistory(t *testing.T) {
 	su := &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
-			"0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6",
+			"0x164c1b480d2a20afe107d1cc193a78128452d5205d1721f9a7aee35babca845",
 		),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
-			Nonces:            map[felt.Felt]*felt.Felt{*addr: nonce},
-			StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{*addr: {*storageKey: storageValue}},
+			DeployedContracts: map[felt.Felt]*felt.Felt{addr: classHash},
+			Nonces:            map[felt.Felt]*felt.Felt{addr: nonce},
+			StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{addr: {*storageKey: storageValue}},
 		},
 	}
 
@@ -917,15 +915,15 @@ func TestContractHistory(t *testing.T) {
 		state, err := NewStateReader(&felt.Zero, stateDB)
 		require.NoError(t, err)
 
-		nonce, err := state.ContractNonceAt(addr, block0)
+		nonce, err := state.ContractNonceAt(&addr, block0)
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, nonce)
 
-		classHash, err := state.ContractClassHashAt(addr, block0)
+		classHash, err := state.ContractClassHashAt(&addr, block0)
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, classHash)
 
-		storage, err := state.ContractStorageAt(addr, storageKey, block0)
+		storage, err := state.ContractStorageAt(&addr, storageKey, block0)
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, storage)
 	})
@@ -939,12 +937,12 @@ func TestContractHistory(t *testing.T) {
 		su0 := &core.StateUpdate{
 			OldRoot: &felt.Zero,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6",
+				"0x164c1b480d2a20afe107d1cc193a78128452d5205d1721f9a7aee35babca845",
 			),
 			StateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
-				Nonces:            map[felt.Felt]*felt.Felt{*addr: nonce},
-				StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{*addr: {*storageKey: storageValue}},
+				DeployedContracts: map[felt.Felt]*felt.Felt{addr: classHash},
+				Nonces:            map[felt.Felt]*felt.Felt{addr: nonce},
+				StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{addr: {*storageKey: storageValue}},
 			},
 		}
 
@@ -954,15 +952,15 @@ func TestContractHistory(t *testing.T) {
 		reader, err := NewStateReader(su0.NewRoot, stateDB)
 		require.NoError(t, err)
 
-		gotNonce, err := reader.ContractNonceAt(addr, block0)
+		gotNonce, err := reader.ContractNonceAt(&addr, block0)
 		require.NoError(t, err)
 		assert.Equal(t, *nonce, gotNonce)
 
-		gotClassHash, err := reader.ContractClassHashAt(addr, block0)
+		gotClassHash, err := reader.ContractClassHashAt(&addr, block0)
 		require.NoError(t, err)
 		assert.Equal(t, *classHash, gotClassHash)
 
-		gotStorage, err := reader.ContractStorageAt(addr, storageKey, block0)
+		gotStorage, err := reader.ContractStorageAt(&addr, storageKey, block0)
 		require.NoError(t, err)
 		assert.Equal(t, *storageValue, gotStorage)
 	})
@@ -986,15 +984,15 @@ func TestContractHistory(t *testing.T) {
 		reader, err := NewStateReader(su1.NewRoot, stateDB)
 		require.NoError(t, err)
 
-		gotNonce, err := reader.ContractNonceAt(addr, block0)
+		gotNonce, err := reader.ContractNonceAt(&addr, block0)
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, gotNonce)
 
-		gotClassHash, err := reader.ContractClassHashAt(addr, block0)
+		gotClassHash, err := reader.ContractClassHashAt(&addr, block0)
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, gotClassHash)
 
-		gotStorage, err := reader.ContractStorageAt(addr, storageKey, block0)
+		gotStorage, err := reader.ContractStorageAt(&addr, storageKey, block0)
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, gotStorage)
 	})
@@ -1025,12 +1023,12 @@ func TestContractHistory(t *testing.T) {
 		su2 := &core.StateUpdate{
 			OldRoot: su1.NewRoot,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0x22a4bfa58203c03d007cc990cf725fd18c0ce43029a4df5427f8f09f3faae60",
+				"0x719e4c1206c30bb8e2924c821910582045c2acd0be342ad4ec9037d15f955be",
 			),
 			StateDiff: &core.StateDiff{
-				Nonces: map[felt.Felt]*felt.Felt{*addr: felt.NewUnsafeFromString[felt.Felt]("0xaced")},
+				Nonces: map[felt.Felt]*felt.Felt{addr: felt.NewUnsafeFromString[felt.Felt]("0xaced")},
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					*addr: {*storageKey: felt.NewUnsafeFromString[felt.Felt]("0x5a1e")},
+					addr: {*storageKey: felt.NewUnsafeFromString[felt.Felt]("0x5a1e")},
 				},
 				DeployedContracts: map[felt.Felt]*felt.Felt{
 					*classHash: felt.NewUnsafeFromString[felt.Felt]("0xc1a5e"),
@@ -1043,15 +1041,15 @@ func TestContractHistory(t *testing.T) {
 		reader, err := NewStateReader(su2.NewRoot, stateDB)
 		require.NoError(t, err)
 
-		gotNonce, err := reader.ContractNonceAt(addr, block1)
+		gotNonce, err := reader.ContractNonceAt(&addr, block1)
 		require.NoError(t, err)
 		assert.Equal(t, *nonce, gotNonce)
 
-		gotClassHash, err := reader.ContractClassHashAt(addr, block1)
+		gotClassHash, err := reader.ContractClassHashAt(&addr, block1)
 		require.NoError(t, err)
 		assert.Equal(t, *classHash, gotClassHash)
 
-		gotStorage, err := reader.ContractStorageAt(addr, storageKey, block1)
+		gotStorage, err := reader.ContractStorageAt(&addr, storageKey, block1)
 		require.NoError(t, err)
 		assert.Equal(t, *storageValue, gotStorage)
 	})
