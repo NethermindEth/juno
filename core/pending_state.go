@@ -8,26 +8,27 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-var feltOne = new(felt.Felt).SetUint64(1)
-
 type PendingState struct {
-	stateDiff          *StateDiff
-	newClasses         map[felt.Felt]ClassDefinition
-	head               StateReader
-	pendingBlockNumber uint64
+	stateDiff  *StateDiff
+	newClasses map[felt.Felt]ClassDefinition
+	head       StateReader
+
+	// The block number of the pending block that this
+	// pending state represents
+	blockNumber uint64
 }
 
 func NewPendingState(
 	stateDiff *StateDiff,
 	newClasses map[felt.Felt]ClassDefinition,
 	head StateReader,
-	pendingBlockNumber uint64,
+	blockNumber uint64,
 ) *PendingState {
 	return &PendingState{
-		stateDiff:          stateDiff,
-		newClasses:         newClasses,
-		head:               head,
-		pendingBlockNumber: pendingBlockNumber,
+		stateDiff:   stateDiff,
+		newClasses:  newClasses,
+		head:        head,
+		blockNumber: blockNumber,
 	}
 }
 
@@ -77,7 +78,7 @@ func (p *PendingState) ContractStorageLastUpdatedBlock(
 	addrFelt := felt.Felt(*addr)
 	if diffs, found := p.stateDiff.StorageDiffs[addrFelt]; found {
 		if _, found := diffs[*key]; found {
-			return p.pendingBlockNumber, true, nil
+			return p.blockNumber, true, nil
 		}
 	}
 	if _, found := p.stateDiff.DeployedContracts[addrFelt]; found {
@@ -159,7 +160,8 @@ func (p *PendingStateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
 	}
-	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, feltOne)
+	one := felt.FromUint64[felt.Felt](1)
+	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, &one)
 	return nil
 }
 
