@@ -413,7 +413,12 @@ func TestStorageAt(t *testing.T) {
 						Return(mockState, nopCloser, nil)
 
 					preConfirmedID := rpc.BlockIDPreConfirmed()
-					result, rpcErr := handler.StorageAt((*felt.Address)(newDeployedContract), &targetSlot, &preConfirmedID, flags)
+					result, rpcErr := handler.StorageAt(
+						(*felt.Address)(newDeployedContract),
+						&targetSlot,
+						&preConfirmedID,
+						flags,
+					)
 					require.Nil(t, rpcErr)
 					assert.Equal(t, expectedStorage, result.Value)
 					assert.Equal(t, preConfirmedBlockNumber, result.LastUpdateBlock)
@@ -434,7 +439,12 @@ func TestStorageAt(t *testing.T) {
 						Return(mockState, nopCloser, nil)
 
 					preConfirmedID := rpc.BlockIDPreConfirmed()
-					result, rpcErr := handler.StorageAt((*felt.Address)(newDeployedContract), &targetSlot, &preConfirmedID, flags)
+					result, rpcErr := handler.StorageAt(
+						(*felt.Address)(newDeployedContract),
+						&targetSlot,
+						&preConfirmedID,
+						flags,
+					)
 					require.Nil(t, rpcErr)
 					assert.Equal(t, felt.Zero, result.Value)
 					assert.Equal(t, uint64(0), result.LastUpdateBlock)

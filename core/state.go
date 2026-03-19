@@ -83,7 +83,10 @@ func (s *DeprecatedState) ContractStorageLastUpdatedBlock(
 	addr *felt.Address,
 	key *felt.Felt,
 ) (uint64, bool, error) {
-	return s.lastUpdatedBlockNumber(db.ContractStorageHistoryKey((*felt.Felt)(addr), key), math.MaxUint64)
+	return s.lastUpdatedBlockNumber(
+		db.ContractStorageHistoryKey((*felt.Felt)(addr), key),
+		math.MaxUint64,
+	)
 }
 
 // Root returns the state commitment.
