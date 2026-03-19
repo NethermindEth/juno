@@ -162,7 +162,7 @@ func (mr *MockStateMockRecorder) ContractStorage(addr, key any) *gomock.Call {
 }
 
 // ContractStorageLastUpdatedBlock mocks base method.
-func (m *MockState) ContractStorageLastUpdatedBlock(addr, key *felt.Felt) (uint64, bool, error) {
+func (m *MockState) ContractStorageLastUpdatedBlock(addr *felt.Address, key *felt.Felt) (uint64, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageLastUpdatedBlock", addr, key)
 	ret0, _ := ret[0].(uint64)

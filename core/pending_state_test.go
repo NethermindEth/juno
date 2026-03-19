@@ -22,10 +22,10 @@ func TestPendingState(t *testing.T) {
 	deployedClassHash := felt.NewRandom[felt.Felt]()
 	replacedAddr := felt.NewRandom[felt.Felt]()
 	replacedClassHash := felt.NewRandom[felt.Felt]()
-	existingContractAddr := felt.NewRandom[felt.Felt]()
+	existingContractAddr := felt.NewRandom[felt.Address]()
 
-	key := new(felt.Felt).SetUint64(44)
-	value := new(felt.Felt).SetUint64(37)
+	key := felt.NewFromUint64[felt.Felt](44)
+	value := felt.NewFromUint64[felt.Felt](37)
 
 	stateDiff := &core.StateDiff{
 		DeployedContracts: map[felt.Felt]*felt.Felt{
@@ -36,13 +36,13 @@ func TestPendingState(t *testing.T) {
 			*replacedAddr: replacedClassHash,
 		},
 		Nonces: map[felt.Felt]*felt.Felt{
-			*deployedAddr: new(felt.Felt).SetUint64(44),
+			*deployedAddr: felt.NewFromUint64[felt.Felt](44),
 		},
 		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 			*deployedAddr: {
 				*key: value,
 			},
-			*existingContractAddr: {
+			(felt.Felt)(*existingContractAddr): {
 				*key: value,
 			},
 		},
@@ -127,6 +127,8 @@ func TestPendingState(t *testing.T) {
 		})
 	})
 	t.Run("ContractStorageLastUpdatedBlock", func(t *testing.T) {
+		deployedAddr := (*felt.Address)(deployedAddr)
+		deployedAddr2 := (*felt.Address)(deployedAddr2)
 		t.Run("from pending", func(t *testing.T) {
 			blockNum, found, err := state.ContractStorageLastUpdatedBlock(
 				deployedAddr, key,
@@ -169,7 +171,7 @@ func TestPendingState(t *testing.T) {
 		})
 		t.Run("contract not mentioned in pending state (falls to head)", func(t *testing.T) {
 			expectedBlock := uint64(3)
-			randomAddr := felt.NewRandom[felt.Felt]()
+			randomAddr := felt.NewRandom[felt.Address]()
 			randomKey := felt.NewRandom[felt.Felt]()
 
 			mockState.EXPECT().ContractStorageLastUpdatedBlock(

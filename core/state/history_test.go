@@ -106,12 +106,14 @@ func TestStateHistoryContractOperations(t *testing.T) {
 
 	t.Run("ContractStorage", func(t *testing.T) {
 		value, err := historyBlock0.ContractStorage(
-			felt.NewUnsafeFromString[felt.Felt]("0x1"), felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		)
 		require.NoError(t, err)
 		assert.Equal(t, value, felt.UnsafeFromString[felt.Felt]("0x1"))
 		value, err = historyBlock1.ContractStorage(
-			felt.NewUnsafeFromString[felt.Felt]("0x2"), felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			felt.NewUnsafeFromString[felt.Felt]("0x2"),
+			felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		)
 		require.NoError(t, err)
 		assert.Equal(t, value, felt.UnsafeFromString[felt.Felt]("0x3"))
@@ -218,7 +220,7 @@ func TestStateHistoryTrieOperations(t *testing.T) {
 }
 
 func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
-	addr := felt.NewFromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
 	key := felt.NewFromUint64[felt.Felt](10)
 	value := felt.NewFromUint64[felt.Felt](99)
 
@@ -231,7 +233,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*key: value},
+				felt.Felt(addr): {*key: value},
 			},
 		},
 	}
@@ -249,7 +251,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*key: value},
+				felt.Felt(addr): {*key: value},
 			},
 		},
 	}
@@ -260,7 +262,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 		history, err := NewStateHistory(2, &felt.Zero, stateDB)
 		require.NoError(t, err)
 
-		blockNum, found, err := history.ContractStorageLastUpdatedBlock(addr, key)
+		blockNum, found, err := history.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
 		assert.True(t, found)
 		assert.Equal(t, firstChangeBlock, blockNum)
@@ -270,7 +272,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 		history, err := NewStateHistory(3, &felt.Zero, stateDB)
 		require.NoError(t, err)
 
-		blockNum, found, err := history.ContractStorageLastUpdatedBlock(addr, key)
+		blockNum, found, err := history.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
 		assert.True(t, found)
 		assert.Equal(t, secondChangeBlock, blockNum)
@@ -280,7 +282,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 		history, err := NewStateHistory(4, &felt.Zero, stateDB)
 		require.NoError(t, err)
 
-		blockNum, found, err := history.ContractStorageLastUpdatedBlock(addr, key)
+		blockNum, found, err := history.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
 		assert.True(t, found)
 		assert.Equal(t, secondChangeBlock, blockNum)
@@ -291,7 +293,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 		history, err := NewStateHistory(5, &felt.Zero, stateDB)
 		require.NoError(t, err)
 
-		blockNum, found, err := history.ContractStorageLastUpdatedBlock(addr, otherKey)
+		blockNum, found, err := history.ContractStorageLastUpdatedBlock(&addr, otherKey)
 		require.NoError(t, err)
 		assert.False(t, found)
 		assert.Equal(t, uint64(0), blockNum)

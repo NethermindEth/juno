@@ -950,7 +950,8 @@ func TestContractHistory(t *testing.T) {
 }
 
 func TestContractStorageLastUpdatedBlock(t *testing.T) {
-	addr := felt.NewFromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
+	addrFelt := (felt.Felt)(addr)
 	key := felt.NewFromUint64[felt.Felt](10)
 	value := felt.NewFromUint64[felt.Felt](99)
 
@@ -959,7 +960,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("storage never updated returns not found", func(t *testing.T) {
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(addr, key)
+		blockNum, found, err := state.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
 		assert.False(t, found)
 		assert.Equal(t, uint64(0), blockNum)
@@ -970,14 +971,14 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*key: value},
+				addrFelt: {*key: value},
 			},
 		},
 	}
 	require.NoError(t, state.Update(&core.Header{Number: block0}, su, nil, true))
 
 	t.Run("storage updated at block 0 returns block 0", func(t *testing.T) {
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(addr, key)
+		blockNum, found, err := state.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
 		assert.True(t, found)
 		assert.Equal(t, uint64(block0), blockNum)
@@ -993,7 +994,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*key: value},
+				addrFelt: {*key: value},
 			},
 		},
 	}
@@ -1009,7 +1010,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
+				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
 			},
 		},
 	}
@@ -1024,14 +1025,14 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
+				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
 			},
 		},
 	}
 	require.NoError(t, state.Update(&core.Header{Number: block3}, su3, nil, true))
 
 	t.Run("returns latest updated block", func(t *testing.T) {
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(addr, key)
+		blockNum, found, err := state.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
 		assert.True(t, found)
 		assert.Equal(t, uint64(block1), blockNum)
@@ -1039,7 +1040,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 
 	t.Run("unrelated key returns not found", func(t *testing.T) {
 		blockNum, found, err := state.ContractStorageLastUpdatedBlock(
-			addr, felt.NewFromUint64[felt.Felt](999),
+			&addr, felt.NewFromUint64[felt.Felt](999),
 		)
 		require.NoError(t, err)
 		assert.False(t, found)

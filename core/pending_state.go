@@ -65,17 +65,22 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return p.head.ContractStorage(addr, key)
 }
 
-// ContractStorageLastUpdatedBlock returns the most recent block number at which a
-// given storage slot key of a given contract was last updated.
+// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
+// slot key of a given contract was last updated.
+//
+// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
+// exists for the given storage key.
 func (p *PendingState) ContractStorageLastUpdatedBlock(
-	addr, key *felt.Felt,
+	addr *felt.Address,
+	key *felt.Felt,
 ) (uint64, bool, error) {
-	if diffs, found := p.stateDiff.StorageDiffs[*addr]; found {
+	addrFelt := felt.Felt(*addr)
+	if diffs, found := p.stateDiff.StorageDiffs[addrFelt]; found {
 		if _, found := diffs[*key]; found {
 			return p.pendingBlockNumber, true, nil
 		}
 	}
-	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
+	if _, found := p.stateDiff.DeployedContracts[addrFelt]; found {
 		return 0, false, nil
 	}
 	return p.head.ContractStorageLastUpdatedBlock(addr, key)

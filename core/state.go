@@ -76,10 +76,14 @@ func (s *DeprecatedState) ContractStorage(addr, key *felt.Felt) (felt.Felt, erro
 
 // ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
 // slot key of a given contract was last updated.
+//
+// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
+// exists for the given storage key.
 func (s *DeprecatedState) ContractStorageLastUpdatedBlock(
-	addr, key *felt.Felt,
+	addr *felt.Address,
+	key *felt.Felt,
 ) (uint64, bool, error) {
-	return s.lastUpdatedBlockNumber(db.ContractStorageHistoryKey(addr, key), math.MaxUint64)
+	return s.lastUpdatedBlockNumber(db.ContractStorageHistoryKey((*felt.Felt)(addr), key), math.MaxUint64)
 }
 
 // Root returns the state commitment.
@@ -911,11 +915,15 @@ func (s *DeprecatedState) ContractStorageAt(
 
 // ContractStorageLastUpdatedAt returns the block number at which a given storage
 // slot key of a given contract was last updated, up to and including the given block number.
+//
+// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
+// exists for the given storage key.
 func (s *DeprecatedState) ContractStorageLastUpdatedAt(
-	addr, key *felt.Felt,
+	addr *felt.Address,
+	key *felt.Felt,
 	blockNumber uint64,
 ) (uint64, bool, error) {
-	return s.lastUpdatedBlockNumber(db.ContractStorageHistoryKey(addr, key), blockNumber)
+	return s.lastUpdatedBlockNumber(db.ContractStorageHistoryKey((*felt.Felt)(addr), key), blockNumber)
 }
 
 func (s *DeprecatedState) ContractNonceAt(

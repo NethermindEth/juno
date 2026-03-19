@@ -108,8 +108,16 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	return ret, nil
 }
 
-func (s *State) ContractStorageLastUpdatedBlock(addr, key *felt.Felt) (uint64, bool, error) {
-	prefix := db.ContractStorageHistoryKey(addr, key)
+// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
+// slot key of a given contract was last updated.
+//
+// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
+// exists for the given storage key.
+func (s *State) ContractStorageLastUpdatedBlock(
+	addr *felt.Address,
+	key *felt.Felt,
+) (uint64, bool, error) {
+	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
 	return s.lastUpdatedBlockNumber(prefix, math.MaxUint64)
 }
 
@@ -722,11 +730,15 @@ func (s *State) ContractStorageAt(addr, key *felt.Felt, blockNum uint64) (felt.F
 
 // Returns the block number at which a given storage slot key of a given contract was
 // last updated, up to and including the given block number.
+//
+// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
+// exists for the given storage key.
 func (s *State) ContractStorageLastUpdatedAt(
-	addr, key *felt.Felt,
+	addr *felt.Address,
+	key *felt.Felt,
 	blockNum uint64,
 ) (uint64, bool, error) {
-	prefix := db.ContractStorageHistoryKey(addr, key)
+	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
 	return s.lastUpdatedBlockNumber(prefix, blockNum)
 }
 

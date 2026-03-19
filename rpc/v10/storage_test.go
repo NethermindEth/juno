@@ -73,7 +73,8 @@ func TestStorageAt(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, log)
 
-	targetAddress := felt.FromUint64[felt.Felt](1234)
+	targetAddress := felt.FromUint64[felt.Address](1234)
+	targetAddressFelt := (felt.Felt)(targetAddress)
 	targetSlot := felt.FromUint64[felt.Felt](5678)
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
@@ -219,9 +220,9 @@ func TestStorageAt(t *testing.T) {
 		t.Run("blockID - pre_confirmed", func(t *testing.T) {
 			preConfirmedStateDiff := core.EmptyStateDiff()
 			preConfirmedStateDiff.
-				StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
+				StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
 			preConfirmedStateDiff.
-				DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
+				DeployedContracts[targetAddressFelt] = felt.NewFromUint64[felt.Felt](123456789)
 
 			preConfirmed := core.PreConfirmed{
 				Block: &core.Block{
@@ -257,7 +258,7 @@ func TestStorageAt(t *testing.T) {
 			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
 			blockID := rpc.BlockIDL1Accepted()
-			result, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID, noFlags)
+			result, rpcErr := handler.StorageAt(&felt.Address{}, &felt.Zero, &blockID, noFlags)
 			require.Nil(t, rpcErr)
 			validateStorageAtJSON(t, result, noFlags.IncludeLastUpdateBlock)
 		})
@@ -358,7 +359,7 @@ func TestStorageAt(t *testing.T) {
 				"no storage update for the target key - returns latest block number",
 				func(t *testing.T) {
 					preConfirmedStateDiff.
-						StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{
+						StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{
 						*felt.NewRandom[felt.Felt](): felt.NewRandom[felt.Felt](), // unrelated key
 					}
 
@@ -382,7 +383,7 @@ func TestStorageAt(t *testing.T) {
 				"with storage update for the target key - returns pre_confirmed block number",
 				func(t *testing.T) {
 					preConfirmedStateDiff.
-						StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
+						StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
 
 					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
@@ -411,7 +412,7 @@ func TestStorageAt(t *testing.T) {
 						Return(mockState, nopCloser, nil)
 
 					preConfirmedID := rpc.BlockIDPreConfirmed()
-					result, rpcErr := handler.StorageAt(newDeployedContract, &targetSlot, &preConfirmedID, flags)
+					result, rpcErr := handler.StorageAt((*felt.Address)(newDeployedContract), &targetSlot, &preConfirmedID, flags)
 					require.Nil(t, rpcErr)
 					assert.Equal(t, expectedStorage, result.Value)
 					assert.Equal(t, preConfirmedBlockNumber, result.LastUpdateBlock)
@@ -430,7 +431,7 @@ func TestStorageAt(t *testing.T) {
 						Return(mockState, nopCloser, nil)
 
 					preConfirmedID := rpc.BlockIDPreConfirmed()
-					result, rpcErr := handler.StorageAt(newDeployedContract, &targetSlot, &preConfirmedID, flags)
+					result, rpcErr := handler.StorageAt((*felt.Address)(newDeployedContract), &targetSlot, &preConfirmedID, flags)
 					require.Nil(t, rpcErr)
 					assert.Equal(t, felt.Zero, result.Value)
 					assert.Equal(t, uint64(0), result.LastUpdateBlock)
