@@ -168,6 +168,16 @@ func TestStateHistory(t *testing.T) {
 			assert.Equal(t, deployedHeight, blockNum)
 		})
 
+		t.Run("returns deployment height between deployment and change", func(t *testing.T) {
+			snapshotBetween := core.NewDeprecatedStateHistory(state, changeHeight-1)
+			blockNum, found, err := snapshotBetween.ContractStorageLastUpdatedBlock(
+				&addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, deployedHeight, blockNum)
+		})
+
 		t.Run("returns change height after storage was updated", func(t *testing.T) {
 			blockNum, found, err := snapshotAfterChange.ContractStorageLastUpdatedBlock(
 				&addr, storageKey,
