@@ -15,8 +15,7 @@ type stateHistory struct {
 }
 
 func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (stateHistory, error) {
-	batch := db.disk.NewBatch()
-	state, err := New(stateRoot, db, batch)
+	state, err := NewStateReader(stateRoot, db)
 	if err != nil {
 		return stateHistory{}, err
 	}

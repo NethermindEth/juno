@@ -50,7 +50,7 @@ type State struct {
 
 func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 	if batch == nil {
-		return nil, errors.New("batch is nil")
+		return nil, errors.New("cannot create state, nil Batch received")
 	}
 	contractTrie, err := db.ContractTrie(stateRoot)
 	if err != nil {
@@ -69,6 +69,26 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 		classTrie:    classTrie,
 		stateObjects: make(map[felt.Felt]*stateObject),
 		batch:        batch,
+	}, nil
+}
+
+func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*State, error) {
+	contractTrie, err := db.ContractTrie(stateRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	classTrie, err := db.ClassTrie(stateRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	return &State{
+		initRoot:     *stateRoot,
+		db:           db,
+		contractTrie: contractTrie,
+		classTrie:    classTrie,
+		stateObjects: make(map[felt.Felt]*stateObject),
 	}, nil
 }
 
