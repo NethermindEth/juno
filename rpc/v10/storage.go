@@ -78,10 +78,14 @@ func (st *StorageAtResponse) UnmarshalJSON(data []byte) error {
 //
 //nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) StorageAt(
-	address, key *felt.Felt, id *BlockID, flags StorageAtResponseFlags,
+	address *felt.Address,
+	key *felt.Felt,
+	id *BlockID,
+	flags StorageAtResponseFlags,
 ) (*StorageAtResponse, *jsonrpc.Error) {
 	var result StorageAtResponse
 	result.includeLastUpdateBlock = flags.IncludeLastUpdateBlock
+	addressFelt := (*felt.Felt)(address)
 
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
@@ -91,7 +95,7 @@ func (h *Handler) StorageAt(
 
 	// This checks if the contract exists because if a key doesn't exist in contract storage,
 	// the returned value is always zero and error is nil.
-	_, err := stateReader.ContractClassHash(address)
+	_, err := stateReader.ContractClassHash(addressFelt)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
@@ -100,7 +104,7 @@ func (h *Handler) StorageAt(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	result.Value, err = stateReader.ContractStorage(address, key)
+	result.Value, err = stateReader.ContractStorage(addressFelt, key)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -109,13 +113,7 @@ func (h *Handler) StorageAt(
 		return &result, nil
 	}
 
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	historyPrefix := db.ContractStorageHistoryKey(address, key)
-	lastUpdateBlock, _, err := h.bcReader.HistoryBlockNumber(historyPrefix, header.Number)
+	lastUpdateBlock, err := stateReader.ContractStorageLastUpdatedBlock(address, key)
 	if err != nil {
 		h.log.Error(
 			"Failed to find last updated block for storage key",

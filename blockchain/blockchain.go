@@ -35,7 +35,6 @@ type Reader interface {
 	BlockNumberAndIndexByTxHash(
 		hash *felt.TransactionHash,
 	) (blockNumber uint64, index uint64, err error)
-	HistoryBlockNumber(historyKeyPrefix []byte, upToBlock uint64) (uint64, bool, error)
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(
@@ -635,15 +634,6 @@ func (b *Blockchain) StateAtBlockHash(
 		core.NewDeprecatedState(txn),
 		header.Number,
 	), noopStateCloser, nil
-}
-
-// HistoryBlockNumber finds the most recent block number (up to upToBlock) recorded
-// in a history bucket for the given key prefix.
-func (b *Blockchain) HistoryBlockNumber(
-	historyKeyPrefix []byte, upToBlock uint64,
-) (uint64, bool, error) {
-	b.listener.OnRead("HistoryBlockNumber")
-	return db.HistoryLastUpdateBlock(b.database, historyKeyPrefix, upToBlock)
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain

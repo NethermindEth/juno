@@ -377,6 +377,7 @@ func (h *Handler) traceInPrelatestBlock(
 		preLatest.StateUpdate.StateDiff,
 		preLatest.NewClasses,
 		state,
+		preLatest.Block.Number,
 	)
 
 	blockInfo, rpcErr := h.buildBlockInfo(preLatest.Block.Header)

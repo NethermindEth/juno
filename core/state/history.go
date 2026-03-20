@@ -59,6 +59,15 @@ func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return ret, nil
 }
 
+// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
+// slot key of a given contract was last updated.
+func (s *stateHistory) ContractStorageLastUpdatedBlock(
+	addr *felt.Address,
+	key *felt.Felt,
+) (uint64, error) {
+	return s.state.ContractStorageLastUpdatedAt(addr, key, s.blockNum)
+}
+
 // Checks if the contract is deployed at the given block number.
 func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNum)

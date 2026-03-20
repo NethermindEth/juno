@@ -33,42 +33,48 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	stateUpdates := []*core.StateUpdate{
 		{
 			OldRoot: &felt.Zero,
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8",
+			),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
+					felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
+					felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				},
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"): {
-						*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
-						*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
+					felt.UnsafeFromString[felt.Felt]("0x1"): {
+						felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
+						felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
 					},
 				},
 			},
 		},
 		{
-			OldRoot: felt.NewUnsafeFromString[felt.Felt]("0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
-			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x59aa7d6f2c197b91bffa600e4ba4d6d80990ed42a7321c5d01cbe06b45d95ee"),
+			OldRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8",
+			),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x59aa7d6f2c197b91bffa600e4ba4d6d80990ed42a7321c5d01cbe06b45d95ee",
+			),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
+					felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
+					felt.UnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
+					felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
+					felt.UnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
 				},
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x2"): {
-						*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
-						*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x4"),
+					felt.UnsafeFromString[felt.Felt]("0x2"): {
+						felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
+						felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x4"),
 					},
-					*felt.NewUnsafeFromString[felt.Felt]("0x3"): {
-						*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
-						*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x6"),
+					felt.UnsafeFromString[felt.Felt]("0x3"): {
+						felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
+						felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x6"),
 					},
 				},
 			},
@@ -83,28 +89,34 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	t.Run("ContractClassHash", func(t *testing.T) {
 		hash, err := historyBlock0.ContractClassHash(felt.NewUnsafeFromString[felt.Felt]("0x1"))
 		require.NoError(t, err)
-		assert.Equal(t, hash, *felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		assert.Equal(t, hash, felt.UnsafeFromString[felt.Felt]("0x1"))
 		hash, err = historyBlock1.ContractClassHash(felt.NewUnsafeFromString[felt.Felt]("0x2"))
 		require.NoError(t, err)
-		assert.Equal(t, hash, *felt.NewUnsafeFromString[felt.Felt]("0x2"))
+		assert.Equal(t, hash, felt.UnsafeFromString[felt.Felt]("0x2"))
 	})
 
 	t.Run("ContractNonce", func(t *testing.T) {
 		nonce, err := historyBlock0.ContractNonce(felt.NewUnsafeFromString[felt.Felt]("0x1"))
 		require.NoError(t, err)
-		assert.Equal(t, nonce, *felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		assert.Equal(t, nonce, felt.UnsafeFromString[felt.Felt]("0x1"))
 		nonce, err = historyBlock1.ContractNonce(felt.NewUnsafeFromString[felt.Felt]("0x2"))
 		require.NoError(t, err)
-		assert.Equal(t, nonce, *felt.NewUnsafeFromString[felt.Felt]("0x2"))
+		assert.Equal(t, nonce, felt.UnsafeFromString[felt.Felt]("0x2"))
 	})
 
 	t.Run("ContractStorage", func(t *testing.T) {
-		value, err := historyBlock0.ContractStorage(felt.NewUnsafeFromString[felt.Felt]("0x1"), felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		value, err := historyBlock0.ContractStorage(
+			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		)
 		require.NoError(t, err)
-		assert.Equal(t, value, *felt.NewUnsafeFromString[felt.Felt]("0x1"))
-		value, err = historyBlock1.ContractStorage(felt.NewUnsafeFromString[felt.Felt]("0x2"), felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		assert.Equal(t, value, felt.UnsafeFromString[felt.Felt]("0x1"))
+		value, err = historyBlock1.ContractStorage(
+			felt.NewUnsafeFromString[felt.Felt]("0x2"),
+			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		)
 		require.NoError(t, err)
-		assert.Equal(t, value, *felt.NewUnsafeFromString[felt.Felt]("0x3"))
+		assert.Equal(t, value, felt.UnsafeFromString[felt.Felt]("0x3"))
 	})
 
 	t.Run("NonExistentContract", func(t *testing.T) {
@@ -117,8 +129,8 @@ func TestStateHistoryContractOperations(t *testing.T) {
 func TestStateHistoryClassOperations(t *testing.T) {
 	stateDB := newTestStateDB()
 
-	class1Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
-	class2Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
+	class1Hash := felt.UnsafeFromString[felt.Felt]("0xDEADBEEF")
+	class2Hash := felt.UnsafeFromString[felt.Felt]("0xDEADBEEF2")
 
 	class1 := &core.SierraClass{}
 	class2 := &core.SierraClass{}
@@ -204,6 +216,83 @@ func TestStateHistoryTrieOperations(t *testing.T) {
 		addr := new(felt.Felt).SetUint64(1)
 		_, err := history.ContractStorageTrie(addr)
 		assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
+	})
+}
+
+func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
+	addr := felt.FromUint64[felt.Address](1)
+	key := felt.NewFromUint64[felt.Felt](10)
+	value := felt.NewFromUint64[felt.Felt](99)
+
+	stateDB := newTestStateDB()
+	state, err := New(&felt.Zero, stateDB)
+	require.NoError(t, err)
+
+	su0 := &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				felt.Felt(addr): {*key: value},
+			},
+		},
+	}
+	firstChangeBlock := uint64(0)
+	require.NoError(t, state.Update(&core.Header{Number: firstChangeBlock}, su0, nil, true))
+
+	root0, err := state.Commitment("")
+	require.NoError(t, err)
+
+	state, err = New(&root0, stateDB)
+	require.NoError(t, err)
+
+	su3 := &core.StateUpdate{
+		OldRoot: &root0,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				felt.Felt(addr): {*key: value},
+			},
+		},
+	}
+	secondChangeBlock := uint64(3)
+	require.NoError(t, state.Update(&core.Header{Number: secondChangeBlock}, su3, nil, true))
+
+	t.Run("returns most recent update before history block", func(t *testing.T) {
+		history, err := NewStateHistory(2, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, firstChangeBlock, blockNum)
+	})
+
+	t.Run("returns update at exactly the history block", func(t *testing.T) {
+		history, err := NewStateHistory(3, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, secondChangeBlock, blockNum)
+	})
+
+	t.Run("returns update after the history block", func(t *testing.T) {
+		history, err := NewStateHistory(4, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, secondChangeBlock, blockNum)
+	})
+
+	t.Run("returns not found when storage was never updated", func(t *testing.T) {
+		otherKey := felt.NewFromUint64[felt.Felt](99)
+		history, err := NewStateHistory(5, &felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, otherKey)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), blockNum)
 	})
 }
 

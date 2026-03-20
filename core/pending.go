@@ -148,6 +148,7 @@ func (p *Pending) PendingState(baseState StateReader) StateReader {
 		p.StateUpdate.StateDiff,
 		p.NewClasses,
 		baseState,
+		p.Block.Number,
 	)
 }
 
@@ -316,7 +317,7 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 		stateDiff.Merge(txStateDiff)
 	}
 
-	return NewPendingState(&stateDiff, newClasses, baseState), nil
+	return NewPendingState(&stateDiff, newClasses, baseState, p.Block.Number), nil
 }
 
 func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
@@ -332,5 +333,5 @@ func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
 
 	stateDiff.Merge(p.StateUpdate.StateDiff)
 
-	return NewPendingState(&stateDiff, newClasses, baseState)
+	return NewPendingState(&stateDiff, newClasses, baseState, p.Block.Number)
 }

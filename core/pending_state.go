@@ -8,23 +8,27 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-var feltOne = new(felt.Felt).SetUint64(1)
-
 type PendingState struct {
 	stateDiff  *StateDiff
 	newClasses map[felt.Felt]ClassDefinition
 	head       StateReader
+
+	// The block number of the pending block that this
+	// pending state represents
+	blockNumber uint64
 }
 
 func NewPendingState(
 	stateDiff *StateDiff,
 	newClasses map[felt.Felt]ClassDefinition,
 	head StateReader,
+	blockNumber uint64,
 ) *PendingState {
 	return &PendingState{
-		stateDiff:  stateDiff,
-		newClasses: newClasses,
-		head:       head,
+		stateDiff:   stateDiff,
+		newClasses:  newClasses,
+		head:        head,
+		blockNumber: blockNumber,
 	}
 }
 
@@ -60,6 +64,24 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 		return felt.Felt{}, nil
 	}
 	return p.head.ContractStorage(addr, key)
+}
+
+// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
+// slot key of a given contract was last updated.
+func (p *PendingState) ContractStorageLastUpdatedBlock(
+	addr *felt.Address,
+	key *felt.Felt,
+) (uint64, error) {
+	addrFelt := felt.Felt(*addr)
+	if diffs, found := p.stateDiff.StorageDiffs[addrFelt]; found {
+		if _, found := diffs[*key]; found {
+			return p.blockNumber, nil
+		}
+	}
+	if _, found := p.stateDiff.DeployedContracts[addrFelt]; found {
+		return 0, nil
+	}
+	return p.head.ContractStorageLastUpdatedBlock(addr, key)
 }
 
 func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
@@ -135,7 +157,8 @@ func (p *PendingStateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
 	}
-	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, feltOne)
+	one := felt.FromUint64[felt.Felt](1)
+	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, &one)
 	return nil
 }
 

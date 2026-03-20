@@ -949,6 +949,101 @@ func TestContractHistory(t *testing.T) {
 	})
 }
 
+func TestContractStorageLastUpdatedBlock(t *testing.T) {
+	addr := felt.FromUint64[felt.Address](1)
+	addrFelt := felt.Felt(addr)
+	key := felt.NewFromUint64[felt.Felt](10)
+	value := felt.NewFromUint64[felt.Felt](99)
+
+	stateDB := newTestStateDB()
+	state, err := New(&felt.Zero, stateDB)
+	require.NoError(t, err)
+
+	t.Run("storage never updated returns not found", func(t *testing.T) {
+		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), blockNum)
+	})
+
+	su := &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				addrFelt: {*key: value},
+			},
+		},
+	}
+	require.NoError(t, state.Update(&core.Header{Number: block0}, su, nil, true))
+
+	t.Run("storage updated at block 0 returns block 0", func(t *testing.T) {
+		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(block0), blockNum)
+	})
+
+	// update the key at block 1
+	root0, err := state.Commitment("")
+	require.NoError(t, err)
+	state, err = New(&root0, stateDB)
+	require.NoError(t, err)
+	su1 := &core.StateUpdate{
+		OldRoot: &root0,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				addrFelt: {*key: value},
+			},
+		},
+	}
+	require.NoError(t, state.Update(&core.Header{Number: block1}, su1, nil, true))
+
+	// two unrelated updates: block 2 and 3
+	root1, err := state.Commitment("")
+	require.NoError(t, err)
+	state, err = New(&root1, stateDB)
+	require.NoError(t, err)
+	su2 := &core.StateUpdate{
+		OldRoot: &root0,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
+			},
+		},
+	}
+	require.NoError(t, state.Update(&core.Header{Number: block2}, su2, nil, true))
+
+	root2, err := state.Commitment("")
+	require.NoError(t, err)
+	state, err = New(&root2, stateDB)
+	require.NoError(t, err)
+	su3 := &core.StateUpdate{
+		OldRoot: &root2,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
+			},
+		},
+	}
+	require.NoError(t, state.Update(&core.Header{Number: block3}, su3, nil, true))
+
+	t.Run("returns latest updated block", func(t *testing.T) {
+		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(block1), blockNum)
+	})
+
+	t.Run("unrelated key returns not found", func(t *testing.T) {
+		blockNum, err := state.ContractStorageLastUpdatedBlock(
+			&addr, felt.NewFromUint64[felt.Felt](999),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), blockNum)
+	})
+}
+
 func BenchmarkStateUpdate(b *testing.B) {
 	client := feeder.NewTestClient(b, &utils.Mainnet)
 	gw := adaptfeeder.New(client)

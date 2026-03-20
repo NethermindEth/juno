@@ -967,3 +967,65 @@ func TestCommitmentV014AlwaysPoseidon(t *testing.T) {
 	assert.Equal(t, *expectedRoot, v014Root,
 		"v0.14 commitment must match expected Poseidon hash")
 }
+
+func TestDeprecatedStateContractStorageLastUpdatedBlock(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
+	state := core.NewDeprecatedState(txn)
+
+	addr := felt.FromUint64[felt.Address](1)
+	addrFelt := felt.Felt(addr)
+	key := felt.NewFromUint64[felt.Felt](2)
+	value := felt.NewFromUint64[felt.Felt](100)
+
+	t.Run("storage never updated returns not found", func(t *testing.T) {
+		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), blockNum)
+	})
+
+	require.NoError(t, state.Update(&core.Header{Number: 3}, &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				addrFelt: {*key: value},
+			},
+		},
+	}, nil, true))
+
+	t.Run("storage updated at block 3 returns 3", func(t *testing.T) {
+		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(3), blockNum)
+	})
+
+	root, err := state.Commitment("")
+	require.NoError(t, err)
+
+	require.NoError(t, state.Update(&core.Header{Number: 7}, &core.StateUpdate{
+		OldRoot: &root,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				addrFelt: {felt.Zero: &felt.Zero}, // no change in our 'key' storage
+			},
+		},
+	}, nil, true))
+
+	t.Run(
+		"returns latest updated block after new update with no change in our 'key' storage",
+		func(t *testing.T) {
+			blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(3), blockNum)
+		})
+
+	t.Run("unrelated key returns not found", func(t *testing.T) {
+		blockNum, err := state.ContractStorageLastUpdatedBlock(
+			&addr, felt.NewFromUint64[felt.Felt](999),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), blockNum)
+	})
+}

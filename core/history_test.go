@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	_ "github.com/NethermindEth/juno/encoder/registry"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +17,8 @@ func TestStateHistory(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 	state := core.NewDeprecatedState(txn)
 
-	addr := felt.NewFromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
+	addrFelt := felt.Felt(addr)
 	storageKey := felt.NewFromUint64[felt.Felt](2)
 	declaredCH := felt.NewFromUint64[felt.Felt](3)
 
@@ -34,10 +36,10 @@ func TestStateHistory(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: initialClassHash},
-			Nonces:            map[felt.Felt]*felt.Felt{*addr: initialNonce},
+			DeployedContracts: map[felt.Felt]*felt.Felt{addrFelt: initialClassHash},
+			Nonces:            map[felt.Felt]*felt.Felt{addrFelt: initialNonce},
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*storageKey: initialStorage},
+				addrFelt: {*storageKey: initialStorage},
 			},
 		},
 	}, map[felt.Felt]core.ClassDefinition{*declaredCH: &core.SierraClass{}}, true))
@@ -49,10 +51,10 @@ func TestStateHistory(t *testing.T) {
 		OldRoot: &root,
 		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
-			ReplacedClasses: map[felt.Felt]*felt.Felt{*addr: updatedClassHash},
-			Nonces:          map[felt.Felt]*felt.Felt{*addr: updatedNonce},
+			ReplacedClasses: map[felt.Felt]*felt.Felt{addrFelt: updatedClassHash},
+			Nonces:          map[felt.Felt]*felt.Felt{addrFelt: updatedNonce},
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				*addr: {*storageKey: updatedStorage},
+				addrFelt: {*storageKey: updatedStorage},
 			},
 		},
 	}, nil, true))
@@ -62,40 +64,40 @@ func TestStateHistory(t *testing.T) {
 	snapshotAfterChange := core.NewDeprecatedStateHistory(state, changeHeight+1)
 
 	t.Run("contract not deployed", func(t *testing.T) {
-		_, err := snapshotBeforeDeployment.ContractClassHash(addr)
+		_, err := snapshotBeforeDeployment.ContractClassHash(&addrFelt)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 
-		_, err = snapshotBeforeDeployment.ContractNonce(addr)
+		_, err = snapshotBeforeDeployment.ContractNonce(&addrFelt)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 
-		_, err = snapshotBeforeDeployment.ContractStorage(addr, storageKey)
+		_, err = snapshotBeforeDeployment.ContractStorage(&addrFelt, storageKey)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("historical values at deployment height", func(t *testing.T) {
-		classHash, err := snapshotAtDeployment.ContractClassHash(addr)
+		classHash, err := snapshotAtDeployment.ContractClassHash(&addrFelt)
 		require.NoError(t, err)
 		require.Equal(t, *initialClassHash, classHash)
 
-		nonce, err := snapshotAtDeployment.ContractNonce(addr)
+		nonce, err := snapshotAtDeployment.ContractNonce(&addrFelt)
 		require.NoError(t, err)
 		require.Equal(t, *initialNonce, nonce)
 
-		storage, err := snapshotAtDeployment.ContractStorage(addr, storageKey)
+		storage, err := snapshotAtDeployment.ContractStorage(&addrFelt, storageKey)
 		require.NoError(t, err)
 		require.Equal(t, *initialStorage, storage)
 	})
 
 	t.Run("head state values after change", func(t *testing.T) {
-		classHash, err := snapshotAfterChange.ContractClassHash(addr)
+		classHash, err := snapshotAfterChange.ContractClassHash(&addrFelt)
 		require.NoError(t, err)
 		require.Equal(t, *updatedClassHash, classHash)
 
-		nonce, err := snapshotAfterChange.ContractNonce(addr)
+		nonce, err := snapshotAfterChange.ContractNonce(&addrFelt)
 		require.NoError(t, err)
 		require.Equal(t, *updatedNonce, nonce)
 
-		storage, err := snapshotAfterChange.ContractStorage(addr, storageKey)
+		storage, err := snapshotAfterChange.ContractStorage(&addrFelt, storageKey)
 		require.NoError(t, err)
 		require.Equal(t, *updatedStorage, storage)
 	})
@@ -147,6 +149,50 @@ func TestStateHistory(t *testing.T) {
 		})
 	})
 
+	t.Run("ContractStorageLastUpdatedBlock", func(t *testing.T) {
+		t.Run("returns not found before any storage update", func(t *testing.T) {
+			blockNum, err := snapshotBeforeDeployment.ContractStorageLastUpdatedBlock(
+				&addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(0), blockNum)
+		})
+
+		t.Run("returns deployment height at deployment snapshot", func(t *testing.T) {
+			blockNum, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
+				&addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, deployedHeight, blockNum)
+		})
+
+		t.Run("returns deployment height between deployment and change", func(t *testing.T) {
+			snapshotBetween := core.NewDeprecatedStateHistory(state, changeHeight-1)
+			blockNum, err := snapshotBetween.ContractStorageLastUpdatedBlock(
+				&addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, deployedHeight, blockNum)
+		})
+
+		t.Run("returns change height after storage was updated", func(t *testing.T) {
+			blockNum, err := snapshotAfterChange.ContractStorageLastUpdatedBlock(
+				&addr, storageKey,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, changeHeight, blockNum)
+		})
+
+		t.Run("returns not found for a key that was never updated", func(t *testing.T) {
+			unknownKey := felt.NewFromUint64[felt.Felt](999)
+			blockNum, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
+				&addr, unknownKey,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(0), blockNum)
+		})
+	})
+
 	t.Run(
 		"deprecated state history trie methods return ErrHistoricalTrieNotSupported",
 		func(t *testing.T) {
@@ -156,7 +202,7 @@ func TestStateHistory(t *testing.T) {
 			_, err = snapshotAtDeployment.ContractTrie()
 			require.ErrorIs(t, err, core.ErrHistoricalTrieNotSupported)
 
-			_, err = snapshotAtDeployment.ContractStorageTrie(addr)
+			_, err = snapshotAtDeployment.ContractStorageTrie(&addrFelt)
 			require.ErrorIs(t, err, core.ErrHistoricalTrieNotSupported)
 		})
 }

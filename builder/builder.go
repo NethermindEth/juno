@@ -145,6 +145,7 @@ func (b *Builder) PendingState(
 			buildState.Preconfirmed.StateUpdate.StateDiff,
 			buildState.Preconfirmed.NewClasses,
 			headState,
+			buildState.Preconfirmed.Block.Number,
 		),
 		headCloser, nil
 }

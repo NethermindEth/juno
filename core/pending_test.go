@@ -382,6 +382,11 @@ func TestPendingData_PendingState(t *testing.T) {
 	stateDiff.StorageDiffs[contractAddress] = map[felt.Felt]*felt.Felt{
 		storageKey: &storageValue,
 	}
+	emptyBlock := core.Block{
+		Header: &core.Header{
+			Number: 0,
+		},
+	}
 
 	t.Run("pending - state with storage update", func(t *testing.T) {
 		pending := core.Pending{
@@ -389,6 +394,7 @@ func TestPendingData_PendingState(t *testing.T) {
 				StateDiff: &stateDiff,
 			},
 		}
+		pending.Block = &emptyBlock
 
 		state := pending.PendingState(nil)
 		require.NotNil(t, state)
@@ -419,6 +425,7 @@ func TestPendingData_PendingState(t *testing.T) {
 				StateDiff: &stateDiff,
 			},
 		}
+		preConfirmed.Block = &emptyBlock
 
 		preLatest := &core.PreLatest{
 			StateUpdate: &core.StateUpdate{
@@ -523,6 +530,9 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 
 		preConfirmed := core.PreConfirmed{
 			Block: &core.Block{
+				Header: &core.Header{
+					Number: 0,
+				},
 				Transactions: make([]core.Transaction, numTxs),
 			},
 			StateUpdate: &core.StateUpdate{

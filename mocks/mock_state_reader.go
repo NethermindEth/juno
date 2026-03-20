@@ -146,6 +146,21 @@ func (mr *MockStateReaderMockRecorder) ContractStorage(addr, key any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorage", reflect.TypeOf((*MockStateReader)(nil).ContractStorage), addr, key)
 }
 
+// ContractStorageLastUpdatedBlock mocks base method.
+func (m *MockStateReader) ContractStorageLastUpdatedBlock(addr *felt.Address, key *felt.Felt) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContractStorageLastUpdatedBlock", addr, key)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContractStorageLastUpdatedBlock indicates an expected call of ContractStorageLastUpdatedBlock.
+func (mr *MockStateReaderMockRecorder) ContractStorageLastUpdatedBlock(addr, key any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageLastUpdatedBlock", reflect.TypeOf((*MockStateReader)(nil).ContractStorageLastUpdatedBlock), addr, key)
+}
+
 // ContractStorageTrie mocks base method.
 func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
 	m.ctrl.T.Helper()

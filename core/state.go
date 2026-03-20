@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"runtime"
 	"slices"
 	"sort"
@@ -71,6 +72,18 @@ func (s *DeprecatedState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 // ContractStorage returns value of a key in the storage of the contract at the given address.
 func (s *DeprecatedState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	return ContractStorage(addr, key, s.txn)
+}
+
+// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
+// slot key of a given contract was last updated.
+func (s *DeprecatedState) ContractStorageLastUpdatedBlock(
+	addr *felt.Address,
+	key *felt.Felt,
+) (uint64, error) {
+	return s.lastUpdatedBlockNumber(
+		db.ContractStorageHistoryKey((*felt.Felt)(addr), key),
+		math.MaxUint64,
+	)
 }
 
 // Root returns the state commitment.
@@ -900,6 +913,19 @@ func (s *DeprecatedState) ContractStorageAt(
 	return felt.FromBytes[felt.Felt](value), nil
 }
 
+// ContractStorageLastUpdatedAt returns the block number at which a given storage
+// slot key of a given contract was last updated, up to and including the given block number.
+func (s *DeprecatedState) ContractStorageLastUpdatedAt(
+	addr *felt.Address,
+	key *felt.Felt,
+	blockNumber uint64,
+) (uint64, error) {
+	return s.lastUpdatedBlockNumber(
+		db.ContractStorageHistoryKey((*felt.Felt)(addr), key),
+		blockNumber,
+	)
+}
+
 func (s *DeprecatedState) ContractNonceAt(
 	contractAddress *felt.Felt,
 	height uint64,
@@ -963,4 +989,37 @@ func (s *DeprecatedState) revertMigratedCasmClasses(
 	}
 
 	return classesCloser()
+}
+
+// lastUpdatedBlockNumber finds the most recent block number (up to upToBlock) recorded in
+// a history bucket for the given key prefix. All history buckets ([ContractStorageHistory],
+// [ContractNonceHistory], and [ContractClassHashHistory]) share the same key layout:
+// prefix + uint64 block number in big-endian.
+func (s *DeprecatedState) lastUpdatedBlockNumber(
+	historyKeyPrefix []byte,
+	upToBlock uint64,
+) (uint64, error) {
+	it, err := s.txn.NewIterator(historyKeyPrefix, true)
+	if err != nil {
+		return 0, err
+	}
+	defer it.Close()
+
+	seekKey := binary.BigEndian.AppendUint64(historyKeyPrefix, upToBlock)
+
+	if it.Seek(seekKey) {
+		seekedKey := it.Key()
+		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
+		if seekedBlock == upToBlock {
+			return upToBlock, nil
+		}
+	}
+
+	if !it.Prev() {
+		return 0, nil
+	}
+
+	foundKey := it.Key()
+	blockNum := binary.BigEndian.Uint64(foundKey[len(historyKeyPrefix):])
+	return blockNum, nil
 }
