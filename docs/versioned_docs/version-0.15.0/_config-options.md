@@ -16,6 +16,7 @@
 | `db-compression` | `"snappy"` | Database compression profile. Options: snappy, zstd, minlz. Use zstd for low storage. |
 | `db-max-handles` | `1024` | A soft limit on the number of open files that can be used by the DB |
 | `db-memtable-size` | `256` | Determines the amount of memory (in MBs) allocated for database memtables. |
+| `db-memtable-count` | `2` | Determines the number of memtables the database can queue before stalling writes. |
 | `db-path` | `path to your db location` | Location of the database files. |
 | `disable-l1-verification` |  | Disables L1 verification since an Ethereum node is not provided. |
 | `disable-rpc-batch-requests` |  | Disables handling of batched RPC requests. |
@@ -31,6 +32,7 @@
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests. |
 | `http-update-host` | `"localhost"` | The interface on which the log level and gateway timeouts HTTP server will listen for requests. |
 | `http-update-port` |  | The port on which the log level and gateway timeouts HTTP server will listen for requests. |
+| `log-json` |  | Use JSON encoding for log output. |
 | `log-level` | `"info"` | Options: trace, debug, info, warn, error. |
 | `max-vm-queue` | `72` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `36` | Maximum number for VM instances to be used for RPC calls concurrently |
