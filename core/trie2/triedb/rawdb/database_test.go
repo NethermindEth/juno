@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
@@ -300,6 +301,80 @@ func TestRawDB(t *testing.T) {
 		verifyNode(t, database, classID, &rootPath, rootNode)
 		verifyNode(t, database, classID, &leaf1Path, leaf1Node)
 		verifyNode(t, database, classID, &leaf2Path, leaf2Node)
+	})
+
+	t.Run("Scheme returns RawScheme", func(t *testing.T) {
+		db := New(memory.New())
+		assert.Equal(t, database.RawScheme, db.Scheme())
+	})
+
+	t.Run("NewIterator", func(t *testing.T) {
+		t.Run("empty db returns invalid iterator", func(t *testing.T) {
+			database := New(memory.New())
+			id := trieutils.NewClassTrieID(felt.StateRootHash{})
+			iter, err := database.NewIterator(id)
+			require.NoError(t, err)
+			assert.False(t, iter.Valid())
+		})
+
+		t.Run("class trie without owner", func(t *testing.T) {
+			memDB := memory.New()
+			database := New(memDB)
+
+			batch := memDB.NewBatch()
+			err := database.Update(
+				&felt.StateRootHash{},
+				&felt.StateRootHash{},
+				1,
+				createMergeNodeSet(basicClassNodes),
+				nil,
+				batch,
+			)
+			require.NoError(t, err)
+			require.NoError(t, batch.Write())
+
+			id := trieutils.NewClassTrieID(felt.StateRootHash{})
+			iter, err := database.NewIterator(id)
+			require.NoError(t, err)
+
+			prefix := db.ClassTrie.Key()
+			assert.True(t, iter.First())
+			assert.True(t, len(iter.Key()) >= len(prefix))
+			assert.Equal(t, prefix, iter.Key()[:len(prefix)])
+		})
+
+		t.Run("contract storage trie with owner", func(t *testing.T) {
+			memDB := memory.New()
+			database := New(memDB)
+
+			owner := felt.NewFromUint64[felt.Address](42)
+			storageNodes := map[felt.Address]map[trieutils.Path]trienode.TrieNode{
+				*owner: {leaf1Path: leaf1Node},
+			}
+
+			batch := memDB.NewBatch()
+			err := database.Update(
+				&felt.StateRootHash{},
+				&felt.StateRootHash{},
+				1,
+				nil,
+				createContractMergeNodeSet(storageNodes),
+				batch,
+			)
+			require.NoError(t, err)
+			require.NoError(t, batch.Write())
+
+			id := trieutils.NewContractStorageTrieID(felt.StateRootHash{}, *owner)
+			iter, err := database.NewIterator(id)
+			require.NoError(t, err)
+
+			bucketKey := db.ContractTrieStorage.Key()
+			ownerBytes := owner.Bytes()
+			expectedPrefix := append(bucketKey, ownerBytes[:]...)
+			assert.True(t, iter.First())
+			assert.True(t, len(iter.Key()) >= len(expectedPrefix))
+			assert.Equal(t, expectedPrefix, iter.Key()[:len(expectedPrefix)])
+		})
 	})
 
 	t.Run("Concurrent reads", func(t *testing.T) {
