@@ -187,12 +187,14 @@ type Transaction struct {
 	ProofFacts            *[]felt.Felt                 `json:"proof_facts,omitempty"`
 }
 
+// Deprecated: Use TransactionStatus with Client.TransactionStatus() instead.
 type TransactionFailureReason struct {
 	Code    string `json:"code"`
 	Message string `json:"error_message"`
 }
 
-type TransactionStatus struct {
+// Deprecated: Use TransactionStatus with Client.DeprecatedTransactionStatus() instead.
+type DeprecatedTransactionStatus struct {
 	Status           string                    `json:"status"`
 	FinalityStatus   FinalityStatus            `json:"finality_status"`
 	ExecutionStatus  ExecutionStatus           `json:"execution_status"`
@@ -202,6 +204,15 @@ type TransactionStatus struct {
 	Transaction      *Transaction              `json:"transaction"`
 	RevertError      string                    `json:"revert_error"`
 	FailureReason    *TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
+}
+
+// TransactionStatus represents the response from the get_transaction_status endpoint.
+type TransactionStatus struct {
+	TxStatus        string          `json:"tx_status"`
+	FinalityStatus  FinalityStatus  `json:"finality_status"`
+	ExecutionStatus ExecutionStatus `json:"execution_status"`
+	BlockHash       *felt.Felt      `json:"block_hash"`
+	TxRevertReason  string          `json:"tx_revert_reason"`
 }
 
 type Event struct {
