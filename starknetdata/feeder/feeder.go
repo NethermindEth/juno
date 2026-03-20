@@ -70,10 +70,11 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 	return sn2core.AdaptBlock(response, sig)
 }
 
-// Transaction gets the transaction for a given transaction hash from the feeder,
+// Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,
 // then adapts it to the appropriate core.Transaction types.
+// Uses the old get_transaction endpoint; prefer get_transaction_status for status-only queries.
 func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	response, err := f.client.TransactionStatus(ctx, transactionHash)
+	response, err := f.client.Transaction(ctx, transactionHash)
 	if err != nil {
 		return nil, err
 	}

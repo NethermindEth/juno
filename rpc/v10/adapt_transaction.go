@@ -263,7 +263,9 @@ func AdaptReceiptWithBlockInfo(
 	return adaptedReceipt
 }
 
-func AdaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionStatus, error) {
+func AdaptTransactionStatus(
+	txStatus *starknet.TransactionStatus,
+) (TransactionStatus, error) {
 	var status TransactionStatus
 
 	switch finalityStatus := txStatus.FinalityStatus; finalityStatus {
@@ -290,7 +292,7 @@ func AdaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionSt
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
 		status.Execution = TxnFailure
-		status.FailureReason = txStatus.RevertError
+		status.FailureReason = txStatus.TxRevertReason
 	case starknet.Rejected:
 		// Upon querying historical transaction, gateway returns `RECEIVED` finality status,
 		// along with `REJECTED` execution status. Rejected status is not supported by spec 0.9.0,

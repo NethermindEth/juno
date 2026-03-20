@@ -25,7 +25,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d",
 		)
-		status, err := client.TransactionStatus(t.Context(), txnHash)
+		status, err := client.Transaction(t.Context(), txnHash)
 		require.NoError(t, err)
 
 		declareTx := status.Transaction
@@ -66,7 +66,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 		)
-		status, err := client.TransactionStatus(t.Context(), txnHash)
+		status, err := client.Transaction(t.Context(), txnHash)
 		require.NoError(t, err)
 
 		require.Equal(t, &starknet.Transaction{
@@ -123,7 +123,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
 		)
-		status, err := client.TransactionStatus(t.Context(), txnHash)
+		status, err := client.Transaction(t.Context(), txnHash)
 		require.NoError(t, err)
 
 		invokeTx := status.Transaction
@@ -160,7 +160,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 		)
-		status, err := client.TransactionStatus(t.Context(), txnHash)
+		status, err := client.Transaction(t.Context(), txnHash)
 		require.NoError(t, err)
 
 		require.Equal(t, &starknet.Transaction{
@@ -244,7 +244,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee",
 	)
-	status, err := client.TransactionStatus(t.Context(), txnHash)
+	status, err := client.Transaction(t.Context(), txnHash)
 	require.NoError(t, err)
 
 	deployTx := status.Transaction
@@ -296,7 +296,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e",
 		)
-		status, err := client.TransactionStatus(t.Context(), txnHash)
+		status, err := client.Transaction(t.Context(), txnHash)
 		require.NoError(t, err)
 
 		deployTx := status.Transaction
@@ -361,7 +361,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 		)
-		status, err := client.TransactionStatus(t.Context(), txnHash)
+		status, err := client.Transaction(t.Context(), txnHash)
 		require.NoError(t, err)
 
 		require.Equal(t, &starknet.Transaction{
@@ -420,7 +420,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190",
 	)
-	status, err := client.TransactionStatus(t.Context(), txnHash)
+	status, err := client.Transaction(t.Context(), txnHash)
 	require.NoError(t, err)
 
 	handlerTx := status.Transaction
@@ -938,7 +938,7 @@ func TestTransactionStatusRevertError(t *testing.T) {
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
 	)
-	status, err := client.TransactionStatus(t.Context(), txnHash)
+	status, err := client.Transaction(t.Context(), txnHash)
 	require.NoError(t, err)
 	require.NotEmpty(t, status.RevertError)
 }
@@ -949,7 +949,7 @@ func TestTransactionStatusTransactionFailureReason(t *testing.T) {
 	txnHash := felt.NewUnsafeFromString[felt.Felt]("0x1111")
 	expectedMessage := "some error"
 	expectedErrorCode := "SOME_ERROR_CODE"
-	status, err := client.TransactionStatus(t.Context(), txnHash)
+	status, err := client.Transaction(t.Context(), txnHash)
 	require.NoError(t, err)
 	require.Equal(t, expectedMessage, status.FailureReason.Message)
 	require.Equal(t, expectedErrorCode, status.FailureReason.Code)

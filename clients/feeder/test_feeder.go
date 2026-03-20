@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const transactionHashArg = "transactionHash"
+
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t testing.TB, network *utils.Network) *Client {
 	srv := newTestServer(t, network)
@@ -120,8 +122,12 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 		}
 
 	case strings.HasSuffix(path, "get_transaction_status"):
+		dir = "transaction_status"
+		queryArg = transactionHashArg
+
+	case strings.HasSuffix(path, "get_transaction"):
 		dir = "transaction"
-		queryArg = "transactionHash"
+		queryArg = transactionHashArg
 
 	case strings.HasSuffix(path, "get_class_by_hash"):
 		dir = "class"
@@ -155,12 +161,15 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 }
 
 func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
-	// If a transaction data is missing, respond with
-	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
-	// instead of 404 as per real test server behaviour.
-	if dir == "transaction" && queryArg == "transactionHash" {
+	switch {
+	case dir == "transaction" && queryArg == transactionHashArg:
+		// get_transaction not-found response
 		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
-	} else {
+	case dir == "transaction_status" && queryArg == transactionHashArg:
+		// get_transaction_status not-found response
+		resp := `{"tx_status":"NOT_RECEIVED","finality_status":"NOT_RECEIVED","execution_status":null}`
+		w.Write([]byte(resp)) //nolint:errcheck // test server
+	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
 }

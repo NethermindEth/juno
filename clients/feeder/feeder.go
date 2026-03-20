@@ -207,8 +207,33 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 	return update, nil
 }
 
-func (c *Client) TransactionStatus(
+// Deprecated: Transaction calls the get_transaction endpoint which returns
+// the full transaction body. Use TransactionStatus() instead.
+func (c *Client) Transaction(
 	ctx context.Context, transactionHash *felt.Felt,
+) (*starknet.DeprecatedTransactionStatus, error) {
+	queryURL := c.buildQueryString("get_transaction", map[string]string{
+		"transactionHash": transactionHash.String(),
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	txStatus := new(starknet.DeprecatedTransactionStatus)
+	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
+		return nil, err
+	}
+	return txStatus, nil
+}
+
+// TransactionStatus calls the get_transaction_status endpoint which returns only status fields
+// (finality, execution status, block hash) without the full transaction body.
+func (c *Client) TransactionStatus(
+	ctx context.Context,
+	transactionHash *felt.Felt,
 ) (*starknet.TransactionStatus, error) {
 	queryURL := c.buildQueryString("get_transaction_status", map[string]string{
 		"transactionHash": transactionHash.String(),
