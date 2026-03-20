@@ -48,6 +48,9 @@ type State struct {
 	batch db.Batch
 }
 
+// New creates a writable state at the given root. The caller must provide a non-nil batch.
+// Should be used for operations, where state mutations are required. Read operations are
+// also supported.
 func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 	if batch == nil {
 		return nil, errors.New("cannot create state, nil Batch received")
@@ -72,6 +75,8 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 	}, nil
 }
 
+// NewStateReader creates a read-only view of the state at the given root.
+// Should be used for read operations that don't require state mutations
 func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 	contractTrie, err := db.ContractTrie(stateRoot)
 	if err != nil {

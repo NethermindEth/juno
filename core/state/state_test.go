@@ -1062,7 +1062,8 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	value := felt.NewFromUint64[felt.Felt](99)
 
 	stateDB := newTestStateDB()
-	state, err := NewStateReader(&felt.Zero, stateDB)
+	batch := stateDB.disk.NewBatch()
+	state, err := New(&felt.Zero, stateDB, batch)
 	require.NoError(t, err)
 
 	t.Run("storage never updated returns not found", func(t *testing.T) {
@@ -1081,6 +1082,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		},
 	}
 	require.NoError(t, state.Update(&core.Header{Number: block0}, su, nil, true))
+	require.NoError(t, batch.Write())
 
 	t.Run("storage updated at block 0 returns block 0", func(t *testing.T) {
 		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
@@ -1091,7 +1093,8 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	// update the key at block 1
 	root0, err := state.Commitment("")
 	require.NoError(t, err)
-	state, err = NewStateReader(&root0, stateDB)
+	batch = stateDB.disk.NewBatch()
+	state, err = New(&root0, stateDB, batch)
 	require.NoError(t, err)
 	su1 := &core.StateUpdate{
 		OldRoot: &root0,
@@ -1103,11 +1106,13 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		},
 	}
 	require.NoError(t, state.Update(&core.Header{Number: block1}, su1, nil, true))
+	require.NoError(t, batch.Write())
 
 	// two unrelated updates: block 2 and 3
 	root1, err := state.Commitment("")
 	require.NoError(t, err)
-	state, err = NewStateReader(&root1, stateDB)
+	batch = stateDB.disk.NewBatch()
+	state, err = New(&root1, stateDB, batch)
 	require.NoError(t, err)
 	su2 := &core.StateUpdate{
 		OldRoot: &root0,
@@ -1119,10 +1124,12 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		},
 	}
 	require.NoError(t, state.Update(&core.Header{Number: block2}, su2, nil, true))
+	require.NoError(t, batch.Write())
 
 	root2, err := state.Commitment("")
 	require.NoError(t, err)
-	state, err = NewStateReader(&root2, stateDB)
+	batch = stateDB.disk.NewBatch()
+	state, err = New(&root2, stateDB, batch)
 	require.NoError(t, err)
 	su3 := &core.StateUpdate{
 		OldRoot: &root2,
@@ -1134,6 +1141,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		},
 	}
 	require.NoError(t, state.Update(&core.Header{Number: block3}, su3, nil, true))
+	require.NoError(t, batch.Write())
 
 	t.Run("returns latest updated block", func(t *testing.T) {
 		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
