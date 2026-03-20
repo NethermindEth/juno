@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
-	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
@@ -370,7 +370,9 @@ func TestRawDB(t *testing.T) {
 
 			bucketKey := db.ContractTrieStorage.Key()
 			ownerBytes := owner.Bytes()
-			expectedPrefix := append(bucketKey, ownerBytes[:]...)
+			expectedPrefix := make([]byte, 0, len(bucketKey)+len(ownerBytes))
+			expectedPrefix = append(expectedPrefix, bucketKey...)
+			expectedPrefix = append(expectedPrefix, ownerBytes[:]...)
 			assert.True(t, iter.First())
 			assert.True(t, len(iter.Key()) >= len(expectedPrefix))
 			assert.Equal(t, expectedPrefix, iter.Key()[:len(expectedPrefix)])
