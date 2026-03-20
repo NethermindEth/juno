@@ -147,13 +147,12 @@ func (mr *MockStateReaderMockRecorder) ContractStorage(addr, key any) *gomock.Ca
 }
 
 // ContractStorageLastUpdatedBlock mocks base method.
-func (m *MockStateReader) ContractStorageLastUpdatedBlock(addr *felt.Address, key *felt.Felt) (uint64, bool, error) {
+func (m *MockStateReader) ContractStorageLastUpdatedBlock(addr *felt.Address, key *felt.Felt) (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageLastUpdatedBlock", addr, key)
 	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ContractStorageLastUpdatedBlock indicates an expected call of ContractStorageLastUpdatedBlock.

@@ -113,7 +113,7 @@ func (h *Handler) StorageAt(
 		return &result, nil
 	}
 
-	lastUpdateBlock, _, err := stateReader.ContractStorageLastUpdatedBlock(address, key)
+	lastUpdateBlock, err := stateReader.ContractStorageLastUpdatedBlock(address, key)
 	if err != nil {
 		h.log.Error(
 			"Failed to find last updated block for storage key",

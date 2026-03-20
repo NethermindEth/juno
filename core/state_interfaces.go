@@ -46,10 +46,7 @@ type StateReader interface {
 	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 	// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
 	// slot key of a given contract was last updated.
-	//
-	// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
-	// exists for the given storage key.
-	ContractStorageLastUpdatedBlock(addr *felt.Address, key *felt.Felt) (uint64, bool, error)
+	ContractStorageLastUpdatedBlock(addr *felt.Address, key *felt.Felt) (uint64, error)
 	// Class returns the class definition and declaration block number for the given class hash.
 	// todo: change classHash *felt.Felt to *felt.ClassHash
 	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)

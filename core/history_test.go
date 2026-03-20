@@ -151,49 +151,44 @@ func TestStateHistory(t *testing.T) {
 
 	t.Run("ContractStorageLastUpdatedBlock", func(t *testing.T) {
 		t.Run("returns not found before any storage update", func(t *testing.T) {
-			blockNum, found, err := snapshotBeforeDeployment.ContractStorageLastUpdatedBlock(
+			blockNum, err := snapshotBeforeDeployment.ContractStorageLastUpdatedBlock(
 				&addr, storageKey,
 			)
 			require.NoError(t, err)
-			assert.False(t, found)
 			assert.Equal(t, uint64(0), blockNum)
 		})
 
 		t.Run("returns deployment height at deployment snapshot", func(t *testing.T) {
-			blockNum, found, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
+			blockNum, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
 				&addr, storageKey,
 			)
 			require.NoError(t, err)
-			assert.True(t, found)
 			assert.Equal(t, deployedHeight, blockNum)
 		})
 
 		t.Run("returns deployment height between deployment and change", func(t *testing.T) {
 			snapshotBetween := core.NewDeprecatedStateHistory(state, changeHeight-1)
-			blockNum, found, err := snapshotBetween.ContractStorageLastUpdatedBlock(
+			blockNum, err := snapshotBetween.ContractStorageLastUpdatedBlock(
 				&addr, storageKey,
 			)
 			require.NoError(t, err)
-			assert.True(t, found)
 			assert.Equal(t, deployedHeight, blockNum)
 		})
 
 		t.Run("returns change height after storage was updated", func(t *testing.T) {
-			blockNum, found, err := snapshotAfterChange.ContractStorageLastUpdatedBlock(
+			blockNum, err := snapshotAfterChange.ContractStorageLastUpdatedBlock(
 				&addr, storageKey,
 			)
 			require.NoError(t, err)
-			assert.True(t, found)
 			assert.Equal(t, changeHeight, blockNum)
 		})
 
 		t.Run("returns not found for a key that was never updated", func(t *testing.T) {
 			unknownKey := felt.NewFromUint64[felt.Felt](999)
-			blockNum, found, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
+			blockNum, err := snapshotAtDeployment.ContractStorageLastUpdatedBlock(
 				&addr, unknownKey,
 			)
 			require.NoError(t, err)
-			assert.False(t, found)
 			assert.Equal(t, uint64(0), blockNum)
 		})
 	})

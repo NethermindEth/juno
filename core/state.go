@@ -76,13 +76,10 @@ func (s *DeprecatedState) ContractStorage(addr, key *felt.Felt) (felt.Felt, erro
 
 // ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
 // slot key of a given contract was last updated.
-//
-// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
-// exists for the given storage key.
 func (s *DeprecatedState) ContractStorageLastUpdatedBlock(
 	addr *felt.Address,
 	key *felt.Felt,
-) (uint64, bool, error) {
+) (uint64, error) {
 	return s.lastUpdatedBlockNumber(
 		db.ContractStorageHistoryKey((*felt.Felt)(addr), key),
 		math.MaxUint64,
@@ -918,15 +915,15 @@ func (s *DeprecatedState) ContractStorageAt(
 
 // ContractStorageLastUpdatedAt returns the block number at which a given storage
 // slot key of a given contract was last updated, up to and including the given block number.
-//
-// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
-// exists for the given storage key.
 func (s *DeprecatedState) ContractStorageLastUpdatedAt(
 	addr *felt.Address,
 	key *felt.Felt,
 	blockNumber uint64,
-) (uint64, bool, error) {
-	return s.lastUpdatedBlockNumber(db.ContractStorageHistoryKey((*felt.Felt)(addr), key), blockNumber)
+) (uint64, error) {
+	return s.lastUpdatedBlockNumber(
+		db.ContractStorageHistoryKey((*felt.Felt)(addr), key),
+		blockNumber,
+	)
 }
 
 func (s *DeprecatedState) ContractNonceAt(
@@ -998,16 +995,13 @@ func (s *DeprecatedState) revertMigratedCasmClasses(
 // a history bucket for the given key prefix. All history buckets ([ContractStorageHistory],
 // [ContractNonceHistory], and [ContractClassHashHistory]) share the same key layout:
 // prefix + uint64 block number in big-endian.
-//
-// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
-// exists for the prefix.
 func (s *DeprecatedState) lastUpdatedBlockNumber(
 	historyKeyPrefix []byte,
 	upToBlock uint64,
-) (uint64, bool, error) {
+) (uint64, error) {
 	it, err := s.txn.NewIterator(historyKeyPrefix, true)
 	if err != nil {
-		return 0, false, err
+		return 0, err
 	}
 	defer it.Close()
 
@@ -1017,15 +1011,15 @@ func (s *DeprecatedState) lastUpdatedBlockNumber(
 		seekedKey := it.Key()
 		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
 		if seekedBlock == upToBlock {
-			return upToBlock, true, nil
+			return upToBlock, nil
 		}
 	}
 
 	if !it.Prev() {
-		return 0, false, nil
+		return 0, nil
 	}
 
 	foundKey := it.Key()
 	blockNum := binary.BigEndian.Uint64(foundKey[len(historyKeyPrefix):])
-	return blockNum, true, nil
+	return blockNum, nil
 }

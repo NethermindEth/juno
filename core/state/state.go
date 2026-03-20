@@ -110,13 +110,10 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 
 // ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
 // slot key of a given contract was last updated.
-//
-// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
-// exists for the given storage key.
 func (s *State) ContractStorageLastUpdatedBlock(
 	addr *felt.Address,
 	key *felt.Felt,
-) (uint64, bool, error) {
+) (uint64, error) {
 	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
 	return s.lastUpdatedBlockNumber(prefix, math.MaxUint64)
 }
@@ -730,14 +727,11 @@ func (s *State) ContractStorageAt(addr, key *felt.Felt, blockNum uint64) (felt.F
 
 // Returns the block number at which a given storage slot key of a given contract was
 // last updated, up to and including the given block number.
-//
-// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
-// exists for the given storage key.
 func (s *State) ContractStorageLastUpdatedAt(
 	addr *felt.Address,
 	key *felt.Felt,
 	blockNum uint64,
-) (uint64, bool, error) {
+) (uint64, error) {
 	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
 	return s.lastUpdatedBlockNumber(prefix, blockNum)
 }
@@ -896,16 +890,13 @@ func stateCommitment(contractRoot, classRoot *felt.Felt, protocolVersion string)
 // a history bucket for the given key prefix. All history buckets ([ContractStorageHistory],
 // [ContractNonceHistory], and [ContractClassHashHistory]) share the same key layout:
 // prefix + uint64 block number in big-endian.
-//
-// Returns (blockNumber, true, nil) if found, or (0, false, nil) if no history entry
-// exists for the prefix.
 func (s *State) lastUpdatedBlockNumber(
 	historyKeyPrefix []byte,
 	upToBlock uint64,
-) (uint64, bool, error) {
+) (uint64, error) {
 	it, err := s.db.disk.NewIterator(historyKeyPrefix, true)
 	if err != nil {
-		return 0, false, err
+		return 0, err
 	}
 	defer it.Close()
 
@@ -915,15 +906,15 @@ func (s *State) lastUpdatedBlockNumber(
 		seekedKey := it.Key()
 		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
 		if seekedBlock == upToBlock {
-			return upToBlock, true, nil
+			return upToBlock, nil
 		}
 	}
 
 	if !it.Prev() {
-		return 0, false, nil
+		return 0, nil
 	}
 
 	foundKey := it.Key()
 	blockNum := binary.BigEndian.Uint64(foundKey[len(historyKeyPrefix):])
-	return blockNum, true, nil
+	return blockNum, nil
 }

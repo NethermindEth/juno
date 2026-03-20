@@ -979,9 +979,8 @@ func TestDeprecatedStateContractStorageLastUpdatedBlock(t *testing.T) {
 	value := felt.NewFromUint64[felt.Felt](100)
 
 	t.Run("storage never updated returns not found", func(t *testing.T) {
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
-		assert.False(t, found)
 		assert.Equal(t, uint64(0), blockNum)
 	})
 
@@ -996,9 +995,8 @@ func TestDeprecatedStateContractStorageLastUpdatedBlock(t *testing.T) {
 	}, nil, true))
 
 	t.Run("storage updated at block 3 returns 3", func(t *testing.T) {
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+		blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
 		require.NoError(t, err)
-		assert.True(t, found)
 		assert.Equal(t, uint64(3), blockNum)
 	})
 
@@ -1018,18 +1016,16 @@ func TestDeprecatedStateContractStorageLastUpdatedBlock(t *testing.T) {
 	t.Run(
 		"returns latest updated block after new update with no change in our 'key' storage",
 		func(t *testing.T) {
-			blockNum, found, err := state.ContractStorageLastUpdatedBlock(&addr, key)
+			blockNum, err := state.ContractStorageLastUpdatedBlock(&addr, key)
 			require.NoError(t, err)
-			assert.True(t, found)
 			assert.Equal(t, uint64(3), blockNum)
 		})
 
 	t.Run("unrelated key returns not found", func(t *testing.T) {
-		blockNum, found, err := state.ContractStorageLastUpdatedBlock(
+		blockNum, err := state.ContractStorageLastUpdatedBlock(
 			&addr, felt.NewFromUint64[felt.Felt](999),
 		)
 		require.NoError(t, err)
-		assert.False(t, found)
 		assert.Equal(t, uint64(0), blockNum)
 	})
 }

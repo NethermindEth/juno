@@ -130,28 +130,25 @@ func TestPendingState(t *testing.T) {
 		deployedAddr := (*felt.Address)(deployedAddr)
 		deployedAddr2 := (*felt.Address)(deployedAddr2)
 		t.Run("from pending", func(t *testing.T) {
-			blockNum, found, err := state.ContractStorageLastUpdatedBlock(
+			blockNum, err := state.ContractStorageLastUpdatedBlock(
 				deployedAddr, key,
 			)
 			require.NoError(t, err)
-			assert.True(t, found)
 			assert.Equal(t, pendingBlockNumber, blockNum)
 		})
 		t.Run("deployed contract with unchanged storage key", func(t *testing.T) {
 			unchangedKey := felt.NewRandom[felt.Felt]()
-			blockNum, found, err := state.ContractStorageLastUpdatedBlock(
+			blockNum, err := state.ContractStorageLastUpdatedBlock(
 				deployedAddr, unchangedKey,
 			)
 			require.NoError(t, err)
-			assert.False(t, found)
 			assert.Equal(t, uint64(0), blockNum)
 		})
 		t.Run("deployed contract with no storage diffs", func(t *testing.T) {
-			blockNum, found, err := state.ContractStorageLastUpdatedBlock(
+			blockNum, err := state.ContractStorageLastUpdatedBlock(
 				deployedAddr2, new(felt.Felt).SetUint64(0xDEADBEEF),
 			)
 			require.NoError(t, err)
-			assert.False(t, found)
 			assert.Equal(t, uint64(0), blockNum)
 		})
 		t.Run("existing contract with unrelated storage diffs (falls to head)", func(t *testing.T) {
@@ -160,13 +157,12 @@ func TestPendingState(t *testing.T) {
 
 			mockState.EXPECT().ContractStorageLastUpdatedBlock(
 				existingContractAddr, unrelatedKey,
-			).Return(expectedBlock, true, nil)
+			).Return(expectedBlock, nil)
 
-			blockNum, found, err := state.ContractStorageLastUpdatedBlock(
+			blockNum, err := state.ContractStorageLastUpdatedBlock(
 				existingContractAddr, unrelatedKey,
 			)
 			require.NoError(t, err)
-			assert.True(t, found)
 			assert.Equal(t, expectedBlock, blockNum)
 		})
 		t.Run("contract not mentioned in pending state (falls to head)", func(t *testing.T) {
@@ -176,11 +172,10 @@ func TestPendingState(t *testing.T) {
 
 			mockState.EXPECT().ContractStorageLastUpdatedBlock(
 				randomAddr, randomKey,
-			).Return(expectedBlock, true, nil)
+			).Return(expectedBlock, nil)
 
-			blockNum, found, err := state.ContractStorageLastUpdatedBlock(randomAddr, randomKey)
+			blockNum, err := state.ContractStorageLastUpdatedBlock(randomAddr, randomKey)
 			require.NoError(t, err)
-			assert.True(t, found)
 			assert.Equal(t, expectedBlock, blockNum)
 		})
 	})
