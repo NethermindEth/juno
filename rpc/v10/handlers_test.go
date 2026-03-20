@@ -20,7 +20,7 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpcv10.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.10.0", version)
+	require.Equal(t, "0.10.1", version)
 }
 
 func TestThrottledVMError(t *testing.T) {
