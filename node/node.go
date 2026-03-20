@@ -403,12 +403,21 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		return nil, err
 	}
 
+	// All the following endpoints will be available for both HTTP and WS.
+	// Also, additional WS endpoints will be created in the following format: /ws/<path>
+	// E.g.:
+	// /ws + /
+	// /ws + /rpc
+	// /ws + /v0_10
+	// /ws + /rpc/v0_10
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":              jsonrpcServerV08,
+		// Default RPC endpoints
+		"/":    jsonrpcServerV10,
+		"/rpc": jsonrpcServerV10,
+
 		pathV10:          jsonrpcServerV10,
 		pathV09:          jsonrpcServerV09,
 		pathV08:          jsonrpcServerV08,
-		"/rpc":           jsonrpcServerV08,
 		"/rpc" + pathV10: jsonrpcServerV10,
 		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
