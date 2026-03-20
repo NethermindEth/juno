@@ -4,7 +4,7 @@ title: JSON-RPC Interface
 
 # JSON-RPC Interface :globe_with_meridians:
 
-Interacting with Juno requires sending requests to specific JSON-RPC API methods. Juno supports all of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.8.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) over HTTP and [WebSocket](websocket).
+Interacting with Juno requires sending requests to specific JSON-RPC API methods. Juno supports all of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) over HTTP and [WebSocket](websocket).
 
 ## Enable the JSON-RPC server
 
@@ -31,7 +31,7 @@ docker run -d \
 
 ## Making JSON-RPC requests
 
-You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.8.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
+You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
 
 ```mdx-code-block
 import Tabs from "@theme/Tabs";
@@ -54,7 +54,7 @@ import TabItem from "@theme/TabItem";
 <TabItem value="curl" label="cURL">
 
 ```bash
-curl --location 'http://localhost:6060/v0_9' \
+curl --location 'http://localhost:6060/' \
 --header 'Content-Type: application/json' \
 --data '{
     "jsonrpc": "2.0",
@@ -70,7 +70,7 @@ curl --location 'http://localhost:6060/v0_9' \
 ```json
 {
   "jsonrpc": "2.0",
-  "result": "v0.11.7",
+  "result": "v0.16.0",
   "id": 1
 }
 ```
@@ -200,9 +200,9 @@ async fn main() {
 
 Juno supports the following Starknet API versions:
 
-- **v0.10.1**: Accessible via endpoints `/v0_10`, `/rpc/v0_10`
+- **v0.10.1**: Accessible via endpoints `/v0_10`, `/rpc/v0_10`,  or the defaults `/rpc` and `/`
 - **v0.9.0**: Accessible via endpoints `/v0_9`, `/rpc/v0_9`
-- **v0.8.1**: Accessible via endpoints `/v0_8` or `/rpc/v0_8`, or the default `/`
+- **v0.8.1**: Accessible via endpoints `/v0_8`, `/rpc/v0_8`
 
 To use a specific API version, specify the version endpoint in your RPC calls:
 

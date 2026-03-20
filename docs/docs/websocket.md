@@ -4,7 +4,7 @@ title: WebSocket Interface
 
 # WebSocket Interface :globe_with_meridians:
 
-Juno provides a WebSocket RPC interface that supports all of [Starknet's JSON-RPC API](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.8.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) endpoints and allows you to [subscribe to newly created blocks](#subscribe-to-newly-created-blocks).
+Juno provides a WebSocket RPC interface that supports all of [Starknet's JSON-RPC API](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) endpoints and allows you to [subscribe to newly created blocks](#subscribe-to-newly-created-blocks).
 
 ## Enable the WebSocket server
 
@@ -31,7 +31,7 @@ docker run -d \
 
 ## Making WebSocket requests
 
-You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.7.0/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
+You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
 
 ```mdx-code-block
 import Tabs from "@theme/Tabs";
@@ -56,7 +56,7 @@ import TabItem from "@theme/TabItem";
 ```json
 {
   "jsonrpc": "2.0",
-  "result": "v0.14.3",
+  "result": "v0.16.0",
   "id": 1
 }
 ```
@@ -269,7 +269,7 @@ You can test your WebSocket connection using tools like [wscat](https://github.c
 # wscat
 $ wscat -c ws://localhost:6061
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
 
 # websocat
 $ websocat -v ws://localhost:6061
@@ -278,16 +278,16 @@ $ websocat -v ws://localhost:6061
     [INFO  websocat::ws_client_peer] get_ws_client_peer
     [INFO  websocat::ws_client_peer] Connected to ws
     {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+    {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
 ```
 
 ## Supported Starknet API versions
 
 Juno supports the following Starknet API versions:
 
-- **v0.10.1**: Accessible via endpoint `/ws/v0_10`
-- **v0.9.0**: Accessible via endpoint `/ws/v0_9`
-- **v0.8.1**: Accessible via endpoint `/ws/v0_8`
+- **v0.10.1**: Accessible via endpoint `/v0_10`, `/ws/v0_10` or the defaults `/ws` and `/`
+- **v0.9.0**: Accessible via endpoint `/v0_9`, `/ws/v0_9`
+- **v0.8.1**: Accessible via endpoint `/v0_8`, `/ws/v0_8`
 
 To use a specific API version, specify the version endpoint in your WS calls:
 
@@ -296,9 +296,9 @@ To use a specific API version, specify the version endpoint in your WS calls:
 
 ```bash
 # wscat
-$ wscat -c ws://localhost:6061/ws/v0_9
+$ wscat -c ws://localhost:6061/ws/v0_10
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.15.18", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
 ```
 
 </TabItem>
@@ -308,7 +308,7 @@ $ wscat -c ws://localhost:6061/ws/v0_9
 # wscat
 $ wscat -c ws://localhost:6061/ws/v0_9
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.15.18", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
 ```
 
 </TabItem>
@@ -318,7 +318,7 @@ $ wscat -c ws://localhost:6061/ws/v0_9
 # wscat
 $ wscat -c ws://localhost:6061/ws/v0_8
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.15.18", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
 ```
 
 </TabItem>
