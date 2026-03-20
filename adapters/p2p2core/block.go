@@ -7,9 +7,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/event"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/header"
 )
 
 func AdaptEvent(e *event.Event) *core.Event {

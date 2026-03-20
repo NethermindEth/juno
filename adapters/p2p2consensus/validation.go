@@ -3,7 +3,7 @@ package p2p2consensus
 import (
 	"errors"
 
-	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	p2pconsensus "github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 )
 
 func validateProposalInit(p *p2pconsensus.ProposalInit) error {

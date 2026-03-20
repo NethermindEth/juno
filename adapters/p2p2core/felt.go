@@ -6,8 +6,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	ethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/receipt"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/receipt"
 )
 
 func AdaptHash(h *common.Hash) *felt.Felt {

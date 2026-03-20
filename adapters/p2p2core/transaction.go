@@ -8,9 +8,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	synctransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/transaction"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
 func AdaptDeclareV3WithClass(

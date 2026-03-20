@@ -6,8 +6,8 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 )
 
 type VoteAdapter[H types.Hash, A types.Addr] interface {

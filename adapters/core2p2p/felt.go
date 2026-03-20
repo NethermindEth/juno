@@ -3,8 +3,8 @@ package core2p2p
 import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
 func AdaptHash(f *felt.Felt) *common.Hash {

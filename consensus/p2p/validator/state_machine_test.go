@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/p2p/validator"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

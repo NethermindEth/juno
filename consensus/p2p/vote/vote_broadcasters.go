@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"go.uber.org/zap"
 )
 

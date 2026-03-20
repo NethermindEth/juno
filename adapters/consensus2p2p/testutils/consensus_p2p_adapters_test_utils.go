@@ -11,9 +11,9 @@ import (
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	p2pconsensus "github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
 var TransactionBuilder = transactiontestutils.TransactionBuilder[

@@ -13,7 +13,7 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/pool"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )

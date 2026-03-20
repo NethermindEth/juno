@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/class"
 )
 
 func AdaptClass(cls core.ClassDefinition) *class.Class {

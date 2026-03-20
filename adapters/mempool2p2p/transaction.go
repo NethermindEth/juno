@@ -8,9 +8,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	mempooltransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/mempool/transaction"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	mempooltransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/mempool/transaction"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
 func toHash(felt *felt.Felt) *common.Hash {

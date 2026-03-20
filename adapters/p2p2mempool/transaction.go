@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
-	mempooltransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/mempool/transaction"
+	mempooltransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/mempool/transaction"
 )
 
 func validateMempoolTransaction(t *mempooltransaction.MempoolTransaction) error {

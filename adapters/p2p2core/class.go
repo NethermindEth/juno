@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/class"
 )
 
 func AdaptSierraClass(

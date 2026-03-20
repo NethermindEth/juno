@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	mempooltransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/mempool/transaction"
+	mempooltransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/mempool/transaction"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )

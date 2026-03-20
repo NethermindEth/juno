@@ -7,8 +7,8 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
-	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
+	p2pconsensus "github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
 func AdaptTransaction(tx *consensus.Transaction) (*p2pconsensus.ConsensusTransaction, error) {

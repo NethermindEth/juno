@@ -6,10 +6,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
-	synccommon "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/common"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	synccommon "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/common"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/event"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/header"
 )
 
 func AdaptBlockID(blockHeader *core.Header) *common.BlockID {

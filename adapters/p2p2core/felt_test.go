@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/stretchr/testify/assert"
 )
 
