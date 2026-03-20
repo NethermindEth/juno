@@ -8,12 +8,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-const (
-	PathScheme = iota + 1
-	HashScheme
-	RawScheme
-)
-
 type Config struct {
 	PathConfig *pathdb.Config
 	HashConfig *hashdb.Config
