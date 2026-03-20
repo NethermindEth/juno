@@ -1062,7 +1062,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	value := felt.NewFromUint64[felt.Felt](99)
 
 	stateDB := newTestStateDB()
-	state, err := New(&felt.Zero, stateDB)
+	state, err := NewStateReader(&felt.Zero, stateDB)
 	require.NoError(t, err)
 
 	t.Run("storage never updated returns not found", func(t *testing.T) {
@@ -1091,7 +1091,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	// update the key at block 1
 	root0, err := state.Commitment("")
 	require.NoError(t, err)
-	state, err = New(&root0, stateDB)
+	state, err = NewStateReader(&root0, stateDB)
 	require.NoError(t, err)
 	su1 := &core.StateUpdate{
 		OldRoot: &root0,
@@ -1107,7 +1107,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	// two unrelated updates: block 2 and 3
 	root1, err := state.Commitment("")
 	require.NoError(t, err)
-	state, err = New(&root1, stateDB)
+	state, err = NewStateReader(&root1, stateDB)
 	require.NoError(t, err)
 	su2 := &core.StateUpdate{
 		OldRoot: &root0,
@@ -1122,7 +1122,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 
 	root2, err := state.Commitment("")
 	require.NoError(t, err)
-	state, err = New(&root2, stateDB)
+	state, err = NewStateReader(&root2, stateDB)
 	require.NoError(t, err)
 	su3 := &core.StateUpdate{
 		OldRoot: &root2,

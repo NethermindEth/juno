@@ -229,7 +229,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 	value := felt.NewFromUint64[felt.Felt](99)
 
 	stateDB := newTestStateDB()
-	state, err := New(&felt.Zero, stateDB)
+	state, err := NewStateReader(&felt.Zero, stateDB)
 	require.NoError(t, err)
 
 	su0 := &core.StateUpdate{
@@ -247,7 +247,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 	root0, err := state.Commitment("")
 	require.NoError(t, err)
 
-	state, err = New(&root0, stateDB)
+	state, err = NewStateReader(&root0, stateDB)
 	require.NoError(t, err)
 
 	su3 := &core.StateUpdate{
