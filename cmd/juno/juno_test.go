@@ -27,7 +27,7 @@ func TestConfigPrecedence(t *testing.T) {
 	// values is respected. Since viper offers this feature, it would be
 	// redundant to enumerate all combinations. Thus, only a select few are
 	// tested for sanity. These tests are not intended to perform semantics
-	// checks on the config, those will be checked by the node implementation.
+	// checks on the config, those will be checked by the node implementation
 	defaultHost := "localhost"
 	defaultLogLevel := "info"
 	defaultHTTP := false
