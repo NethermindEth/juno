@@ -41,6 +41,40 @@ const (
 	block5 = 5
 )
 
+func TestNew(t *testing.T) {
+	t.Run("nil batch returns error", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		_, err := New(&felt.Zero, stateDB, nil)
+		require.Error(t, err)
+	})
+
+	t.Run("valid batch returns state", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		batch := stateDB.disk.NewBatch()
+		st, err := New(&felt.Zero, stateDB, batch)
+		require.NoError(t, err)
+		assert.NotNil(t, st)
+	})
+}
+
+func TestNewStateReader(t *testing.T) {
+	t.Run("returns read-only state at root", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		st, err := NewStateReader(&felt.Zero, stateDB)
+		require.NoError(t, err)
+		assert.NotNil(t, st)
+	})
+
+	t.Run("state commitment readable", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		st, err := NewStateReader(&felt.Zero, stateDB)
+		require.NoError(t, err)
+
+		_, err = st.Commitment("")
+		require.NoError(t, err)
+	})
+}
+
 func TestUpdate(t *testing.T) {
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
