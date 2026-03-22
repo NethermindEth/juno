@@ -22,6 +22,7 @@ import (
 func TestCallDeprecatedCairo(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
+	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -35,7 +36,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
 	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	testState, err := stateFactory.NewState(&felt.Zero, txn)
+	testState, err := stateFactory.NewState(&felt.Zero, txn, batch)
 	require.NoError(t, err)
 	newRoot := felt.NewUnsafeFromString[felt.Felt](
 		"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
@@ -79,7 +80,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 	// if new state, we need to create a new state with the new root
 	if statetestutils.UseNewState() {
-		testState, err = stateFactory.NewState(newRoot, txn)
+		testState, err = stateFactory.NewState(newRoot, txn, batch)
 		require.NoError(t, err)
 	}
 
@@ -117,6 +118,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
+	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -130,7 +132,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
 	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	testState, err := stateFactory.NewState(&felt.Zero, txn)
+	testState, err := stateFactory.NewState(&felt.Zero, txn, batch)
 	require.NoError(t, err)
 
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
@@ -170,6 +172,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 func TestCallCairo(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
+	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Goerli)
 	gw := adaptfeeder.New(client)
 
@@ -184,7 +187,12 @@ func TestCallCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	state := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
+	state, err := stateFactory.NewState(&felt.Zero, txn, batch)
+	require.NoError(t, err)
 	firstStateUpdate := core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
@@ -270,6 +278,7 @@ func TestCallCairo(t *testing.T) {
 func TestCallInfoErrorHandling(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
+	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
@@ -282,7 +291,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
 	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
-	testState, err := stateFactory.NewState(&felt.Zero, txn)
+	testState, err := stateFactory.NewState(&felt.Zero, txn, batch)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
@@ -352,8 +361,14 @@ func TestCallInfoErrorHandling(t *testing.T) {
 func TestExecute(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
+	batch := testDB.NewBatch()
 
-	state := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	stateFactory := statefactory.NewStateFactory(statetestutils.UseNewState(), triedb, stateDB)
+	state, err := stateFactory.NewState(&felt.Zero, txn, batch)
+	require.NoError(t, err)
 
 	t.Run("empty transaction list", func(t *testing.T) {
 		feeTokens := utils.DefaultFeeTokenAddresses

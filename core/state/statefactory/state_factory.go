@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 )
 
 type StateFactory struct {
@@ -36,7 +37,7 @@ func (sf *StateFactory) NewState(
 	txn db.IndexedBatch,
 	batch db.Batch,
 ) (core.State, error) {
-	if !sf.UseNewState {
+	if !sf.useNewState {
 		deprecatedState := core.NewDeprecatedState(txn)
 		return deprecatedState, nil
 	}
@@ -53,7 +54,7 @@ func (sf *StateFactory) NewStateReader(
 	txn db.IndexedBatch,
 	blockNumber uint64,
 ) (core.StateReader, error) {
-	if !sf.UseNewState {
+	if !sf.useNewState {
 		deprecatedState := core.NewDeprecatedState(txn)
 		history := core.NewDeprecatedStateHistory(deprecatedState, blockNumber)
 		return history, nil
@@ -64,4 +65,22 @@ func (sf *StateFactory) NewStateReader(
 		return nil, err
 	}
 	return &history, nil
+}
+
+func (sf *StateFactory) EmptyState() (core.StateReader, error) {
+	if !sf.useNewState {
+		memDB := memory.New()
+		txn := memDB.NewIndexedBatch()
+		emptyState := core.NewDeprecatedState(txn)
+		return emptyState, nil
+	}
+	state, err := state.NewStateReader(&felt.Zero, sf.stateDB)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
+}
+
+func (sf *StateFactory) UseNewState() bool {
+	return sf.useNewState
 }

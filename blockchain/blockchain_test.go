@@ -1,6 +1,7 @@
 package blockchain_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -8,7 +9,10 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/state/statefactory"
 	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -752,7 +756,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	}
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Integration)
+	chain := blockchain.New(testDB, &utils.Integration, statetestutils.UseNewState())
 
 	receipts0 := make([]*core.TransactionReceipt, 0)
 	//nolint:dupl // Similar to block0 in `TestRevertHeadDeclaredV2CasmClasses`
@@ -820,7 +824,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
 	require.NoError(t, err)
 	assert.Equal(t, v2CasmHash, gotCasmHash, "should return V2 after migrating class")
-	gotRoot, err := chain.StateCommitment()
+	gotRoot, err := chainStateCommitment(testDB)
 	require.NoError(t, err)
 	assert.Equal(t, stateUpdate1.NewRoot, &gotRoot)
 
@@ -835,7 +839,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, v1CasmHash, gotCasmHash, "should return V1 after reverting migrated class")
 
-	gotRoot, err = chain.StateCommitment()
+	gotRoot, err = chainStateCommitment(testDB)
 	require.NoError(t, err)
 	assert.Equal(t, stateUpdate0.NewRoot, &gotRoot, "state root after revert should match block 0")
 }
@@ -866,7 +870,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	}
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, network)
+	chain := blockchain.New(testDB, network, statetestutils.UseNewState())
 
 	// Block 0: empty genesis block so we have a head after reverting block 1
 	receipts0 := make([]*core.TransactionReceipt, 0)
@@ -941,7 +945,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	_, err = state.CompiledClassHash(&sierraHash)
 	assert.Error(t, err, "should error after reverting declared V2 class")
 
-	gotRoot, err := chain.StateCommitment()
+	gotRoot, err := chainStateCommitment(testDB)
 	require.NoError(t, err)
 	assert.Equal(t, stateUpdate0.NewRoot, &gotRoot, "state root after revert should match block 0")
 }
@@ -986,9 +990,33 @@ func TestSubscribeL1Head(t *testing.T) {
 	assert.Equal(t, l1Head, got)
 }
 
-func TestStateCommitmentEmptyChain(t *testing.T) {
-	chain := blockchain.New(memory.New(), &utils.Mainnet)
-	commitment, err := chain.StateCommitment()
-	require.NoError(t, err)
-	assert.Equal(t, felt.Felt{}, commitment)
+// chainStateCommitment is a helper function that returns the latest
+// block state commitment. If blockchain is empty zero felt is returned.
+func chainStateCommitment(testDB db.KeyValueStore) (felt.Felt, error) {
+	height, err := core.GetChainHeight(testDB)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return felt.Felt{}, nil
+		}
+		return felt.Felt{}, err
+	}
+	header, err := core.GetBlockHeaderByNumber(testDB, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	trieDB, err := triedb.New(testDB, nil)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	stateDB := state.NewStateDB(testDB, trieDB)
+	sf := statefactory.NewStateFactory(statetestutils.UseNewState(), trieDB, stateDB)
+	var txn db.IndexedBatch
+	if !sf.UseNewState() {
+		txn = testDB.NewIndexedBatch()
+	}
+	st, err := sf.NewState(header.GlobalStateRoot, txn, nil)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return st.Commitment(header.ProtocolVersion)
 }

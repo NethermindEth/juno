@@ -786,7 +786,17 @@ func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) erro
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 	if !it.Seek(seekKey) {
-		return ErrCheckHeadState
+		// All existing keys (if any) are before seekKey.
+		// The last stored value is the correct answer for this blockNum.
+		if !it.Prev() {
+			// Iterator is truly empty for this prefix — no history exists.
+			return ErrNoHistoryValue
+		}
+		val, err := it.Value()
+		if err != nil {
+			return err
+		}
+		return cb(val)
 	}
 
 	key := it.Key()

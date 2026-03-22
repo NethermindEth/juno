@@ -14,15 +14,15 @@ import (
 func newTestFactory(t *testing.T, useNewState bool) *StateFactory {
 	t.Helper()
 	if !useNewState {
-		sf, err := NewStateFactory(false, nil, nil)
-		require.NoError(t, err)
+		sf := NewStateFactory(false, nil, nil)
+		require.NotNil(t, sf)
 		return sf
 	}
 	memDB := memory.New()
 	trieDB := rawdb.New(memDB)
 	stateDB := state.NewStateDB(memDB, trieDB)
-	sf, err := NewStateFactory(true, trieDB, stateDB)
-	require.NoError(t, err)
+	sf := NewStateFactory(true, trieDB, stateDB)
+	require.NotNil(t, sf)
 	return sf
 }
 

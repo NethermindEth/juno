@@ -509,7 +509,7 @@ func TestStorageProof(t *testing.T) {
 		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil).Times(1)
 		classHash := felt.NewFromUint64[felt.Felt](1234)
 		mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil).Times(1)
-		mockState.EXPECT().ContractStorageTrie(key).Return(tempTrie, nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(key).Return(contractTrie, nil).Times(1)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
@@ -613,7 +613,7 @@ func TestStorageProof(t *testing.T) {
 		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil)
 		classHash := felt.NewFromUint64[felt.Felt](1234)
 		mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil)
-		mockState.EXPECT().ContractStorageTrie(key).Return(tempTrie, nil)
+		mockState.EXPECT().ContractStorageTrie(key).Return(contractTrie, nil)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, []felt.Felt{*key}, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
