@@ -1,6 +1,7 @@
 package blockchain_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -11,7 +12,9 @@ import (
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/core/state"
 	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -764,7 +767,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	}
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &networks.Integration)
+	chain := blockchain.New(testDB, &networks.Integration, statetestutils.UseNewState())
 
 	receipts0 := make([]*core.TransactionReceipt, 0)
 	//nolint:dupl // Similar to block0 in `TestRevertHeadDeclaredV2CasmClasses`
@@ -876,7 +879,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	}
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, network)
+	chain := blockchain.New(testDB, network, statetestutils.UseNewState())
 
 	// Block 0: empty genesis block so we have a head after reverting block 1
 	receipts0 := make([]*core.TransactionReceipt, 0)
@@ -1001,9 +1004,23 @@ func chainStateCommitment(t *testing.T, database db.KeyValueStore) felt.Felt {
 	header, err := core.GetBlockHeaderByNumber(database, height)
 	require.NoError(t, err)
 
+	if !statetestutils.UseNewState() {
 	//nolint:staticcheck,nolintlint // used by old state
 	txn := database.NewIndexedBatch()
 	commitment, err := deprecatedstate.New(txn).Commitment(header.ProtocolVersion)
 	require.NoError(t, err)
 	return commitment
+	}
+
+	trieDB, err := triedb.New(testDB, nil)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	stateDB := state.NewStateDB(testDB, trieDB)
+	state := state.NewStateReader(header.GlobalStateRoot, stateDB)
+	commitment, err := state.Commitment(header.ProtocolVersion)
+	require.NoError(t, err)
+	return commitment
+}
+
 }

@@ -362,7 +362,6 @@ func (b *Blockchain) StateAtBlockNumber(
 // StateAtBlockHash returns a StateReader that provides
 // a stable view to the state at the given block hash
 func (b *Blockchain) StateAtBlockHash(
-	// todo: this should be *felt.Hash or *felt.BlockHash
 	blockHash *felt.Felt,
 ) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")

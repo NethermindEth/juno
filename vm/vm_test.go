@@ -71,7 +71,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 	// if new state, we need to create a new state with the new root
 	if statetestutils.UseNewState() {
-		testState, err = stateFactory.NewState(newRoot, txn)
+		testState, err = stateFactory.NewState(newRoot, txn, batch)
 		require.NoError(t, err)
 	}
 
@@ -336,6 +336,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 func TestExecute(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
+	batch := testDB.NewBatch()
 
 	state := deprecatedstate.New(txn)
 
