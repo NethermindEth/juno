@@ -888,7 +888,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			checkTxReceipt(t, txHash, expected)
 		})
-
 	})
 
 	t.Run("accepted on l1 receipt", func(t *testing.T) {

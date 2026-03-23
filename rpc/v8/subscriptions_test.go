@@ -1106,12 +1106,12 @@ func assertNoWsMessage(t *testing.T, ctx context.Context, conn *websocket.Conn) 
 
 func assertNoMessage(t *testing.T, conn net.Conn) {
 	t.Helper()
-	conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
+	require.NoError(t, conn.SetDeadline(time.Now().Add(50*time.Millisecond)))
 	buf := make([]byte, 1)
 	n, err := conn.Read(buf)
 	assert.Zero(t, n)
 	assert.Error(t, err)
-	conn.SetDeadline(time.Time{})
+	require.NoError(t, conn.SetDeadline(time.Time{}))
 }
 
 func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash *felt.Felt, finality TxnStatus, execution TxnExecutionStatus, failureReason string) {

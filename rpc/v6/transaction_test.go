@@ -619,7 +619,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
-	t.Run("not found in non-nil pre_confirmed block", func(t *testing.T) {
+	t.Run("not found in empty pre_confirmed block", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
@@ -699,37 +699,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		assert.Nil(t, txReceipt)
 		assert.Equal(t, jsonrpc.Err(jsonrpc.InternalError, "some internal error"), rpcErr)
-	})
-
-	t.Run("found in pre_confirmed block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		n := &utils.Sepolia
-		handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
-
-		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-
-		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
-		// PendingData() always returns empty placeholder - add required mocks
-		const sepoliaBlock = uint64(4850)
-		stubHeader := &core.Header{Number: sepoliaBlock, Hash: new(felt.Felt).SetUint64(sepoliaBlock)}
-		mockReader.EXPECT().HeadsHeader().Return(stubHeader, nil)
-		blockToRegisterNum := sepoliaBlock + 1 - pendingdata.BlockHashLag
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterNum).Return(
-			&core.Header{
-				Number: blockToRegisterNum,
-				Hash:   felt.NewFromUint64[felt.Felt](blockToRegisterNum),
-			}, nil)
-
-		tx0HashInBlock4850 := felt.NewUnsafeFromString[felt.Felt]("0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
-		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
-
-		assert.Nil(t, txReceipt)
-		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
 	t.Run("found in (non-pending) block", func(t *testing.T) {
