@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+var ErrUnsupportedPendingDataVariant = errors.New("unsupported pending data variant")
+
 const BlockHashLag uint64 = 10
 
 var BlockHashStorageContract = &felt.One
