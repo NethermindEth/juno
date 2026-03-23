@@ -34,7 +34,7 @@ jobs:
 
       - name: Install JFrog CLI
         id: jfrog
-        uses: jfrog/setup-jfrog-cli@ff5cb544114ffc152db9cea1cd3d5978d5074946 # v4.5.11
+        uses: jfrog/setup-jfrog-cli@86dacb6974c66cc99e7651e1205f6581aaddba9a # v4.10.0
         env:
           JF_URL: https://${{ env.DOCKER_REGISTRY }}
         with:
