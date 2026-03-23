@@ -143,21 +143,7 @@ func TestStateUpdate(t *testing.T) {
 		}
 	})
 
-	t.Run("pending starknet version < 0.14.0", func(t *testing.T) {
-		update21656.BlockHash = nil
-		update21656.NewRoot = nil
-		pending := core.NewPending(nil, update21656, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
-			nil,
-		)
-
-		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
-		require.Nil(t, rpcErr)
-		checkUpdate(t, update21656, update)
-	})
-
-	t.Run("pending starknet version >= 0.14.0", func(t *testing.T) {
+	t.Run("pending", func(t *testing.T) {
 		update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
 		require.NoError(t, err)
 

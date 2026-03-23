@@ -281,7 +281,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	// Create PreLatest block for testing
 	preLatestTxCount := len(b2.Transactions)
-	b2PreLatest := core.PreLatest(createTestPending(t, b2, preLatestTxCount))
+	b2PreLatest := createTestPreLatest(t, b2, preLatestTxCount)
 	b2PrelatestFiltered, b2PreLatestEmitted := createTestEvents(
 		t,
 		b2PreLatest.Block,
@@ -394,35 +394,6 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr       *felt.Address
 		steps          []stepInfo
 		setupMocks     func()
-	}
-
-	preStarknet0_14_0basicSubscription := testCase{
-		description: "Events from new blocks - default status, Starknet version < 0.14.0",
-		blockID:     nil,
-		keys:        nil,
-		fromAddr:    nil,
-		setupMocks: func() {
-			setupMockEventFilterer(
-				mockChain,
-				mockEventFilterer,
-				b1.Header,
-				b1.Header.Number-1,
-				b1Filtered,
-			)
-		},
-		steps: []stepInfo{
-			{
-				description: "events from latest on start",
-				expect:      [][]SubscriptionEmittedEvent{b1Emitted},
-			},
-			{
-				description: "on new head",
-				notify: func() {
-					handler.newHeads.Send(b2)
-				},
-				expect: [][]SubscriptionEmittedEvent{b2Emitted},
-			},
-		},
 	}
 
 	basicSubscription := testCase{
@@ -816,7 +787,6 @@ func TestSubscribeEvents(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		preStarknet0_14_0basicSubscription,
 		basicSubscription,
 		basicSubscriptionWithPreConfirmed,
 		preLatestEvents,
@@ -1469,7 +1439,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	b1PreConfirmedFull := createTestPreConfirmed(t, newHead1, len(newHead1.Transactions))
 
 	// Pre-latest block for block 56377
-	b1PreLatest := core.PreLatest(createTestPending(t, newHead1, len(newHead1.Transactions)))
+	b1PreLatest := createTestPreLatest(t, newHead1, len(newHead1.Transactions))
 
 	// Pre-confirmed blocks for block 56378
 	b2PreConfirmedPartial := createTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
@@ -1477,7 +1447,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	b2PreConfirmedFull := createTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
 
 	// Pre-latest block for block 56378
-	b2PreLatest := core.PreLatest(createTestPending(t, newHead2, len(newHead2.Transactions)))
+	b2PreLatest := createTestPreLatest(t, newHead2, len(newHead2.Transactions))
 
 	type stepInfo struct {
 		description string
@@ -1492,38 +1462,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		steps         []stepInfo
 	}
 
-	preStarknet0_14_0DefaultFinality := testCase{
-		description:   "Basic subcription - default finality status. Starknet version < 0.14.0",
-		statuses:      nil,
-		senderAddress: nil,
-		steps: []stepInfo{
-			{
-				description: "onNewHead",
-				notify: func() {
-					syncer.newHeads.Send(newHead1)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(newHead1.Transactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)),
-				},
-			},
-			{
-				description: "on new head",
-				notify: func() {
-					syncer.newHeads.Send(newHead2)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						newHead2.Transactions,
-						TxnStatusWithoutL1(TxnAcceptedOnL2),
-					),
-				},
-			},
-		},
-	}
-
 	// Only ACCEPTED_ON_L2 as default
 	defaultFinality := testCase{
-		description:   "Basic subcription - default finality status. Starknet version >= 0.14.0",
+		description:   "Basic subcription - default finality status",
 		statuses:      nil,
 		senderAddress: nil,
 		steps: []stepInfo{
@@ -1952,7 +1893,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		preStarknet0_14_0DefaultFinality,
 		defaultFinality, // onlyAcceptedOnL2
 		onlyPreConfirmed,
 		onlyCandidate,
@@ -2060,43 +2000,13 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		return receipts
 	}
 
-	preStarknet0_14_0defaultFinalityStatus := testCase{
-		description: "Basic subscription with default finality status, starknet version < 0.14.0",
-		statuses:    nil,
-		steps: []stepInfo{
-			{
-				description: "on new head",
-				notify: func() {
-					syncer.newHeads.Send(newHead1)
-				},
-				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
-				},
-			},
-			{
-				description: "on next head",
-				notify: func() {
-					syncer.newHeads.Send(newHead2)
-				},
-				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(
-						newHead2,
-						nil,
-						TxnAcceptedOnL2,
-						false,
-					),
-				},
-			},
-		},
-	}
-
 	partialPreConfirmedCount := 3
 	extendedPreConfirmedCount := 6
 	b1PreConfirmedPartial := createTestPreConfirmed(t, newHead1, partialPreConfirmedCount)
 	b1PreConfirmedExtended := createTestPreConfirmed(t, newHead1, extendedPreConfirmedCount)
 
-	b1PreLatest := core.PreLatest(createTestPending(t, newHead1, len(newHead1.Transactions)))
-	b2PreLatest := core.PreLatest(createTestPending(t, newHead2, len(newHead2.Transactions)))
+	b1PreLatest := createTestPreLatest(t, newHead1, len(newHead1.Transactions))
+	b2PreLatest := createTestPreLatest(t, newHead2, len(newHead2.Transactions))
 
 	b2PreConfirmedPartial := createTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
 	b2PreConfirmedExtended := createTestPreConfirmed(t, newHead2, extendedPreConfirmedCount)
@@ -2449,7 +2359,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	testCases := []testCase{
 		defaultFinalityStatus,
-		preStarknet0_14_0defaultFinalityStatus,
 		allStatuses,
 		allStatusesWithFilter,
 		onlyPreConfirmed,
@@ -2757,22 +2666,21 @@ func assertNextTransactions(t *testing.T, conn net.Conn, id SubscriptionID, tran
 	}
 }
 
-func createTestPending(t *testing.T, b *core.Block, txCount int) core.Pending {
+func createTestPreLatest(t *testing.T, b *core.Block, txCount int) core.PreLatest {
 	t.Helper()
 
-	pending := core.Block{
+	preLatest := core.Block{
 		Header: &core.Header{
-			// Pending block does not have number but we internaly set it
 			Number:           b.Number,
 			ParentHash:       b.ParentHash,
 			SequencerAddress: b.SequencerAddress,
 		},
 	}
 
-	pending.Transactions = b.Transactions[:txCount]
-	pending.Receipts = b.Receipts[:txCount]
-	return core.Pending{
-		Block: &pending,
+	preLatest.Transactions = b.Transactions[:txCount]
+	preLatest.Receipts = b.Receipts[:txCount]
+	return core.PreLatest{
+		Block: &preLatest,
 	}
 }
 
@@ -2818,8 +2726,9 @@ func createTestEvents(
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
 	var blockNumber *uint64
-	// if header.Hash == nil and parentHash != nil it's a pending block
+	// if header.Hash != nil it's a canonical block
 	// if header.Hash == nil and parentHash == nil it's a pre_confirmed block
+	// if header.Hash == nil and parentHash != nil it's a pre_latest block
 	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
 		blockNumber = &b.Number
 	}

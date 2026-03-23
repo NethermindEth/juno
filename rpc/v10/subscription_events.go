@@ -2,7 +2,6 @@ package rpcv10
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -160,10 +159,6 @@ func (s *eventSubscriberState) onPendingData(
 	_ *subscription,
 	pending core.PendingData,
 ) error {
-	if pending.Variant() != core.PreConfirmedBlockVariant {
-		return fmt.Errorf("unexpected pending data variant %v", pending.Variant())
-	}
-
 	return s.processBlock(ctx, id, pending.GetBlock(), TxnPreConfirmed)
 }
 

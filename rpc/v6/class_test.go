@@ -252,22 +252,12 @@ func TestClassHashAt(t *testing.T) {
 
 	//nolint:dupl //  similar structure with nonce test, different endpoint.
 	t.Run("blockID - pending", func(t *testing.T) {
-		pendingStateDiff := core.EmptyStateDiff()
-		pendingStateDiff.DeployedContracts[targetAddress] = expectedClassHash
+		stateDiff := core.EmptyStateDiff()
+		preConfirmed := core.NewPreConfirmed(&core.Block{Header: &core.Header{Number: 1}}, &core.StateUpdate{StateDiff: &stateDiff}, nil, nil)
 
-		pending := core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: felt.NewFromUint64[felt.Felt](2),
-				},
-			},
-			StateUpdate: &core.StateUpdate{
-				StateDiff: &pendingStateDiff,
-			},
-		}
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockReader.EXPECT().StateAtBlockHash(pending.Block.ParentHash).
-			Return(mockState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(
 			rpc.BlockID{Pending: true},

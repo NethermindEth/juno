@@ -56,9 +56,9 @@ func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
 	}, nil
 }
 
-// BlockPending gets the pending block from the feeder,
+// BlockPreLatest gets the pre-latest (pending) block from the feeder,
 // then adapts it to the core.Block type.
-func (f *Feeder) BlockPending(ctx context.Context) (*core.Block, error) {
+func (f *Feeder) BlockPreLatest(ctx context.Context) (*core.Block, error) {
 	return f.block(ctx, pendingID)
 }
 

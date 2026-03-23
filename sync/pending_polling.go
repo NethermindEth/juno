@@ -3,11 +3,9 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync/atomic"
 	"time"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -51,34 +49,6 @@ func shouldPreservePendingData(
 
 	return (incomingB.Number < existingB.Number) ||
 		(incomingB.Number == existingB.Number && incomingB.TransactionCount <= existingB.TransactionCount)
-}
-
-// StorePending stores a pending block given that it is for the next height
-func (s *Synchronizer) StorePending(p *core.Pending) (bool, error) {
-	if err := core.CheckBlockVersion(p.Block.ProtocolVersion); err != nil {
-		return false, err
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return false, err
-		}
-		head = nil
-	}
-
-	if !p.Validate(head) {
-		return false, fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
-	}
-
-	existingPtr := s.pendingData.Load()
-
-	if existingPtr != nil && shouldPreservePendingData(*existingPtr, p, head) {
-		// ignore the incoming pending if it has fewer transactions than the one we already have
-		return false, nil
-	}
-
-	return s.pendingData.CompareAndSwap(existingPtr, utils.HeapPtr[core.PendingData](p)), nil
 }
 
 // UpdatePreLatestAttachment updates (or clears) the PreLatest attachment of the currently stored
@@ -147,16 +117,6 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 	), nil
 }
 
-func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
-	pending, err := pendingdata.MakeEmptyPendingForParent(s.blockchain, latestHeader)
-	if err != nil {
-		return err
-	}
-
-	_, err = s.StorePending(&pending)
-	return err
-}
-
 // storeEmptyPreConfirmed creates a baseline pre_confirmed for head+1 and stores it.
 // Pass preLatest to attach it to the baseline; pass nil to clear any attachment.
 func (s *Synchronizer) storeEmptyPreConfirmed(
@@ -173,120 +133,8 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
-	needPreConfirmed, err := pendingdata.NeedsPreConfirmed(lastHeader.ProtocolVersion)
-	if err != nil {
-		s.log.Error("Failed to parse block version", zap.Error(err))
-		return
-	}
-
-	if needPreConfirmed {
-		if err := s.storeEmptyPreConfirmed(lastHeader, nil); err != nil {
-			s.log.Error("Failed to store empty pre_confirmed block", zap.Uint64("number", lastHeader.Number))
-		}
-	} else {
-		if err := s.storeEmptyPending(lastHeader); err != nil {
-			s.log.Error("Failed to store empty pending block", zap.Uint64("number", lastHeader.Number))
-		}
-	}
-}
-
-// pollPending periodically polls the pending block while at tip and forwards it to out.
-func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending) {
-	if s.pendingPollInterval == 0 {
-		s.log.Info("Pending block polling is disabled")
-		return
-	}
-
-	ticker := time.NewTicker(s.pendingPollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-ticker.C:
-			highest := s.highestBlockHeader.Load()
-			if highest == nil {
-				// No highest known header; nothing to do yet.
-				continue
-			}
-
-			head, err := s.blockchain.HeadsHeader()
-			if err != nil {
-				s.log.Debug("Error while reading head header", zap.Error(err))
-				continue
-			}
-
-			if !s.isGreaterThanTip(head.Number + 1) {
-				continue
-			}
-
-			pending, err := s.dataSource.BlockPending(ctx)
-			if err != nil {
-				s.log.Debug("Error while trying to poll pending block", zap.Error(err))
-				continue
-			}
-			pending.Block.Number = head.Number + 1
-
-			select {
-			case out <- &pending:
-				continue
-			case <-ctx.Done():
-				return
-			}
-		}
-	}
-}
-
-// runPendingPhase processes pending blocks and empty pending baselines until protocol >= 0.14.0 is detected.
-func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subscription[*core.Block]) bool {
-	pendingCh := make(chan *core.Pending, 1)
-	pendingCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go s.pollPending(pendingCtx, pendingCh)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-
-		case head, ok := <-headsSub.Recv():
-			if !ok {
-				return false
-			}
-			need, err := pendingdata.NeedsPreConfirmed(head.ProtocolVersion)
-			if err != nil {
-				s.log.Debug("Failed to parse protocol version", zap.Error(err))
-				continue
-			}
-
-			if need {
-				return true // switch to pre_confirmed
-			}
-
-			if err := s.storeEmptyPending(head.Header); err != nil {
-				s.log.Debug("Error storing empty pending", zap.Error(err))
-			}
-
-		case p := <-pendingCh:
-			need, err := pendingdata.NeedsPreConfirmed(p.Block.ProtocolVersion)
-			if err != nil {
-				s.log.Debug("Failed to parse pending protocol version", zap.Error(err))
-				continue
-			}
-
-			if need {
-				return true // switch to pre_confirmed
-			}
-
-			if changed, err := s.StorePending(p); err != nil {
-				s.log.Debug("Error storing pending block", zap.Error(err))
-			} else if changed {
-				s.pendingDataFeed.Send(p)
-			}
-		}
+	if err := s.storeEmptyPreConfirmed(lastHeader, nil); err != nil {
+		s.log.Error("Failed to store empty pre_confirmed block", zap.Uint64("number", lastHeader.Number))
 	}
 }
 
@@ -302,13 +150,11 @@ func (s *Synchronizer) handleTickerPreLatest(
 	seenByParent *lru.BasicLRU[felt.Felt, *core.PreLatest],
 	out chan<- *core.PreLatest,
 ) bool {
-	pending, err := s.dataSource.BlockPending(ctx)
+	preLatest, err := s.dataSource.BlockPreLatest(ctx)
 	if err != nil {
 		s.log.Debug("Error while trying to poll pre_latest block", zap.Error(err))
 		return false
 	}
-
-	preLatest := core.PreLatest(pending)
 
 	if !preLatest.Block.ParentHash.Equal(currentHead.Hash) {
 		seenByParent.Add(*preLatest.Block.ParentHash, &preLatest)
@@ -329,7 +175,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 // It avoids duplicate deliveries. If a fetched pre-latest corresponds to a future head,
 // it is cached keyed by ParentHash and emitted immediately when that head arrives.
 func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLatest) {
-	if s.pendingPollInterval == 0 {
+	if s.preLatestPollInterval == 0 {
 		s.log.Info("Pre-latest block polling is disabled")
 		return
 	}
@@ -341,7 +187,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 	// When we receive the head with this parent hash, we emit the cached pre-latest.
 	seenByParent := lru.NewBasicLRU[felt.Felt, *core.PreLatest](preLatestCacheSize)
 
-	ticker := time.NewTicker(s.pendingPollInterval)
+	ticker := time.NewTicker(s.preLatestPollInterval)
 	defer ticker.Stop()
 
 	var (
@@ -441,7 +287,7 @@ func (s *Synchronizer) pollPreConfirmed(
 	}
 }
 
-// handleHeadInPreConfirmed processes a new head during the pre_confirmed phase.
+// handleHeadInPreConfirmedPhase processes a new head during the pre_confirmed phase.
 // It computes nextHeight = head.Number + 1, clears any staged pre_latest if the
 // head catches up to the current target, and stores an empty pre_confirmed when
 // advancing.
@@ -546,11 +392,9 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 	}
 }
 
-// pollPendingData runs synchronisation in two phases, switching when protocol >= v0.14.0:
-//  1. Pending phase: store empty pending baselines and real pending blocks.
-//  2. Pre_confirmed phase: manage baselines and pre_latest attachments and poll pre_confirmed.
+// pollPendingData coordinates pre_latest and pre_confirmed polling.
 func (s *Synchronizer) pollPendingData(ctx context.Context) {
-	if s.pendingPollInterval == 0 || s.preConfirmedPollInterval == 0 {
+	if s.preLatestPollInterval == 0 || s.preConfirmedPollInterval == 0 {
 		s.log.Info("Pending data polling is disabled")
 		return
 	}
@@ -558,12 +402,5 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	headsSub := s.newHeads.SubscribeKeepLast()
 	defer headsSub.Unsubscribe()
 
-	// Phase 1: pending path
-	switched := s.runPendingPhase(ctx, headsSub)
-	if !switched {
-		return
-	}
-
-	// Phase 2: pre_confirmed path
 	s.runPreConfirmedPhase(ctx, headsSub)
 }

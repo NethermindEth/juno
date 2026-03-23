@@ -1,7 +1,6 @@
 package pendingdata
 
 import (
-	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -11,20 +10,7 @@ import (
 
 const BlockHashLag uint64 = 10
 
-var (
-	BlockHashStorageContract         = &felt.One
-	ErrUnsupportedPendingDataVariant = errors.New("unsupported pending data variant")
-)
-
-// needsPreConfirmed reports whether the given protocol version string
-// indicates blocks >= v0.14.0 (i.e., pre_confirmed path is required).
-func NeedsPreConfirmed(protocolVersion string) (bool, error) {
-	ver, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return false, err
-	}
-	return ver.GreaterThanEqual(core.Ver0_14_0), nil
-}
+var BlockHashStorageContract = &felt.One
 
 // makeStateDiffForEmptyBlock constructs a minimal state diff for an empty block.
 // It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
@@ -134,37 +120,6 @@ func MakeEmptyPreConfirmedForParent(
 	return preConfirmed, nil
 }
 
-func MakeEmptyPendingDataForParent(
-	bcReader blockchain.Reader,
-	latestHeader *core.Header,
-) (core.PendingData, error) {
-	needPreConfirmed, err := NeedsPreConfirmed(latestHeader.ProtocolVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if needPreConfirmed {
-		preConfirmed, err := MakeEmptyPreConfirmedForParent(bcReader, latestHeader)
-		if err != nil {
-			return nil, err
-		}
-		return &preConfirmed, nil
-	}
-
-	pending, err := MakeEmptyPendingForParent(bcReader, latestHeader)
-	if err != nil {
-		return nil, err
-	}
-	return &pending, nil
-}
-
-func ResolvePendingBaseState(
-	pending *core.Pending,
-	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
-	return stateReader.StateAtBlockHash(pending.Block.ParentHash)
-}
-
 // ResolvePreConfirmedBaseState resolves the base state for pre-confirmed blocks
 func ResolvePreConfirmedBaseState(
 	preConfirmed *core.PreConfirmed,
@@ -192,14 +147,11 @@ func ResolvePendingDataBaseState(
 	pending core.PendingData,
 	stateReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	switch p := pending.(type) {
-	case *core.PreConfirmed:
-		return ResolvePreConfirmedBaseState(p, stateReader)
-	case *core.Pending:
-		return ResolvePendingBaseState(p, stateReader)
-	default:
-		return nil, nil, ErrUnsupportedPendingDataVariant
+	pc, ok := pending.(*core.PreConfirmed)
+	if !ok {
+		return nil, nil, core.ErrPendingDataNotFound
 	}
+	return ResolvePreConfirmedBaseState(pc, stateReader)
 }
 
 // PendingState is a convenience function that combines

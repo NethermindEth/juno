@@ -20,44 +20,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// createEventPendingFromBlock creates a pending block from the given block and
-// returns the pending data and emitted events
-func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpc.EmittedEvent) {
-	newHeader := &core.Header{
-		ParentHash: block.Header.ParentHash,
-		Number:     block.Header.Number,
-	}
-
-	pendingBlock := &core.Block{
-		Header:       newHeader,
-		Transactions: block.Transactions,
-		Receipts:     block.Receipts,
-	}
-
-	pending := core.NewPending(pendingBlock, nil, nil)
-
-	// Extract events from the block and convert to emitted events
-	var events []rpc.EmittedEvent
-	for txIndex, receipt := range pendingBlock.Receipts {
-		for eventIndex, event := range receipt.Events {
-			events = append(events, rpc.EmittedEvent{
-				Event: &rpc.Event{
-					From: event.From,
-					Keys: event.Keys,
-					Data: event.Data,
-				},
-				BlockNumber:      nil, // Pending events have no block number
-				BlockHash:        nil, // Pending events have no block hash
-				TransactionHash:  receipt.TransactionHash,
-				TransactionIndex: uint(txIndex),
-				EventIndex:       uint(eventIndex),
-			})
-		}
-	}
-
-	return pending, events
-}
-
 // createEventPreConfirmedFromBlock creates a pre_confirmed block from the given block and
 // returns the pre_confirmed data and emitted events
 func createEventPreConfirmedFromBlock(block *core.Block) (
@@ -230,31 +192,22 @@ func TestEvents(t *testing.T) {
 	numCanonicalBlocks := uint64(5)
 	chain, gw := setupTestChain(t, &network, numCanonicalBlocks)
 
-	firstPendingBlock, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks)
+	block5, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks)
 	require.NoError(t, err)
 
-	secondPendingBlock, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks+1)
+	block6, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks+1)
 	require.NoError(t, err)
 
 	canonicalEvents := extractCanonicalEvents(t, chain, 0, numCanonicalBlocks-1)
 
-	pending, pendingEvents := createEventPendingFromBlock(firstPendingBlock)
-	preConfirmed, preConfirmedEvents := createEventPreConfirmedFromBlock(firstPendingBlock)
-	preLatest, preLatestEvents := createEventPreLatestFromBlock(firstPendingBlock)
+	preConfirmed, preConfirmedEvents := createEventPreConfirmedFromBlock(block5)
+	preLatest, preLatestEvents := createEventPreLatestFromBlock(block5)
 
 	preConfirmedWithPreLatest,
-		preConfirmedWithPreLatestEvents := createEventPreConfirmedFromBlock(secondPendingBlock)
+		preConfirmedWithPreLatestEvents := createEventPreConfirmedFromBlock(block6)
 	preConfirmedWithPreLatest.WithPreLatest(&preLatest)
 
 	// Precalculate combined events to avoid repeated allocations
-	canonicalPending := make(
-		[]rpc.EmittedEvent,
-		0,
-		len(canonicalEvents)+len(pendingEvents),
-	)
-	canonicalPending = append(canonicalPending, canonicalEvents...)
-	canonicalPending = append(canonicalPending, pendingEvents...)
-
 	canonicalPreConfirmed := make(
 		[]rpc.EmittedEvent,
 		0,
@@ -562,30 +515,6 @@ func TestEvents(t *testing.T) {
 				ResultPageRequest: defaultPageRequest,
 			},
 			expectedEvents: extractCanonicalEvents(t, chain, 4, 4),
-		},
-		{
-			description:    "pending events only - no pagination",
-			args:           onlyPreConfirmedNoPagination,
-			pendingData:    &pending,
-			expectedEvents: pendingEvents,
-		},
-		{
-			description:    "pending events with pagination",
-			args:           onlyPreConfirmedWithPagination,
-			pendingData:    &pending,
-			expectedEvents: pendingEvents,
-		},
-		{
-			description:    "canonical + pending events - no pagination",
-			args:           genesisToPreConfirmedNoPagination,
-			pendingData:    &pending,
-			expectedEvents: canonicalPending,
-		},
-		{
-			description:    "canonical + pending events with pagination",
-			args:           genesisToPreConfirmedWithPagination,
-			pendingData:    &pending,
-			expectedEvents: canonicalPending,
 		},
 		{
 			description:    "pre_confirmed events only - no pagination",

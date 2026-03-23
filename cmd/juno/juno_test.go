@@ -56,7 +56,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
-	defaultPendingPollInterval := time.Second
+	defaultPreLatestPollInterval := time.Second
 	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
@@ -94,7 +94,7 @@ func TestConfigPrecedence(t *testing.T) {
 		PprofHost:                          defaultHost,
 		PprofPort:                          defaultPprofPort,
 		Colour:                             defaultColour,
-		PendingPollInterval:                defaultPendingPollInterval,
+		PreLatestPollInterval:                defaultPreLatestPollInterval,
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
@@ -137,7 +137,7 @@ func TestConfigPrecedence(t *testing.T) {
 		MetricsHost:                        defaultHost,
 		MetricsPort:                        defaultMetricsPort,
 		Colour:                             defaultColour,
-		PendingPollInterval:                defaultPendingPollInterval,
+		PreLatestPollInterval:                defaultPreLatestPollInterval,
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
@@ -241,7 +241,7 @@ pprof: true
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -290,7 +290,7 @@ http-port: 4576
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -349,7 +349,7 @@ http-port: 4576
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -386,7 +386,7 @@ http-port: 4576
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -429,14 +429,14 @@ network: sepolia
 pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
-pending-poll-interval: 5s
+prelatest-poll-interval: 5s
 preconfirmed-poll-interval: 1s
 db-cache-size: 1024
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
-				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
+				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof", "--prelatest-poll-interval", time.Millisecond.String(),
 				"--preconfirmed-poll-interval", time.Millisecond.String(), "--db-cache-size", "9",
 			},
 			expectedConfig: &node.Config{
@@ -459,7 +459,7 @@ db-cache-size: 1024
 				PprofHost:                          "0.0.0.0",
 				PprofPort:                          6064,
 				Colour:                             defaultColour,
-				PendingPollInterval:                time.Millisecond,
+				PreLatestPollInterval:                time.Millisecond,
 				PreConfirmedPollInterval:           time.Millisecond,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -510,7 +510,7 @@ network: sepolia
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -557,7 +557,7 @@ network: sepolia
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -602,7 +602,7 @@ network: sepolia
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -648,7 +648,7 @@ network: sepolia
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -694,7 +694,7 @@ network: sepolia
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
@@ -740,7 +740,7 @@ network: sepolia
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
-				PendingPollInterval:                defaultPendingPollInterval,
+				PreLatestPollInterval:                defaultPreLatestPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,

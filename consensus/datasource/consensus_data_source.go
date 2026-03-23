@@ -71,8 +71,8 @@ func (c *consensusDataSource[V, H]) BlockHeaderLatest(ctx context.Context) (*cor
 	return committedBlock.Block.Header, nil
 }
 
-func (c *consensusDataSource[V, H]) BlockPending(ctx context.Context) (core.Pending, error) {
-	return core.Pending{}, errors.New("not implemented") // TODO: Revise this
+func (c *consensusDataSource[V, H]) BlockPreLatest(ctx context.Context) (core.PreLatest, error) {
+	return core.PreLatest{}, errors.New("not implemented") // TODO: Revise this
 }
 
 func (c *consensusDataSource[V, H]) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {

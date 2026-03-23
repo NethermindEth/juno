@@ -280,7 +280,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	// Create PreLatest block for testing
 	preLatestTxCount := len(b2.Transactions)
-	b2PreLatest := core.PreLatest(createTestPending(t, b2, preLatestTxCount))
+	b2PreLatest := createTestPreLatest(t, b2, preLatestTxCount)
 	b2PrelatestFiltered, b2PreLatestEmitted := createTestEvents(
 		t,
 		b2PreLatest.Block,
@@ -1585,7 +1585,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	b1PreConfirmedFull := CreateTestPreConfirmed(t, newHead1, len(newHead1.Transactions))
 
 	// Pre-latest block for block 56377
-	b1PreLatest := core.PreLatest(createTestPending(t, newHead1, len(newHead1.Transactions)))
+	b1PreLatest := createTestPreLatest(t, newHead1, len(newHead1.Transactions))
 
 	// Pre-confirmed blocks for block 56378
 	b2PreConfirmedPartial := CreateTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
@@ -1593,7 +1593,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	b2PreConfirmedFull := CreateTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
 
 	// Pre-latest block for block 56378
-	b2PreLatest := core.PreLatest(createTestPending(t, newHead2, len(newHead2.Transactions)))
+	b2PreLatest := createTestPreLatest(t, newHead2, len(newHead2.Transactions))
 
 	type stepInfo struct {
 		description   string
@@ -2385,8 +2385,8 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	b1PreConfirmedPartial := CreateTestPreConfirmed(t, newHead1, partialPreConfirmedCount)
 	b1PreConfirmedExtended := CreateTestPreConfirmed(t, newHead1, extendedPreConfirmedCount)
 
-	b1PreLatest := core.PreLatest(createTestPending(t, newHead1, len(newHead1.Transactions)))
-	b2PreLatest := core.PreLatest(createTestPending(t, newHead2, len(newHead2.Transactions)))
+	b1PreLatest := createTestPreLatest(t, newHead1, len(newHead1.Transactions))
+	b2PreLatest := createTestPreLatest(t, newHead2, len(newHead2.Transactions))
 
 	b2PreConfirmedPartial := CreateTestPreConfirmed(t, newHead2, partialPreConfirmedCount)
 	b2PreConfirmedExtended := CreateTestPreConfirmed(t, newHead2, extendedPreConfirmedCount)
@@ -3060,22 +3060,21 @@ func assertNextReorg(t *testing.T, conn net.Conn, id SubscriptionID, reorg *Reor
 	assertNextMessage(t, conn, id, "starknet_subscriptionReorg", reorg)
 }
 
-func createTestPending(t *testing.T, b *core.Block, txCount int) core.Pending {
+func createTestPreLatest(t *testing.T, b *core.Block, txCount int) core.PreLatest {
 	t.Helper()
 
-	pending := core.Block{
+	preLatest := core.Block{
 		Header: &core.Header{
-			// Pending block does not have number but we internaly set it
 			Number:           b.Number,
 			ParentHash:       b.ParentHash,
 			SequencerAddress: b.SequencerAddress,
 		},
 	}
 
-	pending.Transactions = b.Transactions[:txCount]
-	pending.Receipts = b.Receipts[:txCount]
-	return core.Pending{
-		Block: &pending,
+	preLatest.Transactions = b.Transactions[:txCount]
+	preLatest.Receipts = b.Receipts[:txCount]
+	return core.PreLatest{
+		Block: &preLatest,
 	}
 }
 

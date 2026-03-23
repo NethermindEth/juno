@@ -13,7 +13,6 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -46,12 +45,6 @@ func TestEvents(t *testing.T) {
 			pendingB = b
 		}
 	}
-
-	pending := core.NewPending(pendingB, nil, nil)
-	mockSyncReader.EXPECT().PendingData().Return(
-		&pending,
-		nil,
-	)
 
 	handler := rpc.New(chain, mockSyncReader, nil, n, utils.NewNopZapLogger())
 	from := felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
@@ -212,73 +205,7 @@ func TestEvents(t *testing.T) {
 		require.NotEmpty(t, events.Events)
 	})
 
-	t.Run("get pending events without pagination", func(t *testing.T) {
-		args = rpc.EventsArg{
-			EventFilter: rpc.EventFilter{
-				FromBlock: &rpc.BlockID{Pending: true},
-				ToBlock:   &rpc.BlockID{Pending: true},
-			},
-			ResultPageRequest: rpc.ResultPageRequest{
-				ChunkSize:         100,
-				ContinuationToken: "",
-			},
-		}
-		events, err := handler.Events(args)
-		require.Nil(t, err)
-		require.Len(t, events.Events, 2)
-		require.Empty(t, events.ContinuationToken)
-
-		assert.Nil(t, events.Events[0].BlockHash)
-		assert.Nil(t, events.Events[0].BlockNumber)
-		assert.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
-	})
-
-	t.Run("get pending events with pagination", func(t *testing.T) {
-		var err error
-		pendingB, err = gw.BlockByNumber(t.Context(), 6)
-		require.Nil(t, err)
-
-		args = rpc.EventsArg{
-			EventFilter: rpc.EventFilter{
-				FromBlock: &rpc.BlockID{Pending: true},
-				ToBlock:   &rpc.BlockID{Pending: true},
-			},
-			ResultPageRequest: rpc.ResultPageRequest{
-				ChunkSize: 1,
-			},
-		}
-
-		allEvents := []*core.Event{}
-
-		for _, receipt := range pendingB.Receipts {
-			allEvents = append(allEvents, receipt.Events...)
-		}
-		pending := core.NewPending(pendingB, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
-			nil,
-		).Times(len(allEvents))
-
-		for i, expectedEvent := range allEvents {
-			events, err := handler.Events(args)
-			require.Nil(t, err)
-			require.Len(t, events.Events, 1)
-			actualEvent := events.Events[0]
-			if i == len(allEvents)-1 {
-				require.Empty(t, events.ContinuationToken)
-			} else {
-				require.NotEmpty(t, events.ContinuationToken)
-			}
-
-			assert.Equal(t, expectedEvent.From, actualEvent.From)
-			assert.Equal(t, expectedEvent.Keys, actualEvent.Keys)
-			assert.Equal(t, expectedEvent.Data, actualEvent.Data)
-
-			args.ContinuationToken = events.ContinuationToken
-		}
-	})
-
-	t.Run("pending block always empty after starknet 0.14.0", func(t *testing.T) {
+	t.Run("pending block always empty", func(t *testing.T) {
 		args = rpc.EventsArg{
 			EventFilter: rpc.EventFilter{
 				FromBlock: &rpc.BlockID{Pending: true},

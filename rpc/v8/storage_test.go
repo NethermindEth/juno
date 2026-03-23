@@ -177,25 +177,13 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
-		pendingStateDiff := core.EmptyStateDiff()
-		pendingStateDiff.
-			StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{targetSlot: expectedStorage}
-		pendingStateDiff.
-			DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
+		// In v8, PendingState() always returns HeadState regardless of what the sync reader has.
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
+		mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).
+			Return(*expectedStorage, nil)
 
-		pending := core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: felt.NewFromUint64[felt.Felt](2),
-				},
-			},
-			StateUpdate: &core.StateUpdate{
-				StateDiff: &pendingStateDiff,
-			},
-		}
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockReader.EXPECT().StateAtBlockHash(pending.Block.ParentHash).
-			Return(mockState, nopCloser, nil)
 		pendingID := blockIDPending(t)
 		storageValue, rpcErr := handler.StorageAt(
 			&targetAddress,

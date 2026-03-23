@@ -30,83 +30,44 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 	require.NoError(t, err)
 
-	t.Run("Returns pending data when valid", func(t *testing.T) {
-		t.Run("when starknet version < 0.14.0", func(t *testing.T) {
-			expectedPending := core.NewPending(latestBlock, nil, nil)
-			mockSyncReader.EXPECT().PendingData().Return(
-				&expectedPending,
-				nil,
-			)
-			pending, err := handler.PendingData()
-			require.NoError(t, err)
-			require.Equal(t, core.PendingBlockVariant, pending.Variant())
-			require.Equal(t, &expectedPending, pending)
-		})
-
-		t.Run("when starknet version >= 0.14.0", func(t *testing.T) {
-			expectedPending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-			mockSyncReader.EXPECT().PendingData().Return(
-				&expectedPending,
-				nil,
-			)
-			pending, err := handler.PendingData()
-			require.NoError(t, err)
-			require.Equal(t, core.PreConfirmedBlockVariant, pending.Variant())
-			require.Equal(t, &expectedPending, pending)
-		})
+	t.Run("Returns pre_confirmed data from syncReader when available", func(t *testing.T) {
+		expectedPending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&expectedPending,
+			nil,
+		)
+		pending, err := handler.PendingData()
+		require.NoError(t, err)
+		_, isPreConfirmed := pending.(*core.PreConfirmed)
+		require.True(t, isPreConfirmed)
+		require.Equal(t, &expectedPending, pending)
 	})
 
-	t.Run("Returns placeholder pending data when pending data is not valid", func(t *testing.T) {
+	t.Run("Returns empty pre_confirmed when pending data is not found", func(t *testing.T) {
 		blockToRegisterHash := core.Header{
 			Number: latestBlock.Header.Number + 1 - pendingdata.BlockHashLag,
 			Hash:   felt.NewFromUint64[felt.Felt](1234567),
 		}
+		mockSyncReader.EXPECT().PendingData().Return(
+			nil,
+			core.ErrPendingDataNotFound,
+		)
+		latestHeader := latestBlock.Header
+		latestHeader.ProtocolVersion = "0.14.0"
+		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(
+			latestBlock.Header.Number+1-pendingdata.BlockHashLag,
+		).Return(&blockToRegisterHash, nil).Times(2)
 
-		t.Run("when starknet version < 0.14.0", func(t *testing.T) {
-			mockSyncReader.EXPECT().PendingData().Return(
-				nil,
-				core.ErrPendingDataNotFound,
-			)
+		expectedPending, err := pendingdata.MakeEmptyPreConfirmedForParent(
+			mockReader,
+			latestHeader,
+		)
+		require.NoError(t, err)
 
-			mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-			mockReader.EXPECT().BlockHeaderByNumber(
-				latestBlock.Header.Number+1-pendingdata.BlockHashLag,
-			).Return(&blockToRegisterHash, nil).Times(2)
-
-			expectedPending, err := pendingdata.MakeEmptyPendingForParent(
-				mockReader,
-				latestBlock.Header,
-			)
-			require.NoError(t, err)
-			pending, err := handler.PendingData()
-			require.NoError(t, err)
-			require.Equal(t, core.PendingBlockVariant, pending.Variant())
-			require.Equal(t, &expectedPending, pending)
-		})
-
-		t.Run("when starknet version >= 0.14.0", func(t *testing.T) {
-			mockSyncReader.EXPECT().PendingData().Return(
-				nil,
-				core.ErrPendingDataNotFound,
-			)
-			latestHeader := latestBlock.Header
-			latestHeader.ProtocolVersion = "0.14.0"
-			mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
-			mockReader.EXPECT().BlockHeaderByNumber(
-				latestBlock.Header.Number+1-pendingdata.BlockHashLag,
-			).Return(&blockToRegisterHash, nil).Times(2)
-
-			expectedPending, err := pendingdata.MakeEmptyPreConfirmedForParent(
-				mockReader,
-				latestHeader,
-			)
-			require.NoError(t, err)
-
-			pending, err := handler.PendingData()
-			require.NoError(t, err)
-			require.Equal(t, core.PreConfirmedBlockVariant, pending.Variant())
-			require.Equal(t, &expectedPending, pending)
-		})
+		pending, err := handler.PendingData()
+		require.NoError(t, err)
+		require.Equal(t, &expectedPending, pending)
 	})
 }
 

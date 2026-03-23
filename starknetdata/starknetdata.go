@@ -14,7 +14,7 @@ type StarknetData interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error)
 	BlockLatest(ctx context.Context) (*core.Block, error)
 	BlockHeaderLatest(ctx context.Context) (core.Header, error)
-	BlockPending(ctx context.Context) (*core.Block, error)
+	BlockPreLatest(ctx context.Context) (*core.Block, error)
 	// Deprecated: uses the old get_transaction feeder gateway endpoint.
 	Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error)
 	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)

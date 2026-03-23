@@ -139,7 +139,7 @@ type Synchronizer struct {
 	listener EventListener
 
 	pendingData              atomic.Pointer[core.PendingData]
-	pendingPollInterval      time.Duration
+	preLatestPollInterval    time.Duration
 	preConfirmedPollInterval time.Duration
 
 	catchUpMode bool
@@ -152,7 +152,7 @@ func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	log utils.StructuredLogger,
-	pendingPollInterval, preConfirmedPollInterval time.Duration,
+	preLatestPollInterval, preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
 	database db.KeyValueStore,
 ) *Synchronizer {
@@ -165,7 +165,7 @@ func New(
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		pendingDataFeed:          feed.New[core.PendingData](),
 		preLatestDataFeed:        feed.New[*core.PreLatest](),
-		pendingPollInterval:      pendingPollInterval,
+		preLatestPollInterval:    preLatestPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,

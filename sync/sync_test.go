@@ -223,7 +223,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	sub.Unsubscribe()
 }
 
-func TestSubscribePending(t *testing.T) {
+func TestPendingDataIsPreConfirmedAfterSync(t *testing.T) {
 	t.Parallel()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
@@ -244,20 +244,21 @@ func TestSubscribePending(t *testing.T) {
 	)
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 
-	sub := synchronizer.SubscribePendingData()
-
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
+	// After syncing at least one block, an empty pre_confirmed baseline for head+1 is stored.
+	// PendingData() must return *core.PreConfirmed — the legacy *core.Pending no longer exists.
 	pendingData, err := synchronizer.PendingData()
 	require.NoError(t, err)
-	select {
-	case pendingBlock, ok := <-sub.Recv():
-		require.True(t, ok)
-		require.Equal(t, pendingData, pendingBlock)
-	case <-time.After(time.Second):
-		t.Fatal("expected pending data")
-	}
+	require.NotNil(t, pendingData)
 
-	sub.Unsubscribe()
+	_, isPreConfirmed := pendingData.(*core.PreConfirmed)
+	require.True(t, isPreConfirmed)
+
+	head, err := bc.HeadsHeader()
+	require.NoError(t, err)
+	require.True(t, pendingData.Validate(head), "pending data must be valid for the current head")
+
+	require.NotNil(t, synchronizer.PendingBlock())
 }

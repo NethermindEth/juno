@@ -632,14 +632,8 @@ func (h *Handler) getPendingTransactionReceipt(
 	}
 
 	status := TxnPreConfirmed
-	isPreLatest := false
-	if parentHash != nil {
-		// pre-latest block or pending block
-		// considered PRE_CONFIRMED since Starknet 0.14.2
-		status = TxnPreConfirmed
-		// If pending data is pre_confirmed receipt is coming from pre_latest
-		isPreLatest = pending.Variant() == core.PreConfirmedBlockVariant
-	}
+	// parentHash is non-nil only for receipts from the PreLatest attachment
+	isPreLatest := parentHash != nil
 	return AdaptReceiptWithBlockInfo(
 		receipt,
 		txn,

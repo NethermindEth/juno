@@ -79,7 +79,7 @@ type Config struct {
 	PprofHost                string        `mapstructure:"pprof-host"`
 	PprofPort                uint16        `mapstructure:"pprof-port"`
 	Colour                   bool          `mapstructure:"colour"`
-	PendingPollInterval      time.Duration `mapstructure:"pending-poll-interval"`
+	PreLatestPollInterval    time.Duration `mapstructure:"prelatest-poll-interval"`
 	PreConfirmedPollInterval time.Duration `mapstructure:"preconfirmed-poll-interval"`
 	RemoteDB                 string        `mapstructure:"remote-db"`
 	VersionedConstantsFile   string        `mapstructure:"versioned-constants-file"`
@@ -310,7 +310,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			chain,
 			feederGatewayDataSource,
 			log,
-			cfg.PendingPollInterval,
+			cfg.PreLatestPollInterval,
 			cfg.PreConfirmedPollInterval,
 			dbIsRemote,
 			database,

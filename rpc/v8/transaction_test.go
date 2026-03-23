@@ -62,11 +62,12 @@ func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
 	pendingBlock := &core.Block{
 		Transactions: []core.Transaction{pendingTx},
 	}
-	pending := core.NewPending(pendingBlock, nil, nil)
+	preConfirmed := core.NewPreConfirmed(pendingBlock, nil, nil, nil)
 	mockSyncReader.EXPECT().PendingData().Return(
-		&pending,
+		&preConfirmed,
 		nil,
 	)
+	mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(*searchTxHash)
@@ -580,28 +581,13 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
-		index := rand.Intn(int(latestBlock.TransactionCount))
-
-		latestBlock.Hash = nil
-		latestBlock.GlobalStateRoot = nil
-		pending := core.NewPending(latestBlock, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
-			nil,
-		)
-		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
-			func(hash *felt.Felt) (core.Transaction, error) {
-				return latestBlock.Transactions[index], nil
-			})
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 5}, nil)
 
 		blockID := blockIDPending(t)
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
-		require.Nil(t, rpcErr)
-
-		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
-		require.Nil(t, rpcErr)
-
-		assert.Equal(t, txn1, txn2)
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, 0)
+		require.Nil(t, txn)
+		require.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 }
 
@@ -722,41 +708,18 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	}
 
 	t.Run("pending receipt", func(t *testing.T) {
-		i := 2
-		expected := `{
-					"type": "INVOKE",
-					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
-					"actual_fee": {"amount": "0x0", "unit": "WEI"},
-					"finality_status": "PENDING",
-					"execution_status": "SUCCEEDED",
-					"messages_sent": [
-						{
-							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
-							"payload": [
-								"0xc",
-								"0x22"
-							]
-						}
-					],
-					"events": [],
-					"execution_resources": {
-						"l1_data_gas": 0,
-						"l1_gas": 0,
-						"l2_gas": 0
-					}
-				}`
-
-		txHash := block0.Transactions[i].Hash()
+		// After deprecating old Pending type, PendingData() always returns an empty placeholder block.
+		// Transactions in the pending block are not accessible, so the receipt is not found.
+		txHash := block0.Transactions[2].Hash()
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			gomock.Any(),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		pending := core.NewPending(block0, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
-			nil,
-		)
-		checkTxReceipt(t, txHash, expected)
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+
+		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
+		assert.Nil(t, tx)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
 	t.Run("accepted on l1 receipt", func(t *testing.T) {

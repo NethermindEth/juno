@@ -33,7 +33,7 @@ func TestNewNode(t *testing.T) {
 		Pprof:                              true,
 		PprofPort:                          0,
 		Colour:                             true,
-		PendingPollInterval:                time.Second,
+		PreLatestPollInterval:              time.Second,
 		PreConfirmedPollInterval:           time.Second,
 		Metrics:                            true,
 		MetricsPort:                        0,

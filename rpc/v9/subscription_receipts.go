@@ -2,7 +2,6 @@ package rpcv9
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -136,9 +135,6 @@ func (s *receiptsSubscriberState) onPendingData(
 	_ *subscription,
 	pending core.PendingData,
 ) error {
-	if pending.Variant() != core.PreConfirmedBlockVariant {
-		return fmt.Errorf("unexpected pending data variant %v", pending.Variant())
-	}
 
 	return s.processBlock(
 		id,

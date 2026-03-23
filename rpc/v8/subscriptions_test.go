@@ -128,16 +128,11 @@ func TestSubscribeEvents(t *testing.T) {
 	b2, err := gw.BlockByNumber(t.Context(), 56378)
 	require.NoError(t, err)
 
-	pending1 := createTestPendingBlock(t, b2, 3)
-	pending2 := createTestPendingBlock(t, b2, 6)
-
 	fromAddr := felt.NewFromBytes[felt.Address]([]byte("some address"))
 	keys := [][]felt.Felt{{felt.FromBytes[felt.Felt]([]byte("key1"))}}
 
 	b1Filtered, b1Emitted := createTestEvents(t, b1)
 	b2Filtered, b2Emitted := createTestEvents(t, b2)
-	pending1Filtered, pending1Emitted := createTestEvents(t, pending1)
-	pending2Filtered, pending2Emitted := createTestEvents(t, pending2)
 
 	t.Run("Events from new blocks", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -253,22 +248,23 @@ func TestSubscribeEvents(t *testing.T) {
 
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
-			Return(pending1Filtered, blockchain.ContinuationToken{}, nil)
-		pendingData1 := core.NewPending(pending1, nil, nil)
+		// Sending PreConfirmed pending data does nothing — the onPendingData handler
+		// was removed because it only handled the deprecated core.Pending variant.
+		pending1 := createTestPendingBlock(t, b2, 3)
+		pendingData1 := core.NewPreConfirmed(pending1, nil, nil, nil)
 		handler.pendingData.Send(&pendingData1)
-		assertNextEvents(t, clientConn, id, pending1Emitted)
+		assertNoMessage(t, clientConn)
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
-			Return(pending2Filtered, blockchain.ContinuationToken{}, nil)
-		pendingData2 := core.NewPending(pending2, nil, nil)
+		pending2 := createTestPendingBlock(t, b2, 6)
+		pendingData2 := core.NewPreConfirmed(pending2, nil, nil, nil)
 		handler.pendingData.Send(&pendingData2)
-		assertNextEvents(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
+		assertNoMessage(t, clientConn)
 
+		// Since no pending events were tracked, all b2 events are sent (no deduplication).
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
 			Return(b2Filtered, blockchain.ContinuationToken{}, nil)
 		handler.newHeads.Send(b2)
-		assertNextEvents(t, clientConn, id, b2Emitted[len(pending2Emitted):])
+		assertNextEvents(t, clientConn, id, b2Emitted)
 	})
 }
 
@@ -385,8 +381,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
-			handler.pendingData.Send(&core.Pending{Block: &core.Block{Header: &core.Header{}}})
-			handler.pendingData.Send(&core.Pending{Block: &core.Block{Header: &core.Header{}}})
+			handler.pendingData.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
+			handler.pendingData.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
 			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
@@ -774,7 +770,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.pendingData.Send(&core.Pending{
+		syncer.pendingData.Send(&core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -788,14 +784,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 				},
 			},
 		})
-
-		for _, expectedResult := range []string{"0x1", "0x2", "0x3", "0x4", "0x5"} {
-			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":"%s"}}`
-			want = fmt.Sprintf(want, expectedResult, id)
-			_, pendingTxsGot, err := conn.Read(ctx)
-			require.NoError(t, err)
-			require.Equal(t, want, string(pendingTxsGot))
-		}
+		// PreConfirmed is not the deprecated Pending variant, so nothing is emitted.
+		assertNoWsMessage(t, ctx, conn)
 	})
 
 	t.Run("Filtered subscription", func(t *testing.T) {
@@ -825,7 +815,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.pendingData.Send(&core.Pending{
+		syncer.pendingData.Send(&core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -841,14 +831,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 				},
 			},
 		})
-
-		for _, expectedResult := range []string{"0x1", "0x2"} {
-			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":"%s"}}`
-			want = fmt.Sprintf(want, expectedResult, id)
-			_, pendingTxsGot, err := conn.Read(ctx)
-			require.NoError(t, err)
-			require.Equal(t, want, string(pendingTxsGot))
-		}
+		// PreConfirmed is not the deprecated Pending variant, so nothing is emitted.
+		assertNoWsMessage(t, ctx, conn)
 	})
 
 	t.Run("Full details subscription", func(t *testing.T) {
@@ -861,7 +845,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		require.Equal(t, subResp(id), got)
 
 		parentHash := new(felt.Felt).SetUint64(1)
-		syncer.pendingData.Send(&core.Pending{
+		syncer.pendingData.Send(&core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -899,11 +883,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{"l1_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"},"l2_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"},"l1_data_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"}},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":"%s"}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
+		// PreConfirmed is not the deprecated Pending variant, so nothing is emitted.
+		assertNoWsMessage(t, ctx, conn)
 	})
 
 	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
@@ -1114,6 +1095,24 @@ func assertNextMessage(t *testing.T, conn net.Conn, id SubscriptionID, method st
 	_, err = conn.Read(got)
 	require.NoError(t, err)
 	assert.Equal(t, string(resp), string(got))
+}
+
+func assertNoWsMessage(t *testing.T, ctx context.Context, conn *websocket.Conn) {
+	t.Helper()
+	readCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+	_, _, err := conn.Read(readCtx)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func assertNoMessage(t *testing.T, conn net.Conn) {
+	t.Helper()
+	conn.SetDeadline(time.Now().Add(50 * time.Millisecond))
+	buf := make([]byte, 1)
+	n, err := conn.Read(buf)
+	assert.Zero(t, n)
+	assert.Error(t, err)
+	conn.SetDeadline(time.Time{})
 }
 
 func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash *felt.Felt, finality TxnStatus, execution TxnExecutionStatus, failureReason string) {

@@ -65,6 +65,7 @@ func New(
 		subPendingData:       feed.New[core.PendingData](),
 		subReorgFeed:         feed.New[*sync.ReorgBlockRange](),
 		subPreConfirmedBlock: feed.New[*core.PreConfirmed](),
+		subPreLatest:         feed.New[*core.PreLatest](),
 	}
 }
 
@@ -162,9 +163,11 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 			}
 		}
 
-		// push the pending block to the feed
-		pending := core.NewPending(s.buildState.PendingBlock(), nil, nil)
-		s.subPendingData.Send(&pending)
+		// TODO: revisit this for Starknet 0.14.0 semantics — in the new model the correct
+		// publication point is when a block is sealed (pre_confirmed), not on every mempool
+		// drain. Publishing the in-progress pre_confirmed here mirrors the old pre-0.14.0
+		// "pending block" push and may need to change once subscription semantics are clarified.
+		s.subPendingData.Send(s.buildState.Preconfirmed)
 		select {
 		case <-ctx.Done():
 			return nil

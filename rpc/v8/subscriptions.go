@@ -85,11 +85,10 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 type on[T any] func(ctx context.Context, id string, sub *subscription, event T) error
 
 type subscriber struct {
-	onStart       on[any]
-	onReorg       on[*sync.ReorgBlockRange]
-	onNewHead     on[*core.Block]
-	onPendingData on[core.PendingData]
-	onL1Head      on[*core.L1Head]
+	onStart   on[any]
+	onReorg   on[*sync.ReorgBlockRange]
+	onNewHead on[*core.Block]
+	onL1Head  on[*core.L1Head]
 }
 
 func getSubscription[T any](callback on[T], feed *feed.Feed[T]) (*feed.Subscription[T], <-chan T) {
@@ -123,7 +122,6 @@ func (h *Handler) subscribe(
 
 	reorgSub, reorgRecv := getSubscription(subscriber.onReorg, h.reorgs)
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
-	pendingDataSub, pendingRecv := getSubscription(subscriber.onPendingData, h.pendingData)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
 
 	sub.wg.Go(func() {
@@ -132,7 +130,6 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(reorgSub)
 			unsubscribeFeedSubscription(l1HeadSub)
 			unsubscribeFeedSubscription(newHeadsSub)
-			unsubscribeFeedSubscription(pendingDataSub)
 		}()
 
 		if subscriber.onStart != nil {
@@ -161,23 +158,11 @@ func (h *Handler) subscribe(
 					h.log.Warn("Error on new head", zap.String("id", id), zap.Error(err))
 					return
 				}
-			case pending := <-pendingRecv:
-				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
-					h.log.Warn("Error on pending", zap.String("id", id), zap.Error(err))
-					return
-				}
 			}
 		}
 	})
 
 	return SubscriptionID(id), nil
-}
-
-// Currently the order of transactions is deterministic, so the transaction always execute on a deterministic state
-// Therefore, the emitted events are deterministic and we can use the transaction hash and event index to identify.
-type SentEvent struct {
-	TransactionHash felt.Felt
-	EventIndex      uint
 }
 
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
@@ -206,14 +191,12 @@ func (h *Handler) SubscribeEvents(
 	}
 
 	nextBlock := headHeader.Number + 1
-	eventsPreviouslySent := make(map[SentEvent]struct{})
-	pendingID := BlockIDPending()
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromB := BlockIDFromNumber(requestedHeader.Number)
 			toB := BlockIDFromNumber(headHeader.Number)
 			return h.processEvents(
-				ctx, w, id, &fromB, &toB, fromAddr, keys, nil, headHeader.Number,
+				ctx, w, id, &fromB, &toB, fromAddr, keys, headHeader.Number,
 			)
 		},
 		onReorg: func(
@@ -229,30 +212,13 @@ func (h *Handler) SubscribeEvents(
 			fromB := BlockIDFromNumber(nextBlock)
 			toB := BlockIDFromNumber(head.Number)
 			err := h.processEvents(
-				ctx, w, id, &fromB, &toB, fromAddr, keys, eventsPreviouslySent, head.Number,
+				ctx, w, id, &fromB, &toB, fromAddr, keys, head.Number,
 			)
 			if err != nil {
 				return err
 			}
 			nextBlock = head.Number + 1
 			return nil
-		},
-		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
-				return nil
-			}
-
-			return h.processEvents(
-				ctx,
-				w,
-				id,
-				&pendingID,
-				&pendingID,
-				fromAddr,
-				keys,
-				eventsPreviouslySent,
-				pending.GetBlock().Number-1,
-			)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)
@@ -281,18 +247,6 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			return sendReorg(w, reorg, id)
 		},
 		onNewHead: func(ctx context.Context, id string, sub *subscription, head *core.Block) error {
-			if lastStatus < TxnStatusAcceptedOnL2 {
-				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
-				return nil
-			}
-
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -375,7 +329,6 @@ func (h *Handler) processEvents(
 	from, to *BlockID,
 	fromAddr *felt.Address,
 	keys [][]felt.Felt,
-	eventsPreviouslySent map[SentEvent]struct{},
 	height uint64,
 ) error {
 	var addresses []felt.Address
@@ -399,7 +352,7 @@ func (h *Handler) processEvents(
 		return err
 	}
 
-	err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id)
+	err = sendEvents(ctx, w, filteredEvents, id)
 	if err != nil {
 		return err
 	}
@@ -410,7 +363,7 @@ func (h *Handler) processEvents(
 			return err
 		}
 
-		err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id)
+		err = sendEvents(ctx, w, filteredEvents, id)
 		if err != nil {
 			return err
 		}
@@ -422,7 +375,6 @@ func sendEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
 	events []blockchain.FilteredEvent,
-	eventsPreviouslySent map[SentEvent]struct{},
 	id string,
 ) error {
 	for _, event := range events {
@@ -430,26 +382,8 @@ func sendEvents(
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			if eventsPreviouslySent != nil {
-				sentEvent := SentEvent{
-					TransactionHash: *event.TransactionHash,
-					EventIndex:      event.EventIndex,
-				}
-				if _, ok := eventsPreviouslySent[sentEvent]; ok {
-					continue
-				}
-				// This describe the lifecycle of SentEvent.
-				// It's added when the event is received from a pending block.
-				// It's deleted when the event is received from a head block.
-				if isPending := event.BlockHash == nil; isPending {
-					eventsPreviouslySent[sentEvent] = struct{}{}
-				} else {
-					delete(eventsPreviouslySent, sentEvent)
-				}
-			}
-
 			emittedEvent := &EmittedEvent{
-				BlockNumber:     event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending block
+				BlockNumber:     event.BlockNumber,
 				BlockHash:       event.BlockHash,
 				TransactionHash: event.TransactionHash,
 				Event: &Event{
@@ -515,13 +449,6 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 				return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 			}
 			return nil
-		},
-		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
-				return nil
-			}
-
-			return h.onPendingBlock(id, w, getDetails, senderAddr, pending.GetBlock(), &lastParentHash, sentTxHashes)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)

@@ -23,13 +23,6 @@ var (
 	)
 )
 
-type PendingDataVariant uint8
-
-const (
-	PendingBlockVariant PendingDataVariant = iota + 1
-	PreConfirmedBlockVariant
-)
-
 type PendingData interface {
 	GetBlock() *Block
 	GetHeader() *Header
@@ -42,7 +35,6 @@ type PendingData interface {
 	// Validate returns true if pendingData is valid for given predecessor,
 	// otherwise returns false
 	Validate(parent *Header) bool
-	Variant() PendingDataVariant
 	TransactionByHash(hash *felt.Felt) (Transaction, error)
 	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
 	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
@@ -100,10 +92,6 @@ func (p *Pending) GetTransactionStateDiffs() []*StateDiff {
 
 func (p *Pending) GetPreLatest() *PreLatest {
 	return nil
-}
-
-func (p *Pending) Variant() PendingDataVariant {
-	return PendingBlockVariant
 }
 
 func (p *Pending) Validate(parent *Header) bool {
@@ -224,10 +212,6 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
 
 func (p *PreConfirmed) GetPreLatest() *PreLatest {
 	return p.PreLatest
-}
-
-func (p *PreConfirmed) Variant() PendingDataVariant {
-	return PreConfirmedBlockVariant
 }
 
 func (p *PreConfirmed) Validate(parent *Header) bool {
