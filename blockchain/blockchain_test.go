@@ -1010,11 +1010,8 @@ func chainStateCommitment(testDB db.KeyValueStore) (felt.Felt, error) {
 	}
 	stateDB := state.NewStateDB(testDB, trieDB)
 	sf := statefactory.NewStateFactory(statetestutils.UseNewState(), trieDB, stateDB)
-	var txn db.IndexedBatch
-	if !sf.UseNewState() {
-		txn = testDB.NewIndexedBatch()
-	}
-	st, err := sf.NewState(header.GlobalStateRoot, txn, nil)
+	txn := testDB.NewIndexedBatch()
+	st, err := sf.NewStateReader(header.GlobalStateRoot, txn)
 	if err != nil {
 		return felt.Felt{}, err
 	}

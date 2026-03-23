@@ -32,7 +32,7 @@ func NewStateFactory(
 }
 
 func (sf *StateFactory) NewState(
-	// todo: this should be *felt.StateRootHash
+	// TODO: this should be *felt.StateRootHash
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
 	batch db.Batch,
@@ -49,7 +49,7 @@ func (sf *StateFactory) NewState(
 	return state, nil
 }
 
-func (sf *StateFactory) NewStateReader(
+func (sf *StateFactory) NewStateHistory(
 	stateRoot *felt.Felt,
 	txn db.IndexedBatch,
 	blockNumber uint64,
@@ -79,6 +79,20 @@ func (sf *StateFactory) EmptyState() (core.StateReader, error) {
 		return nil, err
 	}
 	return state, nil
+}
+
+// NewStateReader returns a read-only view of the state at the given root.
+// Use this for operations that only need to read from the current (head) state,
+// such as HeadState or computing reverse diffs.
+// Returns core.State (not just core.StateReader) so callers can access Commitment.
+func (sf *StateFactory) NewStateReader(
+	stateRoot *felt.Felt,
+	txn db.IndexedBatch,
+) (core.State, error) {
+	if !sf.useNewState {
+		return core.NewDeprecatedState(txn), nil
+	}
+	return state.NewStateReader(stateRoot, sf.stateDB)
 }
 
 func (sf *StateFactory) UseNewState() bool {

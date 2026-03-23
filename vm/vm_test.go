@@ -52,6 +52,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
+	require.NoError(t, batch.Write())
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
@@ -78,8 +79,9 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
-	// if new state, we need to create a new state with the new root
+	// for new state, each block needs a fresh batch and a state rooted at the previous block's root
 	if statetestutils.UseNewState() {
+		batch = testDB.NewBatch()
 		testState, err = stateFactory.NewState(newRoot, txn, batch)
 		require.NoError(t, err)
 	}
@@ -95,6 +97,9 @@ func TestCallDeprecatedCairo(t *testing.T) {
 			},
 		},
 	}, nil, false))
+	if statetestutils.UseNewState() {
+		require.NoError(t, batch.Write())
+	}
 
 	ret, err = New(&chainInfo, false, nil).Call(
 		&CallInfo{
@@ -146,6 +151,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
+	require.NoError(t, batch.Write())
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 	feeTokens := utils.DefaultFeeTokenAddresses
@@ -206,6 +212,7 @@ func TestCallCairo(t *testing.T) {
 	}
 	declaredClass := map[felt.Felt]core.ClassDefinition{*classHash: simpleClass}
 	require.NoError(t, state.Update(&core.Header{Number: 0}, &firstStateUpdate, declaredClass, false))
+	require.NoError(t, batch.Write())
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel)
@@ -260,7 +267,17 @@ func TestCallCairo(t *testing.T) {
 			},
 		},
 	}
+	// for new state, each block needs a fresh batch and a state rooted at the previous block's root
+	if statetestutils.UseNewState() {
+		batch = testDB.NewBatch()
+		state, err = stateFactory.NewState(firstStateUpdate.NewRoot, txn, batch)
+		require.NoError(t, err)
+	}
+
 	require.NoError(t, state.Update(&core.Header{Number: 1}, &secondStateUpdate, nil, false))
+	if statetestutils.UseNewState() {
+		require.NoError(t, batch.Write())
+	}
 
 	ret, err = vm.Call(
 		&callInfo,
@@ -304,6 +321,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	}, map[felt.Felt]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
+	require.NoError(t, batch.Write())
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel)

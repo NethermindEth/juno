@@ -356,16 +356,11 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 	if !newComm.Equal(update.OldRoot) {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &newComm)
 	}
-	if s.batch != nil {
-		if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
-			return err
-		}
-		if err := s.deleteHistory(blockNum, update.StateDiff); err != nil {
-			return err
-		}
+	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
+		return err
 	}
 
-	return nil
+	return s.deleteHistory(blockNum, update.StateDiff)
 }
 
 func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core.StateDiff, error) {
