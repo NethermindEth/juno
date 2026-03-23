@@ -1,7 +1,6 @@
 package blockchain_test
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
@@ -1005,22 +1004,18 @@ func chainStateCommitment(t *testing.T, database db.KeyValueStore) felt.Felt {
 	require.NoError(t, err)
 
 	if !statetestutils.UseNewState() {
-	//nolint:staticcheck,nolintlint // used by old state
-	txn := database.NewIndexedBatch()
-	commitment, err := deprecatedstate.New(txn).Commitment(header.ProtocolVersion)
-	require.NoError(t, err)
-	return commitment
+		//nolint:staticcheck,nolintlint // used by old state
+		txn := database.NewIndexedBatch()
+		commitment, err := deprecatedstate.New(txn).Commitment(header.ProtocolVersion)
+		require.NoError(t, err)
+		return commitment
 	}
 
-	trieDB, err := triedb.New(testDB, nil)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	stateDB := state.NewStateDB(testDB, trieDB)
-	state := state.NewStateReader(header.GlobalStateRoot, stateDB)
+	trieDB := triedb.New(database, nil)
+	stateDB := state.NewStateDB(database, trieDB)
+	state, err := state.NewStateReader(header.GlobalStateRoot, stateDB)
+	require.NoError(t, err)
 	commitment, err := state.Commitment(header.ProtocolVersion)
 	require.NoError(t, err)
 	return commitment
-}
-
 }

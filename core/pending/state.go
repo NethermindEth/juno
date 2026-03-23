@@ -45,8 +45,7 @@ func (p *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	} else if classHash, ok = p.stateDiff.DeployedContracts[*addr]; ok {
 		return *classHash, nil
 	}
-	classHash, err := p.head.ContractClassHash(addr)
-	return classHash, err
+	return p.head.ContractClassHash(addr)
 }
 
 func (p *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
@@ -55,8 +54,7 @@ func (p *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
 		return felt.Felt{}, nil
 	}
-	nonce, err := p.head.ContractNonce(addr)
-	return nonce, err
+	return p.head.ContractNonce(addr)
 }
 
 func (p *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
@@ -68,8 +66,7 @@ func (p *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
 		return felt.Felt{}, nil
 	}
-	value, err := p.head.ContractStorage(addr, key)
-	return value, err
+	return p.head.ContractStorage(addr, key)
 }
 
 // ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
