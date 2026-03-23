@@ -111,7 +111,6 @@ func TestNonce(t *testing.T) {
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
-
 	t.Run("blockID - pending", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)

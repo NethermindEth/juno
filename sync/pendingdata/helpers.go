@@ -1,12 +1,15 @@
 package pendingdata
 
 import (
+	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
+
+var ErrUnsupportedPendingDataVariant = errors.New("unsupported pending data variant")
 
 const BlockHashLag uint64 = 10
 
