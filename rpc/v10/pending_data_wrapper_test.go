@@ -38,6 +38,8 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 		)
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
+		_, isPreConfirmed := pending.(*core.PreConfirmed)
+		require.True(t, isPreConfirmed)
 		require.Equal(t, &expectedPending, pending)
 	})
 
@@ -66,6 +68,8 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
+		_, isPreConfirmed := pending.(*core.PreConfirmed)
+		require.True(t, isPreConfirmed)
 		require.Equal(t, &expectedPending, pending)
 	})
 }

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
@@ -114,10 +113,6 @@ func TestNonce(t *testing.T) {
 	})
 	//nolint:dupl //  similar structure with nonce test, different endpoint.
 	t.Run("blockID - pending", func(t *testing.T) {
-		stateDiff := core.EmptyStateDiff()
-		preConfirmed := core.NewPreConfirmed(&core.Block{Header: &core.Header{Number: 1}}, &core.StateUpdate{StateDiff: &stateDiff}, nil, nil)
-
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
@@ -281,10 +276,6 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
-		stateDiff := core.EmptyStateDiff()
-		preConfirmed := core.NewPreConfirmed(&core.Block{Header: &core.Header{Number: 1}}, &core.StateUpdate{StateDiff: &stateDiff}, nil, nil)
-
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 		mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(*expectedStorage, nil)

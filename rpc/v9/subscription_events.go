@@ -164,7 +164,6 @@ func (s *eventSubscriberState) onPendingData(
 	_ *subscription,
 	pending core.PendingData,
 ) error {
-
 	return s.processBlock(ctx, id, pending.GetBlock(), TxnPreConfirmed)
 }
 

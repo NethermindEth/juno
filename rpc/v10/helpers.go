@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"go.uber.org/zap"
 )
 
@@ -55,7 +56,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -71,7 +72,7 @@ func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *json
 	case blockID.IsPreConfirmed():
 		pending, err := h.PendingData()
 		if err != nil {
-			if errors.Is(err, core.ErrPendingDataNotFound) {
+			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil, rpccore.ErrBlockNotFound
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -81,7 +82,7 @@ func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *json
 	default:
 		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil, rpccore.ErrBlockNotFound
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -118,7 +119,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -175,7 +176,7 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pendingdata.ErrUnsupportedPendingDataVariant) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

@@ -365,7 +365,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			gomock.Any(),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, TxnSuccess, "")

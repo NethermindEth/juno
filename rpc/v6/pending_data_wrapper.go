@@ -34,13 +34,5 @@ func (h *Handler) PendingBlock() *core.Block {
 }
 
 func (h *Handler) PendingState() (core.StateReader, func() error, error) {
-	_, err := h.syncReader.PendingData()
-	if err != nil {
-		if errors.Is(err, core.ErrPendingDataNotFound) {
-			return h.bcReader.HeadState()
-		}
-		return nil, nil, err
-	}
-
 	return h.bcReader.HeadState()
 }

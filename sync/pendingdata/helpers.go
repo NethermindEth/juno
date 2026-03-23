@@ -1,12 +1,15 @@
 package pendingdata
 
 import (
+	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
+
+var ErrUnsupportedPendingDataVariant = errors.New("unsupported pending data variant")
 
 const BlockHashLag uint64 = 10
 
@@ -149,7 +152,7 @@ func ResolvePendingDataBaseState(
 ) (core.StateReader, blockchain.StateCloser, error) {
 	pc, ok := pending.(*core.PreConfirmed)
 	if !ok {
-		return nil, nil, core.ErrPendingDataNotFound
+		return nil, nil, ErrUnsupportedPendingDataVariant
 	}
 	return ResolvePreConfirmedBaseState(pc, stateReader)
 }

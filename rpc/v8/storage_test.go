@@ -177,8 +177,6 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
-		// In v8, PendingState() always returns HeadState regardless of what the sync reader has.
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
 		mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).

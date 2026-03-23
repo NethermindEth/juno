@@ -90,8 +90,6 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	t.Run("Returns latest state", func(t *testing.T) {
-		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()
 
@@ -101,9 +99,6 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	})
 
 	t.Run("Returns latest state for PreConfirmed with non-nil block", func(t *testing.T) {
-		stateDiff := core.EmptyStateDiff()
-		preConfirmed := core.NewPreConfirmed(&core.Block{Header: &core.Header{Number: 1}}, &core.StateUpdate{StateDiff: &stateDiff}, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()
 
@@ -113,7 +108,6 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	})
 
 	t.Run("Returns latest state when pending data is not valid", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()
 

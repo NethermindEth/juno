@@ -30,12 +30,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 	require.NoError(t, err)
 
-	t.Run("Returns returns placeholder prelatest block when valid", func(t *testing.T) {
-		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
+	t.Run("Returns empty pending placeholder based on latest header", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(
 			latestBlock.Header.Number+1-pendingdata.BlockHashLag,
@@ -44,33 +39,6 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 		expectedPending, err := pendingdata.MakeEmptyPendingForParent(
 			mockReader,
 			latestBlock.Header,
-		)
-		require.NoError(t, err)
-
-		pending, err := handler.PendingData()
-		require.NoError(t, err)
-		require.Equal(t, &expectedPending, pending)
-	})
-	t.Run("Returns placeholder pending data when pending data is not valid", func(t *testing.T) {
-		blockToRegisterHash := core.Header{
-			Number: latestBlock.Header.Number + 1 - pendingdata.BlockHashLag,
-			Hash:   felt.NewFromUint64[felt.Felt](1234567),
-		}
-
-		mockSyncReader.EXPECT().PendingData().Return(
-			nil,
-			core.ErrPendingDataNotFound,
-		)
-		latestHeader := latestBlock.Header
-		latestHeader.ProtocolVersion = "0.14.0"
-		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
-		mockReader.EXPECT().BlockHeaderByNumber(
-			latestBlock.Header.Number+1-pendingdata.BlockHashLag,
-		).Return(&blockToRegisterHash, nil).Times(2)
-
-		expectedPending, err := pendingdata.MakeEmptyPendingForParent(
-			mockReader,
-			latestHeader,
 		)
 		require.NoError(t, err)
 
@@ -88,19 +56,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
-	t.Run("Returns latest state when starknet version >= 0.14.0", func(t *testing.T) {
-		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		pending, closer, err := handler.PendingState()
-
-		require.NoError(t, err)
-		require.NotNil(t, pending)
-		require.NotNil(t, closer)
-	})
-
-	t.Run("Returns latest state when pending data is not valid", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
+	t.Run("Returns head state", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		pending, closer, err := handler.PendingState()
 

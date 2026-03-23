@@ -407,7 +407,7 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 	}
 }
 
-func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
+func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 	testDB := memory.New()
 	bc := blockchain.New(testDB, &utils.Sepolia)
 	client := feeder.NewTestClient(t, &utils.Sepolia)

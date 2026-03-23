@@ -14,6 +14,9 @@ func (h *Handler) PendingData() (core.PendingData, error) {
 	}
 
 	if err == nil {
+		if _, ok := pending.(*core.PreConfirmed); !ok {
+			return nil, pendingdata.ErrUnsupportedPendingDataVariant
+		}
 		return pending, nil
 	}
 

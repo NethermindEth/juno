@@ -285,11 +285,6 @@ func TestTraceTransaction(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-			mockSyncReader.EXPECT().PendingData().Return(
-				&preConfirmed,
-				nil,
-			)
 			mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
@@ -407,7 +402,6 @@ func TestTraceTransaction(t *testing.T) {
 
 		// Receipt returns block hash = nil, indicating it is in the pending block
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), nil)
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
@@ -569,16 +563,6 @@ func TestTraceBlockTransactions(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, log)
 
-			if description == "pending" {
-				mockCtrl := gomock.NewController(t)
-				t.Cleanup(mockCtrl.Finish)
-
-				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-
-				handler = rpc.New(chain, mockSyncReader, nil, log)
-			}
-
 			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 			assert.Nil(t, update)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -602,25 +586,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 		// After deprecating old Pending type, PendingData() always returns an empty placeholder block.
 		// TraceBlockTransactions("pending") traces the empty placeholder, yielding no traces.
 		preConfirmedParentHash := felt.NewUnsafeFromString[felt.Felt]("0x0C3")
-		preConfirmedHeader := &core.Header{
-			ParentHash: preConfirmedParentHash,
-			Number:     0,
-		}
-		pendingStateDiff := core.EmptyStateDiff()
-		preConfirmed := core.PreConfirmed{
-			Block: &core.Block{Header: preConfirmedHeader, Transactions: []core.Transaction{}},
-			StateUpdate: &core.StateUpdate{
-				StateDiff: &pendingStateDiff,
-			},
-			NewClasses: map[felt.Felt]core.ClassDefinition{},
-		}
 
-		// PendingData() calls syncReader.PendingData() once; PendingState() calls it again
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil).Times(2)
-
-		// HeadsHeader() is called by PendingData(). Use Hash = preConfirmedParentHash so that
-		// both StateAtBlockHash calls (from traceBlockTransactionWithVM and PendingState) share
-		// the same argument and Times(2) expectation remains valid.
+		// HeadsHeader() is called by PendingData(). The empty pending block has
+		// ParentHash = latestHeader.Hash = preConfirmedParentHash, which is then used
+		// by traceBlockTransactionWithVM via StateAtBlockHash.
 		latestHeader := &core.Header{Hash: preConfirmedParentHash, Number: 0}
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 
@@ -629,7 +598,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		// StateAtBlockHash(emptyBlock.ParentHash = latestHeader.Hash = 0x0C3)
 		mockReader.EXPECT().StateAtBlockHash(preConfirmedParentHash).
 			Return(headState, nopCloser, nil).Times(1)
-		// PendingState() in v8 always returns HeadState (Variant() != PendingBlockVariant is always true)
+		// PendingState() in v8 always returns HeadState
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
 		// vm.Execute is called with empty txns; use Any() for fields with dynamic content

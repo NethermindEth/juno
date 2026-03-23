@@ -109,11 +109,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
 
-			if description == "pending" {
-				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-			}
-
 			handler := rpcv8.New(chain, mockSyncReader, nil, log)
 
 			block, rpcErr := handler.BlockWithTxHashes(&id)
@@ -217,12 +212,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		).Times(2)
-
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
@@ -312,11 +301,6 @@ func TestBlockWithTxs(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
-
-			if description == "pending" {
-				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-			}
 
 			handler := rpcv8.New(chain, mockSyncReader, nil, log)
 
@@ -441,12 +425,6 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		).Times(2)
-
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
@@ -640,12 +618,6 @@ func TestBlockWithReceipts(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
-		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
-
 		mockReader.EXPECT().HeadsHeader().Return(block0.Header, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 

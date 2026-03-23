@@ -135,7 +135,6 @@ func (s *receiptsSubscriberState) onPendingData(
 	_ *subscription,
 	pending core.PendingData,
 ) error {
-
 	return s.processBlock(
 		id,
 		pending.GetBlock(),

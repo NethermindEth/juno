@@ -134,7 +134,11 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
 	if err := s.storeEmptyPreConfirmed(lastHeader, nil); err != nil {
-		s.log.Error("Failed to store empty pre_confirmed block", zap.Uint64("number", lastHeader.Number))
+		s.log.Error(
+			"Failed to store empty pre_confirmed block",
+			zap.Uint64("number", lastHeader.Number),
+			zap.Error(err),
+		)
 	}
 }
 
