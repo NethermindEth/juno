@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -79,7 +80,19 @@ func newTestServer(t *testing.T) *httptest.Server {
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
 		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
-		b, err := io.ReadAll(r.Body)
+		var bodyReader io.Reader = r.Body
+		if r.Header.Get("Content-Encoding") == "gzip" {
+			gzReader, gzErr := gzip.NewReader(r.Body)
+			if gzErr != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte(gzErr.Error())) //nolint:errcheck // That's fine for the test server
+				return
+			}
+			defer gzReader.Close()
+			bodyReader = gzReader
+		}
+
+		b, err := io.ReadAll(bodyReader)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error())) //nolint:errcheck
@@ -147,17 +160,27 @@ func (c *Client) post(ctx context.Context, url string, data any) ([]byte, error)
 // doPost performs a "POST" http request with the given URL and a JSON payload derived from the provided data
 // it returns response without additional error handling
 func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Response, error) {
-	body, err := json.Marshal(data)
+	jsonBody, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	var buf bytes.Buffer
+	gzWriter := gzip.NewWriter(&buf)
+	if _, err = gzWriter.Write(jsonBody); err != nil {
+		return nil, err
+	}
+	if err = gzWriter.Close(); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
