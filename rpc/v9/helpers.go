@@ -203,7 +203,8 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pendingdata.ErrUnsupportedPendingDataVariant) {
+		if errors.Is(err, db.ErrKeyNotFound) ||
+			errors.Is(err, pendingdata.ErrUnsupportedPendingDataVariant) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

@@ -209,7 +209,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkBlock(t, block)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) { //nolint:dupl
+	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		blockToRegisterHash := core.Header{
@@ -422,7 +422,7 @@ func TestBlockWithTxs(t *testing.T) {
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) { //nolint:dupl
+	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		blockToRegisterHash := core.Header{

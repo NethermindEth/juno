@@ -357,7 +357,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkBlock(t, block)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) { //nolint:dupl
+	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)

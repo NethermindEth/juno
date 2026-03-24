@@ -414,7 +414,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
-	junoCmd.Flags().Duration(preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage)
+	junoCmd.Flags().Duration(
+		preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage,
+	)
 	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)

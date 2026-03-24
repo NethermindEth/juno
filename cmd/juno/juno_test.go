@@ -436,7 +436,8 @@ db-cache-size: 1024
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
-				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof", "--prelatest-poll-interval", time.Millisecond.String(),
+				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof",
+				"--prelatest-poll-interval", time.Millisecond.String(),
 				"--preconfirmed-poll-interval", time.Millisecond.String(), "--db-cache-size", "9",
 			},
 			expectedConfig: &node.Config{
