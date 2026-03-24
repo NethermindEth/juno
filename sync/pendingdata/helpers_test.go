@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestResolvePendingDataBaseState(t *testing.T) {
+func TestResolvePreConfirmedBaseState(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -34,7 +34,7 @@ func TestResolvePendingDataBaseState(t *testing.T) {
 			func() error { return nil },
 			nil,
 		)
-		stateReader, closer, err := pendingdata.ResolvePendingDataBaseState(preConfirmed, mockReader)
+		stateReader, closer, err := pendingdata.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
 		require.NoError(t, err)
 		require.NotNil(t, stateReader)
 		require.NotNil(t, closer)
@@ -60,7 +60,7 @@ func TestResolvePendingDataBaseState(t *testing.T) {
 			func() error { return nil },
 			nil,
 		)
-		stateReader, closer, err := pendingdata.ResolvePendingDataBaseState(preConfirmed, mockReader)
+		stateReader, closer, err := pendingdata.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
 		require.NoError(t, err)
 		require.NotNil(t, stateReader)
 		require.NotNil(t, closer)
@@ -83,7 +83,7 @@ func TestResolvePendingDataBaseState(t *testing.T) {
 			func() error { return nil },
 			nil,
 		)
-		stateReader, closer, err := pendingdata.ResolvePendingDataBaseState(preConfirmed, mockReader)
+		stateReader, closer, err := pendingdata.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
 		require.NoError(t, err)
 		require.NotNil(t, stateReader)
 		require.NotNil(t, closer)

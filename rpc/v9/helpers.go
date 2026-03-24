@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync/pendingdata"
 	"go.uber.org/zap"
 )
 
@@ -203,8 +202,7 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) ||
-			errors.Is(err, pendingdata.ErrUnsupportedPendingDataVariant) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

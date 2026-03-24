@@ -1,15 +1,12 @@
 package pendingdata
 
 import (
-	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
-
-var ErrUnsupportedPendingDataVariant = errors.New("unsupported pending data variant")
 
 const BlockHashLag uint64 = 10
 
@@ -144,26 +141,14 @@ func ResolvePreConfirmedBaseState(
 	return stateReader.StateAtBlockHash(&felt.Zero)
 }
 
-// ResolvePendingDataBaseState determines the appropriate base state for pending data
-// and returns the state reader along with its closer function.
-func ResolvePendingDataBaseState(
-	pending core.PendingData,
-	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
-	pc, ok := pending.(*core.PreConfirmed)
-	if !ok {
-		return nil, nil, ErrUnsupportedPendingDataVariant
-	}
-	return ResolvePreConfirmedBaseState(pc, stateReader)
-}
-
 // PendingState is a convenience function that combines
 // base state resolution with pending state creation
 func PendingState(
 	pending core.PendingData,
 	stateReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateReader)
+	preconfirmed, _ := pending.(*core.PreConfirmed)
+	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preconfirmed, stateReader)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -178,7 +163,8 @@ func PendingStateBeforeIndex(
 	stateReader blockchain.Reader,
 	index uint,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateReader)
+	preconfirmed, _ := pending.(*core.PreConfirmed)
+	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preconfirmed, stateReader)
 	if err != nil {
 		return nil, nil, err
 	}
