@@ -69,7 +69,7 @@ func TestPollPreLatest(t *testing.T) {
 		mockDS := &MockDataSource{
 			DataSource: dataSource,
 			PendingFunc: func(context.Context) (core.PreLatest, error) {
-				return core.PreLatest(makeTestPendingForParent(head.Header)), nil
+				return makeEmptyPreLatestForParent(head.Header), nil
 			},
 		}
 
@@ -112,7 +112,7 @@ func TestPollPreLatest(t *testing.T) {
 			DataSource: dataSource,
 			PendingFunc: func(context.Context) (core.PreLatest, error) {
 				// Always return pending for 'latest' (future relative to headMinusOne)
-				return core.PreLatest(makeTestPendingForParent(latest.Header)), nil
+				return makeEmptyPreLatestForParent(latest.Header), nil
 			},
 		}
 		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
@@ -159,7 +159,7 @@ func TestPollPreLatest(t *testing.T) {
 			DataSource:            dataSource,
 			pendingErrorThreshold: 2,
 			PendingFunc: func(context.Context) (core.PreLatest, error) {
-				return core.PreLatest(makeTestPendingForParent(head.Header)), nil
+				return makeEmptyPreLatestForParent(head.Header), nil
 			},
 			preConfirmedErrorThreshold: 0,
 		}
@@ -198,7 +198,7 @@ func TestPollPreLatest(t *testing.T) {
 			DataSource:            dataSource,
 			pendingErrorThreshold: ^uint(0), // always error
 			PendingFunc: func(context.Context) (core.PreLatest, error) {
-				return core.PreLatest(makeTestPendingForParent(head.Header)), nil
+				return makeEmptyPreLatestForParent(head.Header), nil
 			},
 		}
 
@@ -347,7 +347,7 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 	pendingFunc := func(context.Context) (core.PreLatest, error) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		return core.PreLatest(makeTestPendingForParent(head)), nil
+		return makeEmptyPreLatestForParent(head), nil
 	}
 
 	mockDataSource := &MockDataSource{
@@ -418,7 +418,7 @@ func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 	pendingFunc := func(context.Context) (core.PreLatest, error) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		return core.PreLatest(makeTestPendingForParent(head)), nil
+		return makeEmptyPreLatestForParent(head), nil
 	}
 	log := utils.NewNopZapLogger()
 	mockDataSource := &MockDataSource{
@@ -565,8 +565,7 @@ func TestStorePreConfirmed(t *testing.T) {
 
 		// Attempt to store "worse" but with a pre_latest attachment;
 		// should keep existing but update attachment
-		pending := makeTestPendingForParent(head)
-		pl := core.PreLatest(pending)
+		pl := makeEmptyPreLatestForParent(head)
 
 		worse := &core.PreConfirmed{
 			Block: &core.Block{
@@ -762,7 +761,7 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 	return preConfirmed
 }
 
-func makeTestPendingForParent(parent *core.Header) core.Pending {
+func makeEmptyPreLatestForParent(parent *core.Header) core.PreLatest {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
 		Header: &core.Header{
@@ -782,7 +781,7 @@ func makeTestPendingForParent(parent *core.Header) core.Pending {
 		Receipts:     receipts,
 	}
 	stateDiff := core.EmptyStateDiff()
-	pending := core.Pending{
+	pending := core.PreLatest{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   parent.GlobalStateRoot,

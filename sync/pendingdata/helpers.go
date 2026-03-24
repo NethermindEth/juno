@@ -40,6 +40,8 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 	return stateDiff, nil
 }
 
+// Deprecated: MakeEmptyPendingForParent constructs an empty core.Pending placeholder used by
+// rpc/v8 to serve "pending" block ID requests. Remove when rpc/v8 is deprecated.
 func MakeEmptyPendingForParent(
 	bcReader blockchain.Reader,
 	latestHeader *core.Header,

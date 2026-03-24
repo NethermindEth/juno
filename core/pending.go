@@ -44,12 +44,16 @@ type PendingData interface {
 	PendingState(baseState StateReader) StateReader
 }
 
+// Deprecated: Pending is the pre-0.14.0 pending block variant. It is retained solely as a
+// placeholder returned by rpc/v8's PendingData() and MakeEmptyPendingForParent to satisfy
+// the "pending" block ID in the v8 RPC spec. Remove this type when rpc/v8 is deprecated.
 type Pending struct {
 	Block       *Block
 	StateUpdate *StateUpdate
 	NewClasses  map[felt.Felt]ClassDefinition
 }
 
+// Deprecated: NewPending constructs the deprecated Pending type.
 func NewPending(
 	block *Block,
 	stateUpdate *StateUpdate,
