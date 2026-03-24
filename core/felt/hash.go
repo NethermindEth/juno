@@ -14,8 +14,8 @@ func (h *Hash) UnmarshalJSON(data []byte) error {
 	return (*Felt)(h).UnmarshalJSON(data)
 }
 
-func (h *Hash) MarshalJSON() ([]byte, error) {
-	return (*Felt)(h).MarshalJSON()
+func (h Hash) MarshalJSON() ([]byte, error) {
+	return Felt(h).MarshalJSON()
 }
 
 func (h *Hash) Marshal() []byte {
@@ -40,8 +40,8 @@ func (h *ClassHash) UnmarshalJSON(data []byte) error {
 	return (*Hash)(h).UnmarshalJSON(data)
 }
 
-func (h *ClassHash) MarshalJSON() ([]byte, error) {
-	return (*Hash)(h).MarshalJSON()
+func (h ClassHash) MarshalJSON() ([]byte, error) {
+	return Hash(h).MarshalJSON()
 }
 
 func (h *ClassHash) Marshal() []byte {
@@ -66,8 +66,8 @@ func (h *SierraClassHash) UnmarshalJSON(data []byte) error {
 	return (*ClassHash)(h).UnmarshalJSON(data)
 }
 
-func (h *SierraClassHash) MarshalJSON() ([]byte, error) {
-	return (*ClassHash)(h).MarshalJSON()
+func (h SierraClassHash) MarshalJSON() ([]byte, error) {
+	return ClassHash(h).MarshalJSON()
 }
 
 func (h *SierraClassHash) Marshal() []byte {
@@ -92,8 +92,8 @@ func (h *CasmClassHash) UnmarshalJSON(data []byte) error {
 	return (*ClassHash)(h).UnmarshalJSON(data)
 }
 
-func (h *CasmClassHash) MarshalJSON() ([]byte, error) {
-	return (*ClassHash)(h).MarshalJSON()
+func (h CasmClassHash) MarshalJSON() ([]byte, error) {
+	return ClassHash(h).MarshalJSON()
 }
 
 func (h *CasmClassHash) Marshal() []byte {
@@ -118,8 +118,8 @@ func (h *TransactionHash) UnmarshalJSON(data []byte) error {
 	return (*Hash)(h).UnmarshalJSON(data)
 }
 
-func (h *TransactionHash) MarshalJSON() ([]byte, error) {
-	return (*Hash)(h).MarshalJSON()
+func (h TransactionHash) MarshalJSON() ([]byte, error) {
+	return Hash(h).MarshalJSON()
 }
 
 func (h *TransactionHash) Marshal() []byte {
@@ -144,8 +144,8 @@ func (h *StateRootHash) UnmarshalJSON(data []byte) error {
 	return (*Hash)(h).UnmarshalJSON(data)
 }
 
-func (h *StateRootHash) MarshalJSON() ([]byte, error) {
-	return (*Hash)(h).MarshalJSON()
+func (h StateRootHash) MarshalJSON() ([]byte, error) {
+	return Hash(h).MarshalJSON()
 }
 
 func (h *StateRootHash) Marshal() []byte {

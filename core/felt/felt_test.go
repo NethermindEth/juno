@@ -1,6 +1,8 @@
 package felt_test
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -61,6 +63,80 @@ func TestShortString(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "0x1234...6789", f.ShortString())
 	})
+}
+
+// TestMarshalJSON_ValueInInterface reproduces a bug where felt types serialised
+// as [4]uint64 limbs instead of hex strings. This happens because MarshalJSON
+// uses a pointer receiver, but encoding/json cannot call pointer-receiver methods
+// on non-addressable values (e.g. struct fields inside a value stored in `any`).
+func TestMarshalJSON_ValueInInterface(t *testing.T) {
+	f := felt.UnsafeFromString[felt.Felt]("0xdeadbeef")
+
+	// Simulates how jsonrpc server stores handler results:
+	//   response.Result = handlerReturnValue (stored as value in `any`)
+	type rpcResponse struct {
+		Result any `json:"result"`
+	}
+
+	tests := []struct {
+		name  string
+		input any
+	}{
+		{
+			name: "Felt value field in struct value",
+			input: struct {
+				V felt.Felt `json:"v"`
+			}{V: f},
+		},
+		{
+			name: "TransactionHash value field in struct value",
+			input: struct {
+				V felt.TransactionHash `json:"v"`
+			}{V: felt.TransactionHash(f)},
+		},
+		{
+			name: "Hash value field in struct value",
+			input: struct {
+				V felt.Hash `json:"v"`
+			}{V: felt.Hash(f)},
+		},
+		{
+			name: "Address value field in struct value",
+			input: struct {
+				V felt.Address `json:"v"`
+			}{V: felt.Address(f)},
+		},
+		{
+			name: "ClassHash value field in struct value",
+			input: struct {
+				V felt.ClassHash `json:"v"`
+			}{V: felt.ClassHash(f)},
+		},
+		{
+			name: "pointer field works (control)",
+			input: struct {
+				V *felt.Felt `json:"v"`
+			}{V: &f},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := rpcResponse{Result: tt.input}
+			b, err := json.Marshal(resp)
+			require.NoError(t, err)
+
+			s := string(b)
+			t.Logf("JSON output: %s", s)
+
+			// Must contain "0xdeadbeef" as a hex string, not uint64 limbs
+			assert.Contains(t, s, "0xdeadbeef",
+				"expected hex string, got limbs — pointer-receiver MarshalJSON"+
+					" not called on non-addressable value")
+			assert.False(t, strings.Contains(s, "[") && strings.Contains(s, ","),
+				"got JSON array (raw [4]uint64 limbs) instead of hex string")
+		})
+	}
 }
 
 func TestFeltMarshalAndUnmarshal(t *testing.T) {

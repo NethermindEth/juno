@@ -68,8 +68,10 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	return err
 }
 
-// MarshalJSON forwards the call to underlying field element implementation
-func (z *Felt) MarshalJSON() ([]byte, error) {
+// MarshalJSON forwards the call to underlying field element implementation.
+// Uses a value receiver so encoding/json can call it on non-addressable values
+// (e.g. struct fields inside a value stored in an `any` interface).
+func (z Felt) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + z.String() + "\""), nil
 }
 
