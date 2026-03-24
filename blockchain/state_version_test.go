@@ -23,7 +23,7 @@ func TestValidateStateVersion(t *testing.T) {
 		seedBucket(t, testDB, db.ClassesTrie)
 
 		err := blockchain.ValidateStateVersion(testDB, true)
-		require.ErrorContains(t, err, "deprecated state")
+		require.ErrorContains(t, err, "existing state")
 		require.ErrorContains(t, err, "--new-state")
 	})
 
