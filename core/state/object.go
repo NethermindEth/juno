@@ -1,12 +1,14 @@
 package state
 
 import (
+	"errors"
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
 	"golang.org/x/exp/maps"
 )
 
@@ -59,6 +61,9 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 	// todo: remove felt cast
 	v, err := reader.Node((*felt.Address)(&s.addr), &path, nil, true)
 	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return felt.Zero, nil
+		}
 		return felt.Zero, err
 	}
 

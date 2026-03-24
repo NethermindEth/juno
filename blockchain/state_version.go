@@ -48,7 +48,7 @@ func ValidateStateVersion(disk db.KeyValueStore, useNewState bool) error {
 }
 
 func bucketHasData(disk db.KeyValueStore, bucket db.Bucket) (bool, error) {
-	it, err := disk.NewIterator(bucket.Key(), false)
+	it, err := disk.NewIterator(bucket.Key(), true)
 	if err != nil {
 		return false, err
 	}

@@ -94,6 +94,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 				DatabasePath:                       dbPath,
 				DBCompression:                      "zstd",
 				Network:                            test.network,
+				NewState:                           statetestutils.UseNewState(),
 				DisableL1Verification:              true,
 				SubmittedTransactionsCacheEntryTTL: time.Second,
 			}, "v0.1", logLevel)
