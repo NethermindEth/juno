@@ -40,6 +40,9 @@ var (
 	InvalidProof                      ErrorCode = "StarknetErrorCode.INVALID_PROOF"
 )
 
+// Payload size threshold for Gzip compression. 1KB
+const gzipMinSize = 1024
+
 type Client struct {
 	url       string
 	client    *http.Client
@@ -81,7 +84,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
 		var bodyReader io.Reader = r.Body
-		if r.Header.Get("Content-Encoding") == "gzip" {
+		isGzip := r.Header.Get("Content-Encoding") == "gzip"
+		if isGzip {
 			gzReader, gzErr := gzip.NewReader(r.Body)
 			if gzErr != nil {
 				w.WriteHeader(http.StatusBadRequest)
@@ -97,6 +101,11 @@ func newTestServer(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error())) //nolint:errcheck
 			return
+		}
+
+		// Assert that large payloads are gzip-compressed
+		if len(b) >= gzipMinSize {
+			assert.True(t, isGzip, "expected Content-Encoding: gzip for payload of size %d", len(b))
 		}
 
 		// empty request: "{}"
@@ -165,22 +174,32 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	gzWriter := gzip.NewWriter(&buf)
-	if _, err = gzWriter.Write(jsonBody); err != nil {
-		return nil, err
-	}
-	if err = gzWriter.Close(); err != nil {
-		return nil, err
+	var body io.Reader
+	compressed := false
+	if len(jsonBody) > gzipMinSize {
+		var buf bytes.Buffer
+		gzWriter := gzip.NewWriter(&buf)
+		if _, err = gzWriter.Write(jsonBody); err != nil {
+			return nil, fmt.Errorf("gzip write failed: %w", err)
+		}
+		if err = gzWriter.Close(); err != nil {
+			return nil, fmt.Errorf("gzip write failed: %w", err)
+		}
+		body = &buf
+		compressed = true
+	} else {
+		body = bytes.NewReader(jsonBody)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "gzip")
+	if compressed {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
