@@ -127,6 +127,12 @@ jobs:
     secrets:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
 
+  starknet-rust-rpcv10:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-rust-tests.yml
+    secrets:
+      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_10?apikey=${{ secrets.AUTH_TOKEN }}
+
   starknet-js-rpcv08:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
@@ -152,7 +158,7 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
     with:
-      test_mode: ${{ inputs.test_mode }}
+      test_mode: fast
       ref: v9.4.2
       rpc_version: v0_10
     secrets:

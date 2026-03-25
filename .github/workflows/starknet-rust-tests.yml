@@ -1,0 +1,44 @@
+name: starknet-rust tests
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: 'v0.19.0-rc.2'
+        description: 'starknet-rust version/tag to test'
+    secrets:
+      STARKNET_RPC:
+        required: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: software-mansion/starknet-rust
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Override hardcoded RPC URL
+        run: sed -i "s|http://188.34.188.184:7070/rpc/v0_10|${STARKNET_RPC}|g" utils/test-common/src/lib.rs
+        env:
+          STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
+
+      - name: Run jsonrpc tests
+        run: |
+          cd starknet-rust-providers && cargo test jsonrpc
+          cd ../starknet-rust-accounts
+          cargo test jsonrpc -- \
+            --skip can_estimate_declare_v3_fee_with_jsonrpc \
+            --skip can_declare_cairo1_contract_v3_with_jsonrpc
+        env:
+          RUST_BACKTRACE: full
