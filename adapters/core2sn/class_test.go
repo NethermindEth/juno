@@ -22,5 +22,5 @@ func TestAdaptDeprecatedEntryPoint(t *testing.T) {
 	got := core2sn.AdaptDeprecatedEntryPoint(ep)
 
 	assert.Equal(t, selector, got.Selector)
-	assert.Equal(t, starknet.EntryPointOffset(*offset), got.Offset)
+	assert.Equal(t, (*starknet.EntryPointOffset)(offset), got.Offset)
 }

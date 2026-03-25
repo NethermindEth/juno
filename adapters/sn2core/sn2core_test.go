@@ -265,22 +265,22 @@ func TestClassV0(t *testing.T) {
 
 			for i, v := range response.DeprecatedCairo.EntryPoints.External {
 				assert.Equal(t, v.Selector, class.Externals[i].Selector)
-				offset := felt.Felt(v.Offset)
-				assert.Equal(t, &offset, class.Externals[i].Offset)
+				offset := (*felt.Felt)(v.Offset)
+				assert.Equal(t, offset, class.Externals[i].Offset)
 			}
 			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.External), len(class.Externals))
 
 			for i, v := range response.DeprecatedCairo.EntryPoints.L1Handler {
 				assert.Equal(t, v.Selector, class.L1Handlers[i].Selector)
-				offset := felt.Felt(v.Offset)
-				assert.Equal(t, &offset, class.L1Handlers[i].Offset)
+				offset := (*felt.Felt)(v.Offset)
+				assert.Equal(t, offset, class.L1Handlers[i].Offset)
 			}
 			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.L1Handler), len(class.L1Handlers))
 
 			for i, v := range response.DeprecatedCairo.EntryPoints.Constructor {
 				assert.Equal(t, v.Selector, class.Constructors[i].Selector)
-				offset := felt.Felt(v.Offset)
-				assert.Equal(t, &offset, class.Constructors[i].Offset)
+				offset := (*felt.Felt)(v.Offset)
+				assert.Equal(t, offset, class.Constructors[i].Offset)
 			}
 			assert.Equal(t, len(response.DeprecatedCairo.EntryPoints.Constructor), len(class.Constructors))
 
