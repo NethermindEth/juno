@@ -106,7 +106,7 @@ func AdaptSierraClass(class *core.SierraClass) starknet.SierraClass {
 func AdaptDeprecatedEntryPoint(ep *core.DeprecatedEntryPoint) starknet.EntryPoint {
 	return starknet.EntryPoint{
 		Selector: ep.Selector,
-		Offset:   starknet.EntryPointOffset(*ep.Offset),
+		Offset:   (*starknet.EntryPointOffset)(ep.Offset),
 	}
 }
 

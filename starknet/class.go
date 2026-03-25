@@ -33,8 +33,8 @@ func (o EntryPointOffset) String() string {
 }
 
 type EntryPoint struct {
-	Selector *felt.Felt       `json:"selector"`
-	Offset   EntryPointOffset `json:"offset"`
+	Selector *felt.Felt        `json:"selector"`
+	Offset   *EntryPointOffset `json:"offset"`
 }
 
 type SierraEntryPoints struct {

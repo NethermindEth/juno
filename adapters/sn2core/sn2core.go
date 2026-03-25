@@ -375,10 +375,9 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 }
 
 func adaptStarknetEntrypoint(ep *starknet.EntryPoint) core.DeprecatedEntryPoint {
-	offset := felt.Felt(ep.Offset)
 	return core.DeprecatedEntryPoint{
 		Selector: ep.Selector,
-		Offset:   &offset,
+		Offset:   (*felt.Felt)(ep.Offset),
 	}
 }
 
