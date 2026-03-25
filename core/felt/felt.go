@@ -52,9 +52,9 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 		return errors.New("value too large (max = Element.Bits * 3)")
 	}
 
-	// remove leading and trailing quotes if any
-	s := strings.Trim(string(data), `"`)
-	if !strings.HasPrefix(s, "0x") && !strings.HasPrefix(s, "0X") {
+	// remove leading and trailing quotes if any, normalise to lowercase
+	s := strings.ToLower(strings.Trim(string(data), `"`))
+	if !strings.HasPrefix(s, "0x") {
 		return errors.New("felt value must be a 0x-prefixed hex string")
 	}
 

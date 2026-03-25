@@ -20,7 +20,7 @@ func (o *EntryPointOffset) UnmarshalJSON(data []byte) error {
 	return (*felt.Felt)(o).UnmarshalJSON(data)
 }
 
-// MarshalJSON serializes the offset as a decimal integer.
+// MarshalJSON serialises the offset as a decimal integer.
 // The Cairo VM and class hash computation expect decimal integer format,
 // matching the original feeder gateway representation.
 func (o EntryPointOffset) MarshalJSON() ([]byte, error) {
