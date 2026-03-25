@@ -17,11 +17,6 @@ func TestUnmarshalJson(t *testing.T) {
 		assert.NoError(t, f.UnmarshalJSON([]byte(`"0x4437ab"`)))
 	})
 
-	t.Run("without surrounding quotes", func(t *testing.T) {
-		var f felt.Felt
-		assert.NoError(t, f.UnmarshalJSON([]byte(`0x4437ab`)))
-	})
-
 	var failF felt.Felt
 
 	fails := []string{

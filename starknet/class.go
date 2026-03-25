@@ -2,29 +2,30 @@ package starknet
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 )
 
-// EntryPointOffset unmarshals both decimal integers and 0x-prefixed hex strings,
+// EntryPointOffset accepts both decimal integers and hex strings in JSON,
 // since the feeder gateway has used both formats across different class versions.
 type EntryPointOffset felt.Felt
 
 func (o *EntryPointOffset) UnmarshalJSON(data []byte) error {
-	var n uint64
-	if err := json.Unmarshal(data, &n); err == nil {
-		(*felt.Felt)(o).SetUint64(n)
-		return nil
+	if len(data) > fp.Bits*3 {
+		return errors.New("value too large (max = Element.Bits * 3)")
 	}
-	return (*felt.Felt)(o).UnmarshalJSON(data)
+
+	s := strings.Trim(string(data), `"`)
+	_, err := (*felt.Felt)(o).SetString(s)
+	return err
 }
 
-// MarshalJSON serialises the offset as a decimal integer.
-// The Cairo VM and class hash computation expect decimal integer format,
-// matching the original feeder gateway representation.
 func (o EntryPointOffset) MarshalJSON() ([]byte, error) {
-	return json.Marshal((*felt.Felt)(&o).Uint64())
+	return (*felt.Felt)(&o).MarshalJSON()
 }
 
 func (o EntryPointOffset) String() string {

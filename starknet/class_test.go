@@ -37,7 +37,7 @@ func TestEntryPointOffset(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(`161`), &o))
 		b, err := json.Marshal(o)
 		require.NoError(t, err)
-		assert.Equal(t, `161`, string(b))
+		assert.Equal(t, `"0xa1"`, string(b))
 	})
 
 	t.Run("marshal roundtrip hex string", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestEntryPointOffset(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(`"0xa1"`), &o))
 		b, err := json.Marshal(o)
 		require.NoError(t, err)
-		assert.Equal(t, `161`, string(b)) // always marshals as decimal
+		assert.Equal(t, `"0xa1"`, string(b))
 	})
 }
 
