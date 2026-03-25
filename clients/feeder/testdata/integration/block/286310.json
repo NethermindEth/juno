@@ -2,7 +2,7 @@
     "block_hash": "0x759cf41ef2c1b0bdf349860435782e54527db82c9af567069c0751d58cfa9a3",
     "parent_block_hash": "0x2dae254509af669fe9a70711cbd71cfb57769507d0b2ef16309f86a1c31de60",
     "block_number": 286310,
-    "state_root": "038688c04f91c8423200af7bca25eaed8c43997c86fe8c004bc96bbcc0ee7354",
+    "state_root": "0x38688c04f91c8423200af7bca25eaed8c43997c86fe8c004bc96bbcc0ee7354",
     "status": "ACCEPTED_ON_L1",
     "gas_price": "0x3b9aca00",
     "transactions": [

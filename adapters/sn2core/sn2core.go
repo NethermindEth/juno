@@ -375,7 +375,11 @@ func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
 }
 
 func adaptStarknetEntrypoint(ep *starknet.EntryPoint) core.DeprecatedEntryPoint {
-	return core.DeprecatedEntryPoint{Selector: ep.Selector, Offset: ep.Offset}
+	f := felt.Felt(ep.Offset)
+	return core.DeprecatedEntryPoint{
+		Selector: ep.Selector,
+		Offset:   &f,
+	}
 }
 
 // todo(rdr): We know the right type here which is a deprecated cairo class, why use polymorphism.

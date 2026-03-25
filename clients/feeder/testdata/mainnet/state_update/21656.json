@@ -1,7 +1,7 @@
 {
     "block_hash": "0x6d7583156d730f06f04027b2badda063da3ce2042aa86116efacdd41cb6a5",
-    "new_root": "048d31b69d96a580f9450139b0262d6c6350645fd5a9c31bd7e91e0e7df5d77a",
-    "old_root": "026dc86ab102f3a4b2d8b5060c1a56d977d935b009da7643ee259ca9834abc3c",
+    "new_root": "0x48d31b69d96a580f9450139b0262d6c6350645fd5a9c31bd7e91e0e7df5d77a",
+    "old_root": "0x26dc86ab102f3a4b2d8b5060c1a56d977d935b009da7643ee259ca9834abc3c",
     "state_diff": {
         "storage_diffs": {
             "0x10884171baf1914edc28d7afb619b40a4051cfae78a094a55d230f19e944a28": [

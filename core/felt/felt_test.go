@@ -12,20 +12,26 @@ import (
 )
 
 func TestUnmarshalJson(t *testing.T) {
-	var with felt.Felt
 	t.Run("with prefix 0x", func(t *testing.T) {
-		assert.NoError(t, with.UnmarshalJSON([]byte("0x4437ab")))
+		var f felt.Felt
+		assert.NoError(t, f.UnmarshalJSON([]byte(`"0x4437ab"`)))
 	})
 
-	t.Run("without prefix 0x", func(t *testing.T) {
-		var without felt.Felt
-		assert.NoError(t, without.UnmarshalJSON([]byte("4437ab")))
-		assert.Equal(t, true, without.Equal(&with))
+	t.Run("with prefix 0X uppercase", func(t *testing.T) {
+		var f felt.Felt
+		assert.NoError(t, f.UnmarshalJSON([]byte(`"0X4437ab"`)))
+	})
+
+	t.Run("without surrounding quotes", func(t *testing.T) {
+		var f felt.Felt
+		assert.NoError(t, f.UnmarshalJSON([]byte(`0x4437ab`)))
 	})
 
 	var failF felt.Felt
 
 	fails := []string{
+		"4437ab",
+		"123456",
 		"0x2000000000000000000000000000000000000000000000000000000000000000000",
 		"0x800000000000011000000000000000000000000000000000000000000000001",
 		"0xfb01012100000000000000000000000000000000000000000000000000000000",

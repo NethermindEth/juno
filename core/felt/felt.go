@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
@@ -45,26 +46,19 @@ func (z *Felt) Impl() *fp.Element {
 	return (*fp.Element)(z)
 }
 
-// UnmarshalJSON accepts numbers and strings as input.
-// See Element.SetString for valid prefixes (0x, 0b, ...).
-// If there is an error, we try to explicitly unmarshal from hex before
-// returning an error. This implementation is based on [gnark-crypto]'s UnmarshalJSON.
-//
-// [gnark-crypto]: https://github.com/ConsenSys/gnark-crypto/blob/master/ecc/stark-curve/fp/element.go
+// UnmarshalJSON accepts only 0x-prefixed hexadecimal strings.
 func (z *Felt) UnmarshalJSON(data []byte) error {
 	if len(data) > fp.Bits*3 {
 		return errors.New("value too large (max = Element.Bits * 3)")
 	}
 
-	// we accept numbers and strings, remove leading and trailing quotes if any
-	if len(data) > 0 && data[0] == '"' {
-		data = data[1:]
-	}
-	if len(data) > 0 && data[len(data)-1] == '"' {
-		data = data[:len(data)-1]
+	// remove leading and trailing quotes if any
+	s := strings.Trim(string(data), `"`)
+	if !strings.HasPrefix(s, "0x") && !strings.HasPrefix(s, "0X") {
+		return errors.New("felt value must be a 0x-prefixed hex string")
 	}
 
-	_, err := z.SetString(string(data))
+	_, err := z.SetString(s)
 	return err
 }
 

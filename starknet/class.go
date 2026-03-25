@@ -7,9 +7,33 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// EntryPointOffset unmarshals both decimal integers and 0x-prefixed hex strings,
+// since the feeder gateway has used both formats across different class versions.
+type EntryPointOffset felt.Felt
+
+func (o *EntryPointOffset) UnmarshalJSON(data []byte) error {
+	var n uint64
+	if err := json.Unmarshal(data, &n); err == nil {
+		(*felt.Felt)(o).SetUint64(n)
+		return nil
+	}
+	return (*felt.Felt)(o).UnmarshalJSON(data)
+}
+
+// MarshalJSON serializes the offset as a decimal integer.
+// The Cairo VM and class hash computation expect decimal integer format,
+// matching the original feeder gateway representation.
+func (o EntryPointOffset) MarshalJSON() ([]byte, error) {
+	return json.Marshal((*felt.Felt)(&o).Uint64())
+}
+
+func (o EntryPointOffset) String() string {
+	return (*felt.Felt)(&o).String()
+}
+
 type EntryPoint struct {
-	Selector *felt.Felt `json:"selector"`
-	Offset   *felt.Felt `json:"offset"`
+	Selector *felt.Felt       `json:"selector"`
+	Offset   EntryPointOffset `json:"offset"`
 }
 
 type SierraEntryPoints struct {

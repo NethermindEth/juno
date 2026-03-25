@@ -8,6 +8,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEntryPointOffset(t *testing.T) {
+	t.Run("unmarshal decimal integer", func(t *testing.T) {
+		var o EntryPointOffset
+		require.NoError(t, json.Unmarshal([]byte(`161`), &o))
+		assert.Equal(t, "0xa1", o.String())
+	})
+
+	t.Run("unmarshal hex string", func(t *testing.T) {
+		var o EntryPointOffset
+		require.NoError(t, json.Unmarshal([]byte(`"0xa1"`), &o))
+		assert.Equal(t, "0xa1", o.String())
+	})
+
+	t.Run("unmarshal zero", func(t *testing.T) {
+		var o EntryPointOffset
+		require.NoError(t, json.Unmarshal([]byte(`0`), &o))
+		assert.Equal(t, "0x0", o.String())
+	})
+
+	t.Run("unmarshal invalid", func(t *testing.T) {
+		var o EntryPointOffset
+		assert.Error(t, json.Unmarshal([]byte(`"notahex"`), &o))
+	})
+
+	t.Run("marshal roundtrip decimal", func(t *testing.T) {
+		var o EntryPointOffset
+		require.NoError(t, json.Unmarshal([]byte(`161`), &o))
+		b, err := json.Marshal(o)
+		require.NoError(t, err)
+		assert.Equal(t, `161`, string(b))
+	})
+
+	t.Run("marshal roundtrip hex string", func(t *testing.T) {
+		var o EntryPointOffset
+		require.NoError(t, json.Unmarshal([]byte(`"0xa1"`), &o))
+		b, err := json.Marshal(o)
+		require.NoError(t, err)
+		assert.Equal(t, `161`, string(b)) // always marshals as decimal
+	})
+}
+
 func TestSegmentLengthsUnmarshal(t *testing.T) {
 	tests := map[string]struct {
 		json     string
