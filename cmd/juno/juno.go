@@ -103,7 +103,6 @@ const (
 	dbMemtableSizeF                     = "db-memtable-size"
 	dbMemtableCountF                    = "db-memtable-count"
 	dbCompressionF                      = "db-compression"
-	transactionCombinedLayoutF          = node.FlagTransactionCombinedLayout
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
@@ -245,8 +244,6 @@ const (
 		"queue before stalling writes."
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
-	transactionCombinedLayoutUsage = "EXPERIMENTAL: Enable combined (per-block) transaction " +
-		"storage layout. Once enabled, cannot be disabled."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
 	disableReceivedTxnStreamUsage  = "The starknet_subscribeNewTransactions WebSocket API " +
@@ -480,9 +477,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
-	)
-	junoCmd.Flags().Bool(
-		transactionCombinedLayoutF, defaultTransactionCombinedLayout, transactionCombinedLayoutUsage,
 	)
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
 	junoCmd.Flags().Uint(

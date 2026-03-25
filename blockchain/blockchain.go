@@ -97,7 +97,7 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 		l1HeadFeed:        feed.New[*core.L1Head](),
 		cachedFilters:     &cachedFilters,
 		runningFilter:     runningFilter,
-		transactionLayout: core.TransactionLayoutPerTx, // default to per-tx for backward compatibility
+		transactionLayout: core.TransactionLayoutCombined,
 	}
 }
 

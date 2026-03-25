@@ -15,12 +15,11 @@ import (
 // This is where all migrations should be registered. Optional migrations can use
 // config variables from cfg to determine if they should be enabled.
 func registerMigrations(cfg *Config) *migration.Registry {
+	// cfg parameter is reserved for optional migrations based on config
+	_ = cfg
+
 	registry := migration.NewRegistry().
-		WithOptional(
-			&blocktransactions.Migrator{},
-			cfg.TransactionCombinedLayout,
-			FlagTransactionCombinedLayout,
-		)
+		With(&blocktransactions.Migrator{})
 
 	return registry
 }
