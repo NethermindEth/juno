@@ -174,24 +174,12 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 		return nil, err
 	}
 
-	var body io.Reader
-	compressed := false
-	if len(jsonBody) > gzipMinSize {
-		var buf bytes.Buffer
-		gzWriter := gzip.NewWriter(&buf)
-		if _, err = gzWriter.Write(jsonBody); err != nil {
-			return nil, fmt.Errorf("gzip write failed: %w", err)
-		}
-		if err = gzWriter.Close(); err != nil {
-			return nil, fmt.Errorf("gzip write failed: %w", err)
-		}
-		body = &buf
-		compressed = true
-	} else {
-		body = bytes.NewReader(jsonBody)
+	bodyReader, compressed, err := prepareRequestBody(jsonBody)
+	if err != nil {
+		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +201,22 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	}
 	c.listener.OnResponse(req.URL.Path, resp.StatusCode, time.Since(reqTimer))
 	return resp, nil
+}
+
+func prepareRequestBody(jsonBody []byte) (io.Reader, bool, error) {
+	if len(jsonBody) > gzipMinSize {
+		var buf bytes.Buffer
+		gzWriter := gzip.NewWriter(&buf)
+		if _, err := gzWriter.Write(jsonBody); err != nil {
+			return nil, false, fmt.Errorf("gzip write failed: %w", err)
+		}
+		if err := gzWriter.Close(); err != nil {
+			return nil, false, fmt.Errorf("gzip write failed: %w", err)
+		}
+		return &buf, true, nil
+	} else {
+		return bytes.NewReader(jsonBody), false, nil
+	}
 }
 
 type ErrorCode string
