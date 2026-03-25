@@ -2,6 +2,11 @@ name: starknet-rs tests
 
 on:
   workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: 'starknet/v0.15.0'
+        description: 'starknet-rs version/tag to test'
     secrets:
       STARKNET_RPC:
         required: true
@@ -14,7 +19,7 @@ jobs:
         uses: actions/checkout@v6.0.2
         with:
           repository: xJonathanLEI/starknet-rs
-          ref: starknet/v0.15.0
+          ref: ${{ inputs.ref }}
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
