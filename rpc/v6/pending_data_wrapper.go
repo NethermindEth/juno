@@ -1,18 +1,11 @@
 package rpcv6
 
 import (
-	"errors"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/sync/pendingdata"
 )
 
 func (h *Handler) PendingData() (core.PendingData, error) {
-	_, err := h.syncReader.PendingData()
-	if err != nil && !errors.Is(err, core.ErrPendingDataNotFound) {
-		return nil, err
-	}
-
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, err

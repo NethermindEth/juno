@@ -311,7 +311,7 @@ func (h *Handler) findAndTraceInPendingData(
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	if trace, header, err := h.findAndTraceInPendingBlock(pendingData, hash); err == nil {
+	if trace, header, err := h.findAndTraceInPreConfirmedBlock(pendingData, hash); err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, nil, err
@@ -320,7 +320,7 @@ func (h *Handler) findAndTraceInPendingData(
 }
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.
-func (h *Handler) findAndTraceInPendingBlock(
+func (h *Handler) findAndTraceInPreConfirmedBlock(
 	pendingData core.PendingData, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	block := pendingData.GetBlock()

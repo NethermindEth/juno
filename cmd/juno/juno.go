@@ -190,7 +190,7 @@ const (
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
-	preLatestPollIntervalUsage = "Sets polling interval for pre_latest block updates. " +
+	preLatestPollIntervalUsage = "Sets polling interval for pre-latest block updates. " +
 		"(0s will disable polling)."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
