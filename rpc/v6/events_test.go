@@ -18,8 +18,6 @@ import (
 )
 
 func TestEvents(t *testing.T) {
-	var pendingB *core.Block
-
 	testDB := memory.New()
 	n := &utils.Sepolia
 	chain := blockchain.New(testDB, n)
@@ -39,10 +37,6 @@ func TestEvents(t *testing.T) {
 
 		if b.Number < 6 {
 			require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
-		} else {
-			b.Hash = nil
-			b.GlobalStateRoot = nil
-			pendingB = b
 		}
 	}
 
@@ -216,12 +210,6 @@ func TestEvents(t *testing.T) {
 				ContinuationToken: "",
 			},
 		}
-		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
-
 		events, err := handler.Events(args)
 		require.Nil(t, err)
 		require.Len(t, events.Events, 0)

@@ -36,9 +36,6 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 			Hash:   felt.NewFromUint64[felt.Felt](1234567),
 		}
 
-		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
-
 		latestHeader := latestBlock.Header
 		latestHeader.ProtocolVersion = "0.13.1"
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
@@ -58,10 +55,6 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 			Hash:   felt.NewFromUint64[felt.Felt](1234567),
 		}
 
-		mockSyncReader.EXPECT().PendingData().Return(
-			nil,
-			core.ErrPendingDataNotFound,
-		)
 		latestHeader := latestBlock.Header
 		latestHeader.ProtocolVersion = "0.13.1"
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)

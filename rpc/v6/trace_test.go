@@ -324,10 +324,6 @@ func TestTraceTransaction(t *testing.T) {
 
 	t.Run("pre_confirmed block", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
-		tx := &core.DeclareTransaction{
-			TransactionHash: hash,
-			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
-		}
 
 		header := &core.Header{
 			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
@@ -336,26 +332,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
 
-		block := &core.Block{
-			Header:       header,
-			Transactions: []core.Transaction{tx},
-		}
-		declaredClass := &core.DeclaredClassDefinition{
-			At:    3002,
-			Class: &core.SierraClass{},
-		}
-
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		pendingStateDiff := core.EmptyStateDiff()
-
-		preConfirmed := core.PreConfirmed{
-			Block: block,
-			StateUpdate: &core.StateUpdate{
-				StateDiff: &pendingStateDiff,
-			},
-			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
-		}
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		// PendingData() always returns empty placeholder for v6;
 		// header.Number=0 so no BlockHeaderByNumber needed
 		mockReader.EXPECT().HeadsHeader().Return(header, nil)

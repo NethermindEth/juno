@@ -52,7 +52,6 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 
 		n := &utils.Mainnet
 		handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
@@ -77,8 +76,6 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 		txAtIdx1InBlock := felt.NewUnsafeFromString[felt.Felt]("0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
 		mockReader.EXPECT().TransactionByHash(txAtIdx1InBlock).Return(nil, db.ErrKeyNotFound)
-		preConfirmed := core.NewPreConfirmed(block, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		// PendingData() always returns an empty placeholder for v6 - no real txns exposed
 		mockReader.EXPECT().HeadsHeader().Return(block.Header, nil)
 		blockToRegisterNum := block.Header.Number + 1 - pendingdata.BlockHashLag
@@ -110,8 +107,6 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
-		preConfirmed := core.NewPreConfirmed(block, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		mockReader.EXPECT().HeadsHeader().Return(block.Header, nil)
 		blockToRegisterNum := block.Header.Number + 1 - pendingdata.BlockHashLag
 		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterNum).Return(
@@ -565,8 +560,6 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		// PendingData() returns empty placeholder - HeadsHeader + BlockHeaderByNumber are called
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		blockToRegisterNum := latestBlock.Header.Number + 1 - pendingdata.BlockHashLag
@@ -609,7 +602,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		handler := rpc.New(mockReader, mockSyncReader, nil, &utils.Sepolia, nil)
 
 		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 		txHash := new(felt.Felt).SetBytes([]byte("some tx hash"))
@@ -630,8 +622,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 		// PendingData() always returns empty placeholder - add required mocks
 		const sepoliaBlock = uint64(4850)
 		stubHeader := &core.Header{Number: sepoliaBlock, Hash: new(felt.Felt).SetUint64(sepoliaBlock)}
@@ -1480,7 +1470,6 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						syncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						syncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).Times(2)
 						handler := rpc.New(mockReader, syncReader, nil, test.network, nil)
 						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
@@ -1499,7 +1488,6 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				syncReader := mocks.NewMockSyncReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				syncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 				handler := rpc.New(mockReader, syncReader, nil, test.network, nil).WithFeeder(client)
 
@@ -1672,7 +1660,6 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
@@ -1700,7 +1687,6 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		// Expire cache entry
 		for range rpccore.NumTimeBuckets {

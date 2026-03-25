@@ -183,7 +183,6 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("non-existent pending block", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Pending: true})
@@ -226,13 +225,6 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		// If pending data is pre_confirmed block, we are at 0.14.0
-		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
-
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
@@ -265,10 +257,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
-			if description == "pending" {
-				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-			}
 			handler := rpc.New(chain, mockSyncReader, nil, n, log)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
@@ -360,11 +348,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlockNumber + 1 - 10,
@@ -412,10 +395,6 @@ func TestBlockWithTxs(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
-			if description == "pending" {
-				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-			}
 			handler := rpc.New(chain, mockSyncReader, nil, n, log)
 
 			block, rpcErr := handler.BlockWithTxs(id)
@@ -525,12 +504,6 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
-
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
@@ -680,12 +653,6 @@ func TestBlockWithReceipts(t *testing.T) {
 		}
 
 		t.Run("blockID - pending", func(t *testing.T) {
-			preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-			mockSyncReader.EXPECT().PendingData().Return(
-				&preConfirmed,
-				nil,
-			)
-
 			mockReader.EXPECT().HeadsHeader().Return(block0.Header, nil)
 			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 

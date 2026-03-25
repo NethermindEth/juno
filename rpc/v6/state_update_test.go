@@ -35,10 +35,6 @@ func TestStateUpdate(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 
-			if description == "pending" /*nolint:goconst*/ {
-				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-			}
 			handler := rpc.New(chain, mockSyncReader, nil, n, nil)
 
 			update, rpcErr := handler.StateUpdate(id)
@@ -147,21 +143,9 @@ func TestStateUpdate(t *testing.T) {
 		update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
 		require.NoError(t, err)
 
-		preConfirmed := core.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number: 21657,
-				},
-			},
-		}
-		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
-			nil,
-		)
-
 		blockToRegisterHash := core.Header{
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
-			Number: preConfirmed.Block.Number - 10,
+			Number: 21647,
 		}
 		// to update block hash registry
 		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
