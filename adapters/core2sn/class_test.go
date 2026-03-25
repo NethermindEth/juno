@@ -11,8 +11,8 @@ import (
 )
 
 func TestAdaptDeprecatedEntryPoint(t *testing.T) {
-	selector := new(felt.Felt).SetUint64(0xdeadbeef)
-	offset := new(felt.Felt).SetUint64(161)
+	selector := felt.NewFromUint64[felt.Felt](0xdeadbeef)
+	offset := felt.NewFromUint64[felt.Felt](161)
 
 	ep := &core.DeprecatedEntryPoint{
 		Selector: selector,
