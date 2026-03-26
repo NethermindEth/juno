@@ -2,6 +2,7 @@ package gateway_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -28,15 +29,24 @@ func TestAddInvokeTx(t *testing.T) {
 	t.Run("Large requests are gzip compressed", func(t *testing.T) {
 		largeCalldata := make([]string, 200)
 		for i := range largeCalldata {
-			largeCalldata[i] = "xdeadbeef"
+			largeCalldata[i] = "0xcafebabe"
 		}
 
 		calldataJSON, err := json.Marshal(largeCalldata)
 		require.NoError(t, err)
 
-		invokeTx := `{"max_fee":"0x1","version":"0x1","signature":[],"nonce":"0x1","type":"INVOKE",
-		"sender_address":"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb",
-		"calldata":` + string(calldataJSON) + `}`
+		invokeTx := fmt.Sprintf(
+			`{
+				"max_fee":"0x1",
+				"version":"0x1",
+				"signature":[],
+				"nonce":"0x1",
+				"type":"INVOKE",
+				"sender_address":"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb",
+				"calldata": %s 
+			}`,
+			calldataJSON,
+		)
 		invokeTxBytes, err := json.Marshal(invokeTx)
 		require.NoError(t, err)
 

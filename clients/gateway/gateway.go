@@ -119,7 +119,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 			return
 		}
 
-		hash := new(felt.Felt).SetBytes([]byte("random"))
+		// todo(rdr): consider using a random generator here
+		hash := felt.FromBytes[felt.Felt]([]byte("random"))
 		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}", hash.String(), hash.String())
 		w.Write([]byte(resp)) //nolint:errcheck
 	}))
@@ -204,19 +205,20 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 }
 
 func prepareRequestBody(jsonBody []byte) (io.Reader, bool, error) {
-	if len(jsonBody) > gzipMinSize {
-		var buf bytes.Buffer
-		gzWriter := gzip.NewWriter(&buf)
-		if _, err := gzWriter.Write(jsonBody); err != nil {
-			return nil, false, fmt.Errorf("gzip write failed: %w", err)
-		}
-		if err := gzWriter.Close(); err != nil {
-			return nil, false, fmt.Errorf("gzip write failed: %w", err)
-		}
-		return &buf, true, nil
-	} else {
+	if len(jsonBody) <= gzipMinSize {
 		return bytes.NewReader(jsonBody), false, nil
 	}
+
+	var buf bytes.Buffer
+	gzWriter := gzip.NewWriter(&buf)
+	if _, err := gzWriter.Write(jsonBody); err != nil {
+		return nil, false, fmt.Errorf("writing gzip content: %w", err)
+	}
+	if err := gzWriter.Close(); err != nil {
+		return nil, false, fmt.Errorf("closing gzip writer: %w", err)
+	}
+
+	return &buf, true, nil
 }
 
 type ErrorCode string
