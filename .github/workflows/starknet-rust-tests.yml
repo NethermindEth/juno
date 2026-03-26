@@ -20,8 +20,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v6.0.2
         with:
-          repository: software-mansion/starknet-rust
-          ref: ${{ inputs.ref }}
+          repository: brbrr/starknet-rust
+          ref: configurable-test-rpc-url
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -29,13 +29,6 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-
-      - name: Override hardcoded RPC URL
-        run: |
-          python3 -c "import os, pathlib; p=pathlib.Path('utils/test-common/src/lib.rs'); p.write_text(p.read_text().replace('http://188.34.188.184:7070/rpc/v0_10', os.environ['STARKNET_RPC']))"
-          cat utils/test-common/src/lib.rs
-        env:
-          STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
 
       - name: Run jsonrpc tests
         run: |
