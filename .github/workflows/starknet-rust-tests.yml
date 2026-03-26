@@ -29,7 +29,7 @@ jobs:
           override: true
 
       - name: Override hardcoded RPC URL
-        run: sed -i "s|http://188.34.188.184:7070/rpc/v0_10|${STARKNET_RPC}|g" utils/test-common/src/lib.rs
+        run: python3 -c "import os, pathlib; p=pathlib.Path('utils/test-common/src/lib.rs'); p.write_text(p.read_text().replace('http://188.34.188.184:7070/rpc/v0_10', os.environ['STARKNET_RPC']))"
         env:
           STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
 
@@ -42,3 +42,4 @@ jobs:
             --skip can_declare_cairo1_contract_v3_with_jsonrpc
         env:
           RUST_BACKTRACE: full
+          STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
