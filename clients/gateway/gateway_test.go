@@ -2,6 +2,7 @@ package gateway_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -22,6 +23,34 @@ func TestAddInvokeTx(t *testing.T) {
 
 		// Since this method is just a proxy for the gateway we don't care what the actual response is,
 		// we just need to check that no error is returned for a well-formed request.
+		assert.NoError(t, err)
+	})
+
+	t.Run("Large requests are gzip compressed", func(t *testing.T) {
+		largeCalldata := make([]string, 200)
+		for i := range largeCalldata {
+			largeCalldata[i] = "0xcafebabe"
+		}
+
+		calldataJSON, err := json.Marshal(largeCalldata)
+		require.NoError(t, err)
+
+		invokeTx := fmt.Sprintf(
+			`{
+				"max_fee":"0x1",
+				"version":"0x1",
+				"signature":[],
+				"nonce":"0x1",
+				"type":"INVOKE",
+				"sender_address":"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb",
+				"calldata": %s 
+			}`,
+			calldataJSON,
+		)
+		invokeTxBytes, err := json.Marshal(invokeTx)
+		require.NoError(t, err)
+
+		_, err = client.AddTransaction(t.Context(), invokeTxBytes)
 		assert.NoError(t, err)
 	})
 

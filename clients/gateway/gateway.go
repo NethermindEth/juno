@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -38,6 +39,9 @@ var (
 	ReplacementTransactionUnderPriced ErrorCode = "StarknetErrorCode.REPLACEMENT_TRANSACTION_UNDERPRICED"
 	InvalidProof                      ErrorCode = "StarknetErrorCode.INVALID_PROOF"
 )
+
+// Payload size threshold for Gzip compression. 1KB
+const gzipMinSize = 1024
 
 type Client struct {
 	url       string
@@ -79,11 +83,29 @@ func newTestServer(t *testing.T) *httptest.Server {
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
 		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
-		b, err := io.ReadAll(r.Body)
+		var bodyReader io.Reader = r.Body
+		isGzip := r.Header.Get("Content-Encoding") == "gzip"
+		if isGzip {
+			gzReader, gzErr := gzip.NewReader(r.Body)
+			if gzErr != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte(gzErr.Error())) //nolint:errcheck // That's fine for the test server
+				return
+			}
+			defer gzReader.Close()
+			bodyReader = gzReader
+		}
+
+		b, err := io.ReadAll(bodyReader)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error())) //nolint:errcheck
 			return
+		}
+
+		// Assert that large payloads are gzip-compressed
+		if len(b) >= gzipMinSize {
+			assert.True(t, isGzip, "expected Content-Encoding: gzip for payload of size %d", len(b))
 		}
 
 		// empty request: "{}"
@@ -97,7 +119,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 			return
 		}
 
-		hash := new(felt.Felt).SetBytes([]byte("random"))
+		// todo(rdr): consider using a random generator here
+		hash := felt.FromBytes[felt.Felt]([]byte("random"))
 		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}", hash.String(), hash.String())
 		w.Write([]byte(resp)) //nolint:errcheck
 	}))
@@ -147,17 +170,25 @@ func (c *Client) post(ctx context.Context, url string, data any) ([]byte, error)
 // doPost performs a "POST" http request with the given URL and a JSON payload derived from the provided data
 // it returns response without additional error handling
 func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Response, error) {
-	body, err := json.Marshal(data)
+	jsonBody, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	bodyReader, compressed, err := prepareRequestBody(jsonBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bodyReader)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if compressed {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
@@ -171,6 +202,23 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	}
 	c.listener.OnResponse(req.URL.Path, resp.StatusCode, time.Since(reqTimer))
 	return resp, nil
+}
+
+func prepareRequestBody(jsonBody []byte) (io.Reader, bool, error) {
+	if len(jsonBody) <= gzipMinSize {
+		return bytes.NewReader(jsonBody), false, nil
+	}
+
+	var buf bytes.Buffer
+	gzWriter := gzip.NewWriter(&buf)
+	if _, err := gzWriter.Write(jsonBody); err != nil {
+		return nil, false, fmt.Errorf("writing gzip content: %w", err)
+	}
+	if err := gzWriter.Close(); err != nil {
+		return nil, false, fmt.Errorf("closing gzip writer: %w", err)
+	}
+
+	return &buf, true, nil
 }
 
 type ErrorCode string
