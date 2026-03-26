@@ -2,7 +2,7 @@ package starknet
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -15,8 +15,9 @@ import (
 type EntryPointOffset felt.Felt
 
 func (o *EntryPointOffset) UnmarshalJSON(data []byte) error {
-	if len(data) > fp.Bits*3 {
-		return errors.New("value too large (max = Element.Bits * 3)")
+	const maxLen = fp.Bits * 3
+	if len(data) > maxLen {
+		return fmt.Errorf("value too large: got %d bytes, max is %d", len(data), maxLen)
 	}
 
 	s := strings.Trim(string(data), `"`)
