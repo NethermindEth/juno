@@ -1,4 +1,6 @@
 name: starknet-rust tests
+permissions:
+  contents: read
 
 on:
   workflow_call:
@@ -29,7 +31,9 @@ jobs:
           override: true
 
       - name: Override hardcoded RPC URL
-        run: python3 -c "import os, pathlib; p=pathlib.Path('utils/test-common/src/lib.rs'); p.write_text(p.read_text().replace('http://188.34.188.184:7070/rpc/v0_10', os.environ['STARKNET_RPC']))"
+        run: |
+          python3 -c "import os, pathlib; p=pathlib.Path('utils/test-common/src/lib.rs'); p.write_text(p.read_text().replace('http://188.34.188.184:7070/rpc/v0_10', os.environ['STARKNET_RPC']))"
+          cat utils/test-common/src/lib.rs
         env:
           STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
 

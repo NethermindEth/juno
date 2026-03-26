@@ -158,7 +158,7 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
     with:
-      test_mode: fast
+      test_mode: ${{ inputs.test_mode }}
       ref: v9.4.2
       rpc_version: v0_10
     secrets:
