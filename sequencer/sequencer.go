@@ -35,12 +35,11 @@ type Sequencer struct {
 	blockTime        time.Duration
 	mempool          *mempool.SequencerMempool
 
-	subNewHeads          *feed.Feed[*core.Block]
-	subPendingData       *feed.Feed[core.PendingData]
-	subReorgFeed         *feed.Feed[*sync.ReorgBlockRange]
-	subPreConfirmedBlock *feed.Feed[*core.PreConfirmed]
-	subPreLatest         *feed.Feed[*core.PreLatest]
-	plugin               plugin.JunoPlugin
+	subNewHeads    *feed.Feed[*core.Block]
+	subPendingData *feed.Feed[core.PendingData]
+	subReorgFeed   *feed.Feed[*sync.ReorgBlockRange]
+	subPreLatest   *feed.Feed[*core.PreLatest]
+	plugin         plugin.JunoPlugin
 
 	mu syncLock.RWMutex
 }
@@ -54,18 +53,17 @@ func New(
 	log utils.Logger,
 ) Sequencer {
 	return Sequencer{
-		builder:              b,
-		buildState:           &builder.BuildState{},
-		mempool:              mempool,
-		sequencerAddress:     sequencerAddress,
-		privKey:              privKey,
-		log:                  log,
-		blockTime:            blockTime,
-		subNewHeads:          feed.New[*core.Block](),
-		subPendingData:       feed.New[core.PendingData](),
-		subReorgFeed:         feed.New[*sync.ReorgBlockRange](),
-		subPreConfirmedBlock: feed.New[*core.PreConfirmed](),
-		subPreLatest:         feed.New[*core.PreLatest](),
+		builder:          b,
+		buildState:       &builder.BuildState{},
+		mempool:          mempool,
+		sequencerAddress: sequencerAddress,
+		privKey:          privKey,
+		log:              log,
+		blockTime:        blockTime,
+		subNewHeads:      feed.New[*core.Block](),
+		subPendingData:   feed.New[core.PendingData](),
+		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
+		subPreLatest:     feed.New[*core.PreLatest](),
 	}
 }
 

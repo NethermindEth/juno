@@ -23,10 +23,6 @@ import (
 var (
 	_ service.Service = (*Synchronizer)(nil)
 	_ Reader          = (*Synchronizer)(nil)
-
-	ErrMustSwitchPollingPreConfirmed = errors.New(
-		"reached starknet 0.14.0. node requires switching from pending to polling pre_confirmed blocks",
-	)
 )
 
 const (
