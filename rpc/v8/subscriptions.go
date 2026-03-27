@@ -238,7 +238,7 @@ func (h *Handler) SubscribeEvents(
 			return nil
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
+			if pending == nil {
 				return nil
 			}
 
@@ -289,7 +289,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			return nil
 		},
 		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
+			if pending == nil {
 				return nil
 			}
 
@@ -517,7 +517,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 			return nil
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
+			if pending == nil {
 				return nil
 			}
 

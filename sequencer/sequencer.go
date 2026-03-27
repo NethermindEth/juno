@@ -163,7 +163,7 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 		}
 
 		// push the pending block to the feed
-		pending := core.NewPending(s.buildState.PendingBlock(), nil, nil)
+		pending := core.NewPreConfirmed(s.buildState.PendingBlock(), nil, nil, nil)
 		s.subPendingData.Send(&pending)
 		select {
 		case <-ctx.Done():

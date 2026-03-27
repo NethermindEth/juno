@@ -319,7 +319,7 @@ func (h *Handler) findAndTraceInPendingData(
 	return h.findAndTraceInPrelatestBlock(pendingData, hash)
 }
 
-// findAndTraceInPendingBlock finds and traces a transaction in the pending/pre_confirmed block.
+// findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.
 func (h *Handler) findAndTraceInPendingBlock(
 	pendingData core.PendingData, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
@@ -329,21 +329,7 @@ func (h *Handler) findAndTraceInPendingBlock(
 		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 	}
 
-	switch pendingData.Variant() {
-	case core.PreConfirmedBlockVariant:
-		return h.traceInPreConfirmedBlock(pendingData, txIndex)
-	case core.PendingBlockVariant:
-		// TODO: remove pending when its will be no longer supported
-		blockTracesResp, httpHeader, rpcErr := h.traceBlockWithVM(block, false)
-		if rpcErr != nil {
-			return TransactionTrace{}, nil, rpcErr
-		}
-		blockTraces := blockTracesResp.Traces
-		return *blockTraces[txIndex].TraceRoot, httpHeader, nil
-	default:
-		// Unknown variant - this should not happen in normal operation
-		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
-	}
+	return h.traceInPreConfirmedBlock(pendingData, txIndex)
 }
 
 // findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
@@ -511,7 +497,7 @@ func (h *Handler) traceBlockWithVM(block *core.Block, returnInitialReads bool) (
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
-	// TODO: remove pending variant when it is no longer supported
+	// Pre-confirmed blocks have no hash; use pending state for class lookups
 	isPending := block.Hash == nil
 	if isPending {
 		headState, headStateCloser, err = h.PendingState()

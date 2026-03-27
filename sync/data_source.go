@@ -22,7 +22,7 @@ type CommittedBlock struct {
 type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockLatest(ctx context.Context) (*core.Block, error)
-	BlockPending(ctx context.Context) (core.Pending, error)
+	BlockPending(ctx context.Context) (core.PreLatest, error)
 	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error)
 }
 
@@ -61,18 +61,18 @@ func (f *feederGatewayDataSource) BlockLatest(ctx context.Context) (*core.Block,
 	return f.starknetData.BlockLatest(ctx)
 }
 
-func (f *feederGatewayDataSource) BlockPending(ctx context.Context) (core.Pending, error) {
+func (f *feederGatewayDataSource) BlockPending(ctx context.Context) (core.PreLatest, error) {
 	pendingStateUpdate, pendingBlock, err := f.starknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
-		return core.Pending{}, err
+		return core.PreLatest{}, err
 	}
 
 	newClasses, err := f.fetchUnknownClasses(ctx, pendingStateUpdate)
 	if err != nil {
-		return core.Pending{}, err
+		return core.PreLatest{}, err
 	}
 
-	return core.Pending{
+	return core.PreLatest{
 		Block:       pendingBlock,
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,

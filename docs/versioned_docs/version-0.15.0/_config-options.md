@@ -46,7 +46,7 @@
 | `p2p-peers` |  | EXPERIMENTAL: Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes. |
 | `p2p-private-key` |  | EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve. |
 | `p2p-public-addr` |  | EXPERIMENTAL: Specify p2p public address as multiaddr. Example: /ip4/35.243.XXX.XXX/tcp/7777 |
-| `pending-poll-interval` | `1s` | Sets polling interval for pending block updates before starknet v0.14.0;for pre_latest block updates from starknet v0.14.0 onward.(0s will disable polling). |
+| `poll-prelatest` | `1s` | Sets the polling interval for pre_latest block updates (0s disables polling). |
 | `plugin-path` |  | Path to the plugin .so file |
 | `pprof` |  | Enables the pprof endpoint on the default port. |
 | `pprof-host` | `"localhost"` | The interface on which the pprof HTTP server will listen for requests. |

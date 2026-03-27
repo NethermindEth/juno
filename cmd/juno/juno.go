@@ -55,7 +55,7 @@ const (
 	pprofHostF                          = "pprof-host"
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
-	pendingPollIntervalF                = "pending-poll-interval"
+	pollPreLatestF                      = "poll-prelatest"
 	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
@@ -190,8 +190,7 @@ const (
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
-	pendingPollIntervalUsage   = "Sets polling interval for pending block updates before starknet v0.14.0;" +
-		"for pre_latest block updates from starknet v0.14.0 onward.(0s will disable polling)."
+	pollPreLatestUsage   = "Sets the polling interval for pre_latest block updates (0s disables polling)."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
@@ -414,7 +413,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
-	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
+	junoCmd.Flags().Duration(pollPreLatestF, defaultPendingPollInterval, pollPreLatestUsage)
 	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)

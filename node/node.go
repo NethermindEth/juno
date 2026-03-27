@@ -79,7 +79,7 @@ type Config struct {
 	PprofHost                string        `mapstructure:"pprof-host"`
 	PprofPort                uint16        `mapstructure:"pprof-port"`
 	Colour                   bool          `mapstructure:"colour"`
-	PendingPollInterval      time.Duration `mapstructure:"pending-poll-interval"`
+	PendingPollInterval      time.Duration `mapstructure:"poll-prelatest"`
 	PreConfirmedPollInterval time.Duration `mapstructure:"preconfirmed-poll-interval"`
 	RemoteDB                 string        `mapstructure:"remote-db"`
 	VersionedConstantsFile   string        `mapstructure:"versioned-constants-file"`

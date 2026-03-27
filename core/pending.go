@@ -6,10 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-var (
-	_ PendingData = (*Pending)(nil)
-	_ PendingData = (*PreConfirmed)(nil)
-)
+var _ PendingData = (*PreConfirmed)(nil)
 
 var (
 	ErrPendingDataNotFound         = errors.New("pending_data not found")
@@ -18,16 +15,12 @@ var (
 	ErrTransactionIndexOutOfBounds = errors.New(
 		"pending_data: transaction index out of bounds",
 	)
-	ErrPendingStateBeforeIndexNotSupported = errors.New(
-		"pending_data: PendingStateBeforeIndex not supported for Pending block",
-	)
 )
 
 type PendingDataVariant uint8
 
 const (
-	PendingBlockVariant PendingDataVariant = iota + 1
-	PreConfirmedBlockVariant
+	PreConfirmedBlockVariant PendingDataVariant = iota + 1
 )
 
 type PendingData interface {
@@ -39,120 +32,19 @@ type PendingData interface {
 	GetCandidateTransaction() []Transaction
 	GetTransactionStateDiffs() []*StateDiff
 	GetPreLatest() *PreLatest
-	// Validate returns true if pendingData is valid for given predecessor,
-	// otherwise returns false
 	Validate(parent *Header) bool
 	Variant() PendingDataVariant
 	TransactionByHash(hash *felt.Felt) (Transaction, error)
 	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
-	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
-	// up to given index in the pre-confirmed block.
 	PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error)
-	// PendingState returns the state resulting from execution of the pending data
 	PendingState(baseState StateReader) StateReader
 }
 
-type Pending struct {
+type PreLatest struct {
 	Block       *Block
 	StateUpdate *StateUpdate
 	NewClasses  map[felt.Felt]ClassDefinition
 }
-
-func NewPending(
-	block *Block,
-	stateUpdate *StateUpdate,
-	newClasses map[felt.Felt]ClassDefinition,
-) Pending {
-	return Pending{
-		Block:       block,
-		StateUpdate: stateUpdate,
-		NewClasses:  newClasses,
-	}
-}
-
-func (p *Pending) GetBlock() *Block {
-	return p.Block
-}
-
-func (p *Pending) GetHeader() *Header {
-	return p.Block.Header
-}
-
-func (p *Pending) GetTransactions() []Transaction {
-	return p.Block.Transactions
-}
-
-func (p *Pending) GetStateUpdate() *StateUpdate {
-	return p.StateUpdate
-}
-
-func (p *Pending) GetNewClasses() map[felt.Felt]ClassDefinition {
-	return p.NewClasses
-}
-
-func (p *Pending) GetCandidateTransaction() []Transaction {
-	return []Transaction{}
-}
-
-func (p *Pending) GetTransactionStateDiffs() []*StateDiff {
-	return []*StateDiff{}
-}
-
-func (p *Pending) GetPreLatest() *PreLatest {
-	return nil
-}
-
-func (p *Pending) Variant() PendingDataVariant {
-	return PendingBlockVariant
-}
-
-func (p *Pending) Validate(parent *Header) bool {
-	if parent == nil {
-		return p.Block.ParentHash.Equal(&felt.Zero)
-	}
-
-	return p.Block.ParentHash.Equal(parent.Hash)
-}
-
-func (p *Pending) TransactionByHash(hash *felt.Felt) (Transaction, error) {
-	for _, tx := range p.Block.Transactions {
-		if tx.Hash().Equal(hash) {
-			return tx, nil
-		}
-	}
-
-	return nil, ErrTransactionNotFound
-}
-
-func (p *Pending) ReceiptByHash(
-	hash *felt.Felt,
-) (*TransactionReceipt, *felt.Felt, uint64, error) {
-	for _, receipt := range p.Block.Receipts {
-		if receipt.TransactionHash.Equal(hash) {
-			return receipt, p.Block.ParentHash, p.Block.Number, nil
-		}
-	}
-
-	return nil, nil, 0, ErrTransactionReceiptNotFound
-}
-
-func (p *Pending) PendingStateBeforeIndex(
-	baseState StateReader,
-	index uint,
-) (StateReader, error) {
-	return nil, ErrPendingStateBeforeIndexNotSupported
-}
-
-func (p *Pending) PendingState(baseState StateReader) StateReader {
-	return NewPendingState(
-		p.StateUpdate.StateDiff,
-		p.NewClasses,
-		baseState,
-		p.Block.Number,
-	)
-}
-
-type PreLatest Pending
 
 type PreConfirmed struct {
 	Block       *Block

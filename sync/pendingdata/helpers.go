@@ -16,16 +16,6 @@ var (
 	ErrUnsupportedPendingDataVariant = errors.New("unsupported pending data variant")
 )
 
-// needsPreConfirmed reports whether the given protocol version string
-// indicates blocks >= v0.14.0 (i.e., pre_confirmed path is required).
-func NeedsPreConfirmed(protocolVersion string) (bool, error) {
-	ver, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return false, err
-	}
-	return ver.GreaterThanEqual(core.Ver0_14_0), nil
-}
-
 // makeStateDiffForEmptyBlock constructs a minimal state diff for an empty block.
 // It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
 func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
@@ -52,45 +42,6 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
 	return stateDiff, nil
-}
-
-func MakeEmptyPendingForParent(
-	bcReader blockchain.Reader,
-	latestHeader *core.Header,
-) (core.Pending, error) {
-	receipts := make([]*core.TransactionReceipt, 0)
-	pendingBlock := &core.Block{
-		Header: &core.Header{
-			ParentHash:       latestHeader.Hash,
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    latestHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
-			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := makeStateDiffForEmptyBlock(bcReader, latestHeader.Number+1)
-	if err != nil {
-		return core.Pending{}, err
-	}
-
-	pending := core.Pending{
-		Block: pendingBlock,
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   latestHeader.GlobalStateRoot,
-			StateDiff: stateDiff,
-		},
-		NewClasses: make(map[felt.Felt]core.ClassDefinition, 0),
-	}
-	return pending, nil
 }
 
 func MakeEmptyPreConfirmedForParent(
@@ -138,31 +89,11 @@ func MakeEmptyPendingDataForParent(
 	bcReader blockchain.Reader,
 	latestHeader *core.Header,
 ) (core.PendingData, error) {
-	needPreConfirmed, err := NeedsPreConfirmed(latestHeader.ProtocolVersion)
+	preConfirmed, err := MakeEmptyPreConfirmedForParent(bcReader, latestHeader)
 	if err != nil {
 		return nil, err
 	}
-
-	if needPreConfirmed {
-		preConfirmed, err := MakeEmptyPreConfirmedForParent(bcReader, latestHeader)
-		if err != nil {
-			return nil, err
-		}
-		return &preConfirmed, nil
-	}
-
-	pending, err := MakeEmptyPendingForParent(bcReader, latestHeader)
-	if err != nil {
-		return nil, err
-	}
-	return &pending, nil
-}
-
-func ResolvePendingBaseState(
-	pending *core.Pending,
-	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
-	return stateReader.StateAtBlockHash(pending.Block.ParentHash)
+	return &preConfirmed, nil
 }
 
 // ResolvePreConfirmedBaseState resolves the base state for pre-confirmed blocks
@@ -195,8 +126,6 @@ func ResolvePendingDataBaseState(
 	switch p := pending.(type) {
 	case *core.PreConfirmed:
 		return ResolvePreConfirmedBaseState(p, stateReader)
-	case *core.Pending:
-		return ResolvePendingBaseState(p, stateReader)
 	default:
 		return nil, nil, ErrUnsupportedPendingDataVariant
 	}

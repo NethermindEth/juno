@@ -338,7 +338,7 @@ func (h *Handler) findAndTraceInPendingData(
 	return h.findAndTraceInPrelatestBlock(pendingData, hash)
 }
 
-// findAndTraceInPendingBlock finds and traces a transaction in the pending/pre_confirmed block.
+// findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.
 func (h *Handler) findAndTraceInPendingBlock(
 	pendingData core.PendingData, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
@@ -348,20 +348,7 @@ func (h *Handler) findAndTraceInPendingBlock(
 		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 	}
 
-	switch pendingData.Variant() {
-	case core.PreConfirmedBlockVariant:
-		return h.traceInPreConfirmedBlock(pendingData, txIndex)
-	case core.PendingBlockVariant:
-		// TODO: remove pending when its will be no longer supported
-		blockTraces, httpHeader, rpcErr := h.traceBlockWithVM(block)
-		if rpcErr != nil {
-			return TransactionTrace{}, nil, rpcErr
-		}
-		return *blockTraces[txIndex].TraceRoot, httpHeader, nil
-	default:
-		// Unknown variant - this should not happen in normal operation
-		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
-	}
+	return h.traceInPreConfirmedBlock(pendingData, txIndex)
 }
 
 // findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
