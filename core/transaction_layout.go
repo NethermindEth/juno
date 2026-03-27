@@ -75,7 +75,11 @@ func (l TransactionLayout) TransactionsByBlockNumber(
 ) ([]Transaction, error) {
 	switch l {
 	case TransactionLayoutCombined:
-		return BlockTransactionsAllTransactionsPartialBucket.Get(r, blockNum, struct{}{})
+		txs, err := BlockTransactionsAllTransactionsPartialBucket.Get(r, blockNum, struct{}{})
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, nil
+		}
+		return txs, err
 
 	case TransactionLayoutPerTx:
 		var transactions []Transaction
@@ -102,6 +106,10 @@ func (l TransactionLayout) TransactionsByBlockNumberIter(
 	case TransactionLayoutCombined:
 		blockTransactions, err := BlockTransactionsBucket.Get(r, blockNum)
 		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				// an empty iterator for empty blocks instead of an error
+				return func(yield func(Transaction, error) bool) {}
+			}
 			return func(yield func(Transaction, error) bool) {
 				yield(nil, err)
 			}
@@ -132,7 +140,11 @@ func (l TransactionLayout) ReceiptsByBlockNumber(
 ) ([]*TransactionReceipt, error) {
 	switch l {
 	case TransactionLayoutCombined:
-		return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNum, struct{}{})
+		receipts, err := BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNum, struct{}{})
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, nil
+		}
+		return receipts, err
 
 	case TransactionLayoutPerTx:
 		var receipts []*TransactionReceipt

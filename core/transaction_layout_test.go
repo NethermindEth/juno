@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	_ "github.com/NethermindEth/juno/encoder/registry"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -162,6 +163,27 @@ func runTestTransactionLayout(
 				require.Equal(t, transactions[blockNum], block.Transactions)
 				require.Equal(t, receipts[blockNum], block.Receipts)
 			}
+		})
+
+		// NON-EXISTENT BLOCK
+		t.Run("NonExistentBlock_TransactionsByBlockNumber", func(t *testing.T) {
+			txns, err := layout.TransactionsByBlockNumber(database, uint64(999))
+			require.NoError(t, err)
+			assert.Nil(t, txns)
+		})
+
+		t.Run("NonExistentBlock_ReceiptsByBlockNumber", func(t *testing.T) {
+			rcpts, err := layout.ReceiptsByBlockNumber(database, uint64(999))
+			require.NoError(t, err)
+			assert.Nil(t, rcpts)
+		})
+
+		t.Run("NonExistentBlock_TransactionsByBlockNumberIter", func(t *testing.T) {
+			var txns []core.Transaction
+			for tx, err := range layout.TransactionsByBlockNumberIter(database, uint64(999)) {
+				assert.Fail(t, "should not have entered the iterator", tx, err)
+			}
+			assert.Empty(t, txns)
 		})
 
 		// DELETE
