@@ -50,13 +50,13 @@ func (t *testBlockDataSource) BlockByNumber(ctx context.Context, blockNumber uin
 	return getBlock(blocks, blockNumber), nil
 }
 
-func (t *testBlockDataSource) BlockLatest(ctx context.Context) (*core.Block, error) {
+func (t *testBlockDataSource) BlockHeaderLatest(ctx context.Context) (*core.Header, error) {
 	blocks := t.getBlocks()
 	if len(blocks) == 0 {
 		return nil, errors.New("no blocks")
 	}
 
-	return getBlock(blocks, uint64(len(blocks)-1)).Block, nil
+	return getBlock(blocks, uint64(len(blocks)-1)).Block.Header, nil
 }
 
 func (t *testBlockDataSource) BlockPending(ctx context.Context) (core.Pending, error) {

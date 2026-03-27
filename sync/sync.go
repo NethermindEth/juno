@@ -239,7 +239,7 @@ func (s *Synchronizer) isReverting(
 	}
 
 	// If unable to fetch remoteHead block, we precautionarily assume we're not reverting
-	remoteHead, err := s.dataSource.BlockLatest(ctx)
+	remoteHead, err := s.dataSource.BlockHeaderLatest(ctx)
 	if err != nil {
 		return 0, false
 	}
@@ -585,11 +585,11 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
 
 	for {
-		highestBlock, err := s.dataSource.BlockLatest(ctx)
+		header, err := s.dataSource.BlockHeaderLatest(ctx)
 		if err != nil {
 			s.log.Warn("Failed fetching latest block", zap.Error(err))
 		} else {
-			s.highestBlockHeader.Store(highestBlock.Header)
+			s.highestBlockHeader.Store(header)
 		}
 
 		select {

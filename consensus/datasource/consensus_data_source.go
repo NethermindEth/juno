@@ -62,13 +62,13 @@ func (c *consensusDataSource[V, H]) BlockByNumber(ctx context.Context, blockNumb
 	return *committedBlock.(*sync.CommittedBlock), nil
 }
 
-func (c *consensusDataSource[V, H]) BlockLatest(ctx context.Context) (*core.Block, error) {
+func (c *consensusDataSource[V, H]) BlockHeaderLatest(ctx context.Context) (*core.Header, error) {
 	committedBlock, err := c.BlockByNumber(ctx, c.latest.Load())
 	if err != nil {
 		return nil, err
 	}
 
-	return committedBlock.Block, nil
+	return committedBlock.Block.Header, nil
 }
 
 func (c *consensusDataSource[V, H]) BlockPending(ctx context.Context) (core.Pending, error) {

@@ -126,9 +126,13 @@ func TestSyncBlocks(t *testing.T) {
 				return gw.Class(ctx, hash)
 			}).AnyTimes()
 
-		mockSNData.EXPECT().BlockLatest(gomock.Any()).DoAndReturn(
-			func(ctx context.Context) (*core.Block, error) {
-				return gw.BlockLatest(t.Context())
+		mockSNData.EXPECT().BlockHeaderLatest(gomock.Any()).DoAndReturn(
+			func(ctx context.Context) (core.Header, error) {
+				block, err := gw.BlockLatest(t.Context())
+				if err != nil {
+					return core.Header{}, err
+				}
+				return *block.Header, nil
 			}).AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
