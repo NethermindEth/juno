@@ -103,7 +103,6 @@ const (
 	dbMemtableSizeF                     = "db-memtable-size"
 	dbMemtableCountF                    = "db-memtable-count"
 	dbCompressionF                      = "db-compression"
-	transactionCombinedLayoutF          = node.FlagTransactionCombinedLayout
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 
@@ -161,7 +160,6 @@ const (
 	defaultDBMemtableSize                     = 256
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "snappy"
-	defaultTransactionCombinedLayout          = false
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
 
@@ -243,8 +241,6 @@ const (
 		"queue before stalling writes."
 	dbCompressionUsage = "Database compression profile. Options: snappy, zstd, minlz. " +
 		"Use zstd for low storage."
-	transactionCombinedLayoutUsage = "EXPERIMENTAL: Enable combined (per-block) transaction " +
-		"storage layout. Once enabled, cannot be disabled."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
 )
@@ -465,9 +461,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
-	)
-	junoCmd.Flags().Bool(
-		transactionCombinedLayoutF, defaultTransactionCombinedLayout, transactionCombinedLayoutUsage,
 	)
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
 	junoCmd.Flags().Uint(

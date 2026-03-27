@@ -12,17 +12,9 @@ import (
 )
 
 // registerMigrations creates and configures the migration registry with all migrations.
-// This is where all migrations should be registered. Optional migrations can use
-// config variables from cfg to determine if they should be enabled.
-func registerMigrations(cfg *Config) *migration.Registry {
-	registry := migration.NewRegistry().
-		WithOptional(
-			&blocktransactions.Migrator{},
-			cfg.TransactionCombinedLayout,
-			FlagTransactionCombinedLayout,
-		)
-
-	return registry
+func registerMigrations() *migration.Registry {
+	return migration.NewRegistry().
+		With(&blocktransactions.Migrator{})
 }
 
 // migrateIfNeeded runs all migrations (deprecated and new) if needed.
@@ -46,7 +38,7 @@ func migrateIfNeeded(
 		}
 
 		// Run new migrations
-		registry := registerMigrations(config)
+		registry := registerMigrations()
 		runner, err := migration.NewRunner(
 			registry,
 			db,

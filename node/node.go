@@ -49,12 +49,11 @@ import (
 )
 
 const (
-	upgraderDelay                 = 5 * time.Minute
-	mempoolLimit                  = 1024
-	githubAPIUrl                  = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL              = "https://github.com/NethermindEth/juno/releases/latest"
-	sequencerAddress              = 1337
-	FlagTransactionCombinedLayout = "transaction-combined-layout"
+	upgraderDelay    = 5 * time.Minute
+	mempoolLimit    = 1024
+	githubAPIUrl    = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	sequencerAddress = 1337
 )
 
 // Config is the top-level juno configuration.
@@ -127,8 +126,6 @@ type Config struct {
 
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
 
-	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
-
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 }
@@ -194,8 +191,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network).
-		WithTransactionLayout(cfg.TransactionCombinedLayout)
+	chain := blockchain.New(database, &cfg.Network)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()

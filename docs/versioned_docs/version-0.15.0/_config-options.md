@@ -64,7 +64,6 @@
 | `seq-genesis-file` |  | Path to the genesis file |
 | `submitted-transactions-cache-entry-ttl` | `5m0s` | Time-to-live for each entry in the submitted transactions cache |
 | `submitted-transactions-cache-size` | `10000` | Maximum number of entries in the submitted transactions cache |
-| `transaction-combined-layout` |  | EXPERIMENTAL: Enable combined (per-block) transaction storage layout. Once enabled, cannot be disabled. |
 | `version` |  | version for juno |
 | `versioned-constants-file` |  | Use custom versioned constants from provided file |
 | `ws` |  | Enables the WebSocket RPC server on the default port. |

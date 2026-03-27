@@ -97,19 +97,8 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 		l1HeadFeed:        feed.New[*core.L1Head](),
 		cachedFilters:     &cachedFilters,
 		runningFilter:     runningFilter,
-		transactionLayout: core.TransactionLayoutPerTx, // default to per-tx for backward compatibility
+		transactionLayout: core.TransactionLayoutCombined,
 	}
-}
-
-// WithTransactionLayout sets the transaction storage layout.
-// If combined is true, uses combined (per-block) layout; otherwise uses per-tx layout.
-func (b *Blockchain) WithTransactionLayout(combined bool) *Blockchain {
-	if combined {
-		b.transactionLayout = core.TransactionLayoutCombined
-	} else {
-		b.transactionLayout = core.TransactionLayoutPerTx
-	}
-	return b
 }
 
 // TransactionLayout returns the transaction storage layout used by this blockchain

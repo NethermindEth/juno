@@ -46,18 +46,12 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 }
 
 func DBInfoCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "info",
 		Short: "Retrieve database information",
 		Long:  `This subcommand retrieves and displays blockchain information stored in the database.`,
 		RunE:  dbInfo,
 	}
-	cmd.Flags().Bool(
-		transactionCombinedLayoutF,
-		defaultTransactionCombinedLayout,
-		transactionCombinedLayoutUsage,
-	)
-	return cmd
 }
 
 func DBSizeCmd() *cobra.Command {
@@ -77,21 +71,11 @@ func DBRevertCmd() *cobra.Command {
 		RunE:  dbRevert,
 	}
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
-	cmd.Flags().Bool(
-		transactionCombinedLayoutF,
-		defaultTransactionCombinedLayout,
-		transactionCombinedLayoutUsage,
-	)
 	return cmd
 }
 
 func dbInfo(cmd *cobra.Command, args []string) error {
 	dbPath, err := cmd.Flags().GetString(dbPathF)
-	if err != nil {
-		return err
-	}
-
-	transactionCombinedLayout, err := cmd.Flags().GetBool(transactionCombinedLayoutF)
 	if err != nil {
 		return err
 	}
@@ -102,7 +86,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil).WithTransactionLayout(transactionCombinedLayout)
+	chain := blockchain.New(database, nil)
 	var info DBInfo
 
 	// Get the latest block information
@@ -173,11 +157,6 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	transactionCombinedLayout, err := cmd.Flags().GetBool(transactionCombinedLayoutF)
-	if err != nil {
-		return err
-	}
-
 	if revertToBlock == 0 {
 		return fmt.Errorf("--%v cannot be 0", dbRevertToBlockF)
 	}
@@ -189,7 +168,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New(database, nil).WithTransactionLayout(transactionCombinedLayout)
+		chain := blockchain.New(database, nil)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)
