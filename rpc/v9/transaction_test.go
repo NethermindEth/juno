@@ -918,7 +918,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			txHash := block0.Transactions[i].Hash()
 
-			pending := core.NewPending(block0, nil, nil)
+			pending := core.NewPreConfirmed(block0, nil, nil, nil)
 
 			mockSyncReader.EXPECT().PendingData().Return(
 				&pending,

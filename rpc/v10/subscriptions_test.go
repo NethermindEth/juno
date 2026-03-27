@@ -3074,7 +3074,7 @@ func createTestPending(t *testing.T, b *core.Block, txCount int) core.Pending {
 
 	pending.Transactions = b.Transactions[:txCount]
 	pending.Receipts = b.Receipts[:txCount]
-	return core.Pending{
+	return core.PreConfirmed{
 		Block: &pending,
 	}
 }

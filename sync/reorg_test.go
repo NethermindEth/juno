@@ -59,8 +59,8 @@ func (t *testBlockDataSource) BlockLatest(ctx context.Context) (*core.Block, err
 	return getBlock(blocks, uint64(len(blocks)-1)).Block, nil
 }
 
-func (t *testBlockDataSource) BlockPending(ctx context.Context) (core.Pending, error) {
-	return core.Pending{}, errors.New("not implemented")
+func (t *testBlockDataSource) BlockPending(ctx context.Context) (core.PreLatest, error) {
+	return core.PreLatest{}, errors.New("not implemented")
 }
 
 func (t *testBlockDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {

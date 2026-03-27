@@ -62,7 +62,7 @@ func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
 	pendingBlock := &core.Block{
 		Transactions: []core.Transaction{pendingTx},
 	}
-	pending := core.NewPending(pendingBlock, nil, nil)
+	pending := core.NewPreConfirmed(pendingBlock, nil, nil, nil)
 	mockSyncReader.EXPECT().PendingData().Return(
 		&pending,
 		nil,
@@ -584,7 +584,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := core.NewPending(latestBlock, nil, nil)
+		pending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -751,7 +751,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			gomock.Any(),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		pending := core.NewPending(block0, nil, nil)
+		pending := core.NewPreConfirmed(block0, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,

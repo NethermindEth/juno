@@ -456,7 +456,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 		pendingStateDiff := core.EmptyStateDiff()
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: block,
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,

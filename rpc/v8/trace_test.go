@@ -285,7 +285,7 @@ func TestTraceTransaction(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			pending := core.NewPending(&core.Block{}, nil, nil)
+			pending := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
 			mockSyncReader.EXPECT().PendingData().Return(
 				&pending,
 				nil,
@@ -427,7 +427,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		pendingStateDiff := core.EmptyStateDiff()
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: block,
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,
@@ -709,7 +709,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 
 		pendingStateDiff := core.EmptyStateDiff()
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: block,
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,

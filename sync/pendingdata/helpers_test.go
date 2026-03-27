@@ -17,29 +17,6 @@ func TestResolvePendingDataBaseState(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockStateReader := mocks.NewMockStateReader(mockCtrl)
-	t.Run("PendingBlockVariant", func(t *testing.T) {
-		// Create a pending block
-		pending := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: felt.NewFromUint64[felt.Felt](0xffff),
-				},
-			},
-		}
-
-		// Test that it uses the parent hash directly
-		mockReader.EXPECT().StateAtBlockHash(pending.Block.ParentHash).Return(
-			mockStateReader,
-			func() error { return nil },
-			nil,
-		)
-		stateReader, closer, err := pendingdata.ResolvePendingDataBaseState(pending, mockReader)
-		require.NoError(t, err)
-		require.NotNil(t, stateReader)
-		require.NotNil(t, closer)
-		require.NoError(t, closer())
-	})
-
 	t.Run("PreConfirmedBlockVariant without pre-latest", func(t *testing.T) {
 		// Create a pre-confirmed block without pre-latest
 		preConfirmed := &core.PreConfirmed{

@@ -146,7 +146,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pending starknet version < 0.14.0", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		pending := core.NewPending(nil, update21656, nil)
+		pending := core.NewPreConfirmed(nil, update21656, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,

@@ -117,7 +117,7 @@ func TestNonce(t *testing.T) {
 		pendingStateDiff := core.EmptyStateDiff()
 		pendingStateDiff.Nonces[targetAddress] = expectedNonce
 
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: felt.NewFromUint64[felt.Felt](2),
@@ -297,7 +297,7 @@ func TestStorageAt(t *testing.T) {
 		stateDiff.
 			DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
 
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: felt.NewFromUint64[felt.Felt](2),

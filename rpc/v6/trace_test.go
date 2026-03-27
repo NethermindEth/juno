@@ -348,7 +348,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		pendingStateDiff := core.EmptyStateDiff()
 
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: block,
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,
@@ -584,7 +584,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 
 		pendingStateDiff := core.EmptyStateDiff()
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: block,
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &pendingStateDiff,

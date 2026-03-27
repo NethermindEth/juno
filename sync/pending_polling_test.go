@@ -27,14 +27,14 @@ type MockDataSource struct {
 	preConfirmedErrorThreshold uint
 	numCallsPreConfirmed       uint
 	numCallsPending            uint
-	PendingFunc                func(ctx context.Context) (core.Pending, error)
+	PendingFunc                func(ctx context.Context) (core.PreLatest, error)
 }
 
 // Override BlockPending to simulate errors and/or injected responses
-func (m *MockDataSource) BlockPending(ctx context.Context) (core.Pending, error) {
+func (m *MockDataSource) BlockPending(ctx context.Context) (core.PreLatest, error) {
 	m.numCallsPending += 1
 	if m.numCallsPending <= m.pendingErrorThreshold {
-		return core.Pending{}, errors.New("some error")
+		return core.PreLatest{}, errors.New("some error")
 	}
 	// fallback to embedded real method if no override set
 	if m.PendingFunc != nil {
@@ -68,8 +68,8 @@ func TestPollPreLatest(t *testing.T) {
 
 		mockDS := &MockDataSource{
 			DataSource: dataSource,
-			PendingFunc: func(context.Context) (core.Pending, error) {
-				return makeTestPendingForParent(head.Header), nil
+			PendingFunc: func(context.Context) (core.PreLatest, error) {
+				return makeTestPreLatestForParent(head.Header), nil
 			},
 		}
 
@@ -110,9 +110,9 @@ func TestPollPreLatest(t *testing.T) {
 
 		mockDS := &MockDataSource{
 			DataSource: dataSource,
-			PendingFunc: func(context.Context) (core.Pending, error) {
-				// Always return pending for 'latest' (future relative to headMinusOne)
-				return makeTestPendingForParent(latest.Header), nil
+			PendingFunc: func(context.Context) (core.PreLatest, error) {
+				// Always return pre_latest for 'latest' (future relative to headMinusOne)
+				return makeTestPreLatestForParent(latest.Header), nil
 			},
 		}
 		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
@@ -158,7 +158,7 @@ func TestPollPreLatest(t *testing.T) {
 		mockDS := &MockDataSource{
 			DataSource:                 dataSource,
 			pendingErrorThreshold:      2,
-			PendingFunc:                func(context.Context) (core.Pending, error) { return makeTestPendingForParent(head.Header), nil },
+			PendingFunc:                func(context.Context) (core.PreLatest, error) { return makeTestPreLatestForParent(head.Header), nil },
 			preConfirmedErrorThreshold: 0,
 		}
 
@@ -195,7 +195,7 @@ func TestPollPreLatest(t *testing.T) {
 		mockDS := &MockDataSource{
 			DataSource:            dataSource,
 			pendingErrorThreshold: ^uint(0), // always error
-			PendingFunc:           func(context.Context) (core.Pending, error) { return makeTestPendingForParent(head.Header), nil },
+			PendingFunc:           func(context.Context) (core.PreLatest, error) { return makeTestPreLatestForParent(head.Header), nil },
 		}
 
 		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
@@ -340,10 +340,10 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 	))
 
 	// Mock data source to delay pre_latest (pending) while allowing pre_confirmed to arrive
-	pendingFunc := func(context.Context) (core.Pending, error) {
+	pendingFunc := func(context.Context) (core.PreLatest, error) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		return makeTestPendingForParent(head), nil
+		return makeTestPreLatestForParent(head), nil
 	}
 
 	mockDataSource := &MockDataSource{
@@ -411,10 +411,10 @@ func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
 	dataSource := NewFeederGatewayDataSource(bc, gw)
 
 	// Returns pending block with protocol version 0.14.0
-	pendingFunc := func(context.Context) (core.Pending, error) {
+	pendingFunc := func(context.Context) (core.PreLatest, error) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		return makeTestPendingForParent(head), nil
+		return makeTestPreLatestForParent(head), nil
 	}
 	log := utils.NewNopZapLogger()
 	mockDataSource := &MockDataSource{
@@ -560,8 +560,8 @@ func TestStorePreConfirmed(t *testing.T) {
 
 		// Attempt to store "worse" but with a pre_latest attachment;
 		// should keep existing but update attachment
-		pending := makeTestPendingForParent(head)
-		pl := core.PreLatest(pending)
+		pending := makeTestPreLatestForParent(head)
+		pl := pending
 
 		worse := &core.PreConfirmed{
 			Block: &core.Block{
@@ -757,190 +757,11 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 	return preConfirmed
 }
 
-func TestStorePending(t *testing.T) {
-	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Mainnet)
-	log := utils.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &utils.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	s := New(bc, NewFeederGatewayDataSource(bc, nil), log, 0, 0, false, testDB)
 
-	t.Run("stores pending when there is none (first entry)", func(t *testing.T) {
-		pending := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:     0,
-					ParentHash: &felt.Zero,
-				},
-			},
-		}
-		t.Run("head is nil (pending as genesis)", func(t *testing.T) {
-			written, err := s.StorePending(pending)
-			require.NoError(t, err)
-			require.True(t, written)
-			ptr := s.pendingData.Load()
-			require.NotNil(t, ptr)
-			require.Equal(t, pending, *ptr)
-		})
-		head, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
-		require.NoError(t, bc.Store(
-			head,
-			&core.BlockCommitments{},
-			stateUpdate0,
-			map[felt.Felt]core.ClassDefinition{},
-		))
-		t.Run("not valid for head", func(t *testing.T) {
-			s.pendingData.Store(nil)
-			written, err := s.StorePending(pending)
-			require.Error(t, err)
-			require.False(t, written)
-		})
-	})
-
-	t.Run("returns error if ProtocolVersion unsupported", func(t *testing.T) {
-		p := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:          1,
-					ProtocolVersion: core.LatestVer.IncMajor().String(),
-				},
-			},
-		}
-		written, err := s.StorePending(p)
-		require.Error(t, err)
-		require.False(t, written)
-	})
-
-	t.Run("overwrites if existing pending is invalid", func(t *testing.T) {
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-		invalidPending := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           0,
-					ParentHash:       &felt.Zero,
-					TransactionCount: 2,
-				},
-			},
-		}
-		// Insert invalid pending (simulate old data)
-		s.pendingData.Store(utils.HeapPtr[core.PendingData](invalidPending))
-
-		p := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					ParentHash:       head.Hash,
-					TransactionCount: 0,
-				},
-			},
-		}
-		written, err := s.StorePending(p)
-		require.NoError(t, err)
-		require.True(t, written)
-	})
-
-	t.Run("ignores pending with fewer or equal txs for the same block number", func(t *testing.T) {
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-
-		// Store "better" with higher tx count
-		better := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					ParentHash:       head.Hash,
-					TransactionCount: 2,
-				},
-			},
-		}
-		written, err := s.StorePending(better)
-		require.NoError(t, err)
-		require.True(t, written)
-
-		// Attempt to store "worse" with fewer txs; should be ignored
-		worse := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					ParentHash:       head.Hash,
-					TransactionCount: 1,
-				},
-			},
-		}
-		written, err = s.StorePending(worse)
-		require.NoError(t, err)
-		require.False(t, written)
-
-		ptr := s.pendingData.Load()
-		require.NotNil(t, ptr)
-		require.Equal(t, better, *ptr)
-	})
-
-	t.Run("accepts pending with more txs for same block number", func(t *testing.T) {
-		s.pendingData.Store(nil)
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-
-		worse := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					ParentHash:       head.Hash,
-					TransactionCount: 1,
-				},
-			},
-		}
-		written, err := s.StorePending(worse)
-		require.NoError(t, err)
-		require.True(t, written)
-		ptr := s.pendingData.Load()
-		require.Equal(t, worse, *ptr)
-
-		better := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					ParentHash:       head.Hash,
-					TransactionCount: 2,
-				},
-			},
-		}
-		written, err = s.StorePending(better)
-		require.NoError(t, err)
-		require.True(t, written)
-		ptr = s.pendingData.Load()
-		require.Equal(t, better, *ptr)
-	})
-
-	t.Run("rejects pending if not successor of head (parent hash mismatch)", func(t *testing.T) {
-		s.pendingData.Store(nil)
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-
-		invalidPending := &core.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					ParentHash:       &felt.One, // not successor of head
-					TransactionCount: 2,
-				},
-			},
-		}
-		written, err := s.StorePending(invalidPending)
-		require.Error(t, err)
-		require.False(t, written)
-		require.ErrorIs(t, err, blockchain.ErrParentDoesNotMatchHead)
-	})
-}
-
-func makeTestPendingForParent(parent *core.Header) core.Pending {
+func makeTestPreLatestForParent(parent *core.Header) core.PreLatest {
 	receipts := make([]*core.TransactionReceipt, 0)
-	pendingBlock := &core.Block{
+	block := &core.Block{
 		Header: &core.Header{
 			ParentHash:       parent.Hash,
 			SequencerAddress: parent.SequencerAddress,
@@ -958,13 +779,12 @@ func makeTestPendingForParent(parent *core.Header) core.Pending {
 		Receipts:     receipts,
 	}
 	stateDiff := core.EmptyStateDiff()
-	pending := core.Pending{
-		Block: pendingBlock,
+	return core.PreLatest{
+		Block: block,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   parent.GlobalStateRoot,
 			StateDiff: &stateDiff,
 		},
 		NewClasses: make(map[felt.Felt]core.ClassDefinition, 0),
 	}
-	return pending
 }

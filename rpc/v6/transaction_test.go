@@ -76,7 +76,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 		txAtIdx1InBlock := felt.NewUnsafeFromString[felt.Felt]("0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
 		mockReader.EXPECT().TransactionByHash(txAtIdx1InBlock).Return(nil, db.ErrKeyNotFound)
-		pending := core.NewPending(block, nil, nil)
+		pending := core.NewPreConfirmed(block, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -129,7 +129,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
-		pending := core.NewPending(block, nil, nil)
+		pending := core.NewPreConfirmed(block, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -580,7 +580,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := core.NewPending(latestBlock, nil, nil)
+		pending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -652,7 +652,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().DoAndReturn(func() (core.PendingData, error) {
 			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
-			pending := core.NewPending(block, nil, nil)
+			pending := core.NewPreConfirmed(block, nil, nil, nil)
 			return &pending, nil
 		})
 
@@ -731,7 +731,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
 
-			pending := core.NewPending(block, nil, nil)
+			pending := core.NewPreConfirmed(block, nil, nil, nil)
 			return &pending, nil
 		})
 

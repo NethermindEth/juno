@@ -255,7 +255,7 @@ func TestClassHashAt(t *testing.T) {
 		pendingStateDiff := core.EmptyStateDiff()
 		pendingStateDiff.DeployedContracts[targetAddress] = expectedClassHash
 
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: felt.NewFromUint64[felt.Felt](2),

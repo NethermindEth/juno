@@ -34,7 +34,7 @@ func createEventPendingFromBlock(block *core.Block) (core.Pending, []rpc.Emitted
 		Receipts:     block.Receipts,
 	}
 
-	pending := core.NewPending(pendingBlock, nil, nil)
+	pending := core.NewPreConfirmed(pendingBlock, nil, nil, nil)
 
 	// Extract events from the block and convert to emitted events
 	var events []rpc.EmittedEvent

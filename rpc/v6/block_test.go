@@ -226,7 +226,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := core.NewPending(latestBlock, nil, nil)
+		pending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -374,7 +374,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := core.NewPending(latestBlock, nil, nil)
+		pending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -553,7 +553,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := core.NewPending(latestBlock, nil, nil)
+		pending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -725,7 +725,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		}
 
 		t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
-			pending := core.NewPending(block0, nil, nil)
+			pending := core.NewPreConfirmed(block0, nil, nil, nil)
 			mockSyncReader.EXPECT().PendingData().Return(
 				&pending,
 				nil,

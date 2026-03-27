@@ -31,19 +31,19 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Returns pending data when valid", func(t *testing.T) {
-		t.Run("when starknet version < 0.14.0", func(t *testing.T) {
-			expectedPending := core.NewPending(latestBlock, nil, nil)
+		t.Run("with valid sync data", func(t *testing.T) {
+			expectedPending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 			mockSyncReader.EXPECT().PendingData().Return(
 				&expectedPending,
 				nil,
 			)
 			pending, err := handler.PendingData()
 			require.NoError(t, err)
-			require.Equal(t, core.PendingBlockVariant, pending.Variant())
+			require.Equal(t, core.PreConfirmedBlockVariant, pending.Variant())
 			require.Equal(t, &expectedPending, pending)
 		})
 
-		t.Run("when starknet version >= 0.14.0", func(t *testing.T) {
+		t.Run("with pre-confirmed block", func(t *testing.T) {
 			expectedPending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 			mockSyncReader.EXPECT().PendingData().Return(
 				&expectedPending,
@@ -62,7 +62,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 			Hash:   felt.NewFromUint64[felt.Felt](1234567),
 		}
 
-		t.Run("when starknet version < 0.14.0", func(t *testing.T) {
+		t.Run("pending data not found", func(t *testing.T) {
 			mockSyncReader.EXPECT().PendingData().Return(
 				nil,
 				core.ErrPendingDataNotFound,
@@ -73,18 +73,18 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 				latestBlock.Header.Number+1-pendingdata.BlockHashLag,
 			).Return(&blockToRegisterHash, nil).Times(2)
 
-			expectedPending, err := pendingdata.MakeEmptyPendingForParent(
+			expectedPending, err := pendingdata.MakeEmptyPendingDataForParent(
 				mockReader,
 				latestBlock.Header,
 			)
 			require.NoError(t, err)
 			pending, err := handler.PendingData()
 			require.NoError(t, err)
-			require.Equal(t, core.PendingBlockVariant, pending.Variant())
+			require.Equal(t, core.PreConfirmedBlockVariant, pending.Variant())
 			require.Equal(t, &expectedPending, pending)
 		})
 
-		t.Run("when starknet version >= 0.14.0", func(t *testing.T) {
+		t.Run("pending data not found with protocol version", func(t *testing.T) {
 			mockSyncReader.EXPECT().PendingData().Return(
 				nil,
 				core.ErrPendingDataNotFound,

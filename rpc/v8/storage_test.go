@@ -183,7 +183,7 @@ func TestStorageAt(t *testing.T) {
 		pendingStateDiff.
 			DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
 
-		pending := core.Pending{
+		pending := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: felt.NewFromUint64[felt.Felt](2),
