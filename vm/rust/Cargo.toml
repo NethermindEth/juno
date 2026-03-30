@@ -8,10 +8,7 @@ edition = "2021"
 [dependencies]
 serde = "1.0.208"
 serde_json = { version = "1.0.125", features = ["raw_value"] }
-blockifier = { version = "0.18.0-dev.1", features = [
-  "node_api",
-  "reexecution",
-] }
+blockifier = { version = "0.18.0-rc.0", features = ["node_api", "reexecution"] }
 starknet_api = "0.18.0-rc.0"
 cairo-vm = "3.1.0"
 cairo-lang-casm = "=2.17.0-rc.4"
