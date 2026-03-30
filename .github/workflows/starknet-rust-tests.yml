@@ -47,5 +47,5 @@ jobs:
           RUST_BACKTRACE: full
           TEST_NODE_URL: ${{ secrets.STARKNET_RPC }}
         run: |
-          cd starknet-rust-account
+          cd starknet-rust-accounts
           cargo test jsonrpc -- --skip can_estimate_declare_v3_fee_with_jsonrpc --skip can_declare_cairo1_contract_v3_with_jsonrpc
