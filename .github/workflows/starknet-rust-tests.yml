@@ -31,19 +31,21 @@ jobs:
           profile: minimal
           override: true
 
-      - name: Run jsonrpc tests
+      - name: Run jsonrpc providers tests
         run: |
-          cd starknet-rust-providers && cargo test jsonrpc -- \
-          # Sepolia is at 0.14.2, while tests expect 0.14.1
-            --skip jsonrpc_starknet_version \ 
-            --skip jsonrpc_spec_version
+          cd starknet-rust-providers
 
-          cd ../starknet-rust-accounts && cargo test jsonrpc -- \
           # Sepolia is at 0.14.2, while tests expect 0.14.1
-            --skip jsonrpc_starknet_version \
-            --skip jsonrpc_spec_version \ 
-            --skip can_estimate_declare_v3_fee_with_jsonrpc \
-            --skip can_declare_cairo1_contract_v3_with_jsonrpc
+          cargo test jsonrpc -- --skip jsonrpc_starknet_version --skip jsonrpc_spec_version
+
+        env:
+          RUST_BACKTRACE: full
+          TEST_NODE_URL: ${{ secrets.STARKNET_RPC }}
+
+      - name: Run jsonrpc account tests
+        run: |
+          cd starknet-rust-account
+          cargo test jsonrpc -- --skip can_estimate_declare_v3_fee_with_jsonrpc --skip can_declare_cairo1_contract_v3_with_jsonrpc
         env:
           RUST_BACKTRACE: full
           TEST_NODE_URL: ${{ secrets.STARKNET_RPC }}
