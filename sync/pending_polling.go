@@ -32,8 +32,8 @@ func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 // Returns true if existing pendingData is valid for head and incoming is not richer than existing.
 // Otherwise returns false.
 func shouldPreservePendingData(
-	existingPending core.PendingData,
-	incomingPending core.PendingData,
+	existingPending *core.PreConfirmed,
+	incomingPending *core.PreConfirmed,
 	head *core.Header,
 ) bool {
 	if existingPending == nil {
@@ -61,11 +61,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 		return false
 	}
 
-	cur := *curPtr
-	pc, ok := cur.(*core.PreConfirmed)
-	if !ok {
-		return false
-	}
+	pc := *curPtr
 
 	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {
 		// nil or different height stored; do not touch.
@@ -81,7 +77,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 	next := pc.Copy()
 	next.WithPreLatest(preLatest)
 
-	return s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[core.PendingData](next))
+	return s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[*core.PreConfirmed](next))
 }
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height.
@@ -113,7 +109,7 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 
 	return s.pendingData.CompareAndSwap(
 		existingPtr,
-		utils.HeapPtr[core.PendingData](p),
+		utils.HeapPtr[*core.PreConfirmed](p),
 	), nil
 }
 

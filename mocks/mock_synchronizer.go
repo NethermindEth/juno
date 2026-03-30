@@ -70,10 +70,10 @@ func (mr *MockSyncReaderMockRecorder) PendingBlock() *gomock.Call {
 }
 
 // PendingData mocks base method.
-func (m *MockSyncReader) PendingData() (core.PendingData, error) {
+func (m *MockSyncReader) PendingData() (*core.PreConfirmed, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingData")
-	ret0, _ := ret[0].(core.PendingData)
+	ret0, _ := ret[0].(*core.PreConfirmed)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

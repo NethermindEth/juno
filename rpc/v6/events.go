@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -76,10 +77,13 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if args.EventFilter.Address != nil {
 		addresses = []felt.Address{felt.Address(*args.EventFilter.Address)}
 	}
+	// rpc/v6 builds its pending block via MakeEmptyPendingForParent, which returns the deprecated
+	// *core.Pending type and carries no events. EventFilter requires *core.PreConfirmed, so a
+	// no-op is passed here — the result is identical since there are no pending events to emit.
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		args.EventFilter.Keys,
-		h.PendingData,
+		func() (*core.PreConfirmed, error) { return nil, core.ErrPendingDataNotFound },
 	)
 	if err != nil {
 		return nil, rpccore.ErrInternal

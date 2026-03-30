@@ -351,7 +351,7 @@ func (h *Handler) findAndTraceInPendingData(
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.
 func (h *Handler) findAndTraceInPreConfirmedBlock(
-	pendingData core.PendingData, hash *felt.Felt,
+	pendingData *core.PreConfirmed, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	block := pendingData.GetBlock()
 	txIndex, rpcErr := findTransactionInBlock(block, hash)
@@ -364,7 +364,7 @@ func (h *Handler) findAndTraceInPreConfirmedBlock(
 
 // findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
 func (h *Handler) findAndTraceInPrelatestBlock(
-	pendingData core.PendingData, hash *felt.Felt,
+	pendingData *core.PreConfirmed, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	preLatest := pendingData.GetPreLatest()
 	if preLatest == nil {
@@ -417,7 +417,7 @@ func (h *Handler) traceInPrelatestBlock(
 
 // traceInPreConfirmedBlock traces a transaction in a preconfirmed block.
 func (h *Handler) traceInPreConfirmedBlock(
-	pendingData core.PendingData, txIndex uint,
+	pendingData *core.PreConfirmed, txIndex uint,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	state, stateCloser, err := pendingdata.PendingStateBeforeIndex(pendingData, h.bcReader, txIndex)
 	if err != nil {

@@ -36,7 +36,7 @@ type Sequencer struct {
 	mempool          *mempool.SequencerMempool
 
 	subNewHeads    *feed.Feed[*core.Block]
-	subPendingData *feed.Feed[core.PendingData]
+	subPendingData *feed.Feed[*core.PreConfirmed]
 	subReorgFeed   *feed.Feed[*sync.ReorgBlockRange]
 	subPreLatest   *feed.Feed[*core.PreLatest]
 	plugin         plugin.JunoPlugin
@@ -61,7 +61,7 @@ func New(
 		log:              log,
 		blockTime:        blockTime,
 		subNewHeads:      feed.New[*core.Block](),
-		subPendingData:   feed.New[core.PendingData](),
+		subPendingData:   feed.New[*core.PreConfirmed](),
 		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
 		subPreLatest:     feed.New[*core.PreLatest](),
 	}
@@ -240,6 +240,6 @@ func (s *Sequencer) SubscribePreLatest() sync.PreLatestDataSubscription {
 	return sync.PreLatestDataSubscription{Subscription: s.subPreLatest.Subscribe()}
 }
 
-func (s *Sequencer) PendingData() (core.PendingData, error) {
+func (s *Sequencer) PendingData() (*core.PreConfirmed, error) {
 	return nil, nil
 }

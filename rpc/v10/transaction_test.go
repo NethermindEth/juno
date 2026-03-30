@@ -875,11 +875,11 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		description   string
 		network       *utils.Network
 		expected      *rpcv10.TransactionReceipt
-		pendingDataFn func(t *testing.T, block *core.Block) core.PendingData
+		pendingDataFn func(t *testing.T, block *core.Block) *core.PreConfirmed
 		l1Head        core.L1Head
 	}
 
-	emptyPendingDataFunc := func(t *testing.T, block *core.Block) core.PendingData {
+	emptyPendingDataFunc := func(t *testing.T, block *core.Block) *core.PreConfirmed {
 		return &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
@@ -889,7 +889,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		}
 	}
 
-	preConfirmedPendingDataFunc := func(t *testing.T, block *core.Block) core.PendingData {
+	preConfirmedPendingDataFunc := func(t *testing.T, block *core.Block) *core.PreConfirmed {
 		return &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
@@ -903,7 +903,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		}
 	}
 
-	withPreLatestPendingDataFunc := func(t *testing.T, block *core.Block) core.PendingData {
+	withPreLatestPendingDataFunc := func(t *testing.T, block *core.Block) *core.PreConfirmed {
 		preLatest := core.PreLatest{
 			Block: &core.Block{
 				Header: &core.Header{

@@ -7,11 +7,6 @@ import (
 )
 
 var (
-	_ PendingData = (*Pending)(nil)
-	_ PendingData = (*PreConfirmed)(nil)
-)
-
-var (
 	ErrPendingDataNotFound         = errors.New("pending_data not found")
 	ErrTransactionNotFound         = errors.New("pending_data: transaction not found")
 	ErrTransactionReceiptNotFound  = errors.New("pending_data: transaction receipt not found")
@@ -22,27 +17,6 @@ var (
 		"pending_data: PendingStateBeforeIndex not supported for Pending block",
 	)
 )
-
-type PendingData interface {
-	GetBlock() *Block
-	GetHeader() *Header
-	GetTransactions() []Transaction
-	GetStateUpdate() *StateUpdate
-	GetNewClasses() map[felt.Felt]ClassDefinition
-	GetCandidateTransaction() []Transaction
-	GetTransactionStateDiffs() []*StateDiff
-	GetPreLatest() *PreLatest
-	// Validate returns true if pendingData is valid for given predecessor,
-	// otherwise returns false
-	Validate(parent *Header) bool
-	TransactionByHash(hash *felt.Felt) (Transaction, error)
-	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
-	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
-	// up to given index in the pre-confirmed block.
-	PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error)
-	// PendingState returns the state resulting from execution of the pending data
-	PendingState(baseState StateReader) StateReader
-}
 
 // Deprecated: Pending is the pre-0.14.0 pending block variant. It is retained solely as a
 // placeholder returned by rpc/v8's PendingData() and MakeEmptyPendingForParent to satisfy

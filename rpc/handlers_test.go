@@ -36,7 +36,7 @@ func TestRun(t *testing.T) {
 	l1Sub := feed.New[*core.L1Head]()
 	newHeadsSub := feed.New[*core.Block]()
 	reorgSub := feed.New[*sync.ReorgBlockRange]()
-	pendingDataSub := feed.New[core.PendingData]()
+	pendingDataSub := feed.New[*core.PreConfirmed]()
 	preLatestSub := feed.New[*core.PreLatest]()
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)

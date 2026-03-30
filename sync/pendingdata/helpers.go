@@ -1,7 +1,6 @@
 package pendingdata
 
 import (
-	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -147,38 +146,30 @@ func ResolvePreConfirmedBaseState(
 // PendingState is a convenience function that combines
 // base state resolution with pending state creation
 func PendingState(
-	pending core.PendingData,
+	preConfirmed *core.PreConfirmed,
 	stateReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	preconfirmed, ok := pending.(*core.PreConfirmed)
-	if !ok {
-		return nil, nil, errors.New("invalid pending data type")
-	}
-	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preconfirmed, stateReader)
+	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preConfirmed, stateReader)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return pending.PendingState(baseState), baseStateCloser, nil
+	return preConfirmed.PendingState(baseState), baseStateCloser, nil
 }
 
 // PendingStateBeforeIndex is a convenience function that combines
 // base state resolution with pending state before index creation
 func PendingStateBeforeIndex(
-	pending core.PendingData,
+	preConfirmed *core.PreConfirmed,
 	stateReader blockchain.Reader,
 	index uint,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	preconfirmed, ok := pending.(*core.PreConfirmed)
-	if !ok {
-		return nil, nil, errors.New("invalid pending data type")
-	}
-	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preconfirmed, stateReader)
+	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preConfirmed, stateReader)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pendingStateReader, err := pending.PendingStateBeforeIndex(baseState, index)
+	pendingStateReader, err := preConfirmed.PendingStateBeforeIndex(baseState, index)
 	if err != nil {
 		// Clean up base state if pending state creation fails
 		_ = baseStateCloser()

@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/sync/pendingdata"
 )
 
-func (h *Handler) PendingData() (core.PendingData, error) {
+func (h *Handler) PendingData() (*core.PreConfirmed, error) {
 	pending, err := h.syncReader.PendingData()
 	if err != nil && !errors.Is(err, core.ErrPendingDataNotFound) {
 		return nil, err

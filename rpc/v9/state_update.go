@@ -154,7 +154,6 @@ func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 			return h.bcReader.StateUpdateByNumber(height)
 		}
 	case preConfirmed:
-		var pending core.PendingData
 		pending, err := h.PendingData()
 		if err != nil {
 			return nil, err

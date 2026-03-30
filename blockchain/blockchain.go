@@ -60,7 +60,7 @@ type Reader interface {
 	EventFilter(
 		addresses []felt.Address,
 		keys [][]felt.Felt,
-		pendingDataFn func() (core.PendingData, error),
+		pendingDataFn func() (*core.PreConfirmed, error),
 	) (EventFilterer, error)
 
 	Network() *utils.Network
@@ -640,7 +640,7 @@ func (b *Blockchain) StateAtBlockHash(
 func (b *Blockchain) EventFilter(
 	addresses []felt.Address,
 	keys [][]felt.Felt,
-	pendingDataFn func() (core.PendingData, error),
+	pendingDataFn func() (*core.PreConfirmed, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
 	latest, err := core.GetChainHeight(b.database)

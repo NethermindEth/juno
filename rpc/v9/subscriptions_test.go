@@ -50,7 +50,7 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 type fakeSyncer struct {
 	newHeads    *feed.Feed[*core.Block]
 	reorgs      *feed.Feed[*sync.ReorgBlockRange]
-	pendingData *feed.Feed[core.PendingData]
+	pendingData *feed.Feed[*core.PreConfirmed]
 	preLatest   *feed.Feed[*core.PreLatest]
 }
 
@@ -58,7 +58,7 @@ func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
 		newHeads:    feed.New[*core.Block](),
 		reorgs:      feed.New[*sync.ReorgBlockRange](),
-		pendingData: feed.New[core.PendingData](),
+		pendingData: feed.New[*core.PreConfirmed](),
 		preLatest:   feed.New[*core.PreLatest](),
 	}
 }
@@ -87,7 +87,7 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
+func (fs *fakeSyncer) PendingData() (*core.PreConfirmed, error) {
 	return nil, core.ErrPendingDataNotFound
 }
 func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }

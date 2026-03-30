@@ -120,7 +120,7 @@ func (s *txStatusSubscriberState) onPendingData(
 	ctx context.Context,
 	id string,
 	sub *subscription,
-	_ core.PendingData,
+	_ *core.PreConfirmed,
 ) error {
 	return s.checkTxStatusIfPending(ctx, id, sub)
 }

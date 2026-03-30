@@ -458,8 +458,6 @@ func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 	select {
 	case preConfirmed := <-sub.Recv():
 		require.NotNil(t, preConfirmed)
-		_, isPreConfirmed := preConfirmed.(*core.PreConfirmed)
-		require.True(t, isPreConfirmed)
 		// After switch and head=0, the first pre_confirmed target is either 1 or 2
 		require.GreaterOrEqual(t, preConfirmed.GetBlock().Number, uint64(1))
 	case <-ctx.Done():
@@ -535,7 +533,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			StateUpdate: &core.StateUpdate{},
 		}
 		// Insert invalid pending (simulate old data)
-		s.pendingData.Store(utils.HeapPtr[core.PendingData](invalidPreConfirmed))
+		s.pendingData.Store(utils.HeapPtr[*core.PreConfirmed](invalidPreConfirmed))
 		pc := &core.PreConfirmed{
 			Block:       &core.Block{Header: &core.Header{Number: head.Number + 1}},
 			StateUpdate: &core.StateUpdate{},
@@ -583,8 +581,8 @@ func TestStorePreConfirmed(t *testing.T) {
 
 		ptr := s.pendingData.Load()
 		require.NotNil(t, ptr)
-		stored, ok := (*ptr).(*core.PreConfirmed)
-		require.True(t, ok)
+		stored := *ptr
+		require.NotNil(t, stored)
 		require.NotNil(t, stored.PreLatest, "attachment should be updated even if not swapping blocks")
 		require.Equal(t, &pl, stored.PreLatest, "attachment should match incoming")
 	})

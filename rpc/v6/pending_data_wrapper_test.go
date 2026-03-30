@@ -45,8 +45,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
-		_, isPending := pending.(*core.Pending)
-		require.True(t, isPending)
+		require.NotNil(t, pending)
 	})
 
 	t.Run("Returns empty Pending for latest block", func(t *testing.T) {

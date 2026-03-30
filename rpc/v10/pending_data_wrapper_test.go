@@ -38,6 +38,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 		)
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
+		require.NotNil(t, pending)
 		require.Equal(t, &expectedPending, pending)
 	})
 
@@ -66,6 +67,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
+		require.NotNil(t, pending)
 		require.Equal(t, &expectedPending, pending)
 	})
 }

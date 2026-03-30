@@ -37,7 +37,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch blockID.Type() {
 	case preConfirmed:
-		var pending core.PendingData
+		var pending *core.PreConfirmed
 		pending, err = h.PendingData()
 		if err == nil {
 			block = pending.GetBlock()
@@ -98,7 +98,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		var pending core.PendingData
+		var pending *core.PreConfirmed
 		pending, err = h.PendingData()
 		if err == nil {
 			header = pending.GetBlock().Header

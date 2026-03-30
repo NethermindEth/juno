@@ -89,7 +89,7 @@ func New(
 		},
 		newHeads:      feed.New[*core.Block](),
 		reorgs:        feed.New[*sync.ReorgBlockRange](),
-		pendingData:   feed.New[core.PendingData](),
+		pendingData:   feed.New[*core.PreConfirmed](),
 		l1Heads:       feed.New[*core.L1Head](),
 		preLatestFeed: feed.New[*core.PreLatest](),
 
