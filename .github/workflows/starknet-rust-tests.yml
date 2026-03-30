@@ -20,9 +20,10 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v6.0.2
         with:
-          # TODO: switch back once https://github.com/software-mansion/starknet-rust/pull/128 merged
+          # TODO: switch back once https://github.com/software-mansion/starknet-rust/pull/128 and
+          # https://github.com/software-mansion/starknet-rust/pull/132 are merged
           repository: brbrr/starknet-rust
-          ref: configurable-test-rpc-url
+          ref: temp/fixes-for-juno
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
