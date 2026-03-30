@@ -137,12 +137,12 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
     with:
-      # Last suported version of RPC v0_8
-      ref: v8.9.2
+      ref: v8.0.0
       rpc_version: v0_8
       test_mode: ${{ inputs.test_mode }}
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
+      TEST_WS_URL: ${{ secrets.WS_RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
