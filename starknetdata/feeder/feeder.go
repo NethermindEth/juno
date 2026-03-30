@@ -43,6 +43,19 @@ func (f *Feeder) BlockLatest(ctx context.Context) (*core.Block, error) {
 	return f.block(ctx, latestID)
 }
 
+// BlockHeaderLatest gets only the block hash and number for the latest block from the feeder,
+// using the headerOnly=true parameter to minimise bandwidth.
+func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
+	response, err := f.client.BlockHeader(ctx, latestID)
+	if err != nil {
+		return core.Header{}, err
+	}
+	return core.Header{
+		Hash:   response.Hash,
+		Number: response.Number,
+	}, nil
+}
+
 // BlockPending gets the pending block from the feeder,
 // then adapts it to the core.Block type.
 func (f *Feeder) BlockPending(ctx context.Context) (*core.Block, error) {

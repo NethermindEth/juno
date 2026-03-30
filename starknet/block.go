@@ -6,6 +6,14 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// BlockHeader object returned by the feeder in JSON format for "get_block" endpoint
+// with headerOnly=true. Explicitly not making it part of `Block` to avoid the huge
+// refactor.
+type BlockHeader struct {
+	Hash   *felt.Felt `json:"block_hash"`
+	Number uint64     `json:"block_number"`
+}
+
 // Block object returned by the feeder in JSON format for "get_block" endpoint
 type Block struct {
 	Hash                  *felt.Felt            `json:"block_hash"`

@@ -53,6 +53,21 @@ func TestBlockLatest(t *testing.T) {
 	assert.Equal(t, adaptedResponse, block)
 }
 
+func TestBlockHeaderLatest(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	adapter := adaptfeeder.New(client)
+	ctx := t.Context()
+
+	block, err := client.BlockHeader(ctx, "latest")
+	require.NoError(t, err)
+
+	header, err := adapter.BlockHeaderLatest(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, block.Hash, header.Hash)
+	assert.Equal(t, block.Number, header.Number)
+}
+
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 

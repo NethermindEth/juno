@@ -270,6 +270,27 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 	return block, nil
 }
 
+func (c *Client) BlockHeader(
+	ctx context.Context, blockID string,
+) (starknet.BlockHeader, error) {
+	queryURL := c.buildQueryString("get_block", map[string]string{
+		"blockNumber": blockID,
+		"headerOnly":  "true",
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return starknet.BlockHeader{}, err
+	}
+	defer body.Close()
+
+	header := starknet.BlockHeader{}
+	if err = json.NewDecoder(body).Decode(&header); err != nil {
+		return starknet.BlockHeader{}, err
+	}
+	return header, nil
+}
+
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash":   classHash.String(),
