@@ -212,7 +212,23 @@ type TransactionStatus struct {
 	FinalityStatus  FinalityStatus  `json:"finality_status"`
 	ExecutionStatus ExecutionStatus `json:"execution_status"`
 	BlockHash       *felt.Felt      `json:"block_hash"`
-	TxRevertReason  string          `json:"tx_revert_reason"`
+	TxRevertReason  string          `json:"tx_revert_reason,omitempty"`
+	TxFailureReason TxFailureReason `json:"tx_failure_reason,omitzero"`
+}
+
+// TxFailureReason represents the failure reason of a transaction
+// as returned by the get_transaction_status endpoint.
+type TxFailureReason struct {
+	Code    string `json:"code"`
+	Message string `json:"error_message"`
+}
+
+// String returns the string representation of the TxFailureReason.
+func (tf TxFailureReason) String() string {
+	if tf.Code == "" && tf.Message == "" {
+		return ""
+	}
+	return tf.Code + ": " + tf.Message
 }
 
 type Event struct {
