@@ -148,7 +148,8 @@ func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	log utils.StructuredLogger,
-	preLatestPollInterval, preConfirmedPollInterval time.Duration,
+	preLatestPollInterval,
+	preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
 	database db.KeyValueStore,
 ) *Synchronizer {
@@ -372,7 +373,7 @@ func (s *Synchronizer) storeTask(
 		return
 	}
 
-	s.storeEmptyPendingData(block.Header)
+	s.storeEmptyPreConfirmed(block.Header, nil)
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
@@ -443,7 +444,7 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 	}
 
 	if lastHead != nil {
-		s.storeEmptyPendingData(lastHead)
+		s.storeEmptyPreConfirmed(lastHead, nil)
 	}
 }
 

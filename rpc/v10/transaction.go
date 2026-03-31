@@ -504,7 +504,6 @@ func (h *Handler) TransactionReceiptByHash(
 		status,
 		blockHash,
 		blockNumber,
-		false,
 	), nil
 }
 
@@ -518,7 +517,7 @@ func (h *Handler) getPendingTransactionReceipt(
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	receipt, parentHash, blockNumber, err := pending.ReceiptByHash(hash)
+	receipt, _, blockNumber, err := pending.ReceiptByHash(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
@@ -528,15 +527,11 @@ func (h *Handler) getPendingTransactionReceipt(
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	status := TxnPreConfirmed
-	// parentHash is non-nil only for receipts from the PreLatest attachment
-	isPreLatest := parentHash != nil
 	return AdaptReceiptWithBlockInfo(
 		receipt,
 		txn,
-		status,
+		TxnPreConfirmed,
 		nil,
 		blockNumber,
-		isPreLatest,
 	), nil
 }

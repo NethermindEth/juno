@@ -2372,7 +2372,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						finalityStatus,
 						b.Hash,
 						b.Number,
-						isPreLatest,
 					),
 				)
 			}

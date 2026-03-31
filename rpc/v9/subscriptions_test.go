@@ -1978,7 +1978,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		b *core.Block,
 		senderAddress []felt.Felt,
 		finalityStatus TxnFinalityStatus,
-		isPreLatest bool,
 	) []*TransactionReceipt {
 		receipts := make([]*TransactionReceipt, 0)
 		for i, receipt := range b.Receipts {
@@ -1992,7 +1991,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						finalityStatus,
 						b.Hash,
 						b.Number,
-						isPreLatest,
 					),
 				)
 			}
@@ -2022,7 +2020,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
 				},
 			},
 			{
@@ -2038,7 +2036,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2, false),
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
 				},
 			},
 		},
@@ -2065,7 +2063,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b2PreConfirmedPartial.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					),
 				},
 			},
@@ -2079,7 +2076,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b2PreConfirmedExtended.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					)[partialPreConfirmedCount:],
 				},
 			},
@@ -2106,7 +2102,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead1)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2, false),
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
 				},
 			},
 			{
@@ -2119,7 +2115,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b2PreConfirmedPartial.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					),
 				},
 			},
@@ -2133,7 +2128,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b2PreConfirmedExtended.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					)[partialPreConfirmedCount:],
 				},
 			},
@@ -2143,7 +2137,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 					syncer.newHeads.Send(newHead2)
 				},
 				expect: [][]*TransactionReceipt{
-					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2, false),
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
 				},
 			},
 		},
@@ -2155,7 +2149,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		b2PreConfirmedPartial.Block,
 		senderFilter,
 		TxnPreConfirmed,
-		false,
 	)
 
 	allStatusesWithFilter := testCase{
@@ -2185,7 +2178,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b2PreConfirmedFull.Block,
 						senderFilter,
 						TxnPreConfirmed,
-						false,
 					)[len(b2PreConfirmedPartialFilteredReceipts):],
 				},
 			},
@@ -2199,7 +2191,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						newHead2,
 						senderFilter,
 						TxnAcceptedOnL2,
-						false,
 					),
 				},
 			},
@@ -2235,7 +2226,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						newHead1,
 						nil,
 						TxnAcceptedOnL2,
-						false,
 					),
 				},
 			},
@@ -2256,7 +2246,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						newHead2,
 						nil,
 						TxnAcceptedOnL2,
-						false,
 					),
 				},
 			},
@@ -2280,7 +2269,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b1PreConfirmedPartial.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					),
 				},
 			},
@@ -2294,7 +2282,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b1PreConfirmedExtended.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					)[partialPreConfirmedCount:],
 				},
 			},
@@ -2308,7 +2295,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b1PreLatest.Block,
 						nil,
 						TxnPreConfirmed,
-						true,
 					)[extendedPreConfirmedCount:],
 				},
 			},
@@ -2322,7 +2308,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b2PreConfirmedPartial.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					),
 				},
 			},
@@ -2336,7 +2321,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						newHead1,
 						nil,
 						TxnAcceptedOnL2,
-						false,
 					),
 				},
 			},
@@ -2350,7 +2334,6 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						b2PreConfirmedFull.Block,
 						nil,
 						TxnPreConfirmed,
-						false,
 					)[partialPreConfirmedCount:],
 				},
 			},
@@ -2725,13 +2708,8 @@ func createTestEvents(
 	isPreLatest bool,
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
-	var blockNumber *uint64
-	// if header.Hash != nil it's a canonical block
-	// if header.Hash == nil and parentHash == nil it's a pre_confirmed block
-	// if header.Hash == nil and parentHash != nil it's a pre_latest block
-	if b.Hash != nil || b.ParentHash == nil || isPreLatest {
-		blockNumber = &b.Number
-	}
+
+	blockNumber := &b.Number
 	var addresses []felt.Address
 	if fromAddress != nil {
 		addresses = []felt.Address{*fromAddress}

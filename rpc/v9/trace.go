@@ -325,12 +325,13 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 func (h *Handler) findAndTraceInPendingData(
 	hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	pendingData, err := h.PendingData()
-	if err != nil {
+	pendingData, rpcErr := h.PendingData()
+	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	if trace, header, err := h.findAndTraceInPreConfirmedBlock(pendingData, hash); err == nil {
+	trace, header, err := h.findAndTraceInPreConfirmedBlock(pendingData, hash)
+	if err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, nil, err
@@ -483,12 +484,8 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
-	isPreConfirmed := block.Hash == nil
-	if isPreConfirmed {
-		headState, headStateCloser, err = h.PendingState()
-	} else {
-		headState, headStateCloser, err = h.bcReader.HeadState()
-	}
+
+	headState, headStateCloser, err = h.bcReader.HeadState()
 	if err != nil {
 		return nil, defaultExecutionHeader(), jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
@@ -511,10 +508,7 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 		return nil, httpHeader, rpcErr
 	}
 
-	// Cache result for finalised blocks
-	if !isPreConfirmed {
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
-	}
+	h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
 
 	return traces, httpHeader, nil
 }

@@ -160,7 +160,6 @@ func (s *receiptsSubscriberState) processBlock(
 			TxnFinalityStatus(finalityStatus),
 			block.Hash,
 			block.Number,
-			isPreLatest,
 		)
 
 		sentReceipt := SentReceipt{

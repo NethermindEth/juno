@@ -249,12 +249,11 @@ func AdaptReceiptWithBlockInfo(
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-	isPreLatest bool,
 ) *TransactionReceipt {
 	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
 
 	// Return block number for canonical, pre_latest and pre_confirmed block
-	shouldHaveBlockNumber := blockHash != nil || finalityStatus == TxnPreConfirmed || isPreLatest
+	shouldHaveBlockNumber := blockHash != nil || finalityStatus == TxnPreConfirmed
 	if shouldHaveBlockNumber {
 		adaptedReceipt.BlockNumber = &blockNumber
 	}

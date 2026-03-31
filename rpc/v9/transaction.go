@@ -621,7 +621,7 @@ func (h *Handler) getPendingTransactionReceipt(
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	receipt, parentHash, blockNumber, err := pending.ReceiptByHash(hash)
+	receipt, _, blockNumber, err := pending.ReceiptByHash(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
@@ -631,16 +631,12 @@ func (h *Handler) getPendingTransactionReceipt(
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	status := TxnPreConfirmed
-	// parentHash is non-nil only for receipts from the PreLatest attachment
-	isPreLatest := parentHash != nil
 	return AdaptReceiptWithBlockInfo(
 		receipt,
 		txn,
-		status,
+		TxnPreConfirmed,
 		nil,
 		blockNumber,
-		isPreLatest,
 	), nil
 }
 
@@ -691,7 +687,6 @@ func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt
 		status,
 		blockHash,
 		blockNumber,
-		false,
 	), nil
 }
 
@@ -984,12 +979,11 @@ func AdaptReceiptWithBlockInfo(
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-	isPreLatest bool,
 ) *TransactionReceipt {
 	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
 
 	// Return block number for canonical, pre_latest and pre_confirmed block
-	shouldHaveBlockNumber := blockHash != nil || finalityStatus == TxnPreConfirmed || isPreLatest
+	shouldHaveBlockNumber := blockHash != nil || finalityStatus == TxnPreConfirmed
 	if shouldHaveBlockNumber {
 		adaptedReceipt.BlockNumber = &blockNumber
 	}

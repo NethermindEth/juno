@@ -1,6 +1,7 @@
 package pendingdata
 
 import (
+	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -149,7 +150,10 @@ func PendingState(
 	pending core.PendingData,
 	stateReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	preconfirmed, _ := pending.(*core.PreConfirmed)
+	preconfirmed, ok := pending.(*core.PreConfirmed)
+	if !ok {
+		return nil, nil, errors.New("invalid pending data type")
+	}
 	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preconfirmed, stateReader)
 	if err != nil {
 		return nil, nil, err
@@ -165,7 +169,10 @@ func PendingStateBeforeIndex(
 	stateReader blockchain.Reader,
 	index uint,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	preconfirmed, _ := pending.(*core.PreConfirmed)
+	preconfirmed, ok := pending.(*core.PreConfirmed)
+	if !ok {
+		return nil, nil, errors.New("invalid pending data type")
+	}
 	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preconfirmed, stateReader)
 	if err != nil {
 		return nil, nil, err
