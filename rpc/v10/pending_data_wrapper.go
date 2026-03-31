@@ -29,14 +29,6 @@ func (h *Handler) PendingData() (core.PendingData, error) {
 	return &emptyPreConfirmed, nil
 }
 
-func (h *Handler) PendingBlock() *core.Block {
-	pending, err := h.PendingData()
-	if err != nil {
-		return nil
-	}
-	return pending.GetBlock()
-}
-
 func (h *Handler) PendingState() (core.StateReader, func() error, error) {
 	pendingData, err := h.syncReader.PendingData()
 	if err != nil {

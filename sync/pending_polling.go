@@ -129,15 +129,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 	}
 	preConfirmed.WithPreLatest(preLatest)
 	_, err = s.StorePreConfirmed(&preConfirmed)
-	if err != nil {
-		s.log.Error(
-			"Failed to store empty pre_confirmed block",
-			zap.Uint64("number", latestHeader.Number),
-			zap.Error(err),
-		)
-		return err
-	}
-	return nil
+	return err
 }
 
 // handleTickerPreLatest polls a pre-latest once and either:

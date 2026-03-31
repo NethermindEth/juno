@@ -239,7 +239,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL2,
-		false,
 	)
 
 	_, b1EmittedAsAcceptedOnL1 := createTestEvents(
@@ -248,7 +247,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL1,
-		false,
 	)
 	b2Filtered, b2Emitted := createTestEvents(
 		t,
@@ -256,7 +254,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnAcceptedOnL2,
-		false,
 	)
 
 	b2PreConfirmedPartial := createTestPreConfirmed(t, b2, 3)
@@ -268,7 +265,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnPreConfirmed,
-		false,
 	)
 	_, b2PreConfirmedExtendedEmitted := createTestEvents(
 		t,
@@ -276,7 +272,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnPreConfirmed,
-		false,
 	)
 
 	// Create PreLatest block for testing
@@ -288,7 +283,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnPreConfirmed,
-		true,
 	)
 
 	b3PreConfirmedPartial := createTestPreConfirmed(t, b3, len(b3.Transactions)-1)
@@ -299,7 +293,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnPreConfirmed,
-		false,
 	)
 	_, b3PreConfirmedFullEmitted := createTestEvents(
 		t,
@@ -307,7 +300,6 @@ func TestSubscribeEvents(t *testing.T) {
 		nil,
 		nil,
 		TxnPreConfirmed,
-		false,
 	)
 	targetAddr, err := felt.NewFromString[felt.Address](
 		"0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3",
@@ -319,7 +311,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		nil,
 		TxnAcceptedOnL2,
-		false,
 	)
 
 	targetKey, err := felt.NewFromString[felt.Felt](
@@ -334,7 +325,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		keys,
 		TxnAcceptedOnL2,
-		false,
 	)
 
 	b2PreConfirmedPartialFilteredByAddrAndKey,
@@ -344,7 +334,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		keys,
 		TxnPreConfirmed,
-		false,
 	)
 
 	_, b2PreConfirmedExtendedEmittedByAddrAndKey := createTestEvents(
@@ -353,7 +342,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		keys,
 		TxnPreConfirmed,
-		false,
 	)
 
 	_, b2EmittedByAddrAndKey := createTestEvents(
@@ -362,7 +350,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		keys,
 		TxnAcceptedOnL2,
-		false,
 	)
 
 	mockCtrl := gomock.NewController(t)
@@ -579,7 +566,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		nil,
 		TxnPreConfirmed,
-		false,
 	)
 
 	_, b2PreConfirmedExtendedEmittedByAddr := createTestEvents(
@@ -588,7 +574,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		nil,
 		TxnPreConfirmed,
-		false,
 	)
 
 	_, b2EmittedByAddr := createTestEvents(
@@ -597,7 +582,6 @@ func TestSubscribeEvents(t *testing.T) {
 		targetAddr,
 		nil,
 		TxnAcceptedOnL2,
-		false,
 	)
 
 	eventsWithFromAddressAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
@@ -2705,7 +2689,6 @@ func createTestEvents(
 	fromAddress *felt.Address,
 	keys [][]felt.Felt,
 	finalityStatus TxnFinalityStatus,
-	isPreLatest bool,
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
 

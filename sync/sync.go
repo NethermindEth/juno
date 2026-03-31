@@ -373,7 +373,10 @@ func (s *Synchronizer) storeTask(
 		return
 	}
 
-	s.storeEmptyPreConfirmed(block.Header, nil)
+	if err := s.storeEmptyPreConfirmed(block.Header, nil); err != nil {
+		s.log.Error("Failed to store empty pre-confirmed data", zap.Error(err))
+	}
+
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
@@ -444,7 +447,9 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 	}
 
 	if lastHead != nil {
-		s.storeEmptyPreConfirmed(lastHead, nil)
+		if err := s.storeEmptyPreConfirmed(lastHead, nil); err != nil {
+			s.log.Error("Failed to store empty pre-confirmed data", zap.Error(err))
+		}
 	}
 }
 
