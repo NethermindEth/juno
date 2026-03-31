@@ -508,7 +508,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var blockNumber uint64
 	var err error
 	if id.Pending {
-		pending, err := h.PendingData()
+		pending, err := h.Pending()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}

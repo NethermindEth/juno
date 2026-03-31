@@ -38,7 +38,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	switch blockID.Type() {
 	case pending:
 		var pending *core.Pending
-		pending, err = h.PendingData()
+		pending, err = h.Pending()
 		if err == nil {
 			block = pending.GetBlock()
 		}
@@ -65,7 +65,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
 	switch blockID.Type() {
 	case pending:
-		pending, err := h.PendingData()
+		pending, err := h.Pending()
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil, rpccore.ErrBlockNotFound
@@ -92,7 +92,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	switch blockID.Type() {
 	case pending:
 		var pendingBlock *core.Pending
-		pendingBlock, err = h.PendingData()
+		pendingBlock, err = h.Pending()
 		if err == nil {
 			header = pendingBlock.GetHeader()
 		}

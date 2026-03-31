@@ -50,7 +50,7 @@ func (m *mockExecutor) Finish(state *builder.BuildState) (blockchain.SimulateRes
 	executorState := m.getState(state)
 
 	require.Equal(m.t, executorState.nextTransactionIndex, len(executorState.buildResult.Preconfirmed.Block.Transactions))
-	*state.Preconfirmed = *executorState.buildResult.Preconfirmed
+	*state.PreConfirmed = *executorState.buildResult.Preconfirmed
 	state.L2GasConsumed = executorState.buildResult.L2GasConsumed
 	return *executorState.buildResult.SimulateResult, nil
 }
@@ -72,10 +72,10 @@ func (m *mockExecutor) RegisterBuildResult(buildResult *builder.BuildResult) {
 }
 
 func (m *mockExecutor) getState(state *builder.BuildState) *mockExecutorState {
-	addressMap, ok := m.states[types.Height(state.Preconfirmed.Block.Header.Number)]
+	addressMap, ok := m.states[types.Height(state.PreConfirmed.Block.Header.Number)]
 	require.True(m.t, ok)
 
-	executorState, ok := addressMap[starknet.Address(*state.Preconfirmed.Block.Header.SequencerAddress)]
+	executorState, ok := addressMap[starknet.Address(*state.PreConfirmed.Block.Header.SequencerAddress)]
 	require.True(m.t, ok)
 
 	return executorState

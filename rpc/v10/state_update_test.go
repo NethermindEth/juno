@@ -37,7 +37,7 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 			log := utils.NewNopZapLogger()
 			handler := rpcv10.New(chain, mockSyncReader, nil, log)
@@ -133,7 +133,7 @@ func TestStateUpdate(t *testing.T) {
 		update3077642.BlockHash = nil
 		update3077642.NewRoot = nil
 		preConfirmed := core.NewPreConfirmed(nil, update3077642, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		)
@@ -176,7 +176,7 @@ func TestStateUpdate(t *testing.T) {
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
 			preConfirmed := core.NewPreConfirmed(nil, update3077642, nil, nil)
-			mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+			mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 			id := rpcv10.BlockIDPreConfirmed()
 			emptyFilter := rpcv10.AddressList{}
 

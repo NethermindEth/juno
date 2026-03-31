@@ -37,7 +37,7 @@ func TestStateUpdate(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 			log := utils.NewNopZapLogger()
 			handler := rpc.New(chain, mockSyncReader, nil, log)
@@ -165,7 +165,7 @@ func TestStateUpdate(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
 		preConfirmed := core.NewPreConfirmed(nil, update21656, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		)

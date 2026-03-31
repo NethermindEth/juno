@@ -98,7 +98,7 @@ func newTransactionsSubscriber(
 			return status == TxnStatusWithoutL1(TxnStatusPreConfirmed) ||
 				status == TxnStatusWithoutL1(TxnStatusCandidate)
 		}) {
-		s.onPendingData = state.onPendingData
+		s.onPreConfirmed = state.onPreConfirmed
 		s.onPreLatest = state.onPreLatest
 	}
 
@@ -145,16 +145,16 @@ func (s *transactionsSubscriberState) onPreLatest(
 	)
 }
 
-func (s *transactionsSubscriberState) onPendingData(
+func (s *transactionsSubscriberState) onPreConfirmed(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	pending *core.PreConfirmed,
+	preConfirmed *core.PreConfirmed,
 ) error {
 	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
 		if err := s.processBlock(
 			id,
-			pending.GetBlock(),
+			preConfirmed.GetBlock(),
 			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 		); err != nil {
 			return err
@@ -162,7 +162,7 @@ func (s *transactionsSubscriberState) onPendingData(
 	}
 
 	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusCandidate)) {
-		return s.processCandidateTransactions(id, pending)
+		return s.processCandidateTransactions(id, preConfirmed)
 	}
 
 	return nil

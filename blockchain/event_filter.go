@@ -25,15 +25,15 @@ type EventFilterer interface {
 }
 
 type EventFilter struct {
-	txn           db.KeyValueStore
-	fromBlock     uint64
-	toBlock       uint64
-	matcher       EventMatcher
-	maxScanned    uint // maximum number of scanned blocks in single call.
-	pendingDataFn func() (*core.PreConfirmed, error)
-	cachedFilters *AggregatedBloomFilterCache
-	runningFilter *core.RunningEventFilter
-	layout        core.TransactionLayout
+	txn            db.KeyValueStore
+	fromBlock      uint64
+	toBlock        uint64
+	matcher        EventMatcher
+	maxScanned     uint // maximum number of scanned blocks in single call.
+	preConfirmedFn func() (*core.PreConfirmed, error)
+	cachedFilters  *AggregatedBloomFilterCache
+	runningFilter  *core.RunningEventFilter
+	layout         core.TransactionLayout
 }
 
 type EventFilterRange uint
@@ -48,21 +48,21 @@ func newEventFilter(
 	contractAddresses []felt.Address,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
-	pendingDataFn func() (*core.PreConfirmed, error),
+	preConfirmedFn func() (*core.PreConfirmed, error),
 	cachedFilters *AggregatedBloomFilterCache,
 	runningFilter *core.RunningEventFilter,
 	layout core.TransactionLayout,
 ) *EventFilter {
 	return &EventFilter{
-		txn:           txn,
-		matcher:       NewEventMatcher(contractAddresses, keys),
-		fromBlock:     fromBlock,
-		toBlock:       toBlock,
-		maxScanned:    math.MaxUint,
-		pendingDataFn: pendingDataFn,
-		cachedFilters: cachedFilters,
-		runningFilter: runningFilter,
-		layout:        layout,
+		txn:            txn,
+		matcher:        NewEventMatcher(contractAddresses, keys),
+		fromBlock:      fromBlock,
+		toBlock:        toBlock,
+		maxScanned:     math.MaxUint,
+		preConfirmedFn: preConfirmedFn,
+		cachedFilters:  cachedFilters,
+		runningFilter:  runningFilter,
+		layout:         layout,
 	}
 }
 
@@ -290,7 +290,7 @@ func (e *EventFilter) pendingEvents(
 	skippedEvents,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	pendingData, err := e.pendingDataFn()
+	preConfirmed, err := e.preConfirmedFn()
 	if err != nil {
 		if errors.Is(err, core.ErrPreConfirmedNotFound) {
 			return matchedEvents, ContinuationToken{}, nil
@@ -298,7 +298,7 @@ func (e *EventFilter) pendingEvents(
 		return nil, ContinuationToken{}, err
 	}
 
-	preLatest := pendingData.GetPreLatest()
+	preLatest := preConfirmed.GetPreLatest()
 	if preLatest != nil && fromBlock <= preLatest.Block.Number {
 		var cToken ContinuationToken
 		var err error
@@ -318,7 +318,7 @@ func (e *EventFilter) pendingEvents(
 		skippedEvents = 0
 	}
 	// Process pre-confirmed block
-	return e.processPreConfirmedBlock(matchedEvents, pendingData, skippedEvents, chunkSize)
+	return e.processPreConfirmedBlock(matchedEvents, preConfirmed, skippedEvents, chunkSize)
 }
 
 // processPreLatestBlock processes pre-latest block events
@@ -359,11 +359,11 @@ func (e *EventFilter) processPreLatestBlock(
 // processPreConfirmedBlock processes pre-confirmed block events
 func (e *EventFilter) processPreConfirmedBlock(
 	matchedEvents []FilteredEvent,
-	pendingData *core.PreConfirmed,
+	preConfirmed *core.PreConfirmed,
 	skippedEvents,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	pendingHeader := pendingData.GetHeader()
+	pendingHeader := preConfirmed.GetHeader()
 	if !e.matcher.TestBloom(pendingHeader.EventsBloom) {
 		return matchedEvents, ContinuationToken{}, nil
 	}
@@ -373,7 +373,7 @@ func (e *EventFilter) processPreConfirmedBlock(
 	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 		matchedEvents,
 		pendingHeader,
-		pendingData.GetBlock().Receipts,
+		preConfirmed.GetBlock().Receipts,
 		skippedEvents,
 		chunkSize,
 		false,
@@ -381,7 +381,7 @@ func (e *EventFilter) processPreConfirmedBlock(
 	if err != nil {
 		if errors.Is(err, errChunkSizeReached) {
 			cToken := ContinuationToken{
-				fromBlock:       pendingData.GetBlock().Number,
+				fromBlock:       preConfirmed.GetBlock().Number,
 				processedEvents: processedEvents,
 			}
 			return matchedEvents, cToken, nil

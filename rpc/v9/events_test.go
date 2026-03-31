@@ -237,7 +237,7 @@ func TestEvents(t *testing.T) {
 	type eventTest struct {
 		description    string
 		args           rpc.EventArgs
-		pendingData    *core.PreConfirmed
+		preConfirmed   *core.PreConfirmed
 		expectedEvents []rpc.EmittedEvent
 		expectError    *jsonrpc.Error
 	}
@@ -487,43 +487,43 @@ func TestEvents(t *testing.T) {
 		{
 			description:    "pre_confirmed events only - no pagination",
 			args:           onlyPreConfirmedNoPagination,
-			pendingData:    &preConfirmed,
+			preConfirmed:   &preConfirmed,
 			expectedEvents: preConfirmedEvents,
 		},
 		{
 			description:    "pre_confirmed events with pagination",
 			args:           onlyPreConfirmedWithPagination,
-			pendingData:    &preConfirmed,
+			preConfirmed:   &preConfirmed,
 			expectedEvents: preConfirmedEvents,
 		},
 		{
 			description:    "canonical + pre_confirmed events - no pagination",
 			args:           genesisToPreConfirmedNoPagination,
-			pendingData:    &preConfirmed,
+			preConfirmed:   &preConfirmed,
 			expectedEvents: canonicalPreConfirmed,
 		},
 		{
 			description:    "canonical + pre_confirmed events with pagination",
 			args:           genesisToPreConfirmedWithPagination,
-			pendingData:    &preConfirmed,
+			preConfirmed:   &preConfirmed,
 			expectedEvents: canonicalPreConfirmed,
 		},
 		{
 			description:    "canonical + pre_latest + pre_confirmed events - no pagination",
 			args:           genesisToPreConfirmedNoPagination,
-			pendingData:    &preConfirmedWithPreLatest,
+			preConfirmed:   &preConfirmedWithPreLatest,
 			expectedEvents: canonicalPreLatestPreConfirmed,
 		},
 		{
 			description:    "canonical + pre_latest + pre_confirmed events with pagination",
 			args:           genesisToPreConfirmedWithPagination,
-			pendingData:    &preConfirmedWithPreLatest,
+			preConfirmed:   &preConfirmedWithPreLatest,
 			expectedEvents: canonicalPreLatestPreConfirmed,
 		},
 		{
 			description:    "pre_confirmed events only - when there is pre-latest",
 			args:           onlyPreConfirmedNoPagination,
-			pendingData:    &preConfirmedWithPreLatest,
+			preConfirmed:   &preConfirmedWithPreLatest,
 			expectedEvents: preConfirmedWithPreLatestEvents,
 		},
 	}
@@ -537,8 +537,8 @@ func TestEvents(t *testing.T) {
 			handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
 
 			// Set up mock expectations
-			if tc.pendingData != nil {
-				mockSyncReader.EXPECT().PendingData().Return(tc.pendingData, nil).AnyTimes()
+			if tc.preConfirmed != nil {
+				mockSyncReader.EXPECT().PreConfirmed().Return(tc.preConfirmed, nil).AnyTimes()
 			}
 
 			// Error cases: assert once and return
@@ -643,7 +643,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	curArgs := args
 
 	// Collect canonical events
-	mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 	for {
 		chunk, err := handler.Events(curArgs)
 		require.Nil(t, err)
@@ -663,7 +663,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	}
 
 	// Read one from pre_latest block 5
-	mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 	chunk, rpcErr := handler.Events(curArgs)
 	require.Nil(t, rpcErr)
 	require.NotEmpty(t, chunk.ContinuationToken)
@@ -673,7 +673,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 
 	// pre-latest becomes latest, continue pagination from block 5
 	fetchAndStoreBlock(t, chain, gw, 5)
-	mockSyncReader.EXPECT().PendingData().Return(preConfirmed.WithPreLatest(nil), nil)
+	mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed.WithPreLatest(nil), nil)
 	chunk, rpcErr = handler.Events(curArgs)
 	require.Nil(t, rpcErr)
 	require.NotEmpty(t, chunk.ContinuationToken)
@@ -682,7 +682,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	curArgs.ContinuationToken = chunk.ContinuationToken
 
 	// continue from pre_confirmed, read one from block 6
-	mockSyncReader.EXPECT().PendingData().Return(preConfirmed.WithPreLatest(nil), nil)
+	mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed.WithPreLatest(nil), nil)
 	chunk, rpcErr = handler.Events(curArgs)
 	require.Nil(t, rpcErr)
 	require.NotEmpty(t, chunk.ContinuationToken)
@@ -702,7 +702,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	}
 
 	for {
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed2, nil)
+		mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed2, nil)
 		chunk, rpcErr = handler.Events(curArgs)
 		require.Nil(t, rpcErr)
 		require.Equal(t, uint64(6), *chunk.Events[0].BlockNumber)

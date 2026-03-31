@@ -48,18 +48,18 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 }
 
 type fakeSyncer struct {
-	newHeads    *feed.Feed[*core.Block]
-	reorgs      *feed.Feed[*sync.ReorgBlockRange]
-	pendingData *feed.Feed[*core.PreConfirmed]
-	preLatest   *feed.Feed[*core.PreLatest]
+	newHeads     *feed.Feed[*core.Block]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	preConfirmed *feed.Feed[*core.PreConfirmed]
+	preLatest    *feed.Feed[*core.PreLatest]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads:    feed.New[*core.Block](),
-		reorgs:      feed.New[*sync.ReorgBlockRange](),
-		pendingData: feed.New[*core.PreConfirmed](),
-		preLatest:   feed.New[*core.PreLatest](),
+		newHeads:     feed.New[*core.Block](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		preConfirmed: feed.New[*core.PreConfirmed](),
+		preLatest:    feed.New[*core.PreLatest](),
 	}
 }
 
@@ -71,8 +71,8 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
 }
 
-func (fs *fakeSyncer) SubscribePendingData() sync.PendingDataSubscription {
-	return sync.PendingDataSubscription{Subscription: fs.pendingData.Subscribe()}
+func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription {
+	return sync.PreConfirmedDataSubscription{Subscription: fs.preConfirmed.Subscribe()}
 }
 
 func (fs *fakeSyncer) SubscribePreLatest() sync.PreLatestDataSubscription {
@@ -87,7 +87,7 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PendingData() (*core.PreConfirmed, error) {
+func (fs *fakeSyncer) PreConfirmed() (*core.PreConfirmed, error) {
 	return nil, db.ErrKeyNotFound
 }
 
@@ -409,14 +409,14 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block",
 				notify: func() {
-					handler.pendingData.Send(&b2PreConfirmedPartial)
+					handler.preConfirmedFeed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]SubscriptionEmittedEvent{},
 			},
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.pendingData.Send(&b2PreConfirmedExtended)
+					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{},
 			},
@@ -456,7 +456,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.pendingData.Send(&b2PreConfirmedExtended)
+					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmitted[len(b2PreConfirmedPartialEmitted):],
@@ -618,7 +618,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.pendingData.Send(&b2PreConfirmedExtended)
+					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmittedByAddr[len(b2PreConfirmedPartialEmittedByAddr):],
@@ -661,7 +661,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.pendingData.Send(&b2PreConfirmedExtended)
+					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmittedByAddrAndKey[len(b2PreConfirmedPartialEmittedByAddrAndKey):],
@@ -700,7 +700,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.pendingData.Send(&b2PreConfirmedExtended)
+					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmitted[len(b2PreConfirmedPartialEmitted):],
@@ -716,7 +716,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "new pre_confirmed block",
 				notify: func() {
-					handler.pendingData.Send(&b3PreConfirmedPartial)
+					handler.preConfirmedFeed.Send(&b3PreConfirmedPartial)
 				},
 				expect: [][]SubscriptionEmittedEvent{b3PreConfirmedPartialEmitted},
 			},
@@ -730,7 +730,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "pre_confirmed update - without duplicates",
 				notify: func() {
-					handler.pendingData.Send(&b3PreConfirmedFull)
+					handler.preConfirmedFeed.Send(&b3PreConfirmedFull)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b3PreConfirmedFullEmitted[len(b3PreConfirmedPartialEmitted):],
@@ -770,7 +770,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.pendingData.Send(&b3PreConfirmedFull)
+					handler.preConfirmedFeed.Send(&b3PreConfirmedFull)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b3PreConfirmedFullEmitted[len(b3PreConfirmedPartialEmitted):],
@@ -906,7 +906,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
-		mockSyncer.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
@@ -926,7 +926,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, log)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
-		mockSyncer.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
 			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
@@ -1039,11 +1039,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			CandidateTxs: []core.Transaction{block.Transactions[0]},
 		}
 
-		mockSyncer.EXPECT().PendingData().Return(
+		mockSyncer.EXPECT().PreConfirmed().Return(
 			preConfirmed,
 			nil,
 		).Times(2)
-		handler.pendingData.Send(preConfirmed)
+		handler.preConfirmedFeed.Send(preConfirmed)
 		assertNextTxnStatus(
 			t,
 			conn,
@@ -1072,11 +1072,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			},
 			CandidateTxs: []core.Transaction{},
 		}
-		mockSyncer.EXPECT().PendingData().Return(
+		mockSyncer.EXPECT().PreConfirmed().Return(
 			preConfirmed,
 			nil,
 		).Times(1)
-		handler.pendingData.Send(preConfirmed)
+		handler.preConfirmedFeed.Send(preConfirmed)
 		assertNextTxnStatus(
 			t,
 			conn,
@@ -1098,7 +1098,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			},
 			CandidateTxs: []core.Transaction{},
 		}
-		mockSyncer.EXPECT().PendingData().Return(
+		mockSyncer.EXPECT().PreConfirmed().Return(
 			preConfirmed,
 			nil,
 		).Times(1)
@@ -1125,7 +1125,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			"",
 		)
 
-		mockSyncer.EXPECT().PendingData().Return(
+		mockSyncer.EXPECT().PreConfirmed().Return(
 			preConfirmed,
 			nil,
 		).Times(1)
@@ -1200,8 +1200,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 
 		// We need to return some status at start, otherwise it will re-try for a while
-		// and mocking `PendingData` will be observed before prelatest feed trigger.
-		mockSyncer.EXPECT().PendingData().Return(preConfirmedData1, nil)
+		// and mocking `PreCofirmed` will be observed before prelatest feed trigger.
+		mockSyncer.EXPECT().PreConfirmed().Return(preConfirmedData1, nil)
 		id, conn := createTestTxStatusWebsocket(t, handler, targetTxn.Hash())
 		assertNextTxnStatus(
 			t,
@@ -1215,7 +1215,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		// Pre-latest block also has TxnStatusPreConfirmed (same as pre-confirmed since Starknet 0.14.2).
 		// No status update should be emitted when the status doesn't change.
-		mockSyncer.EXPECT().PendingData().Return(preConfirmedData2, nil)
+		mockSyncer.EXPECT().PreConfirmed().Return(preConfirmedData2, nil)
 		handler.preLatestFeed.Send(preLatest)
 		assertNoEvents(t, conn, 50*time.Millisecond)
 	})
@@ -1247,8 +1247,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 
 		// We need to return some status at start, otherwise it will re-try for a while
-		// and mocking `PendingData` will be observed before prelatest feed trigger.
-		mockSyncer.EXPECT().PendingData().Return(preConfirmedData1, nil)
+		// and mocking `PreConfirmed` will be observed before prelatest feed trigger.
+		mockSyncer.EXPECT().PreConfirmed().Return(preConfirmedData1, nil)
 		id, conn := createTestTxStatusWebsocket(t, handler, targetTxn.Hash())
 		assertNextTxnStatus(
 			t,
@@ -1622,7 +1622,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed no stream",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*SubscriptionNewTransaction{},
 			},
@@ -1657,7 +1657,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed",
 				notify: func() {
-					syncer.pendingData.Send(&b1PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b1PreConfirmedPartial)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1670,7 +1670,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "move all candidates moved to PRE_CONFIRMED, without dup.",
 				notify: func() {
-					syncer.pendingData.Send(&b1PreConfirmedFull)
+					syncer.preConfirmed.Send(&b1PreConfirmedFull)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1690,7 +1690,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1725,7 +1725,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed, only stream CANDIDATES",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1738,7 +1738,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on pre_confirmed update, candidates -> PRE_CONFIRMED, no stream",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]*SubscriptionNewTransaction{},
 			},
@@ -1791,7 +1791,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed receive PRE_CONFIRMED and CANDIDATE txs",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1809,7 +1809,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on pre_confirmed update, candidates -> PRE_CONFIRMED, no dup",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1822,7 +1822,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on pre_confirmed update all candidates moved to PRE_CONFIRMED, without dup.",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedFull)
+					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1890,7 +1890,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed full of candidates",
 				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(CreateTestPreConfirmed(t, newHead2, 0)))
+					syncer.preConfirmed.Send(utils.HeapPtr(CreateTestPreConfirmed(t, newHead2, 0)))
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1903,7 +1903,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed full of preconfirmed",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedFull)
+					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1990,7 +1990,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on pre_confirmed block",
 				notify: func() {
-					syncer.pendingData.Send(&b1PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b1PreConfirmedPartial)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -2008,7 +2008,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(&b1PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b1PreConfirmedExtended)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -2034,7 +2034,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "new pre_confirmed block",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -2065,7 +2065,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "pre_confirmed update - without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -2398,7 +2398,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*TransactionReceipt{},
 			},
@@ -2434,7 +2434,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2447,7 +2447,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed update, without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2486,7 +2486,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2499,7 +2499,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed update, without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2542,7 +2542,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*TransactionReceipt{
 					b2PreConfirmedPartialFilteredReceipts,
@@ -2551,7 +2551,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed update, without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedFull)
+					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2592,7 +2592,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on new pre-confirmed block - no stream",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*TransactionReceipt{},
 			},
@@ -2642,7 +2642,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed block",
 				notify: func() {
-					syncer.pendingData.Send(&b1PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b1PreConfirmedPartial)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2655,7 +2655,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(&b1PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b1PreConfirmedExtended)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2681,7 +2681,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "new pre_confirmed block",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(
@@ -2707,7 +2707,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "pre_confirmed update - without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(&b2PreConfirmedFull)
+					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
 				expect: [][]*TransactionReceipt{
 					toAdaptedReceiptsWithFilter(

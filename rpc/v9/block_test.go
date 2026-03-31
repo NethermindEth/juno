@@ -268,7 +268,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		)
@@ -301,7 +301,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 
 			handler := rpc.New(chain, mockSyncReader, nil, log)
@@ -427,7 +427,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		).Times(2)
@@ -499,7 +499,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 
 			handler := rpc.New(chain, mockSyncReader, nil, log)
@@ -551,7 +551,7 @@ func TestBlockWithTxs(t *testing.T) {
 			},
 		},
 	}
-	mockSyncReader.EXPECT().PendingData().Return(
+	mockSyncReader.EXPECT().PreConfirmed().Return(
 		preConfirmed,
 		nil,
 	).Times(len(latestBlock.Transactions) * 5)
@@ -669,7 +669,7 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		).Times(4 + len(latestBlock.Transactions))
@@ -851,7 +851,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0.ParentHash = nil
 		block0.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(block0, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		)

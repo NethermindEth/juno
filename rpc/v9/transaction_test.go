@@ -68,7 +68,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 		CandidateTxs: []core.Transaction{},
 	}
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
@@ -432,7 +432,7 @@ func TestTransactionByHash(t *testing.T) {
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 				return gw.Transaction(t.Context(), hash)
 			}).Times(1)
-			mockSyncReader.EXPECT().PendingData().Return(&core.PreConfirmed{
+			mockSyncReader.EXPECT().PreConfirmed().Return(&core.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
 						Number:           1,
@@ -477,7 +477,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
-		mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil)
+		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
@@ -485,7 +485,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 
 	t.Run("Transaction found in pre_confirmed block - Candidate transactions", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.CandidateTxs[0]
-		mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil)
+		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
@@ -502,7 +502,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 		}
 		adaptedPreConfirmed.WithPreLatest(&preLatest)
 
-		mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil)
+		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
@@ -643,7 +643,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		).Times(2)
@@ -768,7 +768,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			txHash := block0.Transactions[test.index].Hash()
-			mockSyncReader.EXPECT().PendingData().Return(&core.PreConfirmed{
+			mockSyncReader.EXPECT().PreConfirmed().Return(&core.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
 						Number: block0.Number + 1,
@@ -831,7 +831,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					Receipts:     block0.Receipts,
 				},
 			}
-			mockSyncReader.EXPECT().PendingData().Return(
+			mockSyncReader.EXPECT().PreConfirmed().Return(
 				preConfirmed,
 				nil,
 			)
@@ -881,7 +881,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				PreLatest: &preLatest,
 			}
 
-			mockSyncReader.EXPECT().PendingData().Return(
+			mockSyncReader.EXPECT().PreConfirmed().Return(
 				preConfirmed,
 				nil,
 			)
@@ -919,7 +919,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				}`
 
 		txHash := block0.Transactions[i].Hash()
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&core.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
@@ -974,7 +974,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		revertedTxnIdx := 1
 		revertedTxnHash := blockWithRevertedTxn.Transactions[revertedTxnIdx].Hash()
 
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&core.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
@@ -1053,7 +1053,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		index := 0
 		txnHash := block.Transactions[index].Hash()
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&core.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
@@ -1119,7 +1119,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		index := 0
 		txnHash := block.Transactions[index].Hash()
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&core.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
@@ -1652,7 +1652,7 @@ func TestTransactionStatus(t *testing.T) {
 				t.Run("not verified", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-					mockSyncReader.EXPECT().PendingData().Return(&core.PreConfirmed{
+					mockSyncReader.EXPECT().PreConfirmed().Return(&core.PreConfirmed{
 						Block: &core.Block{
 							Header: &core.Header{
 								Number: block.Number + 1,
@@ -1683,7 +1683,7 @@ func TestTransactionStatus(t *testing.T) {
 				t.Run("verified", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-					mockSyncReader.EXPECT().PendingData().Return(&core.PreConfirmed{
+					mockSyncReader.EXPECT().PreConfirmed().Return(&core.PreConfirmed{
 						Block: &core.Block{
 							Header: &core.Header{
 								Number: block.Number + 1,
@@ -1783,7 +1783,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 						(*felt.TransactionHash)(candidateTx.Hash()),
 					).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil).Times(2)
+					mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil).Times(2)
 
 					status, err := handler.TransactionStatus(ctx, candidateTx.Hash())
 					require.Nil(t, err)
@@ -1794,7 +1794,7 @@ func TestTransactionStatus(t *testing.T) {
 
 			t.Run("found in pre_confirmed", func(t *testing.T) {
 				preConfirmedTx := preConfirmed.Block.Transactions[0].Hash()
-				mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+				mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 
 				status, err := handler.TransactionStatus(ctx, preConfirmedTx)
 				require.Nil(t, err)
@@ -1812,7 +1812,7 @@ func TestTransactionStatus(t *testing.T) {
 					Block: testBlock,
 				}
 				preConfirmed.WithPreLatest(&preLatest)
-				mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+				mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 
 				status, err := handler.TransactionStatus(ctx, preLatestTx.Hash())
 				require.Nil(t, err)

@@ -77,7 +77,7 @@ func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *json
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
-		txns := pending.GetTransactions()
+		txns := preConfirmed.GetTransactions()
 		return txns, nil
 	default:
 		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
@@ -99,7 +99,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 		var pending *core.PreConfirmed
 		pending, err = h.syncReader.PendingData()
 		if err == nil {
-			header = pending.GetBlock().Header
+			header = preConfirmed.GetBlock().Header
 		}
 	case blockID.IsLatest():
 		header, err = h.bcReader.HeadsHeader()

@@ -94,7 +94,7 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	var block *core.Block
 	isPendingBlock := blockHash == nil
 	if isPendingBlock {
-		pending, err := h.PendingData()
+		pending, err := h.Pending()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
 			return nil, rpccore.ErrTxnHashNotFound

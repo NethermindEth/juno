@@ -331,7 +331,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 			preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-			mockSyncReader.EXPECT().PendingData().Return(
+			mockSyncReader.EXPECT().PreConfirmed().Return(
 				&preConfirmed,
 				nil,
 			)
@@ -462,7 +462,7 @@ func TestTraceTransaction(t *testing.T) {
 				StateDiff: &preConfirmedStateDiff,
 			},
 		}
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		)
@@ -555,7 +555,7 @@ func TestTraceTransaction(t *testing.T) {
 				},
 			},
 		}
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			preConfirmed.WithPreLatest(&preLatest),
 			nil,
 		)

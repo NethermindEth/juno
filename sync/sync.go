@@ -45,7 +45,7 @@ type PendingTxSubscription struct {
 	*feed.Subscription[[]core.Transaction]
 }
 
-type PendingDataSubscription struct {
+type PreConfirmedDataSubscription struct {
 	*feed.Subscription[*core.PreConfirmed]
 }
 
@@ -73,7 +73,7 @@ type Reader interface {
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
-	SubscribePendingData() PendingDataSubscription
+	SubscribePreConfirmed() PreConfirmedDataSubscription
 	SubscribePreLatest() PreLatestDataSubscription
 	PendingData() (*core.PreConfirmed, error)
 }
@@ -97,30 +97,30 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribePendingData() PendingDataSubscription {
-	return PendingDataSubscription{feed.New[*core.PreConfirmed]().Subscribe()}
+func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
+	return PreConfirmedDataSubscription{feed.New[*core.PreConfirmed]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
 	return PreLatestDataSubscription{feed.New[*core.PreLatest]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) PendingData() (*core.PreConfirmed, error) {
-	return nil, errors.New("PendingData() is not implemented")
+func (n *NoopSynchronizer) PreConfirmed() (*core.PreConfirmed, error) {
+	return nil, errors.New("PreConfirmed() is not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
-	blockchain          *blockchain.Blockchain
-	db                  db.KeyValueStore
-	readOnlyBlockchain  bool
-	dataSource          DataSource
-	startingBlockNumber *uint64
-	highestBlockHeader  atomic.Pointer[core.Header]
-	newHeads            *feed.Feed[*core.Block]
-	reorgFeed           *feed.Feed[*ReorgBlockRange]
-	pendingDataFeed     *feed.Feed[*core.PreConfirmed]
-	preLatestDataFeed   *feed.Feed[*core.PreLatest]
+	blockchain           *blockchain.Blockchain
+	db                   db.KeyValueStore
+	readOnlyBlockchain   bool
+	dataSource           DataSource
+	startingBlockNumber  *uint64
+	highestBlockHeader   atomic.Pointer[core.Header]
+	newHeads             *feed.Feed[*core.Block]
+	reorgFeed            *feed.Feed[*ReorgBlockRange]
+	preConfirmedDataFeed *feed.Feed[*core.PreConfirmed]
+	preLatestDataFeed    *feed.Feed[*core.PreLatest]
 
 	log      utils.StructuredLogger
 	listener EventListener
@@ -151,7 +151,7 @@ func New(
 		log:                      log,
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
-		pendingDataFeed:          feed.New[*core.PreConfirmed](),
+		preConfirmedDataFeed:     feed.New[*core.PreConfirmed](),
 		preLatestDataFeed:        feed.New[*core.PreLatest](),
 		preLatestPollInterval:    preLatestPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
@@ -566,8 +566,8 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{s.reorgFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
-	return PendingDataSubscription{s.pendingDataFeed.Subscribe()}
+func (s *Synchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
+	return PreConfirmedDataSubscription{s.preConfirmedDataFeed.Subscribe()}
 }
 
 func (s *Synchronizer) SubscribePreLatest() PreLatestDataSubscription {

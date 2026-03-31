@@ -234,11 +234,11 @@ func TestHelpers(t *testing.T) {
 	_, err := seq.RunOnce()
 	require.NoError(t, err)
 
-	pending, err := seq.Pending()
+	preConfirmed, err := seq.PreConfirmed()
 	require.NoError(t, err)
-	require.NotNil(t, pending)
+	require.NotNil(t, preConfirmed)
 
-	block := seq.PendingBlock()
+	block := seq.PreConfirmedBlock()
 	require.NotNil(t, block)
 
 	state, closer, err := seq.PendingState()
@@ -262,7 +262,7 @@ func TestHelpers(t *testing.T) {
 	require.NotNil(t, newHeadsSub)
 	require.NotNil(t, newHeadsSub.Subscription)
 
-	pendingDataSub := seq.SubscribePendingData()
-	require.NotNil(t, pendingDataSub)
-	require.NotNil(t, pendingDataSub.Subscription)
+	preConfirmedSub := seq.SubscribePreConfirmed()
+	require.NotNil(t, preConfirmedSub)
+	require.NotNil(t, preConfirmedSub.Subscription)
 }

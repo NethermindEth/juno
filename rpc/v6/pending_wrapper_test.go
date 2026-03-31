@@ -43,7 +43,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 			latestBlock.Header.Number+1-pendingdata.BlockHashLag,
 		).Return(&blockToRegisterHash, nil)
 
-		pending, err := handler.PendingData()
+		pending, err := handler.Pending()
 		require.NoError(t, err)
 		require.NotNil(t, pending)
 	})
@@ -67,7 +67,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		pending, err := handler.PendingData()
+		pending, err := handler.Pending()
 		require.NoError(t, err)
 		require.Equal(t, &expectedPending, pending)
 	})

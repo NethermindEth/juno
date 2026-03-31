@@ -37,7 +37,7 @@ type Handler struct {
 
 	newHeads                *feed.Feed[*core.Block]
 	reorgs                  *feed.Feed[*sync.ReorgBlockRange]
-	pendingData             *feed.Feed[*core.PreConfirmed]
+	preConfirmedFeed        *feed.Feed[*core.PreConfirmed]
 	l1Heads                 *feed.Feed[*core.L1Head]
 	preLatestFeed           *feed.Feed[*core.PreLatest]
 	receivedTransactionFeed *feed.Feed[core.Transaction]
@@ -88,11 +88,11 @@ func New(
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		newHeads:      feed.New[*core.Block](),
-		reorgs:        feed.New[*sync.ReorgBlockRange](),
-		pendingData:   feed.New[*core.PreConfirmed](),
-		l1Heads:       feed.New[*core.L1Head](),
-		preLatestFeed: feed.New[*core.PreLatest](),
+		newHeads:         feed.New[*core.Block](),
+		reorgs:           feed.New[*sync.ReorgBlockRange](),
+		preConfirmedFeed: feed.New[*core.PreConfirmed](),
+		l1Heads:          feed.New[*core.L1Head](),
+		preLatestFeed:    feed.New[*core.PreLatest](),
 
 		blockTraceCache: lru.NewCache[
 			rpccore.TraceCacheKey,
@@ -163,17 +163,17 @@ func (h *Handler) WithReceivedTransactionFeed(feed *feed.Feed[core.Transaction])
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingData := h.syncReader.SubscribePendingData().Subscription
+	preConfirmedSub := h.syncReader.SubscribePreConfirmed().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
 	preLatestSub := h.syncReader.SubscribePreLatest().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingData.Unsubscribe()
+	defer l1HeadsSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
 	defer preLatestSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingData, h.pendingData)
+	feed.Tee(preConfirmedSub, h.preConfirmedFeed)
 	feed.Tee(l1HeadsSub, h.l1Heads)
 	feed.Tee(preLatestSub, h.preLatestFeed)
 

@@ -165,7 +165,7 @@ func (p *proposer[V, H]) Push(ctx context.Context, transaction *mempool.Broadcas
 // assumes that the referenced value by the atomic pointer is immutable, which means the caller
 // shouldn't modify any fields of the returned preconfirmed block.
 func (p *proposer[V, H]) Preconfirmed() *core.PreConfirmed {
-	return p.buildState.Load().Preconfirmed
+	return p.buildState.Load().PreConfirmed
 }
 
 func (p *proposer[V, H]) init() {

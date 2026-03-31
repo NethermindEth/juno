@@ -59,8 +59,8 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 
 	// Create a state writer for the transaction execution
 	stateWriter := core.NewPendingStateWriter(
-		state.Preconfirmed.StateUpdate.StateDiff,
-		state.Preconfirmed.NewClasses,
+		state.PreConfirmed.StateUpdate.StateDiff,
+		state.PreConfirmed.NewClasses,
 		headState,
 	)
 
@@ -84,7 +84,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 		declaredClasses,
 		paidFeesOnL1,
 		&vm.BlockInfo{
-			Header:                state.Preconfirmed.Block.Header,
+			Header:                state.PreConfirmed.Block.Header,
 			BlockHashToBeRevealed: state.RevealedBlockHash,
 		},
 		stateWriter,
@@ -121,7 +121,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}
 
 	// Update preconfirmed block with transaction results
-	updatePreconfirmedBlock(state.Preconfirmed, receipts, coreTxns, stateDiffs)
+	updatePreconfirmedBlock(state.PreConfirmed, receipts, coreTxns, stateDiffs)
 
 	for i := range vmResults.GasConsumed {
 		state.L2GasConsumed += vmResults.GasConsumed[i].L2Gas
@@ -171,5 +171,10 @@ func updatePreconfirmedBlock(
 }
 
 func (e *executor) Finish(state *BuildState) (blockchain.SimulateResult, error) {
-	return e.blockchain.Simulate(state.Preconfirmed.Block, state.Preconfirmed.StateUpdate, state.Preconfirmed.NewClasses, nil)
+	return e.blockchain.Simulate(
+		state.PreConfirmed.Block,
+		state.PreConfirmed.StateUpdate,
+		state.PreConfirmed.NewClasses,
+		nil,
+	)
 }

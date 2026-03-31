@@ -92,7 +92,7 @@ func (h *Handler) TraceTransaction(
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
 	}
-	trace, header, err := h.findAndTraceInPendingData(hash)
+	trace, header, err := h.findAndTraceInPreConfirmed(hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
 	}
@@ -332,7 +332,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 // 2. Prelatest block (if available)
 //
 // Returns ErrTxnHashNotFound if the transaction is not found in any pending data source.
-func (h *Handler) findAndTraceInPendingData(
+func (h *Handler) findAndTraceInPreConfirmed(
 	hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	pendingData, rpcErr := h.syncReader.PendingData()
@@ -346,7 +346,7 @@ func (h *Handler) findAndTraceInPendingData(
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, nil, err
 	}
-	return h.findAndTraceInPrelatestBlock(pendingData, hash)
+	return h.findAndTraceInPrelatestBlock(preConfirmed, hash)
 }
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.

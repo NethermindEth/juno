@@ -333,7 +333,6 @@ func TestTraceTransaction(t *testing.T) {
 		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		// PendingData() always returns empty placeholder for v6;
 		// header.Number=0 so no BlockHeaderByNumber needed
 		mockReader.EXPECT().HeadsHeader().Return(header, nil)
 
@@ -532,7 +531,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 
 		headState := mocks.NewMockStateReader(mockCtrl)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		)

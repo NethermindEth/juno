@@ -49,8 +49,8 @@ func (h *Handler) TraceTransaction(
 		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
 	}
 
-	// Try to find and trace transaction in pending data
-	trace, header, err := h.findAndTraceInPendingData(hash)
+	// Try to find and trace transaction in preconfirmed
+	trace, header, err := h.findAndTraceInPreConfirmed(hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
 	}
@@ -292,14 +292,14 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
 }
 
-// findAndTraceInPendingData searches for a transaction across all pending data sources.
+// findAndTraceInPreConfirmed searches for a transaction across all pending data sources.
 //
 // This function searches in the following order:
 // 1. Pre-confirmed block
 // 2. Pre-latest block (if available)
 //
 // Returns ErrTxnHashNotFound if the transaction is not found in any pending data source.
-func (h *Handler) findAndTraceInPendingData(
+func (h *Handler) findAndTraceInPreConfirmed(
 	hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	pendingData, rpcErr := h.syncReader.PendingData()
@@ -313,27 +313,27 @@ func (h *Handler) findAndTraceInPendingData(
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, nil, err
 	}
-	return h.findAndTraceInPrelatestBlock(pendingData, hash)
+	return h.findAndTraceInPrelatestBlock(preConfirmed, hash)
 }
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.
 func (h *Handler) findAndTraceInPreConfirmedBlock(
-	pendingData *core.PreConfirmed, hash *felt.Felt,
+	preConfirmed *core.PreConfirmed, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	block := pendingData.GetBlock()
+	block := preConfirmed.GetBlock()
 	txIndex, rpcErr := findTransactionInBlock(block, hash)
 	if rpcErr != nil {
 		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 	}
 
-	return h.traceInPreConfirmedBlock(pendingData, txIndex)
+	return h.traceInPreConfirmedBlock(preConfirmed, txIndex)
 }
 
 // findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
 func (h *Handler) findAndTraceInPrelatestBlock(
-	pendingData *core.PreConfirmed, hash *felt.Felt,
+	preConfirmed *core.PreConfirmed, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	preLatest := pendingData.GetPreLatest()
+	preLatest := preConfirmed.GetPreLatest()
 	if preLatest == nil {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
@@ -385,17 +385,17 @@ func (h *Handler) traceInPrelatestBlock(
 
 // traceInPreConfirmedBlock traces a transaction in a preconfirmed block.
 func (h *Handler) traceInPreConfirmedBlock(
-	pendingData *core.PreConfirmed, txIndex uint,
+	preConfirmed *core.PreConfirmed, txIndex uint,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	state, stateCloser, err := pendingdata.PendingStateBeforeIndex(pendingData, h.bcReader, txIndex)
+	state, stateCloser, err := pendingdata.PendingStateBeforeIndex(preConfirmed, h.bcReader, txIndex)
 	if err != nil {
 		return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 	defer h.callAndLogErr(stateCloser, "Failed to close state in tracePreConfirmedTransaction")
 
-	transaction := pendingData.GetBlock().Transactions[txIndex]
+	transaction := preConfirmed.GetBlock().Transactions[txIndex]
 
-	blockInfo, rpcErr := h.buildBlockInfo(pendingData.GetHeader())
+	blockInfo, rpcErr := h.buildBlockInfo(preConfirmed.GetHeader())
 	if rpcErr != nil {
 		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
 	}

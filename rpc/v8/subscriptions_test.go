@@ -251,13 +251,13 @@ func TestSubscribeEvents(t *testing.T) {
 		// Sending PreConfirmed pending data does nothing — the onPendingData handler
 		// was removed because it only handled the deprecated core.Pending variant.
 		pending1 := createTestPendingBlock(t, b2, 3)
-		pendingData1 := core.NewPreConfirmed(pending1, nil, nil, nil)
-		handler.pendingData.Send(&pendingData1)
+		preConfirmed1 := core.NewPreConfirmed(pending1, nil, nil, nil)
+		handler.preConfirmedFeed.Send(&preConfirmed1)
 		assertNoMessage(t, clientConn)
 
 		pending2 := createTestPendingBlock(t, b2, 6)
-		pendingData2 := core.NewPreConfirmed(pending2, nil, nil, nil)
-		handler.pendingData.Send(&pendingData2)
+		preConfirmed2 := core.NewPreConfirmed(pending2, nil, nil, nil)
+		handler.preConfirmedFeed.Send(&preConfirmed2)
 		assertNoMessage(t, clientConn)
 
 		// Since no pending events were tracked, all b2 events are sent (no deduplication).
@@ -289,7 +289,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
-		mockSyncer.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
@@ -309,7 +309,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, log)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
-		mockSyncer.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1011")
@@ -388,8 +388,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
-			handler.pendingData.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
-			handler.pendingData.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
+			handler.preConfirmedFeed.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
+			handler.preConfirmedFeed.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
 			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
@@ -411,18 +411,18 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads    *feed.Feed[*core.Block]
-	reorgs      *feed.Feed[*sync.ReorgBlockRange]
-	pendingData *feed.Feed[*core.PreConfirmed]
-	preLatest   *feed.Feed[*core.PreLatest]
+	newHeads     *feed.Feed[*core.Block]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	preConfirmed *feed.Feed[*core.PreConfirmed]
+	preLatest    *feed.Feed[*core.PreLatest]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads:    feed.New[*core.Block](),
-		reorgs:      feed.New[*sync.ReorgBlockRange](),
-		pendingData: feed.New[*core.PreConfirmed](),
-		preLatest:   feed.New[*core.PreLatest](),
+		newHeads:     feed.New[*core.Block](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		preConfirmed: feed.New[*core.PreConfirmed](),
+		preLatest:    feed.New[*core.PreLatest](),
 	}
 }
 
@@ -434,8 +434,8 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
 }
 
-func (fs *fakeSyncer) SubscribePendingData() sync.PendingDataSubscription {
-	return sync.PendingDataSubscription{Subscription: fs.pendingData.Subscribe()}
+func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription {
+	return sync.PreConfirmedDataSubscription{Subscription: fs.preConfirmed.Subscribe()}
 }
 
 func (fs *fakeSyncer) SubscribePreLatest() sync.PreLatestDataSubscription {
@@ -450,7 +450,7 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PendingData() (*core.PreConfirmed, error) {
+func (fs *fakeSyncer) PreConfirmed() (*core.PreConfirmed, error) {
 	return nil, core.ErrPreConfirmedNotFound
 }
 
@@ -767,7 +767,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.pendingData.Send(&core.PreConfirmed{
+		syncer.preConfirmed.Send(&core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -812,7 +812,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.pendingData.Send(&core.PreConfirmed{
+		syncer.preConfirmed.Send(&core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -842,7 +842,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		require.Equal(t, subResp(id), got)
 
 		parentHash := new(felt.Felt).SetUint64(1)
-		syncer.pendingData.Send(&core.PreConfirmed{
+		syncer.preConfirmed.Send(&core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,

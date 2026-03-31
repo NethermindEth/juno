@@ -110,7 +110,7 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 	}
 
 	return &BuildState{
-		Preconfirmed:      &preconfirmed,
+		PreConfirmed:      &preconfirmed,
 		RevealedBlockHash: revealedBlockHash,
 		L2GasConsumed:     0,
 	}, nil
@@ -131,7 +131,7 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 func (b *Builder) PendingState(
 	buildState *BuildState,
 ) (core.StateReader, func() error, error) {
-	if buildState.Preconfirmed == nil {
+	if buildState.PreConfirmed == nil {
 		return nil, nil, core.ErrPreConfirmedNotFound
 	}
 
@@ -142,10 +142,10 @@ func (b *Builder) PendingState(
 
 	// TODO: remove the state closer once we refactor the state
 	return core.NewPendingState(
-			buildState.Preconfirmed.StateUpdate.StateDiff,
-			buildState.Preconfirmed.NewClasses,
+			buildState.PreConfirmed.StateUpdate.StateDiff,
+			buildState.PreConfirmed.NewClasses,
 			headState,
-			buildState.Preconfirmed.Block.Number,
+			buildState.PreConfirmed.Block.Number,
 		),
 		headCloser, nil
 }
@@ -174,7 +174,7 @@ func (b *Builder) Finish(state *BuildState) (BuildResult, error) {
 
 	// Todo: we ignore some values until the spec is Finalised: VersionConstantCommitment, NextL2GasPriceFRI
 	buildResult := BuildResult{
-		Preconfirmed:   state.Preconfirmed,
+		Preconfirmed:   state.PreConfirmed,
 		SimulateResult: &simulatedResult,
 		L2GasConsumed:  state.L2GasConsumed,
 	}

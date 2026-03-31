@@ -10,21 +10,21 @@ import (
 )
 
 type BuildState struct {
-	Preconfirmed      *core.PreConfirmed
+	PreConfirmed      *core.PreConfirmed
 	L2GasConsumed     uint64
 	RevealedBlockHash *felt.Felt
 }
 
-func (b *BuildState) PendingBlock() *core.Block {
-	if b.Preconfirmed == nil {
+func (b *BuildState) PreConfirmedBlock() *core.Block {
+	if b.PreConfirmed == nil {
 		return nil
 	}
-	return b.Preconfirmed.Block
+	return b.PreConfirmed.Block
 }
 
 func (b *BuildState) ClearPending() error {
 	b.L2GasConsumed = 0
-	b.Preconfirmed = &core.PreConfirmed{}
+	b.PreConfirmed = &core.PreConfirmed{}
 	b.RevealedBlockHash = nil
 
 	return nil
@@ -37,7 +37,7 @@ func (b *BuildState) ClearPending() error {
 // - Signatures and EventsBloom are not set before `Finish` is called
 func (b *BuildState) Clone() BuildState {
 	return BuildState{
-		Preconfirmed:      clonePreconfirmed(b.Preconfirmed),
+		PreConfirmed:      clonePreconfirmed(b.PreConfirmed),
 		RevealedBlockHash: b.RevealedBlockHash, // Safe to reuse an immutable value
 		L2GasConsumed:     b.L2GasConsumed,     // Value, safe to shallow copy
 	}

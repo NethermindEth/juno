@@ -84,7 +84,7 @@ func newReceiptsSubscriber(
 	}
 
 	if slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnPreConfirmed)) {
-		s.onPendingData = state.onPendingData
+		s.onPreConfirmed = state.onPreConfirmed
 		s.onPreLatest = state.onPreLatest
 	}
 
@@ -127,15 +127,15 @@ func (s *receiptsSubscriberState) onPreLatest(
 	)
 }
 
-func (s *receiptsSubscriberState) onPendingData(
+func (s *receiptsSubscriberState) onPreConfirmed(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	pending *core.PreConfirmed,
+	preConfirmed *core.PreConfirmed,
 ) error {
 	return s.processBlock(
 		id,
-		pending.GetBlock(),
+		preConfirmed.GetBlock(),
 		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
 	)
 }

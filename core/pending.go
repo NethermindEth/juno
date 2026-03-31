@@ -16,8 +16,8 @@ var (
 )
 
 // Deprecated: Pending is the pre-0.14.0 pending block variant. It is retained solely as a
-// placeholder returned by rpc/v8's PendingData() and MakeEmptyPendingForParent to satisfy
-// the "pending" block ID in the v8 RPC spec. Remove this type when rpc/v8 is deprecated.
+// placeholder returned by rpc/v6/v8's Pending() and MakeEmptyPendingForParent to satisfy
+// the "pending" block ID in the v6/v8 RPC spec. Remove this type when rpc/v6/v8 are deprecated.
 type Pending struct {
 	Block       *Block
 	StateUpdate *StateUpdate

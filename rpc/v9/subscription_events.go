@@ -123,7 +123,7 @@ func newEventSubscriber(
 	}
 
 	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
-		s.onPendingData = state.onPendingData
+		s.onPreConfirmed = state.onPreConfirmed
 	}
 
 	return s, nil
@@ -157,13 +157,13 @@ func (s *eventSubscriberState) onPreLatest(
 	return s.processBlock(ctx, id, preLatest.Block, TxnPreConfirmed)
 }
 
-func (s *eventSubscriberState) onPendingData(
+func (s *eventSubscriberState) onPreConfirmed(
 	ctx context.Context,
 	id string,
 	_ *subscription,
-	pending *core.PreConfirmed,
+	preConfirmed *core.PreConfirmed,
 ) error {
-	return s.processBlock(ctx, id, pending.GetBlock(), TxnPreConfirmed)
+	return s.processBlock(ctx, id, preConfirmed.GetBlock(), TxnPreConfirmed)
 }
 
 func (s *eventSubscriberState) processBlock(

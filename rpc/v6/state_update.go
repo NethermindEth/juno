@@ -76,7 +76,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 		}
 	} else if id.Pending {
 		var pending *core.Pending
-		pending, err = h.PendingData()
+		pending, err = h.Pending()
 		if err == nil {
 			update = pending.GetStateUpdate()
 		}

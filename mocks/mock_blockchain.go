@@ -151,18 +151,18 @@ func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, pendingDataFn func() (*core.PreConfirmed, error)) (blockchain.EventFilterer, error) {
+func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, preConfirmedFn func() (*core.PreConfirmed, error)) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EventFilter", addresses, keys, pendingDataFn)
+	ret := m.ctrl.Call(m, "EventFilter", addresses, keys, preConfirmedFn)
 	ret0, _ := ret[0].(blockchain.EventFilterer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EventFilter indicates an expected call of EventFilter.
-func (mr *MockReaderMockRecorder) EventFilter(addresses, keys, pendingDataFn any) *gomock.Call {
+func (mr *MockReaderMockRecorder) EventFilter(addresses, keys, preConfirmedFn any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), addresses, keys, pendingDataFn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), addresses, keys, preConfirmedFn)
 }
 
 // Head mocks base method.

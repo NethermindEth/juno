@@ -297,7 +297,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 	strippedBlockHeader.EventsBloom = nil
 	strippedBlockHeader.Signatures = nil
 	return builder.BuildState{
-		Preconfirmed: &core.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header:       &strippedBlockHeader,
 				Transactions: []core.Transaction{},

@@ -26,7 +26,7 @@ type subscriber struct {
 	onStart               on[any]
 	onReorg               on[*sync.ReorgBlockRange]
 	onNewHead             on[*core.Block]
-	onPendingData         on[*core.PreConfirmed]
+	onPreConfirmed        on[*core.PreConfirmed]
 	onL1Head              on[*core.L1Head]
 	onPreLatest           on[*core.PreLatest]
 	onReceivedTransaction on[core.Transaction]
@@ -64,7 +64,7 @@ func (h *Handler) subscribe(
 
 	reorgSub, reorgRecv := getSubscription(subscriber.onReorg, h.reorgs)
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
-	pendingDataSub, pendingRecv := getSubscription(subscriber.onPendingData, h.pendingData)
+	preConfirmedSub, preConfirmedRecv := getSubscription(subscriber.onPreConfirmed, h.preConfirmedFeed)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
 	preLatestSub, preLatestRecv := getSubscription(subscriber.onPreLatest, h.preLatestFeed)
 	receivedTransactionSub, receivedTransactionRecv := getSubscription(
@@ -78,7 +78,7 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(reorgSub)
 			unsubscribeFeedSubscription(l1HeadSub)
 			unsubscribeFeedSubscription(newHeadsSub)
-			unsubscribeFeedSubscription(pendingDataSub)
+			unsubscribeFeedSubscription(preConfirmedSub)
 			unsubscribeFeedSubscription(preLatestSub)
 			unsubscribeFeedSubscription(receivedTransactionSub)
 		}()
@@ -109,9 +109,9 @@ func (h *Handler) subscribe(
 					h.log.Warn("Error on new head", zap.String("id", id), zap.Error(err))
 					return
 				}
-			case pending := <-pendingRecv:
-				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
-					h.log.Warn("Error on pending data", zap.String("id", id), zap.Error(err))
+			case preConfirmed := <-preConfirmedRecv:
+				if err := subscriber.onPreConfirmed(subscriptionCtx, id, sub, preConfirmed); err != nil {
+					h.log.Warn("Error on pre confirmed", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case preLatest := <-preLatestRecv:

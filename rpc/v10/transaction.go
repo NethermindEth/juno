@@ -421,11 +421,11 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
+		if uint64(txIndex) >= preConfirmed.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		adaptedTxn := AdaptTransaction(pending.GetBlock().Transactions[txIndex], includeProofFacts)
+		adaptedTxn := AdaptTransaction(preConfirmed.GetBlock().Transactions[txIndex], includeProofFacts)
 		return &adaptedTxn, nil
 	case blockID.IsLatest():
 		header, err := h.bcReader.HeadsHeader()
@@ -530,7 +530,7 @@ func (h *Handler) getPendingTransactionReceipt(
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	txn, err := pending.TransactionByHash(hash)
+	txn, err := preConfirmed.TransactionByHash(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}

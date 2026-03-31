@@ -36,11 +36,11 @@ type Sequencer struct {
 	blockTime        time.Duration
 	mempool          *mempool.SequencerMempool
 
-	subNewHeads    *feed.Feed[*core.Block]
-	subPendingData *feed.Feed[*core.PreConfirmed]
-	subReorgFeed   *feed.Feed[*sync.ReorgBlockRange]
-	subPreLatest   *feed.Feed[*core.PreLatest]
-	plugin         plugin.JunoPlugin
+	subNewHeads     *feed.Feed[*core.Block]
+	subPreConfirmed *feed.Feed[*core.PreConfirmed]
+	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
+	subPreLatest    *feed.Feed[*core.PreLatest]
+	plugin          plugin.JunoPlugin
 
 	mu syncLock.RWMutex
 }
@@ -62,7 +62,7 @@ func New(
 		log:              log,
 		blockTime:        blockTime,
 		subNewHeads:      feed.New[*core.Block](),
-		subPendingData:   feed.New[*core.PreConfirmed](),
+		subPreConfirmed:  feed.New[*core.PreConfirmed](),
 		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
 		subPreLatest:     feed.New[*core.PreLatest](),
 	}
@@ -105,22 +105,22 @@ func (s *Sequencer) Run(ctx context.Context) error {
 		case <-time.After(s.blockTime):
 			s.mu.Lock()
 
-			pending, err := s.Pending()
+			preConfirmed, err := s.PreConfirmed()
 			if err != nil {
 				s.log.Infof("Failed to get pending block")
 			}
-			if err := s.builder.Finalise(pending, utils.Sign(s.privKey), s.privKey); err != nil {
+			if err := s.builder.Finalise(preConfirmed, utils.Sign(s.privKey), s.privKey); err != nil {
 				return err
 			}
 			s.log.Infof("Finalised new block")
 			if s.plugin != nil {
-				err := s.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
+				err := s.plugin.NewBlock(preConfirmed.Block, preConfirmed.StateUpdate, preConfirmed.NewClasses)
 				if err != nil {
 					s.log.Error("error sending new block to plugin", zap.Error(err))
 				}
 			}
 			// push the new head to the feed
-			s.subNewHeads.Send(pending.Block)
+			s.subNewHeads.Send(preConfirmed.Block)
 
 			if err := s.initPendingBlock(); err != nil {
 				return err
@@ -163,8 +163,8 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 		}
 
 		// push the preconfirmed block to the feed
-		preconfirmed := core.NewPreConfirmed(s.buildState.PendingBlock(), nil, nil, nil)
-		s.subPendingData.Send(&preconfirmed)
+		preconfirmed := core.NewPreConfirmed(s.buildState.PreConfirmedBlock(), nil, nil, nil)
+		s.subPreConfirmed.Send(&preconfirmed)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -204,12 +204,12 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) Pending() (*core.PreConfirmed, error) {
-	return s.buildState.Preconfirmed, nil
+func (s *Sequencer) PreConfirmed() (*core.PreConfirmed, error) {
+	return s.buildState.PreConfirmed, nil
 }
 
-func (s *Sequencer) PendingBlock() *core.Block {
-	return s.buildState.PendingBlock()
+func (s *Sequencer) PreConfirmedBlock() *core.Block {
+	return s.buildState.PreConfirmedBlock()
 }
 
 func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
@@ -233,8 +233,8 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 	return sync.NewHeadSubscription{Subscription: s.subNewHeads.Subscribe()}
 }
 
-func (s *Sequencer) SubscribePendingData() sync.PendingDataSubscription {
-	return sync.PendingDataSubscription{Subscription: s.subPendingData.Subscribe()}
+func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription {
+	return sync.PreConfirmedDataSubscription{Subscription: s.subPreConfirmed.Subscribe()}
 }
 
 func (s *Sequencer) SubscribePreLatest() sync.PreLatestDataSubscription {
@@ -242,8 +242,8 @@ func (s *Sequencer) SubscribePreLatest() sync.PreLatestDataSubscription {
 }
 
 // Returning an error, because when the sequencer is used as the sync.Reader,
-// if the PendingData() doesn't return an error, the caller will face the
+// if the PreConfirmed() doesn't return an error, the caller will face the
 // nil pointer dereference error
-func (s *Sequencer) PendingData() (*core.PreConfirmed, error) {
-	return nil, fmt.Errorf("PendingData(): not implemented")
+func (s *Sequencer) PreConfirmed() (*core.PreConfirmed, error) {
+	return nil, fmt.Errorf("PreConfirmed(): not implemented")
 }

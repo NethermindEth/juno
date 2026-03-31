@@ -179,7 +179,7 @@ func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 		if err != nil {
 			return nil, err
 		}
-		return pending.GetStateUpdate(), nil
+		return preConfirmed.GetStateUpdate(), nil
 	case id.IsHash():
 		return h.bcReader.StateUpdateByHash(id.Hash())
 	case id.IsNumber():

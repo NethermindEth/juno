@@ -266,16 +266,15 @@ func TestPendingDataIsPreConfirmedAfterSync(t *testing.T) {
 	cancel()
 
 	// After syncing at least one block, an empty pre_confirmed baseline for head+1 is stored.
-	// PendingData() must return *core.PreConfirmed — the legacy *core.Pending no longer exists.
-	pendingData, err := synchronizer.PendingData()
+	preConfirmed, err := synchronizer.PreConfirmed()
 	require.NoError(t, err)
-	require.NotNil(t, pendingData)
+	require.NotNil(t, preConfirmed)
 
 	head, err := bc.HeadsHeader()
 	require.NoError(t, err)
-	require.True(t, pendingData.Validate(head), "pending data must be valid for the current head")
+	require.True(t, preConfirmed.Validate(head), "pending data must be valid for the current head")
 
-	require.NotNil(t, pendingData.GetBlock())
+	require.NotNil(t, preConfirmed.GetBlock())
 }
 
 func TestPendingData(t *testing.T) {

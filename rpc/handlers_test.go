@@ -36,7 +36,7 @@ func TestRun(t *testing.T) {
 	l1Sub := feed.New[*core.L1Head]()
 	newHeadsSub := feed.New[*core.Block]()
 	reorgSub := feed.New[*sync.ReorgBlockRange]()
-	pendingDataSub := feed.New[*core.PreConfirmed]()
+	preConfirmedSub := feed.New[*core.PreConfirmed]()
 	preLatestSub := feed.New[*core.PreLatest]()
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)
@@ -50,8 +50,8 @@ func TestRun(t *testing.T) {
 	mockSyncReader.EXPECT().SubscribeReorg().Return(
 		sync.ReorgSubscription{Subscription: reorgSub.Subscribe()},
 	).AnyTimes()
-	mockSyncReader.EXPECT().SubscribePendingData().Return(
-		sync.PendingDataSubscription{Subscription: pendingDataSub.Subscribe()},
+	mockSyncReader.EXPECT().SubscribePreConfirmed().Return(
+		sync.PreConfirmedDataSubscription{Subscription: preConfirmedSub.Subscribe()},
 	).AnyTimes()
 	mockSyncReader.EXPECT().SubscribePreLatest().Return(
 		sync.PreLatestDataSubscription{Subscription: preLatestSub.Subscribe()},

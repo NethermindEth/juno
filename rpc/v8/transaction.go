@@ -526,7 +526,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var err error
 	switch blockID.Type() {
 	case pending:
-		pending, err := h.PendingData()
+		pending, err := h.Pending()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}

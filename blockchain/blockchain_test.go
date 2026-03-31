@@ -450,7 +450,7 @@ func TestState(t *testing.T) {
 
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
-	pendingDataFunc := func() (*core.PreConfirmed, error) { //nolint:unparam // used in tests
+	preConfirmedFunc := func() (*core.PreConfirmed, error) { //nolint:unparam // used in tests
 		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
 		return &preConfirmed, nil
 	}
@@ -480,7 +480,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
-		filter, err := chain.EventFilter(nil, nil, pendingDataFunc)
+		filter, err := chain.EventFilter(nil, nil, preConfirmedFunc)
 
 		t.Run("block number", func(t *testing.T) {
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
@@ -505,7 +505,7 @@ func TestEvents(t *testing.T) {
 		),
 	}
 	t.Run("filter with no keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, nil, pendingDataFunc)
+		filter, err := chain.EventFilter(from, nil, preConfirmedFunc)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
@@ -561,7 +561,7 @@ func TestEvents(t *testing.T) {
 		key := felt.NewUnsafeFromString[felt.Felt](
 			"0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533",
 		)
-		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, pendingDataFunc)
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, preConfirmedFunc)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
@@ -589,7 +589,7 @@ func TestEvents(t *testing.T) {
 				)},
 				{*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")},
 			},
-			pendingDataFunc,
+			preConfirmedFunc,
 		)
 		require.NoError(t, err)
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
@@ -610,7 +610,7 @@ func TestEvents(t *testing.T) {
 		)
 
 		addresses := []felt.Address{address1, address1, address1}
-		filter, err := chain.EventFilter(addresses, nil, pendingDataFunc)
+		filter, err := chain.EventFilter(addresses, nil, preConfirmedFunc)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
@@ -642,7 +642,7 @@ func TestEvents(t *testing.T) {
 		}
 		for _, testCase := range testCases {
 			t.Run("filter with no addresses ("+testCase.name+")", func(t *testing.T) {
-				filter, err := chain.EventFilter(testCase.addresses, nil, pendingDataFunc)
+				filter, err := chain.EventFilter(testCase.addresses, nil, preConfirmedFunc)
 				require.NoError(t, err)
 
 				require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))

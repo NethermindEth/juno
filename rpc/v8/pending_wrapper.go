@@ -5,7 +5,7 @@ import (
 	"github.com/NethermindEth/juno/sync/pendingdata"
 )
 
-func (h *Handler) PendingData() (*core.Pending, error) {
+func (h *Handler) Pending() (*core.Pending, error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func (h *Handler) PendingData() (*core.Pending, error) {
 }
 
 func (h *Handler) PendingBlock() *core.Block {
-	pending, err := h.PendingData()
+	pending, err := h.Pending()
 	if err != nil {
 		return nil
 	}
