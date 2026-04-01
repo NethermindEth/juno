@@ -29,7 +29,7 @@ func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 
 // Returns true if existing pendingData is valid for head and incoming is not richer than existing.
 // Otherwise returns false.
-func shouldPreservePendingData(
+func shouldPreservePreConfirmed(
 	existingPending *core.PreConfirmed,
 	incomingPending *core.PreConfirmed,
 	head *core.Header,
@@ -95,7 +95,7 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 
 	existingPtr := s.preConfirmed.Load()
 
-	if existingPtr != nil && shouldPreservePendingData(existingPtr, p, head) {
+	if existingPtr != nil && shouldPreservePreConfirmed(existingPtr, p, head) {
 		_ = s.UpdatePreLatestAttachment(p.GetBlock().Number, p.PreLatest)
 		return false, nil
 	}

@@ -248,7 +248,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
-		// Sending PreConfirmed pending data does nothing — the onPendingData handler
+		// Sending PreConfirmed does nothing — the handler
 		// was removed because it only handled the deprecated core.Pending variant.
 		pending1 := createTestPendingBlock(t, b2, 3)
 		preConfirmed1 := core.NewPreConfirmed(pending1, nil, nil, nil)

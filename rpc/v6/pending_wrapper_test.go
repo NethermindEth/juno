@@ -15,7 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestPendingDataWrapper_PendingData(t *testing.T) {
+func TestPendingWrapper_Pending(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
@@ -73,7 +73,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 	})
 }
 
-func TestPendingDataWrapper_PendingState(t *testing.T) {
+func TestPendingWrapper_PendingState(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)

@@ -692,7 +692,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	}
 
 	t.Run("pending receipt", func(t *testing.T) {
-		// After deprecating old Pending type, PendingData() always returns an empty placeholder block.
+		// After deprecating old Pending type, Pending() always returns an empty placeholder block.
 		// Transactions in the pending block are not accessible, so the receipt is not found.
 		txHash := block0.Transactions[2].Hash()
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(

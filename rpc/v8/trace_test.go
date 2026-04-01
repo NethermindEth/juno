@@ -399,7 +399,7 @@ func TestTraceTransaction(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
 
 		// Receipt returns block hash = nil, indicating it is in the pending block,
-		// but PendingData() returns an empty placeholder so the tx is not found.
+		// but Pending() returns an empty placeholder so the tx is not found.
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), nil)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
@@ -582,7 +582,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, log)
 
 	t.Run("pending block with no transactions", func(t *testing.T) {
-		// PendingData() returns an empty placeholder block, so tracing it yields no traces.
+		// Pending() returns an empty placeholder block, so tracing it yields no traces.
 		latestHash := felt.NewUnsafeFromString[felt.Felt]("0x0C3")
 		latestHeader := &core.Header{Hash: latestHash, Number: 0}
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
