@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
-	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"go.uber.org/zap"
 )
@@ -110,7 +109,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 	latestHeader *core.Header,
 	preLatest *core.PreLatest,
 ) error {
-	preConfirmed, err := pendingdata.MakeEmptyPreConfirmedForParent(s.blockchain, latestHeader)
+	preConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, latestHeader)
 	if err != nil {
 		return err
 	}

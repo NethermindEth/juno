@@ -14,7 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync/pendingdata"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -387,7 +387,7 @@ func (h *Handler) traceInPrelatestBlock(
 func (h *Handler) traceInPreConfirmedBlock(
 	preConfirmed *core.PreConfirmed, txIndex uint,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	state, stateCloser, err := pendingdata.PendingStateBeforeIndex(preConfirmed, h.bcReader, txIndex)
+	state, stateCloser, err := sync.PendingStateBeforeIndex(preConfirmed, h.bcReader, txIndex)
 	if err != nil {
 		return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}

@@ -113,7 +113,7 @@ func TestNonce(t *testing.T) {
 			},
 		}
 
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+		mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
 			Return(mockState, nopCloser, nil)
 		preConfirmedBlockID := blockIDPreConfirmed(t)

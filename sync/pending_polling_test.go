@@ -504,7 +504,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		))
 		t.Run("not valid for head", func(t *testing.T) {
 			s.preConfirmed.Store(nil)
-			written, err := s.StorePreConfirmed(preConfirmed)
+			written, err := s.StorePreConfirmed(&preConfirmed)
 			require.Error(t, err)
 			require.False(t, written)
 		})

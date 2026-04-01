@@ -1,4 +1,4 @@
-package pendingdata_test
+package sync_test
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/sync/pendingdata"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -34,7 +34,7 @@ func TestResolvePreConfirmedBaseState(t *testing.T) {
 			func() error { return nil },
 			nil,
 		)
-		stateReader, closer, err := pendingdata.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
+		stateReader, closer, err := sync.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
 		require.NoError(t, err)
 		require.NotNil(t, stateReader)
 		require.NotNil(t, closer)
@@ -60,7 +60,7 @@ func TestResolvePreConfirmedBaseState(t *testing.T) {
 			func() error { return nil },
 			nil,
 		)
-		stateReader, closer, err := pendingdata.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
+		stateReader, closer, err := sync.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
 		require.NoError(t, err)
 		require.NotNil(t, stateReader)
 		require.NotNil(t, closer)
@@ -83,7 +83,7 @@ func TestResolvePreConfirmedBaseState(t *testing.T) {
 			func() error { return nil },
 			nil,
 		)
-		stateReader, closer, err := pendingdata.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
+		stateReader, closer, err := sync.ResolvePreConfirmedBaseState(preConfirmed, mockReader)
 		require.NoError(t, err)
 		require.NotNil(t, stateReader)
 		require.NotNil(t, closer)

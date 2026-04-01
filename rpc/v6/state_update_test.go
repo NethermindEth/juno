@@ -12,7 +12,7 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync/pendingdata"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -158,7 +158,7 @@ func TestStateUpdate(t *testing.T) {
 		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 		expectedStateDiff := core.EmptyStateDiff()
-		expectedStateDiff.StorageDiffs[*pendingdata.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
+		expectedStateDiff.StorageDiffs[*sync.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
 			felt.FromUint64[felt.Felt](blockToRegisterHash.Number): blockToRegisterHash.Hash,
 		}
 		checkUpdate(t, &core.StateUpdate{

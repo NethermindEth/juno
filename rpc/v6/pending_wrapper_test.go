@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync/pendingdata"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -32,7 +32,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 
 	t.Run("Always returns empty Pending placeholder", func(t *testing.T) {
 		blockToRegisterHash := core.Header{
-			Number: latestBlock.Header.Number + 1 - pendingdata.BlockHashLag,
+			Number: latestBlock.Header.Number + 1 - sync.BlockHashLag,
 			Hash:   felt.NewFromUint64[felt.Felt](1234567),
 		}
 
@@ -40,7 +40,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 		latestHeader.ProtocolVersion = "0.13.1"
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(
-			latestBlock.Header.Number+1-pendingdata.BlockHashLag,
+			latestBlock.Header.Number+1-sync.BlockHashLag,
 		).Return(&blockToRegisterHash, nil)
 
 		pending, err := handler.Pending()
@@ -50,7 +50,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 
 	t.Run("Returns empty Pending for latest block", func(t *testing.T) {
 		blockToRegisterHash := core.Header{
-			Number: latestBlock.Header.Number + 1 - pendingdata.BlockHashLag,
+			Number: latestBlock.Header.Number + 1 - sync.BlockHashLag,
 			Hash:   felt.NewFromUint64[felt.Felt](1234567),
 		}
 
@@ -58,10 +58,10 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 		latestHeader.ProtocolVersion = "0.13.1"
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(
-			latestBlock.Header.Number+1-pendingdata.BlockHashLag,
+			latestBlock.Header.Number+1-sync.BlockHashLag,
 		).Return(&blockToRegisterHash, nil).Times(2)
 
-		expectedPending, err := pendingdata.MakeEmptyPendingForParent(
+		expectedPending, err := sync.MakeEmptyPendingForParent(
 			mockReader,
 			latestHeader,
 		)

@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync/pendingdata"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -33,10 +33,10 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 	t.Run("Returns empty pending placeholder based on latest header", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(
-			latestBlock.Header.Number+1-pendingdata.BlockHashLag,
+			latestBlock.Header.Number+1-sync.BlockHashLag,
 		).Return(&core.Header{Hash: felt.NewFromUint64[felt.Felt](1234567)}, nil).Times(2)
 
-		expectedPending, err := pendingdata.MakeEmptyPendingForParent(
+		expectedPending, err := sync.MakeEmptyPendingForParent(
 			mockReader,
 			latestBlock.Header,
 		)

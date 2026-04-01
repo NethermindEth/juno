@@ -1,4 +1,4 @@
-package pendingdata
+package sync
 
 import (
 	"time"

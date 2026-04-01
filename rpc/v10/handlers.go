@@ -168,7 +168,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	preLatestSub := h.syncReader.SubscribePreLatest().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer l1HeadsSub.Unsubscribe()
+	defer preConfirmedSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
 	defer preLatestSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)

@@ -18,7 +18,7 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync/pendingdata"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,7 +77,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(block.Header, nil)
-		blockToRegisterNum := block.Header.Number + 1 - pendingdata.BlockHashLag
+		blockToRegisterNum := block.Header.Number + 1 - sync.BlockHashLag
 		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterNum).Return(
 			&core.Header{
 				Number: blockToRegisterNum,
@@ -531,7 +531,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		latestBlock.GlobalStateRoot = nil
 		// PendingData() returns empty placeholder - HeadsHeader + BlockHeaderByNumber are called
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-		blockToRegisterNum := latestBlock.Header.Number + 1 - pendingdata.BlockHashLag
+		blockToRegisterNum := latestBlock.Header.Number + 1 - sync.BlockHashLag
 		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterNum).Return(
 			&core.Header{
 				Number: blockToRegisterNum,
@@ -595,7 +595,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		const sepoliaBlock = uint64(4850)
 		stubHeader := &core.Header{Number: sepoliaBlock, Hash: new(felt.Felt).SetUint64(sepoliaBlock)}
 		mockReader.EXPECT().HeadsHeader().Return(stubHeader, nil)
-		blockToRegisterNum := sepoliaBlock + 1 - pendingdata.BlockHashLag
+		blockToRegisterNum := sepoliaBlock + 1 - sync.BlockHashLag
 		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterNum).Return(
 			&core.Header{
 				Number: blockToRegisterNum,

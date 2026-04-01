@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
-	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
 	"go.uber.org/zap"
@@ -125,7 +124,7 @@ type Synchronizer struct {
 	log      utils.StructuredLogger
 	listener EventListener
 
-	pendingData              atomic.Pointer[core.PreConfirmed]
+	preConfirmed             atomic.Pointer[core.PreConfirmed]
 	preLatestPollInterval    time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -618,7 +617,7 @@ func (s *Synchronizer) PreConfirmed() (*core.PreConfirmed, error) {
 	if head == nil {
 		return nil, db.ErrKeyNotFound
 	}
-	emptyPreConfirmed, err := pendingdata.MakeEmptyPreConfirmedForParent(s.blockchain, head)
+	emptyPreConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, head)
 	if err != nil {
 		return nil, err
 	}
