@@ -75,9 +75,7 @@ type Reader interface {
 	SubscribeReorg() ReorgSubscription
 	SubscribePendingData() PendingDataSubscription
 	SubscribePreLatest() PreLatestDataSubscription
-
 	PendingData() (*core.PreConfirmed, error)
-	PendingState() (core.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -109,10 +107,6 @@ func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
 
 func (n *NoopSynchronizer) PendingData() (*core.PreConfirmed, error) {
 	return nil, errors.New("PendingData() is not implemented")
-}
-
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingState() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -632,12 +626,4 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 		return nil, err
 	}
 	return &emptyPreConfirmed, nil
-}
-
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
-	pendingData, err := s.PendingData()
-	if err != nil {
-		return nil, nil, err
-	}
-	return pendingdata.PendingState(pendingData, s.blockchain)
 }

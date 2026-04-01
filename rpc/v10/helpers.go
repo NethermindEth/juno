@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"go.uber.org/zap"
 )
 
@@ -156,7 +157,11 @@ func (h *Handler) stateByBlockID(
 	var err error
 	switch {
 	case blockID.IsPreConfirmed():
-		reader, closer, err = h.syncReader.PendingState()
+		var pendingData *core.PreConfirmed
+		pendingData, err = h.syncReader.PendingData()
+		if err == nil {
+			reader, closer, err = pendingdata.PendingState(pendingData, h.bcReader)
+		}
 	case blockID.IsLatest():
 		reader, closer, err = h.bcReader.HeadState()
 	case blockID.IsHash():

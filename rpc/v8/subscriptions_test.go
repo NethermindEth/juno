@@ -454,9 +454,6 @@ func (fs *fakeSyncer) PendingData() (*core.PreConfirmed, error) {
 	return nil, core.ErrPendingDataNotFound
 }
 func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) {
-	return nil, nil, nil
-}
 
 func (fs *fakeSyncer) PendingStateBeforeIndex(
 	index int,

@@ -478,14 +478,14 @@ func TestStorePreConfirmed(t *testing.T) {
 	s := New(bc, NewFeederGatewayDataSource(bc, nil), log, 0, 0, false, testDB)
 
 	t.Run("stores pre_confirmed when there is none (first entry)", func(t *testing.T) {
-		preConfirmed := &core.PreConfirmed{
+		preConfirmed := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{Number: 0},
 			},
 			StateUpdate: &core.StateUpdate{},
 		}
 		t.Run("head is nil", func(t *testing.T) {
-			written, err := s.StorePreConfirmed(preConfirmed)
+			written, err := s.StorePreConfirmed(&preConfirmed)
 			require.NoError(t, err)
 			require.True(t, written)
 			ptr := s.pendingData.Load()
@@ -504,7 +504,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		))
 		t.Run("not valid for head", func(t *testing.T) {
 			s.pendingData.Store(nil)
-			written, err := s.StorePreConfirmed(preConfirmed)
+			written, err := s.StorePreConfirmed(&preConfirmed)
 			require.Error(t, err)
 			require.False(t, written)
 		})
@@ -592,7 +592,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
-		worse := &core.PreConfirmed{
+		worse := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -601,13 +601,13 @@ func TestStorePreConfirmed(t *testing.T) {
 			},
 			StateUpdate: &core.StateUpdate{},
 		}
-		written, err := s.StorePreConfirmed(worse)
+		written, err := s.StorePreConfirmed(&worse)
 		require.NoError(t, err)
 		require.True(t, written)
 		ptr := s.pendingData.Load()
 		require.Equal(t, worse, *ptr)
 
-		better := &core.PreConfirmed{
+		better := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -616,7 +616,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			},
 			StateUpdate: &core.StateUpdate{},
 		}
-		written, err = s.StorePreConfirmed(better)
+		written, err = s.StorePreConfirmed(&better)
 		require.NoError(t, err)
 		require.True(t, written)
 		ptr = s.pendingData.Load()
@@ -628,7 +628,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
-		old := &core.PreConfirmed{
+		old := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -637,7 +637,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			},
 			StateUpdate: &core.StateUpdate{},
 		}
-		written, err := s.StorePreConfirmed(old)
+		written, err := s.StorePreConfirmed(&old)
 		require.NoError(t, err)
 		require.True(t, written)
 		ptr := s.pendingData.Load()
@@ -653,7 +653,7 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 		}
-		newer := &core.PreConfirmed{
+		newer := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 2,
@@ -663,7 +663,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			PreLatest:   preLatest,
 			StateUpdate: &core.StateUpdate{},
 		}
-		written, err = s.StorePreConfirmed(newer)
+		written, err = s.StorePreConfirmed(&newer)
 		require.NoError(t, err)
 		require.True(t, written)
 		ptr = s.pendingData.Load()
@@ -688,7 +688,7 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 		}
-		newer := &core.PreConfirmed{
+		newer := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 2,
@@ -698,13 +698,13 @@ func TestStorePreConfirmed(t *testing.T) {
 			PreLatest:   preLatest,
 			StateUpdate: &core.StateUpdate{},
 		}
-		written, err := s.StorePreConfirmed(newer)
+		written, err := s.StorePreConfirmed(&newer)
 		require.NoError(t, err)
 		require.True(t, written)
 		ptr := s.pendingData.Load()
 		require.Equal(t, newer, *ptr)
 		// Valid older pre_confirmed
-		old := &core.PreConfirmed{
+		old := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -713,7 +713,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			},
 			StateUpdate: &core.StateUpdate{},
 		}
-		written, err = s.StorePreConfirmed(old)
+		written, err = s.StorePreConfirmed(&old)
 		require.NoError(t, err)
 		require.False(t, written)
 		ptr = s.pendingData.Load()

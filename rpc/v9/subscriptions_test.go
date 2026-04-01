@@ -91,9 +91,6 @@ func (fs *fakeSyncer) PendingData() (*core.PreConfirmed, error) {
 	return nil, core.ErrPendingDataNotFound
 }
 func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) {
-	return nil, nil, nil
-}
 
 func (fs *fakeSyncer) PendingStateBeforeIndex(
 	index uint64,
@@ -844,7 +841,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
-		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
 		_, hasSubscription := handler.subscriptions.Load(string(id))
