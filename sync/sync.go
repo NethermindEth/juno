@@ -604,16 +604,15 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 		head = nil
 	}
 
-	ptr := s.pendingData.Load()
-	if ptr != nil {
-		p := *ptr
-		if p.Validate(head) {
+	preConfirmed := s.pendingData.Load()
+	if preConfirmed != nil {
+		if preConfirmed.Validate(head) {
 			// Special handling: if the pending data contains a 'pre-latest' block attachment
 			// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
-			if head != nil && p.Block.Number == head.Number+1 && p.PreLatest != nil {
-				return p.Copy().WithPreLatest(nil), nil
+			if head != nil && preConfirmed.Block.Number == head.Number+1 && preConfirmed.PreLatest != nil {
+				return preConfirmed.Copy().WithPreLatest(nil), nil
 			}
-			return &p, nil
+			return preConfirmed, nil
 		}
 	}
 

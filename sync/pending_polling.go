@@ -56,12 +56,10 @@ func shouldPreservePendingData(
 // Returns true if the store was updated, false if no matching pre_confirmed is stored
 // or the attachment was already equal.
 func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *core.PreLatest) bool {
-	curPtr := s.pendingData.Load()
-	if curPtr == nil {
+	pc := s.pendingData.Load()
+	if pc == nil {
 		return false
 	}
-
-	pc := curPtr
 
 	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {
 		// nil or different height stored; do not touch.
@@ -77,7 +75,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 	next := pc.Copy()
 	next.WithPreLatest(preLatest)
 
-	return s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[core.PreConfirmed](*next))
+	return s.pendingData.CompareAndSwap(pc, utils.HeapPtr[core.PreConfirmed](*next))
 }
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height.

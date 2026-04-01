@@ -90,13 +90,6 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 func (fs *fakeSyncer) PendingData() (*core.PreConfirmed, error) {
 	return nil, core.ErrPendingDataNotFound
 }
-func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
-
-func (fs *fakeSyncer) PendingStateBeforeIndex(
-	index uint64,
-) (core.StateReader, func() error, error) {
-	return nil, nil, nil
-}
 
 // setupMockWithSingleEvent sets up mocks for a single event list
 func setupMockEventFilterer(

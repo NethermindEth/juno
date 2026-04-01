@@ -453,13 +453,6 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 func (fs *fakeSyncer) PendingData() (*core.PreConfirmed, error) {
 	return nil, core.ErrPendingDataNotFound
 }
-func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
-
-func (fs *fakeSyncer) PendingStateBeforeIndex(
-	index int,
-) (core.StateReader, func() error, error) {
-	return nil, nil, nil
-}
 
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
