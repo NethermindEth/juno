@@ -249,7 +249,7 @@ const (
 		"storage layout. Once enabled, cannot be disabled."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	disableReceivedTxnStreamUsage  = "Disable received transaction stream feature"
+	disableReceivedTxnStreamUsage  = "Disables the received transaction stream feature."
 )
 
 var Version string
