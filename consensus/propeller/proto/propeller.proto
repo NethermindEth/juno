@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+import "p2p/proto/common.proto";
+
+option go_package = "github.com/NethermindEth/juno/consensus/propeller/proto";
+
+// A Merkle proof consisting of sibling hashes used to verify that a leaf belongs to a Merkle tree.
+// Each sibling hash is 32 bytes (SHA-256). The siblings are ordered from leaf level to root level.
+message MerkleProof {
+    // The sibling hashes needed to reconstruct the path from the leaf to the root.
+    // Each hash is 32 bytes.
+    repeated Hash256 siblings = 1;
+}
+
+// A single unit in the Propeller protocol containing a shard of erasure-coded data
+// along with cryptographic proofs for verification.
+message PropellerUnit {
+    // The actual data shard (erasure-coded fragment of the original message).
+    bytes shard = 1;
+    // The position of this shard in the erasure coding scheme.
+    uint64 index = 2;
+    // The Merkle root of all shards, used to verify shard integrity.
+    Hash256 merkle_root = 3;
+    // The Merkle proof that this shard belongs to the tree with the given root.
+    MerkleProof merkle_proof = 4;
+    // The peer ID of the original publisher who created and signed this unit.
+    PeerID publisher = 5;
+    // Cryptographic signature from the publisher over the merkle_root.
+    bytes signature = 6;
+    // TODO(AndrewL): consider re-naming channel
+    // TODO(AndrewL): make it uint64 instead of uint32.
+    // Logical channel identifier for multiplexing different message streams.
+    uint32 channel = 7;
+    // TODO(AndrewL): CRITICAL: protect against replay attacks (maybe using a timestamp)
+}
+
+// A batch of PropellerUnits for efficient transmission.
+message PropellerUnitBatch {
+    repeated PropellerUnit batch = 1;
+}
+
