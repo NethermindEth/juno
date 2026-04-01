@@ -335,12 +335,12 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 func (h *Handler) findAndTraceInPreConfirmed(
 	hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	pendingData, rpcErr := h.syncReader.PendingData()
+	preConfirmed, rpcErr := h.syncReader.PreConfirmed()
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	trace, header, err := h.findAndTraceInPreConfirmedBlock(pendingData, hash)
+	trace, header, err := h.findAndTraceInPreConfirmedBlock(preConfirmed, hash)
 	if err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {

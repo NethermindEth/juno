@@ -75,7 +75,7 @@ type Reader interface {
 	SubscribeReorg() ReorgSubscription
 	SubscribePreConfirmed() PreConfirmedDataSubscription
 	SubscribePreLatest() PreLatestDataSubscription
-	PendingData() (*core.PreConfirmed, error)
+	PreConfirmed() (*core.PreConfirmed, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -595,7 +595,7 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	}
 }
 
-func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
+func (s *Synchronizer) PreConfirmed() (*core.PreConfirmed, error) {
 	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -604,7 +604,7 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 		head = nil
 	}
 
-	preConfirmed := s.pendingData.Load()
+	preConfirmed := s.preConfirmed.Load()
 	if preConfirmed != nil && preConfirmed.Validate(head) {
 		// Special handling: if the pending data contains a 'pre-latest' block attachment
 		// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.

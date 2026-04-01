@@ -230,7 +230,7 @@ func (s *eventSubscriberState) processHistoricalEvents(
 	if fromAddr != nil {
 		addresses = []felt.Address{*fromAddr}
 	}
-	filter, err := s.handler.bcReader.EventFilter(addresses, keys, s.handler.syncReader.PendingData)
+	filter, err := s.handler.bcReader.EventFilter(addresses, keys, s.handler.syncReader.PreConfirmed)
 	if err != nil {
 		return err
 	}

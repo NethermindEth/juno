@@ -597,7 +597,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
+	mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	from := []felt.Address{

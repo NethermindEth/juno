@@ -1012,7 +1012,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		id, conn := createTestTxStatusWebsocket(t, handler, (*felt.Felt)(&txHash))
 

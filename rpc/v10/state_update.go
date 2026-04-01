@@ -175,7 +175,7 @@ func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 			return h.bcReader.StateUpdateByNumber(height)
 		}
 	case id.IsPreConfirmed():
-		pending, err := h.syncReader.PendingData()
+		preConfirmed, err := h.syncReader.PreConfirmed()
 		if err != nil {
 			return nil, err
 		}

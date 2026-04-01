@@ -35,10 +35,10 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch {
 	case blockID.IsPreConfirmed():
-		var pending *core.PreConfirmed
-		pending, err = h.syncReader.PendingData()
+		var preConfirmed *core.PreConfirmed
+		preConfirmed, err = h.syncReader.PreConfirmed()
 		if err == nil {
-			block = pending.GetBlock()
+			block = preConfirmed.GetBlock()
 		}
 	case blockID.IsLatest():
 		block, err = h.bcReader.Head()
@@ -56,7 +56,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPreConfirmedNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -70,9 +70,9 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
 	switch {
 	case blockID.IsPreConfirmed():
-		pending, err := h.syncReader.PendingData()
+		preConfirmed, err := h.syncReader.PreConfirmed()
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPreConfirmedNotFound) {
 				return nil, rpccore.ErrBlockNotFound
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -96,8 +96,8 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch {
 	case blockID.IsPreConfirmed():
-		var pending *core.PreConfirmed
-		pending, err = h.syncReader.PendingData()
+		var preConfirmed *core.PreConfirmed
+		preConfirmed, err = h.syncReader.PreConfirmed()
 		if err == nil {
 			header = preConfirmed.GetBlock().Header
 		}
@@ -119,7 +119,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPreConfirmedNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -180,7 +180,7 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPreConfirmedNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

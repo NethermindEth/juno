@@ -56,7 +56,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	txHash := felt.NewRandom[felt.Felt]()
 
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
 
@@ -1072,7 +1072,7 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 		(*felt.TransactionHash)(txHash),
 	).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
 	assert.Nil(t, tx)

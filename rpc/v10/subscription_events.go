@@ -221,7 +221,7 @@ func (s *eventSubscriberState) processHistoricalEvents(
 	keys [][]felt.Felt,
 	height uint64,
 ) error {
-	filter, err := s.handler.bcReader.EventFilter(fromAddrs, keys, s.handler.syncReader.PendingData)
+	filter, err := s.handler.bcReader.EventFilter(fromAddrs, keys, s.handler.syncReader.PreConfirmed)
 	if err != nil {
 		return err
 	}

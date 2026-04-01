@@ -106,7 +106,7 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		args.EventFilter.Keys,
-		h.syncReader.PendingData,
+		h.syncReader.PreConfirmed,
 	)
 	if err != nil {
 		return EventsChunk{}, rpccore.ErrInternal

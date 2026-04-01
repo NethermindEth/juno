@@ -55,6 +55,22 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
 }
 
+// PendingState mocks base method.
+func (m *MockSyncReader) PendingState() (core.StateReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingState")
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PendingState indicates an expected call of PendingState.
+func (mr *MockSyncReaderMockRecorder) PendingState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingState", reflect.TypeOf((*MockSyncReader)(nil).PendingState))
+}
+
 // PreConfirmed mocks base method.
 func (m *MockSyncReader) PreConfirmed() (*core.PreConfirmed, error) {
 	m.ctrl.T.Helper()
