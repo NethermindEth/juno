@@ -56,68 +56,6 @@ func (p *Pending) GetStateUpdate() *StateUpdate {
 	return p.StateUpdate
 }
 
-func (p *Pending) GetNewClasses() map[felt.Felt]ClassDefinition {
-	return p.NewClasses
-}
-
-func (p *Pending) GetCandidateTransaction() []Transaction {
-	return []Transaction{}
-}
-
-func (p *Pending) GetTransactionStateDiffs() []*StateDiff {
-	return []*StateDiff{}
-}
-
-func (p *Pending) GetPreLatest() *PreLatest {
-	return nil
-}
-
-func (p *Pending) Validate(parent *Header) bool {
-	if parent == nil {
-		return p.Block.ParentHash.Equal(&felt.Zero)
-	}
-
-	return p.Block.ParentHash.Equal(parent.Hash)
-}
-
-func (p *Pending) TransactionByHash(hash *felt.Felt) (Transaction, error) {
-	for _, tx := range p.Block.Transactions {
-		if tx.Hash().Equal(hash) {
-			return tx, nil
-		}
-	}
-
-	return nil, ErrTransactionNotFound
-}
-
-func (p *Pending) ReceiptByHash(
-	hash *felt.Felt,
-) (*TransactionReceipt, *felt.Felt, uint64, error) {
-	for _, receipt := range p.Block.Receipts {
-		if receipt.TransactionHash.Equal(hash) {
-			return receipt, p.Block.ParentHash, p.Block.Number, nil
-		}
-	}
-
-	return nil, nil, 0, ErrTransactionReceiptNotFound
-}
-
-func (p *Pending) PendingStateBeforeIndex(
-	baseState StateReader,
-	index uint,
-) (StateReader, error) {
-	return nil, ErrPendingStateBeforeIndexNotSupported
-}
-
-func (p *Pending) PendingState(baseState StateReader) StateReader {
-	return NewPendingState(
-		p.StateUpdate.StateDiff,
-		p.NewClasses,
-		baseState,
-		p.Block.Number,
-	)
-}
-
 type PreLatest Pending
 
 type PreConfirmed struct {
