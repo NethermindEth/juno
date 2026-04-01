@@ -931,7 +931,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			uint64(0), uint64(0), db.ErrKeyNotFound,
 		)
 		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).Times(2)
-		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 

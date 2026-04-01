@@ -325,7 +325,7 @@ func (h *Handler) TransactionStatus(
 		// Search pre-confirmed block for 'CANDIDATE' status
 		var txStatus *starknet.TransactionStatus
 		var err error
-		preConfirmedB, err := h.PendingData()
+		preConfirmedB, err := h.syncReader.PendingData()
 
 		if err == nil {
 			for _, txn := range preConfirmedB.GetCandidateTransaction() {
@@ -378,7 +378,7 @@ func (h *Handler) TransactionByHash(
 	responseFlags ResponseFlags,
 ) (*Transaction, *jsonrpc.Error) {
 	// Check pending data
-	if pending, err := h.PendingData(); err == nil {
+	if pending, err := h.syncReader.PendingData(); err == nil {
 		if txn, err := pending.TransactionByHash(hash); err == nil {
 			adaptedTxn := AdaptTransaction(txn, responseFlags.IncludeProofFacts)
 			return &adaptedTxn, nil
@@ -416,7 +416,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var err error
 	switch {
 	case blockID.IsPreConfirmed():
-		pending, err := h.PendingData()
+		pending, err := h.syncReader.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
@@ -520,7 +520,7 @@ func (h *Handler) TransactionReceiptByHash(
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
 ) (*TransactionReceipt, *jsonrpc.Error) {
-	pending, err := h.PendingData()
+	pending, err := h.syncReader.PendingData()
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}

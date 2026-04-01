@@ -57,7 +57,6 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-	mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
 
@@ -1074,7 +1073,6 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 		(*felt.TransactionHash)(txHash),
 	).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-	mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
 	assert.Nil(t, tx)

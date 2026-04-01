@@ -99,23 +99,8 @@ func TestNonce(t *testing.T) {
 
 	//nolint:dupl //  similar structure with class test, different endpoint.
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
-		stateDiff := core.EmptyStateDiff()
-		stateDiff.Nonces[targetAddress] = expectedNonce
-
-		preConfirmed := core.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number: 2,
-				},
-			},
-			StateUpdate: &core.StateUpdate{
-				StateDiff: &stateDiff,
-			},
-		}
-
-		mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
-		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
-			Return(mockState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
 		preConfirmedBlockID := blockIDPreConfirmed(t)
 		nonce, rpcErr := handler.Nonce(&preConfirmedBlockID, &targetAddress)

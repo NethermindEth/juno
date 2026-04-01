@@ -560,7 +560,11 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	n := &utils.Sepolia
 	chain, _ := setupTestChain(t, n, uint64(6))
 
-	handler := rpc.New(chain, nil, nil, utils.NewNopZapLogger())
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).AnyTimes()
+	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	from := felt.NewUnsafeFromString[felt.Address](
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",

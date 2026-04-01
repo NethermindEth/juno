@@ -335,7 +335,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 func (h *Handler) findAndTraceInPendingData(
 	hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	pendingData, rpcErr := h.PendingData()
+	pendingData, rpcErr := h.syncReader.PendingData()
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}

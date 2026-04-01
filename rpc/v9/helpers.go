@@ -38,7 +38,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	switch blockID.Type() {
 	case preConfirmed:
 		var pending *core.PreConfirmed
-		pending, err = h.PendingData()
+		pending, err = h.syncReader.PendingData()
 		if err == nil {
 			block = pending.GetBlock()
 		}
@@ -58,7 +58,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -72,9 +72,9 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
 	switch blockID.Type() {
 	case preConfirmed:
-		pending, err := h.PendingData()
+		pending, err := h.syncReader.PendingData()
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 				return nil, rpccore.ErrBlockNotFound
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -99,7 +99,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	switch blockID.Type() {
 	case preConfirmed:
 		var pending *core.PreConfirmed
-		pending, err = h.PendingData()
+		pending, err = h.syncReader.PendingData()
 		if err == nil {
 			header = pending.GetBlock().Header
 		}
@@ -121,7 +121,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -183,7 +183,7 @@ func (h *Handler) stateByBlockID(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		reader, closer, err = h.PendingState()
+		reader, closer, err = h.syncReader.PendingState()
 	case latest:
 		reader, closer, err = h.bcReader.HeadState()
 	case hash:
@@ -202,7 +202,7 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

@@ -192,23 +192,20 @@ func TestBlockTransactionCount(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
-		latestBlock.Hash = nil
-		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-		preConfirmed := blockIDPreConfirmed(t)
-		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
-		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-		assert.Equal(t, uint64(0), count)
-	})
-
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 		number := blockIDNumber(t, uint64(328476))
 		count, rpcErr := handler.BlockTransactionCount(&number)
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
+		preConfirmed := blockIDPreConfirmed(t)
+		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
+		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, uint64(0), count)
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
@@ -299,6 +296,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		})
 	}
 
+	mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 	n := &utils.Sepolia
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 

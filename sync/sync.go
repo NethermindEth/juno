@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
 	"go.uber.org/zap"
@@ -77,6 +78,7 @@ type Reader interface {
 
 	PendingData() (*core.PreConfirmed, error)
 	PendingBlock() *core.Block
+	PendingState() (core.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -605,11 +607,6 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 }
 
 func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
-	ptr := s.pendingData.Load()
-	if ptr == nil || *ptr == nil {
-		return nil, core.ErrPendingDataNotFound
-	}
-
 	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -618,17 +615,36 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 		head = nil
 	}
 
-	p := *ptr
-	if p.Validate(head) {
-		// Special handling: if the pending data contains a 'pre-latest' block attachment
-		// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
-		if head != nil && p.Block.Number == head.Number+1 && p.PreLatest != nil {
-			return p.Copy().WithPreLatest(nil), nil
+	ptr := s.pendingData.Load()
+	if ptr != nil && *ptr != nil {
+		p := *ptr
+		if p.Validate(head) {
+			// Special handling: if the pending data contains a 'pre-latest' block attachment
+			// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
+			if head != nil && p.Block.Number == head.Number+1 && p.PreLatest != nil {
+				return p.Copy().WithPreLatest(nil), nil
+			}
+			return p, nil
 		}
-		return p, nil
 	}
 
-	return nil, core.ErrPendingDataNotFound
+	// Fallback: no stored pending data, or stored data failed validation.
+	if head == nil {
+		return nil, core.ErrPendingDataNotFound
+	}
+	emptyPreConfirmed, err := pendingdata.MakeEmptyPreConfirmedForParent(s.blockchain, head)
+	if err != nil {
+		return nil, err
+	}
+	return &emptyPreConfirmed, nil
+}
+
+func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+	pendingData, err := s.PendingData()
+	if err != nil {
+		return nil, nil, err
+	}
+	return pendingdata.PendingState(pendingData, s.blockchain)
 }
 
 func (s *Synchronizer) PendingBlock() *core.Block {

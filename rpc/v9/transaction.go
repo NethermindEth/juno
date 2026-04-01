@@ -535,7 +535,7 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Error) {
 	// Check pending data
-	if pending, err := h.PendingData(); err == nil {
+	if pending, err := h.syncReader.PendingData(); err == nil {
 		if txn, err := pending.TransactionByHash(hash); err == nil {
 			return AdaptTransaction(txn), nil
 		}
@@ -567,7 +567,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		pending, err := h.PendingData()
+		pending, err := h.syncReader.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
@@ -615,7 +615,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
 ) (*TransactionReceipt, *jsonrpc.Error) {
-	pending, err := h.PendingData()
+	pending, err := h.syncReader.PendingData()
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
@@ -849,7 +849,7 @@ func (h *Handler) TransactionStatus(
 		// Search pre-confirmed block for 'CANDIDATE' status
 		var txStatus *starknet.TransactionStatus
 		var err error
-		preConfirmedB, err := h.PendingData()
+		preConfirmedB, err := h.syncReader.PendingData()
 
 		if err == nil {
 			for _, txn := range preConfirmedB.GetCandidateTransaction() {
