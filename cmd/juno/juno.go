@@ -249,7 +249,10 @@ const (
 		"storage layout. Once enabled, cannot be disabled."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	disableReceivedTxnStreamUsage  = "Disables the received transaction stream feature."
+	disableReceivedTxnStreamUsage  = "Disables the real-time WebSocket stream that " +
+		"notifies subscribers of new transactions as they are received by the node " +
+		"via starknet_subscribeNewTransactions. When disabled, transaction " +
+		"subscription callbacks for the RECEIVED finality status will not fire."
 )
 
 var Version string
