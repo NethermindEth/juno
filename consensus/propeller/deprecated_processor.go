@@ -32,15 +32,11 @@ const (
 	stateFinalised
 )
 
-// SendUnitFunc is called by the processor to send a PropellerUnit to a
-// specific peer. The engine provides this callback, which handles the
-// actual network I/O. The processor doesn't know or care how delivery works.
-type SendUnitFunc func(ctx context.Context, to peer.ID, unit *PropellerUnit) error
-
 // shardDelivery bundles an incoming shard with the peer that sent it,
 // so the processor can validate the sender identity.
+// todo(rdr): a better name for this
 type shardDelivery struct {
-	Unit   *PropellerUnit
+	Unit   *Unit
 	Sender peer.ID
 }
 
@@ -57,32 +53,27 @@ type shardDelivery struct {
 // The processor is deliberately simple -- it owns no locks and communicates
 // entirely through channels. All mutable state is confined to its goroutine.
 type MessageProcessor struct {
-	// Identity and configuration.
-	channel   CommitteeID
-	publisher peer.ID
-	root      MessageRoot
-	localPeer peer.ID
-	config    Config
+	// Identity
+	committeeID CommitteeID
+	publisher   peer.ID
+	root        MessageRoot
 
-	// Dependencies (injected for testability).
-	schedule  *Scheduler
-	validator *Validator
-	encoder   Encoder
+	// Config
+	timeout time.Duration
 
-	// State.
+	// Internal State.
 	state             processorState
 	shards            [][]byte // indexed by ShardIndex, nil = not yet received
-	seenShards        map[ShardIndex]bool
+	seenShards        map[ShardIndex]struct{}
 	receivedCount     int
 	signatureVerified bool
 	storedSignature   []byte // cached from the first valid unit
 	reconstructedMsg  []byte
-	myShardUnit       *PropellerUnit // the unit we are responsible for forwarding
+	myShardUnit       *Unit // the unit we are responsible for forwarding
 
 	// Channels.
 	shardCh chan shardDelivery // incoming shards from the engine
 	eventCh chan<- any         // outgoing events to the engine/application
-	sendFn  SendUnitFunc       // callback for sending units to peers
 }
 
 // NewMessageProcessor creates a processor for a specific message. The caller
@@ -108,20 +99,20 @@ func NewMessageProcessor(
 	sendFn SendUnitFunc,
 ) *MessageProcessor {
 	return &MessageProcessor{
-		channel:    channel,
-		publisher:  publisher,
-		root:       root,
-		localPeer:  localPeer,
-		config:     config,
-		schedule:   schedule,
-		validator:  validator,
-		encoder:    encoder,
-		state:      statePreConstruction,
-		shards:     make([][]byte, schedule.NumShards()),
-		seenShards: make(map[ShardIndex]bool),
-		shardCh:    shardCh,
-		eventCh:    eventCh,
-		sendFn:     sendFn,
+		committeeID: channel,
+		publisher:   publisher,
+		root:        root,
+		localPeer:   localPeer,
+		config:      config,
+		schedule:    schedule,
+		validator:   validator,
+		encoder:     encoder,
+		state:       statePreConstruction,
+		shards:      make([][]byte, schedule.NumShards()),
+		seenShards:  make(map[ShardIndex]bool),
+		shardCh:     shardCh,
+		eventCh:     eventCh,
+		sendFn:      sendFn,
 	}
 }
 
@@ -131,38 +122,39 @@ func NewMessageProcessor(
 // The select on shardCh vs timer is the core of the state machine. We
 // intentionally use a single goroutine to avoid any need for synchronisation
 // on the processor's internal state.
-func (p *MessageProcessor) Run(ctx context.Context) {
-	timer := time.NewTimer(p.config.StaleMessageTimeout)
+func (p *MessageProcessor) Run(ctx context.Context) error {
+	timer := time.NewTimer(p.timeout)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
-
-		case delivery, ok := <-p.shardCh:
-			if !ok {
-				// Channel closed by engine; processor is being torn down.
-				return
-			}
-			if p.state == stateFinalised {
-				return
-			}
-			p.handleShard(ctx, delivery)
-			if p.state == stateFinalised {
-				return
-			}
-
+			return ctx.Err()
 		case <-timer.C:
 			if p.state != stateFinalised {
 				p.emitEvent(EventMessageTimeout{
-					Channel:   p.channel,
+					Channel:   p.committeeID,
 					Publisher: p.publisher,
 					Root:      p.root,
 				})
 				p.state = stateFinalised
 			}
-			return
+			// throw an error processor is stopped after timeout?
+			return nil
+
+		case delivery, ok := <-p.shardCh:
+			if !ok {
+				// Channel closed by engine; processor is being shot down.
+				return nil
+			}
+			if p.state == stateFinalised {
+				return nil
+			}
+			p.handleShard(ctx, delivery)
+			if p.state == stateFinalised {
+				return nil
+			}
+
 		}
 	}
 }
@@ -257,8 +249,8 @@ func (p *MessageProcessor) handlePreConstruction(ctx context.Context) {
 	copy(leaves, shardsCopy)
 	_, proofs := BuildMerkleTree(leaves)
 
-	p.myShardUnit = &PropellerUnit{
-		CommitteeID: p.channel,
+	p.myShardUnit = &Unit{
+		CommitteeID: p.committeeID,
 		Publisher:   p.publisher,
 		MerkleRoot:  p.root,
 		Signature:   p.storedSignature,

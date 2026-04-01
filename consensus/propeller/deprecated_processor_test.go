@@ -27,7 +27,7 @@ type processorTestEnv struct {
 
 type sentUnit struct {
 	To   peer.ID
-	Unit *PropellerUnit
+	Unit *Unit
 }
 
 func newProcessorTestEnv(t *testing.T, n int) *processorTestEnv {
@@ -60,7 +60,7 @@ func newProcessorTestEnv(t *testing.T, n int) *processorTestEnv {
 
 // sendFunc records sent units for later inspection.
 func (env *processorTestEnv) sendFunc() SendUnitFunc {
-	return func(_ context.Context, to peer.ID, unit *PropellerUnit) error {
+	return func(_ context.Context, to peer.ID, unit *Unit) error {
 		env.sentMu.Lock()
 		defer env.sentMu.Unlock()
 		env.sentUnits = append(env.sentUnits, sentUnit{To: to, Unit: unit})
@@ -72,7 +72,7 @@ func (env *processorTestEnv) sendFunc() SendUnitFunc {
 // the signed units and root.
 func (env *processorTestEnv) encodeTestMessage(
 	t *testing.T, publisher peer.ID, msg []byte,
-) ([]PropellerUnit, MessageRoot) {
+) ([]Unit, MessageRoot) {
 	t.Helper()
 
 	units, root, err := EncodeMessage(msg, env.schedule, env.encoder)
@@ -334,7 +334,7 @@ func TestProcessor_DuplicateShardRejected(t *testing.T) {
 	}()
 
 	// Find a shard not from localPeer.
-	var targetUnit PropellerUnit
+	var targetUnit Unit
 	var targetSender peer.ID
 	for i, unit := range units {
 		sender, err := env.schedule.PeerForShard(publisher, ShardIndex(i))
