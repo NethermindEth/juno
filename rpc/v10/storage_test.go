@@ -218,9 +218,25 @@ func TestStorageAt(t *testing.T) {
 		})
 
 		t.Run("blockID - pre_confirmed", func(t *testing.T) {
-			mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-			mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
-			mockState.EXPECT().ContractStorage(&targetAddressFelt, &targetSlot).Return(expectedStorage, nil)
+			preConfirmedStateDiff := core.EmptyStateDiff()
+			preConfirmedStateDiff.
+				StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
+			preConfirmedStateDiff.
+				DeployedContracts[targetAddressFelt] = felt.NewFromUint64[felt.Felt](123456789)
+
+			preConfirmed := core.PreConfirmed{
+				Block: &core.Block{
+					Header: &core.Header{
+						Number: 2,
+					},
+				},
+				StateUpdate: &core.StateUpdate{
+					StateDiff: &preConfirmedStateDiff,
+				},
+			}
+			mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+			mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+				Return(mockState, nopCloser, nil)
 			preConfirmedID := rpc.BlockIDPreConfirmed()
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, noFlags)
 			require.Nil(t, rpcErr)
@@ -326,10 +342,28 @@ func TestStorageAt(t *testing.T) {
 			preConfirmedBlockNumber := uint64(3)
 			lastUpdateBlockNum := uint64(1)
 
+			preConfirmed := core.PreConfirmed{
+				Block: &core.Block{
+					Header: &core.Header{
+						Number: preConfirmedBlockNumber,
+					},
+				},
+				StateUpdate: &core.StateUpdate{},
+			}
+
 			t.Run(
 				"no storage update for the target key - returns latest block number",
 				func(t *testing.T) {
-					mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+					stateDiff := core.EmptyStateDiff()
+					stateDiff.
+						StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{
+						*felt.NewRandom[felt.Felt](): felt.NewRandom[felt.Felt](), // unrelated key
+					}
+					preConfirmed.StateUpdate.StateDiff = &stateDiff
+
+					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
+						Return(mockState, nopCloser, nil)
 					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
 					mockState.EXPECT().ContractStorage(
 						&targetAddressFelt,
@@ -349,15 +383,15 @@ func TestStorageAt(t *testing.T) {
 			t.Run(
 				"with storage update for the target key - returns pre_confirmed block number",
 				func(t *testing.T) {
-					mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
-					mockState.EXPECT().ContractStorage(
-						&targetAddressFelt,
-						&targetSlot,
-					).Return(expectedStorage, nil)
-					mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
-						Return(preConfirmedBlockNumber, nil)
+					stateDiff := core.EmptyStateDiff()
+					stateDiff.
+						StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
+					preConfirmed.StateUpdate.StateDiff = &stateDiff
 
+					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
+						Return(mockState, nopCloser, nil)
+					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
 					preConfirmedID := rpc.BlockIDPreConfirmed()
 					result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, flags)
 					require.Nil(t, rpcErr)
@@ -371,16 +405,16 @@ func TestStorageAt(t *testing.T) {
 				func(t *testing.T) {
 					newDeployedContract := felt.NewRandom[felt.Felt]()
 
-					mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-					mockState.EXPECT().ContractClassHash(newDeployedContract).Return(felt.Felt{}, nil)
-					mockState.EXPECT().ContractStorage(
-						newDeployedContract,
-						&targetSlot,
-					).Return(expectedStorage, nil)
-					mockState.EXPECT().ContractStorageLastUpdatedBlock(
-						(*felt.Address)(newDeployedContract),
-						&targetSlot,
-					).Return(preConfirmedBlockNumber, nil)
+					stateDiff := core.EmptyStateDiff()
+					stateDiff.
+						StorageDiffs[*newDeployedContract] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
+					stateDiff.
+						DeployedContracts[*newDeployedContract] = felt.NewFromUint64[felt.Felt](123456789)
+					preConfirmed.StateUpdate.StateDiff = &stateDiff
+
+					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
+						Return(mockState, nopCloser, nil)
 
 					preConfirmedID := rpc.BlockIDPreConfirmed()
 					result, rpcErr := handler.StorageAt(
@@ -400,13 +434,14 @@ func TestStorageAt(t *testing.T) {
 				func(t *testing.T) {
 					newDeployedContract := felt.NewRandom[felt.Felt]()
 
-					mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-					mockState.EXPECT().ContractClassHash(newDeployedContract).Return(felt.Felt{}, nil)
-					mockState.EXPECT().ContractStorage(newDeployedContract, &targetSlot).Return(felt.Zero, nil)
-					mockState.EXPECT().ContractStorageLastUpdatedBlock(
-						(*felt.Address)(newDeployedContract),
-						&targetSlot,
-					).Return(uint64(0), nil)
+					stateDiff := core.EmptyStateDiff()
+					stateDiff.
+						DeployedContracts[*newDeployedContract] = felt.NewFromUint64[felt.Felt](123456789)
+					preConfirmed.StateUpdate.StateDiff = &stateDiff
+
+					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
+						Return(mockState, nopCloser, nil)
 
 					preConfirmedID := rpc.BlockIDPreConfirmed()
 					result, rpcErr := handler.StorageAt(
