@@ -252,13 +252,10 @@ func AdaptReceiptWithBlockInfo(
 ) *TransactionReceipt {
 	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
 
-	// Return block number for canonical, pre_latest and pre_confirmed block
-	shouldHaveBlockNumber := blockHash != nil || finalityStatus == TxnPreConfirmed
-	if shouldHaveBlockNumber {
-		adaptedReceipt.BlockNumber = &blockNumber
-	}
-
+	// Assign block number for canonical, pre_latest and pre_confirmed block
+	adaptedReceipt.BlockNumber = &blockNumber
 	adaptedReceipt.BlockHash = blockHash
+
 	return adaptedReceipt
 }
 

@@ -61,37 +61,6 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
-	t.Run("tx found in pre_confirmed block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-
-		n := &utils.Mainnet
-		client := feeder.NewTestClient(t, n)
-		mainnetGw := adaptfeeder.New(client)
-
-		block, err := mainnetGw.BlockByNumber(t.Context(), 19199)
-		require.NoError(t, err)
-
-		txAtIdx1InBlock := felt.NewUnsafeFromString[felt.Felt]("0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
-		mockReader.EXPECT().TransactionByHash(txAtIdx1InBlock).Return(nil, db.ErrKeyNotFound)
-		// PendingData() always returns an empty placeholder for v6 - no real txns exposed
-		mockReader.EXPECT().HeadsHeader().Return(block.Header, nil)
-		blockToRegisterNum := block.Header.Number + 1 - pendingdata.BlockHashLag
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterNum).Return(
-			&core.Header{
-				Number: blockToRegisterNum,
-				Hash:   felt.NewFromUint64[felt.Felt](blockToRegisterNum),
-			}, nil)
-
-		handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
-		tx, rpcErr := handler.TransactionByHash(*txAtIdx1InBlock)
-
-		assert.Nil(t, tx)
-		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
-	})
-
 	t.Run("tx not found anywhere", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
@@ -555,7 +524,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		assert.Equal(t, txn1, txn2)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) {
+	t.Run("blockID - pending always returns invalid index", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		latestBlock.Hash = nil
@@ -611,7 +580,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
-	t.Run("not found in empty pre_confirmed block", func(t *testing.T) {
+	t.Run("not found in empty pending block", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 

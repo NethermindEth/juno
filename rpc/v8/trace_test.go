@@ -395,12 +395,11 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
-	t.Run("pre_confirmed block", func(t *testing.T) {
-		// After deprecating old Pending type, PendingData() always returns an empty placeholder block.
-		// Tracing a tx by hash where the tx is in a pre_confirmed block returns ErrTxnHashNotFound.
+	t.Run("transaction not found in pending block", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
 
-		// Receipt returns block hash = nil, indicating it is in the pending block
+		// Receipt returns block hash = nil, indicating it is in the pending block,
+		// but PendingData() returns an empty placeholder so the tx is not found.
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), nil)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
@@ -582,21 +581,14 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, log)
 
-	t.Run("pre_confirmed block", func(t *testing.T) {
-		// After deprecating old Pending type, PendingData() always returns an empty placeholder block.
-		// TraceBlockTransactions("pending") traces the empty placeholder, yielding no traces.
-		preConfirmedParentHash := felt.NewUnsafeFromString[felt.Felt]("0x0C3")
-
-		// HeadsHeader() is called by PendingData(). The empty pending block has
-		// ParentHash = latestHeader.Hash = preConfirmedParentHash, which is then used
-		// by traceBlockTransactionWithVM via StateAtBlockHash.
-		latestHeader := &core.Header{Hash: preConfirmedParentHash, Number: 0}
+	t.Run("pending block with no transactions", func(t *testing.T) {
+		// PendingData() returns an empty placeholder block, so tracing it yields no traces.
+		latestHash := felt.NewUnsafeFromString[felt.Felt]("0x0C3")
+		latestHeader := &core.Header{Hash: latestHash, Number: 0}
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 
 		headState := mocks.NewMockStateReader(mockCtrl)
-		// traceBlockTransactionWithVM calls
-		// StateAtBlockHash(emptyBlock.ParentHash = latestHeader.Hash = 0x0C3)
-		mockReader.EXPECT().StateAtBlockHash(preConfirmedParentHash).
+		mockReader.EXPECT().StateAtBlockHash(latestHash).
 			Return(headState, nopCloser, nil).Times(1)
 		// PendingState() in v8 always returns HeadState
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
