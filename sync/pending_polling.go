@@ -57,11 +57,11 @@ func shouldPreservePendingData(
 // or the attachment was already equal.
 func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *core.PreLatest) bool {
 	curPtr := s.pendingData.Load()
-	if curPtr == nil || *curPtr == nil {
+	if curPtr == nil {
 		return false
 	}
 
-	pc := *curPtr
+	pc := curPtr
 
 	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {
 		// nil or different height stored; do not touch.
@@ -77,7 +77,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 	next := pc.Copy()
 	next.WithPreLatest(preLatest)
 
-	return s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[*core.PreConfirmed](next))
+	return s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[core.PreConfirmed](*next))
 }
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height.
@@ -102,14 +102,14 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 
 	existingPtr := s.pendingData.Load()
 
-	if existingPtr != nil && shouldPreservePendingData(*existingPtr, p, head) {
+	if existingPtr != nil && shouldPreservePendingData(existingPtr, p, head) {
 		_ = s.UpdatePreLatestAttachment(p.GetBlock().Number, p.PreLatest)
 		return false, nil
 	}
 
 	return s.pendingData.CompareAndSwap(
 		existingPtr,
-		utils.HeapPtr[*core.PreConfirmed](p),
+		utils.HeapPtr[core.PreConfirmed](*p),
 	), nil
 }
 

@@ -257,5 +257,5 @@ func TestPendingDataIsPreConfirmedAfterSync(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, pendingData.Validate(head), "pending data must be valid for the current head")
 
-	require.NotNil(t, synchronizer.PendingBlock())
+	require.NotNil(t, pendingData.GetBlock())
 }

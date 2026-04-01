@@ -528,12 +528,12 @@ func TestStorePreConfirmed(t *testing.T) {
 	t.Run("overwrites if existing pending is invalid", func(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		invalidPreConfirmed := &core.PreConfirmed{
+		invalidPreConfirmed := core.PreConfirmed{
 			Block:       &core.Block{Header: &core.Header{Number: 0}},
 			StateUpdate: &core.StateUpdate{},
 		}
 		// Insert invalid pending (simulate old data)
-		s.pendingData.Store(utils.HeapPtr[*core.PreConfirmed](invalidPreConfirmed))
+		s.pendingData.Store(utils.HeapPtr[core.PreConfirmed](invalidPreConfirmed))
 		pc := &core.PreConfirmed{
 			Block:       &core.Block{Header: &core.Header{Number: head.Number + 1}},
 			StateUpdate: &core.StateUpdate{},

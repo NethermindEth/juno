@@ -77,7 +77,6 @@ type Reader interface {
 	SubscribePreLatest() PreLatestDataSubscription
 
 	PendingData() (*core.PreConfirmed, error)
-	PendingBlock() *core.Block
 	PendingState() (core.StateReader, func() error, error)
 }
 
@@ -108,10 +107,6 @@ func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
 	return PreLatestDataSubscription{feed.New[*core.PreLatest]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) PendingBlock() *core.Block {
-	return nil
-}
-
 func (n *NoopSynchronizer) PendingData() (*core.PreConfirmed, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
@@ -136,7 +131,7 @@ type Synchronizer struct {
 	log      utils.StructuredLogger
 	listener EventListener
 
-	pendingData              atomic.Pointer[*core.PreConfirmed]
+	pendingData              atomic.Pointer[core.PreConfirmed]
 	preLatestPollInterval    time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -616,7 +611,7 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 	}
 
 	ptr := s.pendingData.Load()
-	if ptr != nil && *ptr != nil {
+	if ptr != nil {
 		p := *ptr
 		if p.Validate(head) {
 			// Special handling: if the pending data contains a 'pre-latest' block attachment
@@ -624,7 +619,7 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 			if head != nil && p.Block.Number == head.Number+1 && p.PreLatest != nil {
 				return p.Copy().WithPreLatest(nil), nil
 			}
-			return p, nil
+			return &p, nil
 		}
 	}
 
@@ -645,12 +640,4 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 	return pendingdata.PendingState(pendingData, s.blockchain)
-}
-
-func (s *Synchronizer) PendingBlock() *core.Block {
-	pendingData, err := s.PendingData()
-	if err != nil {
-		return nil
-	}
-	return pendingData.GetBlock()
 }
