@@ -74,7 +74,7 @@ type MigratedCompiledClass struct {
 func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return StateUpdate{}, rpccore.ErrBlockNotFound
 		}
 		return StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)

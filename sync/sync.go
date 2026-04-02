@@ -618,7 +618,7 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 
 	// Fallback: no stored pending data, or stored data failed validation.
 	if head == nil {
-		return nil, core.ErrPendingDataNotFound
+		return nil, db.ErrKeyNotFound
 	}
 	emptyPreConfirmed, err := pendingdata.MakeEmptyPreConfirmedForParent(s.blockchain, head)
 	if err != nil {

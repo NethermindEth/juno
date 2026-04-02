@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/sync/pendingdata"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"go.uber.org/zap"
 )
@@ -57,9 +56,6 @@ func shouldPreservePendingData(
 // or the attachment was already equal.
 func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *core.PreLatest) bool {
 	pc := s.pendingData.Load()
-	if pc == nil {
-		return false
-	}
 
 	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {
 		// nil or different height stored; do not touch.
@@ -75,7 +71,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 	next := pc.Copy()
 	next.WithPreLatest(preLatest)
 
-	return s.pendingData.CompareAndSwap(pc, utils.HeapPtr[core.PreConfirmed](*next))
+	return s.pendingData.CompareAndSwap(pc, next)
 }
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height.
@@ -105,10 +101,7 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 		return false, nil
 	}
 
-	return s.pendingData.CompareAndSwap(
-		existingPtr,
-		utils.HeapPtr[core.PreConfirmed](*p),
-	), nil
+	return s.pendingData.CompareAndSwap(existingPtr, p), nil
 }
 
 // storeEmptyPreConfirmed creates a baseline pre_confirmed for head+1 and stores it.
