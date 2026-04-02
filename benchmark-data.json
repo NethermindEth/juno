@@ -1954,5 +1954,11 @@
     "block_target": 800000,
     "duration_seconds": 70202.764803,
     "timestamp": "2026-04-01T05:38:37.799240+00:00"
+  },
+  {
+    "version": "v0.15.20-rc.0-27-gd80443413",
+    "block_target": 800000,
+    "duration_seconds": 70142.82046,
+    "timestamp": "2026-04-02T01:10:42.781504+00:00"
   }
 ]
