@@ -394,10 +394,41 @@ func TestTransactionAndReceipt(t *testing.T) {
 		}
 	})
 
-	t.Run("TransactionsByBlockNumber returns empty for non-existent block", func(t *testing.T) {
-		txns, err := chain.TransactionsByBlockNumber(32)
+	t.Run("TransactionsByBlockNumber returns error for non-existent block", func(t *testing.T) {
+		_, err := chain.TransactionsByBlockNumber(32)
+		require.Error(t, err)
+	})
+
+	t.Run("TransactionsByBlockNumber succeeds for block with no transactions", func(t *testing.T) {
+		// Store a synthetic block with no transactions
+		head, err := chain.Head()
 		require.NoError(t, err)
-		assert.Empty(t, txns)
+		emptyBlock := &core.Block{
+			Header: &core.Header{
+				Number:           3,
+				ParentHash:       head.Hash,
+				Hash:             felt.NewRandom[felt.Felt](),
+				GlobalStateRoot:  head.GlobalStateRoot,
+				ProtocolVersion:  head.ProtocolVersion,
+				SequencerAddress: &felt.Zero,
+				EventsBloom:      core.EventsBloom(nil),
+				L1GasPriceETH:    &felt.Zero,
+				L1GasPriceSTRK:   &felt.Zero,
+			},
+			Transactions: []core.Transaction{},
+			Receipts:     []*core.TransactionReceipt{},
+		}
+		emptySU := &core.StateUpdate{
+			OldRoot:   head.GlobalStateRoot,
+			NewRoot:   head.GlobalStateRoot,
+			BlockHash: emptyBlock.Hash,
+			StateDiff: &core.StateDiff{},
+		}
+		require.NoError(t, chain.Store(emptyBlock, &core.BlockCommitments{}, emptySU, nil))
+
+		txns, err := chain.TransactionsByBlockNumber(3)
+		require.NoError(t, err)
+		require.Empty(t, txns)
 	})
 
 	t.Run("TransactionsByBlockNumber returns all transactions for a block", func(t *testing.T) {
@@ -773,10 +804,9 @@ func TestRevert(t *testing.T) {
 		_, err := chain.TransactionByBlockNumberAndIndex(revertedHeight, 0)
 		require.Error(t, err)
 	})
-	t.Run("TransactionsByBlockNumber should return empty for reverted height", func(t *testing.T) {
-		txns, err := chain.TransactionsByBlockNumber(revertedHeight)
-		require.NoError(t, err)
-		assert.Empty(t, txns)
+	t.Run("TransactionsByBlockNumber should fail with reverted height", func(t *testing.T) {
+		_, err := chain.TransactionsByBlockNumber(revertedHeight)
+		require.Error(t, err)
 	})
 
 	require.NoError(t, chain.RevertHead())
