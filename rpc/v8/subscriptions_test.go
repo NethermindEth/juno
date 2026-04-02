@@ -335,7 +335,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(
-				t, conn, id, txHash, TxnStatusRejected, 0, "SOME_ERROR_CODE: Description of the error",
+				t,
+				conn,
+				id,
+				txHash,
+				TxnStatusRejected,
+				0,
+				"SOME_ERROR_CODE: Description of the error",
 			)
 		})
 
