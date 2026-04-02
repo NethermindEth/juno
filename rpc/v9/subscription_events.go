@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -42,7 +41,7 @@ func (h *Handler) SubscribeEvents(
 }
 
 type SubscriptionEmittedEvent struct {
-	rpcv6.EmittedEvent
+	EmittedEvent
 	FinalityStatus TxnFinalityStatus `json:"finality_status"`
 }
 
@@ -317,11 +316,11 @@ func (s *eventSubscriberState) sendEventWithoutDuplicate(
 	}
 	s.sentCache.Put(blockNum, &sentEvent, &finalityStatus)
 
-	emittedEvent := rpcv6.EmittedEvent{
+	emittedEvent := EmittedEvent{
 		BlockNumber:     event.BlockNumber,
 		BlockHash:       event.BlockHash,
 		TransactionHash: event.TransactionHash,
-		Event: &rpcv6.Event{
+		Event: &Event{
 			From: event.From,
 			Keys: event.Keys,
 			Data: event.Data,

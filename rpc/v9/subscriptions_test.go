@@ -20,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -2721,8 +2720,8 @@ func createTestEvents(
 				EventIndex:       uint(i),
 			})
 			responses = append(responses, SubscriptionEmittedEvent{
-				EmittedEvent: rpcv6.EmittedEvent{
-					Event: &rpcv6.Event{
+				EmittedEvent: EmittedEvent{
+					Event: &Event{
 						From: event.From,
 						Keys: event.Keys,
 						Data: event.Data,

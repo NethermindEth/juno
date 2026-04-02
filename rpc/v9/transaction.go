@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
@@ -339,7 +338,7 @@ type TransactionReceipt struct {
 	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
 	BlockNumber        *uint64             `json:"block_number,omitempty"`
 	MessagesSent       []*MsgToL1          `json:"messages_sent"`
-	Events             []*rpcv6.Event      `json:"events"`
+	Events             []*Event            `json:"events"`
 	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
 	RevertReason       string              `json:"revert_reason,omitempty"`
 	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
@@ -1004,9 +1003,9 @@ func AdaptReceipt(
 		}
 	}
 
-	events := make([]*rpcv6.Event, len(receipt.Events))
+	events := make([]*Event, len(receipt.Events))
 	for idx, event := range receipt.Events {
-		events[idx] = &rpcv6.Event{
+		events[idx] = &Event{
 			From: event.From,
 			Keys: event.Keys,
 			Data: event.Data,
