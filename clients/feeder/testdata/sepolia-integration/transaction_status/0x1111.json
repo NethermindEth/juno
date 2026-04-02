@@ -2,5 +2,8 @@
     "tx_status": "REJECTED",
     "finality_status": "RECEIVED",
     "execution_status": "REJECTED",
-    "block_hash": "0x01010101"
+    "tx_failure_reason": {
+        "code": "SOME_ERROR_CODE",
+        "error_message": "Description of the error"
+    }
 }

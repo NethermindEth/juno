@@ -46,6 +46,60 @@ func TestUnmarshalFinalityStatus(t *testing.T) {
 	require.ErrorContains(t, json.Unmarshal([]byte(`"ABC"`), fs), "unknown FinalityStatus")
 }
 
+func TestTransactionFailureReasonString(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason starknet.TransactionFailureReason
+		want   string
+	}{
+		{
+			name:   "both empty",
+			reason: starknet.TransactionFailureReason{},
+			want:   "",
+		},
+		{
+			name: "code and message",
+			reason: starknet.TransactionFailureReason{
+				Code:    "ERROR_CODE",
+				Message: "something went wrong",
+			},
+			want: "ERROR_CODE: something went wrong",
+		},
+		{
+			name: "only code",
+			reason: starknet.TransactionFailureReason{
+				Code: "ERROR_CODE",
+			},
+			want: "ERROR_CODE: ",
+		},
+		{
+			name: "only message",
+			reason: starknet.TransactionFailureReason{
+				Message: "something went wrong",
+			},
+			want: ": something went wrong",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.reason.String())
+		})
+	}
+
+	t.Run("should be omitted in TransactionStatus if empty", func(t *testing.T) {
+		var status starknet.TransactionStatus
+		raw, err := json.Marshal(status)
+		require.NoError(t, err)
+
+		var tempMap map[string]json.RawMessage
+		err = json.Unmarshal(raw, &tempMap)
+		require.NoError(t, err)
+
+		_, ok := tempMap["tx_failure_reason"]
+		assert.False(t, ok)
+	})
+}
+
 func TestResourceMarshalText(t *testing.T) {
 	tests := []struct {
 		name        string

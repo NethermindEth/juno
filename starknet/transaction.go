@@ -187,12 +187,6 @@ type Transaction struct {
 	ProofFacts            *[]felt.Felt                 `json:"proof_facts,omitempty"`
 }
 
-// Deprecated: Use TransactionStatus with Client.TransactionStatus() instead.
-type TransactionFailureReason struct {
-	Code    string `json:"code"`
-	Message string `json:"error_message"`
-}
-
 // Deprecated: Use TransactionStatus with Client.DeprecatedTransactionStatus() instead.
 type DeprecatedTransactionStatus struct {
 	Status           string                    `json:"status"`
@@ -208,11 +202,27 @@ type DeprecatedTransactionStatus struct {
 
 // TransactionStatus represents the response from the get_transaction_status endpoint.
 type TransactionStatus struct {
-	TxStatus        string          `json:"tx_status"`
-	FinalityStatus  FinalityStatus  `json:"finality_status"`
-	ExecutionStatus ExecutionStatus `json:"execution_status"`
-	BlockHash       *felt.Felt      `json:"block_hash"`
-	TxRevertReason  string          `json:"tx_revert_reason"`
+	TxStatus        string                   `json:"tx_status"`
+	FinalityStatus  FinalityStatus           `json:"finality_status"`
+	ExecutionStatus ExecutionStatus          `json:"execution_status"`
+	BlockHash       *felt.Felt               `json:"block_hash"`
+	TxRevertReason  string                   `json:"tx_revert_reason,omitempty"`
+	TxFailureReason TransactionFailureReason `json:"tx_failure_reason,omitzero"`
+}
+
+// TransactionFailureReason represents the failure reason of a transaction
+// returned by the feeder.
+type TransactionFailureReason struct {
+	Code    string `json:"code"`
+	Message string `json:"error_message"`
+}
+
+// String returns the string representation of the TxFailureReason.
+func (tf TransactionFailureReason) String() string {
+	if tf.Code == "" && tf.Message == "" {
+		return ""
+	}
+	return tf.Code + ": " + tf.Message
 }
 
 type Event struct {

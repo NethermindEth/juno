@@ -1542,7 +1542,8 @@ func TestTransactionStatus(t *testing.T) {
 
 		status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
 		require.Nil(t, rpcErr)
-		require.Equal(t, status.Finality, rpc.TxnStatusRejected)
+		assert.Equal(t, rpc.TxnStatusRejected, status.Finality)
+		assert.Equal(t, "SOME_ERROR_CODE: Description of the error", status.FailureReason)
 	})
 }
 

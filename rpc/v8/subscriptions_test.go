@@ -334,7 +334,15 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				(*felt.TransactionHash)(txHash),
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
-			assertNextTxnStatus(t, conn, id, txHash, TxnStatusRejected, 0, "")
+			assertNextTxnStatus(
+				t,
+				conn,
+				id,
+				txHash,
+				TxnStatusRejected,
+				0,
+				"SOME_ERROR_CODE: Description of the error",
+			)
 		})
 
 		t.Run("accepted on L1", func(t *testing.T) {
