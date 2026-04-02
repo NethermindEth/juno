@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type FeeUnit byte
@@ -297,8 +297,18 @@ func (h *Handler) EstimateFee(
 	return feeEstimates, httpHeader, nil
 }
 
+type MsgFromL1 struct {
+	// The address of the L1 contract sending the message.
+	From common.Address `json:"from_address" validate:"required"`
+	// The address of the L2 contract receiving the message.
+	To felt.Felt `json:"to_address" validate:"required"`
+	// The payload of the message.
+	Payload  []felt.Felt `json:"payload" validate:"required"`
+	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
+}
+
 func (h *Handler) EstimateMessageFee(
-	ctx context.Context, msg *rpcv6.MsgFromL1, id *BlockID,
+	ctx context.Context, msg *MsgFromL1, id *BlockID,
 ) (FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
