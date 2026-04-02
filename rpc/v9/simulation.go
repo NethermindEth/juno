@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
@@ -73,7 +72,7 @@ func (h *Handler) SimulateTransactions(
 	ctx context.Context,
 	id *BlockID,
 	transactions BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
 }
@@ -82,12 +81,12 @@ func (h *Handler) simulateTransactions(
 	ctx context.Context,
 	id *BlockID,
 	transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
-	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
+	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")

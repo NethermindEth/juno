@@ -274,14 +274,14 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 func (h *Handler) EstimateFee(
 	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 	id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
 		ctx,
 		id,
 		broadcastedTxns.Data,
-		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		append(simulationFlags, SkipFeeChargeFlag),
 		true,
 		true,
 	)
