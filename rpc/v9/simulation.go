@@ -16,9 +16,39 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
+
+type SimulationFlag int
+
+const (
+	SkipValidateFlag SimulationFlag = iota + 1
+	SkipFeeChargeFlag
+)
+
+var RPCVersion3Value = felt.Felt(fp.Element(
+	[4]uint64{
+		18446744073709551521,
+		18446744073709551615,
+		18446744073709551615,
+		576460752303421872,
+	},
+))
+
+func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"SKIP_VALIDATE"`:
+		*s = SkipValidateFlag
+	case `"SKIP_FEE_CHARGE"`:
+		*s = SkipFeeChargeFlag
+	default:
+		err = fmt.Errorf("unknown simulation flag %q", flag)
+	}
+
+	return err
+}
 
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`

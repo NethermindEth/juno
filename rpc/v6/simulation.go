@@ -13,7 +13,7 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/crate-crypto/go-ipa/bandersnatch/fp"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 type SimulationFlag int
