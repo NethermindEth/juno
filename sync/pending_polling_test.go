@@ -323,7 +323,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 	})
 }
 
-func TestRunPreConfirmedPhase(t *testing.T) {
+func TestPollPendingData(t *testing.T) {
 	testDB := memory.New()
 	bc := blockchain.New(testDB, &utils.Sepolia)
 	client := feeder.NewTestClient(t, &utils.Sepolia)
@@ -362,16 +362,12 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 	sub := s.preConfirmedDataFeed.SubscribeKeepLast()
 	defer sub.Unsubscribe()
 
-	// Create a heads subscription used by runPreConfirmedPhase
-	headsSub := s.newHeads.SubscribeKeepLast()
-	defer headsSub.Unsubscribe()
-
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 
 	var wg stdsync.WaitGroup
 	wg.Go(func() {
-		s.runPreConfirmedPhase(ctx, headsSub)
+		s.pollPendingData(ctx)
 	})
 	defer wg.Wait()
 

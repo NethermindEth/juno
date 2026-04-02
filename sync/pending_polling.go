@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"go.uber.org/zap"
 )
@@ -27,7 +26,7 @@ func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 	return highest.Number < blockNumber
 }
 
-// Returns true if existing pendingData is valid for head and incoming is not richer than existing.
+// Returns true if existing preConfirmed is valid for head and incoming is not richer than existing.
 // Otherwise returns false.
 func shouldPreservePreConfirmed(
 	existingPending *core.PreConfirmed,
@@ -334,8 +333,16 @@ func (s *Synchronizer) handlePreConfirmed(
 	}
 }
 
-// runPreConfirmedPhase coordinates baselines and final storage.
-func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.Subscription[*core.Block]) {
+// pollPendingData coordinates pre_latest and pre_confirmed polling.
+func (s *Synchronizer) pollPendingData(ctx context.Context) {
+	if s.preLatestPollInterval == 0 || s.preConfirmedPollInterval == 0 {
+		s.log.Info("Pending data polling is disabled")
+		return
+	}
+
+	headsSub := s.newHeads.SubscribeKeepLast()
+	defer headsSub.Unsubscribe()
+
 	preLatestCh := make(chan *core.PreLatest, 1)
 	preConfirmedCh := make(chan *core.PreConfirmed, 1)
 	var preConfirmedBlockNumberToPoll atomic.Uint64
@@ -370,17 +377,4 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 			s.handlePreConfirmed(pc, stagedPreLatest)
 		}
 	}
-}
-
-// pollPendingData coordinates pre_latest and pre_confirmed polling.
-func (s *Synchronizer) pollPendingData(ctx context.Context) {
-	if s.preLatestPollInterval == 0 || s.preConfirmedPollInterval == 0 {
-		s.log.Info("Pending data polling is disabled")
-		return
-	}
-
-	headsSub := s.newHeads.SubscribeKeepLast()
-	defer headsSub.Unsubscribe()
-
-	s.runPreConfirmedPhase(ctx, headsSub)
 }
