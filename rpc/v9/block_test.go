@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -25,35 +25,35 @@ func TestBlockIDMarshalling(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
 		blockIDJSON string
-		checkFunc   func(*rpcv9.BlockID) bool
+		checkFunc   func(*rpc.BlockID) bool
 	}{
 		"latest": {
 			blockIDJSON: `"latest"`,
-			checkFunc: func(blockID *rpcv9.BlockID) bool {
+			checkFunc: func(blockID *rpc.BlockID) bool {
 				return blockID.IsLatest()
 			},
 		},
 		"pre_confirmed": {
 			blockIDJSON: `"pre_confirmed"`,
-			checkFunc: func(blockID *rpcv9.BlockID) bool {
+			checkFunc: func(blockID *rpc.BlockID) bool {
 				return blockID.IsPreConfirmed()
 			},
 		},
 		"number": {
 			blockIDJSON: `{ "block_number" : 123123 }`,
-			checkFunc: func(blockID *rpcv9.BlockID) bool {
+			checkFunc: func(blockID *rpc.BlockID) bool {
 				return blockID.IsNumber() && blockID.Number() == 123123
 			},
 		},
 		"hash": {
 			blockIDJSON: `{ "block_hash" : "0x123" }`,
-			checkFunc: func(blockID *rpcv9.BlockID) bool {
+			checkFunc: func(blockID *rpc.BlockID) bool {
 				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64[felt.Felt](0x123)
 			},
 		},
 		"l1_accepted": {
 			blockIDJSON: `"l1_accepted"`,
-			checkFunc: func(blockID *rpcv9.BlockID) bool {
+			checkFunc: func(blockID *rpc.BlockID) bool {
 				return blockID.IsL1Accepted()
 			},
 		},
@@ -61,7 +61,7 @@ func TestBlockIDMarshalling(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			var blockID rpcv9.BlockID
+			var blockID rpc.BlockID
 			require.NoError(t, blockID.UnmarshalJSON([]byte(test.blockIDJSON)))
 			assert.True(t, test.checkFunc(&blockID))
 		})
@@ -89,10 +89,69 @@ func TestBlockIDMarshalling(t *testing.T) {
 	for name, test := range failingTests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			var blockID rpcv9.BlockID
+			var blockID rpc.BlockID
 			assert.Error(t, blockID.UnmarshalJSON([]byte(test.blockIDJSON)))
 		})
 	}
+}
+
+func TestBlockNumber(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, nil)
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		expectedHeight := uint64(0)
+		mockReader.EXPECT().Height().Return(expectedHeight, errors.New("empty blockchain"))
+
+		num, err := handler.BlockNumber()
+		assert.Equal(t, expectedHeight, num)
+		assert.Equal(t, rpccore.ErrNoBlock, err)
+	})
+
+	t.Run("blockchain height is 21", func(t *testing.T) {
+		expectedHeight := uint64(21)
+		mockReader.EXPECT().Height().Return(expectedHeight, nil)
+
+		num, err := handler.BlockNumber()
+		require.Nil(t, err)
+		assert.Equal(t, expectedHeight, num)
+	})
+}
+
+func TestBlockHashAndNumber(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	n := &utils.Mainnet
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, nil)
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
+
+		block, err := handler.BlockHashAndNumber()
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrNoBlock, err)
+	})
+
+	t.Run("blockchain height is 147", func(t *testing.T) {
+		client := feeder.NewTestClient(t, n)
+		gw := adaptfeeder.New(client)
+
+		expectedBlock, err := gw.BlockByNumber(t.Context(), 147)
+		require.NoError(t, err)
+
+		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{Hash: expectedBlock.Hash, Number: expectedBlock.Number}
+
+		mockReader.EXPECT().Head().Return(expectedBlock, nil)
+
+		hashAndNum, rpcErr := handler.BlockHashAndNumber()
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedBlockHashAndNumber, hashAndNum)
+	})
 }
 
 func TestBlockTransactionCount(t *testing.T) {
@@ -102,7 +161,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpcv9.New(mockReader, mockSyncReader, nil, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, log)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -206,7 +265,7 @@ func TestBlockTransactionCount(t *testing.T) {
 }
 
 func TestBlockWithTxHashes(t *testing.T) {
-	errTests := map[string]rpcv9.BlockID{
+	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
 		"pre_confirmed": blockIDPreConfirmed(t),
 		"hash":          blockIDHash(t, &felt.One),
@@ -229,7 +288,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
-			handler := rpcv9.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, log)
 
 			block, rpcErr := handler.BlockWithTxHashes(&id)
 			assert.Nil(t, block)
@@ -238,7 +297,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	}
 
 	n := &utils.Sepolia
-	handler := rpcv9.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -248,7 +307,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	checkBlock := func(t *testing.T, b *rpcv9.BlockWithTxHashes) {
+	checkBlock := func(t *testing.T, b *rpc.BlockWithTxHashes) {
 		t.Helper()
 		assert.Equal(t, latestBlock.Hash, b.Hash)
 		assert.Equal(t, latestBlock.GlobalStateRoot, b.NewRoot)
@@ -261,13 +320,13 @@ func TestBlockWithTxHashes(t *testing.T) {
 		}
 	}
 
-	checkLatestBlock := func(t *testing.T, b *rpcv9.BlockWithTxHashes) {
+	checkLatestBlock := func(t *testing.T, b *rpc.BlockWithTxHashes) {
 		t.Helper()
 		if latestBlock.Hash != nil {
 			assert.Equal(t, latestBlock.Number, *b.Number)
 		} else {
 			assert.Equal(t, latestBlock.Number, *b.Number)
-			assert.Equal(t, rpcv9.BlockPreConfirmed, b.Status)
+			assert.Equal(t, rpc.BlockPreConfirmed, b.Status)
 		}
 		checkBlock(t, b)
 	}
@@ -325,7 +384,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(&number)
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpcv9.BlockAcceptedL1, block.Status)
+		assert.Equal(t, rpc.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
@@ -343,7 +402,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(&l1AcceptedID)
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpcv9.BlockAcceptedL1, block.Status)
+		assert.Equal(t, rpc.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
@@ -373,7 +432,7 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv9.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
 		id := blockIDNumber(t, blockNumber)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
@@ -388,7 +447,7 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv9.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
 		id := blockIDNumber(t, blockNumber)
 		internalErr := errors.New("some internal error")
@@ -402,7 +461,7 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 }
 
 func TestBlockWithTxs(t *testing.T) {
-	errTests := map[string]rpcv9.BlockID{
+	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
 		"pre_confirmed": blockIDPreConfirmed(t),
 		"hash":          blockIDHash(t, &felt.One),
@@ -426,7 +485,7 @@ func TestBlockWithTxs(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 
-			handler := rpcv9.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, log)
 
 			block, rpcErr := handler.BlockWithTxs(&id)
 			assert.Nil(t, block)
@@ -435,7 +494,7 @@ func TestBlockWithTxs(t *testing.T) {
 	}
 
 	mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv9.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	n := &utils.Mainnet
 	client := feeder.NewTestClient(t, n)
@@ -446,7 +505,7 @@ func TestBlockWithTxs(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpcv9.BlockWithTxHashes, blockWithTxs *rpcv9.BlockWithTxs) {
+	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpc.BlockWithTxHashes, blockWithTxs *rpc.BlockWithTxs) {
 		t.Helper()
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
@@ -615,7 +674,7 @@ func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv9.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
 		id := blockIDNumber(t, blockNumber)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
@@ -630,7 +689,7 @@ func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv9.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
 		id := blockIDNumber(t, blockNumber)
 		internalErr := errors.New("some internal error")
@@ -648,7 +707,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv9.New(mockReader, nil, nil, nil)
+	handler := rpc.New(mockReader, nil, nil, nil)
 
 	blockNumber := uint64(16350)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
@@ -666,34 +725,34 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	require.Nil(t, rpcErr)
 	got.Transactions = got.Transactions[:1]
 
-	require.Equal(t, &rpcv9.BlockWithTxs{
-		BlockHeader: rpcv9.BlockHeader{
+	require.Equal(t, &rpc.BlockWithTxs{
+		BlockHeader: rpc.BlockHeader{
 			Hash:            coreBlock.Hash,
 			StarknetVersion: coreBlock.ProtocolVersion,
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        utils.HeapPtr(rpcv9.Blob),
-			L1GasPrice: &rpcv9.ResourcePrice{
+			L1DAMode:        utils.HeapPtr(rpc.Blob),
+			L1GasPrice: &rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpcv9.ResourcePrice{
+			L1DataGasPrice: &rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
-			L2GasPrice: &rpcv9.ResourcePrice{
+			L2GasPrice: &rpc.ResourcePrice{
 				InFri: &felt.One,
 				InWei: &felt.One,
 			},
 		},
-		Status: rpcv9.BlockAcceptedL2,
-		Transactions: []*rpcv9.Transaction{
+		Status: rpc.BlockAcceptedL2,
+		Transactions: []*rpc.Transaction{
 			{
 				Hash:               tx.Hash(),
-				Type:               rpcv9.TxnInvoke,
+				Type:               rpc.TxnInvoke,
 				Version:            tx.Version.AsFelt(),
 				Nonce:              tx.Nonce,
 				MaxFee:             tx.MaxFee,
@@ -702,16 +761,16 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Signature:          &tx.TransactionSignature,
 				CallData:           &tx.CallData,
 				EntryPointSelector: tx.EntryPointSelector,
-				ResourceBounds: &rpcv9.ResourceBoundsMap{
-					L1Gas: &rpcv9.ResourceBounds{
+				ResourceBounds: &rpc.ResourceBoundsMap{
+					L1Gas: &rpc.ResourceBounds{
 						MaxAmount:       felt.NewFromUint64[felt.Felt](tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
-					L2Gas: &rpcv9.ResourceBounds{
+					L2Gas: &rpc.ResourceBounds{
 						MaxAmount:       felt.NewFromUint64[felt.Felt](tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
-					L1DataGas: &rpcv9.ResourceBounds{
+					L1DataGas: &rpc.ResourceBounds{
 						MaxAmount:       &felt.Zero,
 						MaxPricePerUnit: &felt.Zero,
 					},
@@ -719,8 +778,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
-				NonceDAMode:           utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.NonceDAMode)),
-				FeeDAMode:             utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.FeeDAMode)),
+				NonceDAMode:           utils.HeapPtr(rpc.DataAvailabilityMode(tx.NonceDAMode)),
+				FeeDAMode:             utils.HeapPtr(rpc.DataAvailabilityMode(tx.FeeDAMode)),
 			},
 		},
 	}, got)
@@ -733,7 +792,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	n := utils.HeapPtr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv9.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("block not found", func(t *testing.T) {
 		blockID := blockIDNumber(t, 777)
@@ -781,26 +840,26 @@ func TestBlockWithReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		header := resp.BlockHeader
 
-		txsWithReceipt := make([]rpcv9.TransactionWithReceipt, 0, len(block0.Transactions))
+		txsWithReceipt := make([]rpc.TransactionWithReceipt, 0, len(block0.Transactions))
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
-			adaptedTx := rpcv9.AdaptTransaction(tx)
+			adaptedTx := rpc.AdaptTransaction(tx)
 			adaptedTx.Hash = nil
 
-			txsWithReceipt = append(txsWithReceipt, rpcv9.TransactionWithReceipt{
+			txsWithReceipt = append(txsWithReceipt, rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt: rpcv9.AdaptReceipt(
+				Receipt: rpc.AdaptReceipt(
 					receipt,
 					tx,
-					rpcv9.TxnPreConfirmed,
+					rpc.TxnPreConfirmed,
 				),
 			})
 		}
 
 		assert.Nil(t, rpcErr)
-		assert.Equal(t, &rpcv9.BlockWithReceipts{
-			Status: rpcv9.BlockPreConfirmed,
-			BlockHeader: rpcv9.BlockHeader{
+		assert.Equal(t, &rpc.BlockWithReceipts{
+			Status: rpc.BlockPreConfirmed,
+			BlockHeader: rpc.BlockHeader{
 				Number:           header.Number,
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
@@ -828,26 +887,26 @@ func TestBlockWithReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		header := resp.BlockHeader
 
-		transactions := make([]rpcv9.TransactionWithReceipt, len(block1.Transactions))
+		transactions := make([]rpc.TransactionWithReceipt, len(block1.Transactions))
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
-			adaptedTx := rpcv9.AdaptTransaction(tx)
+			adaptedTx := rpc.AdaptTransaction(tx)
 			adaptedTx.Hash = nil
 
-			transactions[i] = rpcv9.TransactionWithReceipt{
+			transactions[i] = rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt: rpcv9.AdaptReceipt(
+				Receipt: rpc.AdaptReceipt(
 					receipt,
 					tx,
-					rpcv9.TxnAcceptedOnL1,
+					rpc.TxnAcceptedOnL1,
 				),
 			}
 		}
 
 		assert.Nil(t, rpcErr)
-		assert.Equal(t, &rpcv9.BlockWithReceipts{
-			Status: rpcv9.BlockAcceptedL1,
-			BlockHeader: rpcv9.BlockHeader{
+		assert.Equal(t, &rpc.BlockWithReceipts{
+			Status: rpc.BlockAcceptedL1,
+			BlockHeader: rpc.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
 				Number:           header.Number,
@@ -871,7 +930,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv9.New(mockReader, nil, nil, nil)
+	handler := rpc.New(mockReader, nil, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -897,26 +956,26 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	})
 }
 
-func blockIDPreConfirmed(t *testing.T) rpcv9.BlockID {
+func blockIDPreConfirmed(t *testing.T) rpc.BlockID {
 	t.Helper()
 
-	blockID := rpcv9.BlockID{}
+	blockID := rpc.BlockID{}
 	require.NoError(t, blockID.UnmarshalJSON([]byte(`"pre_confirmed"`)))
 	return blockID
 }
 
-func blockIDLatest(t *testing.T) rpcv9.BlockID {
+func blockIDLatest(t *testing.T) rpc.BlockID {
 	t.Helper()
 
-	blockID := rpcv9.BlockID{}
+	blockID := rpc.BlockID{}
 	require.NoError(t, blockID.UnmarshalJSON([]byte(`"latest"`)))
 	return blockID
 }
 
-func blockIDHash(t *testing.T, val *felt.Felt) rpcv9.BlockID {
+func blockIDHash(t *testing.T, val *felt.Felt) rpc.BlockID {
 	t.Helper()
 
-	blockID := rpcv9.BlockID{}
+	blockID := rpc.BlockID{}
 	require.NoError(
 		t,
 		blockID.UnmarshalJSON(
@@ -926,20 +985,20 @@ func blockIDHash(t *testing.T, val *felt.Felt) rpcv9.BlockID {
 	return blockID
 }
 
-func blockIDNumber(t *testing.T, val uint64) rpcv9.BlockID {
+func blockIDNumber(t *testing.T, val uint64) rpc.BlockID {
 	t.Helper()
 
-	blockID := rpcv9.BlockID{}
+	blockID := rpc.BlockID{}
 	require.NoError(t,
 		blockID.UnmarshalJSON([]byte(fmt.Sprintf(`{ "block_number" : %d}`, val))),
 	)
 	return blockID
 }
 
-func blockIDL1Accepted(t *testing.T) rpcv9.BlockID {
+func blockIDL1Accepted(t *testing.T) rpc.BlockID {
 	t.Helper()
 
-	blockID := rpcv9.BlockID{}
+	blockID := rpc.BlockID{}
 	require.NoError(t, blockID.UnmarshalJSON([]byte(`"l1_accepted"`)))
 	return blockID
 }
