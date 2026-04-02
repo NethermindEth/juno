@@ -249,10 +249,17 @@ const (
 		"storage layout. Once enabled, cannot be disabled."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	disableReceivedTxnStreamUsage  = "Disables the real-time WebSocket stream that " +
-		"notifies subscribers of new transactions as they are received by the node " +
-		"via starknet_subscribeNewTransactions. When disabled, transaction " +
-		"subscription callbacks for the RECEIVED finality status will not fire."
+	disableReceivedTxnStreamUsage  = "The starknet_subscribeNewTransactions WebSocket API " +
+		"allows users to subscribe to new transactions. By default, it streams " +
+		"transactions that have been accepted on L2. Users can optionally provide " +
+		"a set of finality statuses to be notified about, including transactions " +
+		"from canonical blocks, blocks with softer finality guarantees such as " +
+		"pre-confirmed and pre-latest, as well as transactions not yet part of " +
+		"any block such as received and candidate. When subscribers select the " +
+		"RECEIVED status, they will be notified about transactions that have been " +
+		"submitted through this node — these transactions are local to the node " +
+		"and are not sourced from the network. When this flag is enabled, the " +
+		"node will no longer notify subscribers about transactions submitted through it."
 )
 
 var Version string
