@@ -64,7 +64,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxHandles := 1024
 	defaultDBMemtableSize := uint(256)
 	defaultDBMemtableCount := uint(2)
-	defaultDBCompression := "snappy"
+	defaultDBCompression := "zstd"
 	defaultCallMaxSteps := uint64(4_000_000)
 	defaultCallMaxGas := uint64(100_000_000)
 	defaultSeqBlockTime := uint(60)

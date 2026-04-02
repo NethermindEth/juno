@@ -42,7 +42,7 @@ func WithLogger(logger pebble.Logger) Option {
 }
 
 // WithCompression sets the compression profile by name.
-// Valid options: snappy (default), zstd (recommended for low storage), minlz.
+// Valid options: snappy, zstd (default, recommended for low storage), minlz.
 func WithCompression(name string) Option {
 	return func(opts *pebble.Options) error {
 		var profile *block.CompressionProfile

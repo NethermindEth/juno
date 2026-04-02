@@ -160,7 +160,7 @@ const (
 	defaultDBCompactionConcurrency            = ""
 	defaultDBMemtableSize                     = 256
 	defaultDBMemtableCount                    = 2
-	defaultDBCompression                      = "snappy"
+	defaultDBCompression                      = "zstd"
 	defaultTransactionCombinedLayout          = false
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
