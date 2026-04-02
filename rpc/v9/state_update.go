@@ -8,8 +8,14 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
+
+type StateUpdate struct {
+	BlockHash *felt.Felt `json:"block_hash,omitempty"`
+	NewRoot   *felt.Felt `json:"new_root,omitempty"`
+	OldRoot   *felt.Felt `json:"old_root"`
+	StateDiff *StateDiff `json:"state_diff"`
+}
 
 type StateDiff struct {
 	StorageDiffs              []StorageDiff      `json:"storage_diffs"`
@@ -58,36 +64,36 @@ type ReplacedClass struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136
-func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id *BlockID) (StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
-			return rpcv6.StateUpdate{}, rpccore.ErrBlockNotFound
+			return StateUpdate{}, rpccore.ErrBlockNotFound
 		}
-		return rpcv6.StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)
+		return StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	index := 0
-	nonces := make([]rpcv6.Nonce, len(update.StateDiff.Nonces))
+	nonces := make([]Nonce, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		nonces[index] = rpcv6.Nonce{ContractAddress: addr, Nonce: *nonce}
+		nonces[index] = Nonce{ContractAddress: addr, Nonce: *nonce}
 		index++
 	}
 
 	index = 0
-	storageDiffs := make([]rpcv6.StorageDiff, len(update.StateDiff.StorageDiffs))
+	storageDiffs := make([]StorageDiff, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
-		entries := make([]rpcv6.Entry, len(diffs))
+		entries := make([]Entry, len(diffs))
 		entryIdx := 0
 		for key, value := range diffs {
-			entries[entryIdx] = rpcv6.Entry{
+			entries[entryIdx] = Entry{
 				Key:   key,
 				Value: *value,
 			}
 			entryIdx++
 		}
 
-		storageDiffs[index] = rpcv6.StorageDiff{
+		storageDiffs[index] = StorageDiff{
 			Address:        addr,
 			StorageEntries: entries,
 		}
@@ -95,9 +101,9 @@ func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
 	}
 
 	index = 0
-	deployedContracts := make([]rpcv6.DeployedContract, len(update.StateDiff.DeployedContracts))
+	deployedContracts := make([]DeployedContract, len(update.StateDiff.DeployedContracts))
 	for addr, classHash := range update.StateDiff.DeployedContracts {
-		deployedContracts[index] = rpcv6.DeployedContract{
+		deployedContracts[index] = DeployedContract{
 			Address:   addr,
 			ClassHash: *classHash,
 		}
@@ -105,9 +111,9 @@ func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
 	}
 
 	index = 0
-	declaredClasses := make([]rpcv6.DeclaredClass, len(update.StateDiff.DeclaredV1Classes))
+	declaredClasses := make([]DeclaredClass, len(update.StateDiff.DeclaredV1Classes))
 	for classHash, compiledClassHash := range update.StateDiff.DeclaredV1Classes {
-		declaredClasses[index] = rpcv6.DeclaredClass{
+		declaredClasses[index] = DeclaredClass{
 			ClassHash:         classHash,
 			CompiledClassHash: *compiledClassHash,
 		}
@@ -115,20 +121,20 @@ func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
 	}
 
 	index = 0
-	replacedClasses := make([]rpcv6.ReplacedClass, len(update.StateDiff.ReplacedClasses))
+	replacedClasses := make([]ReplacedClass, len(update.StateDiff.ReplacedClasses))
 	for addr, classHash := range update.StateDiff.ReplacedClasses {
-		replacedClasses[index] = rpcv6.ReplacedClass{
+		replacedClasses[index] = ReplacedClass{
 			ClassHash:       *classHash,
 			ContractAddress: addr,
 		}
 		index++
 	}
 
-	return rpcv6.StateUpdate{
+	return StateUpdate{
 		BlockHash: update.BlockHash,
 		OldRoot:   nilToZero(update.OldRoot),
 		NewRoot:   update.NewRoot,
-		StateDiff: &rpcv6.StateDiff{
+		StateDiff: &StateDiff{
 			DeprecatedDeclaredClasses: update.StateDiff.DeclaredV0Classes,
 			DeclaredClasses:           declaredClasses,
 			ReplacedClasses:           replacedClasses,

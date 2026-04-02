@@ -9,9 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
-	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +19,7 @@ import (
 )
 
 func TestStateUpdate(t *testing.T) {
-	errTests := map[string]rpcv9.BlockID{
+	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
 		"pre_confirmed": blockIDPreConfirmed(t),
 		"hash":          blockIDHash(t, &felt.One),
@@ -40,7 +39,7 @@ func TestStateUpdate(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
 			}
 			log := utils.NewNopZapLogger()
-			handler := rpcv9.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, log)
 
 			update, rpcErr := handler.StateUpdate(&id)
 			assert.Empty(t, update)
@@ -50,14 +49,14 @@ func TestStateUpdate(t *testing.T) {
 
 	log := utils.NewNopZapLogger()
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv9.New(mockReader, mockSyncReader, nil, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, log)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
 	update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
 	require.NoError(t, err)
 
-	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpcv6.StateUpdate) {
+	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpc.StateUpdate) {
 		t.Helper()
 		require.Equal(t, coreUpdate.BlockHash, rpcUpdate.BlockHash)
 		require.Equal(t, coreUpdate.NewRoot, rpcUpdate.NewRoot)
