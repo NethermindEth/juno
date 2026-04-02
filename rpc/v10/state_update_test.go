@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -36,7 +37,7 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
 			}
 			log := utils.NewNopZapLogger()
 			handler := rpcv10.New(chain, mockSyncReader, nil, log)

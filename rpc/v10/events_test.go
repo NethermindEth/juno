@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -596,7 +597,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockSyncReader.EXPECT().PendingData().Return(nil, core.ErrPendingDataNotFound).AnyTimes()
+	mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	from := []felt.Address{
