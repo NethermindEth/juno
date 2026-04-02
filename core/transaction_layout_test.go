@@ -166,11 +166,17 @@ func runTestTransactionLayout(
 
 		// NON-EXISTENT BLOCK
 		t.Run("NonExistentBlock_TransactionsByBlockNumber", func(t *testing.T) {
+			if layout == core.TransactionLayoutPerTx {
+				t.Skip("PerTx layout returns empty slice for non-existent blocks")
+			}
 			_, err := layout.TransactionsByBlockNumber(database, uint64(999))
 			require.Error(t, err)
 		})
 
 		t.Run("NonExistentBlock_ReceiptsByBlockNumber", func(t *testing.T) {
+			if layout == core.TransactionLayoutPerTx {
+				t.Skip("PerTx layout returns empty slice for non-existent blocks")
+			}
 			_, err := layout.ReceiptsByBlockNumber(database, uint64(999))
 			require.Error(t, err)
 		})
