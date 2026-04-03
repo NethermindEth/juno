@@ -13,9 +13,6 @@ var (
 	ErrTransactionIndexOutOfBounds = errors.New(
 		"pending_data: transaction index out of bounds",
 	)
-	ErrPendingStateBeforeIndexNotSupported = errors.New(
-		"pending_data: PendingStateBeforeIndex not supported for Pending block",
-	)
 )
 
 // Deprecated: Pending is the pre-0.14.0 pending block variant. It is retained solely as a

@@ -605,15 +605,13 @@ func (s *Synchronizer) PendingData() (*core.PreConfirmed, error) {
 	}
 
 	preConfirmed := s.pendingData.Load()
-	if preConfirmed != nil {
-		if preConfirmed.Validate(head) {
-			// Special handling: if the pending data contains a 'pre-latest' block attachment
-			// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
-			if head != nil && preConfirmed.Block.Number == head.Number+1 && preConfirmed.PreLatest != nil {
-				return preConfirmed.Copy().WithPreLatest(nil), nil
-			}
-			return preConfirmed, nil
+	if preConfirmed != nil && preConfirmed.Validate(head) {
+		// Special handling: if the pending data contains a 'pre-latest' block attachment
+		// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
+		if head != nil && preConfirmed.Block.Number == head.Number+1 && preConfirmed.PreLatest != nil {
+			return preConfirmed.Copy().WithPreLatest(nil), nil
 		}
+		return preConfirmed, nil
 	}
 
 	// Fallback: no stored pending data, or stored data failed validation.
