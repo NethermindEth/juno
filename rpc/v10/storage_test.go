@@ -392,6 +392,7 @@ func TestStorageAt(t *testing.T) {
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 						Return(mockState, nopCloser, nil)
 					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
+
 					preConfirmedID := rpc.BlockIDPreConfirmed()
 					result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, flags)
 					require.Nil(t, rpcErr)
@@ -404,7 +405,6 @@ func TestStorageAt(t *testing.T) {
 				"new deployed contract with storage update - returns pre_confirmed block number",
 				func(t *testing.T) {
 					newDeployedContract := felt.NewRandom[felt.Felt]()
-
 					stateDiff := core.EmptyStateDiff()
 					stateDiff.
 						StorageDiffs[*newDeployedContract] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
@@ -433,7 +433,6 @@ func TestStorageAt(t *testing.T) {
 				"new deployed contract with NO storage diffs - returns 0 block number",
 				func(t *testing.T) {
 					newDeployedContract := felt.NewRandom[felt.Felt]()
-
 					stateDiff := core.EmptyStateDiff()
 					stateDiff.
 						DeployedContracts[*newDeployedContract] = felt.NewFromUint64[felt.Felt](123456789)
