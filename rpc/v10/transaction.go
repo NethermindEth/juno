@@ -362,9 +362,7 @@ func (h *Handler) TransactionStatus(
 // TransactionByHash returns the details of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315 //nolint:lll
-//
-//nolint:lll // URL exceeds line
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(
 	hash *felt.Felt,
 	responseFlags ResponseFlags,
@@ -394,7 +392,7 @@ func (h *Handler) TransactionByHash(
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L342 //nolint:lll
 //
-//nolint:lll // URL exceeds line limit
+
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *BlockID, txIndex int, responseFlags ResponseFlags,
 ) (*Transaction, *jsonrpc.Error) {

@@ -111,7 +111,7 @@ func TestNonce(t *testing.T) {
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
-	//nolint:dupl //  similar structure with nonce test, different endpoint.
+
 	t.Run("blockID - pending", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)

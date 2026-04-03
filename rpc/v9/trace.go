@@ -88,9 +88,7 @@ func (h *Handler) TraceTransaction(
 // TraceBlockTransactions returns the trace for a given blockID
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L108 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L108
 func (h *Handler) TraceBlockTransactions(
 	ctx context.Context, id *BlockID,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
@@ -106,9 +104,7 @@ func (h *Handler) TraceBlockTransactions(
 	return h.traceBlockTransactions(ctx, block)
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579
 func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *jsonrpc.Error) {
 	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {

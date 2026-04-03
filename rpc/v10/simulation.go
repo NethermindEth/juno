@@ -389,14 +389,10 @@ func createSimulatedTransactions(
 		var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
 
 		// estimateFee only allows FRI as unit
-		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3586 //nolint:lll
-		//
-		//nolint:lll // URL exceeds line limit but should remain intact for reference
+		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3586
 		feeUnit := FRI
 		// estimateMessageFee only allow WEI as unit
-		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3605 //nolint:lll
-		//
-		//nolint:lll // URL exceeds line limit but should remain intact for reference
+		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3605
 		if traces[i].Type == vm.TxnL1Handler {
 			feeUnit = WEI
 		}

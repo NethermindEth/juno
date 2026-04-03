@@ -103,7 +103,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	var mockSyncReader *mocks.MockSyncReader
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	for description, id := range errTests { //nolint:dupl
+	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
@@ -208,7 +208,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
-	//nolint:dupl,lll // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
+	//nolint:dupl // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
@@ -296,7 +296,7 @@ func TestBlockWithTxs(t *testing.T) {
 	var mockSyncReader *mocks.MockSyncReader
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	for description, id := range errTests { //nolint:dupl
+	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
@@ -421,7 +421,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
-	//nolint:dupl,lll // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
+	//nolint:dupl // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil

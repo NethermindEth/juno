@@ -250,7 +250,6 @@ func TestClassHashAt(t *testing.T) {
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 
-	//nolint:dupl //  similar structure with nonce test, different endpoint.
 	t.Run("blockID - pending", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)

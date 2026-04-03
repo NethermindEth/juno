@@ -37,9 +37,7 @@ type TransactionTrace struct {
 // TraceTransaction returns the trace for a given executed transaction, including internal calls
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L11 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(
 	ctx context.Context, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
@@ -125,9 +123,7 @@ func (h *Handler) Call(
 // TraceBlockTransactions returns the trace for a given blockID
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L108 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L108
 func (h *Handler) TraceBlockTransactions(
 	ctx context.Context, id *BlockID, traceFlags []TraceFlag,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {

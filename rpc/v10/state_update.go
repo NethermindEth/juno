@@ -10,9 +10,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 )
 
-// https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909
 type StateUpdate struct {
 	BlockHash *felt.Felt `json:"block_hash,omitempty"`
 	NewRoot   *felt.Felt `json:"new_root,omitempty"`
@@ -72,9 +70,7 @@ type MigratedCompiledClass struct {
 // StateUpdate returns the state update identified by the given BlockID.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136 //nolint:lll
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136
 func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {

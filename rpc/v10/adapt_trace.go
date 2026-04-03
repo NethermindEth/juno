@@ -61,7 +61,6 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	traceType := TransactionType(trace.Type)
 	if traceType == TxnDeploy {
 		// There is no DEPLOY_TXN_TRACE thus we need to convert the type to `DEPLOY_ACCOUNT`
-		//nolint:lll // url exceeds line limit
 		// see https://github.com/starkware-libs/starknet-specs/blob/b57ccf8fcbc32f89a42f088ff9c8b93115bfd40a/api/starknet_trace_api_openrpc.json#L235
 		traceType = TxnDeployAccount
 	}

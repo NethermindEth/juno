@@ -75,8 +75,6 @@ func (st *StorageAtResponse) UnmarshalJSON(data []byte) error {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/d6dc6ad31a1bb61c287d862ca4bdef4eb66a59a2/api/starknet_api_openrpc.json#L197
-//
-//nolint:lll // URL exceeds line limit but should remain intact for reference
 func (h *Handler) StorageAt(
 	address *felt.Address,
 	key *felt.Felt,
