@@ -208,7 +208,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
-	//nolint:dupl // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
+	//nolint:dupl,lll // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
@@ -421,7 +421,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
-	//nolint:dupl // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
+	//nolint:dupl,lll // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
