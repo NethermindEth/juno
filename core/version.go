@@ -13,6 +13,7 @@ var (
 	Ver0_13_4 = semver.MustParse("0.13.4")
 	Ver0_14_0 = semver.MustParse("0.14.0")
 	Ver0_14_1 = semver.MustParse("0.14.1")
+	Ver0_14_2 = semver.MustParse("0.14.2")
 	LatestVer = Ver0_14_1
 )
 

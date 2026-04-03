@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,6 +43,8 @@ var (
 
 // Payload size threshold for Gzip compression. 1KB
 const gzipMinSize = 1024
+
+var IsProtocolVer0_14_2 atomic.Bool
 
 type Client struct {
 	url       string
@@ -205,7 +208,7 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 }
 
 func prepareRequestBody(jsonBody []byte) (io.Reader, bool, error) {
-	if len(jsonBody) <= gzipMinSize {
+	if len(jsonBody) <= gzipMinSize || !IsProtocolVer0_14_2.Load() {
 		return bytes.NewReader(jsonBody), false, nil
 	}
 
