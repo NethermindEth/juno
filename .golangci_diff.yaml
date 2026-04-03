@@ -18,6 +18,9 @@ linters:
     rules:
       - linters:
           - lll
-        source: '(^//go:generate |https?://)'
+        source: '^//go:generate '
+      - linters:
+          - lll
+        source: 'https?://'
 run:
   timeout: 10m
