@@ -50,7 +50,7 @@ func makeValidUnit(
 	publisherKey crypto.PrivKey,
 	publisher peer.ID,
 	shardIndex ShardIndex,
-) *PropellerUnit {
+) *Unit {
 	t.Helper()
 
 	// Create a simple message and encode it.
@@ -159,7 +159,7 @@ func TestValidator_SelfSending(t *testing.T) {
 	setup := newValidatorTestSetup(t)
 	v := NewValidator(setup.schedule, setup.localPeer, &mockVerifier{valid: true})
 
-	unit := &PropellerUnit{Publisher: setup.publisher, ShardIndex: setup.shardIndex}
+	unit := &Unit{Publisher: setup.publisher, ShardIndex: setup.shardIndex}
 	err := v.ValidateUnit(unit, setup.localPeer, nil, true)
 
 	var valErr *ShardValidationError
@@ -172,7 +172,7 @@ func TestValidator_ReceivedSelfPublishedShard(t *testing.T) {
 	v := NewValidator(setup.schedule, setup.localPeer, &mockVerifier{valid: true})
 
 	// Unit claims we are the publisher.
-	unit := &PropellerUnit{Publisher: setup.localPeer, ShardIndex: 0}
+	unit := &Unit{Publisher: setup.localPeer, ShardIndex: 0}
 	err := v.ValidateUnit(unit, setup.expectedSender, nil, true)
 
 	var valErr *ShardValidationError
@@ -184,7 +184,7 @@ func TestValidator_DuplicateShard(t *testing.T) {
 	setup := newValidatorTestSetup(t)
 	v := NewValidator(setup.schedule, setup.localPeer, &mockVerifier{valid: true})
 
-	unit := &PropellerUnit{Publisher: setup.publisher, ShardIndex: setup.shardIndex}
+	unit := &Unit{Publisher: setup.publisher, ShardIndex: setup.shardIndex}
 	seenShards := map[ShardIndex]bool{setup.shardIndex: true}
 
 	err := v.ValidateUnit(unit, setup.expectedSender, seenShards, true)
@@ -209,7 +209,7 @@ func TestValidator_UnexpectedSender(t *testing.T) {
 	}
 	require.NotEmpty(t, wrongSender)
 
-	unit := &PropellerUnit{Publisher: setup.publisher, ShardIndex: setup.shardIndex}
+	unit := &Unit{Publisher: setup.publisher, ShardIndex: setup.shardIndex}
 	seenShards := make(map[ShardIndex]bool)
 	err := v.ValidateUnit(unit, wrongSender, seenShards, true)
 
@@ -239,7 +239,7 @@ func TestValidator_MerkleProofFailed(t *testing.T) {
 	v := NewValidator(setup.schedule, setup.localPeer, &mockVerifier{valid: true})
 
 	// Create a unit with a bad Merkle proof.
-	unit := &PropellerUnit{
+	unit := &Unit{
 		Publisher:   setup.publisher,
 		ShardIndex:  setup.shardIndex,
 		MerkleRoot:  MessageRoot{0x01},
@@ -350,7 +350,7 @@ func TestValidator_ScheduleError(t *testing.T) {
 	v := NewValidator(setup.schedule, setup.localPeer, &mockVerifier{valid: true})
 
 	_, unknownPeer := realPeer(99)
-	unit := &PropellerUnit{
+	unit := &Unit{
 		Publisher:   unknownPeer,
 		ShardIndex:  0,
 		ShardData:   []byte("data"),

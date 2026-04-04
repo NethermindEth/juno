@@ -3,34 +3,8 @@ package propeller
 import (
 	"fmt"
 
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
-
-// todo(rdr): Need to review this whole module
-
-// SignatureVerifier abstracts Ed25519 signature verification. The default
-// implementation extracts the public key from a peer.ID and verifies using
-// libp2p crypto. Tests can inject a mock to control verification outcomes.
-type SignatureVerifier interface {
-	Verify(peerID peer.ID, data, signature []byte) (bool, error)
-}
-
-// DefaultSignatureVerifier implements SignatureVerifier by extracting the
-// public key embedded in a libp2p peer.ID. This works because peer.IDs
-// for Ed25519 keys are derived from the public key, and for small keys
-// the public key is embedded directly in the ID.
-type DefaultSignatureVerifier struct{}
-
-func (DefaultSignatureVerifier) Verify(
-	peerID peer.ID, data, signature []byte,
-) (bool, error) {
-	pubKey, err := peerID.ExtractPublicKey()
-	if err != nil {
-		return false, fmt.Errorf("extracting public key from peer %s: %w", peerID, err)
-	}
-	return pubKey.Verify(data, signature)
-}
 
 // Validator checks incoming PropellerUnits for correctness. Each check
 // serves a specific defensive purpose:
@@ -79,7 +53,7 @@ func NewValidator(
 //
 // Returns nil if valid, or a *ShardValidationError describing the failure.
 func (v *Validator) ValidateUnit(
-	unit *PropellerUnit,
+	unit *Unit,
 	sender peer.ID,
 	seenShards map[ShardIndex]bool,
 	signatureVerified bool,
