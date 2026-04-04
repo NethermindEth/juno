@@ -138,10 +138,7 @@ linters:
         path-except: adapters/.+\.go
       - linters:
           - lll
-        source: '^//go:generate '
-      - linters:
-          - lll
-        source: 'https?://'
+        source: '^//go:generate |https?://'
       - linters:
           - staticcheck
         path: vm/state.go
