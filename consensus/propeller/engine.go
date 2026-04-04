@@ -21,16 +21,27 @@ const (
 )
 
 type broadcastResult struct {
-	units []PropellerUnit
+	units []Unit
 	err   error
 }
 
 // todo(rdr): using String until I find a better type
 type StakerID string
 
+// Holds the state for a Committee ID:
+//   - The `scheduler` represents the Propeller Tree of peers
+//   - The `processor` stores the state of this committee: when the built or receive threshold
+//     have been reached
+//   - The `peerKeys` I am not sure yet todo(rdr): <-
 type committeeState struct {
 	scheduler *Scheduler
-	peerKeys  []StakerID
+	// todo(rdr): A look at processor shows that it's lifetime is strictly coupled with the
+	//            state of a current committee. They both should be created and closed at the
+	//            same time. If it is like this then it stands to reason that it should be coupled
+	//            here. Not 100% sure right now, so leaving a big todo for now.
+	proccessor *MessageProcessor
+	// todo(rdr): why do we need this
+	peerKeys []StakerID
 }
 
 // engineCommand is a tagged union of commands sent to the engine's Run() loop.
@@ -47,26 +58,26 @@ type registerCommittee struct {
 
 func (registerCommittee) isCommand()
 
-type cmdUnregister struct {
+type unregisterCommittee struct {
 	committeeID CommitteeID
 }
 
-func (cmdUnregister) isCommand()
+func (unregisterCommittee) isCommand()
 
-type cmdBroadcast struct {
+type broadcast struct {
 	committeeID CommitteeID
 	msg         []byte
 	errCh       chan error
 }
 
-func (cmdBroadcast) isCommand()
+func (broadcast) isCommand()
 
-type cmdHandleUnit struct {
-	unit   *PropellerUnit
+type processUnit struct {
+	unit   *Unit
 	sender peer.ID
 }
 
-func (cmdHandleUnit) isCommand()
+func (processUnit) isCommand()
 
 // Engine is the central orchestrator of the Propeller protocol. It:
 //
@@ -82,81 +93,77 @@ type Engine struct {
 	localPeer peer.ID
 	privKey   crypto.PrivKey
 	config    Config
-	log       utils.Logger
+	log       utils.StructuredLogger
+	// processor handles validates and process all the messages received by other peers
+	processor *Processor
+
 	// committees holds the Scheduler (i.e. Propeller Tree) and Stakers ID of
 	// the peers of each registered channel
+	// todo(rdr): committeeState can set be there by value instead of by ref?
 	committees map[CommitteeID]*committeeState
+
+	// todo(rdr): not sure of this one yet
 	// connected peers hold all the connected peers to the engine
 	connectedPeers map[peer.ID]struct{}
 
-	// whenever a broadcast action is started, units preparaition are done concurrently
+	// whenever a broadcast action is started, units preparation are done concurrently
 	// and delivered through this channel
 	unitsPrepared chan broadcastResult
-
-	// processors maps each active message to its processor's shard input
-	// channel. The engine creates processors lazily on first shard receipt.
-	// Only accessed from the Run() goroutine, so no lock needed.
-	processors map[messageKey]chan<- shardDelivery
-
-	// finalised tracks recently finalised messages to avoid re-creating
-	// processors for late-arriving shards.
-	finalised *TimeCache[messageKey]
 
 	// eventCh is shared between all processors and the engine. The engine
 	// reads from it and forwards events to the application via Events().
 	eventCh chan any
-
-	// cleanupCh carries internal processor-done signals. This is separate
-	// from eventCh so that a full eventCh never blocks processor goroutines
-	// trying to signal completion, which would leak goroutines.
-	cleanupCh chan processorDone
 
 	// appEventCh is the externally-visible event channel. The engine copies
 	// events from eventCh to appEventCh in its Run() loop, filtering out
 	// internal events as needed.
 	appEventCh chan any
 
-	// cmdCh carries commands from external callers into the Run() loop.
-	cmdCh chan engineCommand
-
-	// sendFn is the network callback for delivering units to peers.
-	// Injected at construction time for testability.
-	sendFn SendUnitFunc
+	// cmdCh receives commands from the propeller service and act on those
+	cmdCh <-chan engineCommand
 }
 
-// NewEngine creates an engine instance. Call Run() to start processing.
+// NewEngine creates an engine instance. It returns the engine and the channel to
+// send engineCommands to.
+// Call Run() to start processing.
 //
 // Parameters:
 //   - localPeer: this node's peer ID.
 //   - privKey: this node's Ed25519 private key (for signing published messages).
 //   - config: protocol parameters.
-//   - sendFn: callback for delivering PropellerUnits to peers over the network.
 //   - log: structured logger.
+//
+// todo(rdr): Maybe in the future we don't want to expose the command channel and instead hide
+// the interaction behind a public API. :think:
 func NewEngine(
-	// todo(rdr): this should be a key pair
 	privKey crypto.PrivKey,
 	config *Config,
-	sendFn SendUnitFunc,
-	log utils.Logger,
-) *Engine {
-	// todo(rdr): generate local peer id from keypair
-	return &Engine{
-		localPeer:      peer.ID("some random value for now"),
-		privKey:        privKey,
-		config:         *config,
-		log:            log,
-		committees:     make(map[CommitteeID]*committeeState),
-		connectedPeers: make(map[peer.ID]struct{}),
-		cmdCh:          make(chan engineCommand, cmdChSize),
-		unitsPrepared:  make(chan broadcastResult),
-		// Unsure of the fields below
-		processors: make(map[messageKey]chan<- shardDelivery),
-		finalised:  NewTimeCache[messageKey](config.StaleMessageTimeout * 2),
-		eventCh:    make(chan any, eventChSize),
-		cleanupCh:  make(chan processorDone, cleanupChSize),
-		appEventCh: make(chan any, appEventChSize),
-		sendFn:     sendFn,
+	log utils.StructuredLogger,
+) (*Engine, chan<- engineCommand) {
+	localPeerID, err := peer.IDFromPrivateKey(privKey)
+	if err != nil {
+		// todo(rdr): pannic for now, error handling for later
+		panic(err)
 	}
+
+	processor := NewProcessor(localPeerID, config)
+
+	cmdCh := make(chan engineCommand)
+
+	return &Engine{
+		localPeer:     localPeerID,
+		privKey:       privKey,
+		config:        *config,
+		log:           log,
+		processor:     processor,
+		committees:    make(map[CommitteeID]*committeeState),
+		cmdCh:         cmdCh,
+		unitsPrepared: make(chan broadcastResult),
+		// Unsure of the fields below
+		connectedPeers: make(map[peer.ID]struct{}),
+		eventCh:        make(chan any, eventChSize),
+		appEventCh:     make(chan any, appEventChSize),
+	}, cmdCh
 }
 
 // registerCommittee creates the schedule and encoder for a new channel.
@@ -165,6 +172,7 @@ func (e *Engine) registerCommittee(
 	peers []PeerCommittee,
 	peersKeys []*StakerID,
 ) error {
+	// todo(rdr): Why re-registration should be ignored, as far as I know, it shouldn't happen :think:
 	if _, ok := e.committees[committeeID]; ok {
 		e.log.Warn(
 			"committee already registered, will ignore re-registration attempt",
@@ -194,7 +202,7 @@ func (e *Engine) registerCommittee(
 	}
 
 	e.log.Info("registered new committee",
-		zap.Uint64("channel", uint64(committeeID)),
+		zap.Uint64("committeeID", uint64(committeeID)),
 		zap.Int("peers", len(peers)),
 		zap.Int("dataShards", schedule.NumDataShards()),
 		zap.Int("codingShards", schedule.NumCodingShards()),
@@ -207,6 +215,9 @@ func (e *Engine) registerCommittee(
 // currently running ones will continue until the timeout / stop naturally
 func (e *Engine) unregisterCommittee(committeeID CommitteeID) {
 	delete(e.committees, committeeID)
+	// todo(rdr): We have to  clean the processors, right?
+	//            or will they shut down on their own eventually
+	//            better to pass a context with cancelj
 
 	e.log.Info("unregistered propeller committee",
 		zap.Uint64("committee", uint64(committeeID)),
@@ -241,7 +252,7 @@ func (e *Engine) prepareBroadcast(committeeID CommitteeID, data []byte) error {
 }
 
 // broacast receives Propeller units (built in `prepareBroadcast`) and sends them
-func (e *Engine) broadcast(units []PropellerUnit) error {
+func (e *Engine) broadcast(units []Unit) error {
 	targetCommittee := units[0].CommitteeID
 
 	cs, ok := e.committees[targetCommittee]
@@ -263,17 +274,24 @@ func (e *Engine) broadcast(units []PropellerUnit) error {
 	return nil
 }
 
-// doHandleUnit routes an incoming unit to the correct processor, creating
+// processUnit routes an incoming unit to the correct processor, creating
 // one if needed.
-func (e *Engine) doHandleUnit(ctx context.Context, cmd *cmdHandleUnit) {
-	unit := cmd.unit
-	key := messageKey{
-		Channel:   unit.CommitteeID,
-		Publisher: unit.Publisher,
-		Root:      unit.MerkleRoot,
+func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
+	if _, ok := e.committees[unit.CommitteeID]; !ok {
+		// note(rdr): maybe debug?
+		e.log.Warn("received key for unregistered committee, dropping",
+			zap.Uint64("committee id", uint64(unit.CommitteeID)),
+		)
+		return
 	}
 
 	// Skip already-finalised messages.
+	// todo(rdr): add timestamps to message keys to avoid replay attacks on old messages
+	key := messageKey{
+		CommitteeID: unit.CommitteeID,
+		Publisher:   unit.Publisher,
+		Root:        unit.MerkleRoot,
+	}
 	if e.finalised.Contains(key) {
 		return
 	}
@@ -290,7 +308,7 @@ func (e *Engine) doHandleUnit(ctx context.Context, cmd *cmdHandleUnit) {
 	// Non-blocking send to the processor. If its buffer is full, the shard
 	// is dropped (the processor can reconstruct from other shards).
 	select {
-	case shardCh <- shardDelivery{Unit: unit, Sender: cmd.sender}:
+	case shardCh <- shardDelivery{Unit: unit, Sender: sender}:
 	default:
 		e.log.Warn("dropping shard: processor channel full",
 			zap.Uint32("shard", uint32(unit.ShardIndex)),
@@ -302,7 +320,7 @@ func (e *Engine) doHandleUnit(ctx context.Context, cmd *cmdHandleUnit) {
 // createProcessor spins up a new MessageProcessor goroutine for a message
 // we haven't seen before.
 func (e *Engine) createProcessor(
-	ctx context.Context, key messageKey, unit *PropellerUnit,
+	ctx context.Context, key messageKey, unit *Unit,
 ) chan<- shardDelivery {
 	cs, ok := e.committees[unit.CommitteeID]
 	if !ok {
@@ -319,14 +337,11 @@ func (e *Engine) createProcessor(
 	shardCh := make(chan shardDelivery, cs.scheduler.NumShards())
 
 	proc := NewMessageProcessor(
-		key.Channel,
-		key.Publisher,
-		key.Root,
+		unit.CommitteeID,
+		unit.Publisher,
+		unit.Root,
 		e.localPeer,
 		e.config,
-		cs.scheduler,
-		validator,
-		cs.encoder,
 		shardCh,
 		e.eventCh,
 		e.sendFn,
@@ -381,13 +396,13 @@ func (e *Engine) handleCommand(ctx context.Context, command engineCommand) {
 	case *registerCommittee:
 		err := e.registerCommittee(cmd.committeeID, cmd.peers, cmd.peersKeys)
 		cmd.errCh <- err
-	case *cmdUnregister:
+	case *unregisterCommittee:
 		e.unregisterCommittee(cmd.committeeID)
-	case *cmdBroadcast:
+	case *broadcast:
 		err := e.prepareBroadcast(cmd.committeeID, cmd.msg)
 		cmd.errCh <- err
-	case *cmdHandleUnit:
-		e.doHandleUnit(ctx, cmd)
+	case *processUnit:
+		e.processUnit(ctx, cmd.unit, cmd.sender)
 	}
 }
 
@@ -416,11 +431,6 @@ func (e *Engine) Run(ctx context.Context) error {
 		case event := <-e.eventCh:
 			// Forward application-visible events from processors.
 			e.forwardEvent(event)
-
-		case done := <-e.cleanupCh:
-			// Processor goroutine exited; clean up the processors map.
-			e.handleProcessorDone(done)
-		}
 	}
 }
 

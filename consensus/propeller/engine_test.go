@@ -21,7 +21,7 @@ type engineTestEnv struct {
 	peers     []peer.ID
 	privKeys  []crypto.PrivKey
 	engines   []*Engine
-	sentUnits map[peer.ID][]*PropellerUnit
+	sentUnits map[peer.ID][]*Unit
 	sentMu    sync.Mutex
 	log       utils.Logger
 }
@@ -49,7 +49,7 @@ func newEngineTestEnv(t *testing.T, n int) *engineTestEnv {
 	env := &engineTestEnv{
 		peers:     peers,
 		privKeys:  privKeys,
-		sentUnits: make(map[peer.ID][]*PropellerUnit),
+		sentUnits: make(map[peer.ID][]*Unit),
 		log:       log,
 	}
 
@@ -74,7 +74,7 @@ func newEngineTestEnv(t *testing.T, n int) *engineTestEnv {
 
 // makeSendFn creates a SendUnitFunc that records sent units.
 func (env *engineTestEnv) makeSendFn() SendUnitFunc {
-	return func(_ context.Context, to peer.ID, unit *PropellerUnit) error {
+	return func(_ context.Context, to peer.ID, unit *Unit) error {
 		env.sentMu.Lock()
 		env.sentUnits[to] = append(env.sentUnits[to], unit)
 		env.sentMu.Unlock()
@@ -83,10 +83,10 @@ func (env *engineTestEnv) makeSendFn() SendUnitFunc {
 }
 
 // getSentUnits returns all units sent to a given peer.
-func (env *engineTestEnv) getSentUnits(to peer.ID) []*PropellerUnit {
+func (env *engineTestEnv) getSentUnits(to peer.ID) []*Unit {
 	env.sentMu.Lock()
 	defer env.sentMu.Unlock()
-	result := make([]*PropellerUnit, len(env.sentUnits[to]))
+	result := make([]*Unit, len(env.sentUnits[to]))
 	copy(result, env.sentUnits[to])
 	return result
 }
@@ -266,7 +266,7 @@ func TestEngine_HandleUnit_UnregisteredChannel(t *testing.T) {
 	}()
 
 	// Send a unit for an unregistered channel.
-	unit := &PropellerUnit{
+	unit := &Unit{
 		CommitteeID: 99,
 		Publisher:   env.peers[1],
 		MerkleRoot:  MessageRoot{0x01},
@@ -317,7 +317,7 @@ func TestEngine_SendFailureEmitsEvent(t *testing.T) {
 			StreamProtocol:      "/propeller/test/0.1.0",
 			MaxWireMessageSize:  1 << 20,
 		},
-		func(_ context.Context, _ peer.ID, _ *PropellerUnit) error {
+		func(_ context.Context, _ peer.ID, _ *Unit) error {
 			return fmt.Errorf("simulated network failure")
 		},
 		utils.NewNopZapLogger(),
