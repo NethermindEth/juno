@@ -12,13 +12,14 @@ import (
 )
 
 // CreatePropellerUnits creates the PropellerUnits for publishing
+// todo(rdr): maybe call it create message for sharing or somth like that
 func CreatePropellerUnits(
 	committeeID CommitteeID,
 	message []byte,
 	privKey crypto.PrivKey,
 	numDataShards,
 	parity int,
-) ([]PropellerUnit, error) {
+) ([]Unit, error) {
 	publisherID, err := peer.IDFromPrivateKey(privKey)
 	if err != nil {
 		return nil, fmt.Errorf("getting publisher id from private key: %w", publisherID)
@@ -38,11 +39,11 @@ func CreatePropellerUnits(
 		return nil, err
 	}
 
-	units := make([]PropellerUnit, len(encodedMessage))
+	units := make([]Unit, len(encodedMessage))
 	for i, shard := range encodedMessage {
 		merkleProof := merkleTree[i]
 
-		units[i] = PropellerUnit{
+		units[i] = Unit{
 			CommitteeID: committeeID,
 			Publisher:   publisherID,
 			MerkleRoot:  messageRoot,
@@ -57,8 +58,9 @@ func CreatePropellerUnits(
 
 // DecodePropellerUnit receives Propeller units, recovers any missing data and returns
 // the fully verified message, together with the corresponding  shard data and merkle proof.
+// todo(rdr): maybe call it decode received message
 func DecodePropellerUnit(
-	units []PropellerUnit,
+	units []Unit,
 	messageRoot MessageRoot,
 	localShardIndex ShardIndex,
 	numDataShards int,

@@ -117,6 +117,19 @@ func (s *Scheduler) NumCodingShards() int { return s.numCodingShards }
 // NumShards returns the total number of shards (data + coding = N-1).
 func (s *Scheduler) NumTotalShards() int { return s.numDataShards + s.numCodingShards }
 
+// Minimum (inclusive) amount of shards required to build a message
+func (s *Scheduler) BuildThreshold() int {
+	return s.numDataShards
+}
+
+// Minimum (inclusive) amount of shards required to guarantee a message is received
+func (s *Scheduler) ReceiveThreshold() int {
+	if len(s.peers) <= 3 {
+		return s.BuildThreshold()
+	}
+	return s.numDataShards * 2
+}
+
 func (s *Scheduler) publisherIndex(publisher peer.ID) (int, error) {
 	publisherIndex, found := slices.BinarySearchFunc(
 		s.peers,

@@ -7,7 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"go.uber.org/zap"
 )
 
 type unitWithSender struct {
@@ -31,11 +33,14 @@ type subprocessor struct {
 	localShardIndex        ShardIndex
 	localShardWasBroadcast bool
 
+	validator     Validator
 	messageState  messageState
 	unitsReceived []Unit
 }
 
-func newSubprocessor(scheduler *Scheduler, localShardIndex ShardIndex) subprocessor {
+func newSubprocessor(
+	key *messageKey, scheduler *Scheduler, localShardIndex ShardIndex,
+) subprocessor {
 	return subprocessor{
 		scheduler:              scheduler,
 		localShardIndex:        localShardIndex,
@@ -125,6 +130,7 @@ type Processor struct {
 	localPeer             peer.ID
 	timeout               time.Duration
 	concurrentTasksBounds concurrentTasksBounds
+	log                   utils.StructuredLogger
 }
 
 func NewProcessor(localPeer peer.ID, config *Config) *Processor {
@@ -146,6 +152,24 @@ func NewProcessor(localPeer peer.ID, config *Config) *Processor {
 }
 
 func (p *Processor) Run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case done := <-p.done:
+			if done.error != nil {
+				p.log.Error(
+					"subprocessor error",
+					// todo(rdr): need to use proper zap logger here
+					zap.Any("message key", done.messageKey),
+					zap.Error(done.error),
+				)
+			}
+			p.decreaseTask(done.messageKey.Publisher)
+			delete(p.subProcessors, done.messageKey)
+
+		}
+	}
 }
 
 func (p *Processor) ProcessMessage(
@@ -169,8 +193,8 @@ func (p *Processor) ProcessMessage(
 	// - A processing task that process the message (go routine B)
 	// - Then A will send the correct units to B
 	// This means that when many messages are received in quick succession, they can be validated
-	// non blockingly. This also means we have two go routines by sub processor than just a single
-	// one. Does it makes sense?
+	// non blockingly. This also means we have two go routines for sub processor than just a single
+	// one.
 	unitChan, err := p.subprocessorChannel(ctx, &key, scheduler)
 	if err != nil {
 		fmt.Errorf("couldn't get processor channel for key: %w", err)
@@ -222,7 +246,7 @@ func (p *Processor) createSubprocessor(
 		localShardIndex ShardIndex,
 		unitChan <-chan unitWithSender,
 	) {
-		subProcessor := newSubprocessor(scheduler, localShardIndex)
+		subProcessor := newSubprocessor(&key, scheduler, localShardIndex)
 		err := subProcessor.Run(ctx, unitChan)
 		p.done <- messageKeyWithError{
 			messageKey: messageKey,

@@ -26,7 +26,10 @@ type broadcastResult struct {
 }
 
 // todo(rdr): using String until I find a better type
-type StakerID string
+type StakerID struct {
+	peerID peer.ID
+	pubKey crypto.PubKey
+}
 
 // Holds the state for a Committee ID:
 //   - The `scheduler` represents the Propeller Tree of peers
@@ -39,9 +42,9 @@ type committeeState struct {
 	//            state of a current committee. They both should be created and closed at the
 	//            same time. If it is like this then it stands to reason that it should be coupled
 	//            here. Not 100% sure right now, so leaving a big todo for now.
-	proccessor *MessageProcessor
+
 	// todo(rdr): why do we need this
-	peerKeys []StakerID
+	peerKeys map[peer.ID]crypto.PubKey
 }
 
 // engineCommand is a tagged union of commands sent to the engine's Run() loop.
@@ -181,15 +184,15 @@ func (e *Engine) registerCommittee(
 		return nil
 	}
 
-	stakerIDs := make([]StakerID, len(peersKeys))
-	for i := range peersKeys {
-		if peersKeys[i] != nil {
-			stakerIDs[i] = *peersKeys[i]
-		} else {
-			// todo(rdr): re-check this flow once implementation is complete
-			panic("received nil key, they shoudln't be nil")
-		}
-	}
+	// stakerIDs := make([]StakerID, len(peersKeys))
+	// for i := range peersKeys {
+	// 	if peersKeys[i] != nil {
+	// 		stakerIDs[i] = *peersKeys[i]
+	// 	} else {
+	// 		// todo(rdr): re-check this flow once implementation is complete
+	// 		panic("received nil key, they shoudln't be nil")
+	// 	}
+	// }
 
 	schedule, err := NewScheduler(e.localPeer, peers)
 	if err != nil {
@@ -198,7 +201,8 @@ func (e *Engine) registerCommittee(
 
 	e.committees[committeeID] = &committeeState{
 		scheduler: schedule,
-		peerKeys:  stakerIDs,
+		// todo(rdr): need to add the peer pub keys
+		peerKeys: nil,
 	}
 
 	e.log.Info("registered new committee",
@@ -277,7 +281,8 @@ func (e *Engine) broadcast(units []Unit) error {
 // processUnit routes an incoming unit to the correct processor, creating
 // one if needed.
 func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
-	if _, ok := e.committees[unit.CommitteeID]; !ok {
+	cs, ok := e.committees[unit.CommitteeID]
+	if !ok {
 		// note(rdr): maybe debug?
 		e.log.Warn("received key for unregistered committee, dropping",
 			zap.Uint64("committee id", uint64(unit.CommitteeID)),
@@ -285,99 +290,10 @@ func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
 		return
 	}
 
-	// Skip already-finalised messages.
-	// todo(rdr): add timestamps to message keys to avoid replay attacks on old messages
-	key := messageKey{
-		CommitteeID: unit.CommitteeID,
-		Publisher:   unit.Publisher,
-		Root:        unit.MerkleRoot,
+	err := e.processor.ProcessMessage(ctx, unit, sender, cs.scheduler)
+	if err != nil {
+		e.log.Error("cannot process incoming unit", zap.Error(err))
 	}
-	if e.finalised.Contains(key) {
-		return
-	}
-
-	// Route to existing processor or create a new one.
-	shardCh, exists := e.processors[key]
-	if !exists {
-		shardCh = e.createProcessor(ctx, key, unit)
-		if shardCh == nil {
-			return // Channel not registered; logged inside createProcessor.
-		}
-	}
-
-	// Non-blocking send to the processor. If its buffer is full, the shard
-	// is dropped (the processor can reconstruct from other shards).
-	select {
-	case shardCh <- shardDelivery{Unit: unit, Sender: sender}:
-	default:
-		e.log.Warn("dropping shard: processor channel full",
-			zap.Uint32("shard", uint32(unit.ShardIndex)),
-			zap.Stringer("publisher", unit.Publisher),
-		)
-	}
-}
-
-// createProcessor spins up a new MessageProcessor goroutine for a message
-// we haven't seen before.
-func (e *Engine) createProcessor(
-	ctx context.Context, key messageKey, unit *Unit,
-) chan<- shardDelivery {
-	cs, ok := e.committees[unit.CommitteeID]
-	if !ok {
-		e.log.Warn("received unit for unregistered channel",
-			zap.Uint32("channel", uint32(unit.CommitteeID)),
-		)
-		return nil
-	}
-
-	validator := NewValidator(cs.scheduler, e.localPeer, &DefaultSignatureVerifier{})
-
-	// Buffer the shard channel so the engine doesn't block when delivering
-	// multiple shards in rapid succession.
-	shardCh := make(chan shardDelivery, cs.scheduler.NumShards())
-
-	proc := NewMessageProcessor(
-		unit.CommitteeID,
-		unit.Publisher,
-		unit.Root,
-		e.localPeer,
-		e.config,
-		shardCh,
-		e.eventCh,
-		e.sendFn,
-	)
-
-	e.processors[key] = shardCh
-
-	// Launch the processor goroutine. It will run until finalisation,
-	// timeout, or context cancellation. The cleanup signal goes to a
-	// dedicated channel so it cannot be blocked by a full eventCh.
-	go func() {
-		proc.Run(ctx)
-		select {
-		case e.cleanupCh <- processorDone{key: key}:
-		case <-ctx.Done():
-		}
-	}()
-
-	return shardCh
-}
-
-// processorDone is an internal event signalling that a processor's goroutine
-// has exited. The engine uses this to clean up the processors map.
-type processorDone struct {
-	key messageKey
-}
-
-// handleProcessorDone cleans up after a processor goroutine exits.
-func (e *Engine) handleProcessorDone(done processorDone) {
-	delete(e.processors, done.key)
-	e.finalised.Add(done.key)
-
-	// Periodically clean up expired entries in the time cache.
-	// Amortised cost: we do it on every processor exit, which is
-	// infrequent relative to shard processing.
-	e.finalised.Cleanup()
 }
 
 // forwardEvent sends an event to the application's event channel. Non-blocking
@@ -431,6 +347,7 @@ func (e *Engine) Run(ctx context.Context) error {
 		case event := <-e.eventCh:
 			// Forward application-visible events from processors.
 			e.forwardEvent(event)
+		}
 	}
 }
 

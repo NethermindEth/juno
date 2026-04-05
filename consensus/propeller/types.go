@@ -13,6 +13,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/propeller/merkle"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
 // CommitteeID identifies a committee or logical broadcast group. Multiple committees
@@ -38,7 +39,7 @@ type Config struct {
 
 	// StreamProtocol is the libp2p protocol identifier used for direct
 	// shard transfers between peers.
-	StreamProtocol string
+	StreamProtocol protocol.ID
 
 	// MaxWireMessageSize caps the size of a single serialised PropellerUnit
 	// on the wire. Units exceeding this are rejected to prevent memory
@@ -53,29 +54,6 @@ func DefaultConfig() Config {
 		StreamProtocol:      "/propeller/0.1.0",
 		MaxWireMessageSize:  1 << 20, // 1 MiB
 	}
-}
-
-// PropellerUnit is the atomic wire message: one erasure-coded shard plus
-// the metadata needed for independent verification. Each unit is self-contained
-// so a receiver can validate it without any other shards.
-type PropellerUnit struct {
-	CommitteeID CommitteeID  // Which committee this belongs to
-	Publisher   peer.ID      // Original message author
-	MerkleRoot  MessageRoot  // Merkle root binding all shards together
-	MerkleProof merkle.Proof // Merkle inclusion proof for this shard
-	Signature   []byte       // Publisher's Ed25519 signature over the root
-	ShardIndex  ShardIndex   // This shard's position in the erasure-coded output
-	ShardData   []byte       // The actual data fragment
-}
-
-// messageKey uniquely identifies a message within a channel. We track
-// per-message state (processor, time cache) using this composite key
-// because the same publisher could broadcast different messages (different
-// roots) and we need to handle each independently.
-type messageKey struct {
-	Channel   CommitteeID
-	Publisher peer.ID
-	Root      MessageRoot
 }
 
 // ---------------------------------------------------------------------------

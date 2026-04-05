@@ -1,6 +1,8 @@
 package propeller
 
 import (
+	"time"
+
 	"github.com/NethermindEth/juno/consensus/propeller/merkle"
 	pb "github.com/NethermindEth/juno/consensus/propeller/proto"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -18,6 +20,9 @@ type Unit struct {
 	Signature   []byte       // Publisher's Ed25519 signature over the root
 	ShardIndex  ShardIndex   // This shard's position in the erasure-coded output
 	ShardData   []byte       // The actual data fragment
+	// todo(rdr): calling it nonce because that's what is called on the rust side but
+	// time stamp or some other name would be better
+	Nonce time.Duration // Strictly increasing number, starting from the Unix epoch
 }
 
 func UnitFromProto(protoUnit *pb.PropellerUnit) Unit {

@@ -16,8 +16,6 @@ type TimeCache[K comparable] struct {
 	mu      sync.Mutex
 	entries map[K]time.Time
 	ttl     time.Duration
-	// nowFn is injectable for testing. In production it is time.Now.
-	nowFn func() time.Time
 }
 
 // NewTimeCache creates a cache where entries expire after the given TTL.
@@ -25,7 +23,6 @@ func NewTimeCache[K comparable](ttl time.Duration) *TimeCache[K] {
 	return &TimeCache[K]{
 		entries: make(map[K]time.Time),
 		ttl:     ttl,
-		nowFn:   time.Now,
 	}
 }
 
@@ -34,7 +31,7 @@ func NewTimeCache[K comparable](ttl time.Duration) *TimeCache[K] {
 func (c *TimeCache[K]) Add(key K) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.entries[key] = c.nowFn().Add(c.ttl)
+	c.entries[key] = time.Now().Add(c.ttl)
 }
 
 // Contains returns true if the key is present and has not expired.
@@ -47,7 +44,7 @@ func (c *TimeCache[K]) Contains(key K) bool {
 	if !ok {
 		return false
 	}
-	return c.nowFn().Before(expiry)
+	return time.Now().Before(expiry)
 }
 
 // Cleanup removes all expired entries from the cache. Call this periodically
@@ -56,7 +53,7 @@ func (c *TimeCache[K]) Contains(key K) bool {
 func (c *TimeCache[K]) Cleanup() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	now := c.nowFn()
+	now := time.Now()
 	for k, expiry := range c.entries {
 		if !now.Before(expiry) {
 			delete(c.entries, k)
