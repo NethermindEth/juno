@@ -60,16 +60,23 @@ func (s *subprocessor) Run(ctx context.Context, unitChan <-chan unitWithSender) 
 			// can check for `context.DeadlineExceeded`
 			return ctx.Err()
 		case unitWithSender := <-unitChan:
-			// todo(rdr): validate that the unit is correct
-			// if the unit is incorrect penalize publisher (how?)
+			unit := unitWithSender.unit
+			sender := unitWithSender.sender
 
-			s.unitsReceived = append(s.unitsReceived, *unitWithSender.unit)
+			err := s.validator.ValidateUnit(unit, sender)
+			if err != nil {
+				// do something with the error, logging it and
+				// sharing it with the main processor
+				continue
+			}
+
+			s.unitsReceived = append(s.unitsReceived, *unit)
 			switch s.messageState {
 			case preBuilt:
 				// if the unit / shard is our own and we are pre-construction then we should
 				// broadcast our own shard (only once)
 				// todo(rdr): consider inlining this function? or use go naming ("once" in the name)
-				s.maybeBroacastLocalShard(unitWithSender.unit)
+				s.maybeBroacastLocalShard(unit)
 
 				// todo(rdr): do something with a signature that I don't understand very well
 
@@ -107,6 +114,9 @@ type messageKey struct {
 	Root        MessageRoot
 	Nonce       Nonce
 }
+
+// todo(rdr): since message key is a subset of a unit, it should probably be constructed by
+// receiving a unit as an argument!!
 
 func (mk *messageKey) String() string {
 	return fmt.Sprintf("%+v", *mk)

@@ -2,8 +2,10 @@ package propeller
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/consensus/propeller/merkle"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -27,12 +29,11 @@ type Validator struct {
 	publisherPubKey crypto.PubKey
 	scheduler       *Scheduler
 
+	// track of every shard index received
+	receivedShards map[ShardIndex]struct{}
 	// Once the validation is done it's stored here, subsequent runs
 	// compare against it
 	verifiedSignature Signature
-
-	// track of every shard index received
-	receivedShards map[ShardIndex]struct{}
 }
 
 // todo(rdr): maybe just pass the publisher?
@@ -48,13 +49,33 @@ func NewValidator(key *messageKey, scheduler *Scheduler) Validator {
 		// publisher: key.Publisher,
 		// messageRoot:     key.Root,
 		// nonce:           key.Nonce,
-		publisherPubKey: pubKey,
-		scheduler:       scheduler,
-		receivedShards:  make(map[ShardIndex]struct{}, scheduler.NumDataShards()),
+		publisherPubKey:   pubKey,
+		scheduler:         scheduler,
+		receivedShards:    make(map[ShardIndex]struct{}, scheduler.NumDataShards()),
+		verifiedSignature: nil,
 	}
 }
 
-func (v *Validator) verify(unit *Unit) error {
+func (v *Validator) verifyDataShards(unit *Unit) error {
+	if len(unit.ShardData) != 1 {
+		return fmt.Errorf(
+			"unexpected amount of shards. Expected %d. Received %d",
+			1,
+			len(unit.ShardData),
+		)
+	}
+
+	proof := unit.MerkleProof
+	root := merkle.Hash(unit.MessageRoot)
+	// We marshal to Proto bytes to make the verification language agnostic
+	if proof.Verify(&root, unit.ShardData.MarshalProto(), uint32(unit.ShardIndex)) {
+		return nil
+	}
+
+	return errors.New("data shards verification failed")
+}
+
+func (v *Validator) verifySignature(unit *Unit) error {
 	if v.verifiedSignature != nil {
 		if bytes.Equal(v.verifiedSignature, unit.Signature) {
 			return nil
@@ -98,7 +119,11 @@ func (v *Validator) ValidateUnit(unit *Unit, sender peer.ID) error {
 		return err
 	}
 
-	if err = v.verify(unit); err != nil {
+	if err = v.verifyDataShards(unit); err != nil {
+		return err
+	}
+
+	if err = v.verifySignature(unit); err != nil {
 		return err
 	}
 

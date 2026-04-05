@@ -2,12 +2,14 @@ package propeller
 
 import (
 	"encoding/binary"
+	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/propeller/merkle"
 	pb "github.com/NethermindEth/juno/consensus/propeller/proto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
+	"google.golang.org/protobuf/proto"
 )
 
 // The actual shard fragmen
@@ -15,6 +17,17 @@ type Shard []byte
 
 // Holds the shard fragments carried by the Propeller Unit
 type ShardData []Shard
+
+func (sd ShardData) MarshalProto() []byte {
+	shards := make([]*pb.Shard, len(sd))
+	for i, s := range sd {
+		shards[i] = &pb.Shard{Data: s}
+	}
+	// We ignore the error because this data has already been converted and it is expected
+	// to be correct.
+	res, _ := proto.Marshal(&pb.ShardsOfPeer{Shards: shards})
+	return res
+}
 
 // Propeller Unit Signature
 type Signature []byte
@@ -38,10 +51,20 @@ type Unit struct {
 	Nonce Nonce // Strictly increasing number, starting from the Unix epoch
 }
 
-func UnitFromProto(protoUnit *pb.PropellerUnit) Unit {
+func UnitFromProto(protoUnit *pb.PropellerUnit) (Unit, error) {
 	shards := make(ShardData, len(protoUnit.Shards.GetShards()))
 	for i, s := range protoUnit.Shards.GetShards() {
 		shards[i] = Shard(s.Data)
+	}
+
+	// validate that all shard length is the same
+	// todo(rdr): What other validations should I do?
+	// todo(rdr): Should I do these validations here?
+	shardLen := len(shards[0])
+	for i := range shards[1:] {
+		if len(shards[i]) != shardLen {
+			return Unit{}, errors.New("unit has shards of different length")
+		}
 	}
 
 	siblings := make([]merkle.Hash, len(protoUnit.MerkleProof.GetSiblings()))
@@ -58,7 +81,7 @@ func UnitFromProto(protoUnit *pb.PropellerUnit) Unit {
 		ShardIndex:  ShardIndex(protoUnit.Index),
 		ShardData:   shards,
 		Nonce:       Nonce(time.Duration(protoUnit.Nonce)),
-	}
+	}, nil
 }
 
 func (u *Unit) ToProto() *pb.PropellerUnit {
