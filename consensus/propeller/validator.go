@@ -8,29 +8,34 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type verificationResult struct {
-	done      bool
-	signature Signature
-	nonce     Nonce
-}
+// todo(rdr): A validator lifetime is attached to a `subprocessor`. A `subprocessor` is attached
+// to a message key field. This logic is handled by a `Processor`. This means that a validator will // always be given units that have the same committeeID, publisher, messageRoot and Nonce (the
+// current fields of a `messageKey`). Does it makes sense for the validator to also hold a copy
+// of this. Is there a way of testing this invariant – where a validator only sees the same
+// fields. I need to add a test for that invariant
 
 // Validates all the incoming units / shards given a committee and the publisher
 type Validator struct {
 	// Required fields to perform the validation
-	committeeID     CommitteeID
-	publisher       peer.ID
+	// or not. Check if I can delete them
+	// committeeID CommitteeID
+	// publisher       peer.ID
+	// messageRoot MessageRoot
+	// nonce       Nonce
+	// ----------------------------------------
+
 	publisherPubKey crypto.PubKey
-	messageRoot     MessageRoot
 	scheduler       *Scheduler
 
 	// Once the validation is done it's stored here, subsequent runs
 	// compare against it
-	verification verificationResult
+	verifiedSignature Signature
 
 	// track of every shard index received
 	receivedShards map[ShardIndex]struct{}
 }
 
+// todo(rdr): maybe just pass the publisher?
 func NewValidator(key *messageKey, scheduler *Scheduler) Validator {
 	pubKey, err := key.Publisher.ExtractPublicKey()
 	// for now we are assuming that extracting a publisher key is always successful
@@ -39,48 +44,27 @@ func NewValidator(key *messageKey, scheduler *Scheduler) Validator {
 		panic(err)
 	}
 	return Validator{
-		committeeID:     key.CommitteeID,
-		publisher:       key.Publisher,
-		messageRoot:     key.Root,
-		publisherPubKey: pubKey, // todo(rdr): nil for now, need to think how to pass this one
+		// committeeID:     key.CommitteeID,
+		// publisher: key.Publisher,
+		// messageRoot:     key.Root,
+		// nonce:           key.Nonce,
+		publisherPubKey: pubKey,
 		scheduler:       scheduler,
 		receivedShards:  make(map[ShardIndex]struct{}, scheduler.NumDataShards()),
 	}
 }
 
-func (v *Validator) verifyKeyFields(unit *Unit) error {
-	if unit.CommitteeID != v.committeeID {
-		return fmt.Errorf(
-			"different committe id. Expected: %s. Received: %s", unit.CommitteeID, v.committeeID,
-		)
-	}
-	if unit.Publisher != v.publisher {
-		return fmt.Errorf(
-			"different publisher. Expected: %s. Received: %s", unit.Publisher, v.publisher,
-		)
-	}
-	if unit.MessageRoot != v.messageRoot {
-		return fmt.Errorf(
-			"different message root. Expected: %s. Received: %s", unit.MessageRoot, v.messageRoot,
-		)
-	}
-
-	return nil
-}
-
 func (v *Validator) verify(unit *Unit) error {
-	// todo(rdr): Here we are verifying everything but the data, do we verify the data
-	// at some point. What happens if a Peer has all the data correct except the shard data
-	// for example? Is that an attack vector?
-	// Something fails at some point and the publisher gets slashed?
-	if v.verification.done {
-		verificationMatch := bytes.Equal(v.verification.signature, unit.Signature) &&
-			v.verification.nonce == unit.Nonce
-		if verificationMatch {
+	if v.verifiedSignature != nil {
+		if bytes.Equal(v.verifiedSignature, unit.Signature) {
 			return nil
 		}
-		// todo(rdr): add error information. Perhaps build an error type?
-		return fmt.Errorf("unit signature or nonce missmatch")
+		// todo(rdr): make sure this error is readable
+		return fmt.Errorf(
+			"signature missmatch. Expected: %v. Received %v",
+			v.verifiedSignature,
+			unit.Signature,
+		)
 	}
 
 	err := verifyMessageIDSignature(
@@ -95,33 +79,27 @@ func (v *Validator) verify(unit *Unit) error {
 		return err
 	}
 
-	v.verification = verificationResult{
-		done: true,
-		// todo(rdr): by storing a field of unit.Signature am I forcing the whole `unit` to
-		// continue to exist on the heap, or can the remaining fields be cleaned. Probably the
-		// latter.
-		signature: unit.Signature,
-		nonce:     unit.Nonce,
-	}
-
+	// todo(rdr): by storing a field of unit.Signature am I forcing the whole `unit` to
+	// continue to exist on the heap, or can the remaining fields be cleaned. Probably the
+	// latter.
+	v.verifiedSignature = unit.Signature
 	return nil
 }
 
 func (v *Validator) ValidateUnit(unit *Unit, sender peer.ID) error {
-	// todo(rdr): Do I need to check that comitteeID, publisher and messageRoot to be the
-	// same as the one being hold by the validator, or is that infered from the signature being
-	// correct or wrong?
-
 	if _, ok := v.receivedShards[unit.ShardIndex]; ok {
 		return fmt.Errorf("duplicated shard %d received", unit.ShardIndex)
 	}
 
-	err := v.scheduler.ValidateShardOrigin(sender, v.publisher, unit.ShardIndex)
+	// We can use `unit.Publisher` because it is part of messageKey and hence
+	// this validator wouldn't be used otherwise
+	err := v.scheduler.ValidateShardOrigin(sender, unit.Publisher, unit.ShardIndex)
 	if err != nil {
+		return err
 	}
 
 	if err = v.verify(unit); err != nil {
-		return nil
+		return err
 	}
 
 	// Cache the verified shard to avoid re-verification
