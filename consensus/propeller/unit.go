@@ -1,6 +1,7 @@
 package propeller
 
 import (
+	"encoding/binary"
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/propeller/merkle"
@@ -9,8 +10,16 @@ import (
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 )
 
+// The actual shard fragmen
+type Shard []byte
+
+// Holds the shard fragments carried by the Propeller Unit
+type ShardData []Shard
+
+// Propeller Unit Signature
 type Signature []byte
 
+// Propeller Unit Nonce
 type Nonce time.Duration
 
 // Unit is the atomic wire message: one erasure-coded shard plus
@@ -23,25 +32,41 @@ type Unit struct {
 	MerkleProof merkle.Proof // Merkle inclusion proof for this shard
 	Signature   Signature    // Publisher's Ed25519 signature over the root
 	ShardIndex  ShardIndex   // This shard's position in the erasure-coded output
-	ShardData   []byte       // The actual data fragment
+	ShardData   ShardData    //
 	// todo(rdr): calling it nonce because that's what is called on the rust side but
 	// time stamp or some other name would be better
 	Nonce Nonce // Strictly increasing number, starting from the Unix epoch
 }
 
 func UnitFromProto(protoUnit *pb.PropellerUnit) Unit {
+	shards := make(ShardData, len(protoUnit.Shards.GetShards()))
+	for i, s := range protoUnit.Shards.GetShards() {
+		shards[i] = Shard(s.Data)
+	}
+
+	siblings := make([]merkle.Hash, len(protoUnit.MerkleProof.GetSiblings()))
+	for i, s := range protoUnit.MerkleProof.GetSiblings() {
+		copy(siblings[i][:], s.Elements)
+	}
+
 	return Unit{
-		CommitteeID: CommitteeID(protoUnit.Channel),
-		// todo(rdr): this casting operations seem a bit risky, are they?
-		Publisher:   peer.ID(protoUnit.Publisher.Id),
-		MessageRoot: MessageRoot(protoUnit.MerkleRoot.Elements),
+		CommitteeID: committeeIDFromBytes(protoUnit.CommitteeId.GetElements()),
+		Publisher:   peer.ID(protoUnit.Publisher.GetId()),
+		MessageRoot: MessageRoot(protoUnit.MerkleRoot.GetElements()),
+		MerkleProof: merkle.Proof{Siblings: siblings},
 		Signature:   protoUnit.Signature,
 		ShardIndex:  ShardIndex(protoUnit.Index),
-		ShardData:   protoUnit.Shard,
+		ShardData:   shards,
+		Nonce:       Nonce(time.Duration(protoUnit.Nonce)),
 	}
 }
 
 func (u *Unit) ToProto() *pb.PropellerUnit {
+	protoShards := make([]*pb.Shard, len(u.ShardData))
+	for i, s := range u.ShardData {
+		protoShards[i] = &pb.Shard{Data: s}
+	}
+
 	siblings := make([]*common.Hash256, len(u.MerkleProof.Siblings))
 	for i, s := range u.MerkleProof.Siblings {
 		siblings[i] = &common.Hash256{Elements: s[:]}
@@ -49,14 +74,29 @@ func (u *Unit) ToProto() *pb.PropellerUnit {
 
 	root := merkle.Hash(u.MessageRoot)
 	return &pb.PropellerUnit{
-		Shard: u.ShardData,
-		Index: uint64(u.ShardIndex),
-		MerkleRoot: &common.Hash256{
-			Elements: root[:],
-		},
+		Shards:      &pb.ShardsOfPeer{Shards: protoShards},
+		Index:       uint64(u.ShardIndex),
+		MerkleRoot:  &common.Hash256{Elements: root[:]},
 		MerkleProof: &pb.MerkleProof{Siblings: siblings},
 		Publisher:   &common.PeerID{Id: []byte(u.Publisher)},
 		Signature:   u.Signature,
-		Channel:     uint32(u.CommitteeID),
+		CommitteeId: &common.Hash256{Elements: committeeIDToBytes(u.CommitteeID)},
+		Nonce:       uint64(u.Nonce),
 	}
+}
+
+func committeeIDFromBytes(b []byte) CommitteeID {
+	var id CommitteeID
+	for i := range 4 {
+		id[i] = binary.BigEndian.Uint64(b[i*8 : (i+1)*8])
+	}
+	return id
+}
+
+func committeeIDToBytes(id CommitteeID) []byte {
+	b := make([]byte, 32)
+	for i := range 4 {
+		binary.BigEndian.PutUint64(b[i*8:(i+1)*8], id[i])
+	}
+	return b
 }

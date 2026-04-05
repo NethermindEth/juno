@@ -12,11 +12,23 @@ message MerkleProof {
     repeated Hash256 siblings = 1;
 }
 
-// A single unit in the Propeller protocol containing a shard of erasure-coded data
+// A single erasure-coded fragment of the original message.
+message Shard {
+    bytes data = 1;
+}
+
+// A collection of shards assigned to a single peer.
+// The proto-encoded bytes of this message are used as Merkle tree leaf data,
+// ensuring cross-language determinism.
+message ShardsOfPeer {
+    repeated Shard shards = 1;
+}
+
+// A single unit in the Propeller protocol containing shards of erasure-coded data
 // along with cryptographic proofs for verification.
 message PropellerUnit {
-    // The actual data shard (erasure-coded fragment of the original message).
-    bytes shard = 1;
+    // The shards assigned to this unit's peer.
+    ShardsOfPeer shards = 1;
     // The position of this shard in the erasure coding scheme.
     uint64 index = 2;
     // The Merkle root of all shards, used to verify shard integrity.
@@ -27,11 +39,12 @@ message PropellerUnit {
     PeerID publisher = 5;
     // Cryptographic signature from the publisher over the merkle_root.
     bytes signature = 6;
-    // TODO(AndrewL): consider re-naming channel
-    // TODO(AndrewL): make it uint64 instead of uint32.
-    // Logical channel identifier for multiplexing different message streams.
-    uint32 channel = 7;
-    // TODO(AndrewL): CRITICAL: protect against replay attacks (maybe using a timestamp)
+    // Committee identifier for multiplexing different message streams.
+    Hash256 committee_id = 7;
+    // A strictly increasing number, to avoid replays.
+    // Current implementation is nanoseconds since UNIX_EPOCH.
+    // TODO(guyn): CRITICAL: protect against replay attacks using this timestamp
+    uint64 nonce = 8;
 }
 
 // A batch of PropellerUnits for efficient transmission.

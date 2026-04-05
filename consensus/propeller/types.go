@@ -18,7 +18,7 @@ import (
 
 // CommitteeID identifies a committee or logical broadcast group. Multiple committees
 // can operate concurrently within the same engine, each with its own peer set.
-type CommitteeID uint64
+type CommitteeID [4]uint64
 
 // ShardIndex is the position of a shard within the erasure-coded output.
 // Valid range is [0, N-2] where N is the total number of peers.
