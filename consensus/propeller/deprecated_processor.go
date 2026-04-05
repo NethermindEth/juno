@@ -92,7 +92,7 @@ func NewMessageProcessor(
 	localPeer peer.ID,
 	config Config,
 	schedule *Scheduler,
-	validator *Validator,
+	validator *DeprecatedValidator,
 	encoder Encoder,
 	shardCh chan shardDelivery,
 	eventCh chan<- any,

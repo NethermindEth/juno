@@ -6,7 +6,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-// Validator checks incoming PropellerUnits for correctness. Each check
+// DeprecatedValidator checks incoming PropellerUnits for correctness. Each check
 // serves a specific defensive purpose:
 //
 //   - Self-sending check: prevents reflection attacks.
@@ -21,19 +21,19 @@ import (
 //
 // These checks are ordered from cheapest to most expensive so we reject
 // invalid units as early as possible.
-type Validator struct {
+type DeprecatedValidator struct {
 	schedule  *Scheduler
 	localPeer peer.ID
 	verifier  SignatureVerifier
 }
 
 // NewValidator creates a validator for the given channel configuration.
-func NewValidator(
+func NewDeprecatedValidator(
 	schedule *Scheduler,
 	localPeer peer.ID,
 	verifier SignatureVerifier,
-) *Validator {
-	return &Validator{
+) *DeprecatedValidator {
+	return &DeprecatedValidator{
 		schedule:  schedule,
 		localPeer: localPeer,
 		verifier:  verifier,
@@ -52,7 +52,7 @@ func NewValidator(
 //     check after the first shard from the same message passes.
 //
 // Returns nil if valid, or a *ShardValidationError describing the failure.
-func (v *Validator) ValidateUnit(
+func (v *DeprecatedValidator) ValidateUnit(
 	unit *Unit,
 	sender peer.ID,
 	seenShards map[ShardIndex]bool,
