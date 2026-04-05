@@ -169,7 +169,7 @@ func (p *MessageProcessor) handleShard(ctx context.Context, delivery shardDelive
 	); err != nil {
 		p.emitEvent(EventShardValidationFailed{
 			Sender:           delivery.Sender,
-			ClaimedRoot:      unit.MerkleRoot,
+			ClaimedRoot:      unit.MessageRoot,
 			ClaimedPublisher: unit.Publisher,
 			Err:              err,
 		})
@@ -252,7 +252,7 @@ func (p *MessageProcessor) handlePreConstruction(ctx context.Context) {
 	p.myShardUnit = &Unit{
 		CommitteeID: p.committeeID,
 		Publisher:   p.publisher,
-		MerkleRoot:  p.root,
+		MessageRoot: p.root,
 		Signature:   p.storedSignature,
 		ShardIndex:  myShard,
 		ShardData:   shardsCopy[myShard],

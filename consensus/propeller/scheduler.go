@@ -36,11 +36,11 @@ type PeerCommittee struct {
 // - Message is RECEIVED when 2*numDataShards shards are received (guarantees gossip property)
 // - Each peer broadcasts received shards to all other peers (full mesh)
 type Scheduler struct {
-	peerID          peer.ID
-	peerIDIndex     int
-	peers           []PeerCommittee
-	numDataShards   int
-	numCodingShards int
+	localPeerID      peer.ID
+	localPeerIDIndex int
+	peers            []PeerCommittee
+	numDataShards    int
+	numCodingShards  int
 }
 
 // NewScheduler creates a schedule from a list of peers. The peers are sorted
@@ -60,7 +60,7 @@ func NewScheduler(
 	}
 
 	// todo(rdr): check with function is faster for sorting in our case:
-	// `slices.Sort` or `sort.Slice`
+	// `slices.Sort` or `sort.Slice`. Alternative:
 	// sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })
 	slices.SortFunc(nodes, func(i, j PeerCommittee) int { return cmp.Compare(i.ID, j.ID) })
 
@@ -90,17 +90,17 @@ func NewScheduler(
 	numCodingShards := max(0, totalNodes-1-numDataShards)
 
 	return &Scheduler{
-		peerID:          id,
-		peerIDIndex:     idIndex,
-		peers:           nodes,
-		numDataShards:   numDataShards,
-		numCodingShards: numCodingShards,
+		localPeerID:      id,
+		localPeerIDIndex: idIndex,
+		peers:            nodes,
+		numDataShards:    numDataShards,
+		numCodingShards:  numCodingShards,
 	}, nil
 }
 
 // PeerID returns the Scheduler Peer ID
 func (s *Scheduler) PeerID() peer.ID {
-	return s.peerID
+	return s.localPeerID
 }
 
 // Peers return the Scheduler list of nodes
@@ -188,7 +188,7 @@ func (s *Scheduler) PeerForShardIndex(
 func (s *Scheduler) ShardIndexForPublisher(
 	publisher peer.ID,
 ) (ShardIndex, error) {
-	if s.peerID == publisher {
+	if s.localPeerID == publisher {
 		return 0, fmt.Errorf(
 			"scheduler peer is the same as the publisher and has no assinged shard: %s",
 			publisher,
@@ -200,9 +200,9 @@ func (s *Scheduler) ShardIndexForPublisher(
 		return 0, fmt.Errorf("couldn't locate shard index for publisher: %w", err)
 	}
 
-	shardIdx := s.peerIDIndex
-	if s.peerIDIndex >= pubIdx {
-		shardIdx = s.peerIDIndex - 1
+	shardIdx := s.localPeerIDIndex
+	if s.localPeerIDIndex >= pubIdx {
+		shardIdx = s.localPeerIDIndex - 1
 	}
 
 	return ShardIndex(shardIdx), nil
@@ -216,10 +216,10 @@ func (s *Scheduler) ValidateShardOrigin(
 	publisher peer.ID,
 	shardIndex ShardIndex,
 ) error {
-	if sender == s.peerID {
+	if sender == s.localPeerID {
 		return fmt.Errorf("scheduler sent itself a shard: %s", sender)
 	}
-	if publisher == s.peerID {
+	if publisher == s.localPeerID {
 		return fmt.Errorf("scheduler broadcast itself a shard: %s", publisher)
 	}
 
@@ -233,7 +233,7 @@ func (s *Scheduler) ValidateShardOrigin(
 		)
 	}
 
-	validDirectShard := expectedBroadcaster == s.peerID && sender == publisher
+	validDirectShard := expectedBroadcaster == s.localPeerID && sender == publisher
 	if validDirectShard {
 		return nil
 	}
@@ -257,7 +257,7 @@ func (s *Scheduler) BroadcastTargets() []peer.ID {
 	targets := make([]peer.ID, s.NumTotalShards()-1)
 	i := 0
 	for _, p := range s.peers {
-		if i == s.peerIDIndex {
+		if i == s.localPeerIDIndex {
 			continue
 		}
 		targets[i] = p.ID

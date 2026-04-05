@@ -242,7 +242,7 @@ func TestValidator_MerkleProofFailed(t *testing.T) {
 	unit := &Unit{
 		Publisher:   setup.publisher,
 		ShardIndex:  setup.shardIndex,
-		MerkleRoot:  MessageRoot{0x01},
+		MessageRoot: MessageRoot{0x01},
 		ShardData:   []byte("data"),
 		MerkleProof: MerkleProof{Siblings: [][32]byte{{0xde, 0xad}}},
 	}

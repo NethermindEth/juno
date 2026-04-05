@@ -46,6 +46,7 @@ func newSubprocessor(
 		localShardIndex:        localShardIndex,
 		localShardWasBroadcast: false,
 
+		validator:     NewValidator(key, scheduler),
 		messageState:  preBuilt,
 		unitsReceived: make([]Unit, 0, scheduler.ReceiveThreshold()),
 	}
@@ -74,6 +75,8 @@ func (s *subprocessor) Run(ctx context.Context, unitChan <-chan unitWithSender) 
 
 				if len(s.unitsReceived) == s.scheduler.BuildThreshold() {
 					s.messageState.NextState()
+					// trigger message rebuilding - can it be done in a non-blocking way?
+					// does it makes sense to do it in a non-blocking way?
 				}
 
 			case preReceived:
@@ -102,6 +105,11 @@ type messageKey struct {
 	CommitteeID CommitteeID
 	Publisher   peer.ID
 	Root        MessageRoot
+	Nonce       Nonce
+}
+
+func (mk *messageKey) String() string {
+	return fmt.Sprintf("%+v", *mk)
 }
 
 type messageKeyWithError struct {
@@ -116,16 +124,17 @@ type concurrentTasksBounds struct {
 
 // Processor handles all concurrent work on message processing
 type Processor struct {
+	// to avoid processing units already finalized
 	finalized *TimeCache[messageKey]
-	// todo(rdr): channel to communicate that a certain subprocessor has finished
+	// channel that communicates when a subprocessor has finished
 	done chan messageKeyWithError
 
+	subProcessors map[messageKey]chan unitWithSender
+
+	// track current open and closed tasks to avoid resource starvation
 	mu             sync.Mutex
 	publisherTasks map[peer.ID]uint64
 	tasks          uint64
-	// ----------------------------------
-	subProcessors map[messageKey]chan unitWithSender
-
 	// config inherited from Engine
 	localPeer             peer.ID
 	timeout               time.Duration
@@ -147,7 +156,11 @@ func NewProcessor(localPeer peer.ID, config *Config) *Processor {
 		localPeer: localPeer,
 		timeout:   timeout,
 		// todo(rdr): set this ones based on the config (or some consts?)
-		concurrentTasksBounds: concurrentTasksBounds{},
+		concurrentTasksBounds: concurrentTasksBounds{
+			// dummy values for now
+			maxWorkers:             1000,
+			maxWorkersPerPublisher: 250,
+		},
 	}
 }
 
@@ -156,22 +169,23 @@ func (p *Processor) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case done := <-p.done:
-			if done.error != nil {
+		case finishedSubP := <-p.done:
+			if finishedSubP.error != nil {
 				p.log.Error(
 					"subprocessor error",
-					// todo(rdr): need to use proper zap logger here
-					zap.Any("message key", done.messageKey),
-					zap.Error(done.error),
+					zap.String("message key", finishedSubP.messageKey.String()),
+					zap.Error(finishedSubP.error),
 				)
 			}
-			p.decreaseTask(done.messageKey.Publisher)
-			delete(p.subProcessors, done.messageKey)
+			p.decreaseTask(finishedSubP.messageKey.Publisher)
+			delete(p.subProcessors, finishedSubP.messageKey)
 
 		}
 	}
 }
 
+// ProcessMessage validates and process the received `unit` non-blockingly. It returns an
+// error if the unit couldn't start processing.
 func (p *Processor) ProcessMessage(
 	ctx context.Context,
 	unit *Unit,
@@ -181,7 +195,8 @@ func (p *Processor) ProcessMessage(
 	key := messageKey{
 		CommitteeID: unit.CommitteeID,
 		Publisher:   unit.Publisher,
-		Root:        unit.MerkleRoot,
+		Root:        unit.MessageRoot,
+		Nonce:       unit.Nonce,
 	}
 	if p.finalized.Contains(key) {
 		return nil
@@ -193,8 +208,8 @@ func (p *Processor) ProcessMessage(
 	// - A processing task that process the message (go routine B)
 	// - Then A will send the correct units to B
 	// This means that when many messages are received in quick succession, they can be validated
-	// non blockingly. This also means we have two go routines for sub processor than just a single
-	// one.
+	// non blockingly. This also means we have two go routines for sub processor rather than just
+	// a single one.
 	unitChan, err := p.subprocessorChannel(ctx, &key, scheduler)
 	if err != nil {
 		fmt.Errorf("couldn't get processor channel for key: %w", err)
@@ -221,7 +236,9 @@ func (p *Processor) createSubprocessor(
 ) (chan unitWithSender, error) {
 	localShardIndex, err := scheduler.ShardIndexForPublisher(key.Publisher)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create new subprocessor: %w", err)
+		return nil, fmt.Errorf(
+			"cannot get local shard index for publisher %s: %w", key.Publisher, err,
+		)
 	}
 
 	err = p.increaseTasks(key.Publisher)
@@ -241,7 +258,7 @@ func (p *Processor) createSubprocessor(
 	// todo(rdr): should I pass p.done as an argument?
 	go func(
 		ctx context.Context,
-		messageKey messageKey,
+		key messageKey,
 		scheduler *Scheduler,
 		localShardIndex ShardIndex,
 		unitChan <-chan unitWithSender,
@@ -249,7 +266,7 @@ func (p *Processor) createSubprocessor(
 		subProcessor := newSubprocessor(&key, scheduler, localShardIndex)
 		err := subProcessor.Run(ctx, unitChan)
 		p.done <- messageKeyWithError{
-			messageKey: messageKey,
+			messageKey: key,
 			error:      err,
 		}
 	}(ctxWithTimeout, *key, scheduler, localShardIndex, unitChan)
@@ -265,8 +282,13 @@ func (p *Processor) subprocessorChannel(
 	scheduler *Scheduler,
 ) (chan unitWithSender, error) {
 	unitChan, ok := p.subProcessors[*key]
-	if !ok {
-		return p.createSubprocessor(ctx, key, scheduler)
+	if ok {
+		return unitChan, nil
+	}
+
+	unitChan, err := p.createSubprocessor(ctx, key, scheduler)
+	if err != nil {
+		return nil, fmt.Errorf("creating new subprocessor: %w", err)
 	}
 	return unitChan, nil
 }

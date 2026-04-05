@@ -111,7 +111,7 @@ func (v *DeprecatedValidator) ValidateUnit(
 	// 5. Verify the Merkle inclusion proof. This ensures the shard data
 	//    is consistent with the tree root the publisher committed to.
 	if !VerifyMerkleProof(
-		unit.MerkleRoot, unit.ShardData, uint32(unit.ShardIndex), unit.MerkleProof,
+		unit.MessageRoot, unit.ShardData, uint32(unit.ShardIndex), unit.MerkleProof,
 	) {
 		return &ShardValidationError{
 			Reason: ReasonMerkleProofVerificationFailed,
@@ -123,7 +123,7 @@ func (v *DeprecatedValidator) ValidateUnit(
 	//    expensive check (public-key crypto), so we skip it if we've already
 	//    verified the same root from this publisher.
 	if !signatureVerified {
-		payload := SignPayload(unit.MerkleRoot)
+		payload := SignPayload(unit.MessageRoot)
 		ok, err := v.verifier.Verify(unit.Publisher, payload, unit.Signature)
 		if err != nil {
 			return &ShardValidationError{

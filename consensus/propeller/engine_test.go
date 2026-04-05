@@ -269,7 +269,7 @@ func TestEngine_HandleUnit_UnregisteredChannel(t *testing.T) {
 	unit := &Unit{
 		CommitteeID: 99,
 		Publisher:   env.peers[1],
-		MerkleRoot:  MessageRoot{0x01},
+		MessageRoot: MessageRoot{0x01},
 		ShardIndex:  0,
 		ShardData:   []byte("data"),
 	}

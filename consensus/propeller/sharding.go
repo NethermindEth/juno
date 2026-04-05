@@ -34,7 +34,8 @@ func CreatePropellerUnits(
 	merkleRoot, merkleTree := merkle.New(encodedMessage)
 	messageRoot := MessageRoot(merkleRoot)
 
-	signature, err := SignRoot(messageRoot, privKey)
+	// todo(rdr): check that this signing is correct
+	signature, err := utils.SignRoot(messageRoot, privKey)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func CreatePropellerUnits(
 		units[i] = Unit{
 			CommitteeID: committeeID,
 			Publisher:   publisherID,
-			MerkleRoot:  messageRoot,
+			MessageRoot: messageRoot,
 			MerkleProof: merkleProof,
 			Signature:   signature,
 			ShardIndex:  ShardIndex(i),
