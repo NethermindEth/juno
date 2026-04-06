@@ -1604,7 +1604,10 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			// 		handler.receivedTxFeed.Send(newHead2.Transactions[0])
 			// 	},
 			// 	expect: [][]*NewTransactionSubscriptionResponse{
-			// 		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
+			// 		toTransactionsWithFinalityStatus(
+			// 			newHead2.Transactions[:1],
+			// 			TxnStatusWithoutL1(TxnStatusReceived),
+			// 		),
 			// 	},
 			// },
 			{
@@ -1703,7 +1706,10 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			//  		handler.receivedTxFeed.Send(newHead2.Transactions[0])
 			//  	},
 			//  	expect: [][]*NewTransactionSubscriptionResponse{
-			//  		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
+			//  		toTransactionsWithFinalityStatus(
+			// 			newHead2.Transactions[:1],
+			// 			TxnStatusWithoutL1(TxnStatusReceived),
+			// 		),
 			//  	},
 			//  },
 			{

@@ -144,7 +144,10 @@ func TestBlockHashAndNumber(t *testing.T) {
 		expectedBlock, err := gw.BlockByNumber(t.Context(), 147)
 		require.NoError(t, err)
 
-		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{Hash: expectedBlock.Hash, Number: expectedBlock.Number}
+		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{
+			Hash:   expectedBlock.Hash,
+			Number: expectedBlock.Number,
+		}
 
 		mockReader.EXPECT().Head().Return(expectedBlock, nil)
 
@@ -505,7 +508,11 @@ func TestBlockWithTxs(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpc.BlockWithTxHashes, blockWithTxs *rpc.BlockWithTxs) {
+	checkLatestBlock := func(
+		t *testing.T,
+		blockWithTxHashes *rpc.BlockWithTxHashes,
+		blockWithTxs *rpc.BlockWithTxs,
+	) {
 		t.Helper()
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))

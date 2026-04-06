@@ -44,13 +44,15 @@ func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 }
 
 type FunctionInvocation struct {
-	ContractAddress    felt.Felt                `json:"contract_address"`
-	EntryPointSelector *felt.Felt               `json:"entry_point_selector"`
-	Calldata           []felt.Felt              `json:"calldata"`
-	CallerAddress      felt.Felt                `json:"caller_address"`
-	ClassHash          *felt.Felt               `json:"class_hash"`
-	EntryPointType     string                   `json:"entry_point_type"` // todo(rdr): use an enum here
-	CallType           string                   `json:"call_type"`        // todo(rdr): use an enum here
+	ContractAddress    felt.Felt   `json:"contract_address"`
+	EntryPointSelector *felt.Felt  `json:"entry_point_selector"`
+	Calldata           []felt.Felt `json:"calldata"`
+	CallerAddress      felt.Felt   `json:"caller_address"`
+	ClassHash          *felt.Felt  `json:"class_hash"`
+	// todo(rdr): use an enum here
+	EntryPointType string `json:"entry_point_type"`
+	// todo(rdr): use an enum here
+	CallType           string                   `json:"call_type"`
 	Result             []felt.Felt              `json:"result"`
 	Calls              []FunctionInvocation     `json:"calls"`
 	Events             []OrderedEvent           `json:"events"`
