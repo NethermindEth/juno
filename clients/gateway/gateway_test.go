@@ -27,6 +27,9 @@ func TestAddInvokeTx(t *testing.T) {
 	})
 
 	t.Run("Large requests are gzip compressed", func(t *testing.T) {
+		gateway.IsProtocolVer0_14_2.Store(true)
+		t.Cleanup(func() { gateway.IsProtocolVer0_14_2.Store(false) })
+
 		largeCalldata := make([]string, 200)
 		for i := range largeCalldata {
 			largeCalldata[i] = "0xcafebabe"

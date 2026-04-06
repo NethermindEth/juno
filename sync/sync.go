@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -340,6 +341,12 @@ func (s *Synchronizer) verifierTask(
 	}
 
 	s.listener.OnSyncStepDone(OpVerify, committedBlock.Block.Number, time.Since(verifyTimer))
+	if !gateway.IsProtocolVer0_14_2.Load() {
+		ver, err := core.ParseBlockVersion(committedBlock.Block.ProtocolVersion)
+		if err == nil && !ver.LessThan(core.Ver0_14_2) {
+			gateway.IsProtocolVer0_14_2.Store(true)
+		}
+	}
 	return func() {
 		s.storeTask(ctx, committedBlock, resetStreams, commitments)
 	}
