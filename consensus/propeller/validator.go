@@ -18,20 +18,12 @@ import (
 
 // Validates all the incoming units / shards given a committee and the publisher
 type Validator struct {
-	// Required fields to perform the validation
-	// or not. Check if I can delete them
-	// committeeID CommitteeID
-	// publisher       peer.ID
-	// messageRoot MessageRoot
-	// nonce       Nonce
-	// ----------------------------------------
-
 	publisherPubKey crypto.PubKey
 	scheduler       *Scheduler
 
 	// track of every shard index received
 	receivedShards map[ShardIndex]struct{}
-	// Once the validation is done it's stored here, subsequent runs
+	// Once the validation is done it's stored here, subsequent validation
 	// compare against it
 	verifiedSignature Signature
 }
@@ -45,10 +37,6 @@ func NewValidator(key *messageKey, scheduler *Scheduler) Validator {
 		panic(err)
 	}
 	return Validator{
-		// committeeID:     key.CommitteeID,
-		// publisher: key.Publisher,
-		// messageRoot:     key.Root,
-		// nonce:           key.Nonce,
 		publisherPubKey:   pubKey,
 		scheduler:         scheduler,
 		receivedShards:    make(map[ShardIndex]struct{}, scheduler.NumDataShards()),
@@ -88,21 +76,17 @@ func (v *Validator) verifySignature(unit *Unit) error {
 		)
 	}
 
-	err := verifyMessageIDSignature(
-		unit.CommitteeID,
-		unit.MessageRoot,
-		unit.Signature,
-		unit.Nonce,
+	err := VerifyMessageSignature(
 		v.publisherPubKey,
+		&unit.MessageRoot,
+		&unit.CommitteeID,
+		unit.Nonce,
+		unit.Signature,
 	)
 	if err != nil {
-		// add error information
-		return err
+		return fmt.Errorf("failed message signature verification: %w", err)
 	}
 
-	// todo(rdr): by storing a field of unit.Signature am I forcing the whole `unit` to
-	// continue to exist on the heap, or can the remaining fields be cleaned. Probably the
-	// latter.
 	v.verifiedSignature = unit.Signature
 	return nil
 }
@@ -112,8 +96,6 @@ func (v *Validator) ValidateUnit(unit *Unit, sender peer.ID) error {
 		return fmt.Errorf("duplicated shard %d received", unit.ShardIndex)
 	}
 
-	// We can use `unit.Publisher` because it is part of messageKey and hence
-	// this validator wouldn't be used otherwise
 	err := v.scheduler.ValidateShardOrigin(sender, unit.Publisher, unit.ShardIndex)
 	if err != nil {
 		return err
@@ -127,18 +109,8 @@ func (v *Validator) ValidateUnit(unit *Unit, sender peer.ID) error {
 		return err
 	}
 
-	// Cache the verified shard to avoid re-verification
+	// Store the verified shard to avoid re-verification
 	v.receivedShards[unit.ShardIndex] = struct{}{}
 
 	return nil
-}
-
-func verifyMessageIDSignature(
-	committeeID CommitteeID,
-	root MessageRoot,
-	signature Signature,
-	nonce Nonce,
-	publisherPubKey crypto.PubKey,
-) error {
-	panic("not yet implemented")
 }

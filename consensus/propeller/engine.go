@@ -175,11 +175,13 @@ func (e *Engine) registerCommittee(
 	peers []PeerCommittee,
 	peersKeys []*StakerID,
 ) error {
-	// todo(rdr): Why re-registration should be ignored, as far as I know, it shouldn't happen :think:
+	// todo(rdr): Why re-registration should be ignored,
+	// as far as I understand, it shouldn't happen :think:
 	if _, ok := e.committees[committeeID]; ok {
 		e.log.Warn(
 			"committee already registered, will ignore re-registration attempt",
-			zap.Uint64("committeeID", uint64(committeeID)),
+			// todo(rdr): give a propper string repr
+			zap.Any("committee id", committeeID),
 		)
 		return nil
 	}
@@ -206,7 +208,8 @@ func (e *Engine) registerCommittee(
 	}
 
 	e.log.Info("registered new committee",
-		zap.Uint64("committeeID", uint64(committeeID)),
+		// todo(rdr): give a proper string representation
+		zap.Any("committeeID", committeeID),
 		zap.Int("peers", len(peers)),
 		zap.Int("dataShards", schedule.NumDataShards()),
 		zap.Int("codingShards", schedule.NumCodingShards()),
@@ -224,7 +227,8 @@ func (e *Engine) unregisterCommittee(committeeID CommitteeID) {
 	//            better to pass a context with cancelj
 
 	e.log.Info("unregistered propeller committee",
-		zap.Uint64("committee", uint64(committeeID)),
+		// todo(rdr): give a proper string representation
+		zap.Any("committee id", committeeID),
 	)
 }
 
@@ -285,7 +289,8 @@ func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
 	if !ok {
 		// note(rdr): maybe debug?
 		e.log.Warn("received key for unregistered committee, dropping",
-			zap.Uint64("committee id", uint64(unit.CommitteeID)),
+			// todo(rdr): give a propper string representation
+			zap.Any("committee id", unit.CommitteeID),
 		)
 		return
 	}

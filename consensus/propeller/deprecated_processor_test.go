@@ -81,7 +81,7 @@ func (env *processorTestEnv) encodeTestMessage(
 	privKey, ok := env.privKeys[publisher]
 	require.True(t, ok, "no private key for publisher %s", publisher)
 
-	sig, err := SignRoot(root, privKey)
+	sig, err := SignMessage(root, privKey)
 	require.NoError(t, err)
 
 	for i := range units {

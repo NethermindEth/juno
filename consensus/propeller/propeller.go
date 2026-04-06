@@ -73,7 +73,12 @@ func (s *propellerService) receivePropellerUnits(stream network.Stream) {
 	}
 
 	for _, protoUnit := range batch.GetBatch() {
-		unit := UnitFromProto(protoUnit)
+		unit, err := UnitFromProto(protoUnit)
+		if err != nil {
+			s.log.Warn("received invalid unit", zap.Error(err))
+			// todo(rdr): penalize sender?
+			continue
+		}
 		// send unit to engine
 		s.cmdCh <- processUnit{
 			&unit,

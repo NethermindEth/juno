@@ -104,10 +104,8 @@ func (s *subprocessor) maybeBroacastLocalShard(unit *Unit) {
 	}
 }
 
-// messageKey uniquely identifies a message within a committee. We track
-// per-message state (processor, time cache) using this composite key
-// because the same publisher could broadcast different messages (different
-// roots) and we need to handle each independently.
+// messageKey are a copy of the values of a propeller unit that uniquely identifies it
+// all unit that carries shard of the same message will have the same "key" fields
 type messageKey struct {
 	CommitteeID CommitteeID
 	Publisher   peer.ID
@@ -115,8 +113,14 @@ type messageKey struct {
 	Nonce       Nonce
 }
 
-// todo(rdr): since message key is a subset of a unit, it should probably be constructed by
-// receiving a unit as an argument!!
+func extractKey(unit *Unit) messageKey {
+	return messageKey{
+		CommitteeID: unit.CommitteeID,
+		Publisher:   unit.Publisher,
+		Root:        unit.MessageRoot,
+		Nonce:       unit.Nonce,
+	}
+}
 
 func (mk *messageKey) String() string {
 	return fmt.Sprintf("%+v", *mk)
@@ -202,12 +206,7 @@ func (p *Processor) ProcessMessage(
 	sender peer.ID,
 	scheduler *Scheduler,
 ) error {
-	key := messageKey{
-		CommitteeID: unit.CommitteeID,
-		Publisher:   unit.Publisher,
-		Root:        unit.MessageRoot,
-		Nonce:       unit.Nonce,
-	}
+	key := extractKey(unit)
 	if p.finalized.Contains(key) {
 		return nil
 	}
@@ -234,7 +233,8 @@ func (p *Processor) ProcessMessage(
 	return errors.New("dropping shard, processor channel full")
 }
 
-// createSubprocessor creates a go-routine (subprocessor) that handles all the processing of `key`.
+// createSubprocessor creates a go-routine (subprocessor) that handles all the processing of the
+// messages identified with the given `messageKey`.
 // It returns a channel through which this processor can be given units to process
 // todo(rdr): I would like not to create a channel for everytime we have a different messageKey
 // since that can be a bit rough to the GC, better to have  a pool of them. Benchmarks will give

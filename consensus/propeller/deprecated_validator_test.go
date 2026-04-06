@@ -61,7 +61,7 @@ func makeValidUnit(
 	units, root, err := EncodeMessage(msg, schedule, enc)
 	require.NoError(t, err)
 
-	sig, err := SignRoot(root, publisherKey)
+	sig, err := SignMessage(root, publisherKey)
 	require.NoError(t, err)
 
 	unit := &units[shardIndex]
@@ -326,7 +326,7 @@ func TestSignRoot_RoundTrip(t *testing.T) {
 	privKey, peerID := realPeer(42)
 
 	root := MessageRoot{0xaa, 0xbb, 0xcc}
-	sig, err := SignRoot(root, privKey)
+	sig, err := SignMessage(root, privKey)
 	require.NoError(t, err)
 	require.NotEmpty(t, sig)
 

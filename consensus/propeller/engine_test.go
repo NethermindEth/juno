@@ -181,7 +181,7 @@ func TestEngine_HandleUnit_CreatesProcessor(t *testing.T) {
 	require.NoError(t, err)
 
 	publisher := env.peers[1]
-	sig, err := SignRoot(root, env.privKeys[1])
+	sig, err := SignMessage(root, env.privKeys[1])
 	require.NoError(t, err)
 
 	for i := range units {

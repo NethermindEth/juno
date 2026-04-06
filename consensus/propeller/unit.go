@@ -1,7 +1,6 @@
 package propeller
 
 import (
-	"encoding/binary"
 	"errors"
 	"time"
 
@@ -110,16 +109,10 @@ func (u *Unit) ToProto() *pb.PropellerUnit {
 
 func committeeIDFromBytes(b []byte) CommitteeID {
 	var id CommitteeID
-	for i := range 4 {
-		id[i] = binary.BigEndian.Uint64(b[i*8 : (i+1)*8])
-	}
+	copy(id[:], b)
 	return id
 }
 
 func committeeIDToBytes(id CommitteeID) []byte {
-	b := make([]byte, 32)
-	for i := range 4 {
-		binary.BigEndian.PutUint64(b[i*8:(i+1)*8], id[i])
-	}
-	return b
+	return id[:]
 }
