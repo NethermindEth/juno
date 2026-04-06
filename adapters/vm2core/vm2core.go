@@ -142,7 +142,7 @@ func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasC
 			Pedersen:     resources.Pedersen,
 			RangeCheck:   resources.RangeCheck,
 			Bitwise:      resources.Bitwise,
-			Ecsda:        resources.Ecdsa,
+			Ecdsa:        resources.Ecdsa,
 			EcOp:         resources.EcOp,
 			Keccak:       resources.Keccak,
 			Poseidon:     resources.Poseidon,

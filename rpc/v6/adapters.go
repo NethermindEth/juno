@@ -344,7 +344,7 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) Compu
 		Pedersen:     builtins.Pedersen,
 		RangeCheck:   builtins.RangeCheck,
 		Bitwise:      builtins.Bitwise,
-		Ecdsa:        builtins.Ecsda,
+		Ecdsa:        builtins.Ecdsa,
 		EcOp:         builtins.EcOp,
 		Keccak:       builtins.Keccak,
 		Poseidon:     builtins.Poseidon,

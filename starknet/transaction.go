@@ -263,7 +263,7 @@ type BuiltinInstanceCounter struct {
 	RangeCheck   uint64 `json:"range_check_builtin"`
 	Bitwise      uint64 `json:"bitwise_builtin"`
 	Output       uint64 `json:"output_builtin"`
-	Ecsda        uint64 `json:"ecdsa_builtin"`
+	Ecdsa        uint64 `json:"ecdsa_builtin"`
 	EcOp         uint64 `json:"ec_op_builtin"`
 	Keccak       uint64 `json:"keccak_builtin"`
 	Poseidon     uint64 `json:"poseidon_builtin"`

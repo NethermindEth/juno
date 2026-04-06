@@ -117,7 +117,7 @@ func AdaptExecutionResources(er *core.ExecutionResources) *receipt.Receipt_Execu
 	return &receipt.Receipt_ExecutionResources{
 		Builtins: &receipt.Receipt_ExecutionResources_BuiltinCounter{
 			Bitwise:      uint32(er.BuiltinInstanceCounter.Bitwise),
-			Ecdsa:        uint32(er.BuiltinInstanceCounter.Ecsda),
+			Ecdsa:        uint32(er.BuiltinInstanceCounter.Ecdsa),
 			EcOp:         uint32(er.BuiltinInstanceCounter.EcOp),
 			Pedersen:     uint32(er.BuiltinInstanceCounter.Pedersen),
 			RangeCheck:   uint32(er.BuiltinInstanceCounter.RangeCheck),
