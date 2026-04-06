@@ -29,8 +29,8 @@ type Validator struct {
 }
 
 // todo(rdr): maybe just pass the publisher?
-func NewValidator(key *messageKey, scheduler *Scheduler) Validator {
-	pubKey, err := key.Publisher.ExtractPublicKey()
+func NewValidator(publisher peer.ID, scheduler *Scheduler) Validator {
+	pubKey, err := publisher.ExtractPublicKey()
 	// for now we are assuming that extracting a publisher key is always successful
 	// and done in constant time
 	if err != nil {

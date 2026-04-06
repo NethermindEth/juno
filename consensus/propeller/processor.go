@@ -17,91 +17,140 @@ type unitWithSender struct {
 	sender peer.ID
 }
 
-type messageState uint64
-
-const (
-	preBuilt = iota
-	preReceived
-)
-
-func (ms *messageState) NextState() {
-	*ms += 1
-}
-
 type subprocessor struct {
 	scheduler              *Scheduler
 	localShardIndex        ShardIndex
 	localShardWasBroadcast bool
 
-	validator     Validator
-	messageState  messageState
-	unitsReceived []Unit
+	unitsChan        <-chan unitWithSender
+	invalidUnitsChan chan<- invalidUnit
+
+	validator Validator
 }
 
 func newSubprocessor(
-	key *messageKey, scheduler *Scheduler, localShardIndex ShardIndex,
+	publisher peer.ID,
+	scheduler *Scheduler,
+	localShardIndex ShardIndex,
+	unitsChan <-chan unitWithSender,
+	invalidUnitsChan chan<- invalidUnit,
 ) subprocessor {
 	return subprocessor{
-		scheduler:              scheduler,
-		localShardIndex:        localShardIndex,
-		localShardWasBroadcast: false,
+		scheduler:       scheduler,
+		localShardIndex: localShardIndex,
 
-		validator:     NewValidator(key, scheduler),
-		messageState:  preBuilt,
-		unitsReceived: make([]Unit, 0, scheduler.ReceiveThreshold()),
+		unitsChan:        unitsChan,
+		invalidUnitsChan: invalidUnitsChan,
+
+		validator: NewValidator(publisher, scheduler),
 	}
 }
 
-func (s *subprocessor) Run(ctx context.Context, unitChan <-chan unitWithSender) error {
-	for {
+func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
+	unitsReceived []*Unit,
+	unitCount int,
+	message []byte,
+	err error,
+) {
+	// Keep track of the units received
+	unitsReceived = make([]*Unit, s.scheduler.ReceiveThreshold())
+	unitCount = 0
+
+	localShardWasBroadcast := false
+
+	buildThreshold := s.scheduler.BuildThreshold()
+	for unitCount != buildThreshold {
 		select {
 		case <-ctx.Done():
-			// todo(rdr): need to differentiate between context cancellation and timeout.
-			// can check for `context.DeadlineExceeded`
-			return ctx.Err()
-		case unitWithSender := <-unitChan:
+			return
+		case unitWithSender := <-s.unitsChan:
 			unit := unitWithSender.unit
 			sender := unitWithSender.sender
 
-			err := s.validator.ValidateUnit(unit, sender)
+			err = s.validator.ValidateUnit(unit, sender)
 			if err != nil {
-				// do something with the error, logging it and
-				// sharing it with the main processor
+				s.invalidUnitsChan <- invalidUnit{
+					// todo(rdr): not sure if we need message key.
+					// We just want to penalize the sender
+					messageKey: extractKey(unit),
+					sender:     sender,
+					error:      err,
+				}
+				// if this is the first unit we are receiving, finish abruptly since
+				// it can be a DOS attack.
+				if unitCount == 0 {
+					return
+				}
 				continue
 			}
 
-			s.unitsReceived = append(s.unitsReceived, *unit)
-			switch s.messageState {
-			case preBuilt:
-				// if the unit / shard is our own and we are pre-construction then we should
-				// broadcast our own shard (only once)
-				// todo(rdr): consider inlining this function? or use go naming ("once" in the name)
-				s.maybeBroacastLocalShard(unit)
+			unitsReceived[int(unit.ShardIndex)] = unit
+			unitCount += 1
 
-				// todo(rdr): do something with a signature that I don't understand very well
-
-				if len(s.unitsReceived) == s.scheduler.BuildThreshold() {
-					s.messageState.NextState()
-					// trigger message rebuilding - can it be done in a non-blocking way?
-					// does it makes sense to do it in a non-blocking way?
-				}
-
-			case preReceived:
-				if len(s.unitsReceived) == s.scheduler.ReceiveThreshold() {
-					// broadcast and finish execution – but don't broadcast the local shard
-				}
+			// broadcast as soon as I get my shard
+			if localShardWasBroadcast && s.localShardIndex == unit.ShardIndex {
+				localShardWasBroadcast = true
+				// todo(rdr): actually broadcast shard index
 			}
-
 		}
 	}
+
+	// perform the build thing
+	panic("not implemented")
 }
 
-// todo(rdr): this can probably be inlined?
-func (s *subprocessor) maybeBroacastLocalShard(unit *Unit) {
-	if !s.localShardWasBroadcast && s.localShardIndex == unit.ShardIndex {
-		// broadcast shard index
-		s.localShardWasBroadcast = true
+func (s *subprocessor) beforeMessageReceivedStage(
+	ctx context.Context,
+	unitsReceived []*Unit,
+	unitCount int,
+	message []byte,
+) error {
+	receivedThreshold := s.scheduler.ReceiveThreshold()
+	for unitCount != receivedThreshold {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case unitWithSender := <-s.unitsChan:
+			unit := unitWithSender.unit
+			sender := unitWithSender.sender
+			if err := s.validator.ValidateUnit(unit, sender); err != nil {
+				s.invalidUnitsChan <- invalidUnit{
+					messageKey: extractKey(unit),
+					sender:     sender,
+					error:      err,
+				}
+				continue
+			}
+
+			unitsReceived[int(unit.ShardIndex)] = unit
+			unitCount += 1
+		}
 	}
+
+	// do the actual job that requires doing once the receive threshold is reached
+	panic("not implemented")
+}
+
+// todo(rdr): we need to be sure to test both cases:
+// - when built threshold == received threshold
+// - when build threshold != received threshold
+func (s *subprocessor) Run(
+	ctx context.Context,
+) error {
+	// The Run function works in two main loops depending on the stage we are in.
+	// First stage is before we can build the message, where which we receive messsages
+	// until we have enough to build the full messsage. The local shard will be broadcasted
+	// during this stage.
+	// Second stage starts with the full message built and waits until we receive enough
+	// messages to reach the received threshold, which guarantees that at leasrt 2/3 of the
+	// network is non faulty. This stages broadcasts the whole message once finished
+
+	unitsReceived, unitCount, message, err := s.beforeMessageBuiltStage(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.beforeMessageReceivedStage(ctx, unitsReceived, unitCount, message)
 }
 
 // messageKey are a copy of the values of a propeller unit that uniquely identifies it
@@ -126,7 +175,17 @@ func (mk *messageKey) String() string {
 	return fmt.Sprintf("%+v", *mk)
 }
 
-type messageKeyWithError struct {
+// invalidUnit is sent when a unit identified with `messageKey` failed validation with
+// error `error`
+type invalidUnit struct {
+	messageKey messageKey
+	sender     peer.ID
+	error      error
+}
+
+// finalizedSubprocessor is sent once a subprocessor finalizes processing a message
+// identified with `messageKey`. If it finalized on error the `error` field will be non-nil
+type finalizedSubprocessor struct {
 	messageKey messageKey
 	error      error
 }
@@ -140,10 +199,12 @@ type concurrentTasksBounds struct {
 type Processor struct {
 	// to avoid processing units already finalized
 	finalized *TimeCache[messageKey]
-	// channel that communicates when a subprocessor has finished
-	done chan messageKeyWithError
 
 	subProcessors map[messageKey]chan unitWithSender
+	// channel through wich subprocessors signal they have finalized execution
+	subProcessorsFinalized chan finalizedSubprocessor
+	// channel through which subprocessor sharedunits that failed validation
+	invalidUnits chan invalidUnit
 
 	// track current open and closed tasks to avoid resource starvation
 	mu             sync.Mutex
@@ -161,11 +222,14 @@ func NewProcessor(localPeer peer.ID, config *Config) *Processor {
 
 	return &Processor{
 		finalized: NewTimeCache[messageKey](timeout),
-		done:      make(chan messageKeyWithError),
 
+		subProcessors:          make(map[messageKey]chan unitWithSender),
+		subProcessorsFinalized: make(chan finalizedSubprocessor),
+		invalidUnits:           make(chan invalidUnit),
+
+		mu:             sync.Mutex{},
 		publisherTasks: make(map[peer.ID]uint64),
 		tasks:          0,
-		subProcessors:  make(map[messageKey]chan unitWithSender),
 
 		localPeer: localPeer,
 		timeout:   timeout,
@@ -183,16 +247,25 @@ func (p *Processor) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case finishedSubP := <-p.done:
-			if finishedSubP.error != nil {
-				p.log.Error(
-					"subprocessor error",
-					zap.String("message key", finishedSubP.messageKey.String()),
-					zap.Error(finishedSubP.error),
+		case finalizedSubP := <-p.subProcessorsFinalized:
+			if finalizedSubP.error != nil {
+				p.log.Error("subprocessor finalized with error",
+					zap.String("message key", finalizedSubP.messageKey.String()),
+					zap.Error(finalizedSubP.error),
+				)
+			} else {
+				p.log.Info("subprocessor finalized",
+					zap.String("message key", finalizedSubP.messageKey.String()),
 				)
 			}
-			p.decreaseTask(finishedSubP.messageKey.Publisher)
-			delete(p.subProcessors, finishedSubP.messageKey)
+			p.finalize(&finalizedSubP.messageKey)
+
+		case invalidUnit := <-p.invalidUnits:
+			p.log.Error("unit validation failed",
+				zap.String("message key", invalidUnit.messageKey.String()),
+				zap.Error(invalidUnit.error),
+			)
+			// todo(rdr): should we mark sender to penalize?
 
 		}
 	}
@@ -265,7 +338,7 @@ func (p *Processor) createSubprocessor(
 	// todo(rdr): passing to avoid closures. Does it makes sense?
 	// need to learn more how closures work in Go if it makes any difference
 	// in performance.
-	// todo(rdr): should I pass p.done as an argument?
+	// todo(rdr): should I pass p.chan as an argument?
 	go func(
 		ctx context.Context,
 		key messageKey,
@@ -273,12 +346,10 @@ func (p *Processor) createSubprocessor(
 		localShardIndex ShardIndex,
 		unitChan <-chan unitWithSender,
 	) {
-		subProcessor := newSubprocessor(&key, scheduler, localShardIndex)
-		err := subProcessor.Run(ctx, unitChan)
-		p.done <- messageKeyWithError{
-			messageKey: key,
-			error:      err,
-		}
+		subProcessor := newSubprocessor(
+			key.Publisher, scheduler, localShardIndex, unitChan, p.invalidUnits,
+		)
+		subProcessor.Run(ctx)
 	}(ctxWithTimeout, *key, scheduler, localShardIndex, unitChan)
 
 	return unitChan, nil
@@ -301,6 +372,12 @@ func (p *Processor) subprocessorChannel(
 		return nil, fmt.Errorf("creating new subprocessor: %w", err)
 	}
 	return unitChan, nil
+}
+
+func (p *Processor) finalize(key *messageKey) {
+	p.decreaseTask(key.Publisher)
+	delete(p.subProcessors, *key)
+	p.finalized.Add(*key)
 }
 
 func (p *Processor) increaseTasks(publisher peer.ID) error {
