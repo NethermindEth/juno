@@ -15,7 +15,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.17.2
 	github.com/fxamacker/cbor/v2 v2.9.0
-	github.com/go-playground/validator/v10 v10.30.1
+	github.com/go-playground/validator/v10 v10.30.2
 	github.com/libp2p/go-libp2p v0.48.0
 	github.com/libp2p/go-libp2p-kad-dht v0.39.0
 	github.com/libp2p/go-libp2p-pubsub v0.15.0
