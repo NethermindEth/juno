@@ -116,11 +116,13 @@ type DataAvailability struct {
 }
 
 type BuiltinInstanceCounter struct {
-	Pedersen     uint64
-	RangeCheck   uint64
-	Bitwise      uint64
-	Output       uint64
-	Ecsda        uint64
+	Pedersen   uint64
+	RangeCheck uint64
+	Bitwise    uint64
+	Output     uint64
+	// Ecdsa was originally stored as "Ecsda" (typo) in CBOR. The tag preserves backward
+	// compatibility with existing database entries.
+	Ecdsa        uint64 `cbor:"Ecsda"`
 	EcOp         uint64
 	Keccak       uint64
 	Poseidon     uint64
