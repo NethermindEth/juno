@@ -129,8 +129,6 @@ type Config struct {
 
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
-	TransactionCombinedLayout bool `mapstructure:"transaction-combined-layout"`
-
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 }

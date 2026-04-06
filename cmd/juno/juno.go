@@ -161,7 +161,6 @@ const (
 	defaultDBMemtableSize                     = 256
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
-	defaultTransactionCombinedLayout          = false
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
 	defaultDisableReceivedTxnStream           = false
