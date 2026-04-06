@@ -106,6 +106,7 @@ const (
 	transactionCombinedLayoutF          = node.FlagTransactionCombinedLayout
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
+	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 
 	defaultConfig                             = ""
 	defaultLogJSON                            = false
@@ -164,6 +165,7 @@ const (
 	defaultTransactionCombinedLayout          = false
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
+	defaultDisableReceivedTxnStream           = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -247,6 +249,17 @@ const (
 		"storage layout. Once enabled, cannot be disabled."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
+	disableReceivedTxnStreamUsage  = "The starknet_subscribeNewTransactions WebSocket API " +
+		"allows users to subscribe to new transactions. By default, it streams " +
+		"transactions that have been accepted on L2. Users can optionally provide " +
+		"a set of finality statuses to be notified about, including transactions " +
+		"from canonical blocks, blocks with softer finality guarantees such as " +
+		"pre-confirmed and pre-latest, as well as transactions not yet part of " +
+		"any block such as received and candidate. When subscribers select the " +
+		"RECEIVED status, they will be notified about transactions that have been " +
+		"submitted through this node — these transactions are local to the node " +
+		"and are not sourced from the network. When this flag is enabled, the " +
+		"node will no longer notify subscribers about transactions submitted through it."
 )
 
 var Version string
@@ -474,6 +487,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
 	junoCmd.Flags().Uint(
 		maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage,
+	)
+	junoCmd.Flags().Bool(
+		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
 	)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
