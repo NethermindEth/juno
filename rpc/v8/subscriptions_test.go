@@ -289,7 +289,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
-		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPreConfirmedNotFound).AnyTimes()
+		mockSyncer.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
@@ -309,7 +309,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, log)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
-		mockSyncer.EXPECT().PendingData().Return(nil, core.ErrPreConfirmedNotFound).AnyTimes()
+		mockSyncer.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1011")
