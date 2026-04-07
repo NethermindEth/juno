@@ -81,7 +81,38 @@ type Blockchain struct {
 	transactionLayout core.TransactionLayout
 }
 
-func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
+// options holds configuration for constructing a Blockchain.
+type options struct {
+	listener          EventListener
+	transactionLayout core.TransactionLayout
+}
+
+// Option is a functional option for configuring Blockchain options.
+type Option func(*options)
+
+// WithTransactionLayout sets the transaction storage layout.
+func WithTransactionLayout(layout core.TransactionLayout) Option {
+	return func(o *options) {
+		o.transactionLayout = layout
+	}
+}
+
+// WithListener sets the event listener for the blockchain.
+func WithListener(listener EventListener) Option {
+	return func(o *options) {
+		o.listener = listener
+	}
+}
+
+func New(database db.KeyValueStore, network *utils.Network, opts ...Option) *Blockchain {
+	o := options{
+		listener:          &SelectiveListener{},
+		transactionLayout: core.TransactionLayoutCombined,
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	cachedFilters := NewAggregatedBloomCache(AggregatedBloomFilterCacheSize)
 	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilter, error) {
 		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
@@ -93,33 +124,17 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 	return &Blockchain{
 		database:          database,
 		network:           network,
-		listener:          &SelectiveListener{},
+		listener:          o.listener,
 		l1HeadFeed:        feed.New[*core.L1Head](),
 		cachedFilters:     &cachedFilters,
 		runningFilter:     runningFilter,
-		transactionLayout: core.TransactionLayoutCombined,
+		transactionLayout: o.transactionLayout,
 	}
-}
-
-// WithTransactionLayout sets the transaction storage layout.
-// If combined is true, uses combined (per-block) layout; otherwise uses per-tx layout.
-func (b *Blockchain) WithTransactionLayout(combined bool) *Blockchain {
-	if combined {
-		b.transactionLayout = core.TransactionLayoutCombined
-	} else {
-		b.transactionLayout = core.TransactionLayoutPerTx
-	}
-	return b
 }
 
 // TransactionLayout returns the transaction storage layout used by this blockchain
 func (b *Blockchain) TransactionLayout() core.TransactionLayout {
 	return b.transactionLayout
-}
-
-func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
-	b.listener = listener
-	return b
 }
 
 func (b *Blockchain) Network() *utils.Network {

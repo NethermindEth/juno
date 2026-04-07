@@ -194,7 +194,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network)
+	var opts []blockchain.Option
+	if cfg.Metrics {
+		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
+	}
+	chain := blockchain.New(database, &cfg.Network, opts...)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
@@ -461,7 +465,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		makeJeMallocMetrics()
 		makeVMThrottlerMetrics(throttledVM)
 		makePebbleMetrics(database)
-		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
 		rpcMetrics := makeRPCMetrics(pathV10, pathV09, pathV08)
