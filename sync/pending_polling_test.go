@@ -582,7 +582,6 @@ func TestStorePreConfirmed(t *testing.T) {
 		ptr := s.pendingData.Load()
 		require.NotNil(t, ptr)
 		stored := *ptr
-		require.NotNil(t, stored)
 		require.NotNil(t, stored.PreLatest, "attachment should be updated even if not swapping blocks")
 		require.Equal(t, &pl, stored.PreLatest, "attachment should match incoming")
 	})
