@@ -216,6 +216,14 @@ func TestBlockTransactionCount(t *testing.T) {
 		assert.Equal(t, uint64(0), count)
 	})
 
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		number := blockIDNumber(t, uint64(328476))
+		count, rpcErr := handler.BlockTransactionCount(&number)
+		assert.Equal(t, uint64(0), count)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		latest := blockIDLatest(t)
