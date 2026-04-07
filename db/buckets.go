@@ -2,64 +2,174 @@ package db
 
 import "slices"
 
-//go:generate go run github.com/dmarkham/enumer -type=Bucket -output=buckets_enumer.go
-type Bucket byte
-
 // Pebble does not support buckets to differentiate between groups of
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
+type Bucket byte
+
 const (
-	StateTrie         Bucket = iota // state metadata (e.g., the state root)
-	Peer                            // maps peer ID to peer multiaddresses
-	ContractClassHash               // maps contract addresses and class hashes
-	ContractStorage                 // contract storages
-	Class                           // maps class hashes to classes
-	ContractNonce                   // contract nonce
-	ChainHeight                     // Latest height of the blockchain
-	BlockHeaderNumbersByHash
-	BlockHeadersByNumber
-	TransactionBlockNumbersAndIndicesByHash // maps transaction hashes to block number and index
-	TransactionsByBlockNumberAndIndex       // maps block number and index to transaction
-	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
-	StateUpdatesByBlockNumber
-	ClassesTrie
-	// ContractStorageHistory + Contract address + storage location + block number -> old value.
+	Peer = Bucket(peer)
+
+	// TrieJournal -> journal
+	TrieJournal = Bucket(trieJournal)
+
+	// maps block range to AggregatedBloomFilter
+	AggregatedBloomFilters = Bucket(aggregatedBloomFilters)
+	// maps peer ID to peer multiaddresses
+	// aggregated filter not full yet
+	RunningEventFilter = Bucket(runningEventFilter)
+
+	// TODO: remove this variable when removing the deprecated migrations
+	Unused = Bucket(unused)
+
+	/****************************************************
+			Block
+	*****************************************************/
+	BlockCommitments         = Bucket(blockCommitments)
+	BlockHeaderNumbersByHash = Bucket(blockHeaderNumbersByHash)
+	BlockHeadersByNumber     = Bucket(blockHeadersByNumber)
+	// maps block number to transactions and receipts
+	BlockTransactions = Bucket(blockTransactions)
+	// Latest height of the blockchain
+	ChainHeight = Bucket(chainHeight)
+	// maps l1 handler msg hash to l1 handler txn hash
+	L1HandlerTxnHashByMsgHash = Bucket(l1HandlerTxnHashByMsgHash)
+	L1Height                  = Bucket(l1Height)
+	// maps block number and index to transaction receipt
+	ReceiptsByBlockNumberAndIndex = Bucket(receiptsByBlockNumberAndIndex)
+	// maps transaction hashes to block number and index
+	TransactionBlockNumbersAndIndicesByHash = Bucket(transactionBlockNumbersAndIndicesByHash)
+	// maps block number and index to transaction
+	TransactionsByBlockNumberAndIndex = Bucket(transactionsByBlockNumberAndIndex)
+
+	/****************************************************
+			Class
+	*****************************************************/
+	// maps class hashes to classes
+	Class = Bucket(class)
+	// Class CASM hash metadata (declaration and migration info)
+	ClassCasmHashMetadata = Bucket(classCasmHashMetadata)
+	ClassesTrie           = Bucket(classesTrie)
+	// ClassTrie + nodetype + path + pathlength -> Trie Node
+	ClassTrie = Bucket(classTrie)
+
+	/****************************************************
+			Contract
+	*****************************************************/
+	// Contract + ContractAddr -> Contract
+	Contract = Bucket(contract)
+	// maps contract addresses and class hashes
+	ContractClassHash = Bucket(contractClassHash)
+	// contract nonce
+	ContractNonce = Bucket(contractNonce)
+	// contract storages
+	ContractStorage = Bucket(contractStorage)
+
+	// maps contract addresses to their deployment block number
+	ContractDeploymentHeight = Bucket(contractDeploymentHeight)
+	// ContractTrieContract + nodetype + path + pathlength -> Trie Node
+	ContractTrieContract = Bucket(contractTrieContract)
+	// ContractTrieStorage + owner + nodetype + path + pathlength -> Trie Node
+	ContractTrieStorage = Bucket(contractTrieStorage)
+
 	// For these three history buckets, the block number is when the current value was set, and
-	// the old value is the value before that.
-	ContractStorageHistory
-	// ContractNonceHistory + Contract address + block number -> old nonce.
-	ContractNonceHistory
+	// the value is the old value before that.
+
 	// ContractClassHashHistory + Contract address + block number -> old class hash.
-	ContractClassHashHistory
-	ContractDeploymentHeight // maps contract addresses to their deployment block number
-	L1Height
-	DeprecatedSchemaVersion
-	Unused // Previously used for storing Pending Block
-	BlockCommitments
-	Temporary // used temporarily for migrations
-	DeprecatedSchemaIntermediateState
-	L1HandlerTxnHashByMsgHash // maps l1 handler msg hash to l1 handler txn hash
-	MempoolHead               // key of the head node
-	MempoolTail               // key of the tail node
-	MempoolLength             // number of transactions
-	MempoolNode
-	ClassTrie              // ClassTrie + nodetype + path + pathlength -> Trie Node
-	ContractTrieContract   // ContractTrieContract + nodetype + path + pathlength -> Trie Node
-	ContractTrieStorage    // ContractTrieStorage + owner + nodetype + path + pathlength -> Trie Node
-	Contract               // Contract + ContractAddr -> Contract
-	StateHashToTrieRoots   // StateHash -> ClassRootHash + ContractRootHash
-	StateID                // StateID + root hash -> state id
-	PersistedStateID       // PersistedStateID -> state id
-	TrieJournal            // TrieJournal -> journal
-	AggregatedBloomFilters // maps block range to AggregatedBloomFilter
-	RunningEventFilter     // aggregated filter not full yet
-	ClassCasmHashMetadata  // Class CASM hash metadata (declaration and migration info)
-	BlockTransactions      // maps block number to transactions and receipts
-	SchemaMetadata
-	SchemaIntermediateState
+	ContractClassHashHistory = Bucket(contractClassHashHistory)
+	// ContractNonceHistory + Contract address + block number -> old nonce.
+	ContractNonceHistory = Bucket(contractNonceHistory)
+	// ContractStorageHistory + Contract address + storage location + block number -> old value.
+	ContractStorageHistory = Bucket(contractStorageHistory)
+
+	/****************************************************
+			Mempool
+	*****************************************************/
+	// key of the head node
+	MempoolHead = Bucket(mempoolHead)
+	// number of transactions
+	MempoolLength = Bucket(mempoolLength)
+	MempoolNode   = Bucket(mempoolNode)
+	// key of the tail node
+	MempoolTail = Bucket(mempoolTail)
+
+	/****************************************************
+			Migration
+	*****************************************************/
+	// used temporarily for migrations
+	Temporary                         = Bucket(temporary)
+	SchemaIntermediateState           = Bucket(schemaIntermediateState)
+	SchemaMetadata                    = Bucket(schemaMetadata)
+	DeprecatedSchemaIntermediateState = Bucket(deprecatedSchemaIntermediateState)
+	DeprecatedSchemaVersion           = Bucket(deprecatedSchemaVersion)
+
+	/****************************************************
+			State
+	*****************************************************/
+	// PersistedStateID -> state id
+	PersistedStateID = Bucket(persistedStateID)
+	// StateHash -> ClassRootHash + ContractRootHash
+	StateHashToTrieRoots = Bucket(stateHashToTrieRoots)
+	// StateID + root hash -> state id
+	StateID = Bucket(stateID)
+	// state metadata (e.g., the state root)
+	StateTrie                 = Bucket(stateTrie)
+	StateUpdatesByBlockNumber = Bucket(stateUpdatesByBlockNumber)
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
 func (b Bucket) Key(key ...[]byte) []byte {
 	return append([]byte{byte(b)}, slices.Concat(key...)...)
 }
+
+//go:generate go run github.com/dmarkham/enumer -type=innerBucket -output=buckets_enumer.go
+type innerBucket byte
+
+// Pebble does not support buckets to differentiate between groups of
+// keys like Bolt or MDBX does. We use a global prefix list as a poor
+// man's bucket alternative.
+const (
+	stateTrie innerBucket = iota
+	peer
+	contractClassHash
+	contractStorage
+	class
+	contractNonce
+	chainHeight
+	blockHeaderNumbersByHash
+	blockHeadersByNumber
+	transactionBlockNumbersAndIndicesByHash
+	transactionsByBlockNumberAndIndex
+	receiptsByBlockNumberAndIndex
+	stateUpdatesByBlockNumber
+	classesTrie
+	contractStorageHistory
+	contractNonceHistory
+	contractClassHashHistory
+	contractDeploymentHeight
+	l1Height
+	deprecatedSchemaVersion
+	unused // Previously used for storing Pending Block
+	blockCommitments
+	temporary
+	deprecatedSchemaIntermediateState
+	l1HandlerTxnHashByMsgHash
+	mempoolHead
+	mempoolTail
+	mempoolLength
+	mempoolNode
+	classTrie
+	contractTrieContract
+	contractTrieStorage
+	contract
+	stateHashToTrieRoots
+	stateID
+	persistedStateID
+	trieJournal
+	aggregatedBloomFilters
+	runningEventFilter
+	classCasmHashMetadata
+	blockTransactions
+	schemaMetadata
+	schemaIntermediateState
+)
