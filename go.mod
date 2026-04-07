@@ -13,8 +13,8 @@ require (
 	github.com/consensys/gnark-crypto v0.20.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.17.2
-	github.com/fxamacker/cbor/v2 v2.9.0
-	github.com/go-playground/validator/v10 v10.30.1
+	github.com/fxamacker/cbor/v2 v2.9.1
+	github.com/go-playground/validator/v10 v10.30.2
 	github.com/libp2p/go-libp2p v0.48.0
 	github.com/libp2p/go-libp2p-kad-dht v0.39.0
 	github.com/libp2p/go-libp2p-pubsub v0.15.0
@@ -36,7 +36,7 @@ require (
 	golang.org/x/crypto v0.49.0
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90
 	golang.org/x/sync v0.20.0
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )
