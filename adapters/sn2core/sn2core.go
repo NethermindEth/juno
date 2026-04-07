@@ -114,11 +114,30 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 	}
 
 	return &core.ExecutionResources{
-		BuiltinInstanceCounter: core.BuiltinInstanceCounter(response.BuiltinInstanceCounter),
+		BuiltinInstanceCounter: adaptBuiltinInstanceCounter(response.BuiltinInstanceCounter),
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
 		DataAvailability:       (*core.DataAvailability)(response.DataAvailability),
 		TotalGasConsumed:       adaptGasConsumed(response.TotalGasConsumed),
+	}
+}
+
+func adaptBuiltinInstanceCounter(
+	response starknet.BuiltinInstanceCounter,
+) core.BuiltinInstanceCounter {
+	return core.BuiltinInstanceCounter{
+		Pedersen:     response.Pedersen,
+		RangeCheck:   response.RangeCheck,
+		Bitwise:      response.Bitwise,
+		Output:       response.Output,
+		Ecsda:        response.Ecdsa,
+		EcOp:         response.EcOp,
+		Keccak:       response.Keccak,
+		Poseidon:     response.Poseidon,
+		SegmentArena: response.SegmentArena,
+		AddMod:       response.AddMod,
+		MulMod:       response.MulMod,
+		RangeCheck96: response.RangeCheck96,
 	}
 }
 
