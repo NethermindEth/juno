@@ -60,7 +60,7 @@ func randomExecutionResources() *core.ExecutionResources {
 			RangeCheck:   rand.Uint64(),
 			Bitwise:      rand.Uint64(),
 			Output:       rand.Uint64(),
-			Ecdsa:        rand.Uint64(),
+			Ecsda:        rand.Uint64(),
 			EcOp:         rand.Uint64(),
 			Keccak:       rand.Uint64(),
 			Poseidon:     rand.Uint64(),

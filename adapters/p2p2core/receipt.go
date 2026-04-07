@@ -48,7 +48,7 @@ func adaptExecutionResources(er *receipt.Receipt_ExecutionResources) *core.Execu
 			RangeCheck:   uint64(er.GetBuiltins().GetRangeCheck()),
 			Bitwise:      uint64(er.GetBuiltins().GetBitwise()),
 			Output:       uint64(er.GetBuiltins().GetOutput()),
-			Ecdsa:        uint64(er.GetBuiltins().GetEcdsa()),
+			Ecsda:        uint64(er.GetBuiltins().GetEcdsa()),
 			EcOp:         uint64(er.GetBuiltins().GetEcOp()),
 			Keccak:       uint64(er.GetBuiltins().GetKeccak()),
 			Poseidon:     uint64(er.GetBuiltins().GetPoseidon()),

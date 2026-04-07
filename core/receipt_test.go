@@ -38,7 +38,7 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 				BuiltinInstanceCounter: BuiltinInstanceCounter{
 					Pedersen:   16,
 					RangeCheck: 157,
-					Ecdsa:      1,
+					Ecsda:      1,
 					Poseidon:   4,
 				},
 				MemoryHoles: 0,
@@ -73,7 +73,7 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 				BuiltinInstanceCounter: BuiltinInstanceCounter{
 					Pedersen:   16,
 					RangeCheck: 157,
-					Ecdsa:      1,
+					Ecsda:      1,
 					Poseidon:   4,
 				},
 				Steps: 3950,

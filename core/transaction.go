@@ -120,9 +120,10 @@ type BuiltinInstanceCounter struct {
 	RangeCheck uint64
 	Bitwise    uint64
 	Output     uint64
-	// Ecdsa was originally stored as "Ecsda" (typo) in CBOR. The tag preserves backward
-	// compatibility with existing database entries.
-	Ecdsa        uint64 `cbor:"Ecsda"`
+	// todo: Ecsda is a known typo of "Ecdsa" (Elliptic Curve Digital Signature
+	// Algorithm). It is kept as-is to preserve backward compatibility with
+	// CBOR-serialized database entries. Make a small migration to fix this.
+	Ecsda        uint64
 	EcOp         uint64
 	Keccak       uint64
 	Poseidon     uint64
