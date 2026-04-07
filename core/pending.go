@@ -7,11 +7,11 @@ import (
 )
 
 var (
-	ErrPendingDataNotFound         = errors.New("pending_data not found")
-	ErrTransactionNotFound         = errors.New("pending_data: transaction not found")
-	ErrTransactionReceiptNotFound  = errors.New("pending_data: transaction receipt not found")
+	ErrPreConfirmedNotFound        = errors.New("pre_confirmed not found")
+	ErrTransactionNotFound         = errors.New("pre_confirmed: transaction not found")
+	ErrTransactionReceiptNotFound  = errors.New("pre_confirmed: transaction receipt not found")
 	ErrTransactionIndexOutOfBounds = errors.New(
-		"pending_data: transaction index out of bounds",
+		"pre_confirmed: transaction index out of bounds",
 	)
 )
 

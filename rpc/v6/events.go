@@ -83,7 +83,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		args.EventFilter.Keys,
-		func() (*core.PreConfirmed, error) { return nil, core.ErrPendingDataNotFound },
+		func() (*core.PreConfirmed, error) { return nil, core.ErrPreConfirmedNotFound },
 	)
 	if err != nil {
 		return nil, rpccore.ErrInternal

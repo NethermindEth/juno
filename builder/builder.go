@@ -132,7 +132,7 @@ func (b *Builder) PendingState(
 	buildState *BuildState,
 ) (core.StateReader, func() error, error) {
 	if buildState.Preconfirmed == nil {
-		return nil, nil, core.ErrPendingDataNotFound
+		return nil, nil, core.ErrPreConfirmedNotFound
 	}
 
 	headState, headCloser, err := b.blockchain.HeadState()

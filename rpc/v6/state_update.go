@@ -86,7 +86,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 		update, err = h.bcReader.StateUpdateByNumber(id.Number)
 	}
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)

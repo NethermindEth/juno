@@ -49,7 +49,7 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) { //nolin
 		block, err = h.bcReader.BlockByNumber(id.Number)
 	}
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -80,7 +80,7 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) { 
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -167,7 +167,7 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, core.ErrPendingDataNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

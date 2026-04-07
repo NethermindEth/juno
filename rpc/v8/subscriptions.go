@@ -344,7 +344,7 @@ func (h *Handler) processEvents(
 		addresses,
 		keys,
 		func() (*core.PreConfirmed, error) {
-			return nil, core.ErrPendingDataNotFound
+			return nil, core.ErrPreConfirmedNotFound
 		},
 	)
 	if err != nil {
