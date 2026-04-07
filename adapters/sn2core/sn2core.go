@@ -114,7 +114,7 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 	}
 
 	return &core.ExecutionResources{
-		BuiltinInstanceCounter: adaptBuiltinInstanceCounter(response.BuiltinInstanceCounter),
+		BuiltinInstanceCounter: adaptBuiltinInstanceCounter(&response.BuiltinInstanceCounter),
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
 		DataAvailability:       (*core.DataAvailability)(response.DataAvailability),
@@ -123,7 +123,7 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 }
 
 func adaptBuiltinInstanceCounter(
-	response starknet.BuiltinInstanceCounter,
+	response *starknet.BuiltinInstanceCounter,
 ) core.BuiltinInstanceCounter {
 	return core.BuiltinInstanceCounter{
 		Pedersen:     response.Pedersen,
