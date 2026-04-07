@@ -237,7 +237,7 @@ func TestEvents(t *testing.T) {
 	type eventTest struct {
 		description    string
 		args           rpc.EventArgs
-		pendingData    core.PendingData
+		pendingData    *core.PreConfirmed
 		expectedEvents []rpc.EmittedEvent
 		expectError    *jsonrpc.Error
 	}

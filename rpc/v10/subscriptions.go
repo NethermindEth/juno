@@ -26,7 +26,7 @@ type subscriber struct {
 	onStart               on[any]
 	onReorg               on[*sync.ReorgBlockRange]
 	onNewHead             on[*core.Block]
-	onPendingData         on[core.PendingData]
+	onPendingData         on[*core.PreConfirmed]
 	onL1Head              on[*core.L1Head]
 	onPreLatest           on[*core.PreLatest]
 	onReceivedTransaction on[core.Transaction]

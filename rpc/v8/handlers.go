@@ -38,7 +38,7 @@ type Handler struct {
 
 	newHeads                *feed.Feed[*core.Block]
 	reorgs                  *feed.Feed[*sync.ReorgBlockRange]
-	pendingData             *feed.Feed[core.PendingData]
+	pendingData             *feed.Feed[*core.PreConfirmed]
 	l1Heads                 *feed.Feed[*core.L1Head]
 	receivedTransactionFeed *feed.Feed[core.Transaction]
 

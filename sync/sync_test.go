@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/pendingdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -258,4 +259,59 @@ func TestPendingDataIsPreConfirmedAfterSync(t *testing.T) {
 	require.True(t, pendingData.Validate(head), "pending data must be valid for the current head")
 
 	require.NotNil(t, pendingData.GetBlock())
+}
+
+func TestPendingData(t *testing.T) {
+	t.Parallel()
+	log := utils.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	t.Run("Returns pre_confirmed data when available", func(t *testing.T) {
+		t.Parallel()
+		testDB := memory.New()
+		bc := blockchain.New(testDB, &utils.Mainnet)
+		b0, err := gw.BlockByNumber(t.Context(), 0)
+		require.NoError(t, err)
+		s0, err := gw.StateUpdate(t.Context(), 0)
+		require.NoError(t, err)
+		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
+
+		synchronizer := sync.New(bc, nil, log, 0, 0, false, testDB)
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+
+		expectedPC, err := pendingdata.MakeEmptyPreConfirmedForParent(bc, head)
+		require.NoError(t, err)
+		stored, err := synchronizer.StorePreConfirmed(&expectedPC)
+		require.NoError(t, err)
+		require.True(t, stored)
+
+		result, err := synchronizer.PendingData()
+		require.NoError(t, err)
+		require.Equal(t, &expectedPC, result)
+	})
+
+	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
+		t.Parallel()
+		testDB := memory.New()
+		bc := blockchain.New(testDB, &utils.Mainnet)
+		b0, err := gw.BlockByNumber(t.Context(), 0)
+		require.NoError(t, err)
+		s0, err := gw.StateUpdate(t.Context(), 0)
+		require.NoError(t, err)
+		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
+
+		synchronizer := sync.New(bc, nil, log, 0, 0, false, testDB)
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+
+		result, err := synchronizer.PendingData()
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.True(t, result.Validate(head))
+		require.Equal(t, head.Number+1, result.Block.Number)
+		require.Empty(t, result.Block.Transactions)
+		require.Nil(t, result.PreLatest)
+	})
 }
