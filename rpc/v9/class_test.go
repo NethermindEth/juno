@@ -235,7 +235,13 @@ func TestClassHashAt(t *testing.T) {
 	})
 	//nolint:dupl //  similar structure with nonce test, different endpoint.
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		emptyStateDiff := core.EmptyStateDiff()
+		preConfirmedData := &core.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{}},
+			StateUpdate: &core.StateUpdate{StateDiff: &emptyStateDiff},
+		}
+		mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmedData, nil)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 
 		preConfirmedID := blockIDPreConfirmed(t)

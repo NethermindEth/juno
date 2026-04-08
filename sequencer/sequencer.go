@@ -3,7 +3,6 @@ package sequencer
 import (
 	"context"
 	"errors"
-	"fmt"
 	syncLock "sync"
 	"time"
 
@@ -239,11 +238,4 @@ func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription {
 
 func (s *Sequencer) SubscribePreLatest() sync.PreLatestDataSubscription {
 	return sync.PreLatestDataSubscription{Subscription: s.subPreLatest.Subscribe()}
-}
-
-// Returning an error, because when the sequencer is used as the sync.Reader,
-// if the PreConfirmed() doesn't return an error, the caller will face the
-// nil pointer dereference error
-func (s *Sequencer) PreConfirmed() (*core.PreConfirmed, error) {
-	return nil, fmt.Errorf("PreConfirmed(): not implemented")
 }

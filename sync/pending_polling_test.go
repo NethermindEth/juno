@@ -529,7 +529,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			StateUpdate: &core.StateUpdate{},
 		}
 		// Insert invalid pending (simulate old data)
-		s.pendingData.Store(&invalidPreConfirmed)
+		s.preConfirmed.Store(&invalidPreConfirmed)
 		pc := &core.PreConfirmed{
 			Block:       &core.Block{Header: &core.Header{Number: head.Number + 1}},
 			StateUpdate: &core.StateUpdate{},

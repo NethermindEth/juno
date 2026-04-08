@@ -460,7 +460,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 			handler := rpcv10.New(chain, mockSyncReader, nil, log)
 
 			if description == "pre_confirmed" {
-				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 
 			block, rpcErr := handler.BlockWithTxHashes(&id)
@@ -590,8 +590,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 			handler := rpcv10.New(chain, mockSyncReader, nil, log)
 
 			if description == "pre_confirmed" {
-				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmed().Return(nil, core.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 
 			block, rpcErr := handler.BlockWithTxs(&id, rpcv10.ResponseFlags{})
