@@ -343,7 +343,7 @@ func assertValue(
 
 	buildResult := proposalStore.Get(value.Hash())
 	assert.NotNil(t, buildResult)
-	assert.Equal(t, slices.Concat(expected...), buildResult.Preconfirmed.Block.Transactions)
+	assert.Equal(t, slices.Concat(expected...), buildResult.PreConfirmed.Block.Transactions)
 }
 
 func commit(
@@ -359,10 +359,10 @@ func commit(
 	require.NotNil(t, result)
 
 	require.NoError(t, bc.Store(
-		result.Preconfirmed.Block,
+		result.PreConfirmed.Block,
 		result.SimulateResult.BlockCommitments,
-		result.Preconfirmed.StateUpdate,
-		result.Preconfirmed.NewClasses,
+		result.PreConfirmed.StateUpdate,
+		result.PreConfirmed.NewClasses,
 	))
 
 	proposer.OnCommit(t.Context(), height, committedValue)

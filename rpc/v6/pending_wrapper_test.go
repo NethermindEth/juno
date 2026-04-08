@@ -89,22 +89,4 @@ func TestPendingWrapper_PendingState(t *testing.T) {
 		require.NotNil(t, pending)
 		require.NotNil(t, closer)
 	})
-
-	t.Run("Returns latest state for PreConfirmed with non-nil block", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		pending, closer, err := handler.PendingState()
-
-		require.NoError(t, err)
-		require.NotNil(t, pending)
-		require.NotNil(t, closer)
-	})
-
-	t.Run("Returns latest state when pending data is not valid", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		pending, closer, err := handler.PendingState()
-
-		require.NoError(t, err)
-		require.NotNil(t, pending)
-		require.NotNil(t, closer)
-	})
 }

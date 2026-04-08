@@ -34,10 +34,10 @@ func (m *mockExecutor) RunTxns(state *builder.BuildState, txns []mempool.Broadca
 	executorState := m.getState(state)
 
 	for i := range txns {
-		require.Less(m.t, executorState.nextTransactionIndex, len(executorState.buildResult.Preconfirmed.Block.Transactions))
+		require.Less(m.t, executorState.nextTransactionIndex, len(executorState.buildResult.PreConfirmed.Block.Transactions))
 		require.Equal(
 			m.t,
-			executorState.buildResult.Preconfirmed.Block.Transactions[executorState.nextTransactionIndex].Hash(),
+			executorState.buildResult.PreConfirmed.Block.Transactions[executorState.nextTransactionIndex].Hash(),
 			txns[i].Transaction.Hash(),
 		)
 		executorState.nextTransactionIndex++
@@ -49,15 +49,15 @@ func (m *mockExecutor) RunTxns(state *builder.BuildState, txns []mempool.Broadca
 func (m *mockExecutor) Finish(state *builder.BuildState) (blockchain.SimulateResult, error) {
 	executorState := m.getState(state)
 
-	require.Equal(m.t, executorState.nextTransactionIndex, len(executorState.buildResult.Preconfirmed.Block.Transactions))
-	*state.PreConfirmed = *executorState.buildResult.Preconfirmed
+	require.Equal(m.t, executorState.nextTransactionIndex, len(executorState.buildResult.PreConfirmed.Block.Transactions))
+	*state.PreConfirmed = *executorState.buildResult.PreConfirmed
 	state.L2GasConsumed = executorState.buildResult.L2GasConsumed
 	return *executorState.buildResult.SimulateResult, nil
 }
 
 func (m *mockExecutor) RegisterBuildResult(buildResult *builder.BuildResult) {
-	height := types.Height(buildResult.Preconfirmed.Block.Header.Number)
-	proposer := starknet.Address(*buildResult.Preconfirmed.Block.Header.SequencerAddress)
+	height := types.Height(buildResult.PreConfirmed.Block.Header.Number)
+	proposer := starknet.Address(*buildResult.PreConfirmed.Block.Header.SequencerAddress)
 
 	addressMap, ok := m.states[height]
 	if !ok {

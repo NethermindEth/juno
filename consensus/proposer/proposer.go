@@ -134,7 +134,7 @@ func (p *proposer[V, H]) OnCommit(ctx context.Context, height types.Height, valu
 	}
 
 	txHashSet := make(map[H]struct{})
-	for _, tx := range proposal.Preconfirmed.Block.Transactions {
+	for _, tx := range proposal.PreConfirmed.Block.Transactions {
 		txHashSet[H(*tx.Hash())] = struct{}{}
 	}
 
@@ -251,7 +251,7 @@ func (p *proposer[V, H]) finish(responseChannel chan<- V) {
 		buildResult, err = p.builder.Finish(&buildState)
 	}
 
-	value := p.toValue(buildResult.Preconfirmed.Block.Hash)
+	value := p.toValue(buildResult.PreConfirmed.Block.Hash)
 	p.proposalStore.Store(value.Hash(), &buildResult)
 
 	responseChannel <- value

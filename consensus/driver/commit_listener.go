@@ -53,9 +53,9 @@ func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height
 	}
 
 	committedBlock := sync.CommittedBlock{
-		Block:       buildResult.Preconfirmed.Block,
-		StateUpdate: buildResult.Preconfirmed.StateUpdate,
-		NewClasses:  buildResult.Preconfirmed.NewClasses,
+		Block:       buildResult.PreConfirmed.Block,
+		StateUpdate: buildResult.PreConfirmed.StateUpdate,
+		NewClasses:  buildResult.PreConfirmed.NewClasses,
 		Persisted:   make(chan struct{}),
 	}
 

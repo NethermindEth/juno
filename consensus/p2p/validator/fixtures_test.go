@@ -258,7 +258,7 @@ func buildBuildResult(
 	totalGasConsumed int,
 ) builder.BuildResult {
 	return builder.BuildResult{
-		Preconfirmed: &core.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block:       block,
 			StateUpdate: stateUpdate,
 			NewClasses:  calculateNewClasses(t, gw, stateUpdate),
@@ -289,7 +289,7 @@ func buildProposal(round, validRound types.Round, block *core.Block) starknetcon
 }
 
 func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBlockHeader *core.Header) builder.BuildState {
-	strippedBlockHeader := *buildResult.Preconfirmed.Block.Header
+	strippedBlockHeader := *buildResult.PreConfirmed.Block.Header
 	strippedBlockHeader.Hash = nil
 	strippedBlockHeader.GlobalStateRoot = nil
 	strippedBlockHeader.TransactionCount = 0

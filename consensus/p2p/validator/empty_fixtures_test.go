@@ -88,7 +88,7 @@ func NewEmptyTestFixture(
 
 func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, timestamp uint64) builder.BuildResult {
 	return builder.BuildResult{
-		Preconfirmed: &core.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Hash:             expectedHash,

@@ -174,7 +174,7 @@ func (b *Builder) Finish(state *BuildState) (BuildResult, error) {
 
 	// Todo: we ignore some values until the spec is Finalised: VersionConstantCommitment, NextL2GasPriceFRI
 	buildResult := BuildResult{
-		Preconfirmed:   state.PreConfirmed,
+		PreConfirmed:   state.PreConfirmed,
 		SimulateResult: &simulatedResult,
 		L2GasConsumed:  state.L2GasConsumed,
 	}

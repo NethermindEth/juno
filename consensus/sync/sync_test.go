@@ -55,9 +55,9 @@ func TestMessageExtractor(t *testing.T) {
 	t.Run(("Verify stored build result"), func(t *testing.T) {
 		buildResult := proposalStore.Get(actualProposal.Value.Hash())
 		require.NotEmpty(t, buildResult)
-		require.Equal(t, buildResult.Preconfirmed.Block, blockBody.Block)
-		require.Equal(t, buildResult.Preconfirmed.StateUpdate, blockBody.StateUpdate)
-		require.Equal(t, buildResult.Preconfirmed.NewClasses, blockBody.NewClasses)
+		require.Equal(t, buildResult.PreConfirmed.Block, blockBody.Block)
+		require.Equal(t, buildResult.PreConfirmed.StateUpdate, blockBody.StateUpdate)
+		require.Equal(t, buildResult.PreConfirmed.NewClasses, blockBody.NewClasses)
 		require.Equal(t, buildResult.SimulateResult.BlockCommitments, blockBody.Commitments)
 		require.Equal(t, buildResult.L2GasConsumed, blockBody.Block.L2GasConsumed())
 	})

@@ -63,7 +63,7 @@ func (s *MessageExtractor[V, H, A]) Extract(
 		committedBlock.Block.L1DAMode,
 	)
 	buildResult := builder.BuildResult{
-		Preconfirmed: &core.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block:       committedBlock.Block,
 			StateUpdate: committedBlock.StateUpdate,
 			NewClasses:  committedBlock.NewClasses,

@@ -22,7 +22,7 @@ const (
 func createTestBuildResult() *builder.BuildResult {
 	blockNumber := rand.Uint64()
 	return &builder.BuildResult{
-		Preconfirmed: &core.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: blockNumber,

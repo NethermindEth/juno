@@ -115,7 +115,7 @@ func (t *transition) OnEmptyBlockCommitment(
 	return &AwaitingProposalFinState{
 		Proposal: &starknet.Proposal{
 			MessageHeader: *state.Header,
-			Value:         (*starknet.Value)(buildResult.Preconfirmed.Block.Hash),
+			Value:         (*starknet.Value)(buildResult.PreConfirmed.Block.Hash),
 			ValidRound:    state.ValidRound,
 		},
 		BuildResult: &buildResult,
@@ -181,7 +181,7 @@ func (t *transition) OnProposalCommitment(
 	return &AwaitingProposalFinState{
 		Proposal: &starknet.Proposal{
 			MessageHeader: *state.Header,
-			Value:         (*starknet.Value)(buildResult.Preconfirmed.Block.Hash),
+			Value:         (*starknet.Value)(buildResult.PreConfirmed.Block.Hash),
 			ValidRound:    state.ValidRound,
 		},
 		BuildResult: &buildResult,

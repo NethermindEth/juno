@@ -36,28 +36,28 @@ func (a *starknetProposerAdapter) ProposalInit(proposal *starknet.Proposal) (typ
 // TODO: Implement this function properly
 func (a *starknetProposerAdapter) ProposalBlockInfo(buildResult *builder.BuildResult) (types.BlockInfo, error) {
 	return types.BlockInfo{
-		BlockNumber:       buildResult.Preconfirmed.Block.Number,
-		Builder:           *buildResult.Preconfirmed.Block.SequencerAddress,
-		Timestamp:         buildResult.Preconfirmed.Block.Timestamp,
-		L2GasPriceFRI:     *buildResult.Preconfirmed.Block.L2GasPrice.PriceInFri,
-		L1GasPriceWEI:     *buildResult.Preconfirmed.Block.L1GasPriceETH,
-		L1DataGasPriceWEI: *buildResult.Preconfirmed.Block.L1DataGasPrice.PriceInWei,
+		BlockNumber:       buildResult.PreConfirmed.Block.Number,
+		Builder:           *buildResult.PreConfirmed.Block.SequencerAddress,
+		Timestamp:         buildResult.PreConfirmed.Block.Timestamp,
+		L2GasPriceFRI:     *buildResult.PreConfirmed.Block.L2GasPrice.PriceInFri,
+		L1GasPriceWEI:     *buildResult.PreConfirmed.Block.L1GasPriceETH,
+		L1DataGasPriceWEI: *buildResult.PreConfirmed.Block.L1DataGasPrice.PriceInWei,
 		EthToStrkRate:     felt.One, // TODO: Double check if this is used
-		L1DAMode:          buildResult.Preconfirmed.Block.L1DAMode,
+		L1DAMode:          buildResult.PreConfirmed.Block.L1DAMode,
 	}, nil
 }
 
 // TODO: Implement this function properly
 func (a *starknetProposerAdapter) ProposalTransactions(buildResult *builder.BuildResult) ([]types.Transaction, error) {
-	transactions := make([]types.Transaction, len(buildResult.Preconfirmed.Block.Transactions))
-	for i := range buildResult.Preconfirmed.Block.Transactions {
+	transactions := make([]types.Transaction, len(buildResult.PreConfirmed.Block.Transactions))
+	for i := range buildResult.PreConfirmed.Block.Transactions {
 		var class core.ClassDefinition
 		var paidFeeOnL1 *felt.Felt
 
-		switch tx := buildResult.Preconfirmed.Block.Transactions[i].(type) {
+		switch tx := buildResult.PreConfirmed.Block.Transactions[i].(type) {
 		case *core.DeclareTransaction:
 			var ok bool
-			if class, ok = buildResult.Preconfirmed.NewClasses[*tx.ClassHash]; !ok {
+			if class, ok = buildResult.PreConfirmed.NewClasses[*tx.ClassHash]; !ok {
 				return nil, errors.New("class not found")
 			}
 		case *core.L1HandlerTransaction:
@@ -65,7 +65,7 @@ func (a *starknetProposerAdapter) ProposalTransactions(buildResult *builder.Buil
 		}
 
 		transactions[i] = types.Transaction{
-			Transaction: buildResult.Preconfirmed.Block.Transactions[i],
+			Transaction: buildResult.PreConfirmed.Block.Transactions[i],
 			Class:       class,
 			PaidFeeOnL1: paidFeeOnL1,
 		}

@@ -166,9 +166,9 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 		require.NoError(t, err)
 
 		committedBlock := sync.CommittedBlock{
-			Block:       buildResult.Preconfirmed.Block,
-			StateUpdate: buildResult.Preconfirmed.StateUpdate,
-			NewClasses:  buildResult.Preconfirmed.NewClasses,
+			Block:       buildResult.PreConfirmed.Block,
+			StateUpdate: buildResult.PreConfirmed.StateUpdate,
+			NewClasses:  buildResult.PreConfirmed.NewClasses,
 		}
 
 		b.blocks = append(b.blocks, committedBlock)
