@@ -172,15 +172,26 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
-		emptyStateDiff := core.EmptyStateDiff()
-		preConfirmedData := &core.PreConfirmed{
-			Block:       &core.Block{Header: &core.Header{}},
-			StateUpdate: &core.StateUpdate{StateDiff: &emptyStateDiff},
+		preConfirmedStateDiff := core.EmptyStateDiff()
+		preConfirmedStateDiff.
+			StorageDiffs[targetAddress] = map[felt.Felt]*felt.Felt{targetSlot: expectedStorage}
+		preConfirmedStateDiff.
+			DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
+
+		preConfirmed := core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number: 2,
+				},
+			},
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &preConfirmedStateDiff,
+			},
 		}
-		mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmedData, nil)
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(&targetAddress).Return(felt.Felt{}, nil)
-		mockState.EXPECT().ContractStorage(&targetAddress, &targetSlot).Return(*expectedStorage, nil)
+
+		mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+			Return(mockState, nopCloser, nil)
 		preConfirmedID := blockIDPreConfirmed(t)
 		storageValue, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID)
 		require.Nil(t, rpcErr)
