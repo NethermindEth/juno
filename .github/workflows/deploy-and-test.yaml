@@ -120,7 +120,7 @@ jobs:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-rs-rpcv09:
-    needs: [deploy]
+    needs: [deploy, starknet-rs-rpcv08]
     uses: ./.github/workflows/starknet-rs-tests.yml
     with:
       ref: starknet/v0.17.0
@@ -128,7 +128,7 @@ jobs:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-rust-rpcv10:
-    needs: [deploy]
+    needs: [deploy, starknet-rs-rpcv09]
     uses: ./.github/workflows/starknet-rust-tests.yml
     with:
       # Latest master commit. Switch to 0.19.0 once released
