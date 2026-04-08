@@ -192,7 +192,7 @@ func runTestTransactionLayout(
 			// Delete all blocks
 			for blockNum := range chainHeight {
 				require.NoError(t, database.Update(func(batch db.IndexedBatch) error {
-					return layout.DeleteTxsAndReceipts(batch, uint64(blockNum))
+					return layout.DeleteTxsAndReceipts(database, batch, uint64(blockNum))
 				}))
 			}
 
@@ -268,8 +268,8 @@ func TestTransactionLayout_UnknownLayout(t *testing.T) {
 	})
 
 	t.Run("DeleteTxsAndReceipts", func(t *testing.T) {
-		batch := database.NewIndexedBatch()
-		err := unknownLayout.DeleteTxsAndReceipts(batch, 0)
+		batch := database.NewBatch()
+		err := unknownLayout.DeleteTxsAndReceipts(database, batch, 0)
 		require.ErrorIs(t, err, core.ErrUnknownTransactionLayout)
 	})
 }
