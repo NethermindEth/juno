@@ -7,6 +7,15 @@ import "slices"
 // man's bucket alternative.
 type Bucket byte
 
+// Bucket constants grouped by domain. Each constant wraps its
+// corresponding innerBucket value, preserving the underlying byte
+// used as a key prefix in the database.
+//
+// When adding a new bucket, use the same name as its innerBucket
+// counterpart (in PascalCase), or rename the innerBucket to match,
+// for better readability, since the innerBucket name is what the
+// String() method outputs.
+
 const (
 	// maps peer ID to peer multiaddresses
 	Peer = Bucket(peer)
@@ -129,11 +138,8 @@ func (b Bucket) String() string {
 // BucketString retrieves an enum value from the enum constants string name.
 // Throws an error if the param is not part of the enum.
 func BucketString(s string) (Bucket, error) {
-	innerBucket, err := innerBucketString(s)
-	if err != nil {
-		return Bucket(innerBucket), err
-	}
-	return Bucket(innerBucket), nil
+	ib, err := innerBucketString(s)
+	return Bucket(ib), err
 }
 
 // BucketValues returns all values of the enum
@@ -154,9 +160,9 @@ func (b Bucket) IsABucket() bool {
 //go:generate enumer -type=innerBucket -transform=title -output=buckets_enumer.go
 type innerBucket byte
 
-// Pebble does not support buckets to differentiate between groups of
-// keys like Bolt or MDBX does. We use a global prefix list as a poor
-// man's bucket alternative.
+// innerBucket defines the actual byte values for each bucket using iota.
+// The order of these constants must NOT be changed, as their ordinal
+// values are persisted in the database.
 const (
 	stateTrie innerBucket = iota
 	peer
