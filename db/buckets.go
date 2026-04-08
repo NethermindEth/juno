@@ -5,7 +5,7 @@ import "slices"
 // Pebble does not support buckets to differentiate between groups of
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
-type Bucket byte
+type Bucket innerBucket
 
 // Bucket constants grouped by domain. Each constant wraps its
 // corresponding innerBucket value, preserving the underlying byte
@@ -135,7 +135,8 @@ func (b Bucket) String() string {
 	return innerBucket(b).String()
 }
 
-// BucketValues returns all values of the enum.
+// BucketValues returns all bucket values, derived from the generated
+// innerBucket enum, wrapped in the Bucket type.
 func BucketValues() []Bucket {
 	ib := innerBucketValues()
 	buckets := make([]Bucket, len(ib))
