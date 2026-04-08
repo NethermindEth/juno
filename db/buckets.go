@@ -135,26 +135,14 @@ func (b Bucket) String() string {
 	return innerBucket(b).String()
 }
 
-// BucketString retrieves an enum value from the enum constants string name.
-// Throws an error if the param is not part of the enum.
-func BucketString(s string) (Bucket, error) {
-	ib, err := innerBucketString(s)
-	return Bucket(ib), err
-}
-
-// BucketValues returns all values of the enum
-func BucketValues() []innerBucket {
-	return innerBucketValues()
-}
-
-// BucketStrings returns a slice of all String values of the enum
-func BucketStrings() []string {
-	return innerBucketStrings()
-}
-
-// IsABucket returns "true" if the value is listed in the enum definition. "false" otherwise
-func (b Bucket) IsABucket() bool {
-	return innerBucket(b).IsAinnerBucket()
+// BucketValues returns all values of the enum.
+func BucketValues() []Bucket {
+	ib := innerBucketValues()
+	buckets := make([]Bucket, len(ib))
+	for i, b := range ib {
+		buckets[i] = Bucket(b)
+	}
+	return buckets
 }
 
 //go:generate enumer -type=innerBucket -transform=title -output=buckets_enumer.go
