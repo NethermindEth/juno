@@ -184,8 +184,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 		return nil, err
 	}
 
-	txn := b.database.NewIndexedBatch()
-	return b.transactionLayout.BlockByNumber(txn, curHeight)
+	return b.transactionLayout.BlockByNumber(b.database, curHeight)
 }
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
@@ -200,8 +199,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 	b.listener.OnRead("BlockByNumber")
-	txn := b.database.NewIndexedBatch()
-	return b.transactionLayout.BlockByNumber(txn, number)
+	return b.transactionLayout.BlockByNumber(b.database, number)
 }
 
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
@@ -221,8 +219,7 @@ func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 		return nil, err
 	}
 
-	txn := b.database.NewIndexedBatch()
-	return b.transactionLayout.BlockByNumber(txn, blockNum)
+	return b.transactionLayout.BlockByNumber(b.database, blockNum)
 }
 
 func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
@@ -323,8 +320,7 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 
 func (b *Blockchain) L1Head() (core.L1Head, error) {
 	b.listener.OnRead("L1Head")
-	l1Head, err := core.GetL1Head(b.database)
-	return l1Head, err
+	return core.GetL1Head(b.database)
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
