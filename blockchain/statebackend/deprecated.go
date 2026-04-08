@@ -1,6 +1,8 @@
 package statebackend
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -10,6 +12,23 @@ import (
 
 type deprecatedStateBackend struct {
 	baseState
+}
+
+func (b *deprecatedStateBackend) StateCommitment() (felt.Felt, error) {
+	//nolint:staticcheck,nolintlint // used by old state
+	txn := b.database.NewIndexedBatch()
+	height, err := core.GetChainHeight(txn)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return felt.Felt{}, nil
+		}
+		return felt.Felt{}, err
+	}
+	header, err := core.GetBlockHeaderByNumber(txn, height)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return core.NewDeprecatedState(txn).Commitment(header.ProtocolVersion)
 }
 
 func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, error) {

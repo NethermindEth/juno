@@ -168,19 +168,7 @@ func (b *Blockchain) Network() *utils.Network {
 // If blockchain is empty zero felt is returned.
 func (b *Blockchain) StateCommitment() (felt.Felt, error) {
 	b.listener.OnRead("StateCommitment")
-	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
-	height, err := core.GetChainHeight(batch)
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return felt.Felt{}, nil
-		}
-		return felt.Felt{}, err
-	}
-	header, err := core.GetBlockHeaderByNumber(batch, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return core.NewDeprecatedState(batch).Commitment(header.ProtocolVersion)
+	return b.stateBackend.StateCommitment()
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
