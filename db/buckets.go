@@ -8,6 +8,7 @@ import "slices"
 type Bucket byte
 
 const (
+	// maps peer ID to peer multiaddresses
 	Peer = Bucket(peer)
 
 	// TrieJournal -> journal
@@ -15,7 +16,6 @@ const (
 
 	// maps block range to AggregatedBloomFilter
 	AggregatedBloomFilters = Bucket(aggregatedBloomFilters)
-	// maps peer ID to peer multiaddresses
 	// aggregated filter not full yet
 	RunningEventFilter = Bucket(runningEventFilter)
 
@@ -122,7 +122,36 @@ func (b Bucket) Key(key ...[]byte) []byte {
 	return append([]byte{byte(b)}, slices.Concat(key...)...)
 }
 
-//go:generate go run github.com/dmarkham/enumer -type=innerBucket -output=buckets_enumer.go
+func (b Bucket) String() string {
+	return innerBucket(b).String()
+}
+
+// BucketString retrieves an enum value from the enum constants string name.
+// Throws an error if the param is not part of the enum.
+func BucketString(s string) (Bucket, error) {
+	innerBucket, err := innerBucketString(s)
+	if err != nil {
+		return Bucket(innerBucket), err
+	}
+	return Bucket(innerBucket), nil
+}
+
+// BucketValues returns all values of the enum
+func BucketValues() []innerBucket {
+	return innerBucketValues()
+}
+
+// BucketStrings returns a slice of all String values of the enum
+func BucketStrings() []string {
+	return innerBucketStrings()
+}
+
+// IsABucket returns "true" if the value is listed in the enum definition. "false" otherwise
+func (b Bucket) IsABucket() bool {
+	return innerBucket(b).IsAinnerBucket()
+}
+
+//go:generate enumer -type=innerBucket -transform=title -output=buckets_enumer.go
 type innerBucket byte
 
 // Pebble does not support buckets to differentiate between groups of
