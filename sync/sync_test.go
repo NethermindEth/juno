@@ -178,7 +178,24 @@ func TestReorg(t *testing.T) {
 		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
 		synchronizer = sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 		sub := synchronizer.SubscribeReorg()
-		ctx, cancel = context.WithTimeout(t.Context(), timeout)
+		// Use a generous timeout with early cancellation once the expected block is stored.
+		// The reorg flow (detect mismatch → revert → re-sync 3 blocks) needs more than 1s on slow CI.
+		ctx, cancel = context.WithTimeout(t.Context(), 30*time.Second)
+		go func() {
+			ticker := time.NewTicker(10 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if h, err := bc.Height(); err == nil && h >= 2 {
+						cancel()
+						return
+					}
+				}
+			}
+		}()
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
 

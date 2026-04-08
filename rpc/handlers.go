@@ -244,12 +244,12 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_addDeployAccountTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: h.rpcv9Handler.AddTransaction,
+			Handler: h.rpcv10Handler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: h.rpcv9Handler.AddTransaction,
+			Handler: h.rpcv10Handler.AddTransaction,
 		},
 		{
 			Name:    "starknet_getEvents",
