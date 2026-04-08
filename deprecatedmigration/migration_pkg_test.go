@@ -193,6 +193,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	chain := blockchain.New(
 		testdb,
 		&utils.Mainnet,
+		//nolint:staticcheck // deprecated option used in test
 		blockchain.WithTransactionLayout(core.TransactionLayoutPerTx),
 	)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
@@ -221,6 +222,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	chain := blockchain.New(
 		testdb,
 		&utils.Sepolia,
+		//nolint:staticcheck // deprecated option used in test
 		blockchain.WithTransactionLayout(core.TransactionLayoutPerTx),
 	)
 	client := feeder.NewTestClient(t, &utils.Sepolia)
