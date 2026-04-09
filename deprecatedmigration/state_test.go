@@ -1,8 +1,4 @@
-//nolint:gocritic //commentedOutCode:
 package deprecatedmigration
-
-// The commented code represents the original code of the `deprecatedStateBackend` type
-// not used for this implementation.
 
 import (
 	"errors"
@@ -31,8 +27,8 @@ type testStateBackend struct {
 func NewTestState(
 	database db.KeyValueStore,
 	network *utils.Network,
-) testStateBackend {
-	return testStateBackend{
+) *testStateBackend {
+	return &testStateBackend{
 		database: database,
 		network:  network,
 	}
@@ -55,29 +51,22 @@ func (b *testStateBackend) Store(
 		}
 
 		return writeBlockContent(
-			// b.database,
 			txn,
 			block,
 			stateUpdate,
 			blockCommitments,
 			newClasses,
-			// b.transactionLayout,
 		)
 	})
 	if err != nil {
 		return err
 	}
 
-	// return b.runningFilter.Insert(
-	// 	block.EventsBloom,
-	// 	block.Number,
-	// )
 	return nil
 }
 
-var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-
 func verifyBlockSuccession(reader db.KeyValueReader, block *core.Block) error {
+	ErrParentDoesNotMatchHead := errors.New("block's parent hash does not match head block hash")
 	if err := core.CheckBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
@@ -112,13 +101,11 @@ func headsHeader(reader db.KeyValueReader) (*core.Header, error) {
 }
 
 func writeBlockContent(
-	// reader db.KeyValueReader,
 	writer db.Batch,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	commitments *core.BlockCommitments,
 	newClasses map[felt.Felt]core.ClassDefinition,
-	// txLayout core.TransactionLayout,
 ) error {
 	if err := core.WriteBlockHeader(writer, block.Header); err != nil {
 		return err
@@ -145,11 +132,11 @@ func writeBlockContent(
 		return err
 	}
 
-	if err := storeCasmHashMetadata(
-		// reader,
+	// we use v1 directly since the tests that use this function are using
+	// protocol < 0.14.1 blocks
+	if err := storeCasmHashMetadataV1(
 		writer,
 		block.Number,
-		// block.ProtocolVersion,
 		stateUpdate,
 		newClasses,
 	); err != nil {
@@ -157,28 +144,6 @@ func writeBlockContent(
 	}
 
 	return core.WriteChainHeight(writer, block.Number)
-}
-
-func storeCasmHashMetadata(
-	// reader db.KeyValueReader,
-	writer db.KeyValueWriter,
-	blockNumber uint64,
-	// protocolVersion string,
-	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
-) error {
-	// ver, err := core.ParseBlockVersion(protocolVersion)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// isV2Protocol := ver.GreaterThanEqual(core.Ver0_14_1)
-
-	// if isV2Protocol {
-	// 	return storeCasmHashMetadataV2(reader, writer, blockNumber, stateUpdate)
-	// }
-
-	return storeCasmHashMetadataV1(writer, blockNumber, stateUpdate, newClasses)
 }
 
 func storeCasmHashMetadataV1(
