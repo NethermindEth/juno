@@ -41,7 +41,7 @@ func TestPendingWrapper_Pending(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(
 			latestBlock.Header.Number+1-sync.BlockHashLag,
-		).Return(&blockToRegisterHash, nil)
+		).Return(&blockToRegisterHash, nil).Times(2)
 
 		expectedPending, err := sync.MakeEmptyPendingForParent(
 			mockReader,
