@@ -457,19 +457,17 @@ func isNilOrEmpty(i any) (bool, error) {
 	}
 }
 
-// TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
-// instead of crashing the HTTP connection
-func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (res *response, header http.Header, err error) {
 	// todo(rdr): have a way of representing a `req` so the structured logger has a way of showing it
 	s.log.Trace("Received request", zap.Any("req", req))
 
-	header := http.Header{}
+	header = http.Header{}
 	if err := req.isSane(); err != nil {
 		s.log.Trace("Request sanity check failed", zap.Error(err))
 		return nil, header, err
 	}
 
-	res := &response{
+	res = &response{
 		Version: "2.0",
 		ID:      req.ID,
 	}
@@ -483,15 +481,28 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 
 	handlerTimer := time.Now()
 	s.listener.OnNewRequest(req.Method)
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("Panic during RPC request handling",
+				zap.String("method", req.Method),
+				zap.Any("panic", r),
+				zap.Stack("stack"),
+			)
+			s.listener.OnRequestFailed(req.Method, Err(InternalError, nil))
+			res.Error = Err(InternalError, "internal error")
+			// Clear err so the caller uses the JSON-RPC error response
+			// instead of treating this as a transport-level failure.
+			err = nil
+		}
+		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
+	}()
+
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
 		s.log.Trace("Error building arguments for RPC call", zap.Error(err))
 		return res, header, nil
 	}
-	defer func() {
-		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
-	}()
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification

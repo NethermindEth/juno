@@ -174,6 +174,13 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
+			Name:   "panics",
+			Params: []jsonrpc.Parameter{},
+			Handler: func() (int, *jsonrpc.Error) {
+				panic("test panic")
+			},
+		},
+		{
 			Name:   "singleOptionalParam",
 			Params: []jsonrpc.Parameter{{Name: "param", Optional: true}},
 			Handler: func(param *int) (int, *jsonrpc.Error) {
@@ -484,6 +491,10 @@ func TestHandle(t *testing.T) {
 			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,
 			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":1}`,
 			checkFailedEvent: true,
+		},
+		"handler panic returns internal error": {
+			req: `{"jsonrpc": "2.0", "method": "panics", "params": {}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error","data":"internal error"},"id":1}`,
 		},
 		"empty optional param": {
 			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "params": {}, "id": 1}`,
