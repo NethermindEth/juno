@@ -253,7 +253,7 @@ func createStateDiffWithIncrementingCounter(
 	return transactionStateDiffs, &aggregatedStateDiff
 }
 
-func TestPending_PendingState(t *testing.T) {
+func TestPreConfirmed_PendingState(t *testing.T) {
 	// Create a state diff with storage update
 	contractAddress := felt.FromUint64[felt.Felt](0x10000)
 	storageKey := felt.FromUint64[felt.Felt](0x10)

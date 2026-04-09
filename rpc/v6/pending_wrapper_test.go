@@ -43,24 +43,6 @@ func TestPendingWrapper_Pending(t *testing.T) {
 			latestBlock.Header.Number+1-sync.BlockHashLag,
 		).Return(&blockToRegisterHash, nil)
 
-		pending, err := handler.Pending()
-		require.NoError(t, err)
-		require.NotNil(t, pending)
-	})
-
-	t.Run("Returns empty Pending for latest block", func(t *testing.T) {
-		blockToRegisterHash := core.Header{
-			Number: latestBlock.Header.Number + 1 - sync.BlockHashLag,
-			Hash:   felt.NewFromUint64[felt.Felt](1234567),
-		}
-
-		latestHeader := latestBlock.Header
-		latestHeader.ProtocolVersion = "0.13.1"
-		mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
-		mockReader.EXPECT().BlockHeaderByNumber(
-			latestBlock.Header.Number+1-sync.BlockHashLag,
-		).Return(&blockToRegisterHash, nil).Times(2)
-
 		expectedPending, err := sync.MakeEmptyPendingForParent(
 			mockReader,
 			latestHeader,
@@ -69,24 +51,7 @@ func TestPendingWrapper_Pending(t *testing.T) {
 
 		pending, err := handler.Pending()
 		require.NoError(t, err)
-		require.Equal(t, &expectedPending, pending)
-	})
-}
-
-func TestPendingWrapper_PendingState(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, &utils.Sepolia, nil)
-
-	mockState := mocks.NewMockStateReader(mockCtrl)
-	t.Run("Returns latest state", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		pending, closer, err := handler.PendingState()
-
-		require.NoError(t, err)
 		require.NotNil(t, pending)
-		require.NotNil(t, closer)
+		require.Equal(t, &expectedPending, pending)
 	})
 }

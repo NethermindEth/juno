@@ -292,13 +292,11 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
 }
 
-// findAndTraceInPreConfirmed searches for a transaction across all pending data sources.
-//
-// This function searches in the following order:
+// findAndTraceInPreConfirmed searches for a transaction in the following order:
 // 1. Pre-confirmed block
 // 2. Pre-latest block (if available)
 //
-// Returns ErrTxnHashNotFound if the transaction is not found in any pending data source.
+// Returns ErrTxnHashNotFound if the transaction is not found in the pre_confirmed block.
 func (h *Handler) findAndTraceInPreConfirmed(
 	hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {

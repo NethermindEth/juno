@@ -169,7 +169,7 @@ func (h *Handler) stateByBlockID(
 	var err error
 	switch blockID.Type() {
 	case pending:
-		reader, closer, err = h.PendingState()
+		reader, closer, err = h.bcReader.HeadState()
 	case latest:
 		reader, closer, err = h.bcReader.HeadState()
 	case hash:

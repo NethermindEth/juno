@@ -47,21 +47,3 @@ func TestPendingWrapper_Pending(t *testing.T) {
 		require.Equal(t, &expectedPending, pending)
 	})
 }
-
-func TestPendingWrapper_PendingState(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
-
-	mockState := mocks.NewMockStateReader(mockCtrl)
-	t.Run("Returns head state", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		pending, closer, err := handler.PendingState()
-
-		require.NoError(t, err)
-		require.NotNil(t, pending)
-		require.NotNil(t, closer)
-	})
-}

@@ -179,11 +179,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	)
 
 	isPending := block.Hash == nil
-	if isPending {
-		headState, headStateCloser, err = h.PendingState()
-	} else {
-		headState, headStateCloser, err = h.bcReader.HeadState()
-	}
+	headState, headStateCloser, err = h.bcReader.HeadState()
 	if err != nil {
 		return nil, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}

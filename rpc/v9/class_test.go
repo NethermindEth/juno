@@ -248,7 +248,6 @@ func TestClassHashAt(t *testing.T) {
 				StateDiff: &stateDiff,
 			},
 		}
-
 		mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
 			Return(mockState, nopCloser, nil)

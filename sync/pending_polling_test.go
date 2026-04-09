@@ -358,7 +358,7 @@ func TestPollPendingData(t *testing.T) {
 	s := New(bc, mockDataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
 	s.highestBlockHeader.Store(block0.Header)
 
-	// Subscribe to pending data feed to observe stored pre_confirmed
+	// Subscribe to pre-confirmed feed to observe stored pre_confirmed
 	sub := s.preConfirmedDataFeed.SubscribeKeepLast()
 	defer sub.Unsubscribe()
 

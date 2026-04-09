@@ -271,8 +271,11 @@ func TestPreConfirmedAfterSync(t *testing.T) {
 
 	head, err := bc.HeadsHeader()
 	require.NoError(t, err)
-	require.True(t, preConfirmed.Validate(head), "pending data must be valid for the current head")
-
+	require.True(
+		t,
+		preConfirmed.Validate(head),
+		"pre-confirmed must be valid for the current head",
+	)
 	require.NotNil(t, preConfirmed.GetBlock())
 }
 

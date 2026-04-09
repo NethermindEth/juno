@@ -790,7 +790,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		})
 	}
 
-	t.Run("receipt from pending data", func(t *testing.T) {
+	t.Run("receipt from pre_confirmed", func(t *testing.T) {
 		t.Run("found in pre_confirmed block", func(t *testing.T) {
 			i := 2
 			expected := `{

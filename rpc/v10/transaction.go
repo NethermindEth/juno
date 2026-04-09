@@ -515,7 +515,7 @@ func (h *Handler) TransactionReceiptByHash(
 	), nil
 }
 
-// getPendingTransactionReceipt searches for a transaction receipt in the pending data.
+// getPendingTransactionReceipt searches for a transaction receipt in the pre_confirmed block.
 // Returns the receipt if found, otherwise returns `rpccore.ErrTxnHashNotFound`.
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,

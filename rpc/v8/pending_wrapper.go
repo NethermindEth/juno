@@ -25,7 +25,3 @@ func (h *Handler) PendingBlock() *core.Block {
 	}
 	return pending.GetBlock()
 }
-
-func (h *Handler) PendingState() (core.StateReader, func() error, error) {
-	return h.bcReader.HeadState()
-}

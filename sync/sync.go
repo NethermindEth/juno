@@ -605,7 +605,7 @@ func (s *Synchronizer) PreConfirmed() (*core.PreConfirmed, error) {
 
 	preConfirmed := s.preConfirmed.Load()
 	if preConfirmed != nil && preConfirmed.Validate(head) {
-		// Special handling: if the pending data contains a 'pre-latest' block attachment
+		// Special handling: if the pre-confirmed contains a 'pre-latest' block attachment
 		// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
 		if head != nil && preConfirmed.Block.Number == head.Number+1 && preConfirmed.PreLatest != nil {
 			return preConfirmed.Copy().WithPreLatest(nil), nil
@@ -613,7 +613,7 @@ func (s *Synchronizer) PreConfirmed() (*core.PreConfirmed, error) {
 		return preConfirmed, nil
 	}
 
-	// Fallback: no stored pending data, or stored data failed validation.
+	// Fallback: no stored pre-confirmed, or stored data failed validation.
 	if head == nil {
 		return nil, db.ErrKeyNotFound
 	}

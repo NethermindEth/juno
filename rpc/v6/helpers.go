@@ -161,7 +161,7 @@ func (h *Handler) stateByBlockID(
 	case id.Hash != nil:
 		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		reader, closer, err = h.PendingState()
+		reader, closer, err = h.bcReader.HeadState()
 	default:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
 	}
