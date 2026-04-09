@@ -457,7 +457,14 @@ func isNilOrEmpty(i any) (bool, error) {
 	}
 }
 
-func (s *Server) handleRequest(ctx context.Context, req *Request) (res *response, header http.Header, err error) {
+func (s *Server) handleRequest(
+	ctx context.Context,
+	req *Request,
+) (
+	res *response,
+	header http.Header,
+	err error,
+) {
 	// todo(rdr): have a way of representing a `req` so the structured logger has a way of showing it
 	s.log.Trace("Received request", zap.Any("req", req))
 

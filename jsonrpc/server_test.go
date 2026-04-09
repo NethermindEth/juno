@@ -494,7 +494,11 @@ func TestHandle(t *testing.T) {
 		},
 		"handler panic returns internal error": {
 			req: `{"jsonrpc": "2.0", "method": "panics", "params": {}, "id": 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error","data":"internal error"},"id":1}`,
+			res: `{
+			"jsonrpc":"2.0",
+			"error":{"code":-32603,"message":"Internal error","data":"internal error"},
+			"id":1
+			}`,
 		},
 		"empty optional param": {
 			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "params": {}, "id": 1}`,
