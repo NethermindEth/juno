@@ -41,7 +41,8 @@ func (m *mockExecutor) RunTxns(state *builder.BuildState, txns []mempool.Broadca
 		)
 		require.Equal(
 			m.t,
-			executorState.buildResult.PreConfirmed.Block.Transactions[executorState.nextTransactionIndex].Hash(),
+			executorState.buildResult.
+				PreConfirmed.Block.Transactions[executorState.nextTransactionIndex].Hash(),
 			txns[i].Transaction.Hash(),
 		)
 		executorState.nextTransactionIndex++
@@ -83,7 +84,8 @@ func (m *mockExecutor) getState(state *builder.BuildState) *mockExecutorState {
 	addressMap, ok := m.states[types.Height(state.PreConfirmed.Block.Header.Number)]
 	require.True(m.t, ok)
 
-	executorState, ok := addressMap[starknet.Address(*state.PreConfirmed.Block.Header.SequencerAddress)]
+	sequencerAddress := starknet.Address(*state.PreConfirmed.Block.Header.SequencerAddress)
+	executorState, ok := addressMap[sequencerAddress]
 	require.True(m.t, ok)
 
 	return executorState
