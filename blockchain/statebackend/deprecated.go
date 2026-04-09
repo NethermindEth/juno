@@ -204,8 +204,11 @@ func (b *deprecatedStateBackend) Simulate(
 		block.L1DAMode,
 	)
 
-	if err := signBlock(block, stateUpdate, sign); err != nil {
-		return SimulateResult{}, err
+	// Note(Ege): Simulate is only called with nil `sign`, maybe we should remove it.
+	if sign != nil {
+		if err := signBlock(block, stateUpdate, sign); err != nil {
+			return SimulateResult{}, err
+		}
 	}
 
 	return SimulateResult{
@@ -232,8 +235,12 @@ func (b *deprecatedStateBackend) Finalise(
 			return err
 		}
 
-		if err := signBlock(block, stateUpdate, sign); err != nil {
-			return err
+		// Note(Ege): Finalise is called with nil `sign` in `StoreGenesis` and in tests.
+		// Maybe provide `StoreGenesis` its own path and make `sign` mandatory in this function.
+		if sign != nil {
+			if err := signBlock(block, stateUpdate, sign); err != nil {
+				return err
+			}
 		}
 
 		return writeBlockContent(
