@@ -362,7 +362,8 @@ func TestStorageAt(t *testing.T) {
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 						Return(mockState, nopCloser, nil)
 					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
-					mockState.EXPECT().ContractStorage(&targetAddressFelt, &targetSlot).Return(expectedStorage, nil)
+					mockState.EXPECT().ContractStorage(&targetAddressFelt, &targetSlot).
+						Return(expectedStorage, nil)
 					mockState.EXPECT().ContractStorageLastUpdatedBlock(&targetAddress, &targetSlot).
 						Return(lastUpdateBlockNum, nil)
 
