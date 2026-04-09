@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/deprecatedmigration/oldlayout"
+	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -124,7 +124,7 @@ func writeBlockContent(
 		return err
 	}
 
-	if err := oldlayout.WriteTransactionsAndReceipts(
+	if err := txlayout.TransactionLayoutPerTx.WriteTransactionsAndReceipts(
 		writer,
 		block.Number,
 		block.Transactions,

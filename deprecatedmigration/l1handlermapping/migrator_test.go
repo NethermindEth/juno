@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/deprecatedmigration/l1handlermapping"
-	"github.com/NethermindEth/juno/deprecatedmigration/oldlayout"
+	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -59,7 +59,7 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 			// Write transactions using per-tx layout (migration reads from per-tx layout)
 			require.NoError(
 				t,
-				oldlayout.WriteTransactionsAndReceipts(batch, blockNum, txs, receipts),
+				txlayout.TransactionLayoutPerTx.WriteTransactionsAndReceipts(batch, blockNum, txs, receipts),
 			)
 
 			// Track L1Handler transactions for verification
