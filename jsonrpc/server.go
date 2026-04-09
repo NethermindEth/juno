@@ -457,6 +457,8 @@ func isNilOrEmpty(i any) (bool, error) {
 	}
 }
 
+// TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
+// instead of crashing the HTTP connection
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
 	// todo(rdr): have a way of representing a `req` so the structured logger has a way of showing it
 	s.log.Trace("Received request", zap.Any("req", req))
