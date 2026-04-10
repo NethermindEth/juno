@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
+	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -25,10 +25,10 @@ type blockTestCase struct {
 	block         *core.Block
 	commitments   *core.BlockCommitments
 	stateUpdate   *core.StateUpdate
-	blockID       *rpcv10.BlockID
+	blockID       *rpc.BlockID
 	l1Head        *core.L1Head
-	blockStatus   rpcv10.BlockStatus
-	responseFlags rpcv10.ResponseFlags
+	blockStatus   rpc.BlockStatus
+	responseFlags rpc.ResponseFlags
 }
 
 func createBlockTestCases(
@@ -36,11 +36,11 @@ func createBlockTestCases(
 	commitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
 ) []blockTestCase {
-	blockIDLatest := rpcv10.BlockIDLatest()
-	blockIDHash := rpcv10.BlockIDFromHash(block.Hash)
-	blockIDNumber := rpcv10.BlockIDFromNumber(block.Number)
-	blockIDL1Accepted := rpcv10.BlockIDL1Accepted()
-	blockIDPreConfirmed := rpcv10.BlockIDPreConfirmed()
+	blockIDLatest := rpc.BlockIDLatest()
+	blockIDHash := rpc.BlockIDFromHash(block.Hash)
+	blockIDNumber := rpc.BlockIDFromNumber(block.Number)
+	blockIDL1Accepted := rpc.BlockIDL1Accepted()
+	blockIDPreConfirmed := rpc.BlockIDPreConfirmed()
 	return []blockTestCase{
 		{
 			description: "blockID - latest",
@@ -49,7 +49,7 @@ func createBlockTestCases(
 			stateUpdate: stateUpdate,
 			blockID:     &blockIDLatest,
 			l1Head:      nil,
-			blockStatus: rpcv10.BlockAcceptedL2,
+			blockStatus: rpc.BlockAcceptedL2,
 		},
 		{
 			description: "blockID - hash",
@@ -58,7 +58,7 @@ func createBlockTestCases(
 			stateUpdate: stateUpdate,
 			blockID:     &blockIDHash,
 			l1Head:      nil,
-			blockStatus: rpcv10.BlockAcceptedL2,
+			blockStatus: rpc.BlockAcceptedL2,
 		},
 		{
 			description: "blockID - number",
@@ -67,7 +67,7 @@ func createBlockTestCases(
 			stateUpdate: stateUpdate,
 			blockID:     &blockIDNumber,
 			l1Head:      nil,
-			blockStatus: rpcv10.BlockAcceptedL2,
+			blockStatus: rpc.BlockAcceptedL2,
 		},
 		{
 			description: "blockID - number accepted on l1",
@@ -80,7 +80,7 @@ func createBlockTestCases(
 				BlockHash:   block.Hash,
 				StateRoot:   block.GlobalStateRoot,
 			},
-			blockStatus: rpcv10.BlockAcceptedL1,
+			blockStatus: rpc.BlockAcceptedL1,
 		},
 		{
 			description: "blockID - l1_accepted",
@@ -93,7 +93,7 @@ func createBlockTestCases(
 				BlockHash:   block.Hash,
 				StateRoot:   block.GlobalStateRoot,
 			},
-			blockStatus: rpcv10.BlockAcceptedL1,
+			blockStatus: rpc.BlockAcceptedL1,
 		},
 		{
 			description: "blockID - pre_confirmed",
@@ -102,7 +102,7 @@ func createBlockTestCases(
 			stateUpdate: nil,
 			blockID:     &blockIDPreConfirmed,
 			l1Head:      nil,
-			blockStatus: rpcv10.BlockPreConfirmed,
+			blockStatus: rpc.BlockPreConfirmed,
 		},
 	}
 }
@@ -112,7 +112,7 @@ func createBlockResponseFlagsTestCases(
 	commitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
 ) []blockTestCase {
-	blockIDNumber := rpcv10.BlockIDFromNumber(block.Number)
+	blockIDNumber := rpc.BlockIDFromNumber(block.Number)
 	return []blockTestCase{
 		{
 			description:   "response flags - without IncludeProofFacts",
@@ -121,8 +121,8 @@ func createBlockResponseFlagsTestCases(
 			stateUpdate:   stateUpdate,
 			blockID:       &blockIDNumber,
 			l1Head:        nil,
-			blockStatus:   rpcv10.BlockAcceptedL2,
-			responseFlags: rpcv10.ResponseFlags{},
+			blockStatus:   rpc.BlockAcceptedL2,
+			responseFlags: rpc.ResponseFlags{},
 		},
 		{
 			description:   "response flags - with IncludeProofFacts",
@@ -131,8 +131,8 @@ func createBlockResponseFlagsTestCases(
 			stateUpdate:   stateUpdate,
 			blockID:       &blockIDNumber,
 			l1Head:        nil,
-			blockStatus:   rpcv10.BlockAcceptedL2,
-			responseFlags: rpcv10.ResponseFlags{IncludeProofFacts: true},
+			blockStatus:   rpc.BlockAcceptedL2,
+			responseFlags: rpc.ResponseFlags{IncludeProofFacts: true},
 		},
 	}
 }
@@ -143,7 +143,7 @@ func assertCommittedBlockHeader(
 	expectedBlock *core.Block,
 	expectedCommitments *core.BlockCommitments,
 	stateDiffLen uint64,
-	actual *rpcv10.BlockHeader,
+	actual *rpc.BlockHeader,
 ) {
 	t.Helper()
 
@@ -159,12 +159,12 @@ func assertCommittedBlockHeader(
 	assert.Equal(t, nilToOne(expectedBlock.L1DataGasPrice.PriceInFri), actual.L1DataGasPrice.InFri)
 	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInWei), actual.L2GasPrice.InWei)
 	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInFri), actual.L2GasPrice.InFri)
-	var expectedl1DAMode rpcv10.L1DAMode
+	var expectedl1DAMode rpc.L1DAMode
 	switch expectedBlock.L1DAMode {
 	case core.Blob:
-		expectedl1DAMode = rpcv10.Blob
+		expectedl1DAMode = rpc.Blob
 	case core.Calldata:
-		expectedl1DAMode = rpcv10.Calldata
+		expectedl1DAMode = rpc.Calldata
 	}
 	assert.Equal(t, expectedl1DAMode, *actual.L1DAMode)
 	assert.Equal(t, expectedBlock.ProtocolVersion, actual.StarknetVersion)
@@ -198,7 +198,7 @@ func assertCommittedBlockHeader(
 func assertPreConfirmedBlockHeader(
 	t *testing.T,
 	expectedBlock *core.Block,
-	actual *rpcv10.BlockHeader,
+	actual *rpc.BlockHeader,
 ) {
 	t.Helper()
 
@@ -212,12 +212,12 @@ func assertPreConfirmedBlockHeader(
 	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInWei), actual.L2GasPrice.InWei)
 	assert.Equal(t, nilToOne(expectedBlock.L2GasPrice.PriceInFri), actual.L2GasPrice.InFri)
 	assert.Equal(t, expectedBlock.ProtocolVersion, actual.StarknetVersion)
-	var expectedl1DAMode rpcv10.L1DAMode
+	var expectedl1DAMode rpc.L1DAMode
 	switch expectedBlock.L1DAMode {
 	case core.Blob:
-		expectedl1DAMode = rpcv10.Blob
+		expectedl1DAMode = rpc.Blob
 	case core.Calldata:
-		expectedl1DAMode = rpcv10.Calldata
+		expectedl1DAMode = rpc.Calldata
 	}
 	assert.Equal(t, expectedl1DAMode, *actual.L1DAMode)
 
@@ -238,14 +238,14 @@ func assertPreConfirmedBlockHeader(
 func assertBlockWithTxHashes(
 	t *testing.T,
 	expectedBlock *core.Block,
-	expectedStatus rpcv10.BlockStatus,
+	expectedStatus rpc.BlockStatus,
 	expectedCommitments *core.BlockCommitments,
 	expectedStateUpdate *core.StateUpdate,
-	actual *rpcv10.BlockWithTxHashes,
+	actual *rpc.BlockWithTxHashes,
 ) {
 	t.Helper()
 	assert.Equal(t, expectedStatus, actual.Status)
-	if expectedStatus == rpcv10.BlockPreConfirmed {
+	if expectedStatus == rpc.BlockPreConfirmed {
 		assertPreConfirmedBlockHeader(t, expectedBlock, &actual.BlockHeader)
 	} else {
 		assertCommittedBlockHeader(
@@ -265,13 +265,13 @@ func assertBlockWithTxs(
 	expectedBlock *core.Block,
 	expectedCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-	expectedStatus rpcv10.BlockStatus,
-	actual *rpcv10.BlockWithTxs,
-	responseFlags rpcv10.ResponseFlags,
+	expectedStatus rpc.BlockStatus,
+	actual *rpc.BlockWithTxs,
+	responseFlags rpc.ResponseFlags,
 ) {
 	t.Helper()
 	assert.Equal(t, expectedStatus, actual.Status)
-	if expectedStatus == rpcv10.BlockPreConfirmed {
+	if expectedStatus == rpc.BlockPreConfirmed {
 		assertPreConfirmedBlockHeader(t, expectedBlock, &actual.BlockHeader)
 	} else {
 		assertCommittedBlockHeader(
@@ -289,14 +289,14 @@ func assertBlockWithTxs(
 func assertTransactionsEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
-	actualTransactions []*rpcv10.Transaction,
+	actualTransactions []*rpc.Transaction,
 	includeProofFacts bool,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedTransactions), len(actualTransactions))
 	for i, expectedTransaction := range expectedTransactions {
 		require.Equal(t, expectedTransaction.Hash(), actualTransactions[i].Hash)
-		adaptedTransaction := rpcv10.AdaptTransaction(expectedTransaction, includeProofFacts)
+		adaptedTransaction := rpc.AdaptTransaction(expectedTransaction, includeProofFacts)
 		require.Equal(t, adaptedTransaction, *actualTransactions[i])
 	}
 }
@@ -316,20 +316,20 @@ func assertTransactionHashesEq(
 func assertTransactionsWithReceiptsEq(
 	t *testing.T,
 	expectedBlock *core.Block,
-	expectedTxnFinalityStatus rpcv10.TxnFinalityStatus,
-	actual []rpcv10.TransactionWithReceipt,
-	responseFlags rpcv10.ResponseFlags,
+	expectedTxnFinalityStatus rpc.TxnFinalityStatus,
+	actual []rpc.TransactionWithReceipt,
+	responseFlags rpc.ResponseFlags,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedBlock.Receipts), len(actual))
 	for i, expectedReceipt := range expectedBlock.Receipts {
 		require.Equal(t, expectedReceipt.TransactionHash, actual[i].Receipt.Hash)
-		adaptedTransaction := rpcv10.AdaptTransaction(
+		adaptedTransaction := rpc.AdaptTransaction(
 			expectedBlock.Transactions[i],
 			responseFlags.IncludeProofFacts,
 		)
 		adaptedTransaction.Hash = nil
-		adaptedReceipt := rpcv10.AdaptReceipt(
+		adaptedReceipt := rpc.AdaptReceipt(
 			expectedReceipt,
 			expectedBlock.Transactions[i],
 			expectedTxnFinalityStatus,
@@ -341,28 +341,28 @@ func assertTransactionsWithReceiptsEq(
 	}
 }
 
-func blockStatusToTxnFinalityStatus(blockStatus rpcv10.BlockStatus) rpcv10.TxnFinalityStatus {
+func blockStatusToTxnFinalityStatus(blockStatus rpc.BlockStatus) rpc.TxnFinalityStatus {
 	switch blockStatus {
-	case rpcv10.BlockAcceptedL1:
-		return rpcv10.TxnAcceptedOnL1
-	case rpcv10.BlockAcceptedL2:
-		return rpcv10.TxnAcceptedOnL2
+	case rpc.BlockAcceptedL1:
+		return rpc.TxnAcceptedOnL1
+	case rpc.BlockAcceptedL2:
+		return rpc.TxnAcceptedOnL2
 	}
-	return rpcv10.TxnPreConfirmed
+	return rpc.TxnPreConfirmed
 }
 
 func assertBlockWithReceipts(
 	t *testing.T,
 	expectedBlock *core.Block,
-	expectedStatus rpcv10.BlockStatus,
+	expectedStatus rpc.BlockStatus,
 	expectedCommitments *core.BlockCommitments,
 	expectedStateUpdate *core.StateUpdate,
-	actual *rpcv10.BlockWithReceipts,
-	responseFlags rpcv10.ResponseFlags,
+	actual *rpc.BlockWithReceipts,
+	responseFlags rpc.ResponseFlags,
 ) {
 	t.Helper()
 	assert.Equal(t, expectedStatus, actual.Status)
-	if expectedStatus == rpcv10.BlockPreConfirmed {
+	if expectedStatus == rpc.BlockPreConfirmed {
 		assertPreConfirmedBlockHeader(t, expectedBlock, &actual.BlockHeader)
 	} else {
 		assertCommittedBlockHeader(
@@ -389,7 +389,7 @@ func setupMockBlockTest(
 	block *core.Block,
 	commitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-	blockID *rpcv10.BlockID,
+	blockID *rpc.BlockID,
 	l1Head *core.L1Head,
 ) {
 	// mock L1 head
@@ -407,7 +407,7 @@ func setupMockBlockTest(
 
 	switch {
 	case blockID.IsPreConfirmed():
-		blockAsPreConfirmed := rpcv10.CreateTestPreConfirmed(
+		blockAsPreConfirmed := rpc.CreateTestPreConfirmed(
 			t,
 			block,
 			int(block.TransactionCount),
@@ -439,13 +439,182 @@ func setupMockBlockTest(
 	}
 }
 
+func TestBlockNumber(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, nil)
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		expectedHeight := uint64(0)
+		mockReader.EXPECT().Height().Return(expectedHeight, errors.New("empty blockchain"))
+
+		num, err := handler.BlockNumber()
+		assert.Equal(t, expectedHeight, num)
+		assert.Equal(t, rpccore.ErrNoBlock, err)
+	})
+
+	t.Run("blockchain height is 21", func(t *testing.T) {
+		expectedHeight := uint64(21)
+		mockReader.EXPECT().Height().Return(expectedHeight, nil)
+
+		num, err := handler.BlockNumber()
+		require.Nil(t, err)
+		assert.Equal(t, expectedHeight, num)
+	})
+}
+
+func TestBlockHashAndNumber(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	n := &utils.Mainnet
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, nil)
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
+
+		block, err := handler.BlockHashAndNumber()
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrNoBlock, err)
+	})
+
+	t.Run("blockchain height is 147", func(t *testing.T) {
+		client := feeder.NewTestClient(t, n)
+		gw := adaptfeeder.New(client)
+
+		expectedBlock, err := gw.BlockByNumber(t.Context(), 147)
+		require.NoError(t, err)
+
+		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{
+			Hash:   expectedBlock.Hash,
+			Number: expectedBlock.Number,
+		}
+
+		mockReader.EXPECT().Head().Return(expectedBlock, nil)
+
+		hashAndNum, rpcErr := handler.BlockHashAndNumber()
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedBlockHashAndNumber, hashAndNum)
+	})
+}
+
+func TestBlockTransactionCount(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	n := utils.HeapPtr(utils.Sepolia)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
+
+	latestBlockNumber := uint64(56377)
+	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
+
+	require.NoError(t, err)
+	latestBlockHash := latestBlock.Hash
+	expectedCount := latestBlock.TransactionCount
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+		latest := rpc.BlockIDLatest()
+		count, rpcErr := handler.BlockTransactionCount(&latest)
+		assert.Equal(t, uint64(0), count)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		hash := rpc.BlockIDFromHash(felt.NewFromBytes[felt.Felt]([]byte("random")))
+		count, rpcErr := handler.BlockTransactionCount(&hash)
+		assert.Equal(t, uint64(0), count)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+		preConfirmed := rpc.BlockIDPreConfirmed()
+		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
+		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, uint64(0), count)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		number := rpc.BlockIDFromNumber(uint64(328476))
+		count, rpcErr := handler.BlockTransactionCount(&number)
+		assert.Equal(t, uint64(0), count)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("blockID - latest", func(t *testing.T) {
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		latest := rpc.BlockIDLatest()
+		count, rpcErr := handler.BlockTransactionCount(&latest)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - hash", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+		hash := rpc.BlockIDFromHash(latestBlockHash)
+		count, rpcErr := handler.BlockTransactionCount(&hash)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - number", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		number := rpc.BlockIDFromNumber(latestBlockNumber)
+		count, rpcErr := handler.BlockTransactionCount(&number)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: latestBlock.Number,
+				BlockHash:   latestBlock.Hash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		l1AcceptedID := rpc.BlockIDL1Accepted()
+		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - pre_confirmed", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&preConfirmed,
+			nil,
+		)
+
+		preConfirmedID := rpc.BlockIDPreConfirmed()
+		count, rpcErr := handler.BlockTransactionCount(&preConfirmedID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+}
+
 //nolint:dupl // Shares similar structure with other tests but tests different method
 func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
-	errTests := map[string]rpcv10.BlockID{
-		"latest":        rpcv10.BlockIDLatest(),
-		"pre_confirmed": rpcv10.BlockIDPreConfirmed(),
-		"hash":          rpcv10.BlockIDFromHash(&felt.One),
-		"number":        rpcv10.BlockIDFromNumber(2),
+	errTests := map[string]rpc.BlockID{
+		"latest":        rpc.BlockIDLatest(),
+		"pre_confirmed": rpc.BlockIDPreConfirmed(),
+		"hash":          rpc.BlockIDFromHash(&felt.One),
+		"number":        rpc.BlockIDFromNumber(2),
 	}
 
 	for description, id := range errTests {
@@ -457,7 +626,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpcv10.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, log)
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
@@ -474,9 +643,9 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 		t.Cleanup(mockCtrl.Finish)
 
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv10.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		blockID := rpcv10.BlockIDFromNumber(777)
+		blockID := rpc.BlockIDFromNumber(777)
 		block := &core.Block{
 			Header: &core.Header{},
 		}
@@ -485,7 +654,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpc.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -495,7 +664,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	network := &utils.Sepolia
 	client := feeder.NewTestClient(t, network)
 
-	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 56377)
+	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, 56377)
 
 	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
@@ -505,7 +674,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 			setupMockBlockTest(
 				t,
@@ -540,9 +709,9 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv10.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		id := rpcv10.BlockIDFromNumber(blockNumber)
+		id := rpc.BlockIDFromNumber(blockNumber)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
 
@@ -555,9 +724,9 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv10.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		id := rpcv10.BlockIDFromNumber(blockNumber)
+		id := rpc.BlockIDFromNumber(blockNumber)
 		internalErr := errors.New("some internal error")
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
@@ -570,11 +739,11 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 
 //nolint:dupl // Shares similar structure with other tests but tests different method
 func TestBlockWithTxs_ErrorCases(t *testing.T) {
-	errTests := map[string]rpcv10.BlockID{
-		"latest":        rpcv10.BlockIDLatest(),
-		"pre_confirmed": rpcv10.BlockIDPreConfirmed(),
-		"hash":          rpcv10.BlockIDFromHash(&felt.One),
-		"number":        rpcv10.BlockIDFromNumber(1),
+	errTests := map[string]rpc.BlockID{
+		"latest":        rpc.BlockIDLatest(),
+		"pre_confirmed": rpc.BlockIDPreConfirmed(),
+		"hash":          rpc.BlockIDFromHash(&felt.One),
+		"number":        rpc.BlockIDFromNumber(1),
 	}
 
 	mockCtrl := gomock.NewController(t)
@@ -587,13 +756,13 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-			handler := rpcv10.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, log)
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
 			}
 
-			block, rpcErr := handler.BlockWithTxs(&id, rpcv10.ResponseFlags{})
+			block, rpcErr := handler.BlockWithTxs(&id, rpc.ResponseFlags{})
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -605,9 +774,9 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 		t.Cleanup(mockCtrl.Finish)
 
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv10.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		blockID := rpcv10.BlockIDFromNumber(777)
+		blockID := rpc.BlockIDFromNumber(777)
 		block := &core.Block{
 			Header: &core.Header{},
 		}
@@ -616,7 +785,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpc.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -626,12 +795,12 @@ func TestBlockWithTxs(t *testing.T) {
 	network := &utils.Mainnet
 	client := feeder.NewTestClient(t, network)
 
-	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 16697)
+	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, 16697)
 
 	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
 	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
-	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpc.GetTestBlockWithCommitments(
 		t,
 		clientSepolia,
 		4072139,
@@ -651,7 +820,7 @@ func TestBlockWithTxs(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 			setupMockBlockTest(
 				t,
@@ -687,13 +856,13 @@ func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv10.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		id := rpcv10.BlockIDFromNumber(blockNumber)
+		id := rpc.BlockIDFromNumber(blockNumber)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
 
-		block, rpcErr := handler.BlockWithTxs(&id, rpcv10.ResponseFlags{})
+		block, rpcErr := handler.BlockWithTxs(&id, rpc.ResponseFlags{})
 		assert.Nil(t, block)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -702,14 +871,14 @@ func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv10.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		id := rpcv10.BlockIDFromNumber(blockNumber)
+		id := rpc.BlockIDFromNumber(blockNumber)
 		internalErr := errors.New("some internal error")
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
 
-		block, rpcErr := handler.BlockWithTxs(&id, rpcv10.ResponseFlags{})
+		block, rpcErr := handler.BlockWithTxs(&id, rpc.ResponseFlags{})
 		assert.Nil(t, block)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr), rpcErr)
 	})
@@ -717,11 +886,11 @@ func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 
 //nolint:dupl // Shares similar structure with other tests but tests different method
 func TestBlockWithReceipts_ErrorCases(t *testing.T) {
-	errTests := map[string]rpcv10.BlockID{
-		"latest":        rpcv10.BlockIDLatest(),
-		"pre_confirmed": rpcv10.BlockIDPreConfirmed(),
-		"hash":          rpcv10.BlockIDFromHash(&felt.One),
-		"number":        rpcv10.BlockIDFromNumber(2),
+	errTests := map[string]rpc.BlockID{
+		"latest":        rpc.BlockIDLatest(),
+		"pre_confirmed": rpc.BlockIDPreConfirmed(),
+		"hash":          rpc.BlockIDFromHash(&felt.One),
+		"number":        rpc.BlockIDFromNumber(2),
 	}
 
 	for description, id := range errTests {
@@ -733,13 +902,13 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpcv10.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, log)
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
 			}
 
-			block, rpcErr := handler.BlockWithReceipts(&id, rpcv10.ResponseFlags{})
+			block, rpcErr := handler.BlockWithReceipts(&id, rpc.ResponseFlags{})
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -751,9 +920,9 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 		t.Cleanup(mockCtrl.Finish)
 
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv10.New(mockReader, nil, nil, nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		blockID := rpcv10.BlockIDFromNumber(777)
+		blockID := rpc.BlockIDFromNumber(777)
 		block := &core.Block{
 			Header: &core.Header{},
 		}
@@ -762,7 +931,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
+		resp, rpcErr := handler.BlockWithReceipts(&blockID, rpc.ResponseFlags{})
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -772,12 +941,12 @@ func TestBlockWithReceipts(t *testing.T) {
 	network := &utils.Mainnet
 	client := feeder.NewTestClient(t, network)
 
-	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, 16697)
+	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, 16697)
 
 	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
 	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
-	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpcv10.GetTestBlockWithCommitments(
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpc.GetTestBlockWithCommitments(
 		t,
 		clientSepolia,
 		4072139,
@@ -797,7 +966,7 @@ func TestBlockWithReceipts(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 			setupMockBlockTest(
 				t,
@@ -831,13 +1000,13 @@ func TestRpcBlockAdaptation(t *testing.T) {
 
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv10.New(mockReader, nil, nil, nil)
+	handler := rpc.New(mockReader, nil, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	latestBlockNumber := uint64(56378)
 
 	t.Run("default sequencer address", func(t *testing.T) {
-		block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(
+		block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(
 			t,
 			client,
 			latestBlockNumber,
@@ -851,8 +1020,8 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		mockReader.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil).Times(2)
 		mockReader.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil).Times(2)
 
-		blockID := rpcv10.BlockIDLatest()
-		actual, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
+		blockID := rpc.BlockIDLatest()
+		actual, rpcErr := handler.BlockWithTxs(&blockID, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &felt.Zero, actual.BlockHeader.SequencerAddress)
 
@@ -866,7 +1035,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	network := utils.HeapPtr(utils.SepoliaIntegration)
 	blockNumber := uint64(16350)
 	client := feeder.NewTestClient(t, network)
-	block, commitments, stateUpdate := rpcv10.GetTestBlockWithCommitments(t, client, blockNumber)
+	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, blockNumber)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -878,36 +1047,36 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockReader.EXPECT().BlockCommitmentsByNumber(blockNumber).Return(commitments, nil)
 	mockReader.EXPECT().StateUpdateByNumber(blockNumber).Return(stateUpdate, nil)
 
-	handler := rpcv10.New(mockReader, nil, nil, nil)
+	handler := rpc.New(mockReader, nil, nil, nil)
 
 	tx, ok := block.Transactions[0].(*core.InvokeTransaction)
 	require.True(t, ok)
 
-	blockID := rpcv10.BlockIDFromNumber(blockNumber)
-	got, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
+	blockID := rpc.BlockIDFromNumber(blockNumber)
+	got, rpcErr := handler.BlockWithTxs(&blockID, rpc.ResponseFlags{})
 	require.Nil(t, rpcErr)
 	got.Transactions = got.Transactions[:1]
 
 	stateDiffLength := stateUpdate.StateDiff.Length()
-	require.Equal(t, &rpcv10.BlockWithTxs{
-		BlockHeader: rpcv10.BlockHeader{
+	require.Equal(t, &rpc.BlockWithTxs{
+		BlockHeader: rpc.BlockHeader{
 			Hash:            block.Hash,
 			StarknetVersion: block.ProtocolVersion,
 			NewRoot:         block.GlobalStateRoot,
 			Number:          &block.Number,
 			ParentHash:      block.ParentHash,
-			L1DAMode:        utils.HeapPtr(rpcv10.Blob),
-			L1GasPrice: &rpcv10.ResourcePrice{
+			L1DAMode:        utils.HeapPtr(rpc.Blob),
+			L1GasPrice: &rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpcv10.ResourcePrice{
+			L1DataGasPrice: &rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
 			},
 			SequencerAddress: block.SequencerAddress,
 			Timestamp:        block.Timestamp,
-			L2GasPrice: &rpcv10.ResourcePrice{
+			L2GasPrice: &rpc.ResourcePrice{
 				InFri: &felt.One,
 				InWei: &felt.One,
 			},
@@ -919,11 +1088,11 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			TransactionCount:      &block.TransactionCount,
 			EventCount:            &block.EventCount,
 		},
-		Status: rpcv10.BlockAcceptedL2,
-		Transactions: []*rpcv10.Transaction{
+		Status: rpc.BlockAcceptedL2,
+		Transactions: []*rpc.Transaction{
 			{
 				Hash:               tx.Hash(),
-				Type:               rpcv10.TxnInvoke,
+				Type:               rpc.TxnInvoke,
 				Version:            tx.Version.AsFelt(),
 				Nonce:              tx.Nonce,
 				MaxFee:             tx.MaxFee,
@@ -932,20 +1101,20 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Signature:          &tx.TransactionSignature,
 				CallData:           &tx.CallData,
 				EntryPointSelector: tx.EntryPointSelector,
-				ResourceBounds: &rpcv10.ResourceBoundsMap{
-					L1Gas: &rpcv10.ResourceBounds{
+				ResourceBounds: &rpc.ResourceBoundsMap{
+					L1Gas: &rpc.ResourceBounds{
 						MaxAmount: felt.NewFromUint64[felt.Felt](
 							tx.ResourceBounds[core.ResourceL1Gas].MaxAmount,
 						),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
-					L2Gas: &rpcv10.ResourceBounds{
+					L2Gas: &rpc.ResourceBounds{
 						MaxAmount: felt.NewFromUint64[felt.Felt](
 							tx.ResourceBounds[core.ResourceL2Gas].MaxAmount,
 						),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
-					L1DataGas: &rpcv10.ResourceBounds{
+					L1DataGas: &rpc.ResourceBounds{
 						MaxAmount:       &felt.Zero,
 						MaxPricePerUnit: &felt.Zero,
 					},
@@ -953,8 +1122,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
-				NonceDAMode:           utils.HeapPtr(rpcv10.DataAvailabilityMode(tx.NonceDAMode)),
-				FeeDAMode:             utils.HeapPtr(rpcv10.DataAvailabilityMode(tx.FeeDAMode)),
+				NonceDAMode:           utils.HeapPtr(rpc.DataAvailabilityMode(tx.NonceDAMode)),
+				FeeDAMode:             utils.HeapPtr(rpc.DataAvailabilityMode(tx.FeeDAMode)),
 			},
 		},
 	}, got)
@@ -1014,7 +1183,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	blockID := rpcv10.BlockIDFromNumber(block.Header.Number)
+	blockID := rpc.BlockIDFromNumber(block.Header.Number)
 	mockReader.EXPECT().BlockHeaderByNumber(block.Header.Number).Return(block.Header, nil).AnyTimes()
 	mockReader.EXPECT().TransactionsByBlockNumber(
 		block.Header.Number,
@@ -1032,10 +1201,10 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 		StateDiff: &core.StateDiff{},
 	}, nil).AnyTimes()
 
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpc.ResponseFlags{IncludeProofFacts: true}
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithTxs)
@@ -1061,7 +1230,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	})
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, rpcv10.ResponseFlags{})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&blockID, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithTxs)
 
@@ -1113,7 +1282,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	blockID := rpcv10.BlockIDFromNumber(block.Header.Number)
+	blockID := rpc.BlockIDFromNumber(block.Header.Number)
 	mockReader.EXPECT().BlockByNumber(block.Header.Number).Return(block, nil).AnyTimes()
 	mockReader.EXPECT().Network().Return(network).AnyTimes()
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
@@ -1128,10 +1297,10 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		StateDiff: &core.StateDiff{},
 	}, nil).AnyTimes()
 
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
-		responseFlags := rpcv10.ResponseFlags{IncludeProofFacts: true}
+		responseFlags := rpc.ResponseFlags{IncludeProofFacts: true}
 		blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, responseFlags)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, blockWithReceipts)
@@ -1158,7 +1327,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 
 	t.Run("WithoutResponseFlag", func(t *testing.T) {
 		t.Run("WithoutResponseFlag", func(t *testing.T) {
-			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{})
+			blockWithReceipts, rpcErr := handler.BlockWithReceipts(&blockID, rpc.ResponseFlags{})
 			require.Nil(t, rpcErr)
 			require.NotNil(t, blockWithReceipts)
 

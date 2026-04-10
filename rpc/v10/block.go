@@ -84,6 +84,54 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L830-L848
+type BlockHashAndNumber struct {
+	Hash   *felt.Felt `json:"block_hash"`
+	Number uint64     `json:"block_number"`
+}
+
+/****************************************************
+		Block Handlers
+*****************************************************/
+
+// BlockNumber returns the latest synced block number.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L809
+func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
+	num, err := h.bcReader.Height()
+	if err != nil {
+		return 0, rpccore.ErrNoBlock
+	}
+
+	return num, nil
+}
+
+// BlockHashAndNumber returns the block hash and number of the latest synced block.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L827
+func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
+	block, err := h.bcReader.Head()
+	if err != nil {
+		return nil, rpccore.ErrNoBlock
+	}
+	return &BlockHashAndNumber{Number: block.Number, Hash: block.Hash}, nil
+}
+
+// BlockTransactionCount returns the number of transactions in a block
+// identified by the given BlockID.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L622
+func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
+	header, rpcErr := h.blockHeaderByID(id)
+	if rpcErr != nil {
+		return 0, rpcErr
+	}
+	return header.TransactionCount, nil
+}
+
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.
 //
 // It follows the specification defined here:

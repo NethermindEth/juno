@@ -148,11 +148,11 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		},
 		{
 			Name:    "starknet_blockNumber",
-			Handler: h.rpcv6Handler.BlockNumber,
+			Handler: h.rpcv10Handler.BlockNumber,
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
-			Handler: h.rpcv6Handler.BlockHashAndNumber,
+			Handler: h.rpcv10Handler.BlockHashAndNumber,
 		},
 		{
 			Name:    "starknet_getBlockWithTxHashes",
@@ -183,7 +183,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getBlockTransactionCount",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv9Handler.BlockTransactionCount,
+			Handler: h.rpcv10Handler.BlockTransactionCount,
 		},
 		{
 			Name: "starknet_getTransactionByBlockIdAndIndex",
