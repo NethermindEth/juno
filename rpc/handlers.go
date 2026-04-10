@@ -144,7 +144,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
-			Handler: h.rpcv6Handler.ChainID,
+			Handler: h.rpcv10Handler.ChainID,
 		},
 		{
 			Name:    "starknet_blockNumber",
