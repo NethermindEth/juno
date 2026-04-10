@@ -12,7 +12,9 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-var logMsgToL2SigHash = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
+var logMsgToL2SigHash = common.HexToHash(
+	"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
+)
 
 type logMessageToL2 struct {
 	FromAddress *common.Address
@@ -23,6 +25,7 @@ type logMessageToL2 struct {
 	Fee         *big.Int
 }
 
+// https://docs.starknet.io/learn/protocol/messaging#l1-→-l2-message-hashing
 func (l *logMessageToL2) hashMessage() *common.Hash {
 	hash := sha3.NewLegacyKeccak256()
 
@@ -32,9 +35,11 @@ func (l *logMessageToL2) hashMessage() *common.Hash {
 		hash.Write(bytes)
 	}
 
-	// Pad FromAddress to 32 bytes
-	hash.Write(make([]byte, 12)) //nolint:mnd
+	// Ethereum address is 20 bytes long.
+	// We need to pad it to 32 bytes to match the expected input size for the hash function.
+	hash.Write(make([]byte, 12)) //nolint:mnd // 32 - 20 = 12
 	hash.Write(l.FromAddress.Bytes())
+
 	writeUint256(l.ToAddress)
 	writeUint256(l.Nonce)
 	writeUint256(l.Selector)
@@ -55,7 +60,10 @@ type MsgStatus struct {
 	FailureReason   string             `json:"failure_reason,omitempty"`
 }
 
-func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) ([]MsgStatus, *jsonrpc.Error) {
+func (h *Handler) GetMessageStatus(
+	ctx context.Context,
+	l1TxnHash *common.Hash,
+) ([]MsgStatus, *jsonrpc.Error) {
 	// l1 txn hash -> (l1 handler) msg hashes
 	msgHashes, rpcErr := h.messageToL2Logs(ctx, l1TxnHash)
 	if rpcErr != nil {
@@ -79,7 +87,8 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 			return nil, rpcErr
 		}
 
-		// Skip if execution status is not present since it is required by the spec, thus finality status cannot be RECEIVED or CANDIDATE
+		// Skip if execution status is not present since it is required by the spec, thus
+		// finality status cannot be RECEIVED or CANDIDATE
 		// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L3325
 		if status.Execution == UnknownExecution {
 			continue
@@ -95,7 +104,10 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 	return results, nil
 }
 
-func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*common.Hash, *jsonrpc.Error) {
+func (h *Handler) messageToL2Logs(
+	ctx context.Context,
+	txHash *common.Hash,
+) ([]*common.Hash, *jsonrpc.Error) {
 	if h.l1Client == nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, "L1 client not found")
 	}

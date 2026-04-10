@@ -45,7 +45,9 @@ func TestCompiledCasm(t *testing.T) {
 		require.Zero(t, resp)
 	})
 	t.Run("deprecated cairo", func(t *testing.T) {
-		classHash := felt.NewUnsafeFromString[felt.Felt]("0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
+		classHash := felt.NewUnsafeFromString[felt.Felt](
+			"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8",
+		)
 
 		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
 		fd := feeder.New(cl)
@@ -95,7 +97,11 @@ func TestCompiledCasm(t *testing.T) {
 		// Verify that the offset is correctly passed as uint64
 		require.Len(t, resp.EntryPointsByType.External, 1)
 		assert.Equal(t, uint64(42), resp.EntryPointsByType.External[0].Offset)
-		assert.Equal(t, *felt.NewUnsafeFromString[felt.Felt]("0xabc"), resp.EntryPointsByType.External[0].Selector)
+		assert.Equal(
+			t,
+			*felt.NewUnsafeFromString[felt.Felt]("0xabc"),
+			resp.EntryPointsByType.External[0].Selector,
+		)
 		assert.Equal(t, []string{"range_check"}, resp.EntryPointsByType.External[0].Builtins)
 		assert.Equal(t, utils.ToHex(big.NewInt(123)), resp.Prime)
 		assert.Equal(t, "1.0.0", resp.CompilerVersion)

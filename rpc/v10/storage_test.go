@@ -682,7 +682,12 @@ func TestStorageProof(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
 
-		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*key}}})
+		proof, rpcErr := handler.StorageProof(
+			&blockLatest,
+			nil,
+			nil,
+			[]rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*key}}},
+		)
 		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingContractAddress), rpcErr)
 		require.Nil(t, proof)
 	})
@@ -690,7 +695,12 @@ func TestStorageProof(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
 
-		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{{Contract: key, Keys: nil}})
+		proof, rpcErr := handler.StorageProof(
+			&blockLatest,
+			nil,
+			nil,
+			[]rpc.StorageKeys{{Contract: key, Keys: nil}},
+		)
 		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
 		require.Nil(t, proof)
 	})
@@ -698,7 +708,12 @@ func TestStorageProof(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
 
-		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{{Contract: key, Keys: []felt.Felt{}}})
+		proof, rpcErr := handler.StorageProof(
+			&blockLatest,
+			nil,
+			nil,
+			[]rpc.StorageKeys{{Contract: key, Keys: []felt.Felt{}}},
+		)
 		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
 		require.Nil(t, proof)
 	})
@@ -834,7 +849,7 @@ func TestStorageProof(t *testing.T) {
 		arityTest(t, proof, 0, 0, 0, 1)
 		require.Len(t, proof.ContractsStorageProofs[0], 0)
 	})
-	//nolint:dupl
+	//nolint:dupl // Similar code, but testing a different case
 	t.Run("contract storage trie key slot does not exist in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
@@ -851,12 +866,12 @@ func TestStorageProof(t *testing.T) {
 
 		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ContractsStorageProofs[0], tempTrie.HashFn())
 	})
-	//nolint:dupl
+	//nolint:dupl // Similar code, but testing a different case
 	t.Run("contract storage trie address/key exists in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
 
-		contract := felt.NewUnsafeFromString[felt.Felt]("0xadd0")
+		contract := felt.NewFromUint64[felt.Felt](0xabcd)
 		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}

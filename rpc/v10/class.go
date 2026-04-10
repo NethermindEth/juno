@@ -1,18 +1,10 @@
 package rpcv10
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-
-	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L506-L522
@@ -34,44 +26,6 @@ type ClassEntryPoint struct {
 	Index    *uint64    `json:"function_idx,omitempty"`
 	Offset   *felt.Felt `json:"offset,omitempty"`
 	Selector *felt.Felt `json:"selector"`
-}
-
-func AdaptDeclaredClass(
-	ctx context.Context,
-	compiler compiler.Compiler,
-	declaredClass json.RawMessage,
-) (core.ClassDefinition, error) {
-	var feederClass starknet.ClassDefinition
-	err := json.Unmarshal(declaredClass, &feederClass)
-	if err != nil {
-		return nil, err
-	}
-
-	switch {
-	case feederClass.Sierra != nil:
-		compiledClass, cErr := compiler.Compile(ctx, feederClass.Sierra)
-		if cErr != nil {
-			return nil, cErr
-		}
-		return sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
-	case feederClass.DeprecatedCairo != nil:
-		program := feederClass.DeprecatedCairo.Program
-
-		// strip the quotes
-		if len(program) < 2 {
-			return nil, errors.New("invalid program")
-		}
-		base64Program := string(program[1 : len(program)-1])
-
-		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
-		if err != nil {
-			return nil, err
-		}
-
-		return sn2core.AdaptDeprecatedCairoClass(feederClass.DeprecatedCairo)
-	default:
-		return nil, errors.New("empty class")
-	}
 }
 
 /****************************************************
@@ -124,7 +78,8 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Err
 	return rpcClass, nil
 }
 
-// ClassAt gets the contract class definition in the given block instantiated by the given contract address
+// ClassAt gets the contract class definition in the given block instantiated by the
+// given contract address
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L573
@@ -136,7 +91,8 @@ func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Err
 	return h.Class(id, classHash)
 }
 
-// ClassHashAt gets the class hash for the contract deployed at the given address in the given block.
+// ClassHashAt gets the class hash for the contract deployed at the given address
+// in the given block.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L533
