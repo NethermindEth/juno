@@ -209,7 +209,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getNonce",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.rpcv9Handler.Nonce,
+			Handler: h.rpcv10Handler.Nonce,
 		},
 		{
 			Name: "starknet_getStorageAt",
