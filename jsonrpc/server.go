@@ -482,26 +482,27 @@ func (s *Server) handleRequest(
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
-		s.log.Trace("Method not found in request", zap.String("method", req.Method))
+		s.log.Trace("Method not found in request", zap.String("method", sanitizeForLog(req.Method)))
 		return res, header, nil
 	}
 
 	handlerTimer := time.Now()
-	s.listener.OnNewRequest(req.Method)
+	methodName := calledMethod.Name
+	s.listener.OnNewRequest(methodName)
 	defer func() {
 		if r := recover(); r != nil {
 			s.log.Error("Panic during RPC request handling",
-				zap.String("method", req.Method),
+				zap.String("method", methodName),
 				zap.Any("panic", r),
 				zap.Stack("stack"),
 			)
-			s.listener.OnRequestFailed(req.Method, Err(InternalError, nil))
+			s.listener.OnRequestFailed(methodName, Err(InternalError, nil))
 			res.Error = Err(InternalError, "internal error")
 			// Clear err so the caller uses the JSON-RPC error response
 			// instead of treating this as a transport-level failure.
 			err = nil
 		}
-		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
+		s.listener.OnRequestHandled(methodName, time.Since(handlerTimer))
 	}()
 
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
@@ -655,6 +656,11 @@ func (s *Server) parseParam(param any, t reflect.Type) (reflect.Value, error) {
 	}
 
 	return elem, nil
+}
+
+func sanitizeForLog(value string) string {
+	value = strings.ReplaceAll(value, "\n", "")
+	return strings.ReplaceAll(value, "\r", "")
 }
 
 func (s *Server) validateParam(param reflect.Value) error {
