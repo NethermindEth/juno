@@ -2014,5 +2014,11 @@
     "block_target": 800000,
     "duration_seconds": 70082.915049,
     "timestamp": "2026-04-09T08:40:51.851289+00:00"
+  },
+  {
+    "version": "v0.15.20-rc.0-39-g3102c9470",
+    "block_target": 800000,
+    "duration_seconds": 70142.778091,
+    "timestamp": "2026-04-10T04:11:18.915826+00:00"
   }
 ]
