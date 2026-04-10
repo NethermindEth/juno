@@ -359,7 +359,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getCompiledCasm",
 			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
-			Handler: h.rpcv9Handler.CompiledCasm,
+			Handler: h.rpcv10Handler.CompiledCasm,
 		},
 		{
 			Name:    "starknet_getMessagesStatus",
