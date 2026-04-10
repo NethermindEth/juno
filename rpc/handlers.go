@@ -204,7 +204,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		},
 		{
 			Name:    "starknet_syncing",
-			Handler: h.rpcv6Handler.Syncing,
+			Handler: h.rpcv10Handler.Syncing,
 		},
 		{
 			Name:    "starknet_getNonce",
