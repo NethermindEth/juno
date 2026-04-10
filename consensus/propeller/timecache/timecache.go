@@ -15,7 +15,7 @@ type timedValue[K any] struct {
 type TimeCache[K comparable] struct {
 	// Access valid keys in O(1)
 	values map[K]time.Time
-	// Expire in O(k) where `k` is the amount of expired keys
+	// Clean expired keys O(k) where `k` is the amount of expired keys
 	timestamps []timedValue[K]
 	mu         sync.RWMutex
 
@@ -31,7 +31,8 @@ type TimeCache[K comparable] struct {
 
 // New allocates a new Timecache with initial allocation size and expiry time.
 // If `size` gets filled the timecache will allocate more memory to fit more
-// elements into it. The cache will not shrink after regrowing.
+// elements into it. The cache will not shrink after regrowing. It is safe for
+// concurrent use.
 func New[K comparable](size int, expiry time.Duration) *TimeCache[K] {
 	// we allocate size+1 because we allways leave the last position empty
 	// to detect when the cache is full
@@ -68,6 +69,7 @@ func (tc *TimeCache[K]) Add(value *K) {
 	tc.increaseIndex(&tc.end)
 }
 
+// Get returns true if the entry exists and it hasn't expired, false otherwise
 func (tc *TimeCache[K]) Get(value *K) bool {
 	tc.mu.RLock()
 	expiry, ok := tc.values[*value]
@@ -140,7 +142,7 @@ func (tc *TimeCache[K]) regrowth() {
 	copy(nextTimestamps[count:nextEnd], tc.timestamps[0:tc.end])
 
 	tc.start = 0
-	tc.end = index(count) + tc.end
+	tc.end = index(nextEnd)
 	tc.size = nextSize
 	tc.timestamps = nextTimestamps
 }
