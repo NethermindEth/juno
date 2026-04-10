@@ -98,7 +98,7 @@ func (tc *TimeCache[K]) increaseIndex(idx *index) {
 // finds the first one that hasn't or the cache empties
 func (tc *TimeCache[K]) removeExpired(now time.Time) {
 	for tc.start != tc.end {
-		tv := tc.timestamps[tc.start]
+		tv := &tc.timestamps[tc.start]
 		if now.Before(tv.expiry) {
 			break
 		}
