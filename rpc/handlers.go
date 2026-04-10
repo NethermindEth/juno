@@ -374,7 +374,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 				{Name: "contract_addresses", Optional: true},
 				{Name: "contracts_storage_keys", Optional: true},
 			},
-			Handler: h.rpcv9Handler.StorageProof,
+			Handler: h.rpcv10Handler.StorageProof,
 		},
 	}, "/v0_10"
 }
