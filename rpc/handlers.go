@@ -364,7 +364,7 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 		{
 			Name:    "starknet_getMessagesStatus",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv9Handler.GetMessageStatus,
+			Handler: h.rpcv10Handler.GetMessageStatus,
 		},
 		{
 			Name: "starknet_getStorageProof",
