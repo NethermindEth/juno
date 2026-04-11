@@ -1,4 +1,4 @@
-package utils
+package propeller
 
 import (
 	"encoding/binary"
@@ -32,7 +32,6 @@ func PadMessage(msg []byte, numDataShards int) []byte {
 	result := make([]byte, paddedMsgLen)
 	copy(result, varintBuf[:varintLen])
 	copy(result[varintLen:], msg)
-	// Remaining bytes are already zero (Go slice initialization).
 
 	return result
 }
@@ -56,5 +55,5 @@ func UnpadMessage(padded []byte) ([]byte, error) {
 		)
 	}
 
-	return padded[varintLen:msgLen], nil
+	return padded[varintLen:end], nil
 }
