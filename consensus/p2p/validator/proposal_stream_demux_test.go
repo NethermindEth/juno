@@ -54,7 +54,11 @@ func TestProposalStreamDemux(t *testing.T) {
 
 	executor := NewMockExecutor(t, network)
 	database := memory.New()
-	bc := blockchain.New(database, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		database,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	builder := builder.New(bc, executor)
 	transition := NewTransition(&builder, nil)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}

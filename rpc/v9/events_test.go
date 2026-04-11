@@ -172,7 +172,11 @@ func setupTestChain(
 ) (*blockchain.Blockchain, *adaptfeeder.Feeder) {
 	t.Helper()
 	testDB := memory.New()
-	chain := blockchain.New(testDB, network, statetestutils.UseNewState())
+	chain := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)

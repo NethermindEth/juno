@@ -28,7 +28,11 @@ func TestNew(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
-		chain := blockchain.New(memory.New(), &networks.Mainnet, statetestutils.UseNewState())
+		chain := blockchain.New(
+			memory.New(),
+			&networks.Mainnet,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
 		assert.Equal(t, &networks.Mainnet, chain.Network())
 		b, err := chain.Head()
 		assert.Nil(t, b)
@@ -160,7 +164,7 @@ func TestStore(t *testing.T) {
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		testDB := memory.New()
 
-		chain := blockchain.New(memory.New(), &netowrks.Mainnet, statetestutils.UseNewState())
+		chain := blockchain.New(testDB, &netowrks.Mainnet, statetestutils.UseNewState())
 		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
 		headBlock, err := chain.Head()
@@ -819,6 +823,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	}
 
 	stateUpdate1 := &core.StateUpdate{
+		OldRoot: stateUpdate0.NewRoot,
 		StateDiff: &core.StateDiff{
 			MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
 				sierraHash: v2CasmHash,
@@ -878,8 +883,11 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	}
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, network, statetestutils.UseNewState())
-
+	chain := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	// Block 0: empty genesis block so we have a head after reverting block 1
 	receipts0 := make([]*core.TransactionReceipt, 0)
 	//nolint:dupl // Similar to block0 in `TestRevertHeadMigratedClass`
@@ -927,6 +935,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	}
 
 	stateUpdate1 := &core.StateUpdate{
+		OldRoot: stateUpdate0.NewRoot,
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 				sierraClassHashFelt: (*felt.Felt)(&v2CasmHash),

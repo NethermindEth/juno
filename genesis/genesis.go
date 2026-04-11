@@ -100,6 +100,7 @@ func GenesisStateDiff(
 	network *networks.Network,
 	maxSteps uint64,
 	maxGas uint64,
+	useNewState bool,
 	compiler compiler.Compiler,
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()

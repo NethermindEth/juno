@@ -45,7 +45,7 @@ func NewEmptyTestFixture(
 	b := builder.New(blockchain.New(
 		database,
 		testCase.Network,
-		statetestutils.UseNewState(),
+		blockchain.WithNewState(statetestutils.UseNewState()),
 	), executor)
 
 	proposalCommitment := EmptyProposalCommitment(headBlock, proposer, timestamp)

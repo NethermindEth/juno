@@ -73,5 +73,21 @@ func New(
 		}
 	}
 
-	return &deprecatedStateBackend{baseState: base}
+	switch stateVersion {
+	case true:
+		trieDB, err := triedb.New(database, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		stateDB := state.NewStateDB(database, trieDB)
+		return &stateBackend{
+			baseState: base,
+			stateDB:   stateDB,
+		}
+	case false:
+		return &deprecatedStateBackend{baseState: base}
+	default:
+		panic("statebackend: invalid state version")
+	}
 }

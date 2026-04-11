@@ -77,7 +77,11 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			logger := log.NewNopZapLogger()
 			database, err := pebblev2.New(dbPath)
 			require.NoError(t, err)
-			chain := blockchain.New(database, &network, statetestutils.UseNewState())
+			chain := blockchain.New(
+				database,
+				&network,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
 			syncer := sync.New(chain, dataSource, logger, 0, 0, false, database).

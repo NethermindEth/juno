@@ -99,7 +99,11 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 	t.Helper()
 
 	database := memory.New()
-	bc := blockchain.New(database, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		database,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -120,6 +124,7 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 		bc.Network(),
 		vm.DefaultMaxGas,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)
@@ -243,7 +248,11 @@ func setup(
 	logger, err := log.NewZapLogger(log.NewLevel(logLevel))
 	require.NoError(t, err)
 
-	blockchain := blockchain.New(synchronizerDatabase, network, statetestutils.UseNewState())
+	blockchain := blockchain.New(
+		synchronizerDatabase,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 
 	wg := gosync.WaitGroup{}
 	ctx, cancel := context.WithCancel(t.Context())

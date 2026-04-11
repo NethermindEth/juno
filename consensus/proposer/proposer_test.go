@@ -242,6 +242,7 @@ func getBuilder(t *testing.T, logger log.Logger, bc *blockchain.Blockchain) *bui
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

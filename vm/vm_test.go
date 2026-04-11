@@ -9,7 +9,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -20,7 +23,6 @@ import (
 
 func TestCallDeprecatedCairo(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -73,7 +75,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	// for new state, each block needs a fresh batch and a state rooted at the previous block's root
 	if statetestutils.UseNewState() {
 		batch = testDB.NewBatch()
-		testState, err = stateFactory.NewState(newRoot, txn, batch)
+		testState, err = NewState(t, newRoot, testDB, batch)
 		require.NoError(t, err)
 	}
 
@@ -113,7 +115,6 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -162,7 +163,6 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 
 func TestCallCairo(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &networks.Goerli)
 	gw := adaptfeeder.New(client)
@@ -250,7 +250,7 @@ func TestCallCairo(t *testing.T) {
 	// for new state, each block needs a fresh batch and a state rooted at the previous block's root
 	if statetestutils.UseNewState() {
 		batch = testDB.NewBatch()
-		state, err = stateFactory.NewState(firstStateUpdate.NewRoot, txn, batch)
+		state, err = NewState(t, firstStateUpdate.NewRoot, testDB, batch)
 		require.NoError(t, err)
 	}
 
@@ -274,7 +274,6 @@ func TestCallCairo(t *testing.T) {
 
 func TestCallInfoErrorHandling(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	batch := testDB.NewBatch()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
@@ -353,7 +352,6 @@ func TestCallInfoErrorHandling(t *testing.T) {
 
 func TestExecute(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	batch := testDB.NewBatch()
 
 	state := deprecatedstate.New(txn)
@@ -416,4 +414,21 @@ func TestSetVersionedConstants(t *testing.T) {
 	t.Run("not exists", func(t *testing.T) {
 		assert.ErrorContains(t, SetVersionedConstants("not_exists.json"), "no such file or directory")
 	})
+}
+
+func NewState(t *testing.T, stateRoot *felt.Felt, testDB db.KeyValueStore, batch db.Batch) (core.State, error) {
+	if !statetestutils.UseNewState() {
+		txn := testDB.NewIndexedBatch()
+		deprecatedState := core.NewDeprecatedState(txn)
+		return deprecatedState, nil
+	}
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	state, err := state.New(stateRoot, stateDB, batch)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
+
 }

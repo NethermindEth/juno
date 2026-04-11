@@ -166,7 +166,7 @@ func (p *StateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 
 func (p *StateWriter) SetClassHash(contractAddress, classHash *felt.Felt) error {
 	if _, err := p.head.ContractClassHash(contractAddress); err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, ErrContractNotDeployed) {
 			p.stateDiff.DeployedContracts[*contractAddress] = classHash.Clone()
 			return nil
 		}
