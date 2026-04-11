@@ -12,8 +12,6 @@ import (
 // It will return the Reed Solomon encoding where the first `numDataShards`
 // `[]byte` slices will be occupied by the original data. The remaining `parity`
 // `[]byte` slices will contain the coding shards.
-// The data will be modified in place so the input shouldn't be modified after calling this
-// function.
 func EncodeData(
 	data []byte,
 	numDataShards,
