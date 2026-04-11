@@ -20,7 +20,7 @@ func buildSignPayload(
 	const prefix = "<propeller>"
 	const suffix = "<propeller/>"
 
-	// cummulative lenghts denoting the ranges in where each bytes of data should be stored
+	// cumulative lenghts denoting the ranges in where each bytes of data should be stored
 	const prefixLen = len(prefix)
 	const rootLen = prefixLen + 32
 	const committeeIDLen = rootLen + 32
@@ -43,7 +43,7 @@ func SignMessage(
 	root *MessageRoot,
 	committeeID *CommitteeID,
 	nonce Nonce,
-) ([]byte, error) {
+) (Signature, error) {
 	payload := buildSignPayload(root, committeeID, nonce)
 	sig, err := privKey.Sign(payload[:])
 	if err != nil {
