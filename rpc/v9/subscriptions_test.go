@@ -1169,10 +1169,18 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.NoError(t, err)
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
+	chain := blockchain.New(
+		testDB,
+		&utils.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-	chain = blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
+	chain = blockchain.New(
+		testDB,
+		&utils.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	syncer := newFakeSyncer()
 
 	ctx, cancel := context.WithCancel(t.Context())

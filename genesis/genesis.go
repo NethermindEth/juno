@@ -10,8 +10,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/statefactory"
+	st "github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
@@ -101,23 +100,27 @@ func GenesisStateDiff(
 	network *utils.Network,
 	maxSteps uint64,
 	maxGas uint64,
+	useNewState bool,
 	compiler compiler.Compiler,
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
-	triedb, err := triedb.New(memDB, nil)
-	if err != nil {
-		return core.StateDiff{}, nil, err
-	}
-	stateDB := state.NewStateDB(memDB, triedb)
 
-	// TODO(maksymmalick): remove this after integration done
-	stateFactory := statefactory.NewStateFactory(false, triedb, stateDB)
-	batch := memDB.NewBatch()
-	state, err := stateFactory.NewState(&felt.Zero, memDB.NewIndexedBatch(), batch)
-	if err != nil {
-		return core.StateDiff{}, nil, err
+	var state core.StateReader
+	if useNewState {
+		state = core.NewDeprecatedState(memDB.NewIndexedBatch())
+	} else {
+		triedb, err := triedb.New(memDB, nil)
+		if err != nil {
+			return core.StateDiff{}, nil, err
+		}
+		stateDB := st.NewStateDB(memDB, triedb)
+		state, err = st.NewStateReader(&felt.Zero, stateDB)
+		if err != nil {
+			return core.StateDiff{}, nil, err
+		}
 	}
+
 	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),

@@ -67,7 +67,11 @@ func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	testDB := memory.New()
 	n := &utils.Sepolia
-	chain := blockchain.New(testDB, n, statetestutils.UseNewState())
+	chain := blockchain.New(
+		testDB,
+		n,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 

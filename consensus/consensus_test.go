@@ -67,7 +67,11 @@ func getBlockchain(
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
-	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
 	return bc
 }
@@ -97,6 +101,7 @@ func loadGenesis(
 		&network,
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

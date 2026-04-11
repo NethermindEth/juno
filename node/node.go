@@ -621,6 +621,7 @@ func (n *Node) Run(ctx context.Context) {
 			vm.New(&chainInfo, false, n.log),
 			n.cfg.RPCCallMaxSteps,
 			n.cfg.RPCCallMaxGas,
+			n.cfg.NewState,
 			n.compiler,
 		)
 		if err != nil {

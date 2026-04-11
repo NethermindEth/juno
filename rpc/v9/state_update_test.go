@@ -35,7 +35,11 @@ func TestStateUpdate(t *testing.T) {
 	n := &utils.Mainnet
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)

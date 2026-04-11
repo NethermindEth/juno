@@ -263,7 +263,11 @@ func TestBlockWithTxHashes(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 
 			handler := rpc.New(chain, mockSyncReader, nil, log)
 
@@ -454,7 +458,11 @@ func TestBlockWithTxs(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 
 			handler := rpc.New(chain, mockSyncReader, nil, log)
 

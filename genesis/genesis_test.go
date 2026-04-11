@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
@@ -29,6 +30,7 @@ func TestGenesisStateDiff(t *testing.T) {
 			network,
 			vm.DefaultMaxSteps,
 			vm.DefaultMaxGas,
+			statetestutils.UseNewState(),
 			nil,
 		)
 		require.NoError(t, err)
@@ -53,6 +55,7 @@ func TestGenesisStateDiff(t *testing.T) {
 			network,
 			vm.DefaultMaxSteps,
 			vm.DefaultMaxGas,
+			statetestutils.UseNewState(),
 			compiler.NewUnsafe(),
 		)
 		require.NoError(t, err)

@@ -215,7 +215,11 @@ func getBlockchain(t *testing.T) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
-	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	return bc
 }
 
@@ -241,6 +245,7 @@ func getBuilder(t *testing.T, log utils.Logger, bc *blockchain.Blockchain) *buil
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

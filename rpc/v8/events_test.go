@@ -21,7 +21,11 @@ import (
 func TestEvents(t *testing.T) {
 	testDB := memory.New()
 	n := &utils.Sepolia
-	chain := blockchain.New(testDB, n, statetestutils.UseNewState())
+	chain := blockchain.New(
+		testDB,
+		n,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

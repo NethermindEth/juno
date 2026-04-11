@@ -76,8 +76,6 @@ func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 	}
 
 	if !isDeployed {
-		// TODO(weiihann): previously this was db.ErrKeyNotFound
-		// remember to handle it in the rpc
 		return ErrContractNotDeployed
 	}
 

@@ -755,7 +755,11 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			handler := rpc.New(chain, nil, nil, log)
 
 			if description == "pre_confirmed" {

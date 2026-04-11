@@ -31,7 +31,11 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
-	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	log := utils.NewNopZapLogger()
 
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -57,6 +61,7 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

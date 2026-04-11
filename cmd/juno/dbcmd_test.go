@@ -62,7 +62,11 @@ func TestDBCmd(t *testing.T) {
 			require.NoError(t, db.Close())
 		})
 
-		chain := blockchain.New(db, &network, statetestutils.UseNewState())
+		chain := blockchain.New(
+			db,
+			&network,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
 		block, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, revertToBlock, block.Number)
@@ -86,8 +90,11 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 	testDB, err := pebblev2.New(dbPath)
 	require.NoError(t, err)
 
-	chain := blockchain.New(testDB, network, statetestutils.UseNewState())
-
+	chain := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	for blockNumber := uint64(0); blockNumber <= syncToBlock; blockNumber++ {
 		block, err := gw.BlockByNumber(t.Context(), blockNumber)
 		require.NoError(t, err)
