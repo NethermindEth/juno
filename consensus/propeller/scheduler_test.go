@@ -161,48 +161,42 @@ func TestScheduler_DeterministicMapping(t *testing.T) {
 	}
 }
 
-func TestScheduler_PeerForShardIndex_SpecExample(t *testing.T) {
-	// From the doc comment: peers [A, B, C, D], publisher = C (index 2).
-	// Shard 0 -> A, Shard 1 -> B, Shard 2 -> D
+func TestScheduler_PeerForShardIndex(t *testing.T) {
+	// peers [A, B, C, D]: the publisher is skipped in the sorted list,
+	// so each remaining peer maps to shard indices 0..2 in order.
+	tests := []struct {
+		name      string
+		publisher string
+		expected  []peer.ID
+	}{
+		{
+			name:      "publisher middle (C, index 2)",
+			publisher: "C",
+			expected:  []peer.ID{"A", "B", "D"},
+		},
+		{
+			name:      "publisher first (A, index 0)",
+			publisher: "A",
+			expected:  []peer.ID{"B", "C", "D"},
+		},
+		{
+			name:      "publisher last (D, index 3)",
+			publisher: "D",
+			expected:  []peer.ID{"A", "B", "C"},
+		},
+	}
+
 	s, err := NewScheduler(peer.ID("A"), testPeers(t, "A", "B", "C", "D"))
 	require.NoError(t, err)
 
-	publisher := peer.ID("C")
-	expected := []peer.ID{"A", "B", "D"}
-	for i, want := range expected {
-		got, err := s.PeerForShardIndex(publisher, ShardIndex(i))
-		require.NoError(t, err)
-		assert.Equal(t, want, got, "shard %d", i)
-	}
-}
-
-func TestScheduler_PeerForShardIndex_PublisherFirst(t *testing.T) {
-	// Publisher is the first peer in sorted order.
-	s, err := NewScheduler(peer.ID("B"), testPeers(t, "A", "B", "C", "D"))
-	require.NoError(t, err)
-
-	publisher := peer.ID("A")
-	// Shard 0 -> B, Shard 1 -> C, Shard 2 -> D
-	expected := []peer.ID{"B", "C", "D"}
-	for i, want := range expected {
-		got, err := s.PeerForShardIndex(publisher, ShardIndex(i))
-		require.NoError(t, err)
-		assert.Equal(t, want, got, "shard %d", i)
-	}
-}
-
-func TestScheduler_PeerForShardIndex_PublisherLast(t *testing.T) {
-	// Publisher is the last peer in sorted order.
-	s, err := NewScheduler(peer.ID("A"), testPeers(t, "A", "B", "C", "D"))
-	require.NoError(t, err)
-
-	publisher := peer.ID("D")
-	// Shard 0 -> A, Shard 1 -> B, Shard 2 -> C
-	expected := []peer.ID{"A", "B", "C"}
-	for i, want := range expected {
-		got, err := s.PeerForShardIndex(publisher, ShardIndex(i))
-		require.NoError(t, err)
-		assert.Equal(t, want, got, "shard %d", i)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for i, want := range tc.expected {
+				got, err := s.PeerForShardIndex(peer.ID(tc.publisher), ShardIndex(i))
+				require.NoError(t, err)
+				assert.Equal(t, want, got, "shard %d", i)
+			}
+		})
 	}
 }
 
@@ -289,55 +283,99 @@ func TestScheduler_InverseProperty(t *testing.T) {
 }
 
 func TestScheduler_BroadcastTargets(t *testing.T) {
-	s, err := NewScheduler(peer.ID("C"), testPeers(t, "A", "B", "C", "D"))
-	require.NoError(t, err)
+	// BroadcastTargets returns every peer except the local peer, in sorted order.
+	tests := []struct {
+		name     string
+		local    string
+		expected []peer.ID
+	}{
+		{
+			name:     "local first",
+			local:    "A",
+			expected: []peer.ID{"B", "C", "D"},
+		},
+		{
+			name:     "local middle",
+			local:    "C",
+			expected: []peer.ID{"A", "B", "D"},
+		},
+		{
+			name:     "local last",
+			local:    "D",
+			expected: []peer.ID{"A", "B", "C"},
+		},
+	}
 
-	targets := s.BroadcastTargets()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err := NewScheduler(peer.ID(tc.local), testPeers(t, "A", "B", "C", "D"))
+			require.NoError(t, err)
 
-	// Should contain all peers except the local peer.
-	assert.Len(t, targets, s.NumTotalShards())
-	assert.Equal(t, []peer.ID{"A", "B", "D"}, targets)
+			targets := s.BroadcastTargets()
+			assert.Equal(t, tc.expected, targets)
+		})
+	}
 }
 
 func TestScheduler_ValidateShardOrigin(t *testing.T) {
-	// Setup: peers [A, B, C, D], local = C
-	// For publisher A: shard 0 -> A(skip, publisher), shard 1 -> B, shard 2 -> D
-	// Wait — publisher A is at index 0, so:
-	//   shard 0 -> B (peers[1]), shard 1 -> C (peers[2]), shard 2 -> D (peers[3])
-	// So local=C is responsible for shard 1 when publisher=A.
+	// peers [A, B, C, D], local = C.
+	// For publisher A (index 0): shard 0 -> B, shard 1 -> C, shard 2 -> D
+	// So local=C is the designated broadcaster for shard 1 when publisher=A.
 	s, err := NewScheduler(peer.ID("C"), testPeers(t, "A", "B", "C", "D"))
 	require.NoError(t, err)
 
-	publisher := peer.ID("A")
+	tests := []struct {
+		name       string
+		sender     string
+		publisher  string
+		shardIndex ShardIndex
+		wantErr    bool
+	}{
+		{
+			name:       "valid direct shard from publisher",
+			sender:     "A",
+			publisher:  "A",
+			shardIndex: 1, // C is the designated broadcaster, so publisher sends directly
+			wantErr:    false,
+		},
+		{
+			name:       "valid broadcast shard from designated peer",
+			sender:     "B",
+			publisher:  "A",
+			shardIndex: 0, // B is the designated broadcaster for shard 0
+			wantErr:    false,
+		},
+		{
+			name:       "self-send rejected",
+			sender:     "C",
+			publisher:  "A",
+			shardIndex: 0,
+			wantErr:    true,
+		},
+		{
+			name:       "self-published shard sent back rejected",
+			sender:     "A",
+			publisher:  "C", // local peer is the publisher
+			shardIndex: 0,
+			wantErr:    true,
+		},
+		{
+			name:       "wrong sender rejected",
+			sender:     "D",
+			publisher:  "A",
+			shardIndex: 0, // designated broadcaster is B, not D
+			wantErr:    true,
+		},
+	}
 
-	t.Run("valid direct shard from publisher", func(t *testing.T) {
-		// Shard 1's designated broadcaster is C (local peer).
-		// A direct shard means publisher sends to the designated broadcaster.
-		err := s.ValidateShardOrigin(publisher, publisher, 1)
-		assert.NoError(t, err)
-	})
-
-	t.Run("valid broadcast shard from designated peer", func(t *testing.T) {
-		// Shard 0's designated broadcaster is B.
-		// B broadcasts shard 0 to other peers including C.
-		err := s.ValidateShardOrigin(peer.ID("B"), publisher, 0)
-		assert.NoError(t, err)
-	})
-
-	t.Run("self-send rejected", func(t *testing.T) {
-		err := s.ValidateShardOrigin(peer.ID("C"), publisher, 0)
-		assert.Error(t, err)
-	})
-
-	t.Run("self-published shard sent back rejected", func(t *testing.T) {
-		// Local peer is both the publisher and the receiver — should error
-		err := s.ValidateShardOrigin(peer.ID("A"), peer.ID("C"), 0)
-		assert.Error(t, err)
-	})
-
-	t.Run("wrong sender rejected", func(t *testing.T) {
-		// Shard 0's designated broadcaster is B, but D sends it.
-		err := s.ValidateShardOrigin(peer.ID("D"), publisher, 0)
-		assert.Error(t, err)
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := s.ValidateShardOrigin(peer.ID(tc.sender), peer.ID(tc.publisher), tc.shardIndex)
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
