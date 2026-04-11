@@ -3,6 +3,7 @@ package propeller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -171,13 +172,13 @@ func NewEngine(
 
 // registerCommittee creates the schedule and encoder for a new channel.
 func (e *Engine) registerCommittee(
-	committeeID CommitteeID,
+	committeeID *CommitteeID,
 	peers []PeerCommittee,
 	peersKeys []*StakerID,
 ) error {
 	// todo(rdr): Why re-registration should be ignored,
 	// as far as I understand, it shouldn't happen :think:
-	if _, ok := e.committees[committeeID]; ok {
+	if _, ok := e.committees[*committeeID]; ok {
 		e.log.Warn(
 			"committee already registered, will ignore re-registration attempt",
 			// todo(rdr): give a propper string repr
@@ -201,7 +202,7 @@ func (e *Engine) registerCommittee(
 		return fmt.Errorf("couldn't register a new committee: %w", err)
 	}
 
-	e.committees[committeeID] = &committeeState{
+	e.committees[*committeeID] = &committeeState{
 		scheduler: schedule,
 		// todo(rdr): need to add the peer pub keys
 		peerKeys: nil,
@@ -220,8 +221,8 @@ func (e *Engine) registerCommittee(
 
 // unregisterCommittee removes a channel's state. Not new processors will be started but
 // currently running ones will continue until the timeout / stop naturally
-func (e *Engine) unregisterCommittee(committeeID CommitteeID) {
-	delete(e.committees, committeeID)
+func (e *Engine) unregisterCommittee(committeeID *CommitteeID) {
+	delete(e.committees, *committeeID)
 	// todo(rdr): We have to  clean the processors, right?
 	//            or will they shut down on their own eventually
 	//            better to pass a context with cancelj
@@ -234,27 +235,30 @@ func (e *Engine) unregisterCommittee(committeeID CommitteeID) {
 
 // prepareBroadcast creates Proppeller units asynchronously since it is a very expensive
 // operation.
-func (e *Engine) prepareBroadcast(committeeID CommitteeID, data []byte) error {
-	cs, ok := e.committees[committeeID]
+func (e *Engine) prepareBroadcast(committeeID *CommitteeID, data []byte) error {
+	cs, ok := e.committees[*committeeID]
 	if !ok {
 		return fmt.Errorf("cannot broadcast to an unregistered committee: %s", committeeID)
 	}
 
+	// todo(rdr): unsure if this approach of passing arguments to the go routine makes sense
 	// todo(rdr): consider having a maximum amount of working threads and a queue tasks for this
 	// This is an expensive operation, hence we need to do it separately
-	go func() {
+	go func(e *Engine, scheduler *Scheduler, committeeID CommitteeID, data []byte) {
 		units, err := CreatePropellerUnits(
-			committeeID,
-			data,
 			e.privKey,
-			cs.scheduler.NumDataShards(),
-			cs.scheduler.NumCodingShards(),
+			&committeeID,
+			// todo(rdr): Find how nonce is set when creating propeller units
+			Nonce(time.Now().UnixNano()),
+			data,
+			scheduler.NumDataShards(),
+			scheduler.NumCodingShards(),
 		)
 		e.unitsPrepared <- broadcastResult{
 			units: units,
 			err:   err,
 		}
-	}()
+	}(e, cs.scheduler, *committeeID, data)
 
 	return nil
 }
@@ -315,12 +319,12 @@ func (e *Engine) forwardEvent(event any) {
 func (e *Engine) handleCommand(ctx context.Context, command engineCommand) {
 	switch cmd := command.(type) {
 	case *registerCommittee:
-		err := e.registerCommittee(cmd.committeeID, cmd.peers, cmd.peersKeys)
+		err := e.registerCommittee(&cmd.committeeID, cmd.peers, cmd.peersKeys)
 		cmd.errCh <- err
 	case *unregisterCommittee:
-		e.unregisterCommittee(cmd.committeeID)
+		e.unregisterCommittee(&cmd.committeeID)
 	case *broadcast:
-		err := e.prepareBroadcast(cmd.committeeID, cmd.msg)
+		err := e.prepareBroadcast(&cmd.committeeID, cmd.msg)
 		cmd.errCh <- err
 	case *processUnit:
 		e.processUnit(ctx, cmd.unit, cmd.sender)

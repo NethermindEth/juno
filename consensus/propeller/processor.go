@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/propeller/timecache"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"go.uber.org/zap"
@@ -18,25 +20,29 @@ type unitWithSender struct {
 }
 
 type subprocessor struct {
-	scheduler              *Scheduler
-	localShardIndex        ShardIndex
-	localShardWasBroadcast bool
+	scheduler       *Scheduler
+	localPeer       peer.ID
+	localShardIndex ShardIndex
 
 	unitsChan        <-chan unitWithSender
 	invalidUnitsChan chan<- invalidUnit
 
+	// todo(rdr): I think I would like it more if it is called UnitValidator since
+	// is more specfic
 	validator Validator
 }
 
 func newSubprocessor(
 	publisher peer.ID,
 	scheduler *Scheduler,
+	localPeer peer.ID,
 	localShardIndex ShardIndex,
 	unitsChan <-chan unitWithSender,
 	invalidUnitsChan chan<- invalidUnit,
 ) subprocessor {
 	return subprocessor{
 		scheduler:       scheduler,
+		localPeer:       localPeer,
 		localShardIndex: localShardIndex,
 
 		unitsChan:        unitsChan,
@@ -46,29 +52,54 @@ func newSubprocessor(
 	}
 }
 
+func (s *subprocessor) broadcastUnit(unit *Unit) error {
+	index := 0
+	peers := make([]peer.ID, len(s.scheduler.Peers())-2)
+	for _, peerCommittee := range s.scheduler.Peers() {
+		if peerCommittee.ID == unit.Publisher || peerCommittee.ID == s.localPeer {
+			continue
+		}
+		// todo(rdr): index  out of range issue in this code
+		peers[index] = peerCommittee.ID
+		index += 1
+	}
+	rand.Shuffle(len(peers), func(i, j int) {
+		peers[i], peers[j] = peers[j], peers[i]
+	})
+
+	// todo(rdr): This should forward the unit and the peers that require broadcasting
+	panic("not  implemented")
+}
+
 func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
-	unitsReceived []*Unit,
-	unitCount int,
-	message []byte,
-	err error,
+	int, []byte, error,
 ) {
 	// Keep track of the units received
-	unitsReceived = make([]*Unit, s.scheduler.ReceiveThreshold())
-	unitCount = 0
+	unitsReceived := make([]*Unit, s.scheduler.NumTotalShards())
+	unitCount := 0
 
 	localShardWasBroadcast := false
 
-	buildThreshold := s.scheduler.BuildThreshold()
-	for unitCount != buildThreshold {
+	// todo(rdr): we are triggering message building (expensive) as soon as the bulid threshold is
+	// achieved, but it might be convenient to wait a few seconds to see if more messages
+	// will arrive. Although, that will mean we also need to validate any of those extra messages.
+	// The question is then: Do the cost of validating missing messages reduces greatly the cost
+	// of recovering them? Cases to consider:
+	//  - Perfect network condition: a lot of bandwith and everybody is good. Does receiving all
+	//     all the missing messages and validating them is cheaper than recovering them? What's the
+	//     performance difference? <- Write benchmark
+	//  - Bad network conditions: does the time waiting but receiving no messages will
+	//     cause to waste a few seconds were the build was already done
+	// -  Bad messages: the remaining messages we are waiting for and hence we incur on the cost
+	//     of validating them but we get no benefit and we don't reduce the cost of recovering them.
+	for unitCount != s.scheduler.BuildThreshold() {
 		select {
 		case <-ctx.Done():
-			return
+			return 0, nil, ctx.Err()
 		case unitWithSender := <-s.unitsChan:
 			unit := unitWithSender.unit
 			sender := unitWithSender.sender
-
-			err = s.validator.ValidateUnit(unit, sender)
-			if err != nil {
+			if err := s.validator.ValidateUnit(unit, sender); err != nil {
 				s.invalidUnitsChan <- invalidUnit{
 					// todo(rdr): not sure if we need message key.
 					// We just want to penalize the sender
@@ -79,7 +110,7 @@ func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
 				// if this is the first unit we are receiving, finish abruptly since
 				// it can be a DOS attack.
 				if unitCount == 0 {
-					return
+					return 0, nil, fmt.Errorf("couldn't validate first unit received: %w", err)
 				}
 				continue
 			}
@@ -88,25 +119,60 @@ func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
 			unitCount += 1
 
 			// broadcast as soon as I get my shard
-			if localShardWasBroadcast && s.localShardIndex == unit.ShardIndex {
+			if !localShardWasBroadcast && s.localShardIndex == unit.ShardIndex {
 				localShardWasBroadcast = true
-				// todo(rdr): actually broadcast shard index
+				err := s.broadcastUnit(unit)
+				if err != nil {
+					// todo(rdr): tbd if we need an error here
+					panic(err)
+				}
 			}
 		}
 	}
 
-	// perform the build thing
-	panic("not implemented")
+	fullMessage, localShardData, localProof, err := ConstructMessageFromUnits(
+		unitsReceived,
+		s.localShardIndex,
+		s.scheduler.NumDataShards(),
+		s.scheduler.NumCodingShards(),
+	)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	if !localShardWasBroadcast {
+		// We pick a unit at random to fill the common data between the two. All of these values
+		// have already been verified up top.
+		// todo(rdr): there is an issue where unit in 0 is not guaranteed to be non-nil
+		unit := unitsReceived[0]
+		localUnit := Unit{
+			CommitteeID: unit.CommitteeID,
+			Publisher:   unit.Publisher,
+			MessageRoot: unit.MessageRoot,
+			Nonce:       unit.Nonce,
+			Signature:   unit.Signature,
+			MerkleProof: localProof,
+			ShardIndex:  s.localShardIndex,
+			ShardData:   localShardData,
+		}
+		err := s.broadcastUnit(&localUnit)
+		if err != nil {
+			// todo(rdr): tbd if we need an error here
+			panic(err)
+		}
+		unitCount += 1
+	}
+
+	return unitCount, fullMessage, nil
 }
 
 func (s *subprocessor) beforeMessageReceivedStage(
 	ctx context.Context,
-	unitsReceived []*Unit,
 	unitCount int,
 	message []byte,
 ) error {
-	receivedThreshold := s.scheduler.ReceiveThreshold()
-	for unitCount != receivedThreshold {
+	receiveThreshold := s.scheduler.ReceiveThreshold()
+	for unitCount != receiveThreshold {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -121,14 +187,17 @@ func (s *subprocessor) beforeMessageReceivedStage(
 				}
 				continue
 			}
-
-			unitsReceived[int(unit.ShardIndex)] = unit
+			if unit.ShardIndex == s.localShardIndex {
+				continue
+			}
 			unitCount += 1
 		}
 	}
 
-	// do the actual job that requires doing once the receive threshold is reached
-	panic("not implemented")
+	// todo(rdr): if we are here it means the message has been received.
+	// forward it to (proc/engine/service <- one of these)
+
+	return nil
 }
 
 // todo(rdr): we need to be sure to test both cases:
@@ -138,19 +207,19 @@ func (s *subprocessor) Run(
 	ctx context.Context,
 ) error {
 	// The Run function works in two main loops depending on the stage we are in.
-	// First stage is before we can build the message, where which we receive messsages
+	// First stage is before we can build the message, in which we receive messsages
 	// until we have enough to build the full messsage. The local shard will be broadcasted
 	// during this stage.
 	// Second stage starts with the full message built and waits until we receive enough
-	// messages to reach the received threshold, which guarantees that at leasrt 2/3 of the
-	// network is non faulty. This stages broadcasts the whole message once finished
+	// messages to reach the received threshold, which guarantees that at least 2/3 of the
+	// network is non faulty. Once there, Broadcast the rebuilt message and finishes
 
-	unitsReceived, unitCount, message, err := s.beforeMessageBuiltStage(ctx)
+	unitCount, message, err := s.beforeMessageBuiltStage(ctx)
 	if err != nil {
 		return err
 	}
 
-	return s.beforeMessageReceivedStage(ctx, unitsReceived, unitCount, message)
+	return s.beforeMessageReceivedStage(ctx, unitCount, message)
 }
 
 // messageKey are a copy of the values of a propeller unit that uniquely identifies it
@@ -198,9 +267,9 @@ type concurrentTasksBounds struct {
 // Processor handles all concurrent work on message processing
 type Processor struct {
 	// to avoid processing units already finalized
-	finalized *TimeCache[messageKey]
+	finalized *timecache.TimeCache[messageKey]
 
-	subProcessors map[messageKey]chan unitWithSender
+	subProcessors map[messageKey]chan<- unitWithSender
 	// channel through wich subprocessors signal they have finalized execution
 	subProcessorsFinalized chan finalizedSubprocessor
 	// channel through which subprocessor sharedunits that failed validation
@@ -221,9 +290,9 @@ func NewProcessor(localPeer peer.ID, config *Config) *Processor {
 	timeout := config.StaleMessageTimeout
 
 	return &Processor{
-		finalized: NewTimeCache[messageKey](timeout),
+		finalized: timecache.New[messageKey](2048, timeout),
 
-		subProcessors:          make(map[messageKey]chan unitWithSender),
+		subProcessors:          make(map[messageKey]chan<- unitWithSender),
 		subProcessorsFinalized: make(chan finalizedSubprocessor),
 		invalidUnits:           make(chan invalidUnit),
 
@@ -280,7 +349,7 @@ func (p *Processor) ProcessMessage(
 	scheduler *Scheduler,
 ) error {
 	key := extractKey(unit)
-	if p.finalized.Contains(key) {
+	if p.finalized.Get(&key) {
 		return nil
 	}
 
@@ -316,7 +385,7 @@ func (p *Processor) createSubprocessor(
 	ctx context.Context,
 	key *messageKey,
 	scheduler *Scheduler,
-) (chan unitWithSender, error) {
+) (chan<- unitWithSender, error) {
 	localShardIndex, err := scheduler.ShardIndexForPublisher(key.Publisher)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -347,9 +416,13 @@ func (p *Processor) createSubprocessor(
 		unitChan <-chan unitWithSender,
 	) {
 		subProcessor := newSubprocessor(
-			key.Publisher, scheduler, localShardIndex, unitChan, p.invalidUnits,
+			key.Publisher, scheduler, p.localPeer, localShardIndex, unitChan, p.invalidUnits,
 		)
-		subProcessor.Run(ctx)
+		err := subProcessor.Run(ctx)
+		p.subProcessorsFinalized <- finalizedSubprocessor{
+			messageKey: key,
+			error:      err,
+		}
 	}(ctxWithTimeout, *key, scheduler, localShardIndex, unitChan)
 
 	return unitChan, nil
@@ -361,7 +434,7 @@ func (p *Processor) subprocessorChannel(
 	ctx context.Context,
 	key *messageKey,
 	scheduler *Scheduler,
-) (chan unitWithSender, error) {
+) (chan<- unitWithSender, error) {
 	unitChan, ok := p.subProcessors[*key]
 	if ok {
 		return unitChan, nil
@@ -377,7 +450,7 @@ func (p *Processor) subprocessorChannel(
 func (p *Processor) finalize(key *messageKey) {
 	p.decreaseTask(key.Publisher)
 	delete(p.subProcessors, *key)
-	p.finalized.Add(*key)
+	p.finalized.Add(key)
 }
 
 func (p *Processor) increaseTasks(publisher peer.ID) error {

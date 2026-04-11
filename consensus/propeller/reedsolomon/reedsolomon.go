@@ -39,10 +39,10 @@ func EncodeData(
 	return split, nil
 }
 
-// RecoverData restores the missing data using Reed-Solomon erasure codes. There cannot be more than
-// `parity` shards missing otherwise the recover will fail. Data that is considered missing needs to
-// be marked as `nil`. Returns the recovered data.
-// The data will be modified in place so the input shouldn't be modified after calling this function.
+// RecoverData restores the missing data using Reed-Solomon erasure codes.
+// There cannot be more than `parity` shards missing otherwise the recover will fail.
+// Data that is considered missing needs to be marked as `nil`. Returns the recovered data.
+// The input data shards well be modified in place.
 func RecoverData(
 	shards [][]byte,
 	numDataShards,

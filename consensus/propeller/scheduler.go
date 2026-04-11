@@ -73,13 +73,13 @@ func NewScheduler(
 		},
 	)
 	if !exists {
-		return nil, errors.New("the local peer id is not part of the suplied list of peeers")
+		return nil, errors.New("the local peer id is not part of the supplied list of peeers")
 	}
 
 	// check that there is no duplicated ID in the node list
 	for i := range len(nodes) - 1 {
 		if nodes[i].ID == nodes[i+1].ID {
-			return nil, fmt.Errorf("duplicated ids in the suplied list of peers: %s", nodes[i].ID)
+			return nil, fmt.Errorf("duplicated ids in the supplied list of peers: %s", nodes[i].ID)
 		}
 	}
 
@@ -118,9 +118,7 @@ func (s *Scheduler) NumCodingShards() int { return s.numCodingShards }
 func (s *Scheduler) NumTotalShards() int { return s.numDataShards + s.numCodingShards }
 
 // Minimum (inclusive) amount of shards required to build a message
-func (s *Scheduler) BuildThreshold() int {
-	return s.numDataShards
-}
+func (s *Scheduler) BuildThreshold() int { return s.numDataShards }
 
 // Minimum (inclusive) amount of shards required to guarantee a message is received
 func (s *Scheduler) ReceiveThreshold() int {
@@ -190,7 +188,7 @@ func (s *Scheduler) ShardIndexForPublisher(
 ) (ShardIndex, error) {
 	if s.localPeerID == publisher {
 		return 0, fmt.Errorf(
-			"scheduler peer is the same as the publisher and has no assinged shard: %s",
+			"scheduler peer is the same as the publisher and has no assigned shard: %s",
 			publisher,
 		)
 	}
@@ -210,17 +208,18 @@ func (s *Scheduler) ShardIndexForPublisher(
 
 // ValidateShardOrigin verifies that a shard unit was received from the expected sender.
 // The sender has to be either the publisher for direct shards or a designated
-// broadcasted for the given shard index.
+// broadcaster for the given shard index.
+// todo(rdr): Maybe the unit validator should have this implementation
 func (s *Scheduler) ValidateShardOrigin(
 	sender peer.ID,
 	publisher peer.ID,
 	shardIndex ShardIndex,
 ) error {
 	if sender == s.localPeerID {
-		return fmt.Errorf("scheduler sent itself a shard: %s", sender)
+		return fmt.Errorf("self sending message from %s", sender)
 	}
 	if publisher == s.localPeerID {
-		return fmt.Errorf("scheduler broadcast itself a shard: %s", publisher)
+		return fmt.Errorf("self published shard was sent back by %s", sender)
 	}
 
 	expectedBroadcaster, err := s.PeerForShardIndex(publisher, shardIndex)
@@ -250,18 +249,15 @@ func (s *Scheduler) ValidateShardOrigin(
 	)
 }
 
-// BroadcastTargets returns all peers the Schudler's peer needs to braodcast to,
-// in shard-index order. The i-th element of the returned slice is the peer responsible for
-// shard i.
+// BroadcastTargets returns all peers whom to broadcast to, in shard-index order.
+// The i-th element of the returned slice is the peer responsible for shard i.
 func (s *Scheduler) BroadcastTargets() []peer.ID {
-	targets := make([]peer.ID, s.NumTotalShards()-1)
-	i := 0
-	for _, p := range s.peers {
+	targets := make([]peer.ID, 0, s.NumTotalShards())
+	for i, p := range s.peers {
 		if i == s.localPeerIDIndex {
 			continue
 		}
-		targets[i] = p.ID
-		i += 1
+		targets = append(targets, p.ID)
 	}
 	return targets
 }
