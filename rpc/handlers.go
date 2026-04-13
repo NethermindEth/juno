@@ -635,7 +635,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
 		},
 		{
 			Name:    "starknet_syncing",
-			Handler: h.rpcv6Handler.Syncing,
+			Handler: h.rpcv8Handler.Syncing,
 		},
 		{
 			Name:    "starknet_getNonce",
