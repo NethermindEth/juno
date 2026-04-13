@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
@@ -62,7 +61,6 @@ func TestRun(t *testing.T) {
 	).AnyTimes()
 
 	handler := &Handler{
-		rpcv6Handler:  rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil),
 		rpcv8Handler:  rpcv8.New(mockBcReader, mockSyncReader, nil, nil),
 		rpcv9Handler:  rpcv9.New(mockBcReader, mockSyncReader, nil, nil),
 		rpcv10Handler: rpcv10.New(mockBcReader, mockSyncReader, nil, nil),

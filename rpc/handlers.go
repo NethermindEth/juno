@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -22,7 +21,6 @@ import (
 )
 
 type Handler struct {
-	rpcv6Handler  *rpcv6.Handler
 	rpcv8Handler  *rpcv8.Handler
 	rpcv9Handler  *rpcv9.Handler
 	rpcv10Handler *rpcv10.Handler
@@ -32,13 +30,11 @@ type Handler struct {
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger, network *utils.Network,
 ) *Handler {
-	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, network, logger)
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
 	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)
 	handlerv10 := rpcv10.New(bcReader, syncReader, virtualMachine, logger)
 
 	return &Handler{
-		rpcv6Handler:  handlerv6,
 		rpcv8Handler:  handlerv8,
 		rpcv9Handler:  handlerv9,
 		rpcv10Handler: handlerv10,
@@ -47,7 +43,6 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 }
 
 func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
-	h.rpcv6Handler.WithCompiler(compiler)
 	h.rpcv8Handler.WithCompiler(compiler)
 	h.rpcv9Handler.WithCompiler(compiler)
 	h.rpcv10Handler.WithCompiler(compiler)
@@ -56,7 +51,6 @@ func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
-	h.rpcv6Handler.WithFilterLimit(limit)
 	h.rpcv8Handler.WithFilterLimit(limit)
 	h.rpcv9Handler.WithFilterLimit(limit)
 	h.rpcv10Handler.WithFilterLimit(limit)
@@ -71,7 +65,6 @@ func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
 }
 
 func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
-	h.rpcv6Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv8Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv9Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv10Handler.WithCallMaxSteps(maxSteps)
@@ -79,7 +72,6 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 }
 
 func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
-	h.rpcv6Handler.WithCallMaxGas(maxGas)
 	h.rpcv8Handler.WithCallMaxGas(maxGas)
 	h.rpcv9Handler.WithCallMaxGas(maxGas)
 	h.rpcv10Handler.WithCallMaxGas(maxGas)
@@ -87,7 +79,6 @@ func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
 }
 
 func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
-	h.rpcv6Handler.WithFeeder(feederClient)
 	h.rpcv8Handler.WithFeeder(feederClient)
 	h.rpcv9Handler.WithFeeder(feederClient)
 	h.rpcv10Handler.WithFeeder(feederClient)
@@ -95,7 +86,6 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 }
 
 func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
-	h.rpcv6Handler.WithGateway(gatewayClient)
 	h.rpcv8Handler.WithGateway(gatewayClient)
 	h.rpcv9Handler.WithGateway(gatewayClient)
 	h.rpcv10Handler.WithGateway(gatewayClient)
@@ -103,7 +93,6 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 }
 
 func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
-	h.rpcv6Handler.WithMempool(memPool)
 	h.rpcv8Handler.WithMempool(memPool)
 	h.rpcv9Handler.WithMempool(memPool)
 	h.rpcv10Handler.WithMempool(memPool)
@@ -111,7 +100,6 @@ func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
 }
 
 func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache) *Handler {
-	h.rpcv6Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv8Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv9Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv10Handler.WithSubmittedTransactionsCache(cache)
