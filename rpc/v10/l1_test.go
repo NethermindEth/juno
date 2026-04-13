@@ -111,7 +111,7 @@ func TestGetMessageStatus(t *testing.T) {
 					},
 				},
 			}
-			mockSyncReader.EXPECT().PendingData().Return(preConfirmed, nil).AnyTimes()
+			mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed, nil).AnyTimes()
 			l1handlerTxns := make([]core.Transaction, len(test.msgs))
 			for i := range len(test.msgs) {
 				//nolint:staticcheck //SA1019: used here to get the stored txs in testdata feeder
