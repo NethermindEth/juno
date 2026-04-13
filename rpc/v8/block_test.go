@@ -151,6 +151,98 @@ func TestBlockHashAndNumber(t *testing.T) {
 	})
 }
 
+func TestBlockTransactionCount(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	n := utils.HeapPtr(utils.Sepolia)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
+
+	latestBlockNumber := uint64(56377)
+	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
+	require.NoError(t, err)
+	latestBlockHash := latestBlock.Hash
+	expectedCount := latestBlock.TransactionCount
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+
+		count, rpcErr := handler.BlockTransactionCount(blockIDLatest(t))
+		assert.Equal(t, uint64(0), count)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+
+		count, rpcErr := handler.BlockTransactionCount(blockIDHash(t, new(felt.Felt).SetBytes([]byte("random"))))
+		assert.Equal(t, uint64(0), count)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent pending block", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+
+		count, rpcErr := handler.BlockTransactionCount(blockIDPending(t))
+		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, uint64(0), count)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+
+		count, rpcErr := handler.BlockTransactionCount(blockIDNumber(t, uint64(328476)))
+		assert.Equal(t, uint64(0), count)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("blockID - latest", func(t *testing.T) {
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+
+		count, rpcErr := handler.BlockTransactionCount(blockIDLatest(t))
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - hash", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+
+		count, rpcErr := handler.BlockTransactionCount(blockIDHash(t, latestBlockHash))
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - number", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+
+		count, rpcErr := handler.BlockTransactionCount(blockIDNumber(t, latestBlockNumber))
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		blockToRegisterHash := core.Header{
+			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
+			Number: latestBlock.Number + 1 - 10,
+		}
+		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
+			Return(&blockToRegisterHash, nil)
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		expectedCount := uint64(0)
+		count, rpcErr := handler.BlockTransactionCount(blockIDPending(t))
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+}
+
 func TestBlockWithTxHashes(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":  blockIDLatest(t),
