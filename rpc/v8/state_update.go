@@ -80,7 +80,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 		if err == nil {
 			update = pending.GetStateUpdate()
 		}
-	} else if id.Hash() != nil {
+	} else if id.IsHash() {
 		update, err = h.bcReader.StateUpdateByHash(id.Hash())
 	} else {
 		update, err = h.bcReader.StateUpdateByNumber(id.Number())

@@ -144,9 +144,9 @@ type BlockHeader struct {
 	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
 	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
 	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
-	L2GasPrice       *ResourcePrice `json:"l2_gas_price"`
 	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
 	StarknetVersion  string         `json:"starknet_version"`
+	L2GasPrice       *ResourcePrice `json:"l2_gas_price"`
 }
 
 type ResourcePrice struct {
