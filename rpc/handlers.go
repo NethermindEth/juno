@@ -588,7 +588,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
-			Handler: h.rpcv6Handler.ChainID,
+			Handler: h.rpcv8Handler.ChainID,
 		},
 		{
 			Name:    "starknet_blockNumber",
