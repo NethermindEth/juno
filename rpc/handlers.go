@@ -640,7 +640,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
 		{
 			Name:    "starknet_getNonce",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.rpcv6Handler.Nonce,
+			Handler: h.rpcv8Handler.Nonce,
 		},
 		{
 			Name:    "starknet_getStorageAt",
