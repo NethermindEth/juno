@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -209,7 +208,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			assert.Equal(t, latestBlock.Number, *b.Number)
 		} else {
 			assert.Nil(t, b.Number)
-			assert.Equal(t, rpcv6.BlockPending, b.Status)
+			assert.Equal(t, rpc.BlockPending, b.Status)
 		}
 		checkBlock(t, b)
 	}
@@ -267,7 +266,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(&number)
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
+		assert.Equal(t, rpc.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 	//nolint:dupl,lll // BlockWithTxHashes and BlockWithTxs share the same pending block setup but differ in return type
@@ -290,18 +289,16 @@ func TestBlockWithTxHashes(t *testing.T) {
 		require.Equal(t, latestBlock.Hash, header.ParentHash)
 
 		assert.Equal(t, &rpc.BlockWithTxHashes{
-			Status: rpcv6.BlockPending,
+			Status: rpc.BlockPending,
 			BlockHeader: rpc.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
-					ParentHash:       header.ParentHash,
-					Timestamp:        header.Timestamp,
-					SequencerAddress: header.SequencerAddress,
-					L1GasPrice:       header.L1GasPrice,
-					StarknetVersion:  header.StarknetVersion,
-					L1DataGasPrice:   header.L1DataGasPrice,
-					L1DAMode:         header.L1DAMode,
-				},
-				L2GasPrice: header.L2GasPrice,
+				ParentHash:       header.ParentHash,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1GasPrice:       header.L1GasPrice,
+				StarknetVersion:  header.StarknetVersion,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				L1DAMode:         header.L1DAMode,
+				L2GasPrice:       header.L2GasPrice,
 			},
 			TxnHashes: []*felt.Felt{},
 		}, blockWTxHashes)
@@ -502,18 +499,16 @@ func TestBlockWithTxs(t *testing.T) {
 		require.Equal(t, latestBlock.Hash, header.ParentHash)
 
 		assert.Equal(t, &rpc.BlockWithTxs{
-			Status: rpcv6.BlockPending,
+			Status: rpc.BlockPending,
 			BlockHeader: rpc.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
-					ParentHash:       header.ParentHash,
-					Timestamp:        header.Timestamp,
-					SequencerAddress: header.SequencerAddress,
-					L1GasPrice:       header.L1GasPrice,
-					StarknetVersion:  header.StarknetVersion,
-					L1DataGasPrice:   header.L1DataGasPrice,
-					L1DAMode:         header.L1DAMode,
-				},
-				L2GasPrice: header.L2GasPrice,
+				ParentHash:       header.ParentHash,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1GasPrice:       header.L1GasPrice,
+				StarknetVersion:  header.StarknetVersion,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				L1DAMode:         header.L1DAMode,
+				L2GasPrice:       header.L2GasPrice,
 			},
 			Transactions: []*rpc.Transaction{},
 		}, blockWithTxs)
@@ -581,30 +576,28 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 
 	require.Equal(t, &rpc.BlockWithTxs{
 		BlockHeader: rpc.BlockHeader{
-			BlockHeader: rpcv6.BlockHeader{
-				Hash:            coreBlock.Hash,
-				StarknetVersion: coreBlock.ProtocolVersion,
-				NewRoot:         coreBlock.GlobalStateRoot,
-				Number:          &coreBlock.Number,
-				ParentHash:      coreBlock.ParentHash,
-				L1DAMode:        utils.HeapPtr(rpcv6.Blob),
-				L1GasPrice: &rpcv6.ResourcePrice{
-					InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
-					InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
-				},
-				L1DataGasPrice: &rpcv6.ResourcePrice{
-					InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
-					InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
-				},
-				SequencerAddress: coreBlock.SequencerAddress,
-				Timestamp:        coreBlock.Timestamp,
+			Hash:            coreBlock.Hash,
+			StarknetVersion: coreBlock.ProtocolVersion,
+			NewRoot:         coreBlock.GlobalStateRoot,
+			Number:          &coreBlock.Number,
+			ParentHash:      coreBlock.ParentHash,
+			L1DAMode:        utils.HeapPtr(rpc.Blob),
+			L1GasPrice: &rpc.ResourcePrice{
+				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
+				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
-			L2GasPrice: &rpcv6.ResourcePrice{
+			L1DataGasPrice: &rpc.ResourcePrice{
+				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
+				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
+			},
+			SequencerAddress: coreBlock.SequencerAddress,
+			Timestamp:        coreBlock.Timestamp,
+			L2GasPrice: &rpc.ResourcePrice{
 				InFri: &felt.One,
 				InWei: &felt.One,
 			},
 		},
-		Status: rpcv6.BlockAcceptedL2,
+		Status: rpc.BlockAcceptedL2,
 		Transactions: []*rpc.Transaction{
 			{
 				Hash:               tx.Hash(),
@@ -689,18 +682,16 @@ func TestBlockWithReceipts(t *testing.T) {
 		header := resp.BlockHeader
 
 		assert.Equal(t, &rpc.BlockWithReceipts{
-			Status: rpcv6.BlockPending,
+			Status: rpc.BlockPending,
 			BlockHeader: rpc.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
-					ParentHash:       block0.Hash,
-					Timestamp:        header.Timestamp,
-					SequencerAddress: header.SequencerAddress,
-					L1GasPrice:       header.L1GasPrice,
-					StarknetVersion:  header.StarknetVersion,
-					L1DataGasPrice:   header.L1DataGasPrice,
-					L1DAMode:         header.L1DAMode,
-				},
-				L2GasPrice: header.L2GasPrice,
+				ParentHash:       block0.Hash,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1GasPrice:       header.L1GasPrice,
+				StarknetVersion:  header.StarknetVersion,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				L1DAMode:         header.L1DAMode,
+				L2GasPrice:       header.L2GasPrice,
 			},
 			Transactions: []rpc.TransactionWithReceipt{},
 		}, resp)
@@ -734,21 +725,19 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpc.BlockWithReceipts{
-			Status: rpcv6.BlockAcceptedL1,
+			Status: rpc.BlockAcceptedL1,
 			BlockHeader: rpc.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
-					Hash:             header.Hash,
-					ParentHash:       header.ParentHash,
-					Number:           header.Number,
-					NewRoot:          header.NewRoot,
-					Timestamp:        header.Timestamp,
-					SequencerAddress: header.SequencerAddress,
-					L1DAMode:         header.L1DAMode,
-					L1GasPrice:       header.L1GasPrice,
-					L1DataGasPrice:   header.L1DataGasPrice,
-					StarknetVersion:  header.StarknetVersion,
-				},
-				L2GasPrice: header.L2GasPrice,
+				Hash:             header.Hash,
+				ParentHash:       header.ParentHash,
+				Number:           header.Number,
+				NewRoot:          header.NewRoot,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1DAMode:         header.L1DAMode,
+				L1GasPrice:       header.L1GasPrice,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				StarknetVersion:  header.StarknetVersion,
+				L2GasPrice:       header.L2GasPrice,
 			},
 			Transactions: transactions,
 		}, resp)

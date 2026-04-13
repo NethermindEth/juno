@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
 type blockIDType uint8
@@ -42,7 +41,7 @@ type BlockHashAndNumber struct {
 	Number uint64     `json:"block_number"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L1190
 type BlockID struct {
 	typeID blockIDType
 	data   felt.Felt
@@ -135,22 +134,78 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L1544
 type BlockHeader struct {
-	rpcv6.BlockHeader
-	L2GasPrice *rpcv6.ResourcePrice `json:"l2_gas_price"`
+	Hash             *felt.Felt     `json:"block_hash,omitempty"`
+	ParentHash       *felt.Felt     `json:"parent_hash"`
+	Number           *uint64        `json:"block_number,omitempty"`
+	NewRoot          *felt.Felt     `json:"new_root,omitempty"`
+	Timestamp        uint64         `json:"timestamp"`
+	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
+	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
+	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
+	L2GasPrice       *ResourcePrice `json:"l2_gas_price"`
+	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
+	StarknetVersion  string         `json:"starknet_version"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
+type ResourcePrice struct {
+	InFri *felt.Felt `json:"price_in_fri"`
+	InWei *felt.Felt `json:"price_in_wei"`
+}
+type L1DAMode uint8
+
+const (
+	Blob L1DAMode = iota
+	Calldata
+)
+
+func (l L1DAMode) MarshalText() ([]byte, error) {
+	switch l {
+	case Blob:
+		return []byte("BLOB"), nil
+	case Calldata:
+		return []byte("CALLDATA"), nil
+	default:
+		return nil, fmt.Errorf("unknown L1DAMode value = %v", l)
+	}
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L3129
+type BlockStatus uint8
+
+const (
+	BlockPending BlockStatus = iota
+	BlockAcceptedL2
+	BlockAcceptedL1
+	BlockRejected
+)
+
+func (s BlockStatus) MarshalText() ([]byte, error) {
+	switch s {
+	case BlockPending:
+		return []byte("PENDING"), nil
+	case BlockAcceptedL2:
+		return []byte("ACCEPTED_ON_L2"), nil
+	case BlockAcceptedL1:
+		return []byte("ACCEPTED_ON_L1"), nil
+	case BlockRejected:
+		return []byte("REJECTED"), nil
+	default:
+		return nil, fmt.Errorf("unknown block status %v", s)
+	}
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L1705
 type BlockWithTxs struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L1680
 type BlockWithTxHashes struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
@@ -161,7 +216,7 @@ type TransactionWithReceipt struct {
 }
 
 type BlockWithReceipts struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
@@ -197,7 +252,7 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
@@ -245,9 +300,9 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 
 	var finalityStatus TxnFinalityStatus
 	switch blockStatus {
-	case rpcv6.BlockAcceptedL1:
+	case BlockAcceptedL1:
 		finalityStatus = TxnAcceptedOnL1
-	case rpcv6.BlockPending:
+	case BlockPending:
 		finalityStatus = TxnPending
 	default:
 		finalityStatus = TxnAcceptedOnL2
@@ -276,7 +331,7 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 // BlockWithTxs returns the block information with full transactions given a block ID.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L62
 func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
@@ -311,17 +366,17 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	}, nil
 }
 
-func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (rpcv6.BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := rpcv6.BlockAcceptedL2
+	status := BlockAcceptedL2
 	if id.IsPending() {
-		status = rpcv6.BlockPending
+		status = BlockPending
 	} else if isL1Verified(blockNumber, l1H) {
-		status = rpcv6.BlockAcceptedL1
+		status = BlockAcceptedL1
 	}
 
 	return status, nil
@@ -339,57 +394,55 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		sequencerAddress = &felt.Zero
 	}
 
-	var l1DAMode rpcv6.L1DAMode
+	var l1DAMode L1DAMode
 	switch header.L1DAMode {
 	case core.Blob:
-		l1DAMode = rpcv6.Blob
+		l1DAMode = Blob
 	case core.Calldata:
-		l1DAMode = rpcv6.Calldata
+		l1DAMode = Calldata
 	}
 
-	var l1DataGasPrice rpcv6.ResourcePrice
+	var l1DataGasPrice ResourcePrice
 	if header.L1DataGasPrice != nil {
-		l1DataGasPrice = rpcv6.ResourcePrice{
+		l1DataGasPrice = ResourcePrice{
 			InWei: nilToZero(header.L1DataGasPrice.PriceInWei),
 			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
 		}
 	} else {
-		l1DataGasPrice = rpcv6.ResourcePrice{
+		l1DataGasPrice = ResourcePrice{
 			InWei: &felt.Zero,
 			InFri: &felt.Zero,
 		}
 	}
 
-	var l2GasPrice rpcv6.ResourcePrice
+	var l2GasPrice ResourcePrice
 	if header.L2GasPrice != nil {
-		l2GasPrice = rpcv6.ResourcePrice{
+		l2GasPrice = ResourcePrice{
 			InWei: nilToZero(header.L2GasPrice.PriceInWei),
 			InFri: nilToZero(header.L2GasPrice.PriceInFri),
 		}
 	} else {
-		l2GasPrice = rpcv6.ResourcePrice{
+		l2GasPrice = ResourcePrice{
 			InWei: &felt.Zero,
 			InFri: &felt.Zero,
 		}
 	}
 
 	return BlockHeader{
-		BlockHeader: rpcv6.BlockHeader{
-			Hash:             header.Hash,
-			ParentHash:       header.ParentHash,
-			Number:           blockNumber,
-			NewRoot:          header.GlobalStateRoot,
-			Timestamp:        header.Timestamp,
-			SequencerAddress: sequencerAddress,
-			L1GasPrice: &rpcv6.ResourcePrice{
-				InWei: header.L1GasPriceETH,
-				InFri: nilToZero(header.L1GasPriceSTRK),
-			},
-			L1DataGasPrice:  &l1DataGasPrice,
-			L1DAMode:        &l1DAMode,
-			StarknetVersion: header.ProtocolVersion,
+		Hash:             header.Hash,
+		ParentHash:       header.ParentHash,
+		Number:           blockNumber,
+		NewRoot:          header.GlobalStateRoot,
+		Timestamp:        header.Timestamp,
+		SequencerAddress: sequencerAddress,
+		L1GasPrice: &ResourcePrice{
+			InWei: header.L1GasPriceETH,
+			InFri: nilToZero(header.L1GasPriceSTRK),
 		},
-		L2GasPrice: &l2GasPrice,
+		L1DataGasPrice:  &l1DataGasPrice,
+		L2GasPrice:      &l2GasPrice,
+		L1DAMode:        &l1DAMode,
+		StarknetVersion: header.ProtocolVersion,
 	}
 }
 
