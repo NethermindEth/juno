@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -56,7 +55,7 @@ func TestThrottledVMError(t *testing.T) {
 			t.Context(),
 			&blockID,
 			rpcv8.BroadcastedTransactionInputs{},
-			[]rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+			[]rpcv8.SimulationFlag{rpcv8.SkipFeeChargeFlag},
 		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))

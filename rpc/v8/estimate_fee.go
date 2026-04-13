@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type FeeUnit byte
@@ -39,6 +39,16 @@ type FeeEstimate struct {
 	L1DataGasPrice    *felt.Felt `json:"l1_data_gas_price,omitempty"`
 	OverallFee        *felt.Felt `json:"overall_fee"`
 	Unit              *FeeUnit   `json:"unit,omitempty"`
+}
+
+type MsgFromL1 struct {
+	// The address of the L1 contract sending the message.
+	From common.Address `json:"from_address" validate:"required"`
+	// The address of the L2 contract receiving the message.
+	To felt.Felt `json:"to_address" validate:"required"`
+	// The payload of the message.
+	Payload  []felt.Felt `json:"payload" validate:"required"`
+	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
 }
 
 /****************************************************
@@ -262,14 +272,14 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 func (h *Handler) EstimateFee(
 	ctx context.Context,
 	broadcastedTxns BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 	id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
 		ctx,
 		id,
 		broadcastedTxns.Data,
-		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		append(simulationFlags, SkipFeeChargeFlag),
 		true,
 		true,
 	)
@@ -287,7 +297,7 @@ func (h *Handler) EstimateFee(
 
 func (h *Handler) EstimateMessageFee(
 	ctx context.Context,
-	msg *rpcv6.MsgFromL1,
+	msg *MsgFromL1,
 	id *BlockID,
 ) (FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)

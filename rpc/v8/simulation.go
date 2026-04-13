@@ -13,9 +13,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
@@ -35,6 +35,35 @@ type BroadcastedTransactionInputs = rpccore.LimitSlice[
 	rpccore.SimulationLimit,
 ]
 
+type SimulationFlag int
+
+const (
+	SkipValidateFlag SimulationFlag = iota + 1
+	SkipFeeChargeFlag
+)
+
+var RPCVersion3Value = felt.Felt(fp.Element(
+	[4]uint64{
+		18446744073709551521,
+		18446744073709551615,
+		18446744073709551615,
+		576460752303421872,
+	},
+))
+
+func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"SKIP_VALIDATE"`:
+		*s = SkipValidateFlag
+	case `"SKIP_FEE_CHARGE"`:
+		*s = SkipFeeChargeFlag
+	default:
+		err = fmt.Errorf("unknown simulation flag %q", flag)
+	}
+
+	return err
+}
+
 /****************************************************
 		Simulate Handlers
 *****************************************************/
@@ -43,7 +72,7 @@ func (h *Handler) SimulateTransactions(
 	ctx context.Context,
 	id *BlockID,
 	transactions BroadcastedTransactionInputs,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
 }
@@ -52,12 +81,12 @@ func (h *Handler) simulateTransactions(
 	ctx context.Context,
 	id *BlockID,
 	transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
-	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
+	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
