@@ -680,7 +680,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
 		{
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: h.rpcv6Handler.Events,
+			Handler: h.rpcv8Handler.Events,
 		},
 		{
 			Name:    "juno_version",

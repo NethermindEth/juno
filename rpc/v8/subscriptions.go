@@ -41,6 +41,8 @@ func (e errorTxnHashNotFound) Error() string {
 	return fmt.Sprintf("transaction %v not found", e.txHash)
 }
 
+type SubscriptionID string
+
 // As per the spec, this is the same as BlockID, but without `pending`
 type SubscriptionBlockID BlockID
 
@@ -104,6 +106,11 @@ func unsubscribeFeedSubscription[T any](sub *feed.Subscription[T]) {
 	if sub != nil {
 		sub.Unsubscribe()
 	}
+}
+
+func (h *Handler) unsubscribe(sub *subscription, id string) {
+	sub.cancel()
+	h.subscriptions.Delete(id)
 }
 
 func (h *Handler) subscribe(
