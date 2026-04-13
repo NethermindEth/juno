@@ -844,11 +844,11 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					IsReverted: false,
 				},
 			},
-			StateDiff: &rpcv6.StateDiff{ //nolint:dupl
-				StorageDiffs: []rpcv6.StorageDiff{
+			StateDiff: &rpc.StateDiff{ //nolint:dupl
+				StorageDiffs: []rpc.StorageDiff{
 					{
 						Address: felt.Zero,
-						StorageEntries: []rpcv6.Entry{
+						StorageEntries: []rpc.Entry{
 							{
 								Key:   felt.Zero,
 								Value: felt.Zero,
@@ -856,13 +856,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						},
 					},
 				},
-				Nonces: []rpcv6.Nonce{
+				Nonces: []rpc.Nonce{
 					{
 						ContractAddress: felt.Zero,
 						Nonce:           felt.Zero,
 					},
 				},
-				DeployedContracts: []rpcv6.DeployedContract{
+				DeployedContracts: []rpc.DeployedContract{
 					{
 						Address:   felt.Zero,
 						ClassHash: felt.Zero,
@@ -871,13 +871,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				DeprecatedDeclaredClasses: []*felt.Felt{
 					&felt.Zero,
 				},
-				DeclaredClasses: []rpcv6.DeclaredClass{
+				DeclaredClasses: []rpc.DeclaredClass{
 					{
 						ClassHash:         felt.Zero,
 						CompiledClassHash: felt.Zero,
 					},
 				},
-				ReplacedClasses: []rpcv6.ReplacedClass{
+				ReplacedClasses: []rpc.ReplacedClass{
 					{
 						ContractAddress: felt.Zero,
 						ClassHash:       felt.Zero,

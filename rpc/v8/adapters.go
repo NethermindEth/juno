@@ -54,15 +54,15 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		resources = utils.HeapPtr(adaptVMExecutionResources(trace.ExecutionResources))
 	}
 
-	var stateDiff *rpcv6.StateDiff
+	var stateDiff *StateDiff
 	if trace.StateDiff != nil {
-		stateDiff = utils.HeapPtr(rpcv6.AdaptVMStateDiff(trace.StateDiff))
+		stateDiff = utils.HeapPtr(AdaptVMStateDiff(trace.StateDiff))
 	}
 
 	traceType := TransactionType(trace.Type)
 	if traceType == TxnDeploy {
 		// There is no DEPLOY_TXN_TRACE thus we need to convert the type to `DEPLOY_ACCOUNT`
-		// see https://github.com/starkware-libs/starknet-specs/blob/a2d10fc6cbaddbe2d3cf6ace5174dd0a306f4885/api/starknet_trace_api_openrpc.json#L150
+		// see https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_trace_api_openrpc.json#L150
 		traceType = TxnDeployAccount
 	}
 
@@ -157,6 +157,83 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
 			L2Gas: r.L2Gas,
 		},
 		L1DataGas: r.L1DataGas,
+	}
+}
+
+func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
+	// Adapt storage diffs
+	adaptedStorageDiffs := make([]StorageDiff, len(vmStateDiff.StorageDiffs))
+	for index := range vmStateDiff.StorageDiffs {
+		vmStorageDiff := &vmStateDiff.StorageDiffs[index]
+
+		// Adapt storage entries
+		adaptedEntries := make([]Entry, len(vmStorageDiff.StorageEntries))
+		for entryIndex := range vmStorageDiff.StorageEntries {
+			vmEntry := &vmStorageDiff.StorageEntries[entryIndex]
+
+			adaptedEntries[entryIndex] = Entry{
+				Key:   vmEntry.Key,
+				Value: vmEntry.Value,
+			}
+		}
+
+		adaptedStorageDiffs[index] = StorageDiff{
+			Address:        vmStorageDiff.Address,
+			StorageEntries: adaptedEntries,
+		}
+	}
+
+	// Adapt nonces
+	adaptedNonces := make([]Nonce, len(vmStateDiff.Nonces))
+	for index := range vmStateDiff.Nonces {
+		vmNonce := &vmStateDiff.Nonces[index]
+
+		adaptedNonces[index] = Nonce{
+			ContractAddress: vmNonce.ContractAddress,
+			Nonce:           vmNonce.Nonce,
+		}
+	}
+
+	// Adapt deployed contracts
+	adaptedDeployedContracts := make([]DeployedContract, len(vmStateDiff.DeployedContracts))
+	for index := range vmStateDiff.DeployedContracts {
+		vmDeployedContract := &vmStateDiff.DeployedContracts[index]
+
+		adaptedDeployedContracts[index] = DeployedContract{
+			Address:   vmDeployedContract.Address,
+			ClassHash: vmDeployedContract.ClassHash,
+		}
+	}
+
+	// Adapt declared classes
+	adaptedDeclaredClasses := make([]DeclaredClass, len(vmStateDiff.DeclaredClasses))
+	for index := range vmStateDiff.DeclaredClasses {
+		vmDeclaredClass := &vmStateDiff.DeclaredClasses[index]
+
+		adaptedDeclaredClasses[index] = DeclaredClass{
+			ClassHash:         vmDeclaredClass.ClassHash,
+			CompiledClassHash: vmDeclaredClass.CompiledClassHash,
+		}
+	}
+
+	// Adapt replaced classes
+	adaptedReplacedClasses := make([]ReplacedClass, len(vmStateDiff.ReplacedClasses))
+	for index := range vmStateDiff.ReplacedClasses {
+		vmReplacedClass := &vmStateDiff.ReplacedClasses[index]
+
+		adaptedReplacedClasses[index] = ReplacedClass{
+			ContractAddress: vmReplacedClass.ContractAddress,
+			ClassHash:       vmReplacedClass.ClassHash,
+		}
+	}
+
+	return StateDiff{
+		StorageDiffs:              adaptedStorageDiffs,
+		Nonces:                    adaptedNonces,
+		DeployedContracts:         adaptedDeployedContracts,
+		DeprecatedDeclaredClasses: vmStateDiff.DeprecatedDeclaredClasses,
+		DeclaredClasses:           adaptedDeclaredClasses,
+		ReplacedClasses:           adaptedReplacedClasses,
 	}
 }
 
