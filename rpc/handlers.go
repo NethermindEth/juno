@@ -650,17 +650,17 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
 		{
 			Name:    "starknet_getClassHashAt",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.rpcv6Handler.ClassHashAt,
+			Handler: h.rpcv8Handler.ClassHashAt,
 		},
 		{
 			Name:    "starknet_getClass",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
-			Handler: h.rpcv6Handler.Class,
+			Handler: h.rpcv8Handler.Class,
 		},
 		{
 			Name:    "starknet_getClassAt",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.rpcv6Handler.ClassAt,
+			Handler: h.rpcv8Handler.ClassAt,
 		},
 		{
 			Name:    "starknet_addInvokeTransaction",

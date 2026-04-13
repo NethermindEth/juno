@@ -58,6 +58,13 @@ type FunctionInvocation struct {
 	IsReverted         bool                     `json:"is_reverted"`
 }
 
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L3135
+type FunctionCall struct {
+	ContractAddress    felt.Felt      `json:"contract_address"`
+	EntryPointSelector felt.Felt      `json:"entry_point_selector"`
+	Calldata           CalldataInputs `json:"calldata"`
+}
+
 type OrderedEvent struct {
 	Order uint64       `json:"order"`
 	Keys  []*felt.Felt `json:"keys"`
