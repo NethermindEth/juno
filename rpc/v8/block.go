@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
@@ -33,6 +34,12 @@ func (b *blockIDType) String() string {
 	default:
 		panic(fmt.Sprintf("Unknown blockIdType: %d", b))
 	}
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L733-L751
+type BlockHashAndNumber struct {
+	Hash   *felt.Felt `json:"block_hash"`
+	Number uint64     `json:"block_number"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
@@ -162,6 +169,30 @@ type BlockWithReceipts struct {
 /****************************************************
 		Block Handlers
 *****************************************************/
+// BlockNumber returns the latest synced block number.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L712
+func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
+	num, err := h.bcReader.Height()
+	if err != nil {
+		return 0, rpccore.ErrNoBlock
+	}
+
+	return num, nil
+}
+
+// BlockHashAndNumber returns the block hash and number of the latest synced block.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L730
+func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
+	block, err := h.bcReader.Head()
+	if err != nil {
+		return nil, rpccore.ErrNoBlock
+	}
+	return &BlockHashAndNumber{Number: block.Number, Hash: block.Hash}, nil
+}
 
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.
 //

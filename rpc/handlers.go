@@ -592,11 +592,11 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
 		},
 		{
 			Name:    "starknet_blockNumber",
-			Handler: h.rpcv6Handler.BlockNumber,
+			Handler: h.rpcv8Handler.BlockNumber,
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
-			Handler: h.rpcv6Handler.BlockHashAndNumber,
+			Handler: h.rpcv8Handler.BlockHashAndNumber,
 		},
 		{
 			Name:    "starknet_getBlockWithTxHashes",
