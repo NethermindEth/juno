@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"iter"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -125,96 +124,5 @@ func (l TransactionLayout) ReceiptsByBlockNumber(
 
 	default:
 		return nil, fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)
-	}
-}
-
-// WriteTransactionsAndReceipts writes transactions and receipts for a block
-func (l TransactionLayout) WriteTransactionsAndReceipts(
-	w db.KeyValueWriter,
-	blockNumber uint64,
-	transactions []Transaction,
-	receipts []*TransactionReceipt,
-) error {
-	for index, tx := range transactions {
-		txHash := (*felt.TransactionHash)(tx.Hash())
-		key := db.BlockNumIndexKey{
-			Number: blockNumber,
-			Index:  uint64(index),
-		}
-
-		if err := TransactionBlockNumbersAndIndicesByHashBucket.Put(w, txHash, &key); err != nil {
-			return err
-		}
-	}
-
-	switch l {
-	case TransactionLayoutCombined:
-		blockTransactions, err := NewBlockTransactions(transactions, receipts)
-		if err != nil {
-			return err
-		}
-
-		return BlockTransactionsBucket.Put(w, blockNumber, &blockTransactions)
-
-	case TransactionLayoutPerTx:
-		for index, tx := range transactions {
-			key := db.BlockNumIndexKey{
-				Number: blockNumber,
-				Index:  uint64(index),
-			}
-
-			if err := TransactionsByBlockNumberAndIndexBucket.Put(w, key, &tx); err != nil {
-				return err
-			}
-			if err := ReceiptsByBlockNumberAndIndexBucket.Put(w, key, receipts[index]); err != nil {
-				return err
-			}
-		}
-
-		return nil
-
-	default:
-		return fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)
-	}
-}
-
-// DeleteTxsAndReceipts deletes all transactions and receipts for a block
-func (l TransactionLayout) DeleteTxsAndReceipts(
-	reader db.KeyValueReader,
-	writer db.Batch,
-	blockNum uint64,
-) error {
-	// Delete hash mappings using the existing iterator
-	for tx, err := range l.TransactionsByBlockNumberIter(reader, blockNum) {
-		if err != nil {
-			return err
-		}
-		txHash := (*felt.TransactionHash)(tx.Hash())
-		err := TransactionBlockNumbersAndIndicesByHashBucket.Delete(writer, txHash)
-		if err != nil {
-			return err
-		}
-		if l1handler, ok := tx.(*L1HandlerTransaction); ok {
-			err := DeleteL1HandlerTxnHashByMsgHash(writer, l1handler.MessageHash())
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// Layout-specific deletions
-	switch l {
-	case TransactionLayoutCombined:
-		return BlockTransactionsBucket.Delete(writer, blockNum)
-
-	case TransactionLayoutPerTx:
-		err := TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(writer)
-		if err != nil {
-			return err
-		}
-		return ReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(writer)
-
-	default:
-		return fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)
 	}
 }
