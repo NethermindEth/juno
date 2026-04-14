@@ -20,28 +20,6 @@ const (
 
 var ErrUnknownTransactionLayout = errors.New("unknown transaction layout")
 
-// TransactionByBlockAndIndex returns a transaction by block number and index
-func (l TransactionLayout) TransactionByBlockAndIndex(
-	r db.KeyValueReader,
-	blockNumber uint64,
-	index uint64,
-) (Transaction, error) {
-	switch l {
-	case TransactionLayoutCombined:
-		return BlockTransactionsTransactionPartialBucket.Get(r, blockNumber, int(index))
-
-	case TransactionLayoutPerTx:
-		key := db.BlockNumIndexKey{
-			Number: blockNumber,
-			Index:  index,
-		}
-		return TransactionsByBlockNumberAndIndexBucket.Get(r, key)
-
-	default:
-		return nil, fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)
-	}
-}
-
 // ReceiptByBlockAndIndex returns a receipt by block number and transaction index
 func (l TransactionLayout) ReceiptByBlockAndIndex(
 	r db.KeyValueReader,
@@ -263,17 +241,4 @@ func (l TransactionLayout) DeleteTxsAndReceipts(
 	default:
 		return fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)
 	}
-}
-
-// TransactionByHash returns a transaction by its hash
-func (l TransactionLayout) TransactionByHash(
-	r db.KeyValueReader,
-	hash *felt.TransactionHash,
-) (Transaction, error) {
-	blockNumIndex, err := TransactionBlockNumbersAndIndicesByHashBucket.Get(r, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	return l.TransactionByBlockAndIndex(r, blockNumIndex.Number, blockNumIndex.Index)
 }

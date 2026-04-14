@@ -228,13 +228,13 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
-	return b.transactionLayout.TransactionByBlockAndIndex(b.database, blockNumber, index)
+	return core.GetTransactionByBlockAndIndex(b.database, blockNumber, index)
 }
 
 // TransactionByHash gets the transaction for a given hash.
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
-	return b.transactionLayout.TransactionByHash(b.database, (*felt.TransactionHash)(hash))
+	return core.GetTransactionByHash(b.database, (*felt.TransactionHash)(hash))
 }
 
 // TransactionsByBlockNumber gets all transactions for a given block number
