@@ -47,10 +47,9 @@ type SimulateResult struct {
 }
 
 type baseState struct {
-	database          db.KeyValueStore
-	runningFilter     *core.RunningEventFilter
-	network           *utils.Network
-	transactionLayout core.TransactionLayout
+	database      db.KeyValueStore
+	runningFilter *core.RunningEventFilter
+	network       *utils.Network
 }
 
 func New(
@@ -58,13 +57,11 @@ func New(
 	runningFilter *core.RunningEventFilter,
 	network *utils.Network,
 	stateVersion bool,
-	transactionLayout core.TransactionLayout,
 ) StateBackend {
 	base := baseState{
-		database:          database,
-		runningFilter:     runningFilter,
-		network:           network,
-		transactionLayout: transactionLayout,
+		database:      database,
+		runningFilter: runningFilter,
+		network:       network,
 	}
 	if stateVersion {
 		panic("statebackend: new state version backend is not yet implemented")

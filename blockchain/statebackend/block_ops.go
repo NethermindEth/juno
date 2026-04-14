@@ -114,13 +114,12 @@ func writeBlockContent(
 	stateUpdate *core.StateUpdate,
 	commitments *core.BlockCommitments,
 	newClasses map[felt.Felt]core.ClassDefinition,
-	txLayout core.TransactionLayout,
 ) error {
 	if err := core.WriteBlockHeader(writer, block.Header); err != nil {
 		return err
 	}
 
-	if err := txLayout.WriteTransactionsAndReceipts(
+	if err := core.WriteTransactionsAndReceipts(
 		writer,
 		block.Number,
 		block.Transactions,
@@ -157,7 +156,6 @@ func deleteBlockContent(
 	writer db.Batch,
 	stateUpdate *core.StateUpdate,
 	blockNumber uint64,
-	txLayout core.TransactionLayout,
 ) error {
 	header, err := core.GetBlockHeaderByNumber(reader, blockNumber)
 	if err != nil {
@@ -180,7 +178,7 @@ func deleteBlockContent(
 		}
 	}
 
-	err = txLayout.DeleteTxsAndReceipts(reader, writer, blockNumber)
+	err = core.DeleteTransactionsAndReceipts(reader, writer, blockNumber)
 	if err != nil {
 		return err
 	}

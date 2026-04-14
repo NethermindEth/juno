@@ -138,7 +138,6 @@ func New(database db.KeyValueStore, network *utils.Network, opts ...Option) *Blo
 			runningFilter,
 			network,
 			o.stateVersion,
-			core.TransactionLayoutCombined,
 		),
 	}
 }

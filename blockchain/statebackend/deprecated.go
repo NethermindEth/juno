@@ -112,7 +112,6 @@ func (b *deprecatedStateBackend) Store(
 			stateUpdate,
 			blockCommitments,
 			newClasses,
-			b.transactionLayout,
 		)
 	})
 	if err != nil {
@@ -147,7 +146,7 @@ func (b *deprecatedStateBackend) RevertHead() error {
 			return err
 		}
 
-		return deleteBlockContent(txn, txn, stateUpdate, blockNumber, b.transactionLayout)
+		return deleteBlockContent(txn, txn, stateUpdate, blockNumber)
 	})
 	if err != nil {
 		return err
@@ -250,7 +249,6 @@ func (b *deprecatedStateBackend) Finalise(
 			stateUpdate,
 			commitments,
 			newClasses,
-			b.transactionLayout,
 		)
 	})
 	if err != nil {
