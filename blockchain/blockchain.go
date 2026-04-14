@@ -77,14 +77,13 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network           *utils.Network
-	database          db.KeyValueStore
-	listener          EventListener
-	l1HeadFeed        *feed.Feed[*core.L1Head]
-	cachedFilters     *AggregatedBloomFilterCache
-	runningFilter     *core.RunningEventFilter
-	transactionLayout core.TransactionLayout
-	stateBackend      statebackend.StateBackend
+	network       *utils.Network
+	database      db.KeyValueStore
+	listener      EventListener
+	l1HeadFeed    *feed.Feed[*core.L1Head]
+	cachedFilters *AggregatedBloomFilterCache
+	runningFilter *core.RunningEventFilter
+	stateBackend  statebackend.StateBackend
 }
 
 // options holds configuration for constructing a Blockchain.
@@ -126,13 +125,12 @@ func New(database db.KeyValueStore, network *utils.Network, opts ...Option) *Blo
 	runningFilter := core.NewRunningEventFilterLazy(database)
 
 	return &Blockchain{
-		database:          database,
-		network:           network,
-		listener:          o.listener,
-		l1HeadFeed:        feed.New[*core.L1Head](),
-		cachedFilters:     &cachedFilters,
-		runningFilter:     runningFilter,
-		transactionLayout: core.TransactionLayoutCombined,
+		database:      database,
+		network:       network,
+		listener:      o.listener,
+		l1HeadFeed:    feed.New[*core.L1Head](),
+		cachedFilters: &cachedFilters,
+		runningFilter: runningFilter,
 		stateBackend: statebackend.New(
 			database,
 			runningFilter,
@@ -239,7 +237,7 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 // TransactionsByBlockNumber gets all transactions for a given block number
 func (b *Blockchain) TransactionsByBlockNumber(number uint64) ([]core.Transaction, error) {
 	b.listener.OnRead("TransactionsByBlockNumber")
-	return b.transactionLayout.TransactionsByBlockNumber(b.database, number)
+	return core.GetTransactionsByBlockNumber(b.database, number)
 }
 
 // BlockNumberAndIndexByTxHash gets transaction block number and index by Tx hash
@@ -261,7 +259,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		return nil, nil, 0, err
 	}
 
-	receipt, err := b.transactionLayout.ReceiptByBlockAndIndex(
+	receipt, err := core.GetReceiptByBlockAndIndex(
 		b.database,
 		bnIndex.Number,
 		bnIndex.Index,
@@ -283,7 +281,7 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 ) (core.TransactionReceipt, *felt.Felt, error) {
 	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
 
-	receipt, err := b.transactionLayout.ReceiptByBlockAndIndex(b.database, blockNumber, index)
+	receipt, err := core.GetReceiptByBlockAndIndex(b.database, blockNumber, index)
 	if err != nil {
 		return core.TransactionReceipt{}, nil, err
 	}
