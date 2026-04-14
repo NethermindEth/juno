@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/deprecatedmigration/progresslogger"
+	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
@@ -39,7 +40,7 @@ var _ pipeline.State[uint64, db.Batch] = (*ingestor)(nil)
 
 func (i *ingestor) Run(index int, blockNumber uint64, outputs chan<- db.Batch) error {
 	// Force per-tx layout because this migration was created before the combined layout
-	txns, err := core.TransactionLayoutPerTx.TransactionsByBlockNumber(i.database, blockNumber)
+	txns, err := txlayout.TransactionLayoutPerTx.TransactionsByBlockNumber(i.database, blockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get transactions for block %d: %w", blockNumber, err)
 	}
