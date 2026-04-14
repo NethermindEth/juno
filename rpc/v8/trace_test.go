@@ -759,7 +759,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
 			FunctionInvocation:    &vm.ExecuteInvocation{},
-			StateDiff: &vm.StateDiff{ //nolint:dupl
+			StateDiff: &vm.StateDiff{ //nolint:dupl // Similar, but for different cases
 				StorageDiffs: []vm.StorageDiff{
 					{
 						Address: felt.Zero,
@@ -843,7 +843,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					IsReverted: false,
 				},
 			},
-			StateDiff: &rpc.StateDiff{ //nolint:dupl
+			StateDiff: &rpc.StateDiff{ //nolint:dupl // Similar, but for different cases
 				StorageDiffs: []rpc.StorageDiff{
 					{
 						Address: felt.Zero,

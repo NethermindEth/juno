@@ -179,7 +179,9 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		count, rpcErr := handler.BlockTransactionCount(blockIDHash(t, new(felt.Felt).SetBytes([]byte("random"))))
+		count, rpcErr := handler.BlockTransactionCount(
+			blockIDHash(t, new(felt.Felt).SetBytes([]byte("random"))),
+		)
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -472,7 +474,11 @@ func TestBlockWithTxs(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpc.BlockWithTxHashes, blockWithTxs *rpc.BlockWithTxs) {
+	checkLatestBlock := func(
+		t *testing.T,
+		blockWithTxHashes *rpc.BlockWithTxHashes,
+		blockWithTxs *rpc.BlockWithTxs,
+	) {
 		t.Helper()
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))

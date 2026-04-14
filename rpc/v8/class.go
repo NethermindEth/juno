@@ -111,7 +111,8 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 			Program: c.Program,
 			EntryPoints: EntryPoints{
 				// Note that utils.Map returns nil if provided slice is nil
-				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
+				// but this is not the case here, because we rely on sn2core adapters
+				// that will set it to empty slice if it's nil. In the API spec these fields are required.
 				// if it's nil. In the API spec these fields are required.
 				Constructor: utils.Map(c.Constructors, adaptEntryPoint),
 				External:    utils.Map(c.Externals, adaptEntryPoint),
@@ -132,7 +133,8 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 			ContractClassVersion: c.SemanticVersion,
 			EntryPoints: EntryPoints{
 				// Note that utils.Map returns nil if provided slice is nil
-				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
+				// but this is not the case here, because we rely on sn2core adapters
+				// that will set it to empty slice if it's nil. In the API spec these fields are required.
 				// if it's nil. In the API spec these fields are required.
 				Constructor: utils.Map(c.EntryPoints.Constructor, adaptEntryPoint),
 				External:    utils.Map(c.EntryPoints.External, adaptEntryPoint),
@@ -146,7 +148,8 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 	return rpcClass, nil
 }
 
-// ClassAt gets the contract class definition in the given block instantiated by the given contract address
+// ClassAt gets the contract class definition in the given block instantiated by
+// the given contract address
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L482
@@ -158,7 +161,8 @@ func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error
 	return h.Class(id, *classHash)
 }
 
-// ClassHashAt gets the class hash for the contract deployed at the given address in the given block.
+// ClassHashAt gets the class hash for the contract deployed at the given address
+// in the given block.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L442

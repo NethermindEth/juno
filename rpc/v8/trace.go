@@ -48,8 +48,8 @@ type FunctionInvocation struct {
 	Calldata           []felt.Felt              `json:"calldata"`
 	CallerAddress      felt.Felt                `json:"caller_address"`
 	ClassHash          *felt.Felt               `json:"class_hash"`
-	EntryPointType     string                   `json:"entry_point_type"` // shouldnt we put it as enum here ?
-	CallType           string                   `json:"call_type"`        // shouldnt we put it as enum here ?
+	EntryPointType     string                   `json:"entry_point_type"`
+	CallType           string                   `json:"call_type"`
 	Result             []felt.Felt              `json:"result"`
 	Calls              []FunctionInvocation     `json:"calls"`
 	Events             []OrderedEvent           `json:"events"`
