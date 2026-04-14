@@ -116,7 +116,12 @@ func TestHandlerParamValidatorCompatibility(t *testing.T) {
 					require.NotNil(t, method.Handler, "registered method %q must have a handler", method.Name)
 
 					handlerType := reflect.TypeOf(method.Handler)
-					require.Equal(t, reflect.Func, handlerType.Kind(), "registered method %q handler must be a function", method.Name)
+					require.Equal(
+						t,
+						reflect.Func,
+						handlerType.Kind(),
+						"registered method %q handler must be a function", method.Name,
+					)
 
 					startIdx := 0
 					if handlerType.NumIn() > 0 && handlerType.In(0).Implements(contextType) {
