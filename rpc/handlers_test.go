@@ -113,10 +113,10 @@ func TestHandlerParamValidatorCompatibility(t *testing.T) {
 			for _, method := range vt.methods {
 				t.Run(method.Name, func(t *testing.T) {
 					t.Parallel()
+					require.NotNil(t, method.Handler, "registered method %q must have a handler", method.Name)
+
 					handlerType := reflect.TypeOf(method.Handler)
-					if handlerType == nil || handlerType.Kind() != reflect.Func {
-						return
-					}
+					require.Equal(t, reflect.Func, handlerType.Kind(), "registered method %q handler must be a function", method.Name)
 
 					startIdx := 0
 					if handlerType.NumIn() > 0 && handlerType.In(0).Implements(contextType) {
