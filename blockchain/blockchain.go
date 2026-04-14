@@ -167,7 +167,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 		return nil, err
 	}
 
-	return b.transactionLayout.BlockByNumber(b.database, curHeight)
+	return core.GetBlockByNumber(b.database, curHeight)
 }
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
@@ -182,7 +182,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 	b.listener.OnRead("BlockByNumber")
-	return b.transactionLayout.BlockByNumber(b.database, number)
+	return core.GetBlockByNumber(b.database, number)
 }
 
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
@@ -202,7 +202,7 @@ func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 		return nil, err
 	}
 
-	return b.transactionLayout.BlockByNumber(b.database, blockNum)
+	return core.GetBlockByNumber(b.database, blockNum)
 }
 
 func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {

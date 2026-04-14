@@ -128,30 +128,6 @@ func (l TransactionLayout) ReceiptsByBlockNumber(
 	}
 }
 
-// BlockByNumber returns a full block by number
-func (l TransactionLayout) BlockByNumber(r db.KeyValueReader, blockNum uint64) (*Block, error) {
-	header, err := GetBlockHeaderByNumber(r, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	allTransactions, err := l.TransactionsByBlockNumber(r, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	allReceipts, err := l.ReceiptsByBlockNumber(r, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Block{
-		Header:       header,
-		Transactions: allTransactions,
-		Receipts:     allReceipts,
-	}, nil
-}
-
 // WriteTransactionsAndReceipts writes transactions and receipts for a block
 func (l TransactionLayout) WriteTransactionsAndReceipts(
 	w db.KeyValueWriter,
