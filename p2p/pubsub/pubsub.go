@@ -15,8 +15,6 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 )
 
-const gossipSubHistory = 60
-
 func GetHost(hostPrivateKey crypto.PrivKey, hostAddress string) (host.Host, error) {
 	return libp2p.New(
 		libp2p.ListenAddrStrings(hostAddress),
@@ -49,6 +47,8 @@ func Run(
 	}
 
 	params := pubsub.DefaultGossipSubParams()
+
+	const gossipSubHistory = 60
 	params.HistoryLength = gossipSubHistory
 	params.HistoryGossip = gossipSubHistory
 

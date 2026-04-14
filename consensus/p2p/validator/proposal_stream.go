@@ -48,7 +48,9 @@ func newSingleProposalStream(
 	}
 }
 
-func (s *proposalStream) start(ctx context.Context, firstMessage *consensus.StreamMessage) (types.Height, error) {
+func (s *proposalStream) start(
+	ctx context.Context, firstMessage *consensus.StreamMessage,
+) (types.Height, error) {
 	content := firstMessage.GetContent()
 	if content == nil {
 		return 0, fmt.Errorf("first message has empty content")

@@ -52,7 +52,9 @@ func Init(
 	}
 	currentHeight := types.Height(chainHeight + 1)
 
-	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](database)
+	tendermintDB := consensusDB.NewTendermintDB[
+		starknet.Value, starknet.Hash, starknet.Address,
+	](database)
 
 	executor := builder.NewExecutor(blockchain, vm, logger, false, false)
 	builder := builder.New(blockchain, executor)
