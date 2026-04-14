@@ -190,11 +190,9 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 func TestCalculateBlockCommitments(t *testing.T) {
 	testdb := memory.New()
-	chain := blockchain.New(
+	state := NewTestState(
 		testdb,
 		&utils.Mainnet,
-		//nolint:staticcheck // deprecated option used in test
-		blockchain.WithTransactionLayout(core.TransactionLayoutPerTx),
 	)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -204,14 +202,14 @@ func TestCalculateBlockCommitments(t *testing.T) {
 		require.NoError(t, err)
 		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
-		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+		require.NoError(t, state.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		return calculateBlockCommitments(txn, &utils.Mainnet)
 	}))
 	for i := range uint64(3) {
-		b, err := chain.BlockCommitmentsByNumber(i)
+		b, err := core.GetBlockCommitmentByBlockNum(testdb, i)
 		require.NoError(t, err)
 		assert.NotNil(t, b.TransactionCommitment)
 	}
@@ -219,11 +217,9 @@ func TestCalculateBlockCommitments(t *testing.T) {
 
 func TestL1HandlerTxns(t *testing.T) {
 	testdb := memory.New()
-	chain := blockchain.New(
+	state := NewTestState(
 		testdb,
 		&utils.Sepolia,
-		//nolint:staticcheck // deprecated option used in test
-		blockchain.WithTransactionLayout(core.TransactionLayoutPerTx),
 	)
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
@@ -233,7 +229,7 @@ func TestL1HandlerTxns(t *testing.T) {
 		require.NoError(t, err)
 		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
-		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+		require.NoError(t, state.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
 	msgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
@@ -244,7 +240,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	}))
 
 	// Ensure the key has been deleted
-	_, err := chain.L1HandlerTxnHash(&msgHash)
+	_, err := core.GetL1HandlerTxnHashByMsgHash(testdb, msgHash.Bytes())
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	// Recalculate and store the L1 message hashes
@@ -253,7 +249,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	}))
 
 	msgHash = common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
-	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&msgHash)
+	l1HandlerTxnHash, err := core.GetL1HandlerTxnHashByMsgHash(testdb, msgHash.Bytes())
 	require.NoError(t, err)
 	assert.Equal(t, l1HandlerTxnHash.String(), "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5")
 }

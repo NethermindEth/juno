@@ -27,6 +27,7 @@ import (
 	"github.com/NethermindEth/juno/deprecatedmigration/casmhashmetadata"
 	"github.com/NethermindEth/juno/deprecatedmigration/l1handlermapping"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
@@ -311,7 +312,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
 func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := core.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
+		block, err := txlayout.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
@@ -539,7 +540,7 @@ func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) e
 func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		block, err := core.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
+		block, err := txlayout.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
@@ -560,7 +561,7 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) erro
 func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		txns, err := core.TransactionLayoutPerTx.TransactionsByBlockNumber(txn, blockNumber)
+		txns, err := txlayout.TransactionLayoutPerTx.TransactionsByBlockNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err

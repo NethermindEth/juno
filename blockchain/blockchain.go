@@ -89,23 +89,12 @@ type Blockchain struct {
 
 // options holds configuration for constructing a Blockchain.
 type options struct {
-	listener          EventListener
-	transactionLayout core.TransactionLayout
-	stateVersion      bool
+	listener     EventListener
+	stateVersion bool
 }
 
 // Option is a functional option for configuring Blockchain options.
 type Option func(*options)
-
-// Deprecated: Production code only supports CombinedLayout. Kept for testing purposes,
-// remove when [deprecatedmigration] is no longer relevant.
-//
-// WithTransactionLayout sets the transaction storage layout.
-func WithTransactionLayout(layout core.TransactionLayout) Option {
-	return func(o *options) {
-		o.transactionLayout = layout
-	}
-}
 
 // WithListener sets the event listener for the blockchain.
 func WithListener(listener EventListener) Option {
@@ -121,9 +110,8 @@ func WithNewState(enabled bool) Option {
 
 func New(database db.KeyValueStore, network *utils.Network, opts ...Option) *Blockchain {
 	o := options{
-		listener:          &SelectiveListener{},
-		transactionLayout: core.TransactionLayoutCombined,
-		stateVersion:      false,
+		listener:     &SelectiveListener{},
+		stateVersion: false,
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -144,20 +132,15 @@ func New(database db.KeyValueStore, network *utils.Network, opts ...Option) *Blo
 		l1HeadFeed:        feed.New[*core.L1Head](),
 		cachedFilters:     &cachedFilters,
 		runningFilter:     runningFilter,
-		transactionLayout: o.transactionLayout,
+		transactionLayout: core.TransactionLayoutCombined,
 		stateBackend: statebackend.New(
 			database,
 			runningFilter,
 			network,
 			o.stateVersion,
-			o.transactionLayout,
+			core.TransactionLayoutCombined,
 		),
 	}
-}
-
-// TransactionLayout returns the transaction storage layout used by this blockchain
-func (b *Blockchain) TransactionLayout() core.TransactionLayout {
-	return b.transactionLayout
 }
 
 func (b *Blockchain) Network() *utils.Network {
