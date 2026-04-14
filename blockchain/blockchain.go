@@ -389,7 +389,6 @@ func (b *Blockchain) EventFilter(
 		preConfirmedFn,
 		b.cachedFilters,
 		b.runningFilter,
-		b.transactionLayout,
 	), nil
 }
 

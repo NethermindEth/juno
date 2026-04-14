@@ -33,7 +33,6 @@ type EventFilter struct {
 	preConfirmedFn func() (*core.PreConfirmed, error)
 	cachedFilters  *AggregatedBloomFilterCache
 	runningFilter  *core.RunningEventFilter
-	layout         core.TransactionLayout
 }
 
 type EventFilterRange uint
@@ -51,7 +50,6 @@ func newEventFilter(
 	preConfirmedFn func() (*core.PreConfirmed, error),
 	cachedFilters *AggregatedBloomFilterCache,
 	runningFilter *core.RunningEventFilter,
-	layout core.TransactionLayout,
 ) *EventFilter {
 	return &EventFilter{
 		txn:            txn,
@@ -62,7 +60,6 @@ func newEventFilter(
 		preConfirmedFn: preConfirmedFn,
 		cachedFilters:  cachedFilters,
 		runningFilter:  runningFilter,
-		layout:         layout,
 	}
 }
 
@@ -245,7 +242,7 @@ func (e *EventFilter) canonicalEvents(
 		}
 
 		var receipts []*core.TransactionReceipt
-		receipts, err = e.layout.ReceiptsByBlockNumber(e.txn, header.Number)
+		receipts, err = core.GetReceiptsByBlockNumber(e.txn, header.Number)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
