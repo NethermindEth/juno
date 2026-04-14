@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/typed/prefix"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
+	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/utils"
 	conciter "github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
@@ -114,7 +115,7 @@ func runTestBlockTransactionsMigration(
 			)
 			require.NoError(
 				t,
-				core.TransactionLayoutPerTx.WriteTransactionsAndReceipts(
+				txlayout.TransactionLayoutPerTx.WriteTransactionsAndReceipts(
 					batch,
 					uint64(blockNumber),
 					allTransactions[blockNumber],
@@ -133,7 +134,7 @@ func runTestBlockTransactionsMigration(
 				snapshot,
 				allTransactions,
 				allReceipts,
-				core.TransactionLayoutPerTx,
+				txlayout.TransactionLayoutPerTx,
 			)
 		})
 
@@ -193,7 +194,7 @@ func runTestBlockTransactionsMigration(
 							snapshot,
 							allTransactions,
 							allReceipts,
-							core.TransactionLayoutCombined,
+							txlayout.TransactionLayoutCombined,
 						)
 					})
 
@@ -218,7 +219,7 @@ func assertData(
 	snapshot db.KeyValueReader,
 	allTransactions [][]core.Transaction,
 	allReceipts [][]*core.TransactionReceipt,
-	layout core.TransactionLayout,
+	layout txlayout.TransactionLayout,
 ) {
 	t.Helper()
 

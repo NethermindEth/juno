@@ -537,7 +537,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingData().Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 		preConfirmed := rpc.BlockIDPreConfirmed()
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -596,7 +596,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
+		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
 		)
