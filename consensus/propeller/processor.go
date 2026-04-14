@@ -29,7 +29,7 @@ type subprocessor struct {
 
 	// todo(rdr): I think I would like it more if it is called UnitValidator since
 	// is more specfic
-	validator Validator
+	validator UnitValidator
 }
 
 func newSubprocessor(
@@ -99,7 +99,7 @@ func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
 		case unitWithSender := <-s.unitsChan:
 			unit := unitWithSender.unit
 			sender := unitWithSender.sender
-			if err := s.validator.ValidateUnit(unit, sender); err != nil {
+			if err := s.validator.Validate(unit, sender); err != nil {
 				s.invalidUnitsChan <- invalidUnit{
 					// todo(rdr): not sure if we need message key.
 					// We just want to penalize the sender
@@ -179,7 +179,7 @@ func (s *subprocessor) beforeMessageReceivedStage(
 		case unitWithSender := <-s.unitsChan:
 			unit := unitWithSender.unit
 			sender := unitWithSender.sender
-			if err := s.validator.ValidateUnit(unit, sender); err != nil {
+			if err := s.validator.Validate(unit, sender); err != nil {
 				s.invalidUnitsChan <- invalidUnit{
 					messageKey: extractKey(unit),
 					sender:     sender,

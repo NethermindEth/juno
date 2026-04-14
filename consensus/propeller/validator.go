@@ -11,13 +11,14 @@ import (
 )
 
 // todo(rdr): A validator lifetime is attached to a `subprocessor`. A `subprocessor` is attached
-// to a message key field. This logic is handled by a `Processor`. This means that a validator will // always be given units that have the same committeeID, publisher, messageRoot and Nonce (the
+// to a message key field. This logic is handled by a `Processor`. This means that a validator will
+// always be given units that have the same committeeID, publisher, messageRoot and Nonce (the
 // current fields of a `messageKey`). Does it makes sense for the validator to also hold a copy
 // of this. Is there a way of testing this invariant – where a validator only sees the same
 // fields. I need to add a test for that invariant
 
 // Validates all the incoming units / shards given a committee and the publisher
-type Validator struct {
+type UnitValidator struct {
 	publisherPubKey crypto.PubKey
 	scheduler       *Scheduler
 
@@ -29,14 +30,14 @@ type Validator struct {
 }
 
 // todo(rdr): maybe just pass the publisher?
-func NewValidator(publisher peer.ID, scheduler *Scheduler) Validator {
+func NewValidator(publisher peer.ID, scheduler *Scheduler) UnitValidator {
 	pubKey, err := publisher.ExtractPublicKey()
 	// for now we are assuming that extracting a publisher key is always successful
 	// and done in constant time
 	if err != nil {
 		panic(err)
 	}
-	return Validator{
+	return UnitValidator{
 		publisherPubKey:   pubKey,
 		scheduler:         scheduler,
 		receivedShards:    make(map[ShardIndex]struct{}, scheduler.NumDataShards()),
@@ -44,7 +45,7 @@ func NewValidator(publisher peer.ID, scheduler *Scheduler) Validator {
 	}
 }
 
-func (v *Validator) verifyDataShards(unit *Unit) error {
+func (v *UnitValidator) verifyDataShards(unit *Unit) error {
 	if len(unit.ShardData) != 1 {
 		return fmt.Errorf(
 			"unexpected amount of shards. Expected %d. Received %d",
@@ -63,7 +64,7 @@ func (v *Validator) verifyDataShards(unit *Unit) error {
 	return errors.New("data shards verification failed")
 }
 
-func (v *Validator) verifySignature(unit *Unit) error {
+func (v *UnitValidator) verifySignature(unit *Unit) error {
 	if v.verifiedSignature != nil {
 		if bytes.Equal(v.verifiedSignature, unit.Signature) {
 			return nil
@@ -91,7 +92,7 @@ func (v *Validator) verifySignature(unit *Unit) error {
 	return nil
 }
 
-func (v *Validator) ValidateUnit(unit *Unit, sender peer.ID) error {
+func (v *UnitValidator) Validate(unit *Unit, sender peer.ID) error {
 	if _, ok := v.receivedShards[unit.ShardIndex]; ok {
 		return fmt.Errorf("duplicated shard %d received", unit.ShardIndex)
 	}

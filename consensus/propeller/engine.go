@@ -85,19 +85,17 @@ func (processUnit) isCommand()
 
 // Engine is the central orchestrator of the Propeller protocol. It:
 //
-//   - Manages channel registrations (each channel has its own peer set and schedule).
-//   - Routes incoming PropellerUnits to the correct MessageProcessor.
-//   - Handles broadcast requests from the application layer.
-//   - Collects and forwards events from processors to the application.
-//
-// The engine is designed to be run as a single long-lived goroutine via Run().
-// External callers interact with it through thread-safe methods that send
-// commands on internal channels, so no locks are needed on the hot path.
+//   - Manages committee registrations (each committee has its own peer set and scheduler).
+//   - Process all incoming messages and broadcasts them when expected.
+//   - Handles broadcast requests from the service layer.
+//   - Forwards all noteworthy event to the service layer.
 type Engine struct {
-	localPeer peer.ID
 	privKey   crypto.PrivKey
-	config    Config
-	log       utils.StructuredLogger
+	localPeer peer.ID
+
+	config Config
+	log    utils.StructuredLogger
+
 	// processor handles validates and process all the messages received by other peers
 	processor *Processor
 
@@ -132,7 +130,6 @@ type Engine struct {
 // Call Run() to start processing.
 //
 // Parameters:
-//   - localPeer: this node's peer ID.
 //   - privKey: this node's Ed25519 private key (for signing published messages).
 //   - config: protocol parameters.
 //   - log: structured logger.
@@ -225,7 +222,7 @@ func (e *Engine) unregisterCommittee(committeeID *CommitteeID) {
 	delete(e.committees, *committeeID)
 	// todo(rdr): We have to  clean the processors, right?
 	//            or will they shut down on their own eventually
-	//            better to pass a context with cancelj
+	//            better to pass a context with cancel?
 
 	e.log.Info("unregistered propeller committee",
 		// todo(rdr): give a proper string representation
