@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/binary"
+	"iter"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -343,6 +344,145 @@ func WriteBlockHeader(w db.KeyValueWriter, header *Header) error {
 	}
 
 	return WriteBlockHeaderByNumber(w, header)
+}
+
+// GetTransactionsByBlockNumber returns all transactions in a given block
+func GetTransactionsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]Transaction, error) {
+	return BlockTransactionsAllTransactionsPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
+// GetTransactionsByBlockNumberIter returns an iterator over all transactions in a given block
+func GetTransactionsByBlockNumberIter(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) iter.Seq2[Transaction, error] {
+	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNumber)
+	if err != nil {
+		return func(yield func(Transaction, error) bool) {
+			yield(nil, err)
+		}
+	}
+	return blockTransactions.Transactions().Iter()
+}
+
+// GetTransactionByBlockAndIndex returns a transaction by block number and index
+func GetTransactionByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (Transaction, error) {
+	return BlockTransactionsTransactionPartialBucket.Get(r, blockNumber, int(index))
+}
+
+// GetTransactionByHash returns a transaction by its hash
+func GetTransactionByHash(
+	r db.KeyValueReader,
+	hash *felt.TransactionHash,
+) (Transaction, error) {
+	blockNumIndex, err := TransactionBlockNumbersAndIndicesByHashBucket.Get(r, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetTransactionByBlockAndIndex(r, blockNumIndex.Number, blockNumIndex.Index)
+}
+
+// GetReceiptsByBlockNumber returns all receipts in a given block
+func GetReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]*TransactionReceipt, error) {
+	return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
+// GetReceiptByBlockAndIndex returns a receipt by block number and transaction index
+func GetReceiptByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (*TransactionReceipt, error) {
+	return BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
+}
+
+// GetBlockByNumber returns a full block by number
+func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
+	header, err := GetBlockHeaderByNumber(r, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	txs, err := GetTransactionsByBlockNumber(r, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	receipts, err := GetReceiptsByBlockNumber(r, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Block{
+		Header:       header,
+		Transactions: txs,
+		Receipts:     receipts,
+	}, nil
+}
+
+// WriteTransactionsAndReceipts writes transactions and receipts for a block
+func WriteTransactionsAndReceipts(
+	w db.KeyValueWriter,
+	blockNumber uint64,
+	transactions []Transaction,
+	receipts []*TransactionReceipt,
+) error {
+	for index, tx := range transactions {
+		txHash := (*felt.TransactionHash)(tx.Hash())
+		key := db.BlockNumIndexKey{
+			Number: blockNumber,
+			Index:  uint64(index),
+		}
+
+		if err := TransactionBlockNumbersAndIndicesByHashBucket.Put(w, txHash, &key); err != nil {
+			return err
+		}
+	}
+
+	blockTransactions, err := NewBlockTransactions(transactions, receipts)
+	if err != nil {
+		return err
+	}
+
+	return BlockTransactionsBucket.Put(w, blockNumber, &blockTransactions)
+}
+
+// DeleteTransactionsAndReceipts deletes all transactions and receipts for a block
+func DeleteTransactionsAndReceipts(
+	reader db.KeyValueReader,
+	writer db.Batch,
+	blockNumber uint64,
+) error {
+	// Delete hash mappings using the existing iterator
+	for tx, err := range GetTransactionsByBlockNumberIter(reader, blockNumber) {
+		if err != nil {
+			return err
+		}
+		txHash := (*felt.TransactionHash)(tx.Hash())
+		err := TransactionBlockNumbersAndIndicesByHashBucket.Delete(writer, txHash)
+		if err != nil {
+			return err
+		}
+		if l1handler, ok := tx.(*L1HandlerTransaction); ok {
+			err := DeleteL1HandlerTxnHashByMsgHash(writer, l1handler.MessageHash())
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return BlockTransactionsBucket.Delete(writer, blockNumber)
 }
 
 func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
