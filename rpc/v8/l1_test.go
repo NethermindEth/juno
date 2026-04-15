@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

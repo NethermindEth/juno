@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"

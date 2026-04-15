@@ -21,7 +21,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/coder/websocket"

@@ -9,7 +9,7 @@ import (
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"

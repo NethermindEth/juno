@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	junoplugin "github.com/NethermindEth/juno/plugin"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"

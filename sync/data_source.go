@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/starknetdata"
+	"github.com/NethermindEth/juno/adapters/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 )
 

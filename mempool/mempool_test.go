@@ -14,7 +14,7 @@ import (
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"

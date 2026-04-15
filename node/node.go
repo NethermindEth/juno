@@ -36,7 +36,7 @@ import (
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/upgrader"
 	"github.com/NethermindEth/juno/utils"

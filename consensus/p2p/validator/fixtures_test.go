@@ -16,7 +16,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	adaptfeeder "github.com/NethermindEth/juno/adapters/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"

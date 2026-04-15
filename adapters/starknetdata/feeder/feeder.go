@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/starknetdata"
+	"github.com/NethermindEth/juno/adapters/starknetdata"
 )
 
 var _ starknetdata.StarknetData = (*Feeder)(nil)
