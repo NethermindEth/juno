@@ -1,4 +1,4 @@
-package deprecatedmigration_test
+package deprecated_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/deprecatedmigration"
+	"github.com/NethermindEth/juno/migration/deprecated"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +16,7 @@ func TestBucketMover(t *testing.T) {
 	beforeCalled := false
 	sourceBucket := db.Bucket(0)
 	destBucket := db.Bucket(1)
-	mover := deprecatedmigration.NewBucketMover(sourceBucket, destBucket).WithBefore(func() {
+	mover := deprecated.NewBucketMover(sourceBucket, destBucket).WithBefore(func() {
 		beforeCalled = true
 	}).WithBatchSize(2).WithKeyFilter(func(b []byte) (bool, error) {
 		return len(b) > 1, nil
@@ -39,7 +39,7 @@ func TestBucketMover(t *testing.T) {
 		err               error
 	)
 	_, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
-	require.ErrorIs(t, err, deprecatedmigration.ErrCallWithNewTransaction)
+	require.ErrorIs(t, err, deprecated.ErrCallWithNewTransaction)
 
 	intermediateState, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
 	require.NoError(t, err)

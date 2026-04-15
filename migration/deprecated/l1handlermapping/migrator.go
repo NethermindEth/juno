@@ -9,7 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
-	deprecatedprogresslogger "github.com/NethermindEth/juno/deprecatedmigration/progresslogger"
+	deprecatedprogresslogger "github.com/NethermindEth/juno/migration/deprecated/progresslogger"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"

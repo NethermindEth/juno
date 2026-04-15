@@ -14,7 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
-	deprecatedprogresslogger "github.com/NethermindEth/juno/deprecatedmigration/progresslogger"
+	deprecatedprogresslogger "github.com/NethermindEth/juno/migration/deprecated/progresslogger"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
+	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/utils"
@@ -35,7 +35,7 @@ func migrateIfNeeded(
 ) error {
 	migrateFn := func() error {
 		// Run deprecated migrations first
-		if err := deprecatedmigration.MigrateIfNeeded(
+		if err := deprecated.MigrateIfNeeded(
 			ctx,
 			db,
 			&config.Network,

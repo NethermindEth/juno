@@ -1,8 +1,8 @@
-// Package deprecatedmigration contains the legacy migration system.
+// Package deprecated contains the legacy migration system.
 //
 // Deprecated: This package is deprecated and will be removed in a future version.
 // Use the migration package instead for new migrations.
-package deprecatedmigration
+package deprecated
 
 import (
 	"bytes"
@@ -24,8 +24,8 @@ import (
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
-	"github.com/NethermindEth/juno/deprecatedmigration/casmhashmetadata"
-	"github.com/NethermindEth/juno/deprecatedmigration/l1handlermapping"
+	"github.com/NethermindEth/juno/migration/deprecated/casmhashmetadata"
+	"github.com/NethermindEth/juno/migration/deprecated/l1handlermapping"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/starknet"

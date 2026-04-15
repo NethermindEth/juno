@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/deprecatedmigration" //nolint:staticcheck,nolintlint // deprecated package will be removed later
+	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint // deprecated package will be removed later
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
@@ -109,7 +109,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		schemaVersion = uint64(metadata.CurrentVersion)
 	} else if errors.Is(err, db.ErrKeyNotFound) {
 		// Fall back to deprecated migration system
-		deprecatedMetadata, err := deprecatedmigration.SchemaMetadata(
+		deprecatedMetadata, err := deprecated.SchemaMetadata(
 			utils.NewNopZapLogger(),
 			database,
 		)

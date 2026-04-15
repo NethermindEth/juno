@@ -1,4 +1,4 @@
-package deprecatedmigration
+package deprecated
 
 import (
 	"errors"
