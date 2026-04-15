@@ -513,7 +513,6 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	newComm := stateCommitment(&contractRoot, &classRoot, protocolVersion)
 
 	su := stateUpdate{
-		// todo: remove felt cast
 		prevComm:      s.initRoot,
 		curComm:       newComm,
 		contractNodes: mergedContractNodes,
