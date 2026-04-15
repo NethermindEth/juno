@@ -82,7 +82,6 @@ func TestHandlerParamValidatorCompatibility(t *testing.T) {
 
 	log := utils.NewNopZapLogger()
 	handler := &Handler{
-		rpcv6Handler:  rpcv6.New(nil, nil, nil, nil, log),
 		rpcv8Handler:  rpcv8.New(nil, nil, nil, log),
 		rpcv9Handler:  rpcv9.New(nil, nil, nil, log),
 		rpcv10Handler: rpcv10.New(nil, nil, nil, log),
