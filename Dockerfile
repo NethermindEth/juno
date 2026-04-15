@@ -51,17 +51,10 @@ COPY . .
 RUN make juno
 
 # --- Final stage ---
-FROM debian:bookworm-slim AS final
+FROM gcr.io/distroless/cc-debian12 AS final
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    gawk \
-    grep \
-    libjemalloc-dev \
-    libjemalloc2 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/lib/*-linux-gnu/libjemalloc.so.2 /usr/lib/
+ENV LD_LIBRARY_PATH=/usr/lib
 
 COPY --from=builder /app/build/juno /usr/local/bin/
 

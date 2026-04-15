@@ -4,10 +4,11 @@ services:
     image: juno:latest
     build: .
     healthcheck:
-      test: ["CMD", "sleep", "4"]
+      test: ["CMD", "/usr/local/bin/juno", "--version"]
       interval: 4s
       timeout: 10s
       retries: 1
+      start_period: 4s
     networks:
       p2p-network:
         ipv4_address: 192.168.10.10
