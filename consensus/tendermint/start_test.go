@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
 )
 
 func TestStartRound(t *testing.T) {
@@ -17,7 +16,7 @@ func TestStartRound(t *testing.T) {
 		currentRound.start().expectActions(
 			currentRound.action().writeWALStart(),
 			currentRound.action().broadcastProposal(val, -1),
-			currentRound.action().broadcastPrevote(utils.HeapPtr(val)),
+			currentRound.action().broadcastPrevote(new(val)),
 		)
 
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)

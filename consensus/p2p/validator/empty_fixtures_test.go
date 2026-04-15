@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 )
@@ -62,7 +61,7 @@ func NewEmptyTestFixture(
 			Init: &consensus.ProposalInit{
 				BlockNumber: uint64(testCase.Height),
 				Round:       uint32(testCase.Round),
-				ValidRound:  utils.HeapPtr(uint32(testCase.ValidRound)),
+				ValidRound:  new(uint32(testCase.ValidRound)),
 				Proposer:    &common.Address{Elements: ToBytes(*proposer)},
 			},
 		},
@@ -119,7 +118,7 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 			},
 			StateUpdate: &core.StateUpdate{
 				OldRoot:   headBlock.GlobalStateRoot,
-				StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
+				StateDiff: new(core.EmptyStateDiff()),
 			},
 			NewClasses:            make(map[felt.Felt]core.ClassDefinition),
 			TransactionStateDiffs: []*core.StateDiff{},

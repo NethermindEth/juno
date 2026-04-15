@@ -2,7 +2,6 @@ package votecounter
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type Validators[A types.Addr] interface {
@@ -83,7 +82,7 @@ func getOrCreateRoundData[V types.Hashable[H], H types.Hash, A types.Addr](
 ) *roundData[V, H, A] {
 	entry, ok := roundMap[round]
 	if !ok {
-		entry = utils.HeapPtr(newRoundData[V, H, A]())
+		entry = new(newRoundData[V, H, A]())
 		roundMap[round] = entry
 	}
 	return entry

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/broadcast"
 	"github.com/stretchr/testify/require"
 )
@@ -202,9 +201,9 @@ func TestLaggedDetection(t *testing.T) {
 	// wait for subscriber to take first value to chan and
 	// second value to memory to avoid race and consistency of test
 	time.Sleep(5 * time.Millisecond)
-	require.NoError(t, bc.Send(utils.HeapPtr(3)))
-	require.NoError(t, bc.Send(utils.HeapPtr(4)))
-	require.NoError(t, bc.Send(utils.HeapPtr(5))) // Lag
+	require.NoError(t, bc.Send(new(3)))
+	require.NoError(t, bc.Send(new(4)))
+	require.NoError(t, bc.Send(new(5))) // Lag
 
 	// move cursor to missing seq 3
 	for i := range 2 {
@@ -239,9 +238,9 @@ func TestLagResyncAfterError(t *testing.T) {
 
 	// Sleep to allow forwarder goroutine to put 1 to chan and 2 to memory
 	time.Sleep(5 * time.Millisecond)
-	require.NoError(t, bc.Send(utils.HeapPtr(3)))
-	require.NoError(t, bc.Send(utils.HeapPtr(4)))
-	require.NoError(t, bc.Send(utils.HeapPtr(5))) // Lag
+	require.NoError(t, bc.Send(new(3)))
+	require.NoError(t, bc.Send(new(4)))
+	require.NoError(t, bc.Send(new(5))) // Lag
 
 	for i := range 2 {
 		ev := <-sub.Recv()

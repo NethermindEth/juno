@@ -4,7 +4,6 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	p2pconsensus "github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 )
@@ -27,7 +26,7 @@ func toFelt252(val *felt.Felt) *common.Felt252 {
 func AdaptProposalInit(msg *consensus.ProposalInit) p2pconsensus.ProposalInit {
 	var validRound *uint32
 	if msg.ValidRound >= 0 {
-		validRound = utils.HeapPtr(uint32(msg.ValidRound))
+		validRound = new(uint32(msg.ValidRound))
 	}
 
 	return p2pconsensus.ProposalInit{

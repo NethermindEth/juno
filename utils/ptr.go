@@ -1,7 +1,6 @@
 package utils
 
-// This function allocates a value into the heap and returns
-// a pointer to it
+// Deprecated: Use new(val) instead.
 func HeapPtr[T any](v T) *T {
 	return &v
 }

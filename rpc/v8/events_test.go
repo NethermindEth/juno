@@ -46,8 +46,8 @@ func TestEvents(t *testing.T) {
 	)
 	args := rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
-			FromBlock: utils.HeapPtr(rpc.BlockIDFromNumber(0)),
-			ToBlock:   utils.HeapPtr(blockIDLatest(t)),
+			FromBlock: new(rpc.BlockIDFromNumber(0)),
+			ToBlock:   new(blockIDLatest(t)),
 			Address:   from,
 			Keys:      [][]felt.Felt{},
 		},
@@ -59,14 +59,14 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter non-existent", func(t *testing.T) {
 		t.Run("block number - bound to latest", func(t *testing.T) {
-			args.ToBlock = utils.HeapPtr(rpc.BlockIDFromNumber(55))
+			args.ToBlock = new(rpc.BlockIDFromNumber(55))
 			events, err := handler.Events(args)
 			require.Nil(t, err)
 			require.Len(t, events.Events, 4)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
-			args.ToBlock = utils.HeapPtr(rpc.BlockIDFromHash(felt.NewFromUint64[felt.Felt](55)))
+			args.ToBlock = new(rpc.BlockIDFromHash(felt.NewFromUint64[felt.Felt](55)))
 			_, err := handler.Events(args)
 			require.Equal(t, rpccore.ErrBlockNotFound, err)
 		})
@@ -74,13 +74,13 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with no from_block", func(t *testing.T) {
 		args.FromBlock = nil
-		args.ToBlock = utils.HeapPtr(blockIDLatest(t))
+		args.ToBlock = new(blockIDLatest(t))
 		_, err := handler.Events(args)
 		require.Nil(t, err)
 	})
 
 	t.Run("filter with no to_block", func(t *testing.T) {
-		args.FromBlock = utils.HeapPtr(rpc.BlockIDFromNumber(0))
+		args.FromBlock = new(rpc.BlockIDFromNumber(0))
 		args.ToBlock = nil
 		_, err := handler.Events(args)
 		require.Nil(t, err)
@@ -89,8 +89,8 @@ func TestEvents(t *testing.T) {
 	t.Run("filter with from_block > to_block", func(t *testing.T) {
 		fArgs := rpc.EventsArg{
 			EventFilter: rpc.EventFilter{
-				FromBlock: utils.HeapPtr(rpc.BlockIDFromNumber(1)),
-				ToBlock:   utils.HeapPtr(rpc.BlockIDFromNumber(0)),
+				FromBlock: new(rpc.BlockIDFromNumber(1)),
+				ToBlock:   new(rpc.BlockIDFromNumber(0)),
 			},
 			ResultPageRequest: rpc.ResultPageRequest{
 				ChunkSize:         100,
@@ -104,7 +104,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with no address", func(t *testing.T) {
-		args.ToBlock = utils.HeapPtr(blockIDLatest(t))
+		args.ToBlock = new(blockIDLatest(t))
 		args.Address = nil
 		_, err := handler.Events(args)
 		require.Nil(t, err)
@@ -113,7 +113,7 @@ func TestEvents(t *testing.T) {
 	t.Run("filter with no keys", func(t *testing.T) {
 		var allEvents []rpc.EmittedEvent
 		t.Run("get canonical events without pagination", func(t *testing.T) {
-			args.ToBlock = utils.HeapPtr(blockIDLatest(t))
+			args.ToBlock = new(blockIDLatest(t))
 			args.Address = from
 			events, err := handler.Events(args)
 			require.Nil(t, err)
@@ -222,8 +222,8 @@ func TestEvents(t *testing.T) {
 	t.Run("pending block always empty", func(t *testing.T) {
 		args = rpc.EventsArg{
 			EventFilter: rpc.EventFilter{
-				FromBlock: utils.HeapPtr(blockIDPending(t)),
-				ToBlock:   utils.HeapPtr(blockIDPending(t)),
+				FromBlock: new(blockIDPending(t)),
+				ToBlock:   new(blockIDPending(t)),
 			},
 			ResultPageRequest: rpc.ResultPageRequest{
 				ChunkSize:         100,

@@ -417,7 +417,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	basicSubscriptionWithPreConfirmed := testCase{
 		description:    "Events from new blocks - status PRE_CONFIRMED",
-		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		finalityStatus: new(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		blockID:        nil,
 		keys:           nil,
 		fromAddr:       nil,
@@ -495,7 +495,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	eventsFromHistoricalBlocks := testCase{
 		description: "Events from historical blocks - default status, events from 2 block",
-		blockID:     utils.HeapPtr(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
+		blockID:     new(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
 		keys:        nil,
 		fromAddr:    nil,
 		setupMocks: func() {
@@ -523,7 +523,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	eventsWithContinuationToken := testCase{
 		description: "Events with continuation token - default status",
-		blockID:     utils.HeapPtr(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
+		blockID:     new(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
 		keys:        nil,
 		fromAddr:    nil,
 		setupMocks: func() {
@@ -576,7 +576,7 @@ func TestSubscribeEvents(t *testing.T) {
 	eventsWithFromAddressAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
 		description:    "Events with from_address filter, finality PRE_CONFIRMED",
 		blockID:        nil,
-		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		finalityStatus: new(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		fromAddr:       targetAddr,
 		keys:           nil,
 		setupMocks: func() {
@@ -618,7 +618,7 @@ func TestSubscribeEvents(t *testing.T) {
 	eventsWithAllFilterAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
 		description:    "Events with from_address and key, finality PRE_CONFIRMED",
 		blockID:        nil,
-		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		finalityStatus: new(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		fromAddr:       targetAddr,
 		keys:           keys,
 		setupMocks: func() {
@@ -659,7 +659,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	deduplication := testCase{
 		description:    "deduplicate events",
-		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		finalityStatus: new(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
 				mockChain,
@@ -721,7 +721,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	deduplicationWithPreLatestOnStart := testCase{
 		description:    "deduplicate events with prelatest on start",
-		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		finalityStatus: new(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		setupMocks: func() {
 			setupMockEventFiltererWithMultiple(
 				mockChain,
@@ -1703,7 +1703,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on new pre_confirmed full of candidates",
 				notify: func() {
-					syncer.preConfirmed.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, 0)))
+					syncer.preConfirmed.Send(new(createTestPreConfirmed(t, newHead2, 0)))
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(senderTransactions, TxnStatusWithoutL1(TxnStatusCandidate)),
@@ -2488,7 +2488,7 @@ func subMsg(method string) string {
 func testHeadBlock(t *testing.T) *core.Block {
 	t.Helper()
 
-	n := utils.HeapPtr(utils.Sepolia)
+	n := new(utils.Sepolia)
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 

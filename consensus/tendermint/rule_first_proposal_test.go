@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,14 +40,14 @@ func TestFirstProposal(t *testing.T) {
 			previousRound.action().writeWALProposal(0, expectedValue, -1),
 			previousRound.action().broadcastPrevote(&expectedValue),
 		)
-		previousRound.validator(0).prevote(utils.HeapPtr(expectedValue))
+		previousRound.validator(0).prevote(new(expectedValue))
 		previousRound.validator(1).prevote(nil)
-		previousRound.validator(2).prevote(utils.HeapPtr(expectedValue))
+		previousRound.validator(2).prevote(new(expectedValue))
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Validator 0 stays silent in the precommit step
 		previousRound.validator(1).precommit(nil)
-		previousRound.validator(2).precommit(utils.HeapPtr(expectedValue))
+		previousRound.validator(2).precommit(new(expectedValue))
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 		assert.Equal(t, &expectedValue, stateMachine.state.lockedValue)
 		assert.Equal(t, types.Round(0), stateMachine.state.lockedRound)
@@ -76,14 +75,14 @@ func TestFirstProposal(t *testing.T) {
 		// Validator 0 is a faulty proposer, proposing an invalid value to validator 1
 		previousRound.start()
 		previousRound.validator(0).proposal(expectedValue, -1)
-		previousRound.validator(0).prevote(utils.HeapPtr(expectedValue))
+		previousRound.validator(0).prevote(new(expectedValue))
 		previousRound.validator(1).prevote(nil)
-		previousRound.validator(2).prevote(utils.HeapPtr(expectedValue))
+		previousRound.validator(2).prevote(new(expectedValue))
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Validator 0 stays silent in the precommit step
 		previousRound.validator(1).precommit(nil)
-		previousRound.validator(2).precommit(utils.HeapPtr(expectedValue))
+		previousRound.validator(2).precommit(new(expectedValue))
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 		assert.Equal(t, &expectedValue, stateMachine.state.lockedValue)
 		assert.Equal(t, types.Round(0), stateMachine.state.lockedRound)

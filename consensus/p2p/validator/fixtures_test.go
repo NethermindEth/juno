@@ -129,7 +129,7 @@ func buildProposalInit(
 ) consensus.ProposalPart {
 	var validRoundPtr *uint32
 	if testCase.ValidRound != -1 {
-		validRoundPtr = utils.HeapPtr(uint32(testCase.ValidRound))
+		validRoundPtr = new(uint32(testCase.ValidRound))
 	}
 
 	return consensus.ProposalPart{
@@ -284,7 +284,7 @@ func buildProposal(round, validRound types.Round, block *core.Block) starknetcon
 			Sender: starknetconsensus.Address(*block.SequencerAddress),
 		},
 		ValidRound: validRound,
-		Value:      utils.HeapPtr(starknetconsensus.Value(*block.Hash)),
+		Value:      new(starknetconsensus.Value(*block.Hash)),
 	}
 }
 
@@ -305,7 +305,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 			},
 			StateUpdate: &core.StateUpdate{
 				OldRoot:   headBlockHeader.GlobalStateRoot,
-				StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
+				StateDiff: new(core.EmptyStateDiff()),
 			},
 			NewClasses:            map[felt.Felt]core.ClassDefinition{},
 			TransactionStateDiffs: []*core.StateDiff{},

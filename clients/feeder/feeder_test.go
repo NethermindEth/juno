@@ -83,8 +83,8 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 				),
 			},
 			Nonce:       new(felt.Felt).SetUint64(1),
-			NonceDAMode: utils.HeapPtr(starknet.DAModeL1),
-			FeeDAMode:   utils.HeapPtr(starknet.DAModeL1),
+			NonceDAMode: new(starknet.DAModeL1),
+			FeeDAMode:   new(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
@@ -177,8 +177,8 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 				),
 			},
 			Nonce:       felt.NewUnsafeFromString[felt.Felt]("0xe97"),
-			NonceDAMode: utils.HeapPtr(starknet.DAModeL1),
-			FeeDAMode:   utils.HeapPtr(starknet.DAModeL1),
+			NonceDAMode: new(starknet.DAModeL1),
+			FeeDAMode:   new(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
@@ -381,8 +381,8 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 				),
 			},
 			Nonce:       new(felt.Felt),
-			NonceDAMode: utils.HeapPtr(starknet.DAModeL1),
-			FeeDAMode:   utils.HeapPtr(starknet.DAModeL1),
+			NonceDAMode: new(starknet.DAModeL1),
+			FeeDAMode:   new(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),

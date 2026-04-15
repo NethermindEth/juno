@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +31,7 @@ func TestTimeout(t *testing.T) {
 
 		currentRound.start()
 		currentRound.validator(0).proposal(value(42), -1)
-		currentRound.validator(1).prevote(utils.HeapPtr(value(42)))
+		currentRound.validator(1).prevote(new(value(42)))
 		currentRound.validator(2).prevote(nil).expectActions(
 			currentRound.action().writeWALPrevote(2, nil),
 			currentRound.action().scheduleTimeout(types.StepPrevote),
@@ -54,7 +53,7 @@ func TestTimeout(t *testing.T) {
 		nextRound := newTestRound(t, stateMachine, 0, 1)
 
 		currentRound.start()
-		currentRound.validator(0).precommit(utils.HeapPtr(value(10)))
+		currentRound.validator(0).precommit(new(value(10)))
 		currentRound.validator(1).precommit(nil)
 		currentRound.validator(2).precommit(nil).expectActions(
 			currentRound.action().writeWALPrecommit(2, nil),

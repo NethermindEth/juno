@@ -1472,11 +1472,11 @@ func TestAddTransaction(t *testing.T) {
 				Times(1)
 
 			handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger())
-			_, rpcErr := handler.AddTransaction(t.Context(), utils.HeapPtr(test.txn))
+			_, rpcErr := handler.AddTransaction(t.Context(), new(test.txn))
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
-			got, rpcErr := handler.AddTransaction(t.Context(), utils.HeapPtr(test.txn))
+			got, rpcErr := handler.AddTransaction(t.Context(), new(test.txn))
 			require.Nil(t, rpcErr)
 			require.Equal(t, rpc.AddTxResponse{
 				TransactionHash: felt.NewFromUint64[felt.Felt](0x1),
@@ -1546,7 +1546,7 @@ func TestAddTransaction(t *testing.T) {
 				handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger()).WithGateway(mockGateway)
 				addTxRes, rpcErr := handler.AddTransaction(
 					t.Context(),
-					utils.HeapPtr(tests["invoke v0"].txn),
+					new(tests["invoke v0"].txn),
 				)
 
 				require.Equal(t, tc.expectedError, rpcErr)
