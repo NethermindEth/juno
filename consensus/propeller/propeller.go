@@ -10,20 +10,27 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
 // This would represent the propeller service that glues the whole
 // thing to p2p. Thing is, I've no clue how to do that.
-type Service interface{}
+type Service any
 
 type propellerService struct {
-	host   host.Host
-	engine *Engine
-	cmdCh  chan<- engineCommand
+	// P2P config
+	host host.Host
+	// Internal config
 	config Config
 	log    utils.Logger
+	// Propeller communication
+	engine   *Engine
+	cmdCh    chan<- engineCommand
+	eventsCh <-chan Event
+	// External communication
+	messageRecv chan []byte
 }
 
 func New(
@@ -32,22 +39,23 @@ func New(
 	config *Config,
 	log utils.Logger,
 ) Service {
-	engine, cmdCh := NewEngine(
+	engine, cmdCh, eventsCh := NewEngine(
 		privKey,
 		config,
 		log,
 	)
 
 	return &propellerService{
-		host:   host,
-		engine: engine,
-		cmdCh:  cmdCh,
-		config: *config,
-		log:    log,
+		host:     host,
+		engine:   engine,
+		cmdCh:    cmdCh,
+		eventsCh: eventsCh,
+		config:   *config,
+		log:      log,
 	}
 }
 
-func (s *propellerService) receivePropellerUnits(stream network.Stream) {
+func (s *propellerService) receiveUnits(stream network.Stream) {
 	defer stream.Close()
 
 	sender := stream.Conn().RemotePeer()
@@ -77,6 +85,10 @@ func (s *propellerService) receivePropellerUnits(stream network.Stream) {
 		if err != nil {
 			s.log.Warn("received invalid unit", zap.Error(err))
 			// todo(rdr): penalize sender?
+			// If we do it here then it means it shouldn't be handled at
+			// subP or Processor level, and all should be handled here,
+			// which means, every invalid unit should be handled at Service
+			// level. To be determined yet.
 			continue
 		}
 		// send unit to engine
@@ -87,7 +99,53 @@ func (s *propellerService) receivePropellerUnits(stream network.Stream) {
 	}
 }
 
+func (s *propellerService) broadcastUnit(ctx context.Context, unit *Unit, peers []peer.ID) {
+	batch := &pb.PropellerUnitBatch{
+		Batch: []*pb.PropellerUnit{unit.ToProto()},
+	}
+	data, err := proto.Marshal(batch)
+	if err != nil {
+		// todo(rdr): log the error? What if this cannot get it done?
+		// Our batch is correct unless there is an internal bug
+		panic(err)
+	}
+
+	for _, p := range peers {
+		err = s.sendToPeer(ctx, p, data)
+		if err != nil {
+			// Why would there be any error
+			// What should we do in this case
+			panic(err)
+		}
+	}
+}
+
+func (s *propellerService) sendToPeer(ctx context.Context, p peer.ID, data []byte) error {
+	stream, err := s.host.NewStream(ctx, p, s.config.StreamProtocol)
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+
+	_, err = stream.Write(data)
+	return err
+}
+
+func (s *propellerService) broadcastMessage(ctx context.Context, msg []byte) {
+}
+
+func (s *propellerService) handleEvent(ctx context.Context, event Event) {
+	switch event := event.(type) {
+	case *messageFinalized:
+		// if the message is finalized it should have a receive
+		s.messageRecv <- event.message
+	case *broadcastUnit:
+		s.broadcastUnit(ctx, event.unit, event.peers)
+	}
+}
+
 func (s *propellerService) Run(ctx context.Context) error {
+	// Start engine service in the background
 	go func() {
 		err := s.engine.Run(ctx)
 		if err != nil {
@@ -97,17 +155,31 @@ func (s *propellerService) Run(ctx context.Context) error {
 		s.log.Info("shutting down propeller engine")
 	}()
 
-	s.host.SetStreamHandler(s.config.StreamProtocol, s.receivePropellerUnits)
+	// Subscribe to receiving certain topics
+	s.host.SetStreamHandler(s.config.StreamProtocol, s.receiveUnits)
 	defer s.host.RemoveStreamHandler(s.config.StreamProtocol)
 
+	// Handle Engine outputs
 	for {
+		// todo(rdr): handle the engines output such as units to broadcast
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case event := <-s.eventsCh:
+			s.handleEvent(ctx, event)
 		}
-		// todo(rdr): handle the engines output such as units to broadcast
 	}
 }
 
-func (s *propellerService) broadcast() {
+func (s *propellerService) Broadcast(msg []byte) {
+}
+
+func (s *propellerService) Recv() <-chan []byte {
+	return s.messageRecv
+}
+
+func (s *propellerService) RegisterCommittee(committeeID *CommitteeID) {
+}
+
+func (s *propellerService) UnregisterCommittee(comitteeID *CommitteeID) {
 }

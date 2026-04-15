@@ -114,12 +114,9 @@ type Engine struct {
 
 	// eventCh is shared between all processors and the engine. The engine
 	// reads from it and forwards events to the application via Events().
-	eventCh chan any
-
-	// appEventCh is the externally-visible event channel. The engine copies
-	// events from eventCh to appEventCh in its Run() loop, filtering out
-	// internal events as needed.
-	appEventCh chan any
+	// todo(rdr): currently sent directly from the processor to the service,
+	//            does the engine needs to do any filtering?
+	// eventCh chan Event
 
 	// cmdCh receives commands from the propeller service and act on those
 	cmdCh <-chan engineCommand
@@ -140,14 +137,14 @@ func NewEngine(
 	privKey crypto.PrivKey,
 	config *Config,
 	log utils.StructuredLogger,
-) (*Engine, chan<- engineCommand) {
+) (*Engine, chan<- engineCommand, <-chan Event) {
 	localPeerID, err := peer.IDFromPrivateKey(privKey)
 	if err != nil {
 		// todo(rdr): pannic for now, error handling for later
 		panic(err)
 	}
 
-	processor := NewProcessor(localPeerID, config)
+	processor, eventsCh := NewProcessor(localPeerID, config)
 
 	cmdCh := make(chan engineCommand)
 
@@ -162,9 +159,7 @@ func NewEngine(
 		unitsPrepared: make(chan broadcastResult),
 		// Unsure of the fields below
 		connectedPeers: make(map[peer.ID]struct{}),
-		eventCh:        make(chan any, eventChSize),
-		appEventCh:     make(chan any, appEventChSize),
-	}, cmdCh
+	}, cmdCh, eventsCh
 }
 
 // registerCommittee creates the schedule and encoder for a new channel.
@@ -230,9 +225,9 @@ func (e *Engine) unregisterCommittee(committeeID *CommitteeID) {
 	)
 }
 
-// prepareBroadcast creates Proppeller units asynchronously since it is a very expensive
+// prepareUnitsForBroadcast creates Proppeller units asynchronously since it is a very expensive
 // operation.
-func (e *Engine) prepareBroadcast(committeeID *CommitteeID, data []byte) error {
+func (e *Engine) prepareUnitsForBroadcast(committeeID *CommitteeID, data []byte) error {
 	cs, ok := e.committees[*committeeID]
 	if !ok {
 		return fmt.Errorf("cannot broadcast to an unregistered committee: %s", committeeID)
@@ -279,6 +274,7 @@ func (e *Engine) broadcast(units []Unit) error {
 	}
 
 	// todo(rdr): I need to do the actual sending
+	// I need to pass to the eventCh all the units that it should receive
 
 	return nil
 }
@@ -302,16 +298,6 @@ func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
 	}
 }
 
-// forwardEvent sends an event to the application's event channel. Non-blocking
-// to avoid stalling the engine if the application is slow to consume events.
-func (e *Engine) forwardEvent(event any) {
-	select {
-	case e.appEventCh <- event:
-	default:
-		e.log.Warn("dropping event: application event channel full")
-	}
-}
-
 // handleCommand dispatches a command to the appropriate handler.
 func (e *Engine) handleCommand(ctx context.Context, command engineCommand) {
 	switch cmd := command.(type) {
@@ -321,16 +307,16 @@ func (e *Engine) handleCommand(ctx context.Context, command engineCommand) {
 	case *unregisterCommittee:
 		e.unregisterCommittee(&cmd.committeeID)
 	case *broadcast:
-		err := e.prepareBroadcast(&cmd.committeeID, cmd.msg)
+		// we might need to pass the error channel here so that the internal go-routine
+		// can forward it correctly (assuming a per command error channel)
+		err := e.prepareUnitsForBroadcast(&cmd.committeeID, cmd.msg)
 		cmd.errCh <- err
 	case *processUnit:
 		e.processUnit(ctx, cmd.unit, cmd.sender)
 	}
 }
 
-// Run starts the engine's main loop. It blocks until the context is cancelled.
-// This should be called in its own goroutine.
-//
+// Run starts the engine's main loop until context is cancelled.
 // The loop processes three things concurrently:
 //  1. Commands from external callers (register, broadcast, handle incoming unit).
 //  2. Events from message processors (forward to application).
@@ -349,10 +335,6 @@ func (e *Engine) Run(ctx context.Context) error {
 				e.log.Error("couldn't prepare units", zap.Error(broadcastResult.err))
 			}
 			e.broadcast(broadcastResult.units)
-
-		case event := <-e.eventCh:
-			// Forward application-visible events from processors.
-			e.forwardEvent(event)
 		}
 	}
 }

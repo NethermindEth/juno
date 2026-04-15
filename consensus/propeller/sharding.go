@@ -22,7 +22,7 @@ func CreatePropellerUnits(
 ) ([]Unit, error) {
 	publisherID, err := peer.IDFromPrivateKey(privKey)
 	if err != nil {
-		return nil, fmt.Errorf("getting publisher id from private key: %w", publisherID)
+		return nil, fmt.Errorf("getting publisher id %s from private key: %w", publisherID, err)
 	}
 
 	paddedMessage := PadMessage(message, numDataShards)
@@ -41,13 +41,11 @@ func CreatePropellerUnits(
 
 	units := make([]Unit, len(encodedMessage))
 	for i, shard := range encodedMessage {
-		merkleProof := merkleTree[i]
-
 		units[i] = Unit{
 			CommitteeID: *committeeID,
 			Publisher:   publisherID,
 			MessageRoot: messageRoot,
-			MerkleProof: merkleProof,
+			MerkleProof: merkleTree[i],
 			Signature:   signature,
 			ShardIndex:  ShardIndex(i),
 			// todo(rdr): assigning one shard per unit until multi shard algo per unit

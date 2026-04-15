@@ -14,6 +14,29 @@ import (
 	"go.uber.org/zap"
 )
 
+type Event interface {
+	isEvent()
+}
+
+type messageFinalized struct {
+	message []byte
+}
+
+func (*messageFinalized) isEvent() {}
+
+type broadcastUnit struct {
+	unit  *Unit
+	peers []peer.ID
+}
+
+func (*broadcastUnit) isEvent() {}
+
+type broadcastMessage struct {
+	unit []Unit
+}
+
+func (*broadcastMessage) isEvent() {}
+
 type unitWithSender struct {
 	unit   *Unit
 	sender peer.ID
@@ -26,9 +49,8 @@ type subprocessor struct {
 
 	unitsChan        <-chan unitWithSender
 	invalidUnitsChan chan<- invalidUnit
+	processingEvents chan<- Event
 
-	// todo(rdr): I think I would like it more if it is called UnitValidator since
-	// is more specfic
 	validator UnitValidator
 }
 
@@ -52,7 +74,7 @@ func newSubprocessor(
 	}
 }
 
-func (s *subprocessor) broadcastUnit(unit *Unit) error {
+func (s *subprocessor) broadcastUnit(unit *Unit) {
 	index := 0
 	peers := make([]peer.ID, len(s.scheduler.Peers())-2)
 	for _, peerCommittee := range s.scheduler.Peers() {
@@ -67,8 +89,10 @@ func (s *subprocessor) broadcastUnit(unit *Unit) error {
 		peers[i], peers[j] = peers[j], peers[i]
 	})
 
-	// todo(rdr): This should forward the unit and the peers that require broadcasting
-	panic("not  implemented")
+	s.processingEvents <- &broadcastUnit{
+		unit:  unit,
+		peers: peers,
+	}
 }
 
 func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
@@ -121,11 +145,7 @@ func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
 			// broadcast as soon as I get my shard
 			if !localShardWasBroadcast && s.localShardIndex == unit.ShardIndex {
 				localShardWasBroadcast = true
-				err := s.broadcastUnit(unit)
-				if err != nil {
-					// todo(rdr): tbd if we need an error here
-					panic(err)
-				}
+				s.broadcastUnit(unit)
 			}
 		}
 	}
@@ -155,11 +175,7 @@ func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
 			ShardIndex:  s.localShardIndex,
 			ShardData:   localShardData,
 		}
-		err := s.broadcastUnit(&localUnit)
-		if err != nil {
-			// todo(rdr): tbd if we need an error here
-			panic(err)
-		}
+		s.broadcastUnit(&localUnit)
 		unitCount += 1
 	}
 
@@ -272,8 +288,10 @@ type Processor struct {
 	subProcessors map[messageKey]chan<- unitWithSender
 	// channel through wich subprocessors signal they have finalized execution
 	subProcessorsFinalized chan finalizedSubprocessor
-	// channel through which subprocessor sharedunits that failed validation
+	// channel through which subprocessor share units that failed validation
 	invalidUnits chan invalidUnit
+	// channel through which important events are shared
+	processingEvents chan<- Event
 
 	// track current open and closed tasks to avoid resource starvation
 	mu             sync.Mutex
@@ -286,8 +304,9 @@ type Processor struct {
 	log                   utils.StructuredLogger
 }
 
-func NewProcessor(localPeer peer.ID, config *Config) *Processor {
+func NewProcessor(localPeer peer.ID, config *Config) (*Processor, <-chan Event) {
 	timeout := config.StaleMessageTimeout
+	processingEvents := make(chan Event)
 
 	return &Processor{
 		finalized: timecache.New[messageKey](2048, timeout),
@@ -295,6 +314,7 @@ func NewProcessor(localPeer peer.ID, config *Config) *Processor {
 		subProcessors:          make(map[messageKey]chan<- unitWithSender),
 		subProcessorsFinalized: make(chan finalizedSubprocessor),
 		invalidUnits:           make(chan invalidUnit),
+		processingEvents:       processingEvents,
 
 		mu:             sync.Mutex{},
 		publisherTasks: make(map[peer.ID]uint64),
@@ -308,7 +328,7 @@ func NewProcessor(localPeer peer.ID, config *Config) *Processor {
 			maxWorkers:             1000,
 			maxWorkersPerPublisher: 250,
 		},
-	}
+	}, processingEvents
 }
 
 func (p *Processor) Run(ctx context.Context) {
