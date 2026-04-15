@@ -430,5 +430,4 @@ func NewState(t *testing.T, stateRoot *felt.Felt, testDB db.KeyValueStore, batch
 		return nil, err
 	}
 	return state, nil
-
 }
