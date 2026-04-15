@@ -54,6 +54,7 @@ func clearEmptyProofFacts(txs []core.Transaction) {
 }
 
 func TestWriteTransactionsAndReceipts(t *testing.T) {
+	t.Parallel()
 	memDB := memory.New()
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
@@ -79,26 +80,31 @@ func TestWriteTransactionsAndReceipts(t *testing.T) {
 	assert.Equal(t, block, blockFromDB)
 }
 
+//nolint:dupl // Similar to TestGetReceiptsByBlockNumber, but they're different methods
 func TestGetTransactionsByBlockNumber(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
 		txs, err := core.GetTransactionsByBlockNumber(memDB, block.Number)
 		require.NoError(t, err)
 		assert.Equal(t, block.Transactions, txs)
-
 	})
 
 	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
 		_, err := core.GetTransactionsByBlockNumber(memDB, nonexistentBlockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
 func TestGetTransactionsByBlockNumberIter(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
 		iterTxs := make([]core.Transaction, 0)
 		for tx, err := range core.GetTransactionsByBlockNumberIter(memDB, block.Number) {
 			require.NoError(t, err)
@@ -108,16 +114,20 @@ func TestGetTransactionsByBlockNumberIter(t *testing.T) {
 	})
 
 	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
 		for _, err := range core.GetTransactionsByBlockNumberIter(memDB, nonexistentBlockNumber) {
 			require.ErrorIs(t, err, db.ErrKeyNotFound)
 		}
 	})
 }
 
+//nolint:dupl // Similar to TestGetReceiptByBlockAndIndex, but they're different methods
 func TestGetTransactionByBlockAndIndex(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
 		for i, expectedTx := range block.Transactions {
 			tx, err := core.GetTransactionByBlockAndIndex(memDB, block.Number, uint64(i))
 			require.NoError(t, err)
@@ -130,15 +140,18 @@ func TestGetTransactionByBlockAndIndex(t *testing.T) {
 	})
 
 	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
 		_, err := core.GetTransactionByBlockAndIndex(memDB, nonexistentBlockNumber, 0)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
 func TestGetTransactionByHash(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid transaction", func(t *testing.T) {
+		t.Parallel()
 		for _, expectedTx := range block.Transactions {
 			tx, err := core.GetTransactionByHash(memDB, (*felt.TransactionHash)(expectedTx.Hash()))
 			require.NoError(t, err)
@@ -147,30 +160,38 @@ func TestGetTransactionByHash(t *testing.T) {
 	})
 
 	t.Run("non-existent transaction", func(t *testing.T) {
+		t.Parallel()
 		_, err := core.GetTransactionByHash(memDB, new(felt.TransactionHash))
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
+//nolint:dupl // Similar to TestGetTransactionsByBlockNumber, but they're different methods
 func TestGetReceiptsByBlockNumber(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
 		receipts, err := core.GetReceiptsByBlockNumber(memDB, block.Number)
 		require.NoError(t, err)
 		assert.Equal(t, block.Receipts, receipts)
 	})
 
 	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
 		_, err := core.GetReceiptsByBlockNumber(memDB, nonexistentBlockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
+//nolint:dupl // Similar to TestGetTransactionByBlockAndIndex, but they're different methods
 func TestGetReceiptByBlockAndIndex(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
 		for i, expectedReceipt := range block.Receipts {
 			receipt, err := core.GetReceiptByBlockAndIndex(memDB, block.Number, uint64(i))
 			require.NoError(t, err)
@@ -183,15 +204,18 @@ func TestGetReceiptByBlockAndIndex(t *testing.T) {
 	})
 
 	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
 		_, err := core.GetReceiptByBlockAndIndex(memDB, nonexistentBlockNumber, 0)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
 func TestGetBlockByNumber(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
 
 		blockFromDB, err := core.GetBlockByNumber(memDB, block.Number)
@@ -200,15 +224,18 @@ func TestGetBlockByNumber(t *testing.T) {
 	})
 
 	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
 		_, err := core.GetBlockByNumber(memDB, nonexistentBlockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
 func TestDeleteTransactionsAndReceipts(t *testing.T) {
+	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 
 	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
 		batch := memDB.NewBatch()
 		require.NoError(t, core.DeleteTransactionsAndReceipts(memDB, batch, block.Number))
 		require.NoError(t, batch.Write())
@@ -223,6 +250,7 @@ func TestDeleteTransactionsAndReceipts(t *testing.T) {
 	})
 
 	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
 		batch := memDB.NewBatch()
 		err := core.DeleteTransactionsAndReceipts(memDB, batch, nonexistentBlockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
