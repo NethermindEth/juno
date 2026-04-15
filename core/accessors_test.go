@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -15,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTransactionsAndReceipts(t *testing.T) {
+func TestWriteTransactionsAndReceipts(t *testing.T) {
 	memDB := memory.New()
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
@@ -23,85 +22,242 @@ func TestTransactionsAndReceipts(t *testing.T) {
 	block, err := gw.BlockByNumber(t.Context(), 4072139)
 	require.NoError(t, err)
 
-	// write txs and receipts (testing `WriteTransactionsAndReceipts` function)
-	require.NoError(
-		t,
-		core.WriteTransactionsAndReceipts(memDB, block.Number, block.Transactions, block.Receipts),
+	_, err = core.GetBlockByNumber(memDB, block.Number)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	err = core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
 	)
+	require.NoError(t, err)
 
 	clearEmptyProofFacts(block.Transactions)
 
-	// read txs (testing `GetTransactionsByBlockNumber` function)
+	// required for GetBlockByNumber
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	blockFromDB, err := core.GetBlockByNumber(memDB, block.Number)
+	require.NoError(t, err)
+	assert.Equal(t, block, blockFromDB)
+}
+
+func TestGetTransactionsByBlockNumber(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	_, err = core.GetTransactionsByBlockNumber(memDB, block.Number)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+	clearEmptyProofFacts(block.Transactions)
+
 	txs, err := core.GetTransactionsByBlockNumber(memDB, block.Number)
 	require.NoError(t, err)
 	assert.Equal(t, block.Transactions, txs)
+}
 
-	// read txs from iterator (testing `GetTransactionsByBlockNumberIter` function)
+func TestGetTransactionsByBlockNumberIter(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	for _, err := range core.GetTransactionsByBlockNumberIter(memDB, block.Number) {
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	}
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+	clearEmptyProofFacts(block.Transactions)
+
 	iterTxs := make([]core.Transaction, 0)
 	iter := core.GetTransactionsByBlockNumberIter(memDB, block.Number)
 	for tx, err := range iter {
 		require.NoError(t, err)
 		iterTxs = append(iterTxs, tx)
 	}
-	assert.Equal(t, txs, iterTxs)
+	assert.Equal(t, block.Transactions, iterTxs)
+}
 
-	// read txs by block and index (testing `GetTransactionByBlockAndIndex` function)
-	indexedTxs := make([]core.Transaction, len(txs))
-	// we range through len(txs) + 1 to test we are not getting more txs than expected
-	for i := range len(txs) + 1 {
+func TestGetTransactionByBlockAndIndex(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	_, err = core.GetTransactionByBlockAndIndex(memDB, block.Number, 0)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+	clearEmptyProofFacts(block.Transactions)
+
+	for i, expectedTx := range block.Transactions {
 		tx, err := core.GetTransactionByBlockAndIndex(memDB, block.Number, uint64(i))
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) && i == len(txs) {
-				continue
-			}
-			require.NoError(t, err)
-		}
-		indexedTxs[i] = tx
-	}
-	assert.Equal(t, txs, indexedTxs)
-
-	// read tx by hash (testing `GetTransactionByHash` function)
-	for _, tx := range txs {
-		tx, err := core.GetTransactionByHash(memDB, (*felt.TransactionHash)(tx.Hash()))
 		require.NoError(t, err)
-		assert.Equal(t, tx, tx)
+		assert.Equal(t, expectedTx, tx)
 	}
 
-	// read receipts by block number (testing `GetReceiptsByBlockNumber` function)
+	// one past the last index should return ErrKeyNotFound
+	_, err = core.GetTransactionByBlockAndIndex(memDB, block.Number, uint64(len(block.Transactions)))
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+}
+
+func TestGetTransactionByHash(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	_, err = core.GetTransactionByHash(memDB, (*felt.TransactionHash)(block.Transactions[0].Hash()))
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+	clearEmptyProofFacts(block.Transactions)
+
+	for _, expectedTx := range block.Transactions {
+		tx, err := core.GetTransactionByHash(memDB, (*felt.TransactionHash)(expectedTx.Hash()))
+		require.NoError(t, err)
+		assert.Equal(t, expectedTx, tx)
+	}
+}
+
+func TestGetReceiptsByBlockNumber(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	_, err = core.GetReceiptsByBlockNumber(memDB, block.Number)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+
 	receipts, err := core.GetReceiptsByBlockNumber(memDB, block.Number)
 	require.NoError(t, err)
 	assert.Equal(t, block.Receipts, receipts)
+}
 
-	// read receipts by block and index (testing `GetReceiptByBlockAndIndex` function)
-	indexedReceipts := make([]*core.TransactionReceipt, len(receipts))
-	// we range through len(receipts) + 1 to test we are not getting more receipts than expected
-	for i := range len(receipts) + 1 {
+func TestGetReceiptByBlockAndIndex(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	_, err = core.GetReceiptByBlockAndIndex(memDB, block.Number, 0)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+
+	for i, expectedReceipt := range block.Receipts {
 		receipt, err := core.GetReceiptByBlockAndIndex(memDB, block.Number, uint64(i))
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) && i == len(receipts) {
-				continue
-			}
-			require.NoError(t, err)
-		}
-		indexedReceipts[i] = receipt
+		require.NoError(t, err)
+		assert.Equal(t, expectedReceipt, receipt)
 	}
-	assert.Equal(t, receipts, indexedReceipts)
 
-	// read block by number (testing `GetBlockByNumber` function)
+	// one past the last index should return ErrKeyNotFound
+	_, err = core.GetReceiptByBlockAndIndex(memDB, block.Number, uint64(len(block.Receipts)))
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+}
+
+func TestGetBlockByNumber(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	_, err = core.GetBlockByNumber(memDB, block.Number)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+	clearEmptyProofFacts(block.Transactions)
 	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
 	blockFromDB, err := core.GetBlockByNumber(memDB, block.Number)
 	require.NoError(t, err)
 	assert.Equal(t, block, blockFromDB)
+}
 
-	// delete txs and receipts (testing `DeleteTransactionsAndReceipts` function)
+func TestDeleteTransactionsAndReceipts(t *testing.T) {
+	memDB := memory.New()
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 4072139)
+	require.NoError(t, err)
+
+	_, err = core.GetTransactionsByBlockNumber(memDB, block.Number)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+	_, err = core.GetReceiptsByBlockNumber(memDB, block.Number)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	require.NoError(t, core.WriteTransactionsAndReceipts(
+		memDB,
+		block.Number,
+		block.Transactions,
+		block.Receipts,
+	))
+
 	batch := memDB.NewBatch()
 	require.NoError(t, core.DeleteTransactionsAndReceipts(memDB, batch, block.Number))
 	require.NoError(t, batch.Write())
 
-	txs, err = core.GetTransactionsByBlockNumber(memDB, block.Number)
+	txs, err := core.GetTransactionsByBlockNumber(memDB, block.Number)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	assert.Empty(t, txs)
-	receipts, err = core.GetReceiptsByBlockNumber(memDB, block.Number)
+
+	receipts, err := core.GetReceiptsByBlockNumber(memDB, block.Number)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	assert.Empty(t, receipts)
 }
