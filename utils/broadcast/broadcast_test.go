@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/utils/broadcast"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/broadcast"
 	"github.com/stretchr/testify/require"
 )
 
