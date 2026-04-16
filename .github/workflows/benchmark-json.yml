@@ -47,9 +47,6 @@ jobs:
             core/rust
             starknet/compiler/rust
 
-      - name: Install deps
-        run: make install-deps
-
       - name: Install Jemalloc (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
@@ -57,6 +54,9 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install jemalloc
+
+      - name: Build Rust dependencies
+        run: make rustdeps
 
       - name: Run summary
         env:
