@@ -1,6 +1,7 @@
 name: JSON Benchmark
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       repeats:
@@ -57,15 +58,6 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install jemalloc
 
-      # - name: Run go test benchmarks
-      #   env:
-      #     GOLDEN_TESTS_DIR: ${{ github.workspace }}/starknet-golden-tests
-      #     BENCH_REPEAT: ${{ inputs.repeats || '1' }}
-      #   run: |
-      #     go test -bench='Benchmark(Marshal|Unmarshal)/' \
-      #       -benchmem -count=1 -run='^$' -timeout=60m \
-      #       ./cmd/jsonbench/ | tee benchmark-raw.txt
-
       - name: Run summary
         env:
           GOLDEN_TESTS_DIR: ${{ github.workspace }}/starknet-golden-tests
@@ -79,6 +71,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: json-benchmark-${{ matrix.runner }}
-          path: |
-            benchmark-raw.txt
-            benchmark-summary.txt
+          path: benchmark-summary.txt
