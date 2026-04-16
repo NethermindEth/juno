@@ -314,7 +314,11 @@ func TestPreConfirmed(t *testing.T) {
 	t.Run("Returns pre_confirmed data when available", func(t *testing.T) {
 		t.Parallel()
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &networks.Mainnet)
+		bc := blockchain.New(
+			testDB,
+			&networks.Mainnet,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(t.Context(), 0)
@@ -339,7 +343,12 @@ func TestPreConfirmed(t *testing.T) {
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &networks.Mainnet)
+		bc := blockchain.New(
+			testDB,
+			&networks.Mainnet,
+
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(t.Context(), 0)
