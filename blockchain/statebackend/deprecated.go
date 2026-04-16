@@ -29,7 +29,7 @@ func (b *deprecatedStateBackend) StateCommitment() (felt.Felt, error) {
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	return deprecatedstate.NewDeprecatedState(txn).Commitment(header.ProtocolVersion)
+	return deprecatedstate.NewState(txn).Commitment(header.ProtocolVersion)
 }
 
 func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, error) {
@@ -47,7 +47,7 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 		return nil, nil, err
 	}
 
-	return deprecatedstate.NewDeprecatedState(txn), NoopStateCloser, nil
+	return deprecatedstate.NewState(txn), NoopStateCloser, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockNumber(
@@ -62,8 +62,8 @@ func (b *deprecatedStateBackend) StateAtBlockNumber(
 		return nil, nil, err
 	}
 
-	return deprecatedstate.NewDeprecatedStateHistory(
-		deprecatedstate.NewDeprecatedState(txn),
+	return deprecatedstate.NewStateHistory(
+		deprecatedstate.NewState(txn),
 		blockNumber,
 	), NoopStateCloser, nil
 }
@@ -75,7 +75,7 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 	if blockHash.IsZero() {
 		memDB := memory.New()
 		txn := memDB.NewIndexedBatch()
-		return deprecatedstate.NewDeprecatedState(txn), NoopStateCloser, nil
+		return deprecatedstate.NewState(txn), NoopStateCloser, nil
 	}
 
 	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
@@ -84,8 +84,8 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return nil, nil, err
 	}
 
-	return deprecatedstate.NewDeprecatedStateHistory(
-		deprecatedstate.NewDeprecatedState(txn),
+	return deprecatedstate.NewStateHistory(
+		deprecatedstate.NewState(txn),
 		header.Number,
 	), NoopStateCloser, nil
 }
@@ -101,7 +101,7 @@ func (b *deprecatedStateBackend) Store(
 		if err := verifyBlockSuccession(txn, block); err != nil {
 			return err
 		}
-		err := deprecatedstate.NewDeprecatedState(txn).Update(
+		err := deprecatedstate.NewState(txn).Update(
 			block.Header,
 			stateUpdate,
 			newClasses,
@@ -148,7 +148,7 @@ func (b *deprecatedStateBackend) RevertHead() error {
 			return err
 		}
 
-		if err = deprecatedstate.NewDeprecatedState(txn).Revert(header, stateUpdate); err != nil {
+		if err = deprecatedstate.NewState(txn).Revert(header, stateUpdate); err != nil {
 			return err
 		}
 
@@ -174,7 +174,7 @@ func (b *deprecatedStateBackend) GetReverseStateDiff() (core.StateDiff, error) {
 	}
 
 	reverseDiff, err := deprecatedstate.
-		NewDeprecatedState(txn).
+		NewState(txn).
 		GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
 	if err != nil {
 		return core.StateDiff{}, err
@@ -192,7 +192,7 @@ func (b *deprecatedStateBackend) Simulate(
 	txn := b.database.NewIndexedBatch()
 	defer txn.Close()
 
-	err := updateStateRoots(deprecatedstate.NewDeprecatedState(txn), block, stateUpdate, newClasses)
+	err := updateStateRoots(deprecatedstate.NewState(txn), block, stateUpdate, newClasses)
 	if err != nil {
 		return SimulateResult{}, err
 	}
@@ -230,7 +230,7 @@ func (b *deprecatedStateBackend) Finalise(
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
 	err := b.database.Update(func(txn db.IndexedBatch) error {
-		err := updateStateRoots(deprecatedstate.NewDeprecatedState(txn), block, stateUpdate, newClasses)
+		err := updateStateRoots(deprecatedstate.NewState(txn), block, stateUpdate, newClasses)
 		if err != nil {
 			return err
 		}
