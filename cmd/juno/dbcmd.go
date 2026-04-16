@@ -48,14 +48,12 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 }
 
 func DBInfoCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "info",
 		Short: "Retrieve database information",
 		Long:  `This subcommand retrieves and displays blockchain information stored in the database.`,
 		RunE:  dbInfo,
 	}
-	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
-	return cmd
 }
 
 func DBSizeCmd() *cobra.Command {
@@ -86,26 +84,13 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	newState, err := cmd.Flags().GetBool(newStateF)
-	if err != nil {
-		return err
-	}
-
 	database, err := openDB(dbPath)
 	if err != nil {
 		return err
 	}
 	defer database.Close()
 
-	if err = blockchain.ValidateStateVersion(database, newState); err != nil {
-		return err
-	}
-
-	chain := blockchain.New(
-		database,
-		nil,
-		blockchain.WithNewState(newState),
-	)
+	chain := blockchain.New(database, nil)
 	var info DBInfo
 
 	// Get the latest block information
