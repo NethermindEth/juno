@@ -448,8 +448,8 @@ func TestStorageProof(t *testing.T) {
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
-		mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)
-		mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(0)
+		mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)
+		mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(0)
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*noSuchKey}, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)

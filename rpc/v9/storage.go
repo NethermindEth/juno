@@ -260,26 +260,25 @@ func buildContractLeavesData(
 	contractLeavesData := make([]*LeafData, len(contracts))
 
 	for i, contract := range contracts {
-		nonce, err := state.ContractNonce(&contract)
-		if err != nil {
-			// contract does not exist, skip getting leaf data
+		classHash, err := state.ContractClassHash(&contract)
+		if err != nil { // contract does not exist, skip getting leaf data
 			if errors.Is(err, contractNotFoundErr) {
 				continue
 			}
 			return nil, err
 		}
 
-		classHash, err := state.ContractClassHash(&contract)
+		nonce, err := state.ContractNonce(&contract)
 		if err != nil {
 			return nil, err
 		}
 
-		storageTrie, err := state.ContractStorageTrie(&contract)
+		contractStorageTrie, err := state.ContractStorageTrie(&contract)
 		if err != nil {
 			return nil, err
 		}
 
-		storageRoot, err := storageTrie.Hash()
+		storageRoot, err := contractStorageTrie.Hash()
 		if err != nil {
 			return nil, err
 		}
