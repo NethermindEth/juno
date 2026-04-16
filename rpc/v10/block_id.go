@@ -33,6 +33,22 @@ func (s BlockStatus) MarshalText() ([]byte, error) {
 	}
 }
 
+func (s *BlockStatus) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "PRE_CONFIRMED":
+		*s = BlockPreConfirmed
+	case "ACCEPTED_ON_L2":
+		*s = BlockAcceptedL2
+	case "ACCEPTED_ON_L1":
+		*s = BlockAcceptedL1
+	case "REJECTED":
+		*s = BlockRejected
+	default:
+		return fmt.Errorf("unknown BlockStatus %q", string(text))
+	}
+	return nil
+}
+
 type blockIDType uint8
 
 const (

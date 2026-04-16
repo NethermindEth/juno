@@ -1,0 +1,84 @@
+name: JSON Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeats:
+        description: "Number of benchmark repeats per test case"
+        required: false
+        default: "1"
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: JSON Benchmark (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-arm64-4-core, macos-latest]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Checkout golden tests
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: NethermindEth/starknet-golden-tests
+          path: starknet-golden-tests
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: rust-toolchain-${{ matrix.runner }}
+          workspaces: |
+            vm/rust
+            core/rust
+            starknet/compiler/rust
+
+      - name: Install deps
+        run: make install-deps
+
+      - name: Install Jemalloc (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install jemalloc
+
+      # - name: Run go test benchmarks
+      #   env:
+      #     GOLDEN_TESTS_DIR: ${{ github.workspace }}/starknet-golden-tests
+      #     BENCH_REPEAT: ${{ inputs.repeats || '1' }}
+      #   run: |
+      #     go test -bench='Benchmark(Marshal|Unmarshal)/' \
+      #       -benchmem -count=1 -run='^$' -timeout=60m \
+      #       ./cmd/jsonbench/ | tee benchmark-raw.txt
+
+      - name: Run summary
+        env:
+          GOLDEN_TESTS_DIR: ${{ github.workspace }}/starknet-golden-tests
+          BENCH_REPEAT: ${{ inputs.repeats || '1' }}
+        run: |
+          go test -v -run=TestSummary -count=1 -timeout=120m \
+            ./cmd/jsonbench/ 2>&1 | tee benchmark-summary.txt
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-benchmark-${{ matrix.runner }}
+          path: |
+            benchmark-raw.txt
+            benchmark-summary.txt

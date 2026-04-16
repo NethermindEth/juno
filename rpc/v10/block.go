@@ -32,6 +32,18 @@ func (l L1DAMode) MarshalText() ([]byte, error) {
 	}
 }
 
+func (l *L1DAMode) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "BLOB":
+		*l = Blob
+	case "CALLDATA":
+		*l = Calldata
+	default:
+		return fmt.Errorf("unknown L1DAMode %q", string(text))
+	}
+	return nil
+}
+
 // BLOCK_HEADER
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L1591
 // PRE_CONFIRMED_BLOCK_HEADER
