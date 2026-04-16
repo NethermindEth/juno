@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -65,28 +64,8 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 	return c, nil
 }
 
-// ContractAddress computes the address of a Starknet contract.
-func ContractAddress(
-	callerAddress,
-	classHash,
-	salt *felt.Felt,
-	constructorCallData []*felt.Felt,
-) felt.Felt {
-	prefix := felt.FromBytes[felt.Felt]([]byte("STARKNET_CONTRACT_ADDRESS"))
-	callDataHash := crypto.PedersenArray(constructorCallData...)
-
-	// https://docs.starknet.io/architecture-and-concepts/smart-contracts/contract-address/
-	return crypto.PedersenArray(
-		&prefix,
-		callerAddress,
-		salt,
-		classHash,
-		&callDataHash,
-	)
-}
-
 func deployed(addr *felt.Felt, txn db.IndexedBatch) (bool, error) {
-	_, err := ContractClassHash(addr, txn)
+	_, err := core.ContractClassHash(addr, txn)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return false, nil
 	}
@@ -117,12 +96,6 @@ func (c *ContractUpdater) Purge() error {
 	}
 
 	return nil
-}
-
-// ContractNonce returns the amount transactions sent from this contract.
-// Only account contracts can have a non-zero nonce.
-func ContractNonce(addr *felt.Felt, txn db.KeyValueReader) (felt.Felt, error) {
-	return core.GetContractNonce(txn, addr)
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -171,11 +144,6 @@ func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, erro
 		return felt.Felt{}, err
 	}
 	return cStorage.Get(key)
-}
-
-// ContractClassHash returns hash of the class that the contract at the given address instantiates.
-func ContractClassHash(addr *felt.Felt, txn db.KeyValueReader) (felt.Felt, error) {
-	return core.GetContractClassHash(txn, addr)
 }
 
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {

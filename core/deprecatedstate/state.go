@@ -63,12 +63,12 @@ func (s *DeprecatedState) putNewContract(
 
 // ContractClassHash returns class hash of a contract at a given address.
 func (s *DeprecatedState) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	return ContractClassHash(addr, s.txn)
+	return core.ContractClassHash(addr, s.txn)
 }
 
 // ContractNonce returns nonce of a contract at a given address.
 func (s *DeprecatedState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	return ContractNonce(addr, s.txn)
+	return core.ContractNonce(addr, s.txn)
 }
 
 // ContractStorage returns value of a key in the storage of the contract at the given address.
@@ -337,7 +337,7 @@ func (s *DeprecatedState) replaceContract(
 	addr,
 	classHash *felt.Felt,
 ) (felt.Felt, error) {
-	return s.updateContract(stateTrie, addr, ContractClassHash, func(c *ContractUpdater) error {
+	return s.updateContract(stateTrie, addr, core.ContractClassHash, func(c *ContractUpdater) error {
 		return c.Replace(classHash)
 	})
 }
@@ -516,7 +516,7 @@ func (s *DeprecatedState) updateContractNonce(
 	addr,
 	nonce *felt.Felt,
 ) (felt.Felt, error) {
-	return s.updateContract(stateTrie, addr, ContractNonce, func(c *ContractUpdater) error {
+	return s.updateContract(stateTrie, addr, core.ContractNonce, func(c *ContractUpdater) error {
 		return c.UpdateNonce(nonce)
 	})
 }
@@ -558,12 +558,12 @@ func (s *DeprecatedState) updateContractCommitment(
 		return err
 	}
 
-	cHash, err := ContractClassHash(contract.Address, s.txn)
+	cHash, err := core.ContractClassHash(contract.Address, s.txn)
 	if err != nil {
 		return err
 	}
 
-	nonce, err := ContractNonce(contract.Address, s.txn)
+	nonce, err := core.ContractNonce(contract.Address, s.txn)
 	if err != nil {
 		return err
 	}
