@@ -33,6 +33,7 @@ jobs:
         with:
           repository: NethermindEth/starknet-golden-tests
           path: starknet-golden-tests
+          ref: add/v10-tests
 
       - name: Verify golden tests
         run: ls $GOLDEN_TESTS_DIR/tests/sepolia/v0.10/
