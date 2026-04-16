@@ -43,7 +43,7 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.log.Error("Failed to get contract nonce", zap.Error(err))
+		h.log.Error("Failed to get class hash", zap.Error(err))
 		return nil, rpccore.ErrInternal
 	}
 
@@ -250,14 +250,13 @@ func getContractProof(
 func buildContractLeavesData(
 	state core.StateReader,
 	contracts []felt.Felt,
-	contractNotFoundErr error,
 ) ([]*LeafData, error) {
 	contractLeavesData := make([]*LeafData, len(contracts))
 
 	for i, contract := range contracts {
 		classHash, err := state.ContractClassHash(&contract)
 		if err != nil { // contract does not exist, skip getting leaf data
-			if errors.Is(err, contractNotFoundErr) {
+			if errors.Is(err, db.ErrKeyNotFound) {
 				continue
 			}
 			return nil, err
@@ -301,7 +300,7 @@ func getContractProofWithDeprecatedTrie(
 		}
 	}
 
-	contractLeavesData, err := buildContractLeavesData(state, contracts, db.ErrKeyNotFound)
+	contractLeavesData, err := buildContractLeavesData(state, contracts)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +324,7 @@ func getContractProofWithTrie(
 		}
 	}
 
-	contractLeavesData, err := buildContractLeavesData(st, contracts, db.ErrKeyNotFound)
+	contractLeavesData, err := buildContractLeavesData(st, contracts)
 	if err != nil {
 		return nil, err
 	}

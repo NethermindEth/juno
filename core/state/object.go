@@ -86,17 +86,20 @@ func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
 	return storageTrie, nil
 }
 
-func (s *stateObject) getStorageRoot() felt.Felt {
+func (s *stateObject) getStorageRoot() (felt.Felt, error) {
 	// If the storage trie is loaded, it may be modified somewhere already.
 	// Return the hash of the trie and update the contract's storage root.
 	if s.storageTrie != nil {
-		root, _ := s.storageTrie.Hash()
+		root, err := s.storageTrie.Hash()
+		if err != nil {
+			return felt.Zero, err
+		}
 		s.contract.StorageRoot = root
-		return root
+		return root, nil
 	}
 
 	// Otherwise, return the storage root from the contract.
-	return s.contract.StorageRoot
+	return s.contract.StorageRoot, nil
 }
 
 func (s *stateObject) commit() (*trienode.NodeSet, error) {

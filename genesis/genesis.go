@@ -107,7 +107,7 @@ func GenesisStateDiff(
 	memDB := memory.New()
 
 	var state core.StateReader
-	if useNewState {
+	if !useNewState {
 		state = core.NewDeprecatedState(memDB.NewIndexedBatch())
 	} else {
 		triedb, err := triedb.New(memDB, nil)

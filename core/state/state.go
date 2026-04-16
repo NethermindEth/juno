@@ -485,7 +485,10 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 		for nAddr := range noClassContracts {
 			if addr.Equal(&nAddr) {
 				obj := s.stateObjects[addr]
-				root := obj.getStorageRoot()
+				root, err := obj.getStorageRoot()
+				if err != nil {
+					return felt.Zero, emptyStateUpdate, err
+				}
 
 				if root.IsZero() {
 					if err := s.contractTrie.Update(&nAddr, &felt.Zero); err != nil {

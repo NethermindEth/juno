@@ -28,7 +28,7 @@ func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return st, NoopStateCloser, err
+	return st, NoopStateCloser, nil
 }
 
 func (b *stateBackend) StateAtBlockNumber(
