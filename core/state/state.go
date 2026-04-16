@@ -140,7 +140,11 @@ func (s *State) Update(
 		}
 	}
 
-	return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
+	// TODO: Remove this guard once the State and StateReader are split
+	if s.batch != nil {
+		return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
+	}
+	return nil
 }
 
 // Revert a given state update. The block number is the block number of the state update.
