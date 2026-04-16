@@ -117,7 +117,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 			database,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to get deprecatedschema metadata: %v", err)
+			return fmt.Errorf("failed to get deprecated schema metadata: %v", err)
 		}
 		schemaVersion = deprecatedMetadata.Version
 	} else {

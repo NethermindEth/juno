@@ -22,9 +22,6 @@ var emptyCommitments = core.BlockCommitments{}
 func TestDBCmd(t *testing.T) {
 	t.Run("retrieve info when db contains block0", func(t *testing.T) {
 		cmd := juno.DBInfoCmd()
-		if statetestutils.UseNewState() {
-			require.NoError(t, cmd.Flags().Set("new-state", "true"))
-		}
 		executeCmdInDB(t, cmd)
 	})
 

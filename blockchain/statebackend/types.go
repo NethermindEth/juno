@@ -87,7 +87,6 @@ func New(
 		}
 	case false:
 		return &deprecatedStateBackend{baseState: base}
-	default:
-		panic("statebackend: invalid state version")
 	}
+	return nil
 }

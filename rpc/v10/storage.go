@@ -315,7 +315,7 @@ func getClassProof(tr core.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 				return nil, err
 			}
 		}
-		return adaptDeprecatedProofNodes(classProof), nil
+		return adaptDeprecatedTrieProofNodes(classProof), nil
 	case *trie2.Trie:
 		classProof := trie2.NewProofNodeSet()
 		for _, class := range classes {
@@ -364,7 +364,7 @@ func getContractProofWithDeprecatedTrie(
 	}
 
 	return &ContractProof{
-		Nodes:      adaptDeprecatedProofNodes(contractProof),
+		Nodes:      adaptDeprecatedTrieProofNodes(contractProof),
 		LeavesData: contractLeavesData,
 	}, nil
 }
@@ -392,7 +392,10 @@ func getContractProofWithTrie(
 	}, nil
 }
 
-func buildContractLeavesData(state core.StateReader, contracts []felt.Felt) ([]*LeafData, error) {
+func buildContractLeavesData(
+	state core.StateReader,
+	contracts []felt.Felt,
+) ([]*LeafData, error) {
 	contractLeavesData := make([]*LeafData, len(contracts))
 	for i, contract := range contracts {
 		classHash, err := state.ContractClassHash(&contract)
@@ -446,7 +449,7 @@ func getContractStorageProof(
 					return nil, err
 				}
 			}
-			contractStorageRes[i] = adaptDeprecatedProofNodes(contractStorageProof)
+			contractStorageRes[i] = adaptDeprecatedTrieProofNodes(contractStorageProof)
 		case *trie2.Trie:
 			contractStorageProof := trie2.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
@@ -463,7 +466,7 @@ func getContractStorageProof(
 	return contractStorageRes, nil
 }
 
-func adaptDeprecatedProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
+func adaptDeprecatedTrieProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 	nodes := make([]*HashToNode, proof.Size())
 	nodeList := proof.List()
 	for i, hash := range proof.Keys() {
