@@ -194,7 +194,7 @@ func TestUpdate(t *testing.T) {
 		state, err := New(stateUpdates[4].NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		err = state.Update(&core.Header{Number: block5}, su5, nil, false)
-		require.ErrorIs(t, err, ErrContractNotDeployed)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 

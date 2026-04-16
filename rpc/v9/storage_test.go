@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
 	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
@@ -269,7 +268,6 @@ func TestStorageProof(t *testing.T) {
 			return tr
 		}
 
-		// TODO(weiihann): should have a better way of testing
 		trieDB := trie2.NewTestNodeDatabase(memory.New(), trie2.PathScheme)
 		createTrie(t, trieutils.NewClassTrieID(
 			felt.FromUint64[felt.StateRootHash](0),
@@ -305,9 +303,9 @@ func TestStorageProof(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
-	mockReader.EXPECT().Height().Return(blockNumber, nil).AnyTimes()
 	mockReader.EXPECT().Head().Return(headBlock, nil).AnyTimes()
 	mockReader.EXPECT().BlockByNumber(blockNumber).Return(headBlock, nil).AnyTimes()
+	mockReader.EXPECT().Height().Return(blockNumber, nil).AnyTimes()
 	mockState.EXPECT().ClassTrie().Return(classTrie, nil).AnyTimes()
 	mockState.EXPECT().ContractTrie().Return(contractTrie, nil).AnyTimes()
 
@@ -479,19 +477,8 @@ func TestStorageProof(t *testing.T) {
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
-		if statetestutils.UseNewState() {
-			mockState.EXPECT().ContractNonce(noSuchKey).Return(
-				felt.Zero,
-				state.ErrContractNotDeployed,
-			).Times(1)
-			mockState.EXPECT().ContractClassHash(noSuchKey).Return(
-				felt.Zero,
-				state.ErrContractNotDeployed,
-			).Times(0)
-		} else {
-			mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)
-			mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(0)
-		}
+		mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)
+		mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(0)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*noSuchKey}, nil)
 		require.Nil(t, rpcErr)

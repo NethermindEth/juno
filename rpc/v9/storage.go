@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -41,9 +40,7 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 	// the returned value is always zero and error is nil.
 	_, err := stateReader.ContractClassHash(address)
 	if err != nil {
-		// TODO(maksymmalick): state.ErrContractNotDeployed is returned by new state.
-		// Remove db.ErrKeyNotFound after integration
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, state.ErrContractNotDeployed) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
 		h.log.Error("Failed to get contract class hash", zap.Error(err))
@@ -334,7 +331,7 @@ func getContractProofWithTrie(
 		}
 	}
 
-	contractLeavesData, err := buildContractLeavesData(st, contracts, state.ErrContractNotDeployed)
+	contractLeavesData, err := buildContractLeavesData(st, contracts, db.ErrKeyNotFound)
 	if err != nil {
 		return nil, err
 	}

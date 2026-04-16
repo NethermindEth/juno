@@ -18,7 +18,6 @@ type L1HeadSubscription struct {
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
-	StateProvider
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)
@@ -51,6 +50,10 @@ type Reader interface {
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
 
+	HeadState() (core.StateReader, StateCloser, error)
+	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
+	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
+
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
 	EventFilter(
@@ -60,12 +63,6 @@ type Reader interface {
 	) (EventFilterer, error)
 
 	Network() *utils.Network
-}
-
-type StateProvider interface {
-	HeadState() (core.StateReader, StateCloser, error)
-	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
-	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 }
 
 // Re-export statebackend types for API compatibility.

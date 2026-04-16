@@ -220,8 +220,9 @@ func TestStore(t *testing.T) {
 		stateUpdate1, err := gw.StateUpdate(t.Context(), 1)
 		require.NoError(t, err)
 
+		testDB := memory.New()
 		chain := blockchain.New(
-			memory.New(),
+			testDB,
 			&utils.Mainnet,
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
@@ -231,6 +232,10 @@ func TestStore(t *testing.T) {
 		headBlock, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, block1, headBlock)
+
+		root, err := chainStateCommitment(t, testDB)
+		require.NoError(t, err)
+		assert.Equal(t, stateUpdate1.NewRoot, &root)
 
 		got1Block, err := chain.BlockByNumber(1)
 		require.NoError(t, err)
@@ -1082,17 +1087,17 @@ func chainStateCommitment(t *testing.T, database db.KeyValueStore) (felt.Felt, e
 		return felt.Felt{}, err
 	}
 	if statetestutils.UseNewState() {
-		txn := database.NewIndexedBatch()
-		return core.NewDeprecatedState(txn).Commitment(header.ProtocolVersion)
-	} else {
 		trieDB, err := triedb.New(database, nil)
 		if err != nil {
 			panic(err)
 		}
 
 		stateDB := state.NewStateDB(database, trieDB)
-		state, err := state.NewStateReader(header.GlobalStateRoot, stateDB)
+		st, err := state.NewStateReader(header.GlobalStateRoot, stateDB)
 		require.NoError(t, err)
-		return state.Commitment(header.ProtocolVersion)
+		return st.Commitment(header.ProtocolVersion)
+	} else {
+		txn := database.NewIndexedBatch()
+		return core.NewDeprecatedState(txn).Commitment(header.ProtocolVersion)
 	}
 }

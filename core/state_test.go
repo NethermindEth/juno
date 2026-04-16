@@ -64,7 +64,7 @@ func TestUpdate(t *testing.T) {
 		})
 
 	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
-		newRoot := felt.NewFromBytes[felt.Felt]([]byte("some old root"))
+		newRoot := felt.NewFromBytes[felt.Felt]([]byte("some new root"))
 		su := &core.StateUpdate{
 			NewRoot:   newRoot,
 			OldRoot:   su0.NewRoot,

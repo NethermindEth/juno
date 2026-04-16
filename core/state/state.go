@@ -26,8 +26,8 @@ const (
 )
 
 var (
-	stateVersion0             = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
-	leafVersion0              = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
+	stateVersion0             = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
+	leafVersion0              = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	noClassContractsClassHash = felt.Zero
 	noClassContracts          = map[felt.Felt]struct{}{
 		felt.FromUint64[felt.Felt](systemContract1Addr): {},
@@ -140,7 +140,7 @@ func (s *State) ContractStorageLastUpdatedBlock(
 func (s *State) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
-		if errors.Is(err, ErrContractNotDeployed) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -274,7 +274,11 @@ func (s *State) Update(
 		}
 	}
 
-	return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
+	// TODO: Remove this guard once the State and StateReader are split
+	if s.batch != nil {
+		return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
+	}
+	return nil
 }
 
 // Revert a given state update. The block number is the block number of the state update.
@@ -356,11 +360,17 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 	if !newComm.Equal(update.OldRoot) {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &newComm)
 	}
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
-		return err
-	}
 
-	return s.deleteHistory(blockNum, update.StateDiff)
+	// TODO: Remove this guard once the State and StateReader are split
+	if s.batch != nil {
+		if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
+			return err
+		}
+		if err := s.deleteHistory(blockNum, update.StateDiff); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core.StateDiff, error) {
@@ -678,7 +688,7 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 	for addr, storage := range storage {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
-			if _, ok := noClassContracts[addr]; ok && errors.Is(err, ErrContractNotDeployed) {
+			if _, ok := noClassContracts[addr]; ok && errors.Is(err, db.ErrKeyNotFound) {
 				contract := newContractDeployed(noClassContractsClassHash, blockNum)
 				newObj := newStateObject(s, &addr, &contract)
 				obj = &newObj

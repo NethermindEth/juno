@@ -9,7 +9,6 @@ import (
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"go.uber.org/zap"
 )
@@ -27,8 +26,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 	storageLocationFelt := makeFeltFromPtr(storageLocation)
 	val, err := context.state.ContractStorage(contractAddressFelt, storageLocationFelt)
 	if err != nil {
-		// TODO(maksymmalicki): handle errors of both states
-		if !errors.Is(err, state.ErrContractNotDeployed) && !errors.Is(err, db.ErrKeyNotFound) {
+		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Error("JunoStateGetStorageAt failed to read contract storage", zap.Error(err))
 			return 0
 		}
@@ -45,8 +43,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
 	val, err := context.state.ContractNonce(contractAddressFelt)
 	if err != nil {
-		// TODO(maksymmalicki): handle errors of both states
-		if !errors.Is(err, db.ErrKeyNotFound) && !errors.Is(err, state.ErrContractNotDeployed) {
+		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Error("JunoStateGetNonceAt failed to read contract nonce", zap.Error(err))
 			return 0
 		}
@@ -63,8 +60,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
 	val, err := context.state.ContractClassHash(contractAddressFelt)
 	if err != nil {
-		// TODO(maksymmalicki): handle errors of both states
-		if !errors.Is(err, db.ErrKeyNotFound) && !errors.Is(err, state.ErrContractNotDeployed) {
+		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Error("JunoStateGetClassHashAt failed to read contract class", zap.Error(err))
 			return 0
 		}
@@ -81,7 +77,7 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 	classHashFelt := makeFeltFromPtr(classHash)
 	val, err := context.state.Class(classHashFelt)
 	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) && !errors.Is(err, state.ErrContractNotDeployed) {
+		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Error("JunoStateGetCompiledClass failed to read class", zap.Error(err))
 		}
 		return nil
