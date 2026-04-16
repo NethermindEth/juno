@@ -16,13 +16,15 @@ concurrency:
 
 jobs:
   benchmark:
-    name: JSON Benchmark (${{ matrix.runner }})
+    name: JSON Benchmark (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-arm64-4-core, macos-latest]
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+        os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
+    runs-on: ${{ matrix.os }}
+    env:
+      GOLDEN_TESTS_DIR: ${{ github.workspace }}/starknet-golden-tests
+      BENCH_REPEAT: ${{ inputs.repeats || '1' }}
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -31,6 +33,9 @@ jobs:
         with:
           repository: NethermindEth/starknet-golden-tests
           path: starknet-golden-tests
+
+      - name: Verify golden tests
+        run: ls $GOLDEN_TESTS_DIR/tests/sepolia/v0.10/
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -41,11 +46,14 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: rust-toolchain-${{ matrix.runner }}
+          key: rust-toolchain-${{ matrix.os }}
           workspaces: |
             vm/rust
             core/rust
             starknet/compiler/rust
+
+      - name: Install deps
+        run: make install-deps
 
       - name: Install Jemalloc (Linux)
         if: runner.os == 'Linux'
@@ -58,10 +66,15 @@ jobs:
       - name: Build Rust dependencies
         run: make rustdeps
 
-      - name: Run summary
-        env:
-          GOLDEN_TESTS_DIR: ${{ github.workspace }}/starknet-golden-tests
-          BENCH_REPEAT: ${{ inputs.repeats || '1' }}
+      - name: Set CGO_LDFLAGS (Linux)
+        if: runner.os == 'Linux'
+        run: echo "CGO_LDFLAGS=-ldl -lm" >> $GITHUB_ENV
+
+      - name: Set CGO_LDFLAGS (macOS)
+        if: runner.os == 'macOS'
+        run: echo "CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration" >> $GITHUB_ENV
+
+      - name: Run JSON benchmark
         run: |
           go test -v -run=TestSummary -count=1 -timeout=120m \
             ./cmd/jsonbench/ 2>&1 | tee benchmark-summary.txt
@@ -70,5 +83,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: json-benchmark-${{ matrix.runner }}
+          name: json-benchmark-${{ matrix.os }}
           path: benchmark-summary.txt
