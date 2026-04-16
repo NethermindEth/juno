@@ -19,6 +19,8 @@ var (
 
 // NewContractUpdater creates an updater for the contract instance at the given address.
 // Deploy should be called for contracts that were just deployed to the network.
+//
+//nolint:staticcheck // Necessary for old state
 func NewContractUpdater(addr *felt.Felt, txn db.IndexedBatch) (*ContractUpdater, error) {
 	contractDeployed, err := deployed(addr, txn)
 	if err != nil {
@@ -36,6 +38,8 @@ func NewContractUpdater(addr *felt.Felt, txn db.IndexedBatch) (*ContractUpdater,
 }
 
 // DeployContract sets up the database for a new contract.
+//
+//nolint:staticcheck // Necessary for old state
 func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractUpdater, error) {
 	contractDeployed, err := deployed(addr, txn)
 	if err != nil {
@@ -64,6 +68,7 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 	return c, nil
 }
 
+//nolint:staticcheck // Necessary for old state
 func deployed(addr *felt.Felt, txn db.IndexedBatch) (bool, error) {
 	_, err := core.ContractClassHash(addr, txn)
 	if errors.Is(err, db.ErrKeyNotFound) {
@@ -80,6 +85,7 @@ type ContractUpdater struct {
 	// Address that this contract instance is deployed to
 	Address *felt.Felt
 	// txn to access the database
+	//nolint:staticcheck // Necessary for old state
 	txn db.IndexedBatch
 }
 
@@ -105,6 +111,8 @@ func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
 }
 
 // ContractRoot returns the root of the contract storage.
+//
+//nolint:staticcheck // Necessary for old state
 func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
@@ -138,6 +146,7 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 	return cStorage.Commit()
 }
 
+//nolint:staticcheck // Necessary for old state
 func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
@@ -146,6 +155,7 @@ func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, erro
 	return cStorage.Get(key)
 }
 
+//nolint:staticcheck // Necessary for old state
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {
 	classHashKey := db.ContractClassHashKey(addr)
 	return txn.Put(classHashKey, classHash.Marshal())
@@ -158,6 +168,8 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 
 // storage returns the [core.Trie] that represents the
 // storage of the contract.
+//
+//nolint:staticcheck // Necessary for old state
 func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	return trie.NewTriePedersen(txn, db.ContractStorage.Key(addrBytes), ContractStorageTrieHeight)

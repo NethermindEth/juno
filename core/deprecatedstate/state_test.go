@@ -570,10 +570,11 @@ func TestRevert(t *testing.T) {
 					Offset:   felt.NewFromBytes[felt.Felt]([]byte("l2")),
 				},
 			},
-			Constructors: []core.DeprecatedEntryPoint{{
-				Selector: felt.NewFromBytes[felt.Felt]([]byte("c1")),
-				Offset:   felt.NewFromBytes[felt.Felt]([]byte("c2")),
-			},
+			Constructors: []core.DeprecatedEntryPoint{
+				{
+					Selector: felt.NewFromBytes[felt.Felt]([]byte("c1")),
+					Offset:   felt.NewFromBytes[felt.Felt]([]byte("c2")),
+				},
 			},
 			Program: "some cairo 0 program",
 		}

@@ -101,7 +101,12 @@ func (b *deprecatedStateBackend) Store(
 		if err := verifyBlockSuccession(txn, block); err != nil {
 			return err
 		}
-		err := deprecatedstate.NewDeprecatedState(txn).Update(block.Header, stateUpdate, newClasses, false)
+		err := deprecatedstate.NewDeprecatedState(txn).Update(
+			block.Header,
+			stateUpdate,
+			newClasses,
+			false,
+		)
 		if err != nil {
 			return err
 		}

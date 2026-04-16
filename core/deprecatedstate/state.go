@@ -307,7 +307,9 @@ func (s *DeprecatedState) updateContracts(
 		}
 
 		if logChanges {
-			if err = core.WriteContractClassHashHistory(s.txn, &addr, &oldClassHash, blockNumber); err != nil {
+			if err = core.WriteContractClassHashHistory(
+				s.txn, &addr, &oldClassHash, blockNumber,
+			); err != nil {
 				return err
 			}
 		}

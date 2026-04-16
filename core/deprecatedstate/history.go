@@ -95,7 +95,9 @@ func (s *deprecatedStateHistory) checkDeployed(addr *felt.Felt) error {
 	return nil
 }
 
-func (s *deprecatedStateHistory) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+func (s *deprecatedStateHistory) Class(
+	classHash *felt.Felt,
+) (*core.DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
 		return nil, err
