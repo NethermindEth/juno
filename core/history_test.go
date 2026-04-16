@@ -34,9 +34,7 @@ func TestStateHistory(t *testing.T) {
 
 	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt](
-			"0x622ff4d950d403e0b4c809283e47b949bfb1537cf616be090f3b6a70d4e5c5b",
-		),
+		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{addrFelt: initialClassHash},
 			Nonces:            map[felt.Felt]*felt.Felt{addrFelt: initialNonce},
@@ -44,16 +42,14 @@ func TestStateHistory(t *testing.T) {
 				addrFelt: {*storageKey: initialStorage},
 			},
 		},
-	}, map[felt.Felt]core.ClassDefinition{*declaredCH: &core.SierraClass{}}, false))
+	}, map[felt.Felt]core.ClassDefinition{*declaredCH: &core.SierraClass{}}, true))
 
 	root, err := state.Commitment("")
 	require.NoError(t, err)
 
 	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: felt.NewUnsafeFromString[felt.Felt](
-			"0x3f319205c877fdad92cc9a78bece963760a35670839aa41eb404024ca3959c6",
-		),
+		NewRoot: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			ReplacedClasses: map[felt.Felt]*felt.Felt{addrFelt: updatedClassHash},
 			Nonces:          map[felt.Felt]*felt.Felt{addrFelt: updatedNonce},
@@ -61,7 +57,7 @@ func TestStateHistory(t *testing.T) {
 				addrFelt: {*storageKey: updatedStorage},
 			},
 		},
-	}, nil, false))
+	}, nil, true))
 
 	snapshotBeforeDeployment := core.NewDeprecatedStateHistory(state, deployedHeight-1)
 	snapshotAtDeployment := core.NewDeprecatedStateHistory(state, deployedHeight)

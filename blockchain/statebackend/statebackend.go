@@ -91,7 +91,6 @@ func (b *stateBackend) Store(
 			stateUpdate,
 			blockCommitments,
 			newClasses,
-			b.transactionLayout,
 		)
 	})
 	if err != nil {
@@ -127,7 +126,7 @@ func (b *stateBackend) RevertHead() error {
 			return err
 		}
 
-		return deleteBlockContent(b.database, batch, stateUpdate, blockNumber, b.transactionLayout)
+		return deleteBlockContent(b.database, batch, stateUpdate, blockNumber)
 	})
 	if err != nil {
 		return err
@@ -229,7 +228,6 @@ func (b *stateBackend) Finalise(
 			stateUpdate,
 			commitments,
 			newClasses,
-			b.transactionLayout,
 		)
 	})
 	if err != nil {

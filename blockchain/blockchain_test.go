@@ -1078,19 +1078,16 @@ func chainStateCommitment(t *testing.T, database db.KeyValueStore) (felt.Felt, e
 	height, err := core.GetChainHeight(database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return felt.Felt{}, nil
+			return felt.Zero, nil
 		}
-		return felt.Felt{}, err
+		return felt.Zero, err
 	}
 	header, err := core.GetBlockHeaderByNumber(database, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
+	require.NoError(t, err)
+
 	if statetestutils.UseNewState() {
 		trieDB, err := triedb.New(database, nil)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 
 		stateDB := state.NewStateDB(database, trieDB)
 		st, err := state.NewStateReader(header.GlobalStateRoot, stateDB)

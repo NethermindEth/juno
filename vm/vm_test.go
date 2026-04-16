@@ -423,7 +423,12 @@ func TestSetVersionedConstants(t *testing.T) {
 	})
 }
 
-func NewState(t *testing.T, stateRoot *felt.Felt, testDB db.KeyValueStore, batch db.Batch) (core.State, error) {
+func NewState(
+	t *testing.T,
+	stateRoot *felt.Felt,
+	testDB db.KeyValueStore,
+	batch db.Batch,
+) (core.State, error) {
 	if !statetestutils.UseNewState() {
 		txn := testDB.NewIndexedBatch()
 		deprecatedState := core.NewDeprecatedState(txn)

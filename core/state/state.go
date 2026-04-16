@@ -370,6 +370,7 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 			return err
 		}
 	}
+
 	return nil
 }
 

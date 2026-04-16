@@ -248,7 +248,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("update contract nonce", func(t *testing.T) {
-		expectedNonce := felt.NewFromUint64[felt.Felt](1)
+		expectedNonce := &felt.One
 		su = &core.StateUpdate{
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1",

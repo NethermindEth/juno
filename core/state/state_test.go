@@ -82,7 +82,7 @@ func TestUpdate(t *testing.T) {
 	scValue := felt.NewUnsafeFromString[felt.Felt](
 		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
 	)
-	scAddr := felt.NewFromUint64[felt.Felt](1)
+	scAddr := &felt.One
 
 	stateUpdates := getStateUpdates(t)
 
