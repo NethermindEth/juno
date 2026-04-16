@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
@@ -45,7 +46,7 @@ func (b *testStateBackend) Store(
 		if err := verifyBlockSuccession(txn, block); err != nil {
 			return err
 		}
-		err := core.NewDeprecatedState(txn).Update(block.Header, stateUpdate, newClasses, false)
+		err := deprecatedstate.NewDeprecatedState(txn).Update(block.Header, stateUpdate, newClasses, false)
 		if err != nil {
 			return err
 		}

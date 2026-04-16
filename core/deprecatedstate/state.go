@@ -33,6 +33,7 @@ type DeprecatedState struct {
 	txn db.IndexedBatch
 }
 
+// @todo rename to NewState (history state as well)
 func NewDeprecatedState(txn db.IndexedBatch) *DeprecatedState {
 	return &DeprecatedState{
 		txn: txn,

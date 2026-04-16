@@ -2,6 +2,7 @@ package statefactory
 
 import (
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
@@ -37,7 +38,7 @@ func (sf *StateFactory) NewState(
 	batch db.Batch,
 ) (core.State, error) {
 	if !sf.UseNewState {
-		deprecatedState := core.NewDeprecatedState(txn)
+		deprecatedState := deprecatedstate.NewDeprecatedState(txn)
 		return deprecatedState, nil
 	}
 
@@ -54,8 +55,8 @@ func (sf *StateFactory) NewStateReader(
 	blockNumber uint64,
 ) (core.StateReader, error) {
 	if !sf.UseNewState {
-		deprecatedState := core.NewDeprecatedState(txn)
-		history := core.NewDeprecatedStateHistory(deprecatedState, blockNumber)
+		deprecatedState := deprecatedstate.NewDeprecatedState(txn)
+		history := deprecatedstate.NewDeprecatedStateHistory(deprecatedState, blockNumber)
 		return history, nil
 	}
 

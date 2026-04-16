@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -27,7 +28,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewDeprecatedState(txn)
+	testState := deprecatedstate.NewDeprecatedState(txn)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -108,7 +109,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewDeprecatedState(txn)
+	testState := deprecatedstate.NewDeprecatedState(txn)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -160,7 +161,7 @@ func TestCallCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	state := core.NewDeprecatedState(txn)
+	state := deprecatedstate.NewDeprecatedState(txn)
 	firstStateUpdate := core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
@@ -254,7 +255,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewDeprecatedState(txn)
+	testState := deprecatedstate.NewDeprecatedState(txn)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42"),
@@ -324,7 +325,7 @@ func TestExecute(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewDeprecatedState(txn)
+	state := deprecatedstate.NewDeprecatedState(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
 		feeTokens := utils.DefaultFeeTokenAddresses

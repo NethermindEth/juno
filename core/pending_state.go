@@ -8,6 +8,9 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+// @todo this was copied from deprecatedstate/history.go, should it be moved to a common place?
+var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
+
 type PendingState struct {
 	stateDiff  *StateDiff
 	newClasses map[felt.Felt]ClassDefinition

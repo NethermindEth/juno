@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
@@ -105,7 +106,7 @@ func GenesisStateDiff(
 	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
-		core.NewDeprecatedState(memDB.NewIndexedBatch()),
+		deprecatedstate.NewDeprecatedState(memDB.NewIndexedBatch()),
 	)
 
 	if err := declareClasses(ctx, config, &genesisState, compiler); err != nil {
