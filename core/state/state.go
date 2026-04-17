@@ -35,17 +35,17 @@ var (
 	}
 )
 
-var _ core.State = &State{}
+var (
+	_ core.StateReader = &StateReader{}
+	_ core.State       = &State{}
+)
 
+// State extends StateReader with mutation operations.
 type State struct {
-	initRoot     felt.Felt
-	db           *StateDB
-	contractTrie *trie2.Trie
-	classTrie    *trie2.Trie
+	StateReader
 
 	stateObjects map[felt.Felt]*stateObject
-
-	batch db.Batch
+	batch        db.Batch
 }
 
 // New creates a writable state at the given root. The caller must provide a non-nil batch.
@@ -55,147 +55,26 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 	if batch == nil {
 		return nil, errors.New("cannot create state, nil Batch received")
 	}
-	contractTrie, err := db.ContractTrie(stateRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	classTrie, err := db.ClassTrie(stateRoot)
+	reader, err := NewStateReader(stateRoot, db)
 	if err != nil {
 		return nil, err
 	}
 
 	return &State{
-		initRoot:     *stateRoot,
-		db:           db,
-		contractTrie: contractTrie,
-		classTrie:    classTrie,
+		StateReader:  *reader,
 		stateObjects: make(map[felt.Felt]*stateObject),
 		batch:        batch,
 	}, nil
 }
 
-// NewStateReader creates a read-only view of the state at the given root.
-// Should be used for read operations that don't require state mutations
-func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*State, error) {
-	contractTrie, err := db.ContractTrie(stateRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	classTrie, err := db.ClassTrie(stateRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	return &State{
-		initRoot:     *stateRoot,
-		db:           db,
-		contractTrie: contractTrie,
-		classTrie:    classTrie,
-		stateObjects: make(map[felt.Felt]*stateObject),
-	}, nil
-}
-
-func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	contract, err := GetContract(s.db.disk, addr)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return contract.ClassHash, nil
-}
-
-func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	contract, err := GetContract(s.db.disk, addr)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return contract.Nonce, nil
-}
-
+// ContractStorage on State checks dirty storage cache before falling back to the trie.
 func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	obj, err := s.getStateObject(addr)
 	if err != nil {
 		return felt.Felt{}, err
 	}
 
-	ret, err := obj.getStorage(key)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	return ret, nil
-}
-
-// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
-// slot key of a given contract was last updated.
-func (s *State) ContractStorageLastUpdatedBlock(
-	addr *felt.Address,
-	key *felt.Felt,
-) (uint64, error) {
-	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
-	return s.lastUpdatedBlockNumber(prefix, math.MaxUint64)
-}
-
-func (s *State) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, error) {
-	contract, err := GetContract(s.db.disk, addr)
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return contract.DeployedHeight <= blockNum, nil
-}
-
-func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-	return GetClass(s.db.disk, classHash)
-}
-
-func (s *State) ClassTrie() (core.Trie, error) {
-	return s.classTrie, nil
-}
-
-func (s *State) ContractTrie() (core.Trie, error) {
-	return s.contractTrie, nil
-}
-
-func (s *State) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
-	return s.db.ContractStorageTrie(&s.initRoot, addr)
-}
-
-func (s *State) CompiledClassHash(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-	return metadata.CasmHash(), nil
-}
-
-func (s *State) CompiledClassHashV2(
-	classHash *felt.SierraClassHash,
-) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-	return metadata.CasmHashV2(), nil
-}
-
-// Returns the state commitment
-func (s *State) Commitment(protocolVersion string) (felt.Felt, error) {
-	contractRoot, err := s.contractTrie.Hash()
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	classRoot, err := s.classTrie.Hash()
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return stateCommitment(&contractRoot, &classRoot, protocolVersion), nil
+	return obj.getStorage(key)
 }
 
 // Applies a state update to a given state. If any error is encountered, state is not updated.
@@ -274,11 +153,7 @@ func (s *State) Update(
 		}
 	}
 
-	// TODO: Remove this guard once the State and StateReader are split
-	if s.batch != nil {
-		return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
-	}
-	return nil
+	return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
 }
 
 // Revert a given state update. The block number is the block number of the state update.
@@ -361,66 +236,10 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &newComm)
 	}
 
-	// TODO: Remove this guard once the State and StateReader are split
-	if s.batch != nil {
-		if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
-			return err
-		}
-		if err := s.deleteHistory(blockNum, update.StateDiff); err != nil {
-			return err
-		}
+	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
+		return err
 	}
-
-	return nil
-}
-
-func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core.StateDiff, error) {
-	reverse := core.StateDiff{
-		StorageDiffs:    make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs)),
-		Nonces:          make(map[felt.Felt]*felt.Felt, len(diff.Nonces)),
-		ReplacedClasses: make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses)),
-	}
-
-	for addr, stDiffs := range diff.StorageDiffs {
-		reverse.StorageDiffs[addr] = make(map[felt.Felt]*felt.Felt, len(stDiffs))
-		for key := range stDiffs {
-			value := felt.Zero
-			if blockNum > 0 {
-				oldValue, err := s.ContractStorageAt(&addr, &key, blockNum-1)
-				if err != nil {
-					return core.StateDiff{}, err
-				}
-				value = oldValue
-			}
-			reverse.StorageDiffs[addr][key] = &value
-		}
-	}
-
-	for addr := range diff.Nonces {
-		oldNonce := felt.Zero
-		if blockNum > 0 {
-			var err error
-			oldNonce, err = s.ContractNonceAt(&addr, blockNum-1)
-			if err != nil {
-				return core.StateDiff{}, err
-			}
-		}
-		reverse.Nonces[addr] = &oldNonce
-	}
-
-	for addr := range diff.ReplacedClasses {
-		oldCh := felt.Zero
-		if blockNum > 0 {
-			var err error
-			oldCh, err = s.ContractClassHashAt(&addr, blockNum-1)
-			if err != nil {
-				return core.StateDiff{}, err
-			}
-		}
-		reverse.ReplacedClasses[addr] = &oldCh
-	}
-
-	return reverse, nil
+	return s.deleteHistory(blockNum, update.StateDiff)
 }
 
 //nolint:gocyclo
@@ -723,117 +542,6 @@ func (s *State) getStateObject(addr *felt.Felt) (*stateObject, error) {
 	return obj, nil
 }
 
-// Returns the storage value of a contract at a given storage key at a given block number.
-func (s *State) ContractStorageAt(addr, key *felt.Felt, blockNum uint64) (felt.Felt, error) {
-	prefix := db.ContractStorageHistoryKey(addr, key)
-	return s.getHistoricalValue(prefix, blockNum)
-}
-
-// Returns the block number at which a given storage slot key of a given contract was
-// last updated, up to and including the given block number.
-func (s *State) ContractStorageLastUpdatedAt(
-	addr *felt.Address,
-	key *felt.Felt,
-	blockNum uint64,
-) (uint64, error) {
-	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
-	return s.lastUpdatedBlockNumber(prefix, blockNum)
-}
-
-// Returns the nonce of a contract at a given block number.
-func (s *State) ContractNonceAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
-	prefix := db.ContractNonceHistoryKey(addr)
-	return s.getHistoricalValue(prefix, blockNum)
-}
-
-// Returns the class hash of a contract at a given block number.
-func (s *State) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
-	prefix := db.ContractClassHashHistoryKey(addr)
-	return s.getHistoricalValue(prefix, blockNum)
-}
-
-func (s *State) CompiledClassHashAt(
-	classHash *felt.SierraClassHash,
-	blockNumber uint64,
-) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
-	if err != nil {
-		return felt.CasmClassHash{}, err
-	}
-	return metadata.CasmHashAt(blockNumber)
-}
-
-func (s *State) getHistoricalValue(prefix []byte, blockNum uint64) (felt.Felt, error) {
-	var ret felt.Felt
-
-	err := s.valueAt(prefix, blockNum, func(val []byte) error {
-		ret.SetBytes(val)
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, ErrNoHistoryValue) {
-			return felt.Zero, nil
-		}
-		return felt.Zero, err
-	}
-
-	return ret, nil
-}
-
-// Returns the value at the given block number.
-// First, it attempts to seek for the key at the given block number.
-// If the key exists, it means that the key was modified at the given block number.
-// Otherwise, it moves the iterator one step back.
-// If a key-value pair exists, we have found the value.
-func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) error) error {
-	it, err := s.db.disk.NewIterator(prefix, true)
-	if err != nil {
-		return err
-	}
-	defer it.Close()
-
-	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
-	if !it.Seek(seekKey) {
-		// All existing keys (if any) are before seekKey.
-		// The last stored value is the correct answer for this blockNum.
-		if !it.Prev() {
-			// Iterator is truly empty for this prefix — no history exists.
-			return ErrNoHistoryValue
-		}
-		val, err := it.Value()
-		if err != nil {
-			return err
-		}
-		return cb(val)
-	}
-
-	key := it.Key()
-	keyBlockNum := binary.BigEndian.Uint64(key[len(prefix):])
-	if keyBlockNum == blockNum {
-		// Found the value
-		val, err := it.Value()
-		if err != nil {
-			return err
-		}
-
-		return cb(val)
-	}
-
-	// Otherwise, move the iterator backwards
-	if !it.Prev() {
-		// Moving iterator backwards is invalid, this means we were already at the first key
-		// No values will be found beyond the first key
-		return ErrNoHistoryValue
-	}
-
-	val, err := it.Value()
-	if err != nil {
-		return err
-	}
-
-	return cb(val)
-}
-
 func (s *State) deleteHistory(blockNum uint64, diff *core.StateDiff) error {
 	for addr, storage := range diff.StorageDiffs {
 		for key := range storage {
@@ -883,26 +591,310 @@ func (s *State) compareContracts(a, b felt.Felt) int {
 	return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
 }
 
-// Calculate the commitment of the state.
-// Since v0.14.0, the Poseidon hash is always applied even when classRoot is zero.
-func stateCommitment(contractRoot, classRoot *felt.Felt, protocolVersion string) felt.Felt {
-	if classRoot.IsZero() && contractRoot.IsZero() {
-		return felt.Zero
+// StateReader is a read-only view of the state at a given root.
+type StateReader struct {
+	initRoot     felt.Felt
+	db           *StateDB
+	contractTrie *trie2.Trie
+	classTrie    *trie2.Trie
+}
+
+// NewStateReader creates a read-only view of the state at the given root.
+// Should be used for read operations that don't require state mutations.
+func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*StateReader, error) {
+	contractTrie, err := db.ContractTrie(stateRoot)
+	if err != nil {
+		return nil, err
 	}
 
-	ver, _ := core.ParseBlockVersion(protocolVersion)
-	if classRoot.IsZero() && ver.LessThan(core.Ver0_14_0) {
-		return *contractRoot
+	classTrie, err := db.ClassTrie(stateRoot)
+	if err != nil {
+		return nil, err
 	}
 
-	return crypto.PoseidonArray(stateVersion0, contractRoot, classRoot)
+	return &StateReader{
+		initRoot:     *stateRoot,
+		db:           db,
+		contractTrie: contractTrie,
+		classTrie:    classTrie,
+	}, nil
+}
+
+func (s *StateReader) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	contract, err := GetContract(s.db.disk, addr)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return contract.ClassHash, nil
+}
+
+func (s *StateReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	contract, err := GetContract(s.db.disk, addr)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return contract.Nonce, nil
+}
+
+func (s *StateReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+	storageTrie, err := s.db.ContractStorageTrie(&s.initRoot, addr)
+	if err != nil {
+		return felt.Zero, err
+	}
+
+	path := storageTrie.FeltToPath(key)
+	v, err := trieutils.GetNodeByPath(
+		s.db.disk,
+		db.ContractTrieStorage,
+		(*felt.Address)(addr),
+		&path,
+		true,
+	)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return felt.Zero, nil
+		}
+		return felt.Zero, err
+	}
+
+	return felt.FromBytes[felt.Felt](v), nil
+}
+
+// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
+// slot key of a given contract was last updated.
+func (s *StateReader) ContractStorageLastUpdatedBlock(
+	addr *felt.Address,
+	key *felt.Felt,
+) (uint64, error) {
+	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
+	return s.lastUpdatedBlockNumber(prefix, math.MaxUint64)
+}
+
+func (s *StateReader) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, error) {
+	contract, err := GetContract(s.db.disk, addr)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return contract.DeployedHeight <= blockNum, nil
+}
+
+func (s *StateReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+	return GetClass(s.db.disk, classHash)
+}
+
+func (s *StateReader) ClassTrie() (core.Trie, error) {
+	return s.classTrie, nil
+}
+
+func (s *StateReader) ContractTrie() (core.Trie, error) {
+	return s.contractTrie, nil
+}
+
+func (s *StateReader) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
+	return s.db.ContractStorageTrie(&s.initRoot, addr)
+}
+
+func (s *StateReader) CompiledClassHash(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHash(), nil
+}
+
+func (s *StateReader) CompiledClassHashV2(
+	classHash *felt.SierraClassHash,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashV2(), nil
+}
+
+func (s *StateReader) Commitment(protocolVersion string) (felt.Felt, error) {
+	contractRoot, err := s.contractTrie.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	classRoot, err := s.classTrie.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return stateCommitment(&contractRoot, &classRoot, protocolVersion), nil
+}
+
+func (s *StateReader) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core.StateDiff, error) {
+	reverse := core.StateDiff{
+		StorageDiffs:    make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs)),
+		Nonces:          make(map[felt.Felt]*felt.Felt, len(diff.Nonces)),
+		ReplacedClasses: make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses)),
+	}
+
+	for addr, stDiffs := range diff.StorageDiffs {
+		reverse.StorageDiffs[addr] = make(map[felt.Felt]*felt.Felt, len(stDiffs))
+		for key := range stDiffs {
+			value := felt.Zero
+			if blockNum > 0 {
+				oldValue, err := s.ContractStorageAt(&addr, &key, blockNum-1)
+				if err != nil {
+					return core.StateDiff{}, err
+				}
+				value = oldValue
+			}
+			reverse.StorageDiffs[addr][key] = &value
+		}
+	}
+
+	for addr := range diff.Nonces {
+		oldNonce := felt.Zero
+		if blockNum > 0 {
+			var err error
+			oldNonce, err = s.ContractNonceAt(&addr, blockNum-1)
+			if err != nil {
+				return core.StateDiff{}, err
+			}
+		}
+		reverse.Nonces[addr] = &oldNonce
+	}
+
+	for addr := range diff.ReplacedClasses {
+		oldCh := felt.Zero
+		if blockNum > 0 {
+			var err error
+			oldCh, err = s.ContractClassHashAt(&addr, blockNum-1)
+			if err != nil {
+				return core.StateDiff{}, err
+			}
+		}
+		reverse.ReplacedClasses[addr] = &oldCh
+	}
+
+	return reverse, nil
+}
+
+// Returns the storage value of a contract at a given storage key at a given block number.
+func (s *StateReader) ContractStorageAt(addr, key *felt.Felt, blockNum uint64) (felt.Felt, error) {
+	prefix := db.ContractStorageHistoryKey(addr, key)
+	return s.getHistoricalValue(prefix, blockNum)
+}
+
+// Returns the block number at which a given storage slot key of a given contract was
+// last updated, up to and including the given block number.
+func (s *StateReader) ContractStorageLastUpdatedAt(
+	addr *felt.Address,
+	key *felt.Felt,
+	blockNum uint64,
+) (uint64, error) {
+	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
+	return s.lastUpdatedBlockNumber(prefix, blockNum)
+}
+
+// Returns the nonce of a contract at a given block number.
+func (s *StateReader) ContractNonceAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
+	prefix := db.ContractNonceHistoryKey(addr)
+	return s.getHistoricalValue(prefix, blockNum)
+}
+
+// Returns the class hash of a contract at a given block number.
+func (s *StateReader) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
+	prefix := db.ContractClassHashHistoryKey(addr)
+	return s.getHistoricalValue(prefix, blockNum)
+}
+
+func (s *StateReader) CompiledClassHashAt(
+	classHash *felt.SierraClassHash,
+	blockNumber uint64,
+) (felt.CasmClassHash, error) {
+	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	if err != nil {
+		return felt.CasmClassHash{}, err
+	}
+	return metadata.CasmHashAt(blockNumber)
+}
+
+func (s *StateReader) getHistoricalValue(prefix []byte, blockNum uint64) (felt.Felt, error) {
+	var ret felt.Felt
+
+	err := s.valueAt(prefix, blockNum, func(val []byte) error {
+		ret.SetBytes(val)
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, ErrNoHistoryValue) {
+			return felt.Zero, nil
+		}
+		return felt.Zero, err
+	}
+
+	return ret, nil
+}
+
+// Returns the value at the given block number.
+// First, it attempts to seek for the key at the given block number.
+// If the key exists, it means that the key was modified at the given block number.
+// Otherwise, it moves the iterator one step back.
+// If a key-value pair exists, we have found the value.
+func (s *StateReader) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) error) error {
+	it, err := s.db.disk.NewIterator(prefix, true)
+	if err != nil {
+		return err
+	}
+	defer it.Close()
+
+	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
+	if !it.Seek(seekKey) {
+		// All existing keys (if any) are before seekKey.
+		// The last stored value is the correct answer for this blockNum.
+		if !it.Prev() {
+			// Iterator is truly empty for this prefix — no history exists.
+			return ErrNoHistoryValue
+		}
+		val, err := it.Value()
+		if err != nil {
+			return err
+		}
+		return cb(val)
+	}
+
+	key := it.Key()
+	keyBlockNum := binary.BigEndian.Uint64(key[len(prefix):])
+	if keyBlockNum == blockNum {
+		// Found the value
+		val, err := it.Value()
+		if err != nil {
+			return err
+		}
+
+		return cb(val)
+	}
+
+	// Otherwise, move the iterator backwards
+	if !it.Prev() {
+		// Moving iterator backwards is invalid, this means we were already at the first key
+		// No values will be found beyond the first key
+		return ErrNoHistoryValue
+	}
+
+	val, err := it.Value()
+	if err != nil {
+		return err
+	}
+
+	return cb(val)
 }
 
 // lastUpdatedBlockNumber finds the most recent block number (up to upToBlock) recorded in
 // a history bucket for the given key prefix. All history buckets ([ContractStorageHistory],
 // [ContractNonceHistory], and [ContractClassHashHistory]) share the same key layout:
 // prefix + uint64 block number in big-endian.
-func (s *State) lastUpdatedBlockNumber(
+func (s *StateReader) lastUpdatedBlockNumber(
 	historyKeyPrefix []byte,
 	upToBlock uint64,
 ) (uint64, error) {
@@ -929,4 +921,19 @@ func (s *State) lastUpdatedBlockNumber(
 	foundKey := it.Key()
 	blockNum := binary.BigEndian.Uint64(foundKey[len(historyKeyPrefix):])
 	return blockNum, nil
+}
+
+// Calculate the commitment of the state.
+// Since v0.14.0, the Poseidon hash is always applied even when classRoot is zero.
+func stateCommitment(contractRoot, classRoot *felt.Felt, protocolVersion string) felt.Felt {
+	if classRoot.IsZero() && contractRoot.IsZero() {
+		return felt.Zero
+	}
+
+	ver, _ := core.ParseBlockVersion(protocolVersion)
+	if classRoot.IsZero() && ver.LessThan(core.Ver0_14_0) {
+		return *contractRoot
+	}
+
+	return crypto.PoseidonArray(stateVersion0, contractRoot, classRoot)
 }

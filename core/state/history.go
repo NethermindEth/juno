@@ -11,7 +11,7 @@ var _ core.StateReader = (*stateHistory)(nil)
 // StateHistory represents a snapshot of the blockchain state at a specific block number.
 type stateHistory struct {
 	blockNum uint64
-	state    *State
+	state    *StateReader
 }
 
 func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (stateHistory, error) {
