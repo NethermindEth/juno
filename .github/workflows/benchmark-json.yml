@@ -7,7 +7,7 @@ on:
       repeats:
         description: "Number of benchmark repeats per test case"
         required: false
-        default: "1"
+        default: "3"
         type: string
 
 concurrency:
@@ -24,7 +24,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       GOLDEN_TESTS_DIR: ${{ github.workspace }}/starknet-golden-tests
-      BENCH_REPEAT: ${{ inputs.repeats || '1' }}
+      BENCH_REPEAT: ${{ inputs.repeats || '3' }}
     steps:
       - uses: actions/checkout@v6.0.2
 
