@@ -1,10 +1,10 @@
 package felt
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
@@ -14,6 +14,9 @@ import (
 const (
 	Base16 = 16
 	Base10 = 10
+
+	// maxHexDigits is the maximum number of hex digits in a felt value (32 bytes = 64 hex chars).
+	maxHexDigits = Bytes * 2
 )
 
 const (
@@ -46,27 +49,59 @@ func (z *Felt) Impl() *fp.Element {
 	return (*fp.Element)(z)
 }
 
-// UnmarshalJSON accepts only 0x-prefixed hexadecimal strings.
+// UnmarshalJSON accepts a quoted, 0x-prefixed hex string and sets z.
+// Zero-alloc: pads hex into a fixed [64]byte and lets hex.Decode do the parsing.
 func (z *Felt) UnmarshalJSON(data []byte) error {
-	if len(data) > fp.Bits*3 {
-		return errors.New("value too large (max = Element.Bits * 3)")
+	if len(data) < 5 || data[0] != '"' || data[len(data)-1] != '"' {
+		return errors.New("felt: expected quoted 0x hex string")
+	}
+	if data[1] != '0' || (data[2] != 'x' && data[2] != 'X') {
+		return errors.New("felt: missing 0x prefix")
 	}
 
-	// remove leading and trailing quotes if any, normalise to lowercase
-	s := strings.ToLower(strings.Trim(string(data), `"`))
-	if !strings.HasPrefix(s, "0x") {
-		return errors.New("felt value must be a 0x-prefixed hex string")
+	src := data[3 : len(data)-1] // hex digits after "0x
+	if len(src) > maxHexDigits {
+		return errors.New("felt: value exceeds field size")
 	}
 
-	_, err := z.SetString(s)
-	return err
+	// Left-pad with '0' to 64 hex chars so hex.Decode produces exactly 32 bytes.
+	var padded [64]byte
+	for i := range padded {
+		padded[i] = '0'
+	}
+	copy(padded[64-len(src):], src)
+
+	var buf [32]byte
+	if _, err := hex.Decode(buf[:], padded[:]); err != nil {
+		return fmt.Errorf("felt: %w", err)
+	}
+	return (*fp.Element)(z).SetBytesCanonical(buf[:])
 }
 
-// MarshalJSON forwards the call to underlying field element implementation.
-// Uses a value receiver so encoding/json can call it on non-addressable values
-// (e.g. struct fields inside a value stored in an `any` interface).
+// MarshalJSON returns the felt as a quoted 0x hex string with no
+// unnecessary leading zeros. Uses a value receiver so encoding/json
+// can call it on non-addressable values (struct fields in `any`).
 func (z Felt) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + z.String() + "\""), nil
+	var raw [32]byte
+	fp.BigEndian.PutElement(&raw, fp.Element(z))
+
+	// Find first significant byte.
+	i := 0
+	for i < 31 && raw[i] == 0 {
+		i++
+	}
+
+	out := make([]byte, 3, 4+(32-i)*2)
+	out[0], out[1], out[2] = '"', '0', 'x'
+
+	// First byte may need a single hex digit (e.g. 0x3, not 0x03).
+	if raw[i] < Base16 {
+		out = append(out, "0123456789abcdef"[raw[i]])
+		i++
+	}
+	out = hex.AppendEncode(out, raw[i:])
+
+	return append(out, '"'), nil
 }
 
 // SetBytes forwards the call to underlying field element implementation

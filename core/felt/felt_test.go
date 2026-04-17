@@ -145,3 +145,145 @@ func TestFeltMarshalAndUnmarshal(t *testing.T) {
 
 	assert.True(t, f2.Equal(f))
 }
+
+func TestMarshalJSON(t *testing.T) {
+	tests := []struct {
+		name   string
+		hex    string
+		expect string
+	}{
+		{"zero", "0x0", `"0x0"`},
+		{"one", "0x1", `"0x1"`},
+		{"single digit", "0xf", `"0xf"`},
+		{"two digits", "0xff", `"0xff"`},
+		{"leading nibble < 0x10", "0xa", `"0xa"`},
+		{"leading nibble 0x0a boundary", "0xa0", `"0xa0"`},
+		{"small value", "0xdeadbeef", `"0xdeadbeef"`},
+		{"typical address", "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			`"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"`},
+		{"max 252-bit value", "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			`"0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"`},
+		{"power of two", "0x100", `"0x100"`},
+		{"0x10 boundary", "0x10", `"0x10"`},
+		{"0x0f boundary", "0xf", `"0xf"`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := felt.UnsafeFromString[felt.Felt](tc.hex)
+			got, err := f.MarshalJSON()
+			require.NoError(t, err)
+			assert.Equal(t, tc.expect, string(got))
+		})
+	}
+}
+
+func TestUnmarshalJSON(t *testing.T) {
+	t.Run("valid values", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input string
+			hex   string
+		}{
+			{"zero", `"0x0"`, "0x0"},
+			{"zero with leading zeros", `"0x0000"`, "0x0"},
+			{"one", `"0x1"`, "0x1"},
+			{"small", `"0xdeadbeef"`, "0xdeadbeef"},
+			{"uppercase X prefix", `"0Xdeadbeef"`, "0xdeadbeef"},
+			{"mixed case hex digits", `"0xDeAdBeEf"`, "0xdeadbeef"},
+			{"64 hex digits with leading zero (padded address)",
+				`"0x041d5da3fe4b9a6c0aef883cfec0d45436b51128e1adae80340a941b5f905db6"`,
+				"0x41d5da3fe4b9a6c0aef883cfec0d45436b51128e1adae80340a941b5f905db6"},
+			{"max valid felt (P-1)",
+				`"0x800000000000011000000000000000000000000000000000000000000000000"`,
+				"0x800000000000011000000000000000000000000000000000000000000000000"},
+			{"odd number of hex digits", `"0xabc"`, "0xabc"},
+			{"single digit", `"0x5"`, "0x5"},
+			{"leading zero nibble value", `"0x0a"`, "0xa"},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				var f felt.Felt
+				err := f.UnmarshalJSON([]byte(tc.input))
+				require.NoError(t, err)
+				assert.Equal(t, tc.hex, f.String())
+			})
+		}
+	})
+
+	t.Run("invalid values", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input string
+		}{
+			{"no quotes", `0xdeadbeef`},
+			{"no prefix", `"deadbeef"`},
+			{"no hex prefix", `"4437ab"`},
+			{"empty hex", `"0x"`},
+			{"only quotes", `""`},
+			{"too short", `"0x"`},
+			{"65 hex digits (exceeds 32 bytes)",
+				`"0x10000000000000000000000000000000000000000000000000000000000000000"`},
+			{"field modulus P (invalid canonical)",
+				`"0x0800000000000011000000000000000000000000000000000000000000000001"`},
+			{"above modulus with leading zero",
+				`"0x0fb01012100000000000000000000000000000000000000000000000000000000"`},
+			{"invalid hex character", `"0xdeadgbeef"`},
+			{"spaces in hex", `"0xdead beef"`},
+			{"negative", `"-0x1"`},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				var f felt.Felt
+				assert.Error(t, f.UnmarshalJSON([]byte(tc.input)))
+			})
+		}
+	})
+}
+
+func TestJSONRoundTrip(t *testing.T) {
+	values := []string{
+		"0x0",
+		"0x1",
+		"0xa",
+		"0xf",
+		"0x10",
+		"0xff",
+		"0x100",
+		"0xdeadbeef",
+		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		"0x800000000000011000000000000000000000000000000000000000000000000",
+	}
+
+	for _, hex := range values {
+		t.Run(hex, func(t *testing.T) {
+			original := felt.UnsafeFromString[felt.Felt](hex)
+
+			marshaled, err := json.Marshal(&original)
+			require.NoError(t, err)
+
+			var decoded felt.Felt
+			require.NoError(t, json.Unmarshal(marshaled, &decoded))
+
+			assert.True(t, original.Equal(&decoded),
+				"round-trip failed: %s → %s → %s", hex, string(marshaled), decoded.String())
+		})
+	}
+}
+
+func TestJSONRoundTripRandom(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		original := felt.NewRandom[felt.Felt]()
+
+		marshaled, err := json.Marshal(&original)
+		require.NoError(t, err)
+
+		var decoded felt.Felt
+		require.NoError(t, json.Unmarshal(marshaled, &decoded))
+
+		assert.True(t, original.Equal(&decoded),
+			"round-trip failed for random felt: marshaled=%s", string(marshaled))
+	}
+}
