@@ -3,12 +3,12 @@ package rpcv8_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -28,7 +28,7 @@ func TestThrottledVMError(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
+	mockReader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)

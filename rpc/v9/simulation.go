@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -161,7 +162,7 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 }
 
 func (h *Handler) prepareTransactions(
-	ctx context.Context, transactions []BroadcastedTransaction, network *utils.Network,
+	ctx context.Context, transactions []BroadcastedTransaction, network *networks.Network,
 ) (
 	[]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error,
 ) {

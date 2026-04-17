@@ -10,6 +10,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/dht"
 	"github.com/NethermindEth/juno/p2p/server"
@@ -41,7 +42,7 @@ const (
 type Service struct {
 	host host.Host
 
-	network *utils.Network
+	network *networks.Network
 	server  *server.Server
 	log     utils.StructuredLogger
 
@@ -61,7 +62,7 @@ func New(
 	privKeyStr string,
 	feederNode bool,
 	bc *blockchain.Blockchain,
-	snNetwork *utils.Network,
+	snNetwork *networks.Network,
 	log utils.StructuredLogger,
 	database db.KeyValueStore,
 	compiler compiler.Compiler,
@@ -131,7 +132,7 @@ func NewWithHost(
 	peers string,
 	feederNode bool,
 	bc *blockchain.Blockchain,
-	snNetwork *utils.Network,
+	snNetwork *networks.Network,
 	log utils.StructuredLogger,
 	database db.KeyValueStore,
 	compiler compiler.Compiler,

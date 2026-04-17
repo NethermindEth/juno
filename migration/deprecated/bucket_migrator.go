@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -15,7 +16,7 @@ import (
 var _ Migration = (*BucketMigrator)(nil)
 
 type (
-	BucketMigratorDoFunc    func(t db.KeyValueWriter, b1, b2 []byte, n *utils.Network) error
+	BucketMigratorDoFunc    func(t db.KeyValueWriter, b1, b2 []byte, n *networks.Network) error
 	BucketMigratorKeyFilter func([]byte) (bool, error)
 )
 
@@ -45,7 +46,7 @@ func NewBucketMigrator(target db.Bucket, do BucketMigratorDoFunc) *BucketMigrato
 }
 
 func NewBucketMover(source, destination db.Bucket) *BucketMigrator {
-	return NewBucketMigrator(source, func(txn db.KeyValueWriter, key, value []byte, n *utils.Network) error {
+	return NewBucketMigrator(source, func(txn db.KeyValueWriter, key, value []byte, n *networks.Network) error {
 		err := txn.Delete(key)
 		if err != nil {
 			return err
@@ -79,7 +80,7 @@ func (m *BucketMigrator) Before(_ []byte) error {
 func (m *BucketMigrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
-	network *utils.Network,
+	network *networks.Network,
 	log utils.StructuredLogger,
 ) ([]byte, error) {
 	remainingInBatch := m.batchSize

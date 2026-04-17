@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	deprecatedprogresslogger "github.com/NethermindEth/juno/migration/deprecated/progresslogger"
@@ -43,7 +44,7 @@ func (m *Migrator) Before(intermediateState []byte) error {
 func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
-	_ *utils.Network,
+	_ *networks.Network,
 	log utils.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)

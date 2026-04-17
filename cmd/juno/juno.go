@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
@@ -366,14 +367,14 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
 			}
 
-			config.Network = utils.Network{
+			config.Network = networks.Network{
 				Name:                v.GetString(cnNameF),
 				FeederURL:           v.GetString(cnFeederURLF),
 				GatewayURL:          v.GetString(cnGatewayURLF),
 				L1ChainID:           l1ChainID,
 				L2ChainID:           v.GetString(cnL2ChainIDF),
 				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
-				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
+				BlockHashMetaInfo: &networks.BlockHashMetaInfo{
 					First07Block:      0,
 					UnverifiableRange: []uint64{uint64(unverifRange[0]), uint64(unverifRange[1])},
 				},
@@ -394,7 +395,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
-	defaultNetwork := utils.Mainnet
+	defaultNetwork := networks.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 

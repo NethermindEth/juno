@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/proposal"
@@ -38,7 +39,7 @@ const (
 	firstHalfSize = 2
 )
 
-var network = &utils.Mainnet
+var network = &networks.Mainnet
 
 func TestProposalStreamDemux(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
@@ -178,7 +179,7 @@ func createProposal(t *testing.T, executor *mockExecutor, database db.KeyValueSt
 		Height:     height,
 		Round:      types.Round(rand.Uint32()),
 		ValidRound: types.Round(rand.Uint32()),
-		Network:    &utils.SepoliaIntegration,
+		Network:    &networks.SepoliaIntegration,
 	}
 	fixture := NewEmptyTestFixture(t, executor, database, testCase)
 	builder := newProposalBuilder(t)

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -470,7 +471,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -506,7 +507,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	n := new(utils.Sepolia)
+	n := new(networks.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, log)
@@ -624,7 +625,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			log := utils.NewNopZapLogger()
-			n := &utils.Mainnet
+			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			handler := rpc.New(chain, mockSyncReader, nil, log)
@@ -662,7 +663,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 }
 
 func TestBlockWithTxHashes(t *testing.T) {
-	network := &utils.Sepolia
+	network := &networks.Sepolia
 	client := feeder.NewTestClient(t, network)
 
 	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, 56377)
@@ -753,7 +754,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := &utils.Mainnet
+			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
@@ -793,14 +794,14 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 }
 
 func TestBlockWithTxs(t *testing.T) {
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
 
 	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, 16697)
 
 	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
-	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
+	clientSepolia := feeder.NewTestClient(t, &networks.Sepolia)
 	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpc.GetTestBlockWithCommitments(
 		t,
 		clientSepolia,
@@ -900,7 +901,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			log := utils.NewNopZapLogger()
-			n := &utils.Mainnet
+			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			handler := rpc.New(chain, mockSyncReader, nil, log)
@@ -939,14 +940,14 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 }
 
 func TestBlockWithReceipts(t *testing.T) {
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
 
 	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, 16697)
 
 	testCases := createBlockTestCases(block, commitments, stateUpdate)
 
-	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
+	clientSepolia := feeder.NewTestClient(t, &networks.Sepolia)
 	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpc.GetTestBlockWithCommitments(
 		t,
 		clientSepolia,
@@ -999,7 +1000,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := new(utils.Sepolia)
+	n := new(networks.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -1033,7 +1034,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	network := new(utils.SepoliaIntegration)
+	network := new(networks.SepoliaIntegration)
 	blockNumber := uint64(16350)
 	client := feeder.NewTestClient(t, network)
 	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, blockNumber)
@@ -1148,7 +1149,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	network := &utils.Sepolia
+	network := &networks.Sepolia
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 
@@ -1249,7 +1250,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	network := &utils.Sepolia
+	network := &networks.Sepolia
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 

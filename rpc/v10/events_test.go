@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -172,7 +173,7 @@ func fetchAndStoreBlock(
 // setupTestChain sets up a test chain with the given number of blocks
 func setupTestChain(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 	numBlocks uint64,
 ) (*blockchain.Blockchain, *adaptfeeder.Feeder) {
 	t.Helper()
@@ -190,7 +191,7 @@ func setupTestChain(
 }
 
 func TestEvents(t *testing.T) {
-	network := utils.Sepolia
+	network := networks.Sepolia
 	numCanonicalBlocks := uint64(5)
 	chain, gw := setupTestChain(t, &network, numCanonicalBlocks)
 
@@ -592,7 +593,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestEvents_FilterWithLimit(t *testing.T) {
-	n := &utils.Sepolia
+	n := &networks.Sepolia
 	chain, _ := setupTestChain(t, n, uint64(6))
 
 	mockCtrl := gomock.NewController(t)
@@ -636,7 +637,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 }
 
 func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
-	network := utils.Sepolia
+	network := networks.Sepolia
 	numCanonicalBlocks := uint64(5)
 	chain, gw := setupTestChain(t, &network, numCanonicalBlocks)
 

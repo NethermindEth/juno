@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -126,7 +127,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -162,7 +163,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	n := new(utils.Sepolia)
+	n := new(networks.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, log)
@@ -281,7 +282,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := &utils.Mainnet
+			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 
 			if description == "pre_confirmed" {
@@ -298,7 +299,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	}
 
 	mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-	n := &utils.Sepolia
+	n := &networks.Sepolia
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
@@ -479,7 +480,7 @@ func TestBlockWithTxs(t *testing.T) {
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := &utils.Mainnet
+			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 
 			if description == "pre_confirmed" {
@@ -498,7 +499,7 @@ func TestBlockWithTxs(t *testing.T) {
 	mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
@@ -709,7 +710,7 @@ func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	n := new(utils.SepoliaIntegration)
+	n := new(networks.SepoliaIntegration)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -795,7 +796,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := new(utils.Mainnet)
+	n := new(networks.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -934,7 +935,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := new(utils.Sepolia)
+	n := new(networks.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, nil)
 

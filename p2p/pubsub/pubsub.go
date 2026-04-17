@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/p2p/dht"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -38,7 +38,7 @@ func GetHost(hostPrivateKey crypto.PrivKey, hostAddress string) (host.Host, erro
 func Run(
 	ctx context.Context,
 	host host.Host,
-	network *utils.Network,
+	network *networks.Network,
 	starknetProtocol starknetp2p.Protocol,
 	bootstrapPeersFn func() []peer.AddrInfo,
 	pubSubQueueSize int,

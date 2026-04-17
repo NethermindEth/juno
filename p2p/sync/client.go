@@ -7,6 +7,7 @@ import (
 	"iter"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/utils"
@@ -31,12 +32,12 @@ type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Strea
 
 type Client struct {
 	newStream NewStreamFunc
-	network   *utils.Network
+	network   *networks.Network
 	log       utils.StructuredLogger
 }
 
 func NewClient(
-	newStream NewStreamFunc, snNetwork *utils.Network, log utils.StructuredLogger,
+	newStream NewStreamFunc, snNetwork *networks.Network, log utils.StructuredLogger,
 ) *Client {
 	return &Client{
 		newStream: newStream,

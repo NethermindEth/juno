@@ -3,6 +3,7 @@ package genesis_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -12,11 +13,11 @@ import (
 )
 
 func TestGenesisStateDiff(t *testing.T) {
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	log := utils.NewNopZapLogger()
 
 	t.Run("empty genesis config", func(t *testing.T) {
-		feeTokens := utils.DefaultFeeTokenAddresses
+		feeTokens := networks.DefaultFeeTokenAddresses
 		chainInfo := vm.ChainInfo{
 			ChainID:           network.L2ChainID,
 			FeeTokenAddresses: feeTokens,
@@ -41,7 +42,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NoError(t, err)
 		genesisConfig.Classes = []string{"./classes/strk.json", "./classes/account.json", "./classes/universaldeployer.json", "./classes/udacnt.json"}
 
-		feeTokens := utils.DefaultFeeTokenAddresses
+		feeTokens := networks.DefaultFeeTokenAddresses
 		chainInfo := vm.ChainInfo{
 			ChainID:           network.L2ChainID,
 			FeeTokenAddresses: feeTokens,

@@ -8,15 +8,15 @@ import (
 	"github.com/NethermindEth/juno/adapters/mempool2p2p/testutils"
 	"github.com/NethermindEth/juno/adapters/p2p2mempool"
 	transactiontestutils "github.com/NethermindEth/juno/adapters/testutils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAdaptProposalTransaction(t *testing.T) {
 	mempoolTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
-		&utils.Sepolia,
+		&networks.Sepolia,
 		testutils.TransactionBuilder.GetTestDeclareTransaction,
 		testutils.TransactionBuilder.GetTestDeployAccountTransaction,
 		testutils.TransactionBuilder.GetTestInvokeTransaction,
@@ -25,7 +25,7 @@ func TestAdaptProposalTransaction(t *testing.T) {
 	for i := range mempoolTransactions {
 		t.Run(fmt.Sprintf("%T", mempoolTransactions[i].Transaction), func(t *testing.T) {
 			convertedmempoolTransaction, err := p2p2mempool.AdaptTransaction(
-				t.Context(), compiler.NewUnsafe(), p2pTransactions[i], &utils.Sepolia,
+				t.Context(), compiler.NewUnsafe(), p2pTransactions[i], &networks.Sepolia,
 			)
 			require.NoError(t, err)
 

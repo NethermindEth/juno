@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -11,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
@@ -65,7 +65,7 @@ func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 
 func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	testDB := memory.New()
-	n := &utils.Sepolia
+	n := &networks.Sepolia
 	chain := blockchain.New(testDB, n)
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)

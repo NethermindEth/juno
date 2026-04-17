@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
@@ -64,12 +65,12 @@ func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
 func TestTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
 		hash     string
-		network  *utils.Network
+		network  *networks.Network
 		expected string
 	}{
 		"DECLARE v1": {
 			hash:    "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
 			"type": "DECLARE",
 			"transaction_hash": "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
@@ -87,7 +88,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DECLARE v0": {
 			hash:    "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
 				"transaction_hash": "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
 				"type": "DECLARE",
@@ -101,7 +102,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"L1 Handler v0 with nonce": {
 			hash:    "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "L1_HANDLER",
        "transaction_hash": "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
@@ -120,7 +121,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"L1 Handler v0 without nonce": {
 			hash:    "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
 				"type": "L1_HANDLER",
 				"transaction_hash":  "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
@@ -139,7 +140,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"Invoke v1": {
 			hash:    "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
@@ -175,7 +176,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DEPLOY v0": {
 			hash:    "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "DEPLOY",
        "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
@@ -194,7 +195,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DEPLOY ACCOUNT v1": {
 			hash:    "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "DEPLOY_ACCOUNT",
        "transaction_hash": "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
@@ -215,7 +216,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"INVOKE v0": {
 			hash:    "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
@@ -234,7 +235,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DECLARE v3": {
 			hash:    "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 		"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 		"type": "DECLARE",
@@ -267,7 +268,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"INVOKE v3": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 				"type": "INVOKE",
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -315,7 +316,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DEPLOY ACCOUNT v3": {
 			hash:    "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 				"transaction_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 				"version": "0x3",
@@ -350,7 +351,7 @@ func TestTransactionByHash(t *testing.T) {
 		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282
 		"INVOKE v3 without l1_data_gas": {
 			hash:    "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 				"transaction_hash": "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
 				"version": "0x3",
@@ -439,7 +440,7 @@ func TestTransactionByHash(t *testing.T) {
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	client := feeder.NewTestClient(t, n)
@@ -581,7 +582,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -770,7 +771,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			}
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &networks.Integration)
 		integGw := adaptfeeder.New(integClient)
 
 		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
@@ -840,7 +841,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"type": "INVOKE"
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &networks.Integration)
 		integGw := adaptfeeder.New(integClient)
 
 		block, err := integGw.BlockByNumber(t.Context(), 319132)
@@ -897,7 +898,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			}
 		}`
 
-		netClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		netClient := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		netGW := adaptfeeder.New(netClient)
 
 		block, err := netGW.BlockByNumber(t.Context(), 35748)
@@ -965,7 +966,7 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 }
 
 func TestAddTransaction(t *testing.T) {
-	n := &utils.Integration
+	n := &networks.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
@@ -1303,7 +1304,7 @@ func TestAddTransaction(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			mockReader := mocks.NewMockReader(mockCtrl)
-			n := &utils.Sepolia
+			n := &networks.Sepolia
 			mockReader.EXPECT().Network().Return(n).AnyTimes()
 
 			receivedTxFeed := feed.New[core.Transaction]()
@@ -1356,19 +1357,19 @@ func TestTransactionStatus(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	tests := []struct {
-		network           *utils.Network
+		network           *networks.Network
 		verifiedTxHash    *felt.Felt
 		nonVerifiedTxHash *felt.Felt
 		notFoundTxHash    *felt.Felt
 	}{
 		{
-			network:           &utils.Mainnet,
+			network:           &networks.Mainnet,
 			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
 			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
 			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
-			network:           &utils.Integration,
+			network:           &networks.Integration,
 			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
 			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
@@ -1523,7 +1524,7 @@ func TestTransactionStatus(t *testing.T) {
 	t.Run("Rejected transaction found in feeder", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		txHash, err := new(felt.Felt).SetString("0x1111")
 		require.NoError(t, err)
 
@@ -1847,7 +1848,7 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(txnNonZeroL2GasData), &txnNonZeroL2Gas))
 
 	tx, _, _, err := rpc.AdaptBroadcastedTransaction(
-		t.Context(), nil, &txnNonZeroL2Gas, &utils.Sepolia,
+		t.Context(), nil, &txnNonZeroL2Gas, &networks.Sepolia,
 	)
 	require.NoError(t, err)
 	resultTxn, ok := (tx).(*core.DeployAccountTransaction)
@@ -1942,7 +1943,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 	ctx := t.Context()
 	log := utils.NewNopZapLogger()
-	network := utils.Integration
+	network := networks.Integration
 
 	client := feeder.NewTestClient(t, &network)
 

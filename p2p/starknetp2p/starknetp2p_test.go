@@ -4,24 +4,24 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/stretchr/testify/require"
 )
 
-var networks = []struct {
-	network *utils.Network
+var networkArr = []struct {
+	network *networks.Network
 	name    string
 }{
-	{&utils.Mainnet, "SN_MAIN"},
-	{&utils.Goerli, "SN_GOERLI"},
-	{&utils.Goerli2, "SN_GOERLI2"},
-	{&utils.Integration, "SN_GOERLI"},
-	{&utils.Sepolia, "SN_SEPOLIA"},
-	{&utils.SepoliaIntegration, "SN_INTEGRATION_SEPOLIA"},
+	{&networks.Mainnet, "SN_MAIN"},
+	{&networks.Goerli, "SN_GOERLI"},
+	{&networks.Goerli2, "SN_GOERLI2"},
+	{&networks.Integration, "SN_GOERLI"},
+	{&networks.Sepolia, "SN_SEPOLIA"},
+	{&networks.SepoliaIntegration, "SN_INTEGRATION_SEPOLIA"},
 }
 
 func TestSync(t *testing.T) {
@@ -36,7 +36,7 @@ func TestSync(t *testing.T) {
 		{starknetp2p.EventsSyncSubProtocol, "events"},
 	}
 
-	for _, network := range networks {
+	for _, network := range networkArr {
 		for _, protocol := range subProtocols {
 			testName := fmt.Sprintf("Sub-protocol %s in network %s", protocol.name, network.name)
 			t.Run(testName, func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestDHT(t *testing.T) {
 		{starknetp2p.SyncProtocolID, "sync"},
 	}
 
-	for _, network := range networks {
+	for _, network := range networkArr {
 		for _, p := range protocols {
 			testName := fmt.Sprintf("Protocol %s in network %s", p.name, network.name)
 			t.Run(testName, func(t *testing.T) {

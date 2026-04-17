@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -579,7 +580,7 @@ func (h *Handler) buildBlockInfo(header *core.Header) (vm.BlockInfo, *jsonrpc.Er
 
 // shouldFetchTracesFromFeederGateway determines if
 // traces for a block should be fetched from the feeder gateway.
-func shouldFetchTracesFromFeederGateway(block *core.Block, network *utils.Network) (bool, error) {
+func shouldFetchTracesFromFeederGateway(block *core.Block, network *networks.Network) (bool, error) {
 	blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
 	if err != nil {
 		return false, err
@@ -593,7 +594,7 @@ func shouldFetchTracesFromFeederGateway(block *core.Block, network *utils.Networ
 	fetchFromFeederGW = fetchFromFeederGW ||
 		(block.Number >= 1943705 &&
 			block.Number <= 1952704 &&
-			*network == utils.Mainnet)
+			*network == networks.Mainnet)
 
 	return fetchFromFeederGW, nil
 }

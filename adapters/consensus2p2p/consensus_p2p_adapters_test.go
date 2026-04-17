@@ -8,8 +8,8 @@ import (
 	"github.com/NethermindEth/juno/adapters/consensus2p2p/testutils"
 	"github.com/NethermindEth/juno/adapters/p2p2consensus"
 	transactiontestutils "github.com/NethermindEth/juno/adapters/testutils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +44,7 @@ func TestAdaptProposalCommitment(t *testing.T) {
 func TestAdaptProposalTransaction(t *testing.T) {
 	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
-		&utils.Mainnet,
+		&networks.Mainnet,
 		testutils.TransactionBuilder.GetTestDeclareTransaction,
 		testutils.TransactionBuilder.GetTestDeployAccountTransaction,
 		testutils.TransactionBuilder.GetTestInvokeTransaction,
@@ -58,7 +58,7 @@ func TestAdaptProposalTransaction(t *testing.T) {
 			require.Equal(t, p2pTransactions[i], convertedP2PTransaction)
 
 			convertedConsensusTransaction, err := p2p2consensus.AdaptTransaction(
-				t.Context(), compiler.NewUnsafe(), convertedP2PTransaction, &utils.Mainnet,
+				t.Context(), compiler.NewUnsafe(), convertedP2PTransaction, &networks.Mainnet,
 			)
 			require.NoError(t, err)
 
@@ -74,7 +74,7 @@ func TestAdaptProposalTransaction(t *testing.T) {
 		require.Equal(t, p2pTransactions, convertedP2PTransactions.Transactions)
 
 		convertedConsensusTransactions, err := p2p2consensus.AdaptProposalTransaction(
-			t.Context(), compiler.NewUnsafe(), &convertedP2PTransactions, &utils.Mainnet,
+			t.Context(), compiler.NewUnsafe(), &convertedP2PTransactions, &networks.Mainnet,
 		)
 		require.NoError(t, err)
 		for i := range consensusTransactions {

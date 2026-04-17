@@ -4,13 +4,13 @@ import (
 	"math"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ const nonexistentBlockNumber = math.MaxUint64
 func setupForTxsAndReceiptsTests(t *testing.T) (db.KeyValueStore, *core.Block) {
 	t.Helper()
 	memDB := memory.New()
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	block, err := gw.BlockByNumber(t.Context(), 4072139)
@@ -56,7 +56,7 @@ func clearEmptyProofFacts(txs []core.Transaction) {
 func TestWriteTransactionsAndReceipts(t *testing.T) {
 	t.Parallel()
 	memDB := memory.New()
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	block, err := gw.BlockByNumber(t.Context(), 4072139)

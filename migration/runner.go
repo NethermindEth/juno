@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
@@ -44,7 +45,7 @@ type Migration interface {
 	Migrate(
 		ctx context.Context,
 		database db.KeyValueStore,
-		network *utils.Network,
+		network *networks.Network,
 		log utils.StructuredLogger,
 	) ([]byte, error)
 }
@@ -54,7 +55,7 @@ type MigrationRunner struct {
 	targetVersion SchemaVersion
 	metadata      SchemaMetadata
 	database      db.KeyValueStore
-	network       *utils.Network
+	network       *networks.Network
 	log           utils.StructuredLogger
 }
 
@@ -68,7 +69,7 @@ type MigrationRunner struct {
 func NewRunner(
 	registry *Registry,
 	database db.KeyValueStore,
-	network *utils.Network,
+	network *networks.Network,
 	log utils.StructuredLogger,
 ) (*MigrationRunner, error) {
 	metadata, err := GetSchemaMetadata(database)

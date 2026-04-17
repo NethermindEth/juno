@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
@@ -19,7 +20,7 @@ import (
 func TestCallDeprecatedCairo(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
@@ -43,9 +44,9 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := ChainInfo{
-		ChainID:           utils.Mainnet.L2ChainID,
+		ChainID:           networks.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
 	ret, err := New(&chainInfo, false, nil).Call(
@@ -100,7 +101,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
@@ -123,9 +124,9 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	}, false))
 
 	entryPoint := felt.NewUnsafeFromString[felt.Felt]("0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := ChainInfo{
-		ChainID:           utils.Mainnet.L2ChainID,
+		ChainID:           networks.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
 	_, err = New(&chainInfo, false, nil).Call(
@@ -147,7 +148,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 func TestCallCairo(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, &networks.Goerli)
 	gw := adaptfeeder.New(client)
 
 	contractAddr := felt.NewFromUint64[felt.Felt](0xdeadbeef)
@@ -186,9 +187,9 @@ func TestCallCairo(t *testing.T) {
 	)
 	storageLocation := felt.NewFromUint64[felt.Felt](0x44)
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := ChainInfo{
-		ChainID:           utils.Mainnet.L2ChainID,
+		ChainID:           networks.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
 	vm := New(&chainInfo, false, log)
@@ -247,7 +248,7 @@ func TestCallCairo(t *testing.T) {
 func TestCallInfoErrorHandling(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0x123")
@@ -280,9 +281,9 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	}
 
 	// Starknet version <0.13.4 should return an error
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := ChainInfo{
-		ChainID:           utils.Mainnet.L2ChainID,
+		ChainID:           networks.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
 	ret, err := New(&chainInfo, false, log).Call(
@@ -328,9 +329,9 @@ func TestExecute(t *testing.T) {
 	state := deprecatedstate.New(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
-		feeTokens := utils.DefaultFeeTokenAddresses
+		feeTokens := networks.DefaultFeeTokenAddresses
 		chainInfo := ChainInfo{
-			ChainID:           utils.Mainnet.L2ChainID,
+			ChainID:           networks.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
 		_, err := New(&chainInfo, false, nil).
@@ -348,9 +349,9 @@ func TestExecute(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		feeTokens := utils.DefaultFeeTokenAddresses
+		feeTokens := networks.DefaultFeeTokenAddresses
 		chainInfo := ChainInfo{
-			ChainID:           utils.Mainnet.L2ChainID,
+			ChainID:           networks.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
 		_, err := New(&chainInfo, false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{

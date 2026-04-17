@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +17,7 @@ import (
 func TestBlockByNumber(t *testing.T) {
 	numbers := []uint64{147, 11817}
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -38,7 +38,7 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestBlockLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -54,7 +54,7 @@ func TestBlockLatest(t *testing.T) {
 }
 
 func TestBlockHeaderLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -71,7 +71,7 @@ func TestBlockHeaderLatest(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -98,7 +98,7 @@ func TestClassV0(t *testing.T) {
 		"0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
 	}
 
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -118,10 +118,10 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
+	clientGoerli := feeder.NewTestClient(t, &networks.Goerli)
 	adapterGoerli := adaptfeeder.New(clientGoerli)
 
-	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
+	clientMainnet := feeder.NewTestClient(t, &networks.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
 	ctx := t.Context()
@@ -193,7 +193,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	adapter := adaptfeeder.New(client)
 
 	tests := []struct {
@@ -238,7 +238,7 @@ func TestClassV1(t *testing.T) {
 func TestStateUpdateWithBlock(t *testing.T) {
 	numbers := []uint64{0, 78541}
 
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -262,7 +262,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -279,7 +279,7 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 }
 
 func TestPreConfirmedBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 	blockNumber := uint64(1204672)

@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewTestServerRejectsPathTraversal(t *testing.T) {
-	srv := newTestServer(t, &utils.Mainnet)
+	srv := newTestServer(t, &networks.Mainnet)
 	t.Cleanup(srv.Close)
 	ctx := t.Context()
 

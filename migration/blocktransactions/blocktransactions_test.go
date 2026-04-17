@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/testutils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
@@ -35,7 +36,7 @@ func TestBlockTransactionsMigration(t *testing.T) {
 		state, err := blocktransactions.Migrator{}.Migrate(
 			t.Context(),
 			database,
-			&utils.Sepolia,
+			&networks.Sepolia,
 			utils.NewNopZapLogger(),
 		)
 		require.NoError(t, err)
@@ -171,7 +172,7 @@ func runTestBlockTransactionsMigration(
 				state, err := blocktransactions.Migrator{}.Migrate(
 					ctx,
 					database,
-					&utils.Sepolia,
+					&networks.Sepolia,
 					logger,
 				)
 

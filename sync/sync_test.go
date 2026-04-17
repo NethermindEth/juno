@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -27,7 +28,7 @@ func TestSyncBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) {
 		t.Helper()
@@ -55,7 +56,7 @@ func TestSyncBlocks(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &networks.Mainnet)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -68,7 +69,7 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &networks.Mainnet)
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(t.Context(), 0)
@@ -87,7 +88,7 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &networks.Mainnet)
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
 
@@ -147,16 +148,16 @@ func TestSyncBlocks(t *testing.T) {
 }
 
 func TestReorg(t *testing.T) {
-	mainClient := feeder.NewTestClient(t, &utils.Mainnet)
+	mainClient := feeder.NewTestClient(t, &networks.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
 
-	sepoliaClient := feeder.NewTestClient(t, &utils.Sepolia)
+	sepoliaClient := feeder.NewTestClient(t, &networks.Sepolia)
 	sepoliaGw := adaptfeeder.New(sepoliaClient)
 
 	testDB := memory.New()
 
 	// sync to Sepolia for 2 blocks
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &networks.Sepolia)
 	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
 	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
@@ -165,7 +166,7 @@ func TestReorg(t *testing.T) {
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &networks.Mainnet)
 
 		// Ensure current head is Sepolia head
 		head, err := bc.HeadsHeader()
@@ -218,7 +219,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
 	testDB := memory.New()
 	log := utils.NewNopZapLogger()
-	network := utils.Mainnet
+	network := networks.Mainnet
 	chain := blockchain.New(testDB, &network)
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
@@ -243,12 +244,12 @@ func TestSubscribeNewHeads(t *testing.T) {
 func TestPreConfirmedAfterSync(t *testing.T) {
 	t.Parallel()
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
 	log := utils.NewNopZapLogger()
-	bc := blockchain.New(testDB, &utils.Mainnet)
+	bc := blockchain.New(testDB, &networks.Mainnet)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 	synchronizer := sync.New(
 		bc,
@@ -282,13 +283,13 @@ func TestPreConfirmedAfterSync(t *testing.T) {
 func TestPreConfirmed(t *testing.T) {
 	t.Parallel()
 	log := utils.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	t.Run("Returns pre_confirmed data when available", func(t *testing.T) {
 		t.Parallel()
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &networks.Mainnet)
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(t.Context(), 0)
@@ -313,7 +314,7 @@ func TestPreConfirmed(t *testing.T) {
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()
 		testDB := memory.New()
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &networks.Mainnet)
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(t.Context(), 0)

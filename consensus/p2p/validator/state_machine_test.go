@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/validator"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestProposalStateMachine_EmptyProposalStream(t *testing.T) {
 		Height:     1164618,
 		Round:      2,
 		ValidRound: 1,
-		Network:    &utils.SepoliaIntegration,
+		Network:    &networks.SepoliaIntegration,
 	}
 
 	database := memory.New()
@@ -62,7 +62,7 @@ func TestProposalStateMachine_NonEmptyProposalStream(t *testing.T) {
 			Height:       1164618,
 			Round:        2,
 			ValidRound:   -1,
-			Network:      &utils.SepoliaIntegration,
+			Network:      &networks.SepoliaIntegration,
 			TxBatchCount: 3,
 		},
 	}

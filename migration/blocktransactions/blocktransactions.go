@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed/key"
@@ -118,7 +119,7 @@ func (Migrator) Before([]byte) error {
 func (Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
-	network *utils.Network,
+	network *networks.Network,
 	logger utils.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)

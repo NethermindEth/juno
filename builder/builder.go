@@ -5,11 +5,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 )
 
@@ -49,7 +49,7 @@ func New(
 	}
 }
 
-func (b *Builder) Network() *utils.Network {
+func (b *Builder) Network() *networks.Network {
 	return b.blockchain.Network()
 }
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -38,7 +39,7 @@ const (
 )
 
 var (
-	network  = utils.Mainnet
+	network  = networks.Mainnet
 	logLevel = zap.DebugLevel
 )
 
@@ -65,7 +66,7 @@ func getBlockchain(
 ) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	bc := blockchain.New(testDB, network)
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
 	return bc
@@ -84,7 +85,7 @@ func loadGenesis(
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,
@@ -122,7 +123,7 @@ func initNode(
 	consensusDB := memory.New()
 	bc := getBlockchain(t, genesisDiff, genesisClasses)
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,

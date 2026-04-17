@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -30,7 +31,7 @@ func TestMigration0000(t *testing.T) {
 
 	t.Run("empty DB", func(t *testing.T) {
 		txn := testDB.NewIndexedBatch()
-		require.NoError(t, migration0000(txn, &utils.Mainnet))
+		require.NoError(t, migration0000(txn, &networks.Mainnet))
 	})
 
 	t.Run("non-empty DB", func(t *testing.T) {
@@ -39,7 +40,7 @@ func TestMigration0000(t *testing.T) {
 		require.NoError(t, txn.Write())
 
 		txn = testDB.NewIndexedBatch()
-		require.EqualError(t, migration0000(txn, &utils.Mainnet), "initial DB should be empty")
+		require.EqualError(t, migration0000(txn, &networks.Mainnet), "initial DB should be empty")
 	})
 }
 
@@ -57,7 +58,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, relocateContractStorageRootKeys(txn, &utils.Mainnet))
+	require.NoError(t, relocateContractStorageRootKeys(txn, &networks.Mainnet))
 
 	// Each root-key entry should have been moved to its new location
 	// and the old entry should not exist.
@@ -88,8 +89,8 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 func TestRecalculateBloomFilters(t *testing.T) {
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Mainnet)
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	chain := blockchain.New(testDB, &networks.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
@@ -103,7 +104,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	}
 
 	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
-		return recalculateBloomFilters(txn, &utils.Mainnet)
+		return recalculateBloomFilters(txn, &networks.Mainnet)
 	}))
 
 	for i := range uint64(3) {
@@ -172,7 +173,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	m := new(changeTrieNodeEncoding)
 	require.NoError(t, m.Before(nil))
-	_, err := m.Migrate(t.Context(), testdb, &utils.Mainnet, nil)
+	_, err := m.Migrate(t.Context(), testdb, &networks.Mainnet, nil)
 	require.NoError(t, err)
 
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
@@ -192,9 +193,9 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	testdb := memory.New()
 	state := NewTestState(
 		testdb,
-		&utils.Mainnet,
+		&networks.Mainnet,
 	)
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
@@ -206,7 +207,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	}
 
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
-		return calculateBlockCommitments(txn, &utils.Mainnet)
+		return calculateBlockCommitments(txn, &networks.Mainnet)
 	}))
 	for i := range uint64(3) {
 		b, err := core.GetBlockCommitmentByBlockNum(testdb, i)
@@ -219,9 +220,9 @@ func TestL1HandlerTxns(t *testing.T) {
 	testdb := memory.New()
 	state := NewTestState(
 		testdb,
-		&utils.Sepolia,
+		&networks.Sepolia,
 	)
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(7) { // First l1 handler txn is in block 6
@@ -245,7 +246,7 @@ func TestL1HandlerTxns(t *testing.T) {
 
 	// Recalculate and store the L1 message hashes
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
-		return calculateL1MsgHashes2(txn, &utils.Sepolia)
+		return calculateL1MsgHashes2(txn, &networks.Sepolia)
 	}))
 
 	msgHash = common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
@@ -265,7 +266,7 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	err = memTxn.Put(key, bsBytes)
 	require.NoError(t, err)
 
-	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet))
+	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &networks.Mainnet))
 
 	var trieKey trie.BitArray
 	err = memTxn.Get(key, trieKey.UnmarshalBinary)
@@ -332,7 +333,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		err = txn.Put(key, classBytes)
 		require.NoError(t, err)
 
-		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &utils.Mainnet))
+		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &networks.Mainnet))
 
 		var actualDeclared core.DeclaredClassDefinition
 		err = txn.Get(key, func(data []byte) error {
@@ -383,7 +384,7 @@ func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 	err = memTxn.Put(nodeKey, nodeBytes.Bytes())
 	require.NoError(t, err)
 
-	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), &utils.Mainnet))
+	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), &networks.Mainnet))
 
 	err = memTxn.Get(db.ClassesTrie.Key(bsBytes), func([]byte) error { return nil })
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
@@ -484,12 +485,12 @@ func TestSchemaMetadata(t *testing.T) {
 }
 
 type testMigration struct {
-	exec   func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error)
+	exec   func(context.Context, db.KeyValueStore, *networks.Network) ([]byte, error)
 	before func([]byte) error
 }
 
 func (f testMigration) Migrate(
-	ctx context.Context, database db.KeyValueStore, network *utils.Network, _ utils.StructuredLogger,
+	ctx context.Context, database db.KeyValueStore, network *networks.Network, _ utils.StructuredLogger,
 ) ([]byte, error) {
 	return f.exec(ctx, database, network)
 }
@@ -501,7 +502,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		testDB := memory.New()
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *networks.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {
@@ -513,7 +514,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			migrateIfNeeded(
 				t.Context(),
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 				migrations,
 			),
@@ -526,7 +527,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		var counter int
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *networks.Network) ([]byte, error) {
 					if counter == 0 {
 						counter++
 						return nil, ErrCallWithNewTransaction
@@ -543,7 +544,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			migrateIfNeeded(
 				t.Context(),
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 				migrations,
 			),
@@ -554,7 +555,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		testDB := memory.New()
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *networks.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {
@@ -567,7 +568,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			migrateIfNeeded(
 				t.Context(),
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 				migrations,
 			),
@@ -579,7 +580,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		testDB := memory.New()
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *networks.Network) ([]byte, error) {
 					return nil, nil
 				},
 				before: func([]byte) error {
@@ -592,7 +593,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			migrateIfNeeded(
 				t.Context(),
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 				migrations,
 			),
@@ -603,7 +604,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			migrateIfNeeded(
 				t.Context(),
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 				[]Migration{},
 			),
@@ -616,7 +617,7 @@ func TestChangeStateDiffStructEmptyDB(t *testing.T) {
 	testdb := memory.New()
 	migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 	require.NoError(t, migrator.Before(nil))
-	intermediateState, err := migrator.Migrate(t.Context(), testdb, &utils.Mainnet, nil)
+	intermediateState, err := migrator.Migrate(t.Context(), testdb, &networks.Mainnet, nil)
 	require.NoError(t, err)
 	require.Nil(t, intermediateState)
 
@@ -689,7 +690,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	// Migrate.
 	migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 	require.NoError(t, migrator.Before(nil))
-	intermediateState, err := migrator.Migrate(t.Context(), testdb, &utils.Mainnet, nil)
+	intermediateState, err := migrator.Migrate(t.Context(), testdb, &networks.Mainnet, nil)
 	require.NoError(t, err)
 	require.Nil(t, intermediateState)
 

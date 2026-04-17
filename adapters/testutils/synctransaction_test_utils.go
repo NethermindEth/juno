@@ -5,9 +5,9 @@ import (
 	"math/rand/v2"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	synctransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/transaction"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
@@ -30,7 +30,7 @@ type SyncTransactionBuilder[C, P any] struct {
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	classHash, classHashBytes := getRandomFelt(t)
@@ -76,7 +76,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 
@@ -125,7 +125,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	classHash, classHashBytes := getRandomFelt(t)
@@ -176,7 +176,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	classHash, classHashBytes := getRandomFelt(t)
@@ -237,7 +237,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	// DeployTransaction is a special case because we don't verify the transaction hash
@@ -276,7 +276,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
@@ -335,7 +335,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
@@ -402,7 +402,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
@@ -454,7 +454,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
@@ -506,7 +506,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
@@ -567,7 +567,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 
 func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 ) (C, P) {
 	t.Helper()
 	contractAddress, contractAddressBytes := getRandomFelt(t)

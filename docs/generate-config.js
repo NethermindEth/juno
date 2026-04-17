@@ -134,7 +134,7 @@ function parseValue(value) {
   }
 
   // Network type
-  if (value === "utils.Mainnet") {
+  if (value === "networks.Mainnet") {
     return "mainnet";
   }
 

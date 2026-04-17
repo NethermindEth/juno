@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -60,8 +61,8 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 
 func TestPollPreLatest(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Mainnet)
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	bc := blockchain.New(testDB, &networks.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
 	log := utils.NewNopZapLogger()
@@ -234,8 +235,8 @@ func TestPollPreLatest(t *testing.T) {
 
 func TestPollPreConfirmedLoop(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Sepolia)
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	bc := blockchain.New(testDB, &networks.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
 	log := utils.NewNopZapLogger()
@@ -329,8 +330,8 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 
 func TestPollPendingData(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Sepolia)
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	bc := blockchain.New(testDB, &networks.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
 	log := utils.NewNopZapLogger()
@@ -409,8 +410,8 @@ func TestPollPendingData(t *testing.T) {
 
 func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Sepolia)
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	bc := blockchain.New(testDB, &networks.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
 
@@ -470,9 +471,9 @@ func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 
 func TestStorePreConfirmed(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &utils.Mainnet)
+	bc := blockchain.New(testDB, &networks.Mainnet)
 	log := utils.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	s := New(bc, NewFeederGatewayDataSource(bc, nil), log, 0, 0, false, testDB)

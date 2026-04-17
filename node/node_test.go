@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/node"
@@ -27,7 +28,7 @@ func TestNewNode(t *testing.T) {
 		GRPCPort:                           0,
 		DatabasePath:                       t.TempDir(),
 		DBCompression:                      "zstd",
-		Network:                            utils.Sepolia, // P2P will only work with Sepolia (for the time being)
+		Network:                            networks.Sepolia, // P2P will only work with Sepolia (for the time being)
 		EthNode:                            "",
 		DisableL1Verification:              true,
 		Pprof:                              true,
@@ -53,9 +54,9 @@ func TestNewNode(t *testing.T) {
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
-	network := utils.Sepolia
+	network := networks.Sepolia
 	tests := map[string]struct {
-		network   utils.Network
+		network   networks.Network
 		errString string
 	}{
 		"same network": {
@@ -63,7 +64,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			errString: "",
 		},
 		"different network": {
-			network:   utils.Mainnet,
+			network:   networks.Mainnet,
 			errString: "unable to verify latest block hash; are the database and --network option compatible?",
 		},
 	}

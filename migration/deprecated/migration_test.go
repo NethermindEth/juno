@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/migration/deprecated"
 	"github.com/NethermindEth/juno/utils"
@@ -21,7 +22,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			deprecated.MigrateIfNeeded(
 				ctx,
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 			),
 			ctx.Err())
@@ -38,7 +39,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			deprecated.MigrateIfNeeded(
 				t.Context(),
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 			),
 		)
@@ -55,7 +56,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 			deprecated.MigrateIfNeeded(
 				t.Context(),
 				testDB,
-				&utils.Mainnet,
+				&networks.Mainnet,
 				utils.NewNopZapLogger(),
 			),
 		)

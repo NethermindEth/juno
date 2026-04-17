@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/p2p/vote"
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -31,7 +32,7 @@ const (
 	maxWait      = 5 * time.Second
 )
 
-var network = &utils.Mainnet
+var network = &networks.Mainnet
 
 func TestVoteBroadcastersAndListeners(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))

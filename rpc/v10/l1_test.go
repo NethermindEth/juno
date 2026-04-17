@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -12,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
@@ -47,7 +47,7 @@ func TestGetMessageStatus(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rawL1ReceiptSepolia, &l1TxnReceiptSepolia))
 
 	tests := map[string]struct {
-		network        utils.Network
+		network        networks.Network
 		l1TxnHash      common.Hash
 		msgs           []rpc.MsgStatus
 		msgHashes      []common.Hash
@@ -56,7 +56,7 @@ func TestGetMessageStatus(t *testing.T) {
 		l1HeadBlockNum uint64
 	}{
 		"mainnet 0.13.2.1": {
-			network: utils.Mainnet,
+			network: networks.Mainnet,
 			l1TxnHash: common.HexToHash(
 				"0x5780c6fe46f958a7ebf9308e6db16d819ff9e06b1e88f9e718c50cde10898f38",
 			),
@@ -76,7 +76,7 @@ func TestGetMessageStatus(t *testing.T) {
 			l1HeadBlockNum: 763498,
 		},
 		"sepolia 0.13.4": {
-			network: utils.Sepolia,
+			network: networks.Sepolia,
 			l1TxnHash: common.HexToHash(
 				"0xeafadb9958437ef43ce7ed19f8ac0c8071c18f4a55fd778cecc23d8b6f86026f",
 			),

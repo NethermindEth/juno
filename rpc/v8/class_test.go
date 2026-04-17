@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -20,7 +21,7 @@ import (
 )
 
 func TestClass(t *testing.T) {
-	n := &utils.Integration
+	n := &networks.Integration
 	integrationClient := feeder.NewTestClient(t, n)
 	integGw := adaptfeeder.New(integrationClient)
 
@@ -102,7 +103,7 @@ func TestClass(t *testing.T) {
 }
 
 func TestClassAt(t *testing.T) {
-	n := &utils.Integration
+	n := &networks.Integration
 	integrationClient := feeder.NewTestClient(t, n)
 	integGw := adaptfeeder.New(integrationClient)
 

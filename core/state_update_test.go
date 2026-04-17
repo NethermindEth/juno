@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStateDiffCommitment(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {
@@ -48,7 +48,7 @@ func TestStateDiffCommitment(t *testing.T) {
 }
 
 func TestStateDiffHash(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {
@@ -85,7 +85,7 @@ func TestStateDiffHash(t *testing.T) {
 }
 
 func BenchmarkStateDiffHash(b *testing.B) {
-	client := feeder.NewTestClient(b, &utils.SepoliaIntegration)
+	client := feeder.NewTestClient(b, &networks.SepoliaIntegration)
 	gw := adaptfeeder.New(client)
 	su, err := gw.StateUpdate(b.Context(), 38748)
 	require.NoError(b, err)
@@ -97,7 +97,7 @@ func BenchmarkStateDiffHash(b *testing.B) {
 }
 
 func TestStateDiffLength(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {

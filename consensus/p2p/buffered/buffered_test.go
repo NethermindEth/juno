@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
@@ -33,7 +34,7 @@ const (
 	maxWait      = 30 * time.Second
 )
 
-var network = &utils.Mainnet
+var network = &networks.Mainnet
 
 type TestMessage = consensus.ConsensusStreamId
 

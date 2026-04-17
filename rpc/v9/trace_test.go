@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -76,7 +77,7 @@ func TestTraceFallback(t *testing.T) {
 			},
 		}
 
-		AssertTracedBlockTransactions(t, &utils.Integration, tests)
+		AssertTracedBlockTransactions(t, &networks.Integration, tests)
 	})
 
 	t.Run("Sepolia", func(t *testing.T) {
@@ -94,11 +95,11 @@ func TestTraceFallback(t *testing.T) {
 			},
 		}
 
-		AssertTracedBlockTransactions(t, &utils.Sepolia, tests)
+		AssertTracedBlockTransactions(t, &networks.Sepolia, tests)
 	})
 }
 
-func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[string]expectedBlockTrace) {
+func AssertTracedBlockTransactions(t *testing.T, n *networks.Network, tests map[string]expectedBlockTrace) {
 	t.Helper()
 
 	mockCtrl := gomock.NewController(t)
@@ -150,7 +151,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 			handler = handler.WithFeeder(client)
 			blockID := blockIDNumber(t, test.blockNumber)
 			traces, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
-			if n == &utils.Sepolia && description == "newer block" {
+			if n == &networks.Sepolia && description == "newer block" {
 				// For the newer block test, we test 3 of the block traces (INVOKE, DEPLOY_ACCOUNT, DECLARE)
 				traces = []rpc.TracedBlockTransaction{traces[0], traces[7], traces[11]}
 			}
@@ -169,7 +170,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		mockReader := mocks.NewMockReader(mockCtrl)
 
-		network := utils.Sepolia
+		network := networks.Sepolia
 		client := feeder.NewTestClient(t, &network)
 		gateway := adaptfeeder.New(client)
 
@@ -323,7 +324,7 @@ func TestTraceTransaction(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
+	mockReader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
 
@@ -605,7 +606,7 @@ func TestTraceTransaction(t *testing.T) {
 	})
 
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
-		n := &utils.Sepolia
+		n := &networks.Sepolia
 
 		handler := rpc.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
 
@@ -754,7 +755,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	for description, blockID := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := &utils.Mainnet
+			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, log)
 
@@ -777,7 +778,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)

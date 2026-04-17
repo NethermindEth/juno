@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,7 +30,7 @@ func TestDBCmd(t *testing.T) {
 	})
 
 	t.Run("revert db by 1 block", func(t *testing.T) {
-		network := utils.Mainnet
+		network := networks.Mainnet
 
 		const (
 			syncToBlock   = uint64(2)
@@ -65,13 +65,13 @@ func TestDBCmd(t *testing.T) {
 func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 	cmd.Flags().String("db-path", "", "")
 
-	dbPath := prepareDB(t, &utils.Mainnet, 0)
+	dbPath := prepareDB(t, &networks.Mainnet, 0)
 
 	require.NoError(t, cmd.Flags().Set("db-path", dbPath))
 	require.NoError(t, cmd.Execute())
 }
 
-func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string {
+func prepareDB(t *testing.T, network *networks.Network, syncToBlock uint64) string {
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 

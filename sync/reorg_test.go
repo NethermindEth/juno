@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -32,7 +33,7 @@ const (
 	logLevel     = zap.PanicLevel
 )
 
-var network = &utils.Mainnet
+var network = &networks.Mainnet
 
 type testBlockDataSource atomic.Value
 
@@ -106,7 +107,7 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,
@@ -197,7 +198,7 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 }
 
 func newTestBuilder(log utils.Logger, bc *blockchain.Blockchain) *builder.Builder {
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,

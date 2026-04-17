@@ -8,10 +8,10 @@ import (
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
@@ -414,7 +414,7 @@ func (l *L1HandlerTransaction) MessageHash() []byte {
 	return digest.Sum(nil)
 }
 
-func TransactionHash(transaction Transaction, n *utils.Network) (felt.Felt, error) {
+func TransactionHash(transaction Transaction, n *networks.Network) (felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
 		return declareTransactionHash(t, n)
@@ -449,7 +449,7 @@ func errInvalidTransactionVersion(t Transaction, version *TransactionVersion) er
 	return fmt.Errorf("invalid Transaction (type: %T) version: %s", t, version)
 }
 
-func invokeTransactionHash(i *InvokeTransaction, n *utils.Network) (felt.Felt, error) {
+func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt, error) {
 	switch {
 	case i.Version.Is(0):
 		calldataHash := crypto.PedersenArray(i.CallData...)
@@ -534,7 +534,7 @@ func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) uint64 {
 	return uint64(feeDAMode) + uint64(nonceDAMode)<<dataAvailabilityModeBits
 }
 
-func declareTransactionHash(d *DeclareTransaction, n *utils.Network) (felt.Felt, error) {
+func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Felt, error) {
 	switch {
 	case d.Version.Is(0):
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
@@ -605,7 +605,7 @@ func declareTransactionHash(d *DeclareTransaction, n *utils.Network) (felt.Felt,
 	}
 }
 
-func l1HandlerTransactionHash(l *L1HandlerTransaction, n *utils.Network) (felt.Felt, error) {
+func l1HandlerTransactionHash(l *L1HandlerTransaction, n *networks.Network) (felt.Felt, error) {
 	switch {
 	case l.Version.Is(0):
 		// There are some l1 handler transaction which do not return a nonce and for some random
@@ -631,7 +631,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n *utils.Network) (felt.F
 
 func deployAccountTransactionHash(
 	d *DeployAccountTransaction,
-	n *utils.Network,
+	n *networks.Network,
 ) (felt.Felt, error) {
 	// There is no version 0 for deploy account
 	switch {
@@ -675,7 +675,7 @@ func deployAccountTransactionHash(
 	}
 }
 
-func VerifyTransactions(txs []Transaction, n *utils.Network, protocolVersion string) error {
+func VerifyTransactions(txs []Transaction, n *networks.Network, protocolVersion string) error {
 	blockVersion, err := ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return err

@@ -3,13 +3,13 @@ package blockchain
 import (
 	"errors"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/blockchain/statebackend"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -63,7 +63,7 @@ type Reader interface {
 		preConfirmedFn func() (*pending.PreConfirmed, error),
 	) (EventFilterer, error)
 
-	Network() *utils.Network
+	Network() *networks.Network
 }
 
 // Re-export statebackend types for API compatibility.
@@ -78,7 +78,7 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network       *utils.Network
+	network       *networks.Network
 	database      db.KeyValueStore
 	listener      EventListener
 	l1HeadFeed    *feed.Feed[*core.L1Head]
@@ -108,7 +108,7 @@ func WithNewState(enabled bool) Option {
 	return func(o *options) { o.stateVersion = enabled }
 }
 
-func New(database db.KeyValueStore, network *utils.Network, opts ...Option) *Blockchain {
+func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *Blockchain {
 	o := options{
 		listener:     &SelectiveListener{},
 		stateVersion: false,
@@ -141,7 +141,7 @@ func New(database db.KeyValueStore, network *utils.Network, opts ...Option) *Blo
 	}
 }
 
-func (b *Blockchain) Network() *utils.Network {
+func (b *Blockchain) Network() *networks.Network {
 	return b.network
 }
 

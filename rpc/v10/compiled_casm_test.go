@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	clientFeeder "github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -14,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -49,7 +49,7 @@ func TestCompiledCasm(t *testing.T) {
 			"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8",
 		)
 
-		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
+		cl := clientFeeder.NewTestClient(t, &networks.Sepolia)
 		fd := feeder.New(cl)
 
 		class, err := fd.Class(t.Context(), classHash)

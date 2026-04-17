@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	p2pconsensus "github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 )
 
@@ -17,7 +17,7 @@ func AdaptTransaction(
 	ctx context.Context,
 	compiler compiler.Compiler,
 	t *p2pconsensus.ConsensusTransaction,
-	network *utils.Network,
+	network *networks.Network,
 ) (consensus.Transaction, error) {
 	if err := validateConsensusTransaction(t); err != nil {
 		return consensus.Transaction{}, err

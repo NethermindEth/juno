@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,7 +149,7 @@ func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 }
 
 func TestVerifyTransactionHash(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	txnHash0 := felt.NewUnsafeFromString[felt.Felt]("0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
@@ -205,7 +205,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, &utils.Mainnet, "99.99.99")
+				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, &networks.Mainnet, "99.99.99")
 				require.Equal(t, test.wantErr, tErr)
 			})
 		}
@@ -213,12 +213,12 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 	t.Run("does not contain bad transaction(s)", func(t *testing.T) {
 		txns := []core.Transaction{txn0, txn1, txn2, txn3, txn4}
-		assert.NoError(t, core.VerifyTransactions(txns, &utils.Mainnet, "99.99.99"))
+		assert.NoError(t, core.VerifyTransactions(txns, &networks.Mainnet, "99.99.99"))
 	})
 }
 
 func TestTransactionV3Hash(t *testing.T) {
-	network := utils.Sepolia
+	network := networks.Sepolia
 	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
 	ctx := t.Context()
 
@@ -334,7 +334,7 @@ func TestMessageHash(t *testing.T) {
 }
 
 func TestDeclareV0TransactionHash(t *testing.T) {
-	network := utils.Goerli
+	network := networks.Goerli
 	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
 	ctx := t.Context()
 

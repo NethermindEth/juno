@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/mempool"
@@ -26,7 +27,7 @@ const (
 type P2P struct {
 	host             host.Host
 	log              utils.Logger
-	network          *utils.Network
+	network          *networks.Network
 	pool             mempool.Pool
 	broadcaster      transactionBroadcaster
 	listener         buffered.TopicSubscription
@@ -35,7 +36,7 @@ type P2P struct {
 }
 
 func New(
-	network *utils.Network,
+	network *networks.Network,
 	host host.Host,
 	log utils.Logger,
 	pool mempool.Pool,

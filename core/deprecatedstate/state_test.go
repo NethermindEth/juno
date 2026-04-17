@@ -6,6 +6,7 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
@@ -13,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +27,7 @@ var (
 )
 
 func TestUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
@@ -164,7 +164,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
@@ -271,7 +271,7 @@ func TestNonce(t *testing.T) {
 func TestStateHistoricalReads(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := deprecatedstate.New(txn)
@@ -414,7 +414,7 @@ func TestHistory(t *testing.T) {
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
@@ -468,7 +468,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 func TestClass(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	gw := adaptfeeder.New(client)
 
 	deprecatedCairoHash := felt.NewUnsafeFromString[felt.Felt](
@@ -505,7 +505,7 @@ func TestRevert(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := deprecatedstate.New(txn)
@@ -696,7 +696,7 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 }
 
 func TestRevertSystemContracts(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()

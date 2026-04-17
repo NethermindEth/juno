@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
-	"github.com/NethermindEth/juno/utils"
 )
 
 // testStateBackend is a copy of the [statebackend.deprecatedStateBackend] type
@@ -21,13 +21,13 @@ import (
 // [testStateBackend] was created specifically to solve this problem.
 type testStateBackend struct {
 	database db.KeyValueStore
-	network  *utils.Network
+	network  *networks.Network
 }
 
 // NewTestState creates a new test state that stores the data using the old layout.
 func NewTestState(
 	database db.KeyValueStore,
-	network *utils.Network,
+	network *networks.Network,
 ) *testStateBackend {
 	return &testStateBackend{
 		database: database,

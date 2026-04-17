@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	mempooltransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/mempool/transaction"
 )
 
@@ -31,7 +31,7 @@ func AdaptTransaction(
 	ctx context.Context,
 	compiler compiler.Compiler,
 	t *mempooltransaction.MempoolTransaction,
-	network *utils.Network,
+	network *networks.Network,
 ) (mempool.BroadcastedTransaction, error) {
 	if err := validateMempoolTransaction(t); err != nil {
 		return mempool.BroadcastedTransaction{}, err

@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/consensus2p2p"
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	starknetconsensus "github.com/NethermindEth/juno/consensus/starknet"
@@ -18,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
@@ -28,7 +28,7 @@ type TestCase struct {
 	Height       types.Height
 	Round        types.Round
 	ValidRound   types.Round
-	Network      *utils.Network
+	Network      *networks.Network
 	TxBatchCount int
 }
 
@@ -50,7 +50,7 @@ func SetChainHeight(t *testing.T, database db.KeyValueStore, chainHeight types.H
 	}))
 }
 
-func LoadBlockDependencies(t *testing.T, database db.KeyValueStore, height types.Height, network *utils.Network) (headBlock, revealedBlock *core.Block) {
+func LoadBlockDependencies(t *testing.T, database db.KeyValueStore, height types.Height, network *networks.Network) (headBlock, revealedBlock *core.Block) {
 	var err error
 	t.Helper()
 

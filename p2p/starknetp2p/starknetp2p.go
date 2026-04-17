@@ -3,7 +3,7 @@ package starknetp2p
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
@@ -28,7 +28,7 @@ const (
 	syncProtocolVersion = "0.1.0-rc.0"
 )
 
-func Sync(network *utils.Network, subProtocol SyncSubProtocol) protocol.ID {
+func Sync(network *networks.Network, subProtocol SyncSubProtocol) protocol.ID {
 	return protocol.ID(
 		fmt.Sprintf(
 			"/%s/%s/%s/%s/%s",
@@ -41,7 +41,7 @@ func Sync(network *utils.Network, subProtocol SyncSubProtocol) protocol.ID {
 	)
 }
 
-func DHT(network *utils.Network, starknetProtocol Protocol) []dht.Option {
+func DHT(network *networks.Network, starknetProtocol Protocol) []dht.Option {
 	return []dht.Option{
 		dht.ProtocolPrefix("/" + protocolPrefix),
 		dht.ProtocolExtension("/" + protocol.ID(network.L2ChainID)),

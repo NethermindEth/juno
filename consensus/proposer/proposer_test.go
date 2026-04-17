@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/proposer"
@@ -213,7 +214,7 @@ func runConcurrentReads(t *testing.T, p proposer.Proposer[starknet.Value, starkn
 func getBlockchain(t *testing.T) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	bc := blockchain.New(testDB, network)
 	return bc
 }
@@ -228,7 +229,7 @@ func getBuilder(t *testing.T, log utils.Logger, bc *blockchain.Blockchain) *buil
 		"../../genesis/classes/universaldeployer.json", "../../genesis/classes/udacnt.json",
 	}
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           bc.Network().L2ChainID,
 		FeeTokenAddresses: feeTokens,

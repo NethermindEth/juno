@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -166,7 +167,7 @@ func (h *Handler) traceBlockTransactions(
 		fetchFromFeederGW = fetchFromFeederGW ||
 			(block.Number >= 1943705 &&
 				block.Number <= 1952704 &&
-				*h.bcReader.Network() == utils.Mainnet)
+				*h.bcReader.Network() == networks.Mainnet)
 
 		if fetchFromFeederGW {
 			traces, err := h.fetchTracesFromFeederGateway(ctx, block)

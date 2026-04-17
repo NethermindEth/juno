@@ -14,6 +14,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -210,7 +211,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 func TestSubscribeEvents(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
-	n := &utils.Sepolia
+	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
@@ -926,7 +927,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, log)
-		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
+		handler.WithFeeder(feeder.NewTestClient(t, &networks.SepoliaIntegration))
 		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
@@ -972,7 +973,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
-		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		mockGateway := mocks.NewMockGateway(mockCtrl)
 		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
@@ -1157,7 +1158,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
-		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		adapterFeeder := adaptfeeder.New(client)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(nil, mockSyncer, nil, log)
@@ -1225,7 +1226,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
-		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		adapterFeeder := adaptfeeder.New(client)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(nil, mockSyncer, nil, log)
@@ -1326,7 +1327,7 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 	blockNumber3 := uint64(56379)
@@ -1372,7 +1373,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 	blockNumber3 := uint64(56379)
@@ -1420,7 +1421,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 
 func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
 
@@ -1471,7 +1472,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 
@@ -1542,7 +1543,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	defer handlerWg.Wait()
 	defer handlerCancel()
 
-	n := &utils.Sepolia
+	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
@@ -2323,7 +2324,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	defer handlerWg.Wait()
 	defer handlerCancel()
 
-	n := &utils.Sepolia
+	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 

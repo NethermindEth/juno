@@ -1,10 +1,10 @@
 package statebackend
 
 import (
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 )
 
 // StateBackend is the interface for state operations in blockchain.
@@ -49,13 +49,13 @@ type SimulateResult struct {
 type baseState struct {
 	database      db.KeyValueStore
 	runningFilter *core.RunningEventFilter
-	network       *utils.Network
+	network       *networks.Network
 }
 
 func New(
 	database db.KeyValueStore,
 	runningFilter *core.RunningEventFilter,
-	network *utils.Network,
+	network *networks.Network,
 	stateVersion bool,
 ) StateBackend {
 	base := baseState{

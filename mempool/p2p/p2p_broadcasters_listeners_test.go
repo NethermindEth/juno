@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/mempool2p2p/testutils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mempool/p2p"
@@ -68,7 +69,7 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 		pool := mockMempool(received)
 
 		p2p := p2p.New(
-			&utils.Mainnet,
+			&networks.Mainnet,
 			node.Host,
 			logger,
 			&pool,
@@ -124,7 +125,7 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 func getRandomTransactions(t *testing.T) []mempool.BroadcastedTransaction {
 	transactions := make([]mempool.BroadcastedTransaction, txCount)
 	for i := range txCount {
-		transactions[i], _ = testutils.TransactionBuilder.GetTestInvokeTransaction(t, &utils.Mainnet)
+		transactions[i], _ = testutils.TransactionBuilder.GetTestInvokeTransaction(t, &networks.Mainnet)
 	}
 	return transactions
 }

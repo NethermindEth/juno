@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
@@ -25,10 +26,10 @@ func TestPlugin(t *testing.T) {
 
 	plugin := mocks.NewMockJunoPlugin(mockCtrl)
 
-	mainClient := feeder.NewTestClient(t, &utils.Mainnet)
+	mainClient := feeder.NewTestClient(t, &networks.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
 
-	integClient := feeder.NewTestClient(t, &utils.Integration)
+	integClient := feeder.NewTestClient(t, &networks.Integration)
 	integGw := adaptfeeder.New(integClient)
 
 	testDB := memory.New()
@@ -39,7 +40,7 @@ func TestPlugin(t *testing.T) {
 		require.NoError(t, err)
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, &networks.Integration)
 	dataSource := sync.NewFeederGatewayDataSource(bc, integGw)
 	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, nil).WithPlugin(plugin)
 
@@ -48,7 +49,7 @@ func TestPlugin(t *testing.T) {
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &networks.Mainnet)
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()

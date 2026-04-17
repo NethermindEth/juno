@@ -13,10 +13,10 @@ import (
 	reflect "reflect"
 
 	blockchain "github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
 	pending "github.com/NethermindEth/juno/core/pending"
-	utils "github.com/NethermindEth/juno/utils"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -258,10 +258,10 @@ func (mr *MockReaderMockRecorder) L1Head() *gomock.Call {
 }
 
 // Network mocks base method.
-func (m *MockReader) Network() *utils.Network {
+func (m *MockReader) Network() *networks.Network {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Network")
-	ret0, _ := ret[0].(*utils.Network)
+	ret0, _ := ret[0].(*networks.Network)
 	return ret0
 }
 

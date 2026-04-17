@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -29,7 +30,7 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	bc := blockchain.New(testDB, network)
 	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
@@ -103,7 +104,7 @@ func getGenesisSequencer(
 	}
 
 	testDB := memory.New()
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	bc := blockchain.New(testDB, network)
 	log := utils.NewNopZapLogger()
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -117,7 +118,7 @@ func getGenesisSequencer(
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,

@@ -7,9 +7,9 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	transactiontestutils "github.com/NethermindEth/juno/adapters/testutils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	synctransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/transaction"
 	"github.com/stretchr/testify/require"
@@ -146,7 +146,7 @@ var SyncTransactionBuilder = transactiontestutils.SyncTransactionBuilder[
 func TestAdaptTransactionInBlock(t *testing.T) {
 	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
 		t,
-		&utils.Mainnet,
+		&networks.Mainnet,
 		SyncTransactionBuilder.GetTestDeclareV0Transaction,
 		SyncTransactionBuilder.GetTestDeclareV1Transaction,
 		SyncTransactionBuilder.GetTestDeclareV2Transaction,
@@ -163,7 +163,7 @@ func TestAdaptTransactionInBlock(t *testing.T) {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Hash()), func(t *testing.T) {
 			convertedConsensusTransaction, err := p2p2core.AdaptTransaction(
 				p2pTransactions[i],
-				&utils.Mainnet,
+				&networks.Mainnet,
 			)
 			require.NoError(t, err)
 			require.Equal(t, consensusTransactions[i], convertedConsensusTransaction)

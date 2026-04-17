@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/migration/deprecated"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,10 +38,10 @@ func TestBucketMover(t *testing.T) {
 		intermediateState []byte
 		err               error
 	)
-	_, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
+	_, err = mover.Migrate(t.Context(), testDB, &networks.Mainnet, nil)
 	require.ErrorIs(t, err, deprecated.ErrCallWithNewTransaction)
 
-	intermediateState, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
+	intermediateState, err = mover.Migrate(t.Context(), testDB, &networks.Mainnet, nil)
 	require.NoError(t, err)
 
 	err = testDB.View(func(txn db.Snapshot) error {

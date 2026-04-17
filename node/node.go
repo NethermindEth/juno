@@ -14,6 +14,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -59,30 +60,30 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel                 string        `mapstructure:"log-level"`
-	LogJSON                  bool          `mapstructure:"log-json"`
-	HTTP                     bool          `mapstructure:"http"`
-	HTTPHost                 string        `mapstructure:"http-host"`
-	HTTPPort                 uint16        `mapstructure:"http-port"`
-	RPCCorsEnable            bool          `mapstructure:"rpc-cors-enable"`
-	Websocket                bool          `mapstructure:"ws"`
-	WebsocketHost            string        `mapstructure:"ws-host"`
-	WebsocketPort            uint16        `mapstructure:"ws-port"`
-	GRPC                     bool          `mapstructure:"grpc"`
-	GRPCHost                 string        `mapstructure:"grpc-host"`
-	GRPCPort                 uint16        `mapstructure:"grpc-port"`
-	DatabasePath             string        `mapstructure:"db-path"`
-	Network                  utils.Network `mapstructure:"network"`
-	EthNode                  string        `mapstructure:"eth-node"`
-	DisableL1Verification    bool          `mapstructure:"disable-l1-verification"`
-	Pprof                    bool          `mapstructure:"pprof"`
-	PprofHost                string        `mapstructure:"pprof-host"`
-	PprofPort                uint16        `mapstructure:"pprof-port"`
-	Colour                   bool          `mapstructure:"colour"`
-	PreLatestPollInterval    time.Duration `mapstructure:"prelatest-poll-interval"`
-	PreConfirmedPollInterval time.Duration `mapstructure:"preconfirmed-poll-interval"`
-	RemoteDB                 string        `mapstructure:"remote-db"`
-	VersionedConstantsFile   string        `mapstructure:"versioned-constants-file"`
+	LogLevel                 string           `mapstructure:"log-level"`
+	LogJSON                  bool             `mapstructure:"log-json"`
+	HTTP                     bool             `mapstructure:"http"`
+	HTTPHost                 string           `mapstructure:"http-host"`
+	HTTPPort                 uint16           `mapstructure:"http-port"`
+	RPCCorsEnable            bool             `mapstructure:"rpc-cors-enable"`
+	Websocket                bool             `mapstructure:"ws"`
+	WebsocketHost            string           `mapstructure:"ws-host"`
+	WebsocketPort            uint16           `mapstructure:"ws-port"`
+	GRPC                     bool             `mapstructure:"grpc"`
+	GRPCHost                 string           `mapstructure:"grpc-host"`
+	GRPCPort                 uint16           `mapstructure:"grpc-port"`
+	DatabasePath             string           `mapstructure:"db-path"`
+	Network                  networks.Network `mapstructure:"network"`
+	EthNode                  string           `mapstructure:"eth-node"`
+	DisableL1Verification    bool             `mapstructure:"disable-l1-verification"`
+	Pprof                    bool             `mapstructure:"pprof"`
+	PprofHost                string           `mapstructure:"pprof-host"`
+	PprofPort                uint16           `mapstructure:"pprof-port"`
+	Colour                   bool             `mapstructure:"colour"`
+	PreLatestPollInterval    time.Duration    `mapstructure:"prelatest-poll-interval"`
+	PreConfirmedPollInterval time.Duration    `mapstructure:"preconfirmed-poll-interval"`
+	RemoteDB                 string           `mapstructure:"remote-db"`
+	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
 
 	Sequencer      bool   `mapstructure:"seq-enable"`
 	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
@@ -251,14 +252,14 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if cfg.Sequencer {
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
-		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
+		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
 			return nil, fmt.Errorf("custom networks are not supported in sequencer mode yet")
 		}
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
 		if kErr != nil {
 			return nil, kErr
 		}
-		feeTokens := utils.DefaultFeeTokenAddresses
+		feeTokens := networks.DefaultFeeTokenAddresses
 		chainInfo := vm.ChainInfo{
 			ChainID:           cfg.Network.L2ChainID,
 			FeeTokenAddresses: feeTokens,
@@ -292,8 +293,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithAPIKey(cfg.GatewayAPIKey)
 
 		// Handle fee tokens for custom networks
-		feeTokens := utils.DefaultFeeTokenAddresses
-		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
+		feeTokens := networks.DefaultFeeTokenAddresses
+		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
 			// For custom networks, fetch fee tokens from the gateway
 			feeTokens, err = client.FeeTokenAddresses(context.Background())
 			if err != nil {
@@ -325,8 +326,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithAPIKey(cfg.GatewayAPIKey)
 
 		if cfg.P2P {
-			if cfg.Network == utils.Mainnet {
-				return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
+			if cfg.Network == networks.Mainnet {
+				return nil, fmt.Errorf("P2P cannot be used on %v network", networks.Mainnet)
 			}
 			log.Warn("P2P features enabled. Please note P2P is in experimental stage")
 
@@ -599,11 +600,11 @@ func (n *Node) Run(ctx context.Context) {
 
 	if n.cfg.Sequencer {
 		// Custom networks are not supported in sequencer mode yet
-		if !slices.Contains(utils.KnownNetworkNames, n.cfg.Network.Name) {
+		if !slices.Contains(networks.KnownNetworkNames, n.cfg.Network.Name) {
 			n.log.Error("Custom networks are not supported in sequencer mode yet")
 			return
 		}
-		feeTokens := utils.DefaultFeeTokenAddresses
+		feeTokens := networks.DefaultFeeTokenAddresses
 		chainInfo := vm.ChainInfo{
 			ChainID:           n.cfg.Network.L2ChainID,
 			FeeTokenAddresses: feeTokens,

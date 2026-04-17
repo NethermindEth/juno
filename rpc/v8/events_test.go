@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -19,7 +20,7 @@ import (
 
 func TestEvents(t *testing.T) {
 	testDB := memory.New()
-	n := &utils.Sepolia
+	n := &networks.Sepolia
 	chain := blockchain.New(testDB, n)
 
 	mockCtrl := gomock.NewController(t)

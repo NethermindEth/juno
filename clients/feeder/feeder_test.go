@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ const (
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Mainnet)
+		client := feeder.NewTestClient(t, &networks.Mainnet)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d",
 		)
@@ -62,7 +62,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Integration)
+		client := feeder.NewTestClient(t, &networks.Integration)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 		)
@@ -118,7 +118,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Mainnet)
+		client := feeder.NewTestClient(t, &networks.Mainnet)
 
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
@@ -156,7 +156,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Integration)
+		client := feeder.NewTestClient(t, &networks.Integration)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 		)
@@ -239,7 +239,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 
 //nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee",
@@ -291,7 +291,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Mainnet)
+		client := feeder.NewTestClient(t, &networks.Mainnet)
 
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e",
@@ -357,7 +357,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Integration)
+		client := feeder.NewTestClient(t, &networks.Integration)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 		)
@@ -415,7 +415,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 
 //nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190",
@@ -458,7 +458,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	block, err := client.Block(t.Context(), strconv.Itoa(11817))
 	require.NoError(t, err)
@@ -488,7 +488,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	block, err := client.Block(t.Context(), strconv.Itoa(19199))
 	require.NoError(t, err)
@@ -523,7 +523,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockHeaderV013Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	block, err := client.Block(t.Context(), "319132")
 	require.NoError(t, err)
 
@@ -562,7 +562,7 @@ func TestBlockHeaderV013Unmarshal(t *testing.T) {
 }
 
 func TestBlockHeaderV0131Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	block, err := client.Block(t.Context(), "330363")
 	require.NoError(t, err)
 
@@ -614,7 +614,7 @@ func TestBlockHeaderV0131Unmarshal(t *testing.T) {
 }
 
 func TestBlockHeaderv0132Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	block, err := client.Block(t.Context(), "35748")
 	require.NoError(t, err)
 
@@ -654,7 +654,7 @@ func TestBlockHeaderv0132Unmarshal(t *testing.T) {
 }
 
 func TestClassV0Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	hash := felt.NewUnsafeFromString[felt.Felt](
 		"0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f",
@@ -678,7 +678,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 }
 
 func TestClassV1Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 
 	hash := felt.NewUnsafeFromString[felt.Felt](
 		"0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c",
@@ -720,7 +720,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 }
 
 func TestStateUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		stateUpdate, err := client.StateUpdate(t.Context(), "0")
@@ -767,7 +767,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Integration)
+		client := feeder.NewTestClient(t, &networks.Integration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			update, err := client.StateUpdate(t.Context(), "283746")
@@ -790,7 +790,7 @@ func TestStateUpdate(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		transactionHash := felt.NewUnsafeFromString[felt.Felt](
@@ -809,7 +809,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualBlock, err := client.Block(t.Context(), strconv.Itoa(11817))
@@ -829,7 +829,7 @@ func TestBlock(t *testing.T) {
 }
 
 func TestClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt](
@@ -908,7 +908,7 @@ func TestBackoffFailure(t *testing.T) {
 }
 
 func TestCompiledClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 
 	classHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
@@ -933,7 +933,7 @@ func TestCompiledClassDefinition(t *testing.T) {
 }
 
 func TestTransactionStatusRevertError(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
@@ -944,7 +944,7 @@ func TestTransactionStatusRevertError(t *testing.T) {
 }
 
 func TestTransactionStatusTransactionFailureReason(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 
 	txnHash := felt.NewUnsafeFromString[felt.Felt]("0x1111")
 	expectedMessage := "some error"
@@ -956,7 +956,7 @@ func TestTransactionStatusTransactionFailureReason(t *testing.T) {
 }
 
 func TestPublicKey(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 
 	actualPublicKey, err := client.PublicKey(t.Context())
 	assert.NoError(t, err)
@@ -968,7 +968,7 @@ func TestPublicKey(t *testing.T) {
 }
 
 func TestSignature(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualSignature, err := client.Signature(t.Context(), strconv.Itoa(214584))
@@ -1008,7 +1008,7 @@ func TestSignature(t *testing.T) {
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0))
@@ -1054,7 +1054,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestBlockTrace(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 
 	t.Run("old block", func(t *testing.T) {
 		trace, err := client.BlockTrace(
@@ -1078,7 +1078,7 @@ func TestBlockTrace(t *testing.T) {
 func TestEventListener(t *testing.T) {
 	isCalled := false
 	client := feeder.
-		NewTestClient(t, &utils.Integration).
+		NewTestClient(t, &networks.Integration).
 		WithListener(&feeder.SelectiveListener{
 			OnResponseCb: func(urlPath string, status int, _ time.Duration) {
 				isCalled = true
@@ -1175,7 +1175,7 @@ func TestClientRetryBehavior(t *testing.T) {
 }
 
 func TestPreConfirmedBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 
 	snPreConfirmedBlock, err := client.PreConfirmedBlock(t.Context(), strconv.Itoa(1204672))
 	assert.NoError(t, err)

@@ -3,17 +3,17 @@ package rpcv10_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
 func TestChainId(t *testing.T) {
-	for _, n := range []utils.Network{
-		utils.Mainnet, utils.Sepolia, utils.SepoliaIntegration,
+	for _, n := range []networks.Network{
+		networks.Mainnet, networks.Sepolia, networks.SepoliaIntegration,
 	} {
 		t.Run(n.String(), func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -123,7 +124,7 @@ func (s *Service) logError(msg string, err error) {
 }
 
 type BlockFetcher struct {
-	network    *utils.Network
+	network    *networks.Network
 	client     *Client // todo: merge all the functionality of Client with p2p SyncService
 	blockchain *blockchain.Blockchain
 	compiler   compiler.Compiler
@@ -135,7 +136,7 @@ func NewBlockFetcher(
 	bc *blockchain.Blockchain,
 	compiler compiler.Compiler,
 	h host.Host,
-	n *utils.Network,
+	n *networks.Network,
 	log utils.StructuredLogger,
 ) BlockFetcher {
 	return BlockFetcher{

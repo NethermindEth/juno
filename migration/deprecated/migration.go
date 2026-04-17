@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -50,14 +51,14 @@ type HTTPConfig struct {
 type Migration interface {
 	Before(intermediateState []byte) error
 	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
-	Migrate(context.Context, db.KeyValueStore, *utils.Network, utils.StructuredLogger) ([]byte, error)
+	Migrate(context.Context, db.KeyValueStore, *networks.Network, utils.StructuredLogger) ([]byte, error)
 }
 
-type MigrationFunc func(db.IndexedBatch, *utils.Network) error
+type MigrationFunc func(db.IndexedBatch, *networks.Network) error
 
 // Migrate returns f(txn).
 func (f MigrationFunc) Migrate(
-	_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.StructuredLogger,
+	_ context.Context, database db.KeyValueStore, network *networks.Network, _ utils.StructuredLogger,
 ) ([]byte, error) {
 	txn := database.NewIndexedBatch()
 	if err := f(txn, network); err != nil {
@@ -102,7 +103,7 @@ var ErrCallWithNewTransaction = errors.New("call with new transaction")
 func MigrateIfNeeded(
 	ctx context.Context,
 	targetDB db.KeyValueStore,
-	network *utils.Network,
+	network *networks.Network,
 	log utils.StructuredLogger,
 ) error {
 	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
@@ -111,7 +112,7 @@ func MigrateIfNeeded(
 func migrateIfNeeded(
 	ctx context.Context,
 	targetDB db.KeyValueStore,
-	network *utils.Network,
+	network *networks.Network,
 	log utils.StructuredLogger,
 	migrations []Migration,
 ) error {
@@ -237,7 +238,7 @@ func updateSchemaMetadata(txn db.KeyValueWriter, schema schemaMetadata) error {
 }
 
 // migration0000 makes sure the targetDB is empty
-func migration0000(txn db.IndexedBatch, _ *utils.Network) error {
+func migration0000(txn db.IndexedBatch, _ *networks.Network) error {
 	it, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return err
@@ -256,7 +257,7 @@ func migration0000(txn db.IndexedBatch, _ *utils.Network) error {
 // After: the key to the root of the contract storage trie is stored at 3+<contractAddress>.
 //
 // This enables us to remove the db.ContractRootKey prefix.
-func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) error {
+func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *networks.Network) error {
 	it, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return err
@@ -310,7 +311,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 }
 
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
-func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
+func recalculateBloomFilters(txn db.IndexedBatch, _ *networks.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
 		block, err := txlayout.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
 		if err != nil {
@@ -326,7 +327,7 @@ func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 	}
 }
 
-func removePendingBlock(txn db.IndexedBatch, _ *utils.Network) error {
+func removePendingBlock(txn db.IndexedBatch, _ *networks.Network) error {
 	return txn.Delete(db.Unused.Key())
 }
 
@@ -429,7 +430,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 }
 
 func (m *changeTrieNodeEncoding) Migrate(
-	_ context.Context, database db.KeyValueStore, _ *utils.Network, _ utils.StructuredLogger,
+	_ context.Context, database db.KeyValueStore, _ *networks.Network, _ utils.StructuredLogger,
 ) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a custom struct to force the encoder to use the default encoding.
@@ -537,7 +538,7 @@ func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) e
 }
 
 // calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
-func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) error {
+func calculateBlockCommitments(txn db.IndexedBatch, network *networks.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
 		block, err := txlayout.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
@@ -558,7 +559,7 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) erro
 	return processBlocks(txn, processBlockFunc)
 }
 
-func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
+func calculateL1MsgHashes2(txn db.IndexedBatch, n *networks.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
 		txns, err := txlayout.TransactionLayoutPerTx.TransactionsByBlockNumber(txn, blockNumber)
@@ -589,7 +590,7 @@ func bitset2BitArray(bs *bitset.BitSet) *trie.BitArray {
 	return new(trie.BitArray).SetFelt(uint8(bs.Len()), f)
 }
 
-func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.KeyValueWriter, key, value []byte, _ *utils.Network) error {
+func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.KeyValueWriter, key, value []byte, _ *networks.Network) error {
 	var bs bitset.BitSet
 	var tempBuf bytes.Buffer
 	if err := bs.UnmarshalBinary(value); err != nil {
@@ -623,7 +624,7 @@ func nodesFilter(target db.Bucket) BucketMigratorKeyFilter {
 }
 
 func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc {
-	return func(txn db.KeyValueWriter, key, value []byte, _ *utils.Network) error {
+	return func(txn db.KeyValueWriter, key, value []byte, _ *networks.Network) error {
 		var n node
 		var tempBuf bytes.Buffer
 		if err := n._UnmarshalBinary(value); err != nil {
@@ -690,7 +691,7 @@ type oldStateUpdate struct {
 	StateDiff *oldStateDiff
 }
 
-func changeStateDiffStruct2(txn db.KeyValueWriter, key, value []byte, _ *utils.Network) error {
+func changeStateDiffStruct2(txn db.KeyValueWriter, key, value []byte, _ *networks.Network) error {
 	old := new(oldStateUpdate)
 	if err := encoder.Unmarshal(value, old); err != nil {
 		return fmt.Errorf("unmarshal: %v", err)
@@ -770,7 +771,7 @@ func (o *oldCairo1Class) Hash() (*felt.Felt, error) {
 	return nil, nil
 }
 
-func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *utils.Network) error {
+func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *networks.Network) error {
 	var class declaredClass
 	err := encoder.Unmarshal(value, &class)
 	if err != nil {
@@ -818,7 +819,7 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 	return txn.Put(key, value)
 }
 
-func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Network) error {
+func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *networks.Network) error {
 	chainHeight, err := core.GetChainHeight(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -893,7 +894,7 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 	return core.WriteRunningEventFilter(txn, runningFilter)
 }
 
-func calculateCasmClassHashesV2(txn db.IndexedBatch, network *utils.Network) error {
+func calculateCasmClassHashesV2(txn db.IndexedBatch, network *networks.Network) error {
 	deprecatedCasmClassHashesV2Bucket := typed.NewBucket(
 		db.ClassCasmHashMetadata,
 		key.SierraClassHash,

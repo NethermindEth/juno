@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 	"github.com/stretchr/testify/require"
@@ -30,9 +30,9 @@ type TransactionBuilder[C, P any] struct {
 	ToP2PL1Handler toP2PType[P, *transaction.L1HandlerV0]
 }
 
-type factory[C, P any] func(t *testing.T, network *utils.Network) (C, P)
+type factory[C, P any] func(t *testing.T, network *networks.Network) (C, P)
 
-func GetTestTransactions[C, P any](t *testing.T, network *utils.Network, factories ...factory[C, P]) ([]C, []P) {
+func GetTestTransactions[C, P any](t *testing.T, network *networks.Network, factories ...factory[C, P]) ([]C, []P) {
 	t.Helper()
 	consensusTransactions := make([]C, len(factories))
 	p2pTransactions := make([]P, len(factories))
@@ -123,7 +123,7 @@ func getSampleClass(t *testing.T) (felt.Felt, *core.SierraClass) {
 	_, err := classHash.SetString("0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b")
 	require.NoError(t, err)
 
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	class, err := gw.Class(t.Context(), &classHash)
@@ -138,7 +138,7 @@ func getSampleClass(t *testing.T) (felt.Felt, *core.SierraClass) {
 func getTransactionHash(
 	t *testing.T,
 	tx core.Transaction,
-	network *utils.Network,
+	network *networks.Network,
 ) (felt.Felt, *common.Hash) {
 	t.Helper()
 	hash, err := core.TransactionHash(tx, network)
@@ -147,7 +147,7 @@ func getTransactionHash(
 	return hash, adaptedHash
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, network *networks.Network) (C, P) {
 	t.Helper()
 	classHash, sierraClass := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
@@ -200,7 +200,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *networks.Network) (C, P) {
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
 	classHash, classHashBytes := getRandomFelt(t)
@@ -252,7 +252,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T,
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil), b.ToP2PDeploy(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, network *networks.Network) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
@@ -301,7 +301,7 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, networ
 	return b.ToCore(&consensusInvokeTransaction, nil, nil), b.ToP2PInvoke(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, network *networks.Network) (C, P) {
 	t.Helper()
 	contractAddress, contractAddressBytes := getRandomFelt(t)
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)

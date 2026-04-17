@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -162,7 +163,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 		Height:       1164618,
 		Round:        1339,
 		ValidRound:   1338,
-		Network:      &utils.SepoliaIntegration,
+		Network:      &networks.SepoliaIntegration,
 		TxBatchCount: 2,
 	}
 

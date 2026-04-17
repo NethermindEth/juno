@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -358,7 +359,7 @@ func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1H
 
 func AdaptTransaction(
 	t *synctransaction.TransactionInBlock,
-	network *utils.Network,
+	network *networks.Network,
 ) (core.Transaction, error) {
 	// can Txn be nil?
 

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -175,13 +175,13 @@ func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, cl
 func TestHTTPTimeoutsSettings(t *testing.T) {
 	timeouts, fixed, err := ParseTimeouts(DefaultTimeouts)
 	require.NoError(t, err)
-	client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts(timeouts, fixed)
+	client := NewTestClient(t, &networks.Mainnet).WithMaxRetries(4).WithTimeouts(timeouts, fixed)
 	ctx := t.Context()
 
 	t.Run("GET current timeouts", func(t *testing.T) {
 		timeouts, fixed, err := ParseTimeouts(DefaultTimeouts)
 		require.NoError(t, err)
-		client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts(timeouts, fixed)
+		client := NewTestClient(t, &networks.Mainnet).WithMaxRetries(4).WithTimeouts(timeouts, fixed)
 		ctx := t.Context()
 		rr := setupTimeoutTest(t, ctx, http.MethodGet, "/feeder/timeouts", client)
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -192,7 +192,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 	t.Run("GET current timeouts single value", func(t *testing.T) {
 		timeouts, fixed, err := ParseTimeouts("5s")
 		require.NoError(t, err)
-		client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts(timeouts, fixed)
+		client := NewTestClient(t, &networks.Mainnet).WithMaxRetries(4).WithTimeouts(timeouts, fixed)
 		ctx := t.Context()
 		rr := setupTimeoutTest(t, ctx, http.MethodGet, "/feeder/timeouts", client)
 		assert.Equal(t, http.StatusOK, rr.Code)

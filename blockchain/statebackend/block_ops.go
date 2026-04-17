@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
@@ -51,7 +51,7 @@ func verifyBlockSuccession(reader db.KeyValueReader, block *core.Block) error {
 func updateBlockHash(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	network *utils.Network,
+	network *networks.Network,
 ) (*core.BlockCommitments, error) {
 	blockHash, commitments, err := core.BlockHash(
 		block,

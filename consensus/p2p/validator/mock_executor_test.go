@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +23,7 @@ type mockExecutor struct {
 	states map[types.Height]map[starknet.Address]*mockExecutorState
 }
 
-func NewMockExecutor(t *testing.T, network *utils.Network) *mockExecutor {
+func NewMockExecutor(t *testing.T, network *networks.Network) *mockExecutor {
 	return &mockExecutor{
 		t:      t,
 		states: make(map[types.Height]map[starknet.Address]*mockExecutorState),

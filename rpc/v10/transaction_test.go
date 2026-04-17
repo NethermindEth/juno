@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
@@ -37,7 +38,7 @@ var validate = rpcv10.Validator()
 // This allows us to use testdata blocks without fetching from a real gateway.
 func loadBlockFromFeederTestdata(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 	blockNumber uint64,
 ) *core.Block {
 	t.Helper()
@@ -99,14 +100,14 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 func TestTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
 		hash           string
-		network        *utils.Network
+		network        *networks.Network
 		expected       string
 		responseFlags  rpcv10.ResponseFlags
 		withProofFacts bool
 	}{
 		"DECLARE v1": {
 			hash:    "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
 			"type": "DECLARE",
 			"transaction_hash": "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
@@ -124,7 +125,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DECLARE v0": {
 			hash:    "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
 				"transaction_hash": "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
 				"type": "DECLARE",
@@ -138,7 +139,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"L1 Handler v0 with nonce": {
 			hash:    "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "L1_HANDLER",
        "transaction_hash": "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
@@ -157,7 +158,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"L1 Handler v0 without nonce": {
 			hash:    "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
 				"type": "L1_HANDLER",
 				"transaction_hash":  "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
@@ -176,7 +177,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"Invoke v1": {
 			hash:    "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
@@ -212,7 +213,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DEPLOY v0": {
 			hash:    "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "DEPLOY",
        "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
@@ -231,7 +232,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DEPLOY ACCOUNT v1": {
 			hash:    "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "DEPLOY_ACCOUNT",
        "transaction_hash": "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
@@ -252,7 +253,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"INVOKE v0": {
 			hash:    "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
-			network: &utils.Mainnet,
+			network: &networks.Mainnet,
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
@@ -271,7 +272,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DECLARE v3": {
 			hash:    "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 		"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 		"type": "DECLARE",
@@ -304,7 +305,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"INVOKE v3": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 				"type": "INVOKE",
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -352,7 +353,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DEPLOY ACCOUNT v3": {
 			hash:    "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 				"transaction_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 				"version": "0x3",
@@ -386,7 +387,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"INVOKE v3 without l1_data_gas": {
 			hash:    "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 				"transaction_hash": "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
 				"version": "0x3",
@@ -442,7 +443,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"INVOKE v3 with response flags": {
 			hash:           "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network:        &utils.Integration,
+			network:        &networks.Integration,
 			withProofFacts: true,
 			expected: `{
 				"type": "INVOKE",
@@ -493,7 +494,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"INVOKE v3 with response flags and no proof facts": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network: &utils.Integration,
+			network: &networks.Integration,
 			expected: `{
 				"type": "INVOKE",
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -589,7 +590,7 @@ func TestTransactionByHash(t *testing.T) {
 }
 
 func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
-	gw := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	gw := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	adapterFeeder := adaptfeeder.New(gw)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -645,7 +646,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	client := feeder.NewTestClient(t, n)
@@ -815,7 +816,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("response flags", func(t *testing.T) {
-		network := &utils.Sepolia
+		network := &networks.Sepolia
 		client := feeder.NewTestClient(t, network)
 		gw := adaptfeeder.New(client)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
@@ -873,7 +874,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 func TestTransactionReceiptByHash(t *testing.T) {
 	type testCase struct {
 		description    string
-		network        *utils.Network
+		network        *networks.Network
 		expected       *rpcv10.TransactionReceipt
 		preConfirmedFn func(t *testing.T, block *core.Block) *pending.PreConfirmed
 		l1Head         core.L1Head
@@ -931,7 +932,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	testCases := []testCase{
 		{
 			description: "receipt accepted on l2",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_accepted_on_l2.json",
@@ -941,7 +942,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		},
 		{
 			description: "receipt accepted on l1",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_accepted_on_l1.json",
@@ -951,7 +952,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		},
 		{
 			description: "receipt pre confirmed",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_pre_confirmed.json",
@@ -961,7 +962,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		},
 		{
 			description: "receipt pre latest",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_pre_latest.json",
@@ -971,7 +972,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		},
 		{
 			description: "receipt reverted",
-			network:     &utils.Integration,
+			network:     &networks.Integration,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_reverted.json",
@@ -981,7 +982,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		},
 		{
 			description: "receipt invoke v3",
-			network:     &utils.Integration,
+			network:     &networks.Integration,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_invoke_v3.json",
@@ -991,7 +992,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		},
 		{
 			description: "receipt non empty da",
-			network:     &utils.SepoliaIntegration,
+			network:     &networks.SepoliaIntegration,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_non_empty_da.json",
@@ -1001,7 +1002,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		},
 		{
 			description: "receipt deploy",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			expected: readTestData[*rpcv10.TransactionReceipt](
 				t,
 				"transactions/receipt_deploy.json",
@@ -1125,7 +1126,7 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 }
 
 func TestAddTransaction(t *testing.T) {
-	n := &utils.Integration
+	n := &networks.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpcv10.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
@@ -1553,7 +1554,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Cleanup(mockCtrl.Finish)
 
 		mockReader := mocks.NewMockReader(mockCtrl)
-		n := &utils.Sepolia
+		n := &networks.Sepolia
 		mockReader.EXPECT().Network().Return(n).AnyTimes()
 
 		receivedTxFeed := feed.New[core.Transaction]()
@@ -1603,7 +1604,7 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func TestTransactionStatus(t *testing.T) {
-	mainnetClient := feeder.NewTestClient(t, &utils.Mainnet)
+	mainnetClient := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(mainnetClient)
 
 	block, err := gw.BlockLatest(t.Context())
@@ -1612,7 +1613,7 @@ func TestTransactionStatus(t *testing.T) {
 	targetTxnHash := tx.Hash()
 	type testCase struct {
 		description    string
-		network        *utils.Network
+		network        *networks.Network
 		txHash         *felt.Felt
 		expectedStatus rpcv10.TransactionStatus
 		expectedErr    *jsonrpc.Error
@@ -1658,7 +1659,7 @@ func TestTransactionStatus(t *testing.T) {
 	testCases := []testCase{
 		{
 			description: "status ACCEPTED_ON_L2",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
 			expectedStatus: rpcv10.TransactionStatus{
 				Finality:  rpcv10.TxnStatusAcceptedOnL2,
@@ -1671,7 +1672,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 		{
 			description: "status ACCEPTED_ON_L1",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
 			expectedStatus: rpcv10.TransactionStatus{
 				Finality:  rpcv10.TxnStatusAcceptedOnL1,
@@ -1684,7 +1685,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 		{
 			description: "status PRE_CONFIRMED",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
 			expectedStatus: rpcv10.TransactionStatus{
 				Finality:  rpcv10.TxnStatusPreConfirmed,
@@ -1706,7 +1707,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 		{
 			description: "status CANDIDATE",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
 			expectedStatus: rpcv10.TransactionStatus{
 				Finality:  rpcv10.TxnStatusCandidate,
@@ -1730,7 +1731,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 		{
 			description: "status PRE_CONFIRMED from pre-latest",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
 			expectedStatus: rpcv10.TransactionStatus{
 				Finality:  rpcv10.TxnStatusPreConfirmed,
@@ -1756,7 +1757,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 		{
 			description: "not found localy - ACCEPTED_ON_L1 from feeder",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash: felt.NewUnsafeFromString[felt.Felt](
 				"0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
 			),
@@ -1768,7 +1769,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 		{
 			description: "not found localy - ACCEPTED_ON_L2 from feeder",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash: felt.NewUnsafeFromString[felt.Felt](
 				"0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
 			),
@@ -1780,7 +1781,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 		{
 			description: "transaction not found",
-			network:     &utils.Mainnet,
+			network:     &networks.Mainnet,
 			txHash:      felt.NewUnsafeFromString[felt.Felt]("0xFF00FF00"),
 			expectedErr: rpccore.ErrTxnHashNotFound,
 			setupMocks:  mockNotFound,
@@ -1789,7 +1790,7 @@ func TestTransactionStatus(t *testing.T) {
 			// RPCv10 does not have REJECTED status.
 			// For historical queries return not found error instead.
 			description: "REJECTED historical txn found in feeder",
-			network:     &utils.SepoliaIntegration,
+			network:     &networks.SepoliaIntegration,
 			txHash:      felt.NewUnsafeFromString[felt.Felt]("0x1111"),
 			expectedErr: rpccore.ErrTxnHashNotFound,
 			setupMocks:  mockNotFound,
@@ -1819,7 +1820,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	log := utils.NewNopZapLogger()
-	network := utils.Integration
+	network := networks.Integration
 
 	client := feeder.NewTestClient(t, &network)
 
@@ -1919,7 +1920,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 }
 
 func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
-	network := &utils.Sepolia
+	network := &networks.Sepolia
 
 	t.Run("RejectProofForNonInvoke", func(t *testing.T) {
 		broadcastedTxn := &rpcv10.BroadcastedTransaction{

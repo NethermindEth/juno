@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -32,7 +33,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	var mockSyncReader *mocks.MockSyncReader
 
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
@@ -124,7 +125,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("post v0.11.0", func(t *testing.T) {
-		integrationClient := feeder.NewTestClient(t, &utils.Integration)
+		integrationClient := feeder.NewTestClient(t, &networks.Integration)
 		integGw := adaptfeeder.New(integrationClient)
 
 		for name, height := range map[string]uint64{

@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +19,7 @@ func TestAdaptBlock(t *testing.T) {
 	tests := []struct {
 		number          uint64
 		protocolVersion string
-		network         utils.Network
+		network         networks.Network
 		sig             *starknet.Signature
 		l1GasPriceWEI   *felt.Felt
 		l1GasPriceSTRK  *felt.Felt
@@ -30,19 +30,19 @@ func TestAdaptBlock(t *testing.T) {
 	}{
 		{
 			number:        147,
-			network:       utils.Mainnet,
+			network:       networks.Mainnet,
 			l1GasPriceWEI: &felt.Zero,
 		},
 		{
 			number:          11817,
 			protocolVersion: "0.10.1",
-			network:         utils.Mainnet,
+			network:         networks.Mainnet,
 			l1GasPriceWEI:   felt.NewUnsafeFromString[felt.Felt]("0x27ad16775"),
 		},
 		{
 			number:          304740,
 			protocolVersion: "0.12.1",
-			network:         utils.Integration,
+			network:         networks.Integration,
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x44"), felt.NewUnsafeFromString[felt.Felt]("0x37")},
 			},
@@ -50,7 +50,7 @@ func TestAdaptBlock(t *testing.T) {
 		},
 		{
 			number:          319132,
-			network:         utils.Integration,
+			network:         networks.Integration,
 			protocolVersion: "0.13.0",
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{
@@ -63,7 +63,7 @@ func TestAdaptBlock(t *testing.T) {
 		},
 		{
 			number:          330363,
-			network:         utils.Integration,
+			network:         networks.Integration,
 			protocolVersion: "0.13.1",
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{
@@ -78,7 +78,7 @@ func TestAdaptBlock(t *testing.T) {
 		},
 		{
 			number:          64164,
-			network:         utils.SepoliaIntegration,
+			network:         networks.SepoliaIntegration,
 			protocolVersion: "0.13.4",
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{
@@ -160,7 +160,7 @@ func TestAdaptBlock(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	ctx := t.Context()
 
 	for _, number := range numbers {
@@ -209,7 +209,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &networks.Integration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
@@ -251,7 +251,7 @@ func TestClassV0(t *testing.T) {
 		"0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
 	}
 
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	ctx := t.Context()
 
 	for _, hashString := range classHashes {
@@ -291,8 +291,8 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
-	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
+	clientGoerli := feeder.NewTestClient(t, &networks.Goerli)
+	clientMainnet := feeder.NewTestClient(t, &networks.Mainnet)
 	ctx := t.Context()
 
 	t.Run("invoke transaction", func(t *testing.T) {
@@ -403,7 +403,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionV3(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &networks.Integration)
 	ctx := t.Context()
 
 	tests := map[string]core.Transaction{
@@ -539,19 +539,19 @@ func TestClassV1(t *testing.T) {
 	tests := []struct {
 		name                  string
 		classHash             string
-		network               *utils.Network
+		network               *networks.Network
 		expectedSierraVersion string
 	}{
 		{
 			name:                  "cairo one class adapt sierra version 0.1.0",
 			classHash:             "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
-			network:               &utils.Integration,
+			network:               &networks.Integration,
 			expectedSierraVersion: "0.1.0",
 		},
 		{
 			name:                  "cairo one class adapt sierra version 1.6.0",
 			classHash:             "0x03cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b",
-			network:               &utils.Sepolia,
+			network:               &networks.Sepolia,
 			expectedSierraVersion: "1.6.0",
 		},
 	}
@@ -637,7 +637,7 @@ func TestAdaptCompiledClass(t *testing.T) {
 }
 
 func TestAdaptPreConfirmed(t *testing.T) {
-	n := &utils.SepoliaIntegration
+	n := &networks.SepoliaIntegration
 	client := feeder.NewTestClient(t, n)
 	emptyPreConfirmedBlock := uint64(1201960)
 	blockWithCandidates := uint64(1204672)

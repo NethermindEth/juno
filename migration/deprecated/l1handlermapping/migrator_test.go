@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/testutils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -20,7 +21,7 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 		testdb := memory.New()
 		m := l1handlermapping.Migrator{}
 		require.NoError(t, m.Before(nil))
-		intermediateState, err := m.Migrate(t.Context(), testdb, &utils.Sepolia, utils.NewNopZapLogger())
+		intermediateState, err := m.Migrate(t.Context(), testdb, &networks.Sepolia, utils.NewNopZapLogger())
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 	})
@@ -54,7 +55,7 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 			numTxs := minTxsPerBlock + rand.Intn(maxTxsPerBlock-minTxsPerBlock+1)
 
 			// Generate transactions with weighted sampling
-			txs, receipts := generateWeightedTestTxs(t, &utils.Sepolia, numTxs, weights)
+			txs, receipts := generateWeightedTestTxs(t, &networks.Sepolia, numTxs, weights)
 
 			// Write transactions using per-tx layout (migration reads from per-tx layout)
 			require.NoError(
@@ -92,7 +93,7 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 		// Run migration
 		m := l1handlermapping.Migrator{}
 		require.NoError(t, m.Before(nil))
-		intermediateState, err := m.Migrate(t.Context(), testdb, &utils.Sepolia, utils.NewNopZapLogger())
+		intermediateState, err := m.Migrate(t.Context(), testdb, &networks.Sepolia, utils.NewNopZapLogger())
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 
@@ -116,7 +117,7 @@ type txWeights struct {
 // generateWeightedTestTxs generates n random transactions with receipts based on weights
 func generateWeightedTestTxs(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 	n int,
 	weights txWeights,
 ) ([]core.Transaction, []*core.TransactionReceipt) {

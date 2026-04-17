@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ import (
 const transactionHashArg = "transactionHash"
 
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t testing.TB, network *utils.Network) *Client {
+func NewTestClient(t testing.TB, network *networks.Network) *Client {
 	srv := newTestServer(t, network)
 	t.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
@@ -43,7 +43,7 @@ func NewTestClient(t testing.TB, network *utils.Network) *Client {
 	return c
 }
 
-func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
+func newTestServer(t testing.TB, network *networks.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {

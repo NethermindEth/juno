@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/contract"
@@ -33,7 +34,7 @@ type Client struct {
 	l1                    Subscriber
 	l2Chain               *blockchain.Blockchain
 	log                   utils.StructuredLogger
-	network               *utils.Network
+	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate

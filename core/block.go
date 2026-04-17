@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/sourcegraph/conc"
 )
@@ -98,7 +98,7 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
+func VerifyBlockHash(b *Block, network *networks.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
@@ -155,7 +155,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 func BlockHash(
 	b *Block,
 	stateDiff *StateDiff,
-	network *utils.Network,
+	network *networks.Network,
 	overrideSeqAddr *felt.Felt,
 ) (felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo

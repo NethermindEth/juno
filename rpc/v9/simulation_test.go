@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -20,7 +21,7 @@ import (
 
 func TestSimulateTransactions(t *testing.T) {
 	t.Parallel()
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 		L1GasPriceETH:    &felt.Zero,
@@ -184,7 +185,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *testing.T) {
 	t.Parallel()
-	n := &utils.Mainnet
+	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 		L1GasPriceETH:    &felt.Zero,

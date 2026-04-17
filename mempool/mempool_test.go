@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -186,7 +187,7 @@ func TestRestoreMempool(t *testing.T) {
 }
 
 func TestWait(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
 	testDB, dbCloser, err := setupDatabase("testwait", true)
@@ -194,7 +195,7 @@ func TestWait(t *testing.T) {
 	defer dbCloser()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &networks.Sepolia)
 	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)

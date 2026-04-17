@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/adapters/vm2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
@@ -16,7 +17,6 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -97,7 +97,7 @@ func GenesisStateDiff(
 	ctx context.Context,
 	config *GenesisConfig,
 	v vm.VM,
-	network *utils.Network,
+	network *networks.Network,
 	maxSteps uint64,
 	maxGas uint64,
 	compiler compiler.Compiler,

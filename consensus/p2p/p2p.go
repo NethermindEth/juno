@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/p2p/proposer"
@@ -42,7 +43,7 @@ type P2P[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 type p2p[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	host             host.Host
 	log              utils.Logger
-	network          *utils.Network
+	network          *networks.Network
 	commitNotifier   chan types.Height
 	broadcasters     Broadcasters[V, H, A]
 	listeners        Listeners[V, H, A]

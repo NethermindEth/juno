@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -303,13 +304,13 @@ func dbSize(cmd *cobra.Command, args []string) error {
 }
 
 func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
-	networks := []*utils.Network{
-		&utils.Mainnet,
-		&utils.Sepolia,
-		&utils.Goerli,
-		&utils.Goerli2,
-		&utils.Integration,
-		&utils.SepoliaIntegration,
+	networks := []*networks.Network{
+		&networks.Mainnet,
+		&networks.Sepolia,
+		&networks.Goerli,
+		&networks.Goerli2,
+		&networks.Integration,
+		&networks.SepoliaIntegration,
 	}
 
 	for _, network := range networks {

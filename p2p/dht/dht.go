@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
-	"github.com/NethermindEth/juno/utils"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -15,7 +15,7 @@ import (
 func New(
 	ctx context.Context,
 	host host.Host,
-	network *utils.Network,
+	network *networks.Network,
 	starknetProtocol starknetp2p.Protocol,
 	bootstrapPeersFn func() []peer.AddrInfo,
 ) (*dht.IpfsDHT, error) {

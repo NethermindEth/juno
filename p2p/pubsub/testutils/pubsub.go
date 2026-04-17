@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
-	"github.com/NethermindEth/juno/utils"
 	libp2p "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -81,7 +81,7 @@ func BuildNetworks(
 
 func (n Nodes) JoinTopic(
 	t *testing.T,
-	network *utils.Network,
+	network *networks.Network,
 	protocolID starknetp2p.Protocol,
 	topicName string,
 ) []*libp2p.Topic {

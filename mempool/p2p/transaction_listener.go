@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/NethermindEth/juno/adapters/p2p2mempool"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -15,7 +16,7 @@ import (
 )
 
 func NewTransactionListener(
-	network *utils.Network,
+	network *networks.Network,
 	log utils.Logger,
 	pool mempool.Pool,
 	bufferSize int,

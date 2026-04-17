@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -367,7 +368,7 @@ func AdaptBroadcastedTransaction(
 	ctx context.Context,
 	compiler compiler.Compiler,
 	broadcastedTxn *BroadcastedTransaction,
-	network *utils.Network,
+	network *networks.Network,
 ) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
 	feederTxn := AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
@@ -29,7 +30,7 @@ import (
 func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Header) {
 	t.Helper()
 	testDB := memory.New()
-	network := &utils.Mainnet
+	network := &networks.Mainnet
 	bc := blockchain.New(testDB, network)
 	log := utils.NewNopZapLogger()
 
@@ -44,7 +45,7 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 		"../../../genesis/classes/universaldeployer.json", "../../../genesis/classes/udacnt.json",
 	}
 
-	feeTokens := utils.DefaultFeeTokenAddresses
+	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,

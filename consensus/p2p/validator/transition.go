@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
@@ -12,13 +13,12 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var errHashMismatch = errors.New("hash mismatch")
 
 type Transition interface {
-	Network() *utils.Network
+	Network() *networks.Network
 	Compiler() compiler.Compiler
 	OnProposalInit(
 		context.Context,
@@ -66,7 +66,7 @@ func NewTransition(
 	}
 }
 
-func (t *transition) Network() *utils.Network {
+func (t *transition) Network() *networks.Network {
 	return t.builder.Network()
 }
 

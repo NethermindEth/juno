@@ -6,9 +6,9 @@ import (
 	"math/rand/v2"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -158,7 +158,7 @@ func GetCoreTransactions(t *testing.T, count int) []core.Transaction {
 				transactionBuilder.GetTestInvokeTransactionV3,
 				transactionBuilder.GetTestL1HandlerTransaction,
 			)
-			transaction, _ := generator(t, &utils.Mainnet)
+			transaction, _ := generator(t, &networks.Mainnet)
 			return transaction
 		},
 	)

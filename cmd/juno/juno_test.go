@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -36,15 +36,15 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
 	defaultCoreContractAddress := common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
-	defaultNetwork := utils.Mainnet
-	defaultCustomNetwork := utils.Network{
+	defaultNetwork := networks.Mainnet
+	defaultCustomNetwork := networks.Network{
 		Name:                "custom",
 		FeederURL:           "awesome_feeder_url",
 		GatewayURL:          "awesome_gateway_url",
 		L2ChainID:           "SN_AWESOME",
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
-		BlockHashMetaInfo: &utils.BlockHashMetaInfo{
+		BlockHashMetaInfo: &networks.BlockHashMetaInfo{
 			First07Block:      0,
 			UnverifiableRange: []uint64{0, 10},
 		},
@@ -238,7 +238,7 @@ pprof: true
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
 				DatabasePath:                       "/home/.juno",
-				Network:                            utils.Sepolia,
+				Network:                            networks.Sepolia,
 				Pprof:                              true,
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
@@ -337,7 +337,7 @@ http-port: 4576
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
 				DatabasePath:                       "/home/.juno",
-				Network:                            utils.SepoliaIntegration,
+				Network:                            networks.SepoliaIntegration,
 				Pprof:                              true,
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
@@ -386,7 +386,7 @@ http-port: 4576
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
 				DatabasePath:                       "/home/.juno",
-				Network:                            utils.Sepolia,
+				Network:                            networks.Sepolia,
 				Pprof:                              defaultPprof,
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
@@ -461,7 +461,7 @@ db-cache-size: 1024
 				GRPCHost:                           "127.0.0.1",
 				GRPCPort:                           4577,
 				DatabasePath:                       "/home/flag/.juno",
-				Network:                            utils.Mainnet,
+				Network:                            networks.Mainnet,
 				Pprof:                              true,
 				PprofHost:                          "0.0.0.0",
 				PprofPort:                          6064,
@@ -513,7 +513,7 @@ network: sepolia
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
 				DatabasePath:                       "/home/flag/.juno",
-				Network:                            utils.Sepolia,
+				Network:                            networks.Sepolia,
 				Pprof:                              defaultPprof,
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,
@@ -561,7 +561,7 @@ network: sepolia
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
 				DatabasePath:                       "/home/flag/.juno",
-				Network:                            utils.SepoliaIntegration,
+				Network:                            networks.SepoliaIntegration,
 				Pprof:                              true,
 				PprofHost:                          defaultHost,
 				PprofPort:                          defaultPprofPort,

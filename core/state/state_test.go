@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -13,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -698,7 +698,7 @@ func TestRevert(t *testing.T) {
 }
 
 func BenchmarkStateUpdate(b *testing.B) {
-	client := feeder.NewTestClient(b, &utils.Mainnet)
+	client := feeder.NewTestClient(b, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	su0, err := gw.StateUpdate(b.Context(), block0)
@@ -729,7 +729,7 @@ func BenchmarkStateUpdate(b *testing.B) {
 
 // Get the first 3 state updates from the mainnet.
 func getStateUpdates(t *testing.T) []*core.StateUpdate {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	ctx, cancel := context.WithCancel(t.Context())

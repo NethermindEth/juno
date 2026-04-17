@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/feed"
@@ -28,7 +29,7 @@ type Handler struct {
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
-	logger utils.Logger, network *utils.Network,
+	logger utils.Logger, network *networks.Network,
 ) *Handler {
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
 	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/migration"
@@ -32,7 +33,7 @@ func (m *cancellableMockMigration) Before(intermediateState []byte) error {
 func (m *cancellableMockMigration) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
-	network *utils.Network,
+	network *networks.Network,
 	log utils.StructuredLogger,
 ) ([]byte, error) {
 	m.migrateCalled = true
@@ -74,7 +75,7 @@ func createRunner(
 	runner, err := migration.NewRunner(
 		registry,
 		testDB,
-		&utils.Mainnet,
+		&networks.Mainnet,
 		utils.NewNopZapLogger(),
 	)
 	require.NoError(t, err)
@@ -123,7 +124,7 @@ func TestNewRunner(t *testing.T) {
 		runner, err := migration.NewRunner(
 			registry,
 			testDB,
-			&utils.Mainnet,
+			&networks.Mainnet,
 			utils.NewNopZapLogger(),
 		)
 		require.Error(t, err)
@@ -149,7 +150,7 @@ func TestNewRunner(t *testing.T) {
 		runner, err := migration.NewRunner(
 			registry,
 			testDB,
-			&utils.Mainnet,
+			&networks.Mainnet,
 			utils.NewNopZapLogger(),
 		)
 		require.Error(t, err)
