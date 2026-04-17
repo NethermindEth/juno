@@ -255,13 +255,12 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 
 	for i, addr := range keys {
 		obj := s.stateObjects[addr]
+		if obj == nil {
+			// Object is marked as delete
+			continue
+		}
 
 		p.Go(func() error {
-			// Object is marked as delete
-			if obj == nil {
-				return nil
-			}
-
 			nodes, err := obj.commit()
 			if err != nil {
 				return err
