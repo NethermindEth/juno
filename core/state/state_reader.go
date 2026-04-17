@@ -61,12 +61,7 @@ func (s *StateReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 // ContractStorage reads a storage slot directly from the trie at this reader's
 // root. Missing slots read as felt.Zero.
 func (s *StateReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	storageTrie, err := s.db.ContractStorageTrie(&s.initRoot, addr)
-	if err != nil {
-		return felt.Zero, err
-	}
-
-	path := storageTrie.FeltToPath(key)
+	path := trieutils.FeltToPath(key, ContractStorageTrieHeight)
 	v, err := trieutils.GetNodeByPath(
 		s.db.disk,
 		db.ContractTrieStorage,

@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -25,7 +26,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		return ErrCommitted
 	}
 
-	path := t.FeltToPath(key)
+	path := trieutils.FeltToPath(key, t.height)
 
 	var (
 		nodes    []trienode.Node

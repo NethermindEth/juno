@@ -155,7 +155,7 @@ func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
 		return felt.Zero, ErrCommitted
 	}
 
-	k := t.FeltToPath(key)
+	k := trieutils.FeltToPath(key, t.height)
 
 	var ret felt.Felt
 	val, root, didResolve, err := t.get(t.root, new(Path), &k)
@@ -179,7 +179,7 @@ func (t *Trie) Delete(key *felt.Felt) error {
 		return ErrCommitted
 	}
 
-	k := t.FeltToPath(key)
+	k := trieutils.FeltToPath(key, t.height)
 	n, _, err := t.delete(t.root, new(Path), &k)
 	if err != nil {
 		return err
@@ -306,7 +306,7 @@ func (t *Trie) get(n trienode.Node, prefix, key *Path) (*felt.Felt, trienode.Nod
 // Modifies the trie by either inserting/updating a value or deleting a key.
 // The operation is determined by whether the value is zero (delete) or non-zero (insert/update).
 func (t *Trie) update(key, value *felt.Felt) error {
-	k := t.FeltToPath(key)
+	k := trieutils.FeltToPath(key, t.height)
 	if value.IsZero() {
 		n, _, err := t.delete(t.root, new(Path), &k)
 		if err != nil {
@@ -562,14 +562,6 @@ func (t *Trie) hashRoot() (trienode.Node, trienode.Node) {
 	hashed, cached := h.hash(t.root)
 	t.pendingHashes = 0
 	return hashed, cached
-}
-
-// Converts a Felt value into a Path representation suitable to
-// use as a trie key with the specified height.
-func (t *Trie) FeltToPath(f *felt.Felt) Path {
-	var key Path
-	key.SetFelt(t.height, f)
-	return key
 }
 
 func (t *Trie) String() string {
