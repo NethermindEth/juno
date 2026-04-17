@@ -6,8 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
-	"github.com/NethermindEth/juno/core/trie2/trieutils"
-	"github.com/NethermindEth/juno/db"
 	"golang.org/x/exp/maps"
 )
 
@@ -38,34 +36,6 @@ func (s *stateObject) setClassHash(classHash *felt.Felt) {
 
 func (s *stateObject) setNonce(nonce *felt.Felt) {
 	s.contract.Nonce = *nonce
-}
-
-func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
-	if value, ok := s.dirtyStorage[*key]; ok {
-		return *value, nil
-	}
-
-	tr, err := s.getStorageTrie()
-	if err != nil {
-		return felt.Zero, err
-	}
-
-	path := tr.FeltToPath(key)
-	v, err := trieutils.GetNodeByPath(
-		s.state.db.disk,
-		db.ContractTrieStorage,
-		(*felt.Address)(&s.addr),
-		&path,
-		true,
-	)
-	if err != nil {
-		return felt.Zero, err
-	}
-
-	var val felt.Felt
-	val.SetBytes(v)
-
-	return val, nil
 }
 
 func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
