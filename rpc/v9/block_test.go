@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -251,7 +252,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -410,7 +411,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -528,7 +529,7 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	preConfirmed := &core.PreConfirmed{
+	preConfirmed := &pending.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: latestBlockNumber + 1,
@@ -652,7 +653,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -834,7 +835,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0.Hash = nil
 		block0.ParentHash = nil
 		block0.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(block0, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(block0, nil, nil, nil)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,

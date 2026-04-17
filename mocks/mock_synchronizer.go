@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
+	pending "github.com/NethermindEth/juno/core/pending"
 	sync "github.com/NethermindEth/juno/sync"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -56,10 +57,10 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 }
 
 // PreConfirmed mocks base method.
-func (m *MockSyncReader) PreConfirmed() (*core.PreConfirmed, error) {
+func (m *MockSyncReader) PreConfirmed() (*pending.PreConfirmed, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreConfirmed")
-	ret0, _ := ret[0].(*core.PreConfirmed)
+	ret0, _ := ret[0].(*pending.PreConfirmed)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -68,36 +69,6 @@ func (m *MockSyncReader) PreConfirmed() (*core.PreConfirmed, error) {
 func (mr *MockSyncReaderMockRecorder) PreConfirmed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmed", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmed))
-}
-
-// PreConfirmedBlock mocks base method.
-func (m *MockSyncReader) PreConfirmedBlock() *core.Block {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PreConfirmedBlock")
-	ret0, _ := ret[0].(*core.Block)
-	return ret0
-}
-
-// PreConfirmedBlock indicates an expected call of PreConfirmedBlock.
-func (mr *MockSyncReaderMockRecorder) PreConfirmedBlock() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlock", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmedBlock))
-}
-
-// PendingState mocks base method.
-func (m *MockSyncReader) PendingState() (core.StateReader, func() error, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PendingState")
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(func() error)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// PendingState indicates an expected call of PendingState.
-func (mr *MockSyncReaderMockRecorder) PendingState() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingState", reflect.TypeOf((*MockSyncReader)(nil).PendingState))
 }
 
 // StartingBlockNumber mocks base method.

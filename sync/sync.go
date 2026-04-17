@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -45,11 +46,11 @@ type PendingTxSubscription struct {
 }
 
 type PreConfirmedDataSubscription struct {
-	*feed.Subscription[*core.PreConfirmed]
+	*feed.Subscription[*pending.PreConfirmed]
 }
 
 type PreLatestDataSubscription struct {
-	*feed.Subscription[*core.PreLatest]
+	*feed.Subscription[*pending.PreLatest]
 }
 
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
@@ -74,7 +75,7 @@ type Reader interface {
 	SubscribeReorg() ReorgSubscription
 	SubscribePreConfirmed() PreConfirmedDataSubscription
 	SubscribePreLatest() PreLatestDataSubscription
-	PreConfirmed() (*core.PreConfirmed, error)
+	PreConfirmed() (*pending.PreConfirmed, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -97,14 +98,14 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 }
 
 func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
-	return PreConfirmedDataSubscription{feed.New[*core.PreConfirmed]().Subscribe()}
+	return PreConfirmedDataSubscription{feed.New[*pending.PreConfirmed]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
-	return PreLatestDataSubscription{feed.New[*core.PreLatest]().Subscribe()}
+	return PreLatestDataSubscription{feed.New[*pending.PreLatest]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) PreConfirmed() (*core.PreConfirmed, error) {
+func (n *NoopSynchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
 	return nil, errors.New("PreConfirmed() is not implemented")
 }
 
@@ -118,13 +119,13 @@ type Synchronizer struct {
 	highestBlockHeader   atomic.Pointer[core.Header]
 	newHeads             *feed.Feed[*core.Block]
 	reorgFeed            *feed.Feed[*ReorgBlockRange]
-	preConfirmedDataFeed *feed.Feed[*core.PreConfirmed]
-	preLatestDataFeed    *feed.Feed[*core.PreLatest]
+	preConfirmedDataFeed *feed.Feed[*pending.PreConfirmed]
+	preLatestDataFeed    *feed.Feed[*pending.PreLatest]
 
 	log      utils.StructuredLogger
 	listener EventListener
 
-	preConfirmed             atomic.Pointer[core.PreConfirmed]
+	preConfirmed             atomic.Pointer[pending.PreConfirmed]
 	preLatestPollInterval    time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -150,8 +151,8 @@ func New(
 		log:                      log,
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
-		preConfirmedDataFeed:     feed.New[*core.PreConfirmed](),
-		preLatestDataFeed:        feed.New[*core.PreLatest](),
+		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
+		preLatestDataFeed:        feed.New[*pending.PreLatest](),
 		preLatestPollInterval:    preLatestPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
@@ -594,7 +595,7 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	}
 }
 
-func (s *Synchronizer) PreConfirmed() (*core.PreConfirmed, error) {
+func (s *Synchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
 	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {

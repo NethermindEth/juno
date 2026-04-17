@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -52,7 +53,7 @@ func (b *Builder) Network() *utils.Network {
 	return b.blockchain.Network()
 }
 
-func (b *Builder) Finalise(preconfirmed *core.PreConfirmed, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
+func (b *Builder) Finalise(preconfirmed *pending.PreConfirmed, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
 	return b.blockchain.Finalise(preconfirmed.Block, preconfirmed.StateUpdate, preconfirmed.NewClasses, signer)
 }
 
@@ -101,7 +102,7 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 		OldRoot:   header.GlobalStateRoot,
 		StateDiff: &emptyStateDiff,
 	}
-	preconfirmed := core.PreConfirmed{
+	preconfirmed := pending.PreConfirmed{
 		Block:                 &preconfirmedBlock,
 		StateUpdate:           &su,
 		NewClasses:            newClasses,
@@ -132,7 +133,7 @@ func (b *Builder) PendingState(
 	buildState *BuildState,
 ) (core.StateReader, func() error, error) {
 	if buildState.PreConfirmed == nil {
-		return nil, nil, core.ErrPreConfirmedNotFound
+		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
 
 	headState, headCloser, err := b.blockchain.HeadState()
@@ -141,7 +142,7 @@ func (b *Builder) PendingState(
 	}
 
 	// TODO: remove the state closer once we refactor the state
-	return core.NewPendingState(
+	return pending.NewPendingState(
 			buildState.PreConfirmed.StateUpdate.StateDiff,
 			buildState.PreConfirmed.NewClasses,
 			headState,

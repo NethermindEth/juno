@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
@@ -39,8 +40,8 @@ func TestRun(t *testing.T) {
 	l1Sub := feed.New[*core.L1Head]()
 	newHeadsSub := feed.New[*core.Block]()
 	reorgSub := feed.New[*sync.ReorgBlockRange]()
-	preConfirmedSub := feed.New[*core.PreConfirmed]()
-	preLatestSub := feed.New[*core.PreLatest]()
+	preConfirmedSub := feed.New[*pending.PreConfirmed]()
+	preLatestSub := feed.New[*pending.PreLatest]()
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)

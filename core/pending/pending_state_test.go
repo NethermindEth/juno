@@ -1,10 +1,11 @@
-package core_test
+package pending_test
 
 import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,7 +55,7 @@ func TestPendingState(t *testing.T) {
 
 	const pendingBlockNumber = uint64(5)
 
-	state := core.NewPendingState(
+	state := pending.NewPendingState(
 		stateDiff, newClasses, mockState, pendingBlockNumber,
 	)
 

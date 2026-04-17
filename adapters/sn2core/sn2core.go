@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -509,19 +510,19 @@ func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
 func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
-) (core.PreConfirmed, error) {
+) (pending.PreConfirmed, error) {
 	if response == nil {
-		return core.PreConfirmed{}, errors.New("nil preconfirmed block")
+		return pending.PreConfirmed{}, errors.New("nil preconfirmed block")
 	}
 
 	if response.Status != "PRE_CONFIRMED" {
-		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
+		return pending.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
 
 	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
 		len(response.Transactions) != len(response.Receipts)
 	if isInvalidPayloadSizes {
-		return core.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
+		return pending.PreConfirmed{}, errors.New("invalid sizes of transactions, state diffs and receipts")
 	}
 
 	preConfirmedTxCount := 0
@@ -545,12 +546,12 @@ func AdaptPreConfirmedBlock(
 		if !IsCandidateTx(response, i) {
 			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
 			if err != nil {
-				return core.PreConfirmed{}, err
+				return pending.PreConfirmed{}, err
 			}
 			var stateDiff core.StateDiff
 			stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
 			if err != nil {
-				return core.PreConfirmed{}, err
+				return pending.PreConfirmed{}, err
 			}
 			txStateDiffs[preIdx] = &stateDiff
 			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
@@ -559,7 +560,7 @@ func AdaptPreConfirmedBlock(
 		} else {
 			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
 			if err != nil {
-				return core.PreConfirmed{}, err
+				return pending.PreConfirmed{}, err
 			}
 			candIdx++
 		}
@@ -606,7 +607,7 @@ func AdaptPreConfirmedBlock(
 		Transactions: txns,
 		Receipts:     receipts,
 	}
-	return core.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs), nil
+	return pending.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs), nil
 }
 
 func safeFeltToUint64(f *felt.Felt) uint64 {

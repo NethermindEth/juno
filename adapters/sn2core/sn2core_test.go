@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -717,7 +718,7 @@ func getPreconfirmedReceipts(
 
 func assertPreConfirmedBlockBasics(
 	t *testing.T,
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 	blockNum uint64,
 	response *starknet.PreConfirmedBlock,
 	expectedTxCount int,

@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	pendingpkg "github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -37,7 +38,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch blockID.Type() {
 	case pending:
-		var pending *core.Pending
+		var pending *pendingpkg.Pending
 		pending, err = h.Pending()
 		if err == nil {
 			block = pending.GetBlock()
@@ -91,7 +92,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch blockID.Type() {
 	case pending:
-		var pendingBlock *core.Pending
+		var pendingBlock *pendingpkg.Pending
 		pendingBlock, err = h.Pending()
 		if err == nil {
 			header = pendingBlock.GetHeader()

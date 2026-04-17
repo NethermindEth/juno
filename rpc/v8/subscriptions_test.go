@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	pendingpkg "github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -249,14 +250,14 @@ func TestSubscribeEvents(t *testing.T) {
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
 		// Sending PreConfirmed does nothing — the handler was removed
-		// because it only handled the deprecated core.Pending variant.
+		// because it only handled the deprecated pending.Pending variant.
 		pending1 := createTestPendingBlock(t, b2, 3)
-		preConfirmed1 := core.NewPreConfirmed(pending1, nil, nil, nil)
+		preConfirmed1 := pendingpkg.NewPreConfirmed(pending1, nil, nil, nil)
 		handler.preConfirmedFeed.Send(&preConfirmed1)
 		assertNoMessage(t, clientConn)
 
 		pending2 := createTestPendingBlock(t, b2, 6)
-		preConfirmed2 := core.NewPreConfirmed(pending2, nil, nil, nil)
+		preConfirmed2 := pendingpkg.NewPreConfirmed(pending2, nil, nil, nil)
 		handler.preConfirmedFeed.Send(&preConfirmed2)
 		assertNoMessage(t, clientConn)
 
@@ -388,8 +389,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
-			handler.preConfirmedFeed.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
-			handler.preConfirmedFeed.Send(&core.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
+			handler.preConfirmedFeed.Send(&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
+			handler.preConfirmedFeed.Send(&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
 			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
@@ -413,16 +414,16 @@ func TestSubscribeTxnStatus(t *testing.T) {
 type fakeSyncer struct {
 	newHeads     *feed.Feed[*core.Block]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
-	preConfirmed *feed.Feed[*core.PreConfirmed]
-	preLatest    *feed.Feed[*core.PreLatest]
+	preConfirmed *feed.Feed[*pendingpkg.PreConfirmed]
+	preLatest    *feed.Feed[*pendingpkg.PreLatest]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
 		newHeads:     feed.New[*core.Block](),
 		reorgs:       feed.New[*sync.ReorgBlockRange](),
-		preConfirmed: feed.New[*core.PreConfirmed](),
-		preLatest:    feed.New[*core.PreLatest](),
+		preConfirmed: feed.New[*pendingpkg.PreConfirmed](),
+		preLatest:    feed.New[*pendingpkg.PreLatest](),
 	}
 }
 
@@ -450,8 +451,8 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PreConfirmed() (*core.PreConfirmed, error) {
-	return nil, core.ErrPreConfirmedNotFound
+func (fs *fakeSyncer) PreConfirmed() (*pendingpkg.PreConfirmed, error) {
+	return nil, pendingpkg.ErrPreConfirmedNotFound
 }
 
 func TestSubscribeNewHeads(t *testing.T) {
@@ -767,7 +768,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.preConfirmed.Send(&core.PreConfirmed{
+		syncer.preConfirmed.Send(&pendingpkg.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -812,7 +813,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.preConfirmed.Send(&core.PreConfirmed{
+		syncer.preConfirmed.Send(&pendingpkg.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -842,7 +843,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		require.Equal(t, subResp(id), got)
 
 		parentHash := new(felt.Felt).SetUint64(1)
-		syncer.preConfirmed.Send(&core.PreConfirmed{
+		syncer.preConfirmed.Send(&pendingpkg.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,

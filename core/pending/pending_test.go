@@ -1,17 +1,18 @@
-package core_test
+package pending_test
 
 import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPreConfirmedValidate(t *testing.T) {
 	t.Run("without pre-latest", func(t *testing.T) {
 		// Genesis case with nil parent
-		preConfirmed0 := &core.PreConfirmed{
+		preConfirmed0 := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 0,
@@ -33,7 +34,7 @@ func TestPreConfirmedValidate(t *testing.T) {
 		require.False(t, preConfirmed0.Validate(head0.Header))
 
 		// PreConfirmed for head
-		preConfirmed1 := &core.PreConfirmed{
+		preConfirmed1 := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 1,
@@ -53,7 +54,7 @@ func TestPreConfirmedValidate(t *testing.T) {
 			},
 		}
 
-		preLatest1 := core.PreLatest{
+		preLatest1 := pending.PreLatest{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: &felt.One,
@@ -62,7 +63,7 @@ func TestPreConfirmedValidate(t *testing.T) {
 			},
 		}
 		// Genesis case with nil parent
-		preConfirmed2 := &core.PreConfirmed{
+		preConfirmed2 := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 2,
@@ -100,7 +101,7 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 		TransactionHash: &candidateTxHash,
 	}
 
-	preLatest := &core.PreLatest{
+	preLatest := &pending.PreLatest{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number:     1,
@@ -110,7 +111,7 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 		},
 	}
 
-	preConfirmed := &core.PreConfirmed{
+	preConfirmed := &pending.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: 2,
@@ -142,7 +143,7 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 	t.Run("transaction not found", func(t *testing.T) {
 		_, err := preConfirmed.TransactionByHash(&nonExistingTxHash)
 		require.Error(t, err)
-		require.Equal(t, core.ErrTransactionNotFound, err)
+		require.Equal(t, pending.ErrTransactionNotFound, err)
 	})
 }
 
@@ -160,7 +161,7 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 
 	preLatestParentHash := felt.FromUint64[felt.Felt](100)
 	preLatestBlockNumber := uint64(1)
-	preLatest := &core.PreLatest{
+	preLatest := &pending.PreLatest{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number:     preLatestBlockNumber,
@@ -171,7 +172,7 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 	}
 
 	preConfirmedBlockNumber := uint64(2)
-	preConfirmed := &core.PreConfirmed{
+	preConfirmed := &pending.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: preConfirmedBlockNumber,
@@ -206,7 +207,7 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 	t.Run("receipt not found", func(t *testing.T) {
 		_, _, _, err := preConfirmed.ReceiptByHash(&nonExistingReceiptHash)
 		require.Error(t, err)
-		require.Equal(t, core.ErrTransactionReceiptNotFound, err)
+		require.Equal(t, pending.ErrTransactionReceiptNotFound, err)
 	})
 }
 
@@ -283,14 +284,14 @@ func TestPreConfirmed_PendingState(t *testing.T) {
 		storageKey: felt.NewFromUint64[felt.Felt](0xFFFFFFFFFFFFFFFF),
 	}
 
-	preConfirmed := core.PreConfirmed{
+	preConfirmed := pending.PreConfirmed{
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &stateDiff,
 		},
 	}
 	preConfirmed.Block = &emptyBlock
 
-	preLatest := &core.PreLatest{
+	preLatest := &pending.PreLatest{
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &preLatestStateDiff,
 		},
@@ -346,7 +347,7 @@ func TestPending_PendingStateBeforeIndex(t *testing.T) {
 		preConfirmedStorageKey: felt.NewFromUint64[felt.Felt](0xFFFFFFFFFFFFFFFF),
 	}
 
-	preLatest := &core.PreLatest{
+	preLatest := &pending.PreLatest{
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &preLatestStateDiff,
 		},
@@ -361,7 +362,7 @@ func TestPending_PendingStateBeforeIndex(t *testing.T) {
 		numTxs,
 	)
 
-	assertPendingStateAtIndex := func(t *testing.T, preConfirmed *core.PreConfirmed, idx int) {
+	assertPendingStateAtIndex := func(t *testing.T, preConfirmed *pending.PreConfirmed, idx int) {
 		state, err := preConfirmed.PendingStateBeforeIndex(nil, uint(idx+1))
 		require.NoError(t, err)
 		require.NotNil(t, state)
@@ -382,7 +383,7 @@ func TestPending_PendingStateBeforeIndex(t *testing.T) {
 		require.Equal(t, expectedNonce, retrievedNonce)
 	}
 
-	preConfirmed := core.PreConfirmed{
+	preConfirmed := pending.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: 0,
@@ -400,7 +401,7 @@ func TestPending_PendingStateBeforeIndex(t *testing.T) {
 			nil,
 			uint(len(preConfirmed.Block.Transactions)+1),
 		)
-		require.ErrorIs(t, err, core.ErrTransactionIndexOutOfBounds)
+		require.ErrorIs(t, err, pending.ErrTransactionIndexOutOfBounds)
 	})
 
 	t.Run("without pre-latest", func(t *testing.T) {

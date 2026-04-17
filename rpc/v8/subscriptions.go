@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	pendingpkg "github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -345,13 +346,13 @@ func (h *Handler) processEvents(
 		addresses = []felt.Address{*fromAddr}
 	}
 	// rpc/v8 builds its pending block via MakeEmptyPendingForParent, which returns the deprecated
-	// *core.Pending type and carries no events. EventFilter requires *core.PreConfirmed, so a
+	// *pending.Pending type and carries no events. EventFilter requires *pending.PreConfirmed, so a
 	// no-op is passed here — the result is identical since there are no pending events to emit.
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		keys,
-		func() (*core.PreConfirmed, error) {
-			return nil, core.ErrPreConfirmedNotFound
+		func() (*pendingpkg.PreConfirmed, error) {
+			return nil, pendingpkg.ErrPreConfirmedNotFound
 		},
 	)
 	if err != nil {

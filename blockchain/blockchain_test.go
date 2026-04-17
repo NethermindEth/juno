@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -450,8 +451,8 @@ func TestState(t *testing.T) {
 
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
-	preConfirmedFunc := func() (*core.PreConfirmed, error) { //nolint:unparam // used in tests
-		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
+	preConfirmedFunc := func() (*pending.PreConfirmed, error) { //nolint:unparam // used in tests
+		preConfirmed := pending.NewPreConfirmed(pendingB, nil, nil, nil)
 		return &preConfirmed, nil
 	}
 

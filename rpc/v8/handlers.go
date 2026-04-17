@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	pendingpkg "github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/contract"
@@ -38,7 +39,7 @@ type Handler struct {
 
 	newHeads                *feed.Feed[*core.Block]
 	reorgs                  *feed.Feed[*sync.ReorgBlockRange]
-	preConfirmedFeed        *feed.Feed[*core.PreConfirmed]
+	preConfirmedFeed        *feed.Feed[*pendingpkg.PreConfirmed]
 	l1Heads                 *feed.Feed[*core.L1Head]
 	receivedTransactionFeed *feed.Feed[core.Transaction]
 
@@ -85,7 +86,7 @@ func New(
 		},
 		newHeads:         feed.New[*core.Block](),
 		reorgs:           feed.New[*sync.ReorgBlockRange](),
-		preConfirmedFeed: feed.New[*core.PreConfirmed](),
+		preConfirmedFeed: feed.New[*pendingpkg.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),

@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
@@ -136,7 +137,7 @@ func (s *transactionsSubscriberState) onPreLatest(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	preLatest *core.PreLatest,
+	preLatest *pending.PreLatest,
 ) error {
 	return s.processBlock(
 		id,
@@ -149,7 +150,7 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 ) error {
 	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
 		if err := s.processBlock(
@@ -192,7 +193,7 @@ func (s *transactionsSubscriberState) processBlock(
 
 func (s *transactionsSubscriberState) processCandidateTransactions(
 	id string,
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 ) error {
 	blockNumber := preConfirmed.GetBlock().Number
 	for _, txn := range preConfirmed.GetCandidateTransaction() {
