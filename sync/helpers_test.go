@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ func TestResolvePreConfirmedBaseState(t *testing.T) {
 	mockStateReader := mocks.NewMockStateReader(mockCtrl)
 	t.Run("PreConfirmedBlock without pre-latest", func(t *testing.T) {
 		// Create a pre-confirmed block without pre-latest
-		preConfirmed := &core.PreConfirmed{
+		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 5,
@@ -43,14 +44,14 @@ func TestResolvePreConfirmedBaseState(t *testing.T) {
 
 	t.Run("PreConfirmedBlock with pre-latest", func(t *testing.T) {
 		// Create a pre-confirmed block with pre-latest
-		preLatest := &core.PreLatest{
+		preLatest := &pending.PreLatest{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: &[]felt.Felt{felt.FromUint64[felt.Felt](0x456)}[0],
 				},
 			},
 		}
-		preConfirmed := &core.PreConfirmed{
+		preConfirmed := &pending.PreConfirmed{
 			PreLatest: preLatest,
 		}
 
@@ -69,7 +70,7 @@ func TestResolvePreConfirmedBaseState(t *testing.T) {
 
 	t.Run("PreConfirmedBlock genesis block", func(t *testing.T) {
 		// Create a pre-confirmed block for genesis (number 0)
-		preConfirmed := &core.PreConfirmed{
+		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 0,

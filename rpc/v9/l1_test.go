@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -80,7 +81,7 @@ func TestGetMessageStatus(t *testing.T) {
 			block, err := gw.BlockByNumber(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
-			preConfirmed := &core.PreConfirmed{
+			preConfirmed := &pending.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
 						Number:           block.Number + 1,

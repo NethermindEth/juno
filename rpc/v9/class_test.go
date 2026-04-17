@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -238,7 +239,7 @@ func TestClassHashAt(t *testing.T) {
 		stateDiff := core.EmptyStateDiff()
 		stateDiff.DeployedContracts[targetAddress] = expectedClassHash
 
-		preConfirmed := core.PreConfirmed{
+		preConfirmed := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 2,

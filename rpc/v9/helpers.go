@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -38,7 +39,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch blockID.Type() {
 	case preConfirmed:
-		var preConfirmed *core.PreConfirmed
+		var preConfirmed *pending.PreConfirmed
 		preConfirmed, err = h.syncReader.PreConfirmed()
 		if err == nil {
 			block = preConfirmed.GetBlock()
@@ -99,7 +100,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		var preConfirmed *core.PreConfirmed
+		var preConfirmed *pending.PreConfirmed
 		preConfirmed, err = h.syncReader.PreConfirmed()
 		if err == nil {
 			header = preConfirmed.GetBlock().Header
@@ -184,7 +185,7 @@ func (h *Handler) stateByBlockID(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		var preConfirmed *core.PreConfirmed
+		var preConfirmed *pending.PreConfirmed
 		preConfirmed, err = h.syncReader.PreConfirmed()
 		if err == nil {
 			reader, closer, err = sync.PendingState(preConfirmed, h.bcReader)

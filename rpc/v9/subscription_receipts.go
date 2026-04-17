@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
@@ -118,7 +119,7 @@ func (s *receiptsSubscriberState) onPreLatest(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	preLatest *core.PreLatest,
+	preLatest *pending.PreLatest,
 ) error {
 	return s.processBlock(
 		id,
@@ -131,7 +132,7 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 ) error {
 	return s.processBlock(
 		id,

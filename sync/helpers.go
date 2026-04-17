@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 )
 
 const BlockHashLag uint64 = 10
@@ -40,12 +41,12 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 	return stateDiff, nil
 }
 
-// Deprecated: MakeEmptyPendingForParent constructs an empty core.Pending placeholder used by
+// Deprecated: MakeEmptyPendingForParent constructs an empty pending.Pending placeholder used by
 // rpc/v8 to serve "pending" block ID requests. Remove when rpc/v8 is deprecated.
 func MakeEmptyPendingForParent(
 	bcReader blockchain.Reader,
 	latestHeader *core.Header,
-) (core.Pending, error) {
+) (pending.Pending, error) {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
 		Header: &core.Header{
@@ -67,10 +68,10 @@ func MakeEmptyPendingForParent(
 
 	stateDiff, err := makeStateDiffForEmptyBlock(bcReader, latestHeader.Number+1)
 	if err != nil {
-		return core.Pending{}, err
+		return pending.Pending{}, err
 	}
 
-	pending := core.Pending{
+	pending := pending.Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   latestHeader.GlobalStateRoot,
@@ -84,7 +85,7 @@ func MakeEmptyPendingForParent(
 func MakeEmptyPreConfirmedForParent(
 	bcReader blockchain.Reader,
 	latestHeader *core.Header,
-) (core.PreConfirmed, error) {
+) (pending.PreConfirmed, error) {
 	receipts := make([]*core.TransactionReceipt, 0)
 	preConfirmedBlock := &core.Block{
 		// pre_confirmed block does not have parent hash
@@ -106,10 +107,10 @@ func MakeEmptyPreConfirmedForParent(
 
 	stateDiff, err := makeStateDiffForEmptyBlock(bcReader, latestHeader.Number+1)
 	if err != nil {
-		return core.PreConfirmed{}, err
+		return pending.PreConfirmed{}, err
 	}
 
-	preConfirmed := core.PreConfirmed{
+	preConfirmed := pending.PreConfirmed{
 		Block: preConfirmedBlock,
 		StateUpdate: &core.StateUpdate{
 			StateDiff: stateDiff,
@@ -124,7 +125,7 @@ func MakeEmptyPreConfirmedForParent(
 
 // ResolvePreConfirmedBaseState resolves the base state for pre-confirmed blocks
 func ResolvePreConfirmedBaseState(
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 	stateReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
 	preLatest := preConfirmed.PreLatest
@@ -146,7 +147,7 @@ func ResolvePreConfirmedBaseState(
 // PendingState is a convenience function that combines
 // base state resolution with pending state creation
 func PendingState(
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 	stateReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
 	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preConfirmed, stateReader)
@@ -160,7 +161,7 @@ func PendingState(
 // PendingStateBeforeIndex is a convenience function that combines
 // base state resolution with pending state before index creation
 func PendingStateBeforeIndex(
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 	stateReader blockchain.Reader,
 	index uint,
 ) (core.StateReader, blockchain.StateCloser, error) {

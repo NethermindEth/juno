@@ -15,6 +15,7 @@ import (
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	pending "github.com/NethermindEth/juno/core/pending"
 	utils "github.com/NethermindEth/juno/utils"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
@@ -151,7 +152,7 @@ func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, preConfirmedFn func() (*core.PreConfirmed, error)) (blockchain.EventFilterer, error) {
+func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, preConfirmedFn func() (*pending.PreConfirmed, error)) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventFilter", addresses, keys, preConfirmedFn)
 	ret0, _ := ret[0].(blockchain.EventFilterer)

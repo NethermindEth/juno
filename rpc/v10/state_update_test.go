@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -132,7 +133,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		update3077642.BlockHash = nil
 		update3077642.NewRoot = nil
-		preConfirmed := core.NewPreConfirmed(nil, update3077642, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, nil)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -175,7 +176,7 @@ func TestStateUpdate(t *testing.T) {
 		})
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
-			preConfirmed := core.NewPreConfirmed(nil, update3077642, nil, nil)
+			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, nil)
 			mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 			id := rpcv10.BlockIDPreConfirmed()
 			emptyFilter := rpcv10.AddressList{}

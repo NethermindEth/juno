@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -79,7 +80,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 		Version:         new(core.TransactionVersion).SetUint64(1),
 	}
 
-	preConfirmed := core.PreConfirmed{
+	preConfirmed := pending.PreConfirmed{
 		Block: &core.Block{
 			Transactions: []core.Transaction{preConfirmedTx},
 		},
@@ -565,7 +566,7 @@ func TestTransactionByHash(t *testing.T) {
 				}
 				return tx, nil
 			}).Times(1)
-			mockSyncReader.EXPECT().PreConfirmed().Return(&core.PreConfirmed{
+			mockSyncReader.EXPECT().PreConfirmed().Return(&pending.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
 						Number:           1,
@@ -629,7 +630,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 		require.NoError(t, gwErr)
 		searchTxn := testBlock.Transactions[0]
 
-		preLatest := core.PreLatest{
+		preLatest := pending.PreLatest{
 			Block: testBlock,
 		}
 		adaptedPreConfirmed.WithPreLatest(&preLatest)
@@ -780,7 +781,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -874,12 +875,12 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		description    string
 		network        *utils.Network
 		expected       *rpcv10.TransactionReceipt
-		preConfirmedFn func(t *testing.T, block *core.Block) *core.PreConfirmed
+		preConfirmedFn func(t *testing.T, block *core.Block) *pending.PreConfirmed
 		l1Head         core.L1Head
 	}
 
-	emptyPreConfirmedFunc := func(t *testing.T, block *core.Block) *core.PreConfirmed {
-		return &core.PreConfirmed{
+	emptyPreConfirmedFunc := func(t *testing.T, block *core.Block) *pending.PreConfirmed {
+		return &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: block.Number + 1,
@@ -888,8 +889,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		}
 	}
 
-	preConfirmedFunc := func(t *testing.T, block *core.Block) *core.PreConfirmed {
-		return &core.PreConfirmed{
+	preConfirmedFunc := func(t *testing.T, block *core.Block) *pending.PreConfirmed {
+		return &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -902,8 +903,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		}
 	}
 
-	withPreLatestPreConfirmedFunc := func(t *testing.T, block *core.Block) *core.PreConfirmed {
-		preLatest := core.PreLatest{
+	withPreLatestPreConfirmedFunc := func(t *testing.T, block *core.Block) *pending.PreConfirmed {
+		preLatest := pending.PreLatest{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -915,7 +916,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				Receipts:     block.Receipts,
 			},
 		}
-		preConfirmed := &core.PreConfirmed{
+		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: preLatest.Block.Number + 1,
@@ -1620,7 +1621,7 @@ func TestTransactionStatus(t *testing.T) {
 			mockSyncReader *mocks.MockSyncReader,
 		)
 	}
-	preConfirmedPlaceHolder := core.PreConfirmed{
+	preConfirmedPlaceHolder := pending.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: block.Number + 1,
@@ -1691,7 +1692,7 @@ func TestTransactionStatus(t *testing.T) {
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockSyncReader.EXPECT().PreConfirmed().Return(
-					&core.PreConfirmed{
+					&pending.PreConfirmed{
 						Block: &core.Block{
 							Header: &core.Header{
 								Number: block.Number,
@@ -1716,7 +1717,7 @@ func TestTransactionStatus(t *testing.T) {
 					(*felt.TransactionHash)(targetTxnHash),
 				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 				mockSyncReader.EXPECT().PreConfirmed().Return(
-					&core.PreConfirmed{
+					&pending.PreConfirmed{
 						Block: &core.Block{
 							Header: &core.Header{
 								Number: block.Number,
@@ -1736,7 +1737,7 @@ func TestTransactionStatus(t *testing.T) {
 				Execution: rpcv10.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
-				preLatest := core.PreLatest{
+				preLatest := pending.PreLatest{
 					Block: &core.Block{
 						Header: &core.Header{
 							ParentHash: block.ParentHash,
@@ -1848,7 +1849,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		Return(rawGatewayResponse, nil).
 		Times(2)
 
-	preConfirmedPlaceHolder := core.PreConfirmed{
+	preConfirmedPlaceHolder := pending.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: 1,

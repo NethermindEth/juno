@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/proposer"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -71,14 +72,14 @@ func (c *consensusDataSource[V, H]) BlockHeaderLatest(ctx context.Context) (*cor
 	return committedBlock.Block.Header, nil
 }
 
-func (c *consensusDataSource[V, H]) BlockPreLatest(ctx context.Context) (core.PreLatest, error) {
-	return core.PreLatest{}, errors.New("not implemented") // TODO: Revise this
+func (c *consensusDataSource[V, H]) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
+	return pending.PreLatest{}, errors.New("not implemented") // TODO: Revise this
 }
 
-func (c *consensusDataSource[V, H]) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
+func (c *consensusDataSource[V, H]) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
 	preconfirmed := c.proposer.Preconfirmed()
 	if preconfirmed.Block.Number != blockNumber {
-		return core.PreConfirmed{}, fmt.Errorf("block %d is not preconfirmed", blockNumber)
+		return pending.PreConfirmed{}, fmt.Errorf("block %d is not preconfirmed", blockNumber)
 	}
 	return *preconfirmed, nil
 }

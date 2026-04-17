@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/plugin"
@@ -36,9 +37,9 @@ type Sequencer struct {
 	mempool          *mempool.SequencerMempool
 
 	subNewHeads     *feed.Feed[*core.Block]
-	subPreConfirmed *feed.Feed[*core.PreConfirmed]
+	subPreConfirmed *feed.Feed[*pending.PreConfirmed]
 	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
-	subPreLatest    *feed.Feed[*core.PreLatest]
+	subPreLatest    *feed.Feed[*pending.PreLatest]
 	plugin          plugin.JunoPlugin
 
 	mu syncLock.RWMutex
@@ -61,9 +62,9 @@ func New(
 		log:              log,
 		blockTime:        blockTime,
 		subNewHeads:      feed.New[*core.Block](),
-		subPreConfirmed:  feed.New[*core.PreConfirmed](),
+		subPreConfirmed:  feed.New[*pending.PreConfirmed](),
 		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
-		subPreLatest:     feed.New[*core.PreLatest](),
+		subPreLatest:     feed.New[*pending.PreLatest](),
 	}
 }
 
@@ -162,7 +163,7 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 		}
 
 		// push the preconfirmed block to the feed
-		preconfirmed := core.NewPreConfirmed(s.buildState.PreConfirmedBlock(), nil, nil, nil)
+		preconfirmed := pending.NewPreConfirmed(s.buildState.PreConfirmedBlock(), nil, nil, nil)
 		s.subPreConfirmed.Send(&preconfirmed)
 		select {
 		case <-ctx.Done():
@@ -203,7 +204,7 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) PreConfirmed() (*core.PreConfirmed, error) {
+func (s *Sequencer) PreConfirmed() (*pending.PreConfirmed, error) {
 	return s.buildState.PreConfirmed, nil
 }
 

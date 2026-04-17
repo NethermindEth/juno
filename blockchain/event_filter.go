@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -30,7 +31,7 @@ type EventFilter struct {
 	toBlock        uint64
 	matcher        EventMatcher
 	maxScanned     uint // maximum number of scanned blocks in single call.
-	preConfirmedFn func() (*core.PreConfirmed, error)
+	preConfirmedFn func() (*pending.PreConfirmed, error)
 	cachedFilters  *AggregatedBloomFilterCache
 	runningFilter  *core.RunningEventFilter
 }
@@ -47,7 +48,7 @@ func newEventFilter(
 	contractAddresses []felt.Address,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
-	preConfirmedFn func() (*core.PreConfirmed, error),
+	preConfirmedFn func() (*pending.PreConfirmed, error),
 	cachedFilters *AggregatedBloomFilterCache,
 	runningFilter *core.RunningEventFilter,
 ) *EventFilter {
@@ -289,7 +290,7 @@ func (e *EventFilter) pendingEvents(
 ) ([]FilteredEvent, ContinuationToken, error) {
 	preConfirmed, err := e.preConfirmedFn()
 	if err != nil {
-		if errors.Is(err, core.ErrPreConfirmedNotFound) {
+		if errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return matchedEvents, ContinuationToken{}, nil
 		}
 		return nil, ContinuationToken{}, err
@@ -356,7 +357,7 @@ func (e *EventFilter) processPreLatestBlock(
 // processPreConfirmedBlock processes pre-confirmed block events
 func (e *EventFilter) processPreConfirmedBlock(
 	matchedEvents []FilteredEvent,
-	preConfirmed *core.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 	skippedEvents,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -24,7 +25,7 @@ import (
 // createEventPreConfirmedFromBlock creates a pre_confirmed block from the given block and
 // returns the pre_confirmed data and emitted events
 func createEventPreConfirmedFromBlock(block *core.Block) (
-	core.PreConfirmed, []rpc.EmittedEvent,
+	pending.PreConfirmed, []rpc.EmittedEvent,
 ) {
 	newHeader := &core.Header{
 		Number:           block.Header.Number,
@@ -38,7 +39,7 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 		Receipts:     block.Receipts,
 	}
 
-	preConfirmed := core.NewPreConfirmed(preConfirmedBlock, nil, nil, nil)
+	preConfirmed := pending.NewPreConfirmed(preConfirmedBlock, nil, nil, nil)
 
 	// Extract events from the block and convert to emitted events
 	var events []rpc.EmittedEvent
@@ -64,7 +65,7 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 
 // createEventPreLatestFromBlock creates a pre_latest block from the given block and
 // returns the pre_latest data and emitted events
-func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []rpc.EmittedEvent) {
+func createEventPreLatestFromBlock(block *core.Block) (pending.PreLatest, []rpc.EmittedEvent) {
 	newHeader := &core.Header{
 		ParentHash: block.Header.ParentHash,
 		Number:     block.Header.Number,
@@ -76,7 +77,7 @@ func createEventPreLatestFromBlock(block *core.Block) (core.PreLatest, []rpc.Emi
 		Receipts:     block.Receipts,
 	}
 
-	preLatest := core.PreLatest{Block: preLatestBlock}
+	preLatest := pending.PreLatest{Block: preLatestBlock}
 
 	// Extract events from the block and convert to emitted events
 	var events []rpc.EmittedEvent
@@ -244,7 +245,7 @@ func TestEvents(t *testing.T) {
 	type eventTest struct {
 		description    string
 		args           rpc.EventArgs
-		preConfirmed   *core.PreConfirmed
+		preConfirmed   *pending.PreConfirmed
 		expectedEvents []rpc.EmittedEvent
 		expectError    *jsonrpc.Error
 	}
@@ -727,7 +728,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 
 	// pre_confirmed becomes pre_latest, continue pagination from block 6
 	preLatest2, _ := createEventPreLatestFromBlock(block6)
-	preConfirmed2 := core.PreConfirmed{
+	preConfirmed2 := pending.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: 7,

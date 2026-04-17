@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/p2p/sync"
 )
 
@@ -63,7 +64,7 @@ func (s *MessageExtractor[V, H, A]) Extract(
 		committedBlock.Block.L1DAMode,
 	)
 	buildResult := builder.BuildResult{
-		PreConfirmed: &core.PreConfirmed{
+		PreConfirmed: &pending.PreConfirmed{
 			Block:       committedBlock.Block,
 			StateUpdate: committedBlock.StateUpdate,
 			NewClasses:  committedBlock.NewClasses,

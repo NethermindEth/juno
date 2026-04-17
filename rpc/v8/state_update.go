@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	pendingpkg "github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -76,7 +77,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 		}
 	} else if id.IsPending() {
 		//nolint:staticcheck // Necessary for v8
-		var pending *core.Pending
+		var pending *pendingpkg.Pending
 		pending, err = h.Pending()
 		if err == nil {
 			update = pending.GetStateUpdate()

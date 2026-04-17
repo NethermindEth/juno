@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -27,14 +28,14 @@ type MockDataSource struct {
 	preConfirmedErrorThreshold uint
 	numCallsPreConfirmed       uint
 	numCallsPending            uint
-	PendingFunc                func(ctx context.Context) (core.PreLatest, error)
+	PendingFunc                func(ctx context.Context) (pending.PreLatest, error)
 }
 
 // Override BlockPreLatest to simulate errors and/or injected responses
-func (m *MockDataSource) BlockPreLatest(ctx context.Context) (core.PreLatest, error) {
+func (m *MockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
 	m.numCallsPending += 1
 	if m.numCallsPending <= m.pendingErrorThreshold {
-		return core.PreLatest{}, errors.New("some error")
+		return pending.PreLatest{}, errors.New("some error")
 	}
 	// fallback to embedded real method if no override set
 	if m.PendingFunc != nil {
@@ -44,10 +45,10 @@ func (m *MockDataSource) BlockPreLatest(ctx context.Context) (core.PreLatest, er
 }
 
 // Override PreConfirmedBlockByNumber to simulate errors and variable tx count
-func (m *MockDataSource) PreConfirmedBlockByNumber(ctx context.Context, number uint64) (core.PreConfirmed, error) {
+func (m *MockDataSource) PreConfirmedBlockByNumber(ctx context.Context, number uint64) (pending.PreConfirmed, error) {
 	m.numCallsPreConfirmed += 1
 	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
-		return core.PreConfirmed{}, errors.New("some error")
+		return pending.PreConfirmed{}, errors.New("some error")
 	}
 	preConfirmed := makeTestPreConfirmed(number)
 	preConfirmed.Block.TransactionCount = number%10 + uint64(m.numCallsPreConfirmed)/2
@@ -68,7 +69,7 @@ func TestPollPreLatest(t *testing.T) {
 
 		mockDS := &MockDataSource{
 			DataSource: dataSource,
-			PendingFunc: func(context.Context) (core.PreLatest, error) {
+			PendingFunc: func(context.Context) (pending.PreLatest, error) {
 				return makeEmptyPreLatestForParent(head.Header), nil
 			},
 		}
@@ -76,7 +77,7 @@ func TestPollPreLatest(t *testing.T) {
 		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
-		preLatestCh := make(chan *core.PreLatest, 1)
+		preLatestCh := make(chan *pending.PreLatest, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -110,7 +111,7 @@ func TestPollPreLatest(t *testing.T) {
 
 		mockDS := &MockDataSource{
 			DataSource: dataSource,
-			PendingFunc: func(context.Context) (core.PreLatest, error) {
+			PendingFunc: func(context.Context) (pending.PreLatest, error) {
 				// Always return pending for 'latest' (future relative to headMinusOne)
 				return makeEmptyPreLatestForParent(latest.Header), nil
 			},
@@ -118,7 +119,7 @@ func TestPollPreLatest(t *testing.T) {
 		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(latestMinusOne.Header)
 
-		preLatestCh := make(chan *core.PreLatest, 1)
+		preLatestCh := make(chan *pending.PreLatest, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -158,7 +159,7 @@ func TestPollPreLatest(t *testing.T) {
 		mockDS := &MockDataSource{
 			DataSource:            dataSource,
 			pendingErrorThreshold: 2,
-			PendingFunc: func(context.Context) (core.PreLatest, error) {
+			PendingFunc: func(context.Context) (pending.PreLatest, error) {
 				return makeEmptyPreLatestForParent(head.Header), nil
 			},
 			preConfirmedErrorThreshold: 0,
@@ -167,7 +168,7 @@ func TestPollPreLatest(t *testing.T) {
 		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
-		preLatestCh := make(chan *core.PreLatest, 2)
+		preLatestCh := make(chan *pending.PreLatest, 2)
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -197,7 +198,7 @@ func TestPollPreLatest(t *testing.T) {
 		mockDS := &MockDataSource{
 			DataSource:            dataSource,
 			pendingErrorThreshold: ^uint(0), // always error
-			PendingFunc: func(context.Context) (core.PreLatest, error) {
+			PendingFunc: func(context.Context) (pending.PreLatest, error) {
 				return makeEmptyPreLatestForParent(head.Header), nil
 			},
 		}
@@ -205,7 +206,7 @@ func TestPollPreLatest(t *testing.T) {
 		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
-		preLatestCh := make(chan *core.PreLatest, 2)
+		preLatestCh := make(chan *pending.PreLatest, 2)
 		ctx, cancel := context.WithCancel(context.Background())
 
 		var wg stdsync.WaitGroup
@@ -256,7 +257,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		s := New(bc, mockDS, log, 0, 30*time.Millisecond, false, testDB)
 
 		var preConfirmedBlockNumberToPoll atomic.Uint64
-		out := make(chan *core.PreConfirmed, 1)
+		out := make(chan *pending.PreConfirmed, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -309,7 +310,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		var preConfirmedBlockNumberToPoll atomic.Uint64
 		preConfirmedBlockNumberToPoll.Store(1)
 
-		out := make(chan *core.PreConfirmed, 1)
+		out := make(chan *pending.PreConfirmed, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
@@ -344,7 +345,7 @@ func TestPollPendingData(t *testing.T) {
 	))
 
 	// Mock data source to delay pre_latest (pending) while allowing pre_confirmed to arrive
-	pendingFunc := func(context.Context) (core.PreLatest, error) {
+	pendingFunc := func(context.Context) (pending.PreLatest, error) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 		return makeEmptyPreLatestForParent(head), nil
@@ -411,7 +412,7 @@ func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 	dataSource := NewFeederGatewayDataSource(bc, gw)
 
 	// Returns pending block with protocol version 0.14.0
-	pendingFunc := func(context.Context) (core.PreLatest, error) {
+	pendingFunc := func(context.Context) (pending.PreLatest, error) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 		return makeEmptyPreLatestForParent(head), nil
@@ -474,7 +475,7 @@ func TestStorePreConfirmed(t *testing.T) {
 	s := New(bc, NewFeederGatewayDataSource(bc, nil), log, 0, 0, false, testDB)
 
 	t.Run("stores pre_confirmed when there is none (first entry)", func(t *testing.T) {
-		preConfirmed := core.PreConfirmed{
+		preConfirmed := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{Number: 0},
 			},
@@ -507,7 +508,7 @@ func TestStorePreConfirmed(t *testing.T) {
 	})
 
 	t.Run("returns error if ProtocolVersion unsupported", func(t *testing.T) {
-		pc := &core.PreConfirmed{
+		pc := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:          1,
@@ -524,13 +525,13 @@ func TestStorePreConfirmed(t *testing.T) {
 	t.Run("overwrites if existing pending is invalid", func(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		invalidPreConfirmed := core.PreConfirmed{
+		invalidPreConfirmed := pending.PreConfirmed{
 			Block:       &core.Block{Header: &core.Header{Number: 0}},
 			StateUpdate: &core.StateUpdate{},
 		}
 		// Insert invalid pending (simulate old data)
 		s.preConfirmed.Store(&invalidPreConfirmed)
-		pc := &core.PreConfirmed{
+		pc := &pending.PreConfirmed{
 			Block:       &core.Block{Header: &core.Header{Number: head.Number + 1}},
 			StateUpdate: &core.StateUpdate{},
 		}
@@ -544,7 +545,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 
 		// Store "better" with higher tx count
-		better := &core.PreConfirmed{
+		better := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -561,7 +562,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		// should keep existing but update attachment
 		pl := makeEmptyPreLatestForParent(head)
 
-		worse := &core.PreConfirmed{
+		worse := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -587,7 +588,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
-		worse := core.PreConfirmed{
+		worse := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -602,7 +603,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		ptr := s.preConfirmed.Load()
 		require.Equal(t, worse, *ptr)
 
-		better := core.PreConfirmed{
+		better := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -623,7 +624,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
-		old := core.PreConfirmed{
+		old := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -640,7 +641,7 @@ func TestStorePreConfirmed(t *testing.T) {
 
 		// Attach prelatest to make validate pass for pre_confirmed number == head + 2.
 		// Similar as storing head + 1
-		preLatest := &core.PreLatest{
+		preLatest := &pending.PreLatest{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: head.Hash,
@@ -648,7 +649,7 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 		}
-		newer := core.PreConfirmed{
+		newer := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 2,
@@ -675,7 +676,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		// Attach prelatest to make validate pass for pre_confirmed number == head + 2.
 		// Similar as storing head + 1
-		preLatest := &core.PreLatest{
+		preLatest := &pending.PreLatest{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: head.Hash,
@@ -683,7 +684,7 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 		}
-		newer := core.PreConfirmed{
+		newer := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 2,
@@ -699,7 +700,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		ptr := s.preConfirmed.Load()
 		require.Equal(t, newer, *ptr)
 		// Valid older pre_confirmed
-		old := core.PreConfirmed{
+		old := pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           head.Number + 1,
@@ -716,7 +717,7 @@ func TestStorePreConfirmed(t *testing.T) {
 	})
 }
 
-func makeTestPreConfirmed(num uint64) core.PreConfirmed {
+func makeTestPreConfirmed(num uint64) pending.PreConfirmed {
 	receipts := make([]*core.TransactionReceipt, 0)
 	preConfirmedBlock := &core.Block{
 		// pre_confirmed block does not have parent hash
@@ -742,7 +743,7 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 		Receipts:     receipts,
 	}
 	stateDiff := core.EmptyStateDiff()
-	preConfirmed := core.PreConfirmed{
+	preConfirmed := pending.PreConfirmed{
 		Block: preConfirmedBlock,
 		StateUpdate: &core.StateUpdate{
 			StateDiff: &stateDiff,
@@ -754,7 +755,7 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 	return preConfirmed
 }
 
-func makeEmptyPreLatestForParent(parent *core.Header) core.PreLatest {
+func makeEmptyPreLatestForParent(parent *core.Header) pending.PreLatest {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
 		Header: &core.Header{
@@ -774,7 +775,7 @@ func makeEmptyPreLatestForParent(parent *core.Header) core.PreLatest {
 		Receipts:     receipts,
 	}
 	stateDiff := core.EmptyStateDiff()
-	pending := core.PreLatest{
+	pending := pending.PreLatest{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   parent.GlobalStateRoot,
