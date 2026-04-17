@@ -847,3 +847,23 @@ func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
 	}
 	return filter
 }
+
+// ContractAddress computes the address of a Starknet contract.
+func ContractAddress(
+	callerAddress,
+	classHash,
+	salt *felt.Felt,
+	constructorCallData []*felt.Felt,
+) felt.Felt {
+	prefix := felt.FromBytes[felt.Felt]([]byte("STARKNET_CONTRACT_ADDRESS"))
+	callDataHash := crypto.PedersenArray(constructorCallData...)
+
+	// https://docs.starknet.io/architecture-and-concepts/smart-contracts/contract-address/
+	return crypto.PedersenArray(
+		&prefix,
+		callerAddress,
+		salt,
+		classHash,
+		&callDataHash,
+	)
+}
