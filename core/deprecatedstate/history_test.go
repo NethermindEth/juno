@@ -16,7 +16,7 @@ import (
 func TestStateHistory(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := deprecatedstate.NewState(txn)
+	state := deprecatedstate.New(txn)
 
 	addr := felt.FromUint64[felt.Address](1)
 	addrFelt := felt.Felt(addr)

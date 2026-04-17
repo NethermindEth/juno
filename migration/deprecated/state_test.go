@@ -46,7 +46,7 @@ func (b *testStateBackend) Store(
 		if err := verifyBlockSuccession(txn, block); err != nil {
 			return err
 		}
-		err := deprecatedstate.NewState(txn).Update(
+		err := deprecatedstate.New(txn).Update(
 			block.Header,
 			stateUpdate,
 			newClasses,

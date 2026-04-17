@@ -106,7 +106,7 @@ func GenesisStateDiff(
 	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
-		deprecatedstate.NewState(memDB.NewIndexedBatch()),
+		deprecatedstate.New(memDB.NewIndexedBatch()),
 	)
 
 	if err := declareClasses(ctx, config, &genesisState, compiler); err != nil {

@@ -34,7 +34,7 @@ type State struct {
 }
 
 //nolint:staticcheck // Necessary for old state
-func NewState(txn db.IndexedBatch) *State {
+func New(txn db.IndexedBatch) *State {
 	return &State{
 		txn: txn,
 	}
@@ -405,7 +405,7 @@ func (s *State) updateStorageBuffered(
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
 	bufferedTxn := db.NewBufferBatch(s.txn)
-	bufferedState := NewState(bufferedTxn)
+	bufferedState := New(bufferedTxn)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
 		return nil, err

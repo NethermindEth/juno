@@ -38,7 +38,7 @@ func (sf *StateFactory) NewState(
 	batch db.Batch,
 ) (core.State, error) {
 	if !sf.UseNewState {
-		deprecatedState := deprecatedstate.NewState(txn)
+		deprecatedState := deprecatedstate.New(txn)
 		return deprecatedState, nil
 	}
 
@@ -55,7 +55,7 @@ func (sf *StateFactory) NewStateReader(
 	blockNumber uint64,
 ) (core.StateReader, error) {
 	if !sf.UseNewState {
-		deprecatedState := deprecatedstate.NewState(txn)
+		deprecatedState := deprecatedstate.New(txn)
 		history := deprecatedstate.NewStateHistory(deprecatedState, blockNumber)
 		return history, nil
 	}
