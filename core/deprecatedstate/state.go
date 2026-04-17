@@ -63,12 +63,12 @@ func (s *State) putNewContract(
 
 // ContractClassHash returns class hash of a contract at a given address.
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	return core.ContractClassHash(addr, s.txn)
+	return core.GetContractClassHash(s.txn, addr)
 }
 
 // ContractNonce returns nonce of a contract at a given address.
 func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	return core.ContractNonce(addr, s.txn)
+	return core.GetContractNonce(s.txn, addr)
 }
 
 // ContractStorage returns value of a key in the storage of the contract at the given address.
@@ -339,7 +339,7 @@ func (s *State) replaceContract(
 	addr,
 	classHash *felt.Felt,
 ) (felt.Felt, error) {
-	return s.updateContract(stateTrie, addr, core.ContractClassHash, func(c *ContractUpdater) error {
+	return s.updateContract(stateTrie, addr, core.GetContractClassHash, func(c *ContractUpdater) error {
 		return c.Replace(classHash)
 	})
 }
@@ -518,7 +518,7 @@ func (s *State) updateContractNonce(
 	addr,
 	nonce *felt.Felt,
 ) (felt.Felt, error) {
-	return s.updateContract(stateTrie, addr, core.ContractNonce, func(c *ContractUpdater) error {
+	return s.updateContract(stateTrie, addr, core.GetContractNonce, func(c *ContractUpdater) error {
 		return c.UpdateNonce(nonce)
 	})
 }
@@ -526,7 +526,7 @@ func (s *State) updateContractNonce(
 func (s *State) updateContract(
 	stateTrie *trie.Trie,
 	addr *felt.Felt,
-	getOldValue func(*felt.Felt, db.KeyValueReader) (felt.Felt, error),
+	getOldValue func(db.KeyValueReader, *felt.Felt) (felt.Felt, error),
 	updateValue func(*ContractUpdater) error,
 ) (felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)
@@ -534,7 +534,7 @@ func (s *State) updateContract(
 		return felt.Felt{}, err
 	}
 
-	oldVal, err := getOldValue(addr, s.txn)
+	oldVal, err := getOldValue(s.txn, addr)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -560,12 +560,12 @@ func (s *State) updateContractCommitment(
 		return err
 	}
 
-	cHash, err := core.ContractClassHash(contract.Address, s.txn)
+	cHash, err := core.GetContractClassHash(s.txn, contract.Address)
 	if err != nil {
 		return err
 	}
 
-	nonce, err := core.ContractNonce(contract.Address, s.txn)
+	nonce, err := core.GetContractNonce(s.txn, contract.Address)
 	if err != nil {
 		return err
 	}

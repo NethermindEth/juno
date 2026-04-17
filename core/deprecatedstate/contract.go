@@ -70,7 +70,7 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 
 //nolint:staticcheck // Necessary for old state
 func deployed(addr *felt.Felt, txn db.IndexedBatch) (bool, error) {
-	_, err := core.ContractClassHash(addr, txn)
+	_, err := core.GetContractClassHash(txn, addr)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return false, nil
 	}
