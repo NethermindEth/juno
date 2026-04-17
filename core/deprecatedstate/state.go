@@ -339,9 +339,14 @@ func (s *State) replaceContract(
 	addr,
 	classHash *felt.Felt,
 ) (felt.Felt, error) {
-	return s.updateContract(stateTrie, addr, core.GetContractClassHash, func(c *ContractUpdater) error {
-		return c.Replace(classHash)
-	})
+	return s.updateContract(
+		stateTrie,
+		addr,
+		core.GetContractClassHash,
+		func(c *ContractUpdater) error {
+			return c.Replace(classHash)
+		},
+	)
 }
 
 func (s *State) putClass(

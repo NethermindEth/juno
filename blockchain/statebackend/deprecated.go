@@ -62,7 +62,7 @@ func (b *deprecatedStateBackend) StateAtBlockNumber(
 		return nil, nil, err
 	}
 
-	return deprecatedstate.NewStateHistory(
+	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		blockNumber,
 	), NoopStateCloser, nil
@@ -84,7 +84,7 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return nil, nil, err
 	}
 
-	return deprecatedstate.NewStateHistory(
+	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		header.Number,
 	), NoopStateCloser, nil

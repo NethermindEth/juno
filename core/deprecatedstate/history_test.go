@@ -60,9 +60,9 @@ func TestStateHistory(t *testing.T) {
 		},
 	}, nil, true))
 
-	snapshotBeforeDeployment := deprecatedstate.NewStateHistory(state, deployedHeight-1)
-	snapshotAtDeployment := deprecatedstate.NewStateHistory(state, deployedHeight)
-	snapshotAfterChange := deprecatedstate.NewStateHistory(state, changeHeight+1)
+	snapshotBeforeDeployment := deprecatedstate.NewHistory(state, deployedHeight-1)
+	snapshotAtDeployment := deprecatedstate.NewHistory(state, deployedHeight)
+	snapshotAfterChange := deprecatedstate.NewHistory(state, changeHeight+1)
 
 	t.Run("contract not deployed", func(t *testing.T) {
 		_, err := snapshotBeforeDeployment.ContractClassHash(&addrFelt)
@@ -168,7 +168,7 @@ func TestStateHistory(t *testing.T) {
 		})
 
 		t.Run("returns deployment height between deployment and change", func(t *testing.T) {
-			snapshotBetween := deprecatedstate.NewStateHistory(state, changeHeight-1)
+			snapshotBetween := deprecatedstate.NewHistory(state, changeHeight-1)
 			blockNum, err := snapshotBetween.ContractStorageLastUpdatedBlock(
 				&addr, storageKey,
 			)

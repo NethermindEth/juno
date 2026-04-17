@@ -15,7 +15,7 @@ type stateHistory struct {
 	state       *State
 }
 
-func NewStateHistory(
+func NewHistory(
 	state *State,
 	blockNumber uint64,
 ) *stateHistory {

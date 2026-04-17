@@ -56,7 +56,7 @@ func (sf *StateFactory) NewStateReader(
 ) (core.StateReader, error) {
 	if !sf.UseNewState {
 		deprecatedState := deprecatedstate.New(txn)
-		history := deprecatedstate.NewStateHistory(deprecatedState, blockNumber)
+		history := deprecatedstate.NewHistory(deprecatedState, blockNumber)
 		return history, nil
 	}
 
