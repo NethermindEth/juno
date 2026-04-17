@@ -78,7 +78,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](50),
 				L1DataGasPrice:    felt.NewFromUint64[felt.Felt](5),
 				OverallFee:        felt.NewFromUint64[felt.Felt](10),
-				Unit:              utils.HeapPtr(WEI),
+				Unit:              new(WEI),
 			},
 		},
 		{
@@ -99,7 +99,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](70),
 				L1DataGasPrice:    felt.NewFromUint64[felt.Felt](6),
 				OverallFee:        felt.NewFromUint64[felt.Felt](20),
-				Unit:              utils.HeapPtr(FRI),
+				Unit:              new(FRI),
 			},
 		},
 	}

@@ -506,7 +506,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	n := utils.HeapPtr(utils.Sepolia)
+	n := new(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, log)
@@ -999,7 +999,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.HeapPtr(utils.Sepolia)
+	n := new(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -1033,7 +1033,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	network := utils.HeapPtr(utils.SepoliaIntegration)
+	network := new(utils.SepoliaIntegration)
 	blockNumber := uint64(16350)
 	client := feeder.NewTestClient(t, network)
 	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, blockNumber)
@@ -1066,7 +1066,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			NewRoot:         block.GlobalStateRoot,
 			Number:          &block.Number,
 			ParentHash:      block.ParentHash,
-			L1DAMode:        utils.HeapPtr(rpc.Blob),
+			L1DAMode:        new(rpc.Blob),
 			L1GasPrice: &rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
@@ -1123,8 +1123,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
-				NonceDAMode:           utils.HeapPtr(rpc.DataAvailabilityMode(tx.NonceDAMode)),
-				FeeDAMode:             utils.HeapPtr(rpc.DataAvailabilityMode(tx.FeeDAMode)),
+				NonceDAMode:           new(rpc.DataAvailabilityMode(tx.NonceDAMode)),
+				FeeDAMode:             new(rpc.DataAvailabilityMode(tx.FeeDAMode)),
 			},
 		},
 	}, got)

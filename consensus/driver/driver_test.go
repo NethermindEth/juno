@@ -95,22 +95,22 @@ func generateAndRegisterRandomActions(
 		case 0:
 			proposal := getRandProposal(random)
 			expectedBroadcast.proposals = append(expectedBroadcast.proposals, &proposal)
-			actions[i] = utils.HeapPtr(starknet.BroadcastProposal(proposal))
+			actions[i] = new(starknet.BroadcastProposal(proposal))
 		case 1:
 			prevote := getRandPrevote(random)
 			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, &prevote)
-			actions[i] = utils.HeapPtr(starknet.BroadcastPrevote(prevote))
+			actions[i] = new(starknet.BroadcastPrevote(prevote))
 		case 2:
 			precommit := getRandPrecommit(random)
 			expectedBroadcast.precommits = append(expectedBroadcast.precommits, &precommit)
-			actions[i] = utils.HeapPtr(starknet.BroadcastPrecommit(precommit))
+			actions[i] = new(starknet.BroadcastPrecommit(precommit))
 		}
 	}
 	return actions
 }
 
 func toAction(timeout types.Timeout) starknet.Action {
-	return utils.HeapPtr(actions.ScheduleTimeout(timeout))
+	return new(actions.ScheduleTimeout(timeout))
 }
 
 func increaseBroadcasterWaitGroup[M any](

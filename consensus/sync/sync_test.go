@@ -129,7 +129,7 @@ func getTestData(
 			BlockHash: &blockHash,
 			NewRoot:   felt.NewRandom[felt.Felt](),
 			OldRoot:   felt.NewRandom[felt.Felt](),
-			StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
+			StateDiff: new(core.EmptyStateDiff()),
 		},
 		NewClasses: make(map[felt.Felt]core.ClassDefinition),
 		Commitments: &core.BlockCommitments{

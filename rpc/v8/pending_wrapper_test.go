@@ -19,7 +19,7 @@ func TestPendingWrapper_Pending(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	n := utils.HeapPtr(utils.Sepolia)
+	n := new(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, log)

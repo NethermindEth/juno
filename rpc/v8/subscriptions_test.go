@@ -1031,7 +1031,7 @@ func subMsg(method string) string {
 func testHeadBlock(t *testing.T) *core.Block {
 	t.Helper()
 
-	n := utils.HeapPtr(utils.Sepolia)
+	n := new(utils.Sepolia)
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 

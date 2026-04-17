@@ -96,7 +96,7 @@ func runTestBlockTransactionsMigration(
 
 		require.NoError(
 			t,
-			core.ChainHeightBucket.Put(database, struct{}{}, utils.HeapPtr(chainHeight)),
+			core.ChainHeightBucket.Put(database, struct{}{}, new(chainHeight)),
 		)
 
 		conciter.ForEachIdx(counts, func(blockNumber int, count *int) {

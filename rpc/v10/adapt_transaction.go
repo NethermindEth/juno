@@ -306,7 +306,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
 		Version:            t.Version.AsFelt(),
-		Signature:          utils.HeapPtr(t.Signature()),
+		Signature:          new(t.Signature()),
 		Nonce:              t.Nonce,
 		CallData:           &t.CallData,
 		ContractAddress:    t.ContractAddress,
@@ -315,12 +315,12 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = new(DataAvailabilityMode(t.FeeDAMode))
 
 		if t.ProofFacts != nil {
 			tx.ProofFacts = &t.ProofFacts
@@ -335,7 +335,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 		Type:              TxnDeclare,
 		MaxFee:            t.MaxFee,
 		Version:           t.Version.AsFelt(),
-		Signature:         utils.HeapPtr(t.Signature()),
+		Signature:         new(t.Signature()),
 		Nonce:             t.Nonce,
 		ClassHash:         t.ClassHash,
 		SenderAddress:     t.SenderAddress,
@@ -343,12 +343,12 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = new(DataAvailabilityMode(t.FeeDAMode))
 	}
 
 	return tx
@@ -359,7 +359,7 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
 		Version:             t.Version.AsFelt(),
-		Signature:           utils.HeapPtr(t.Signature()),
+		Signature:           new(t.Signature()),
 		Nonce:               t.Nonce,
 		Type:                TxnDeployAccount,
 		ContractAddressSalt: t.ContractAddressSalt,
@@ -368,11 +368,11 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
-		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = new(DataAvailabilityMode(t.FeeDAMode))
 	}
 
 	return tx
