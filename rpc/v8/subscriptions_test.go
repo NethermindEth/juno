@@ -389,8 +389,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(*block.Receipts[0], block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
-			handler.preConfirmedFeed.Send(&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
-			handler.preConfirmedFeed.Send(&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}})
+			handler.preConfirmedFeed.Send(
+				&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}},
+			)
+			handler.preConfirmedFeed.Send(
+				&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}},
+			)
 			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")

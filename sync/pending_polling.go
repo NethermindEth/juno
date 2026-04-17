@@ -53,7 +53,10 @@ func shouldPreservePreConfirmed(
 // pre_confirmed at the given blockNumber by atomically swapping the stored pointer.
 // Returns true if the store was updated, false if no matching pre_confirmed is stored
 // or the attachment was already equal.
-func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *pending.PreLatest) bool {
+func (s *Synchronizer) UpdatePreLatestAttachment(
+	blockNumber uint64,
+	preLatest *pending.PreLatest,
+) bool {
 	pc := s.preConfirmed.Load()
 
 	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {

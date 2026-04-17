@@ -3053,7 +3053,11 @@ func createTestPreLatest(t *testing.T, b *core.Block, txCount int) pending.PreLa
 	}
 }
 
-func CreateTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) pending.PreConfirmed {
+func CreateTestPreConfirmed(
+	t *testing.T,
+	b *core.Block,
+	preConfirmedCount int,
+) pending.PreConfirmed {
 	t.Helper()
 
 	actualTxCount := len(b.Transactions)

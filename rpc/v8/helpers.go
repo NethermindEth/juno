@@ -38,6 +38,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch blockID.Type() {
 	case pending:
+		//nolint:staticcheck // Pending is supported by RPCv8
 		var pending *pendingpkg.Pending
 		pending, err = h.Pending()
 		if err == nil {
@@ -92,6 +93,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch blockID.Type() {
 	case pending:
+		//nolint:staticcheck // Pending is supported by RPCv8
 		var pendingBlock *pendingpkg.Pending
 		pendingBlock, err = h.Pending()
 		if err == nil {

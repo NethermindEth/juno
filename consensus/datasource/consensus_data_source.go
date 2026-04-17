@@ -76,7 +76,10 @@ func (c *consensusDataSource[V, H]) BlockPreLatest(ctx context.Context) (pending
 	return pending.PreLatest{}, errors.New("not implemented") // TODO: Revise this
 }
 
-func (c *consensusDataSource[V, H]) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
+func (c *consensusDataSource[V, H]) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (pending.PreConfirmed, error) {
 	preconfirmed := c.proposer.Preconfirmed()
 	if preconfirmed.Block.Number != blockNumber {
 		return pending.PreConfirmed{}, fmt.Errorf("block %d is not preconfirmed", blockNumber)

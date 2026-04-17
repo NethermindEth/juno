@@ -178,19 +178,27 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 
 // StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,
 // then adapts them to the core.StateUpdate and core.Block types respectively
-func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
+func (f *Feeder) StateUpdatePendingWithBlock(
+	ctx context.Context,
+) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, pendingID)
 }
 
 // StateUpdateWithBlock gets both state update and block for a given block number from the feeder,
 // then adapts them to the core.StateUpdate and core.Block types respectively
-func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
+func (f *Feeder) StateUpdateWithBlock(
+	ctx context.Context,
+	blockNumber uint64,
+) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
 
 // PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,
 // then adapts them to the pending.PreConfirmed and list of transaction hashes types respectively
-func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
+func (f *Feeder) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (pending.PreConfirmed, error) {
 	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
 	if err != nil {
 		return pending.PreConfirmed{}, err

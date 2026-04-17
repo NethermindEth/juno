@@ -45,7 +45,10 @@ func (m *MockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest,
 }
 
 // Override PreConfirmedBlockByNumber to simulate errors and variable tx count
-func (m *MockDataSource) PreConfirmedBlockByNumber(ctx context.Context, number uint64) (pending.PreConfirmed, error) {
+func (m *MockDataSource) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	number uint64,
+) (pending.PreConfirmed, error) {
 	m.numCallsPreConfirmed += 1
 	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
 		return pending.PreConfirmed{}, errors.New("some error")

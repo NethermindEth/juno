@@ -139,7 +139,10 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 	return newClasses, closer()
 }
 
-func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
+func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (pending.PreConfirmed, error) {
 	preConfirmed, err := f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
 	if err != nil {
 		return pending.PreConfirmed{}, err

@@ -53,8 +53,17 @@ func (b *Builder) Network() *utils.Network {
 	return b.blockchain.Network()
 }
 
-func (b *Builder) Finalise(preconfirmed *pending.PreConfirmed, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
-	return b.blockchain.Finalise(preconfirmed.Block, preconfirmed.StateUpdate, preconfirmed.NewClasses, signer)
+func (b *Builder) Finalise(
+	preconfirmed *pending.PreConfirmed,
+	signer utils.BlockSignFunc,
+	privateKey *ecdsa.PrivateKey,
+) error {
+	return b.blockchain.Finalise(
+		preconfirmed.Block,
+		preconfirmed.StateUpdate,
+		preconfirmed.NewClasses,
+		signer,
+	)
 }
 
 func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error) {

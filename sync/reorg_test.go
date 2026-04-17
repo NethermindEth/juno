@@ -64,7 +64,10 @@ func (t *testBlockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLa
 	return pending.PreLatest{}, errors.New("not implemented")
 }
 
-func (t *testBlockDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
+func (t *testBlockDataSource) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (pending.PreConfirmed, error) {
 	return pending.PreConfirmed{}, errors.New("not implemented")
 }
 
