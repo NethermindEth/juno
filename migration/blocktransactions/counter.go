@@ -3,6 +3,7 @@ package blocktransactions
 import (
 	"time"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
@@ -34,7 +35,7 @@ func (c *counter) log(byteSize uint64, txCount, blockCount int) {
 	now := time.Now()
 	elapsed := now.Sub(c.start).Seconds()
 	if elapsed > float64(timeLogRate.Seconds()) {
-		mbs := float64(c.size) / float64(utils.Megabyte)
+		mbs := float64(c.size) / float64(db.Megabyte)
 		c.logger.Info(
 			"write speed",
 			zap.Float64("MB", mbs),

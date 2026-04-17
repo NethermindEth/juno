@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/sstable/block"
 )
@@ -22,7 +22,7 @@ type Option = func(*pebble.Options) error
 func WithCacheSize(cacheSizeMB uint) Option {
 	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
 	return func(opts *pebble.Options) error {
-		opts.Cache = pebble.NewCache(int64(cacheSizeMB * utils.Megabyte))
+		opts.Cache = pebble.NewCache(int64(cacheSizeMB * db.Megabyte))
 		return nil
 	}
 }
@@ -92,7 +92,7 @@ func WithCompactionConcurrency(concurrency string) Option {
 
 func WithMemtableSize(memtableSizeMB uint) Option {
 	return func(opts *pebble.Options) error {
-		opts.MemTableSize = uint64(memtableSizeMB) * utils.Megabyte
+		opts.MemTableSize = uint64(memtableSizeMB) * db.Megabyte
 		return nil
 	}
 }

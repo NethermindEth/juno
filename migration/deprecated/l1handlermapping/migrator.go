@@ -19,10 +19,10 @@ import (
 
 const (
 	// batchByteSize is the initially allocated size of a batch.
-	batchByteSize = 128 * utils.Megabyte
+	batchByteSize = 128 * db.Megabyte
 
 	// targetBatchByteSize is the threshold at which a batch is written to the database.
-	targetBatchByteSize = 96 * utils.Megabyte
+	targetBatchByteSize = 96 * db.Megabyte
 
 	// logRate is the rate at which we log the progress in block numbers.
 	timeLogRate = 30 * time.Second

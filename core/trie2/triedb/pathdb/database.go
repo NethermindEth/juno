@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 )
 
 const (
@@ -37,8 +36,8 @@ type Database struct {
 func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	if config == nil {
 		config = &Config{
-			CleanCacheSize:  16 * utils.Megabyte,
-			WriteBufferSize: 64 * utils.Megabyte,
+			CleanCacheSize:  16 * db.Megabyte,
+			WriteBufferSize: 64 * db.Megabyte,
 		}
 	}
 	db := &Database{disk: disk, config: *config}

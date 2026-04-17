@@ -1,7 +1,7 @@
 package pebble
 
 import (
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble"
 )
 
@@ -16,7 +16,7 @@ type Option = func(*pebble.Options) error
 func WithCacheSize(cacheSizeMB uint) Option {
 	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
 	return func(opts *pebble.Options) error {
-		opts.Cache = pebble.NewCache(int64(cacheSizeMB * utils.Megabyte))
+		opts.Cache = pebble.NewCache(int64(cacheSizeMB * db.Megabyte))
 		return nil
 	}
 }

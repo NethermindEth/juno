@@ -26,12 +26,12 @@ const (
 	// batchByteSize is the initially allocated size of a batch.
 	// Higher batch byte size means less DB batch write sync overhead and less reallocation when
 	// batch size grows, but more memory usage when multiple batches are created.
-	batchByteSize = 128 * utils.Megabyte
+	batchByteSize = 128 * db.Megabyte
 
 	// targetBatchByteSize is the threshold at which a batch is written to the database.
 	// Batch is flushed to the database when it reaches this size, to avoid overflow the
 	// [batchByteSize] which results in reallocation.
-	targetBatchByteSize = 96 * utils.Megabyte
+	targetBatchByteSize = 96 * db.Megabyte
 
 	// ingestorCount is the number of ingestors to run concurrently. More ingestors means more
 	// spawned goroutines, which may starve the committer goroutine, while less ingestors means

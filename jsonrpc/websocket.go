@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/coder/websocket"
 	"go.uber.org/zap"
@@ -148,7 +149,7 @@ type WebsocketConnParams struct {
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
-		ReadLimit:     32 * utils.Megabyte,
+		ReadLimit:     32 * db.Megabyte,
 		WriteDuration: 5 * time.Second,
 	}
 }

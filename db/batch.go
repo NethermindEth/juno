@@ -2,11 +2,9 @@ package db
 
 import (
 	"io"
-
-	"github.com/NethermindEth/juno/utils"
 )
 
-const DefaultBatchSize = 10 * utils.Megabyte
+const DefaultBatchSize = 10 * Megabyte
 
 // A write-only store that gathers changes in-memory and writes them to disk in a single atomic operation.
 // It is not thread-safe for a single batch, but different batches can be used in different threads.

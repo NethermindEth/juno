@@ -7,6 +7,7 @@ import (
 	"iter"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -22,7 +23,7 @@ import (
 )
 
 const (
-	unmarshalMaxSize = 15 * utils.Megabyte
+	unmarshalMaxSize = 15 * db.Megabyte
 	readTimeout      = 10 * time.Second
 )
 

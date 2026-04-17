@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
-const MaxRequestBodySize = 10 * utils.Megabyte
+const MaxRequestBodySize = 10 * db.Megabyte
 
 type HTTP struct {
 	rpc *Server

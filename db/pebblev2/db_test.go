@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/stretchr/testify/assert"
@@ -62,7 +61,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 		s, err := CalculatePrefixSize(t.Context(), testDB, p, true)
 		require.NoError(t, err)
 		assert.Equal(t, uint(3), s.Count)
-		assert.Equal(t, utils.DataSize(expectedSize), s.Size)
+		assert.Equal(t, db.DataSize(expectedSize), s.Size)
 
 		t.Run("exit when context is cancelled", func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())

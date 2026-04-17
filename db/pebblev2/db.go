@@ -223,10 +223,10 @@ func (d *DB) NewSnapshot() db.Snapshot {
 
 type Item struct {
 	Count uint
-	Size  utils.DataSize
+	Size  db.DataSize
 }
 
-func (i *Item) add(size utils.DataSize) {
+func (i *Item) add(size db.DataSize) {
 	i.Count++
 	i.Size += size
 }
@@ -253,7 +253,7 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperB
 			return nil, utils.RunAndWrapOnError(it.Close, err)
 		}
 
-		item.add(utils.DataSize(len(it.Key()) + len(v)))
+		item.add(db.DataSize(len(it.Key()) + len(v)))
 	}
 
 	return item, utils.RunAndWrapOnError(it.Close, err)

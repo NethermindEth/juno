@@ -209,11 +209,11 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	defer pebbleDB.Close()
 
 	var (
-		totalSize  utils.DataSize
+		totalSize  db.DataSize
 		totalCount uint
 
-		withHistorySize    utils.DataSize
-		withoutHistorySize utils.DataSize
+		withHistorySize    db.DataSize
+		withoutHistorySize db.DataSize
 
 		withHistoryCount    uint
 		withoutHistoryCount uint
