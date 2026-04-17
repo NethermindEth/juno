@@ -1,4 +1,4 @@
-package statetestutils
+package testutils
 
 import (
 	"os"

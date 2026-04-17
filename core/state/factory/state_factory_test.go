@@ -1,4 +1,4 @@
-package statefactory
+package factory
 
 import (
 	"testing"

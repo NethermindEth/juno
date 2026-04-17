@@ -1,4 +1,4 @@
-package statefactory
+package factory
 
 import (
 	"github.com/NethermindEth/juno/core"
