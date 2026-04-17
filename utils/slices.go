@@ -64,6 +64,14 @@ func Set[T comparable](slice []T) []T {
 	return result
 }
 
+func NonNilSlice[T any](sl []T) []T {
+	if sl == nil {
+		return []T{}
+	}
+
+	return sl
+}
+
 func FeltArrToString(arr []*felt.Felt) string {
 	res := make([]string, len(arr))
 	for i, felt := range arr {
