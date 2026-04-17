@@ -388,7 +388,7 @@ func (h *Handler) traceInPrelatestBlock(
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in tracePreLatestTransaction")
 
-	preLatestState := pending.NewPendingState(
+	preLatestState := pending.NewState(
 		preLatest.StateUpdate.StateDiff,
 		preLatest.NewClasses,
 		state,

@@ -104,7 +104,7 @@ func GenesisStateDiff(
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
-	genesisState := pending.NewPendingStateWriter(
+	genesisState := pending.NewStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
 		deprecatedstate.New(memDB.NewIndexedBatch()),
@@ -133,7 +133,7 @@ func GenesisStateDiff(
 func declareClasses(
 	ctx context.Context,
 	config *GenesisConfig,
-	genesisState *pending.PendingStateWriter,
+	genesisState *pending.StateWriter,
 	compiler compiler.Compiler,
 ) error {
 	newClasses, err := loadClasses(ctx, config.Classes, compiler)
@@ -151,7 +151,7 @@ func declareClasses(
 }
 
 func setClass(
-	genesisState *pending.PendingStateWriter,
+	genesisState *pending.StateWriter,
 	classHash *felt.Felt,
 	class core.ClassDefinition,
 ) error {
@@ -173,7 +173,7 @@ func deployContracts(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *pending.PendingStateWriter,
+	genesisState *pending.StateWriter,
 ) error {
 	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
 	if err != nil {
@@ -205,7 +205,7 @@ func deployContract(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *pending.PendingStateWriter,
+	genesisState *pending.StateWriter,
 	address felt.Felt,
 	contractData GenesisContractData,
 	constructorSelector *felt.Felt,
@@ -251,7 +251,7 @@ func executeFunctionCalls(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *pending.PendingStateWriter,
+	genesisState *pending.StateWriter,
 ) error {
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 
@@ -294,7 +294,7 @@ func executeFunctionCalls(
 func executeTransactions(
 	config *GenesisConfig,
 	v vm.VM,
-	genesisState *pending.PendingStateWriter,
+	genesisState *pending.StateWriter,
 ) error {
 	if len(config.Txns) == 0 {
 		return nil

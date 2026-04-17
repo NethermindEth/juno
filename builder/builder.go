@@ -142,7 +142,7 @@ func (b *Builder) PendingState(
 	}
 
 	// TODO: remove the state closer once we refactor the state
-	return pending.NewPendingState(
+	return pending.NewState(
 			buildState.PreConfirmed.StateUpdate.StateDiff,
 			buildState.PreConfirmed.NewClasses,
 			headState,

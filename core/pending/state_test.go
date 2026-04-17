@@ -55,7 +55,7 @@ func TestPendingState(t *testing.T) {
 
 	const pendingBlockNumber = uint64(5)
 
-	state := pending.NewPendingState(
+	state := pending.NewState(
 		stateDiff, newClasses, mockState, pendingBlockNumber,
 	)
 

@@ -59,7 +59,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}()
 
 	// Create a state writer for the transaction execution
-	stateWriter := pending.NewPendingStateWriter(
+	stateWriter := pending.NewStateWriter(
 		state.PreConfirmed.StateUpdate.StateDiff,
 		state.PreConfirmed.NewClasses,
 		headState,
@@ -134,7 +134,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 // processClassDeclaration handles class declaration storage for declare transactions
 func (e *executor) processClassDeclaration(
 	txn *mempool.BroadcastedTransaction,
-	state *pending.PendingStateWriter,
+	state *pending.StateWriter,
 ) error {
 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 		if err := state.SetContractClass(t.ClassHash, txn.DeclaredClass); err != nil {
