@@ -4,12 +4,12 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 )
 
 type BuildResult struct {
-	PreConfirmed   *pending.PreConfirmed
+	PreConfirmed   *core.PreConfirmed
 	SimulateResult *blockchain.SimulateResult
 	L2GasConsumed  uint64
 }

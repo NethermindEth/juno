@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
@@ -104,7 +103,7 @@ func GenesisStateDiff(
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
-	genesisState := pending.NewPendingStateWriter(
+	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
 		deprecatedstate.NewState(memDB.NewIndexedBatch()),
@@ -133,7 +132,7 @@ func GenesisStateDiff(
 func declareClasses(
 	ctx context.Context,
 	config *GenesisConfig,
-	genesisState *pending.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 	compiler compiler.Compiler,
 ) error {
 	newClasses, err := loadClasses(ctx, config.Classes, compiler)
@@ -151,7 +150,7 @@ func declareClasses(
 }
 
 func setClass(
-	genesisState *pending.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 	classHash *felt.Felt,
 	class core.ClassDefinition,
 ) error {
@@ -173,7 +172,7 @@ func deployContracts(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *pending.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 ) error {
 	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
 	if err != nil {
@@ -205,7 +204,7 @@ func deployContract(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *pending.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 	address felt.Felt,
 	contractData GenesisContractData,
 	constructorSelector *felt.Felt,
@@ -251,7 +250,7 @@ func executeFunctionCalls(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
-	genesisState *pending.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 ) error {
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 
@@ -294,7 +293,7 @@ func executeFunctionCalls(
 func executeTransactions(
 	config *GenesisConfig,
 	v vm.VM,
-	genesisState *pending.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 ) error {
 	if len(config.Txns) == 0 {
 		return nil

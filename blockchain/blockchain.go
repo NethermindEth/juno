@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain/statebackend"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
@@ -60,7 +59,7 @@ type Reader interface {
 	EventFilter(
 		addresses []felt.Address,
 		keys [][]felt.Felt,
-		preConfirmedFn func() (*pending.PreConfirmed, error),
+		preConfirmedFn func() (*core.PreConfirmed, error),
 	) (EventFilterer, error)
 
 	Network() *utils.Network
@@ -371,7 +370,7 @@ func (b *Blockchain) StateAtBlockHash(
 func (b *Blockchain) EventFilter(
 	addresses []felt.Address,
 	keys [][]felt.Felt,
-	preConfirmedFn func() (*pending.PreConfirmed, error),
+	preConfirmedFn func() (*core.PreConfirmed, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
 	latest, err := core.GetChainHeight(b.database)

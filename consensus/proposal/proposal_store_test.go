@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +22,7 @@ const (
 func createTestBuildResult() *builder.BuildResult {
 	blockNumber := rand.Uint64()
 	return &builder.BuildResult{
-		PreConfirmed: &pending.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: blockNumber,

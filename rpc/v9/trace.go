@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -350,7 +349,7 @@ func (h *Handler) findAndTraceInPreConfirmed(
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.
 func (h *Handler) findAndTraceInPreConfirmedBlock(
-	preConfirmed *pending.PreConfirmed, hash *felt.Felt,
+	preConfirmed *core.PreConfirmed, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	block := preConfirmed.GetBlock()
 	txIndex, rpcErr := findTransactionInBlock(block, hash)
@@ -363,7 +362,7 @@ func (h *Handler) findAndTraceInPreConfirmedBlock(
 
 // findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
 func (h *Handler) findAndTraceInPrelatestBlock(
-	preConfirmed *pending.PreConfirmed, hash *felt.Felt,
+	preConfirmed *core.PreConfirmed, hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	preLatest := preConfirmed.GetPreLatest()
 	if preLatest == nil {
@@ -380,7 +379,7 @@ func (h *Handler) findAndTraceInPrelatestBlock(
 
 // traceInPrelatestBlock traces a transaction in the prelatest block.
 func (h *Handler) traceInPrelatestBlock(
-	preLatest *pending.PreLatest, txIndex uint,
+	preLatest *core.PreLatest, txIndex uint,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	state, closer, err := h.bcReader.StateAtBlockHash(preLatest.Block.ParentHash)
 	if err != nil {
@@ -388,7 +387,7 @@ func (h *Handler) traceInPrelatestBlock(
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in tracePreLatestTransaction")
 
-	preLatestState := pending.NewPendingState(
+	preLatestState := core.NewPendingState(
 		preLatest.StateUpdate.StateDiff,
 		preLatest.NewClasses,
 		state,
@@ -416,7 +415,7 @@ func (h *Handler) traceInPrelatestBlock(
 
 // traceInPreConfirmedBlock traces a transaction in a preconfirmed block.
 func (h *Handler) traceInPreConfirmedBlock(
-	preConfirmed *pending.PreConfirmed, txIndex uint,
+	preConfirmed *core.PreConfirmed, txIndex uint,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	state, stateCloser, err := sync.PendingStateBeforeIndex(preConfirmed, h.bcReader, txIndex)
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -596,7 +595,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,

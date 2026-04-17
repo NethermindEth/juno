@@ -6,12 +6,11 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/utils"
 )
 
 type BuildState struct {
-	PreConfirmed      *pending.PreConfirmed
+	PreConfirmed      *core.PreConfirmed
 	L2GasConsumed     uint64
 	RevealedBlockHash *felt.Felt
 }
@@ -25,7 +24,7 @@ func (b *BuildState) PreConfirmedBlock() *core.Block {
 
 func (b *BuildState) ClearPending() error {
 	b.L2GasConsumed = 0
-	b.PreConfirmed = &pending.PreConfirmed{}
+	b.PreConfirmed = &core.PreConfirmed{}
 	b.RevealedBlockHash = nil
 
 	return nil
@@ -44,8 +43,8 @@ func (b *BuildState) Clone() BuildState {
 	}
 }
 
-func clonePreconfirmed(preconfirmed *pending.PreConfirmed) *pending.PreConfirmed {
-	return &pending.PreConfirmed{
+func clonePreconfirmed(preconfirmed *core.PreConfirmed) *core.PreConfirmed {
+	return &core.PreConfirmed{
 		Block:                 cloneBlock(preconfirmed.Block),
 		StateUpdate:           cloneStateUpdate(preconfirmed.StateUpdate),
 		NewClasses:            maps.Clone(preconfirmed.NewClasses),

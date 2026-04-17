@@ -2,11 +2,10 @@ package rpcv8
 
 import (
 	"github.com/NethermindEth/juno/core"
-	pendingpkg "github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/sync"
 )
 
-func (h *Handler) Pending() (*pendingpkg.Pending, error) {
+func (h *Handler) Pending() (*core.Pending, error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, err

@@ -1,9 +1,8 @@
-package pending
+package core
 
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -20,16 +19,16 @@ var (
 // placeholder returned by rpc/v6/v8's Pending() and MakeEmptyPendingForParent to satisfy
 // the "pending" block ID in the v6/v8 RPC spec. Remove this type when rpc/v6/v8 are deprecated.
 type Pending struct {
-	Block       *core.Block
-	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.ClassDefinition
+	Block       *Block
+	StateUpdate *StateUpdate
+	NewClasses  map[felt.Felt]ClassDefinition
 }
 
 // Deprecated: NewPending constructs the deprecated Pending type.
 func NewPending(
-	block *core.Block,
-	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	block *Block,
+	stateUpdate *StateUpdate,
+	newClasses map[felt.Felt]ClassDefinition,
 ) Pending {
 	return Pending{
 		Block:       block,
@@ -38,40 +37,40 @@ func NewPending(
 	}
 }
 
-func (p *Pending) GetBlock() *core.Block {
+func (p *Pending) GetBlock() *Block {
 	return p.Block
 }
 
-func (p *Pending) GetHeader() *core.Header {
+func (p *Pending) GetHeader() *Header {
 	return p.Block.Header
 }
 
-func (p *Pending) GetTransactions() []core.Transaction {
+func (p *Pending) GetTransactions() []Transaction {
 	return p.Block.Transactions
 }
 
-func (p *Pending) GetStateUpdate() *core.StateUpdate {
+func (p *Pending) GetStateUpdate() *StateUpdate {
 	return p.StateUpdate
 }
 
 type PreLatest Pending
 
 type PreConfirmed struct {
-	Block       *core.Block
-	StateUpdate *core.StateUpdate
+	Block       *Block
+	StateUpdate *StateUpdate
 	// Node does not fetch unknown classes. but we keep it for sequencer
-	NewClasses            map[felt.Felt]core.ClassDefinition
-	TransactionStateDiffs []*core.StateDiff
-	CandidateTxs          []core.Transaction
+	NewClasses            map[felt.Felt]ClassDefinition
+	TransactionStateDiffs []*StateDiff
+	CandidateTxs          []Transaction
 	// Optional field, exists if pre_confirmed is N+2 when latest is N
 	PreLatest *PreLatest
 }
 
 func NewPreConfirmed(
-	block *core.Block,
-	stateUpdate *core.StateUpdate,
-	transactionStateDiffs []*core.StateDiff,
-	candidateTxs []core.Transaction,
+	block *Block,
+	stateUpdate *StateUpdate,
+	transactionStateDiffs []*StateDiff,
+	candidateTxs []Transaction,
 ) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
@@ -81,7 +80,7 @@ func NewPreConfirmed(
 	}
 }
 
-func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]core.ClassDefinition) *PreConfirmed {
+func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]ClassDefinition) *PreConfirmed {
 	p.NewClasses = newClasses
 	return p
 }
@@ -96,31 +95,31 @@ func (p *PreConfirmed) Copy() *PreConfirmed {
 	return &cp
 }
 
-func (p *PreConfirmed) GetBlock() *core.Block {
+func (p *PreConfirmed) GetBlock() *Block {
 	return p.Block
 }
 
-func (p *PreConfirmed) GetHeader() *core.Header {
+func (p *PreConfirmed) GetHeader() *Header {
 	return p.Block.Header
 }
 
-func (p *PreConfirmed) GetTransactions() []core.Transaction {
+func (p *PreConfirmed) GetTransactions() []Transaction {
 	return p.Block.Transactions
 }
 
-func (p *PreConfirmed) GetStateUpdate() *core.StateUpdate {
+func (p *PreConfirmed) GetStateUpdate() *StateUpdate {
 	return p.StateUpdate
 }
 
-func (p *PreConfirmed) GetNewClasses() map[felt.Felt]core.ClassDefinition {
+func (p *PreConfirmed) GetNewClasses() map[felt.Felt]ClassDefinition {
 	return p.NewClasses
 }
 
-func (p *PreConfirmed) GetCandidateTransaction() []core.Transaction {
+func (p *PreConfirmed) GetCandidateTransaction() []Transaction {
 	return p.CandidateTxs
 }
 
-func (p *PreConfirmed) GetTransactionStateDiffs() []*core.StateDiff {
+func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
 	return p.TransactionStateDiffs
 }
 
@@ -128,7 +127,7 @@ func (p *PreConfirmed) GetPreLatest() *PreLatest {
 	return p.PreLatest
 }
 
-func (p *PreConfirmed) Validate(parent *core.Header) bool {
+func (p *PreConfirmed) Validate(parent *Header) bool {
 	if parent == nil {
 		return p.Block.Number == 0
 	}
@@ -147,7 +146,7 @@ func (p *PreConfirmed) Validate(parent *core.Header) bool {
 		p.PreLatest.Block.ParentHash.Equal(parent.Hash)
 }
 
-func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
+func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (Transaction, error) {
 	if preLatest := p.PreLatest; preLatest != nil {
 		for _, tx := range preLatest.Block.Transactions {
 			if tx.Hash().Equal(hash) {
@@ -173,7 +172,7 @@ func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, err
 
 func (p *PreConfirmed) ReceiptByHash(
 	hash *felt.Felt,
-) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
+) (*TransactionReceipt, *felt.Felt, uint64, error) {
 	if preLatest := p.PreLatest; preLatest != nil {
 		for _, receipt := range preLatest.Block.Receipts {
 			if receipt.TransactionHash.Equal(hash) {
@@ -192,15 +191,15 @@ func (p *PreConfirmed) ReceiptByHash(
 }
 
 func (p *PreConfirmed) PendingStateBeforeIndex(
-	baseState core.StateReader,
+	baseState StateReader,
 	index uint,
-) (core.StateReader, error) {
+) (StateReader, error) {
 	if index > uint(len(p.Block.Transactions)) {
 		return nil, ErrTransactionIndexOutOfBounds
 	}
 
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.ClassDefinition)
+	stateDiff := EmptyStateDiff()
+	newClasses := make(map[felt.Felt]ClassDefinition)
 
 	// Add pre_latest state diff if available
 	preLatest := p.PreLatest
@@ -218,9 +217,9 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 	return NewPendingState(&stateDiff, newClasses, baseState, p.Block.Number), nil
 }
 
-func (p *PreConfirmed) PendingState(baseState core.StateReader) core.StateReader {
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.ClassDefinition)
+func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
+	stateDiff := EmptyStateDiff()
+	newClasses := make(map[felt.Felt]ClassDefinition)
 
 	// Add pre_latest state diff if available
 	preLatest := p.PreLatest

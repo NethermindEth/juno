@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -259,7 +258,7 @@ func buildBuildResult(
 	totalGasConsumed int,
 ) builder.BuildResult {
 	return builder.BuildResult{
-		PreConfirmed: &pending.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block:       block,
 			StateUpdate: stateUpdate,
 			NewClasses:  calculateNewClasses(t, gw, stateUpdate),
@@ -298,7 +297,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 	strippedBlockHeader.EventsBloom = nil
 	strippedBlockHeader.Signatures = nil
 	return builder.BuildState{
-		PreConfirmed: &pending.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header:       &strippedBlockHeader,
 				Transactions: []core.Transaction{},

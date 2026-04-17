@@ -5,7 +5,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -59,7 +58,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}()
 
 	// Create a state writer for the transaction execution
-	stateWriter := pending.NewPendingStateWriter(
+	stateWriter := core.NewPendingStateWriter(
 		state.PreConfirmed.StateUpdate.StateDiff,
 		state.PreConfirmed.NewClasses,
 		headState,
@@ -134,7 +133,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 // processClassDeclaration handles class declaration storage for declare transactions
 func (e *executor) processClassDeclaration(
 	txn *mempool.BroadcastedTransaction,
-	state *pending.PendingStateWriter,
+	state *core.PendingStateWriter,
 ) error {
 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 		if err := state.SetContractClass(t.ClassHash, txn.DeclaredClass); err != nil {
@@ -154,7 +153,7 @@ func (e *executor) processClassDeclaration(
 
 // updatePreconfirmedBlock updates the preconfirmed block with transaction results
 func updatePreconfirmedBlock(
-	preconfirmed *pending.PreConfirmed,
+	preconfirmed *core.PreConfirmed,
 	receipts []*core.TransactionReceipt,
 	transactions []core.Transaction,
 	stateDiffs []*core.StateDiff,

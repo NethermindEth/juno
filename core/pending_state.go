@@ -1,21 +1,19 @@
-package pending
+package core
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 )
 
-// @todo this was copied from deprecatedstate/history.go, should it be moved to a common place?
 var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
 
 type PendingState struct {
-	stateDiff  *core.StateDiff
-	newClasses map[felt.Felt]core.ClassDefinition
-	head       core.StateReader
+	stateDiff  *StateDiff
+	newClasses map[felt.Felt]ClassDefinition
+	head       StateReader
 
 	// The block number of the pending block that this
 	// pending state represents
@@ -23,9 +21,9 @@ type PendingState struct {
 }
 
 func NewPendingState(
-	stateDiff *core.StateDiff,
-	newClasses map[felt.Felt]core.ClassDefinition,
-	head core.StateReader,
+	stateDiff *StateDiff,
+	newClasses map[felt.Felt]ClassDefinition,
+	head StateReader,
 	blockNumber uint64,
 ) *PendingState {
 	return &PendingState{
@@ -36,7 +34,7 @@ func NewPendingState(
 	}
 }
 
-func (p *PendingState) StateDiff() *core.StateDiff {
+func (p *PendingState) StateDiff() *StateDiff {
 	return p.stateDiff
 }
 
@@ -88,9 +86,9 @@ func (p *PendingState) ContractStorageLastUpdatedBlock(
 	return p.head.ContractStorageLastUpdatedBlock(addr, key)
 }
 
-func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	if class, found := p.newClasses[*classHash]; found {
-		return &core.DeclaredClassDefinition{
+		return &DeclaredClassDefinition{
 			At:    0,
 			Class: class,
 		}, nil
@@ -118,15 +116,15 @@ func (p *PendingState) CompiledClassHashV2(
 	return p.head.CompiledClassHashV2(classHash)
 }
 
-func (p *PendingState) ClassTrie() (core.Trie, error) {
+func (p *PendingState) ClassTrie() (Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractTrie() (core.Trie, error) {
+func (p *PendingState) ContractTrie() (Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
+func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (Trie, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
@@ -135,9 +133,9 @@ type PendingStateWriter struct {
 }
 
 func NewPendingStateWriter(
-	stateDiff *core.StateDiff,
-	newClasses map[felt.Felt]core.ClassDefinition,
-	head core.StateReader,
+	stateDiff *StateDiff,
+	newClasses map[felt.Felt]ClassDefinition,
+	head StateReader,
 ) PendingStateWriter {
 	return PendingStateWriter{
 		PendingState: &PendingState{
@@ -179,7 +177,7 @@ func (p *PendingStateWriter) SetClassHash(contractAddress, classHash *felt.Felt)
 
 // SetContractClass writes a new CairoV0 class to the PendingState
 // Assumption: SetCompiledClassHash should be called for CairoV1 contracts
-func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.ClassDefinition) error {
+func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class ClassDefinition) error {
 	// Only declare the class if it has not already been declared, and return
 	// and unexepcted errors (ie any error that isn't db.ErrKeyNotFound)
 	_, err := p.Class(classHash)
@@ -190,7 +188,7 @@ func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.C
 	}
 
 	p.newClasses[*classHash] = class
-	if _, ok := class.(*core.DeprecatedCairoClass); ok {
+	if _, ok := class.(*DeprecatedCairoClass); ok {
 		p.stateDiff.DeclaredV0Classes = append(p.stateDiff.DeclaredV0Classes, classHash.Clone())
 	}
 	return nil
@@ -205,10 +203,10 @@ func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *
 
 // StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
 // read and modified by the pending state.
-func (p *PendingStateWriter) StateDiffAndClasses() (core.StateDiff, map[felt.Felt]core.ClassDefinition) {
+func (p *PendingStateWriter) StateDiffAndClasses() (StateDiff, map[felt.Felt]ClassDefinition) {
 	return *p.stateDiff, p.newClasses
 }
 
-func (p *PendingStateWriter) SetStateDiff(stateDiff *core.StateDiff) {
+func (p *PendingStateWriter) SetStateDiff(stateDiff *StateDiff) {
 	p.stateDiff = stateDiff
 }

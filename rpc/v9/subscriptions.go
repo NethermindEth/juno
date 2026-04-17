@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -80,9 +79,9 @@ type subscriber struct {
 	onStart               on[any]
 	onReorg               on[*sync.ReorgBlockRange]
 	onNewHead             on[*core.Block]
-	onPreConfirmed        on[*pending.PreConfirmed]
+	onPreConfirmed        on[*core.PreConfirmed]
 	onL1Head              on[*core.L1Head]
-	onPreLatest           on[*pending.PreLatest]
+	onPreLatest           on[*core.PreLatest]
 	onReceivedTransaction on[core.Transaction]
 }
 

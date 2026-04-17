@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -332,7 +331,7 @@ func TestTraceTransaction(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+			preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
 			mockSyncReader.EXPECT().PreConfirmed().Return(
 				&preConfirmed,
 				nil,
@@ -452,7 +451,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 		preConfirmedStateDiff := core.EmptyStateDiff()
-		preConfirmed := pending.PreConfirmed{
+		preConfirmed := core.PreConfirmed{
 			Block: block,
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &preConfirmedStateDiff,
@@ -537,7 +536,7 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.SierraClass{},
 		}
 		preLatestStateDiff := core.EmptyStateDiff()
-		preLatest := pending.PreLatest{
+		preLatest := core.PreLatest{
 			Block: block,
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &preLatestStateDiff,
@@ -545,7 +544,7 @@ func TestTraceTransaction(t *testing.T) {
 			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
 		}
 
-		preConfirmed := pending.PreConfirmed{
+		preConfirmed := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: preLatest.Block.Number + 1,

@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -103,7 +102,7 @@ func TestNonce(t *testing.T) {
 		stateDiff := core.EmptyStateDiff()
 		stateDiff.Nonces[targetAddress] = expectedNonce
 
-		preConfirmed := pending.PreConfirmed{
+		preConfirmed := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 2,

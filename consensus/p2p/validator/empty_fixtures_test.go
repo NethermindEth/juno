@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
@@ -89,7 +88,7 @@ func NewEmptyTestFixture(
 
 func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, timestamp uint64) builder.BuildResult {
 	return builder.BuildResult{
-		PreConfirmed: &pending.PreConfirmed{
+		PreConfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Hash:             expectedHash,

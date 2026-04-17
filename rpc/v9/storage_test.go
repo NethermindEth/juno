@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -179,7 +178,7 @@ func TestStorageAt(t *testing.T) {
 		preConfirmedStateDiff.
 			DeployedContracts[targetAddress] = felt.NewFromUint64[felt.Felt](123456789)
 
-		preConfirmed := pending.PreConfirmed{
+		preConfirmed := core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: 2,

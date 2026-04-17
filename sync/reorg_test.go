@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -60,12 +59,12 @@ func (t *testBlockDataSource) BlockHeaderLatest(ctx context.Context) (*core.Head
 	return getBlock(blocks, uint64(len(blocks)-1)).Block.Header, nil
 }
 
-func (t *testBlockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
-	return pending.PreLatest{}, errors.New("not implemented")
+func (t *testBlockDataSource) BlockPreLatest(ctx context.Context) (core.PreLatest, error) {
+	return core.PreLatest{}, errors.New("not implemented")
 }
 
-func (t *testBlockDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
-	return pending.PreConfirmed{}, errors.New("not implemented")
+func (t *testBlockDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
+	return core.PreConfirmed{}, errors.New("not implemented")
 }
 
 func (t *testBlockDataSource) setBlocks(blocks []sync.CommittedBlock) {

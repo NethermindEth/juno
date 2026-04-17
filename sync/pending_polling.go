@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"go.uber.org/zap"
@@ -30,8 +29,8 @@ func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 // Returns true if existing preConfirmed is valid for head and incoming is not richer than existing.
 // Otherwise returns false.
 func shouldPreservePreConfirmed(
-	existingPending *pending.PreConfirmed,
-	incomingPending *pending.PreConfirmed,
+	existingPending *core.PreConfirmed,
+	incomingPending *core.PreConfirmed,
 	head *core.Header,
 ) bool {
 	if existingPending == nil {
@@ -53,7 +52,7 @@ func shouldPreservePreConfirmed(
 // pre_confirmed at the given blockNumber by atomically swapping the stored pointer.
 // Returns true if the store was updated, false if no matching pre_confirmed is stored
 // or the attachment was already equal.
-func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *pending.PreLatest) bool {
+func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *core.PreLatest) bool {
 	pc := s.preConfirmed.Load()
 
 	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {
@@ -76,7 +75,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height.
 // If an equal-number block with >= txCount already exists, we do not overwrite it,
 // but we allow updating the PreLatest attachment in-place via a CAS swap.
-func (s *Synchronizer) StorePreConfirmed(p *pending.PreConfirmed) (bool, error) {
+func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 	if err := core.CheckBlockVersion(p.GetBlock().ProtocolVersion); err != nil {
 		return false, err
 	}
@@ -107,7 +106,7 @@ func (s *Synchronizer) StorePreConfirmed(p *pending.PreConfirmed) (bool, error) 
 // Pass preLatest to attach it to the baseline; pass nil to clear any attachment.
 func (s *Synchronizer) storeEmptyPreConfirmed(
 	latestHeader *core.Header,
-	preLatest *pending.PreLatest,
+	preLatest *core.PreLatest,
 ) error {
 	preConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, latestHeader)
 	if err != nil {
@@ -127,8 +126,8 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 func (s *Synchronizer) handleTickerPreLatest(
 	ctx context.Context,
 	currentHead *core.Block,
-	seenByParent *lru.BasicLRU[felt.Felt, *pending.PreLatest],
-	out chan<- *pending.PreLatest,
+	seenByParent *lru.BasicLRU[felt.Felt, *core.PreLatest],
+	out chan<- *core.PreLatest,
 ) bool {
 	preLatest, err := s.dataSource.BlockPreLatest(ctx)
 	if err != nil {
@@ -154,7 +153,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 // pollPreLatest fetches at most one pre-latest per head while at tip and forwards it to out.
 // It avoids duplicate deliveries. If a fetched pre-latest corresponds to a future head,
 // it is cached keyed by ParentHash and emitted immediately when that head arrives.
-func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.PreLatest) {
+func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLatest) {
 	if s.preLatestPollInterval == 0 {
 		s.log.Info("Pre-latest block polling is disabled")
 		return
@@ -165,7 +164,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 
 	// Cache of pre-latest blocks keyed by the hash of their parent.
 	// When we receive the head with this parent hash, we emit the cached pre-latest.
-	seenByParent := lru.NewBasicLRU[felt.Felt, *pending.PreLatest](preLatestCacheSize)
+	seenByParent := lru.NewBasicLRU[felt.Felt, *core.PreLatest](preLatestCacheSize)
 
 	ticker := time.NewTicker(s.preLatestPollInterval)
 	defer ticker.Stop()
@@ -229,7 +228,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 func (s *Synchronizer) pollPreConfirmed(
 	ctx context.Context,
 	blockNumberToPoll *atomic.Uint64,
-	out chan<- *pending.PreConfirmed,
+	out chan<- *core.PreConfirmed,
 ) {
 	if s.preConfirmedPollInterval == 0 {
 		s.log.Info("Pre-confirmed block polling is disabled")
@@ -274,8 +273,8 @@ func (s *Synchronizer) pollPreConfirmed(
 func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 	head *core.Block,
 	targetPreConfirmedNum *atomic.Uint64,
-	stagedPreLatest *pending.PreLatest,
-) *pending.PreLatest {
+	stagedPreLatest *core.PreLatest,
+) *core.PreLatest {
 	next := head.Number + 1
 	targetNum := targetPreConfirmedNum.Load()
 	if next < targetNum {
@@ -298,10 +297,10 @@ func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 // If it raises the target, it stages the attachment and stores a baseline with it.
 // Returns updated staged pre-latest.
 func (s *Synchronizer) handlePreLatest(
-	pl *pending.PreLatest,
+	pl *core.PreLatest,
 	targetPreConfirmedNum *atomic.Uint64,
-	stagedPreLatest *pending.PreLatest,
-) *pending.PreLatest {
+	stagedPreLatest *core.PreLatest,
+) *core.PreLatest {
 	next := pl.Block.Number + 1
 	if next <= targetPreConfirmedNum.Load() {
 		return stagedPreLatest
@@ -319,8 +318,8 @@ func (s *Synchronizer) handlePreLatest(
 // handlePreConfirmed finalises when the polled pre_confirmed equals the target.
 // It attaches the staged pre_latest, stores it, and feeds if changed.
 func (s *Synchronizer) handlePreConfirmed(
-	pc *pending.PreConfirmed,
-	stagedPreLatest *pending.PreLatest,
+	pc *core.PreConfirmed,
+	stagedPreLatest *core.PreLatest,
 ) {
 	pc.WithPreLatest(stagedPreLatest)
 	changed, err := s.StorePreConfirmed(pc)
@@ -344,14 +343,14 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	headsSub := s.newHeads.SubscribeKeepLast()
 	defer headsSub.Unsubscribe()
 
-	preLatestCh := make(chan *pending.PreLatest, 1)
-	preConfirmedCh := make(chan *pending.PreConfirmed, 1)
+	preLatestCh := make(chan *core.PreLatest, 1)
+	preConfirmedCh := make(chan *core.PreConfirmed, 1)
 	var preConfirmedBlockNumberToPoll atomic.Uint64
 
 	go s.pollPreLatest(ctx, preLatestCh)
 	go s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, preConfirmedCh)
 
-	var stagedPreLatest *pending.PreLatest
+	var stagedPreLatest *core.PreLatest
 
 	for {
 		select {

@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 )
@@ -189,16 +188,16 @@ func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (
 }
 
 // PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,
-// then adapts them to the pending.PreConfirmed and list of transaction hashes types respectively
-func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
+// then adapts them to the core.PreConfirmed and list of transaction hashes types respectively
+func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
 	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
 	if err != nil {
-		return pending.PreConfirmed{}, err
+		return core.PreConfirmed{}, err
 	}
 
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
 	if err != nil {
-		return pending.PreConfirmed{}, err
+		return core.PreConfirmed{}, err
 	}
 
 	return adaptedPreConfirmed, nil

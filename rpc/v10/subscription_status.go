@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
@@ -107,7 +106,7 @@ func (s *txStatusSubscriberState) onPreLatest(
 	ctx context.Context,
 	id string,
 	sub *subscription,
-	_ *pending.PreLatest,
+	_ *core.PreLatest,
 ) error {
 	return s.checkTxStatusIfPending(ctx, id, sub)
 }
@@ -116,7 +115,7 @@ func (s *txStatusSubscriberState) onPreConfirmed(
 	ctx context.Context,
 	id string,
 	sub *subscription,
-	_ *pending.PreConfirmed,
+	_ *core.PreConfirmed,
 ) error {
 	return s.checkTxStatusIfPending(ctx, id, sub)
 }

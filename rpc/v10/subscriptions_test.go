@@ -17,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -51,16 +50,16 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 type fakeSyncer struct {
 	newHeads     *feed.Feed[*core.Block]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
-	preConfirmed *feed.Feed[*pending.PreConfirmed]
-	preLatest    *feed.Feed[*pending.PreLatest]
+	preConfirmed *feed.Feed[*core.PreConfirmed]
+	preLatest    *feed.Feed[*core.PreLatest]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
 		newHeads:     feed.New[*core.Block](),
 		reorgs:       feed.New[*sync.ReorgBlockRange](),
-		preConfirmed: feed.New[*pending.PreConfirmed](),
-		preLatest:    feed.New[*pending.PreLatest](),
+		preConfirmed: feed.New[*core.PreConfirmed](),
+		preLatest:    feed.New[*core.PreLatest](),
 	}
 }
 
@@ -88,7 +87,7 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PreConfirmed() (*pending.PreConfirmed, error) {
+func (fs *fakeSyncer) PreConfirmed() (*core.PreConfirmed, error) {
 	return nil, db.ErrKeyNotFound
 }
 
@@ -1030,7 +1029,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		preConfirmed := &pending.PreConfirmed{
+		preConfirmed := &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -1060,7 +1059,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		rpcTx := AdaptCoreTransaction(block.Transactions[0])
 		rpcTx.Hash = (*felt.Felt)(&txHash)
 
-		preConfirmed = &pending.PreConfirmed{
+		preConfirmed = &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -1088,7 +1087,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			"",
 		)
 
-		preConfirmed = &pending.PreConfirmed{
+		preConfirmed = &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number + 1,
@@ -1167,7 +1166,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		targetTxn := block.Transactions[0]
 		targetReceipt := block.Receipts[0]
 
-		preConfirmedData1 := &pending.PreConfirmed{
+		preConfirmedData1 := &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -1179,7 +1178,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			},
 		}
 		// PreLatest Status - should check transaction status
-		preLatest := &pending.PreLatest{
+		preLatest := &core.PreLatest{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -1191,7 +1190,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			},
 		}
 
-		preConfirmedData2 := &pending.PreConfirmed{
+		preConfirmedData2 := &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: preLatest.Block.Number + 1,
@@ -1235,7 +1234,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		targetTxn := block.Transactions[0]
 		targetReceipt := block.Receipts[0]
 
-		preConfirmedData1 := &pending.PreConfirmed{
+		preConfirmedData1 := &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -3035,7 +3034,7 @@ func assertNextReorg(t *testing.T, conn net.Conn, id SubscriptionID, reorg *Reor
 	assertNextMessage(t, conn, id, "starknet_subscriptionReorg", reorg)
 }
 
-func createTestPreLatest(t *testing.T, b *core.Block, txCount int) pending.PreLatest {
+func createTestPreLatest(t *testing.T, b *core.Block, txCount int) core.PreLatest {
 	t.Helper()
 
 	preLatest := core.Block{
@@ -3048,16 +3047,16 @@ func createTestPreLatest(t *testing.T, b *core.Block, txCount int) pending.PreLa
 
 	preLatest.Transactions = b.Transactions[:txCount]
 	preLatest.Receipts = b.Receipts[:txCount]
-	return pending.PreLatest{
+	return core.PreLatest{
 		Block: &preLatest,
 	}
 }
 
-func CreateTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) pending.PreConfirmed {
+func CreateTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) core.PreConfirmed {
 	t.Helper()
 
 	actualTxCount := len(b.Transactions)
-	var preConfirmed pending.PreConfirmed
+	var preConfirmed core.PreConfirmed
 	if candidateCount := actualTxCount - preConfirmedCount; candidateCount > 0 {
 		preConfirmed.CandidateTxs = make([]core.Transaction, candidateCount)
 		candidateIndex := actualTxCount - candidateCount

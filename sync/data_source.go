@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
@@ -23,8 +22,8 @@ type CommittedBlock struct {
 type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockHeaderLatest(ctx context.Context) (*core.Header, error)
-	BlockPreLatest(ctx context.Context) (pending.PreLatest, error)
-	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error)
+	BlockPreLatest(ctx context.Context) (core.PreLatest, error)
+	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error)
 }
 
 type feederGatewayDataSource struct {
@@ -66,18 +65,18 @@ func (f *feederGatewayDataSource) BlockHeaderLatest(ctx context.Context) (*core.
 	return &header, nil
 }
 
-func (f *feederGatewayDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
+func (f *feederGatewayDataSource) BlockPreLatest(ctx context.Context) (core.PreLatest, error) {
 	pendingStateUpdate, pendingBlock, err := f.starknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
-		return pending.PreLatest{}, err
+		return core.PreLatest{}, err
 	}
 
 	newClasses, err := f.fetchUnknownClasses(ctx, pendingStateUpdate)
 	if err != nil {
-		return pending.PreLatest{}, err
+		return core.PreLatest{}, err
 	}
 
-	return pending.PreLatest{
+	return core.PreLatest{
 		Block:       pendingBlock,
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,
@@ -139,10 +138,10 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 	return newClasses, closer()
 }
 
-func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error) {
+func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
 	preConfirmed, err := f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
 	if err != nil {
-		return pending.PreConfirmed{}, err
+		return core.PreConfirmed{}, err
 	}
 
 	return preConfirmed, nil

@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
@@ -41,7 +40,7 @@ type Proposer[V types.Hashable[H], H types.Hash] interface {
 	mempool.Pool
 	OnCommit(context.Context, types.Height, V)
 	Submit(context.Context, []mempool.BroadcastedTransaction)
-	Preconfirmed() *pending.PreConfirmed
+	Preconfirmed() *core.PreConfirmed
 }
 
 type proposer[V types.Hashable[H], H types.Hash] struct {
@@ -165,7 +164,7 @@ func (p *proposer[V, H]) Push(ctx context.Context, transaction *mempool.Broadcas
 // Return the preconfirmed block currently guarded by the atomic pointer. The implementation
 // assumes that the referenced value by the atomic pointer is immutable, which means the caller
 // shouldn't modify any fields of the returned preconfirmed block.
-func (p *proposer[V, H]) Preconfirmed() *pending.PreConfirmed {
+func (p *proposer[V, H]) Preconfirmed() *core.PreConfirmed {
 	return p.buildState.Load().PreConfirmed
 }
 
