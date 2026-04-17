@@ -13,6 +13,12 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
+type L1Head struct {
+	BlockNumber uint64
+	BlockHash   *felt.Felt
+	StateRoot   *felt.Felt
+}
+
 type Header struct {
 	// The hash of this block
 	Hash *felt.Felt
