@@ -59,9 +59,7 @@ func (s *StateReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 }
 
 // ContractStorage reads a storage slot directly from the trie at this reader's
-// root. Missing slots read as felt.Zero (Starknet "unset = zero" semantics),
-// matching the pre-split behavior where a missing slot was masked by the
-// dirty-storage cache populated via Update/Revert.
+// root. Missing slots read as felt.Zero.
 func (s *StateReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	storageTrie, err := s.db.ContractStorageTrie(&s.initRoot, addr)
 	if err != nil {
