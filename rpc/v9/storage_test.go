@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -1030,9 +1030,8 @@ func emptyCommonTrie(t *testing.T) core.Trie {
 		tempTrie, err := trie2.NewEmptyPedersen()
 		require.NoError(t, err)
 		return tempTrie
-	} else {
-		return emptyTrie(t)
 	}
+	return emptyTrie(t)
 }
 
 func verifyGlobalStateRoot(t *testing.T, globalStateRoot, classRoot, storageRoot *felt.Felt) {

@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/core"
-	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/spf13/cobra"

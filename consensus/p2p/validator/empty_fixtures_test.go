@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"

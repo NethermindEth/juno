@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	statetestutils "github.com/NethermindEth/juno/core/state/statetestutils"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -33,7 +33,11 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := deprecatedstate.New(txn)
+	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	require.NoError(t, err)
+	newRoot := felt.NewUnsafeFromString[felt.Felt](
+		"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+	)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -125,7 +129,9 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := deprecatedstate.New(txn)
+	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	require.NoError(t, err)
+
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -178,7 +184,8 @@ func TestCallCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	state := deprecatedstate.New(txn)
+	state, err := NewState(t, &felt.Zero, testDB, batch)
+	require.NoError(t, err)
 	firstStateUpdate := core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
@@ -283,7 +290,8 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := deprecatedstate.New(txn)
+	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42"),
@@ -354,7 +362,8 @@ func TestExecute(t *testing.T) {
 	testDB := memory.New()
 	batch := testDB.NewBatch()
 
-	state := deprecatedstate.New(txn)
+	state, err := NewState(t, &felt.Zero, testDB, batch)
+	require.NoError(t, err)
 
 	t.Run("empty transaction list", func(t *testing.T) {
 		feeTokens := networks.DefaultFeeTokenAddresses
@@ -424,7 +433,7 @@ func NewState(
 ) (core.State, error) {
 	if !statetestutils.UseNewState() {
 		txn := testDB.NewIndexedBatch()
-		deprecatedState := core.NewDeprecatedState(txn)
+		deprecatedState := deprecatedstate.New(txn)
 		return deprecatedState, nil
 	}
 	triedb, err := triedb.New(testDB, nil)

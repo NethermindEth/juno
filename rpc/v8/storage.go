@@ -313,7 +313,7 @@ func getContractProofWithDeprecatedTrie(
 
 func getContractProofWithTrie(
 	tr *trie2.Trie,
-	st core.StateReader,
+	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
@@ -324,7 +324,7 @@ func getContractProofWithTrie(
 		}
 	}
 
-	contractLeavesData, err := buildContractLeavesData(st, contracts)
+	contractLeavesData, err := buildContractLeavesData(state, contracts)
 	if err != nil {
 		return nil, err
 	}
