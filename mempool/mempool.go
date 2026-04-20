@@ -27,7 +27,7 @@ type BroadcastedTransaction struct {
 	Transaction   core.Transaction
 	DeclaredClass core.ClassDefinition
 	PaidFeeOnL1   *felt.Felt
-	Proof         utils.Base64
+	Proof         core.Base64
 }
 
 // runtime mempool txn

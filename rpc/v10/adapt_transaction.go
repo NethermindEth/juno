@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var ErrTransactionNotFound = errors.New("transaction not found")
@@ -22,7 +21,7 @@ var ErrTransactionNotFound = errors.New("transaction not found")
 type AddTxGatewayPayload struct {
 	starknet.Transaction
 	ContractClass json.RawMessage `json:"contract_class,omitempty"`
-	Proof         utils.Base64    `json:"proof,omitempty"`
+	Proof         core.Base64     `json:"proof,omitempty"`
 }
 
 // AdaptCoreTransaction adapts a core.Transaction to a local *Transaction.

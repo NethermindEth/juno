@@ -1971,7 +1971,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	}
 
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
-		correctBroadcastedTxn.Proof = utils.Base64("not-valid-base64")
+		correctBroadcastedTxn.Proof = core.Base64("not-valid-base64")
 
 		err := validate.Struct(correctBroadcastedTxn)
 		require.Error(
@@ -1982,7 +1982,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	t.Run("AcceptEmptyProofOnInvoke", func(t *testing.T) {
-		correctBroadcastedTxn.Proof = utils.Base64("")
+		correctBroadcastedTxn.Proof = core.Base64("")
 
 		err := validate.Struct(correctBroadcastedTxn)
 		require.NoError(
@@ -1993,7 +1993,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	t.Run("AcceptInvokeV3WithProofAndProofFacts", func(t *testing.T) {
-		correctBroadcastedTxn.Proof = utils.Base64("AAAAAQAAAAIAAAAD")
+		correctBroadcastedTxn.Proof = core.Base64("AAAAAQAAAAIAAAAD")
 		correctBroadcastedTxn.ProofFacts = &[]felt.Felt{felt.FromUint64[felt.Felt](100)}
 
 		err := validate.Struct(correctBroadcastedTxn.Transaction)

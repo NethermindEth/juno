@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -59,12 +58,6 @@ func Validator() *validator.Validate {
 			}
 			panic("not an rpc v10 TransactionType")
 		}, TransactionType(0))
-		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
-			if b, ok := field.Interface().(utils.Base64); ok {
-				return string(b)
-			}
-			panic("not a utils.Base64")
-		}, utils.Base64(""))
 	})
 	return v
 }

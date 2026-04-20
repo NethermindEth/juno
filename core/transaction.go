@@ -18,6 +18,9 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// Base64 represents base64-encoded binary data serialised as a JSON string.
+type Base64 string
+
 type Resource uint32
 
 const (
