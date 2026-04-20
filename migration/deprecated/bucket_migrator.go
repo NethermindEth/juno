@@ -113,7 +113,7 @@ func (m *BucketMigrator) Migrate(
 			}
 		case <-secondInterrupt:
 			err := errors.New("migration interrupt")
-			return nil, utils.RunAndWrapOnError(iterator.Close, err)
+			return nil, errors.Join(err, iterator.Close())
 		default:
 			// keep going
 		}
@@ -124,21 +124,21 @@ func (m *BucketMigrator) Migrate(
 		}
 
 		if pass, err := m.keyFilter(key); err != nil {
-			return nil, utils.RunAndWrapOnError(iterator.Close, err)
+			return nil, errors.Join(err, iterator.Close())
 		} else if pass {
 			if remainingInBatch == 0 {
 				m.startFrom = key
-				return nil, utils.RunAndWrapOnError(iterator.Close, ErrCallWithNewTransaction)
+				return nil, errors.Join(ErrCallWithNewTransaction, iterator.Close())
 			}
 
 			remainingInBatch--
 			value, err := iterator.Value()
 			if err != nil {
-				return nil, utils.RunAndWrapOnError(iterator.Close, err)
+				return nil, errors.Join(err, iterator.Close())
 			}
 
 			if err = m.do(database, key, value, network); err != nil {
-				return nil, utils.RunAndWrapOnError(iterator.Close, err)
+				return nil, errors.Join(err, iterator.Close())
 			}
 		}
 	}

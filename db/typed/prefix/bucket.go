@@ -1,13 +1,13 @@
 package prefix
 
 import (
+	"errors"
 	"iter"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type Entry[V any] struct {
@@ -53,7 +53,7 @@ func (b *PrefixedBucket[T, K, V, KS, VS]) scan( //nolint:unused // False positiv
 		}
 
 		isExited, err := iterate[V, VS](it, yield)
-		if err := utils.RunAndWrapOnError(it.Close, err); !isExited && err != nil {
+		if err := errors.Join(err, it.Close()); !isExited && err != nil {
 			yield(Entry[V]{}, err)
 		}
 	}

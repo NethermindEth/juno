@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -63,7 +64,7 @@ func (d *DB) View(fn func(txn db.Snapshot) error) error {
 	}
 
 	defer discardTxnOnPanic(txn)
-	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
+	return errors.Join(fn(txn), txn.Discard())
 }
 
 func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
@@ -76,10 +77,10 @@ func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
 
 	defer discardTxnOnPanic(txn)
 	if err := fn(txn); err != nil {
-		return utils.RunAndWrapOnError(txn.Discard, err)
+		return errors.Join(err, txn.Discard())
 	}
 
-	return utils.RunAndWrapOnError(txn.Discard, txn.Commit())
+	return errors.Join(txn.Commit(), txn.Discard())
 }
 
 func (d *DB) Close() error {

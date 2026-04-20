@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknetdata"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type CommittedBlock struct {
@@ -122,17 +121,17 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 
 	for _, classHash := range stateUpdate.StateDiff.DeployedContracts {
 		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, utils.RunAndWrapOnError(closer, err)
+			return nil, errors.Join(err, closer())
 		}
 	}
 	for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes {
 		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, utils.RunAndWrapOnError(closer, err)
+			return nil, errors.Join(err, closer())
 		}
 	}
 	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
 		if err = fetchIfNotFound(&classHash); err != nil {
-			return nil, utils.RunAndWrapOnError(closer, err)
+			return nil, errors.Join(err, closer())
 		}
 	}
 

@@ -17,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -896,14 +895,14 @@ func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 		}
 
 		val, itErr := it.Value()
-		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
+		if err = errors.Join(itErr, it.Close()); err != nil {
 			return nil, err
 		}
 		// seekedHeight > height
 		return val, nil
 	}
 
-	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
+	return nil, errors.Join(ErrCheckHeadState, it.Close())
 }
 
 // ContractStorageAt returns the value of a storage location

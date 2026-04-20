@@ -11,7 +11,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
-	"github.com/NethermindEth/juno/utils"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -55,7 +54,7 @@ func (h Handler) Tx(server gen.KV_TxServer) error {
 				continue
 			}
 		}
-		return utils.RunAndWrapOnError(tx.cleanup, err)
+		return errors.Join(err, tx.cleanup())
 	}
 }
 

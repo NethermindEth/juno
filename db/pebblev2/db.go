@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble/v2"
 )
 
@@ -113,7 +112,7 @@ func (d *DB) Has(key []byte) (bool, error) {
 		return false, err
 	}
 
-	return true, utils.RunAndWrapOnError(closer.Close, err)
+	return true, errors.Join(err, closer.Close())
 }
 
 func (d *DB) Get(key []byte, cb func(value []byte) error) error {
@@ -246,15 +245,15 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperB
 
 	for it.First(); it.Valid(); it.Next() {
 		if ctx.Err() != nil {
-			return item, utils.RunAndWrapOnError(it.Close, ctx.Err())
+			return item, errors.Join(ctx.Err(), it.Close())
 		}
 		v, err = it.Value()
 		if err != nil {
-			return nil, utils.RunAndWrapOnError(it.Close, err)
+			return nil, errors.Join(err, it.Close())
 		}
 
 		item.add(db.DataSize(len(it.Key()) + len(v)))
 	}
 
-	return item, utils.RunAndWrapOnError(it.Close, err)
+	return item, errors.Join(err, it.Close())
 }

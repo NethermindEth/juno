@@ -245,7 +245,7 @@ func migration0000(txn db.IndexedBatch, _ *utils.Network) error {
 
 	// not empty if valid
 	if it.Next() {
-		return utils.RunAndWrapOnError(it.Close, errors.New("initial DB should be empty"))
+		return errors.Join(errors.New("initial DB should be empty"), it.Close())
 	}
 	return it.Close()
 }
@@ -280,7 +280,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 		oldKey := it.Key()
 		value, err = it.Value()
 		if err != nil {
-			return utils.RunAndWrapOnError(it.Close, err)
+			return errors.Join(err, it.Close())
 		}
 		oldEntries[string(oldKey)] = value
 	}
@@ -493,7 +493,7 @@ func (m *changeTrieNodeEncoding) Migrate(
 	batch := database.NewBatch()
 	for bucket, info := range m.trieNodeBuckets {
 		if err := migrateF(iterator, batch, bucket, info.seekTo, info.skipLen); err != nil {
-			return nil, utils.RunAndWrapOnError(iterator.Close, err)
+			return nil, errors.Join(err, iterator.Close())
 		}
 	}
 
