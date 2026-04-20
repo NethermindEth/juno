@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type deprecatedStateBackend struct {
@@ -186,7 +185,7 @@ func (b *deprecatedStateBackend) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
-	sign utils.BlockSignFunc,
+	sign core.BlockSignFunc,
 ) (SimulateResult, error) {
 	//nolint:staticcheck,nolintlint // used by old state
 	txn := b.database.NewIndexedBatch()
@@ -226,7 +225,7 @@ func (b *deprecatedStateBackend) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
-	sign utils.BlockSignFunc,
+	sign core.BlockSignFunc,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
 	err := b.database.Update(func(txn db.IndexedBatch) error {

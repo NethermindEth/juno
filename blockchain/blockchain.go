@@ -406,7 +406,7 @@ func (b *Blockchain) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
-	sign utils.BlockSignFunc,
+	sign core.BlockSignFunc,
 ) (SimulateResult, error) {
 	return b.stateBackend.Simulate(block, stateUpdate, newClasses, sign)
 }
@@ -416,7 +416,7 @@ func (b *Blockchain) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
-	sign utils.BlockSignFunc,
+	sign core.BlockSignFunc,
 ) error {
 	return b.stateBackend.Finalise(block, stateUpdate, newClasses, sign)
 }

@@ -25,13 +25,13 @@ type StateBackend interface {
 		block *core.Block,
 		stateUpdate *core.StateUpdate,
 		newClasses map[felt.Felt]core.ClassDefinition,
-		sign utils.BlockSignFunc,
+		sign core.BlockSignFunc,
 	) (SimulateResult, error)
 	Finalise(
 		block *core.Block,
 		stateUpdate *core.StateUpdate,
 		newClasses map[felt.Felt]core.ClassDefinition,
-		sign utils.BlockSignFunc,
+		sign core.BlockSignFunc,
 	) error
 }
 

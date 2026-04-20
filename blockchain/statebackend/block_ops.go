@@ -68,7 +68,7 @@ func updateBlockHash(
 }
 
 // signBlock applies the signature to the block if a signing function is provided.
-func signBlock(block *core.Block, stateUpdate *core.StateUpdate, sign utils.BlockSignFunc) error {
+func signBlock(block *core.Block, stateUpdate *core.StateUpdate, sign core.BlockSignFunc) error {
 	commitment := stateUpdate.StateDiff.Commitment()
 	sig, err := sign(block.Hash, &commitment)
 	if err != nil {

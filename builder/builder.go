@@ -55,7 +55,7 @@ func (b *Builder) Network() *utils.Network {
 
 func (b *Builder) Finalise(
 	preconfirmed *pending.PreConfirmed,
-	signer utils.BlockSignFunc,
+	signer core.BlockSignFunc,
 	privateKey *ecdsa.PrivateKey,
 ) error {
 	return b.blockchain.Finalise(

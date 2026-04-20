@@ -13,6 +13,8 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
+type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
+
 type L1Head struct {
 	BlockNumber uint64
 	BlockHash   *felt.Felt
