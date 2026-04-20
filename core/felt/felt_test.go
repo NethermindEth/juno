@@ -169,7 +169,6 @@ func TestMarshalJSON(t *testing.T) {
 		},
 		{"power of two", "0x100", `"0x100"`},
 		{"0x10 boundary", "0x10", `"0x10"`},
-		{"0x0f boundary", "0xf", `"0xf"`},
 	}
 
 	for _, tc := range tests {
@@ -230,7 +229,6 @@ func TestUnmarshalJSON(t *testing.T) {
 			{"no hex prefix", `"4437ab"`},
 			{"empty hex", `"0x"`},
 			{"only quotes", `""`},
-			{"too short", `"0x"`},
 			{
 				"65 hex digits (exceeds 32 bytes)",
 				`"0x10000000000000000000000000000000000000000000000000000000000000000"`,

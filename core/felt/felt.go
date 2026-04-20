@@ -82,16 +82,16 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 // unnecessary leading zeros. Uses a value receiver so encoding/json
 // can call it on non-addressable values (struct fields in `any`).
 func (z Felt) MarshalJSON() ([]byte, error) {
-	var raw [32]byte
+	var raw [Bytes]byte
 	fp.BigEndian.PutElement(&raw, fp.Element(z))
 
 	// Find first significant byte.
 	i := 0
-	for i < 31 && raw[i] == 0 {
+	for i < Bytes-1 && raw[i] == 0 {
 		i++
 	}
 
-	out := make([]byte, 3, 4+(32-i)*2)
+	out := make([]byte, 3, 4+(Bytes-i)*2)
 	out[0], out[1], out[2] = '"', '0', 'x'
 
 	// First byte may need a single hex digit (e.g. 0x3, not 0x03).
