@@ -85,6 +85,13 @@ func NonNilSlice[T any](sl []T) []T {
 	return sl
 }
 
+func DerefSlice[T any](v *[]T) []T {
+	if v == nil {
+		return nil
+	}
+	return *v
+}
+
 func FeltArrToString(arr []*felt.Felt) string {
 	res := make([]string, len(arr))
 	for i, felt := range arr {
