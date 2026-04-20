@@ -4,6 +4,7 @@ package grpc
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -125,7 +125,7 @@ func (h Handler) handleTxCursor(
 	}
 
 	if err != nil {
-		return errors.Wrapf(err, "cursor %d operation %q", cur.Cursor, cur.Op)
+		return fmt.Errorf("cursor %d operation %q: %w", cur.Cursor, cur.Op, err)
 	}
 
 	return server.Send(responsePair)
