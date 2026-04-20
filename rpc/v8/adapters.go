@@ -308,8 +308,8 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 
 		adaptedEvents[index] = OrderedEvent{
 			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
+			Keys:  utils.ToPtrSlice(snEvent.Keys),
+			Data:  utils.ToPtrSlice(snEvent.Data),
 		}
 	}
 
@@ -324,7 +324,7 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      toAddr,
-			Payload: utils.Map(snMessage.Payload, utils.HeapPtr[felt.Felt]),
+			Payload: utils.ToPtrSlice(snMessage.Payload),
 		}
 	}
 

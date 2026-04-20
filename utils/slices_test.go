@@ -74,6 +74,26 @@ func TestAnyOf(t *testing.T) {
 	})
 }
 
+func TestToPtrSlice(t *testing.T) {
+	t.Run("nil slice", func(t *testing.T) {
+		var input []int
+		assert.Nil(t, ToPtrSlice(input))
+	})
+
+	t.Run("pointers dereference to input values", func(t *testing.T) {
+		input := []int{1, 2, 3}
+		actual := ToPtrSlice(input)
+		assert.Equal(t, []int{1, 2, 3}, []int{*actual[0], *actual[1], *actual[2]})
+	})
+
+	t.Run("pointers do not alias the input's backing array", func(t *testing.T) {
+		input := []int{1, 2, 3}
+		actual := ToPtrSlice(input)
+		input[0] = 99
+		assert.Equal(t, 1, *actual[0], "mutation of input should not affect copied pointers")
+	})
+}
+
 func TestSet(t *testing.T) {
 	t.Run("nil slice", func(t *testing.T) {
 		var input []int

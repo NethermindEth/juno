@@ -64,6 +64,19 @@ func Set[T comparable](slice []T) []T {
 	return result
 }
 
+// ToPtrSlice returns a slice of pointers, where each pointer refers to a
+// copy of the corresponding input element.
+func ToPtrSlice[T any](s []T) []*T {
+	if s == nil {
+		return nil
+	}
+	result := make([]*T, len(s))
+	for i, v := range s {
+		result[i] = &v
+	}
+	return result
+}
+
 func NonNilSlice[T any](sl []T) []T {
 	if sl == nil {
 		return []T{}
