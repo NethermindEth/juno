@@ -425,7 +425,7 @@ type Transaction struct {
 
 // BroadcastedTransaction represents a transaction submitted via the RPC API.
 //
-
+//nolint:lll // We can't break the json tags lines
 type BroadcastedTransaction struct {
 	Transaction
 	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`

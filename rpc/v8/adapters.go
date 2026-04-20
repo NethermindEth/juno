@@ -259,11 +259,15 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = new(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
+			trace.FeeTransferInvocation = new(
+				adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
+			)
 		}
 
 		if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = new(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
+			trace.ValidateInvocation = new(
+				adaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
+			)
 		}
 
 		var fnInvocation *FunctionInvocation
