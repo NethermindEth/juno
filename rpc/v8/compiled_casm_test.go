@@ -97,7 +97,7 @@ func TestCompiledCasm(t *testing.T) {
 		assert.Equal(t, uint64(42), resp.EntryPointsByType.External[0].Offset)
 		assert.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0xabc"), resp.EntryPointsByType.External[0].Selector)
 		assert.Equal(t, []string{"range_check"}, resp.EntryPointsByType.External[0].Builtins)
-		assert.Equal(t, utils.ToHex(big.NewInt(123)), resp.Prime)
+		assert.Equal(t, fmt.Sprintf("0x%x", big.NewInt(123)), resp.Prime)
 		assert.Equal(t, "1.0.0", resp.CompilerVersion)
 	})
 }

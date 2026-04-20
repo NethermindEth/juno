@@ -3,13 +3,13 @@ package rpcv9
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type EntryPoint struct {
@@ -69,7 +69,7 @@ func adaptCasmClass(class *core.CasmClass) CompiledCasmResponse {
 			External:    adaptCasmEntryPoints(class.External),
 			L1Handler:   adaptCasmEntryPoints(class.L1Handler),
 		},
-		Prime:                  utils.ToHex(class.Prime),
+		Prime:                  fmt.Sprintf("0x%x", class.Prime),
 		CompilerVersion:        class.CompilerVersion,
 		Bytecode:               class.Bytecode,
 		Hints:                  class.Hints,

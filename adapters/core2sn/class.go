@@ -1,6 +1,8 @@
 package core2sn
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -27,7 +29,7 @@ func AdaptCasmClass(coreCasmClass *core.CasmClass) starknet.CasmClass {
 	feederCompiledClass.PythonicHints = coreCasmClass.PythonicHints
 	feederCompiledClass.CompilerVersion = coreCasmClass.CompilerVersion
 	feederCompiledClass.Hints = coreCasmClass.Hints
-	feederCompiledClass.Prime = utils.ToHex(coreCasmClass.Prime)
+	feederCompiledClass.Prime = fmt.Sprintf("0x%x", coreCasmClass.Prime)
 
 	if coreCasmClass.BytecodeSegmentLengths.Length != 0 ||
 		len(coreCasmClass.BytecodeSegmentLengths.Children) != 0 {

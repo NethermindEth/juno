@@ -103,7 +103,7 @@ func TestCompiledCasm(t *testing.T) {
 			resp.EntryPointsByType.External[0].Selector,
 		)
 		assert.Equal(t, []string{"range_check"}, resp.EntryPointsByType.External[0].Builtins)
-		assert.Equal(t, utils.ToHex(big.NewInt(123)), resp.Prime)
+		assert.Equal(t, fmt.Sprintf("0x%x", big.NewInt(123)), resp.Prime)
 		assert.Equal(t, "1.0.0", resp.CompilerVersion)
 	})
 }

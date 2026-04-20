@@ -3,6 +3,7 @@ package rpcv8
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -78,7 +79,7 @@ func adaptCasmClass(class *core.CasmClass) CasmCompiledContractClass {
 			External:    utils.Map(class.External, adaptEntryPoint),
 			L1Handler:   utils.Map(class.L1Handler, adaptEntryPoint),
 		},
-		Prime:                  utils.ToHex(class.Prime),
+		Prime:                  fmt.Sprintf("0x%x", class.Prime),
 		CompilerVersion:        class.CompilerVersion,
 		Bytecode:               class.Bytecode,
 		Hints:                  class.Hints,
