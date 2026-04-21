@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -41,6 +43,19 @@ type Request struct {
 	Method  string `json:"method"`
 	Params  any    `json:"params,omitempty"`
 	ID      any    `json:"id,omitempty"`
+}
+
+// MarshalLogObject implements [zapcore.ObjectMarshaler].
+func (r *Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("jsonrpc", strconv.Quote(r.Version))
+	enc.AddString("method", strconv.Quote(r.Method))
+	if r.ID != nil {
+		enc.AddReflected("id", r.ID)
+	}
+	if r.Params != nil {
+		enc.AddReflected("params", r.Params)
+	}
+	return nil
 }
 
 type response struct {
@@ -461,8 +476,7 @@ func isNilOrEmpty(i any) (bool, error) {
 // TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
 // instead of crashing the HTTP connection
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
-	// todo(rdr): have a way of representing a `req` so the structured logger has a way of showing it
-	s.logger.Trace("Received request", zap.Any("req", req))
+	s.logger.Trace("Received request", zap.Object("req", req))
 
 	header := http.Header{}
 	if err := req.isSane(); err != nil {
@@ -478,7 +492,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
-		s.logger.Trace("Method not found in request", zap.String("method", req.Method))
+		s.logger.Trace("Method not found in request", zap.String("method", strconv.Quote(req.Method)))
 		return res, header, nil
 	}
 
