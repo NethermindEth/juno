@@ -198,12 +198,14 @@ where
                     .max_possible_fee(account_transaction.tip());
             if balance > max_fee_without_l2_gas.0.into() {
                 // Calculate the maximum amount of L2 gas that can be bought with the balance.
-                let max_l2_gas = (balance - max_fee_without_l2_gas.0)
-                    / initial_resource_bounds
-                        .l2_gas
-                        .max_price_per_unit
-                        .0
-                        .max(1u64.into());
+                // max_possible_fee = max_amount * (max_price + tip).
+                let effective_l2_price: u128 = initial_resource_bounds
+                    .l2_gas
+                    .max_price_per_unit
+                    .0
+                    .saturating_add(account_transaction.tip().0.into())
+                    .max(1u64.into());
+                let max_l2_gas = (balance - max_fee_without_l2_gas.0) / effective_l2_price;
                 Ok(u64::try_from(max_l2_gas).unwrap_or(GasAmount::MAX.0).into())
             } else {
                 // Balance is less than committed L1 gas and L1 data gas, transaction will fail.
