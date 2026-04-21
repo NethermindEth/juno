@@ -737,8 +737,8 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 				ID:      1,
 			},
 			want: map[string]any{
-				"jsonrpc": `"2.0"`,
-				"method":  `"starknet_getBlockWithTxs"`,
+				"jsonrpc": "2.0",
+				"method":  "starknet_getBlockWithTxs",
 				"id":      1,
 				"params":  []any{"latest"},
 			},
@@ -749,8 +749,8 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 				Method:  "ping",
 			},
 			want: map[string]any{
-				"jsonrpc": `"2.0"`,
-				"method":  `"ping"`,
+				"jsonrpc": "2.0",
+				"method":  "ping",
 			},
 		},
 		"string id": {
@@ -760,19 +760,19 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 				ID:      "abc",
 			},
 			want: map[string]any{
-				"jsonrpc": `"2.0"`,
-				"method":  `"ping"`,
+				"jsonrpc": "2.0",
+				"method":  "ping",
 				"id":      "abc",
 			},
 		},
-		"method with control chars is escaped": {
+		"method with control chars is sanitised": {
 			req: &jsonrpc.Request{
 				Version: "2.0",
 				Method:  "evil\nINJECTED\r\tmethod",
 			},
 			want: map[string]any{
-				"jsonrpc": `"2.0"`,
-				"method":  `"evil\nINJECTED\r\tmethod"`,
+				"jsonrpc": "2.0",
+				"method":  "evilINJECTED\tmethod",
 			},
 		},
 	}
