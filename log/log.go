@@ -331,6 +331,14 @@ func capitalLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	}
 }
 
+// SanitizeString sanitizes the string so that user-controlled input cannot
+// forge new log lines.
+// Also useful to avoid CodeQL CI errors like this:
+// https://github.com/NethermindEth/juno/security/code-scanning/662
+func SanitizeString(s string) string {
+	return strings.NewReplacer("\n", "", "\r", "").Replace(s)
+}
+
 // HTTPLogSettings is an HTTP handler that allows changing the log level of the logger.
 // It can also be used to query what's the current log level.
 func HTTPLogSettings(w http.ResponseWriter, r *http.Request, log *LogLevel) {

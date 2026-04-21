@@ -386,3 +386,28 @@ func TestTrace(t *testing.T) {
 		assert.Empty(t, buf.String())
 	})
 }
+
+func TestSanitizeString(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		expected string
+	}{
+		"empty":                 {"", ""},
+		"no special chars":      {"hello world", "hello world"},
+		"strips LF":             {"hello\nworld", "helloworld"},
+		"strips CR":             {"hello\rworld", "helloworld"},
+		"strips CRLF":           {"hello\r\nworld", "helloworld"},
+		"strips multiple":       {"a\nb\nc\r\nd", "abcd"},
+		"forged log entry":      {"foo\nINFO\tfake entry", "fooINFO\tfake entry"},
+		"preserves tabs/spaces": {"a\tb c", "a\tb c"},
+		"preserves unicode":     {"héllo→wörld", "héllo→wörld"},
+		"only newlines":         {"\n\r\n\r", ""},
+		"leading/trailing LF":   {"\nmiddle\n", "middle"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, log.SanitizeString(tc.input))
+		})
+	}
+}
