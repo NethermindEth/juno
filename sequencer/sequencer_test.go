@@ -137,7 +137,9 @@ func getGenesisSequencer(
 	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, logger), logger, false, true)
 	testBuilder := builder.New(bc, executor)
 	rpcHandler := rpc.New(bc, nil, nil, log.NewNopZapLogger()).WithMempool(txnPool)
-	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, logger), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
+	return sequencer.New(
+		&testBuilder, txnPool, seqAddr, privKey, blockTime, logger,
+	), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
 }
 
 func TestBuildEmptyBlocks(t *testing.T) {

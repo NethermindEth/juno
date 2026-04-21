@@ -6,13 +6,12 @@ import (
 	syncLock "sync"
 	"time"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"

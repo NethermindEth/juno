@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/log"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/pool"
@@ -131,7 +130,11 @@ func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
 			case messages <- message:
 			}
 		}
-		topicSubscription := buffered.NewTopicSubscription(t.logger, t.bufferSizeConfig.ProposalDemux, onMessage)
+		topicSubscription := buffered.NewTopicSubscription(
+			t.logger,
+			t.bufferSizeConfig.ProposalDemux,
+			onMessage,
+		)
 		topicSubscription.Loop(ctx, topic)
 	})
 
@@ -251,7 +254,13 @@ func (t *proposalStreamDemux) getStream(id streamID) *proposalStream {
 	if stream, exists := t.streams[id]; exists {
 		return stream
 	}
-	stream := newSingleProposalStream(t.logger, t.proposalStore, t.transition, t.bufferSizeConfig.ProposalSingleStreamInput, t.outputs)
+	stream := newSingleProposalStream(
+		t.logger,
+		t.proposalStore,
+		t.transition,
+		t.bufferSizeConfig.ProposalSingleStreamInput,
+		t.outputs,
+	)
 	t.streams[id] = stream
 	return stream
 }

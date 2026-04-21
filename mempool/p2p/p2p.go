@@ -5,11 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
@@ -46,11 +45,15 @@ func New(
 	compiler compiler.Compiler,
 ) *P2P {
 	return &P2P{
-		host:             host,
-		logger:           logger,
-		network:          network,
-		pool:             pool,
-		broadcaster:      NewTransactionBroadcaster(logger, config.MempoolBroadcaster, config.RetryInterval),
+		host:    host,
+		logger:  logger,
+		network: network,
+		pool:    pool,
+		broadcaster: NewTransactionBroadcaster(
+			logger,
+			config.MempoolBroadcaster,
+			config.RetryInterval,
+		),
 		listener:         NewTransactionListener(network, logger, pool, config.MempoolListener, compiler),
 		config:           config,
 		bootstrapPeersFn: bootstrapPeersFn,

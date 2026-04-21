@@ -3,11 +3,10 @@ package vote
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/log"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"go.uber.org/zap"
@@ -69,7 +68,11 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 
 	return voteListeners[V, H, A]{
-		TopicSubscription: buffered.NewTopicSubscription(logger, bufferSizeConfig.VoteSubscription, onMessage),
+		TopicSubscription: buffered.NewTopicSubscription(
+			logger,
+			bufferSizeConfig.VoteSubscription,
+			onMessage,
+		),
 		logger:            logger,
 		PrevoteListener:   prevoteListener,
 		PrecommitListener: precommitListener,

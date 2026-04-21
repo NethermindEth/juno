@@ -623,7 +623,10 @@ func (s *BlockFetcher) genStateDiffs(
 			case *state.StateDiffsResponse_Fin:
 				break loop
 			default:
-				s.logger.Warn("Unexpected ClassMessage from getStateDiffs", zap.String("v", fmt.Sprintf("%T", v)))
+				s.logger.Warn(
+					"Unexpected ClassMessage from getStateDiffs",
+					zap.String("v", fmt.Sprintf("%T", v)),
+				)
 				break loop
 			}
 		}

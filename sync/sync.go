@@ -257,7 +257,10 @@ func (s *Synchronizer) isReverting(
 func (s *Synchronizer) handlePluginRevertBlock() {
 	fromBlock, err := s.blockchain.Head()
 	if err != nil {
-		s.logger.Warn("Failed to retrieve the reverted blockchain head block for the plugin", zap.Error(err))
+		s.logger.Warn(
+			"Failed to retrieve the reverted blockchain head block for the plugin",
+			zap.Error(err),
+		)
 		return
 	}
 	fromSU, err := s.blockchain.StateUpdateByNumber(fromBlock.Number)

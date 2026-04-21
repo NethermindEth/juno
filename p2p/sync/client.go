@@ -80,7 +80,11 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
-		logger.Error("sendAndCloseWrite (stream is not closed)", zap.Error(err), zap.String("streamID", id))
+		logger.Error(
+			"sendAndCloseWrite (stream is not closed)",
+			zap.Error(err),
+			zap.String("streamID", id),
+		)
 		return nil, err
 	}
 

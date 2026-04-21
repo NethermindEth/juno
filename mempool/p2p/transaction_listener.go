@@ -3,11 +3,10 @@ package p2p
 import (
 	"context"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/adapters/p2p2mempool"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"

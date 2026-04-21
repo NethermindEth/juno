@@ -58,7 +58,15 @@ func TestSyncBlocks(t *testing.T) {
 		testDB := memory.New()
 		bc := blockchain.New(testDB, &networks.Mainnet)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(
+			bc,
+			dataSource,
+			logger,
+			time.Duration(0),
+			time.Duration(0),
+			false,
+			testDB,
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -77,7 +85,15 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(
+			bc,
+			dataSource,
+			logger,
+			time.Duration(0),
+			time.Duration(0),
+			false,
+			testDB,
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -137,7 +153,15 @@ func TestSyncBlocks(t *testing.T) {
 			}).AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
-		synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(
+			bc,
+			dataSource,
+			logger,
+			time.Duration(0),
+			time.Duration(0),
+			false,
+			testDB,
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))

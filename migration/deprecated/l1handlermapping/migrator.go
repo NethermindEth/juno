@@ -67,7 +67,11 @@ func (m *Migrator) Migrate(
 	}
 
 	numWorkers := runtime.GOMAXPROCS(0)
-	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(logger, chainHeight, m.startFrom)
+	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(
+		logger,
+		chainHeight,
+		m.startFrom,
+	)
 	resumeFrom, err := migrateBlockRange(
 		ctx,
 		database,

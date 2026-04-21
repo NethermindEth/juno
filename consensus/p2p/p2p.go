@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
@@ -16,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/service"
@@ -95,7 +94,11 @@ func New(
 		commitNotifier,
 		currentHeight,
 	)
-	voteStream := vote.NewVoteListeners[starknet.Value](logger, vote.StarknetVoteAdapter, bufferSizeConfig)
+	voteStream := vote.NewVoteListeners[starknet.Value](
+		logger,
+		vote.StarknetVoteAdapter,
+		bufferSizeConfig,
+	)
 	listeners := Listeners[starknet.Value, starknet.Hash, starknet.Address]{
 		ProposalListener:  proposalStream,
 		PrevoteListener:   voteStream.PrevoteListener,

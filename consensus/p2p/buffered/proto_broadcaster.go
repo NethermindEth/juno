@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/log"
-
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"

@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/log"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"

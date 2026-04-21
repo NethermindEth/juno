@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/log"
-
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"go.uber.org/zap"
 )
@@ -16,7 +15,11 @@ type TopicSubscription struct {
 	callback   func(context.Context, *pubsub.Message)
 }
 
-func NewTopicSubscription(logger log.Logger, bufferSize int, callback func(context.Context, *pubsub.Message)) TopicSubscription {
+func NewTopicSubscription(
+	logger log.Logger,
+	bufferSize int,
+	callback func(context.Context, *pubsub.Message),
+) TopicSubscription {
 	return TopicSubscription{
 		logger:     logger,
 		bufferSize: bufferSize,

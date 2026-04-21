@@ -85,7 +85,11 @@ func (m *Migrator) Migrate(
 	)
 	maxWorkers := runtime.GOMAXPROCS(0)
 	// setup progress tracker and logger
-	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(logger, chainHeight, m.startFrom)
+	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(
+		logger,
+		chainHeight,
+		m.startFrom,
+	)
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
 

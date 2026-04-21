@@ -150,7 +150,9 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 // Todo: (immediate follow-up PR) tidy this function up.
-func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
+//
+//nolint:gocyclo,funlen // TODO: refactor this function to reduce complexity
+func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) {
 	logger, err := log.NewZapLogger(
 		logLevel,
 		log.WithColour(cfg.Colour),
@@ -163,7 +165,12 @@ func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) { /
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.KeyValueStore
 	if dbIsRemote {
-		database, err = remote.New(cfg.RemoteDB, context.TODO(), logger, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		database, err = remote.New(
+			cfg.RemoteDB,
+			context.TODO(),
+			logger,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 	} else {
 		// note(rdr): A dedicated logger with level Error to avoid noise.
 		var dbLog *log.ZapLogger
@@ -454,7 +461,15 @@ func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) { /
 	}
 	if cfg.Websocket {
 		services = append(services,
-			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, logger, cfg.Metrics, cfg.RPCCorsEnable))
+			makeRPCOverWebsocket(
+				cfg.WebsocketHost,
+				cfg.WebsocketPort,
+				rpcServers,
+				logger,
+				cfg.Metrics,
+				cfg.RPCCorsEnable,
+			),
+		)
 	}
 	if cfg.HTTPUpdatePort != 0 {
 		logger.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +

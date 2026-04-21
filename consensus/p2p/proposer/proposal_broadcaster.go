@@ -4,11 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/NethermindEth/juno/log"
-
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/log"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
@@ -34,8 +33,13 @@ func NewProposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr](
 		logger:          logger,
 		proposalAdapter: proposalAdapter,
 		proposalStore:   proposalStore,
-		broadcaster:     buffered.NewProtoBroadcaster[*consensus.StreamMessage](logger, bufferSize, retryInterval, nil),
-		proposals:       make(chan *types.Proposal[V, H, A], bufferSize),
+		broadcaster: buffered.NewProtoBroadcaster[*consensus.StreamMessage](
+			logger,
+			bufferSize,
+			retryInterval,
+			nil,
+		),
+		proposals: make(chan *types.Proposal[V, H, A], bufferSize),
 	}
 }
 
