@@ -331,8 +331,8 @@ func capitalLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	}
 }
 
-// SanitizeString sanitises the string so that user-controlled input cannot
-// forge new log lines.
+// SanitizeString sanitises a string by removing characters that could
+// compromise log integrity or be used for log injection.
 // Also useful to avoid CodeQL CI errors like this:
 // https://github.com/NethermindEth/juno/security/code-scanning/662
 func SanitizeString(s string) string {
