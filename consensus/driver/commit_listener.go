@@ -25,20 +25,20 @@ type CommitListener[V types.Hashable[H], H types.Hash] interface {
 }
 
 type commitListener[V types.Hashable[H], H types.Hash] struct {
-	log             log.Logger
+	logger          log.Logger
 	proposalStore   *proposal.ProposalStore[H]
 	postCommitHooks []CommitHook[V, H]
 	commits         chan sync.CommittedBlock
 }
 
 func NewCommitListener[V types.Hashable[H], H types.Hash](
-	log log.Logger,
+	logger log.Logger,
 	proposalStore *proposal.ProposalStore[H],
 	postCommitHooks ...CommitHook[V, H],
 ) CommitListener[V, H] {
 	commits := make(chan sync.CommittedBlock)
 	return &commitListener[V, H]{
-		log:             log,
+		logger:          logger,
 		proposalStore:   proposalStore,
 		postCommitHooks: postCommitHooks,
 		commits:         commits,
@@ -49,7 +49,7 @@ func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height
 	buildResult := b.proposalStore.Get(value.Hash())
 	if buildResult == nil {
 		// todo(rdr): we can avoid using the ANY by writing some representation into Hash
-		b.log.Error("failed to get build result", zap.Any("hash", value.Hash()))
+		b.logger.Error("failed to get build result", zap.Any("hash", value.Hash()))
 		return
 	}
 

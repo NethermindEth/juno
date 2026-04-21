@@ -34,7 +34,7 @@ func (m *cancellableMockMigration) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *networks.Network,
-	log log.StructuredLogger,
+	logger log.StructuredLogger,
 ) ([]byte, error) {
 	m.migrateCalled = true
 

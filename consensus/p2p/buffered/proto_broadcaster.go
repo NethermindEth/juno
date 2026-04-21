@@ -13,20 +13,20 @@ import (
 )
 
 type ProtoBroadcaster[M proto.Message] struct {
-	log                 log.Logger
+	logger              log.Logger
 	ch                  chan M
 	retryInterval       time.Duration
 	rebroadcastStrategy RebroadcastStrategy[M]
 }
 
 func NewProtoBroadcaster[M proto.Message](
-	log log.Logger,
+	logger log.Logger,
 	bufferSize int,
 	retryInterval time.Duration,
 	rebroadcastStrategy RebroadcastStrategy[M],
 ) ProtoBroadcaster[M] {
 	return ProtoBroadcaster[M]{
-		log:                 log,
+		logger:              logger,
 		ch:                  make(chan M, bufferSize),
 		retryInterval:       retryInterval,
 		rebroadcastStrategy: rebroadcastStrategy,
@@ -53,13 +53,13 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 		case msg := <-b.ch:
 			msgBytes, err := proto.Marshal(msg)
 			if err != nil {
-				b.log.Error("unable to marshal message", zap.Error(err))
+				b.logger.Error("unable to marshal message", zap.Error(err))
 				continue
 			}
 
 			for {
 				if err := topic.Publish(ctx, msgBytes); err != nil && !errors.Is(err, context.Canceled) {
-					b.log.Error("unable to send message", zap.Error(err))
+					b.logger.Error("unable to send message", zap.Error(err))
 					time.Sleep(b.retryInterval)
 					continue
 				}
@@ -72,7 +72,7 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 		case <-rebroadcasted.trigger:
 			for msgBytes := range rebroadcasted.messages {
 				if err := topic.Publish(ctx, msgBytes); err != nil && !errors.Is(err, context.Canceled) {
-					b.log.Error("unable to rebroadcast message", zap.Error(err))
+					b.logger.Error("unable to rebroadcast message", zap.Error(err))
 				}
 			}
 		}

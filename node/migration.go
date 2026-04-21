@@ -31,7 +31,7 @@ func migrateIfNeeded(
 	ctx context.Context,
 	db db.KeyValueStore,
 	config *Config,
-	log log.Logger,
+	logger log.Logger,
 ) error {
 	migrateFn := func() error {
 		// Run deprecated migrations first
@@ -39,7 +39,7 @@ func migrateIfNeeded(
 			ctx,
 			db,
 			&config.Network,
-			log,
+			logger,
 		); err != nil {
 			return fmt.Errorf("deprecated migration failed: %w", err)
 		}
@@ -50,7 +50,7 @@ func migrateIfNeeded(
 			registry,
 			db,
 			&config.Network,
-			log,
+			logger,
 		)
 		if err != nil {
 			return fmt.Errorf("create migration runner: %w", err)
@@ -61,7 +61,7 @@ func migrateIfNeeded(
 
 	if config.HTTP {
 		return migration.RunWithServer(
-			log,
+			logger,
 			config.HTTPHost,
 			config.HTTPPort,
 			migrateFn,

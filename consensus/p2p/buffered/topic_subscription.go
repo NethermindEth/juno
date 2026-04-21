@@ -11,14 +11,14 @@ import (
 )
 
 type TopicSubscription struct {
-	log        log.Logger
+	logger     log.Logger
 	bufferSize int
 	callback   func(context.Context, *pubsub.Message)
 }
 
-func NewTopicSubscription(log log.Logger, bufferSize int, callback func(context.Context, *pubsub.Message)) TopicSubscription {
+func NewTopicSubscription(logger log.Logger, bufferSize int, callback func(context.Context, *pubsub.Message)) TopicSubscription {
 	return TopicSubscription{
-		log:        log,
+		logger:     logger,
 		bufferSize: bufferSize,
 		callback:   callback,
 	}
@@ -27,7 +27,7 @@ func NewTopicSubscription(log log.Logger, bufferSize int, callback func(context.
 func (b TopicSubscription) Loop(ctx context.Context, topic *pubsub.Topic) {
 	sub, err := topic.Subscribe(pubsub.WithBufferSize(b.bufferSize))
 	if err != nil {
-		b.log.Error("unable to subscribe to topic", zap.Error(err))
+		b.logger.Error("unable to subscribe to topic", zap.Error(err))
 		return
 	}
 	defer sub.Cancel()
@@ -39,7 +39,7 @@ func (b TopicSubscription) Loop(ctx context.Context, topic *pubsub.Topic) {
 				return
 			}
 
-			b.log.Error("unable to receive message", zap.Error(err))
+			b.logger.Error("unable to receive message", zap.Error(err))
 			continue
 		}
 		b.callback(ctx, msg)

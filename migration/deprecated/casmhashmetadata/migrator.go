@@ -57,7 +57,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *networks.Network,
-	log log.StructuredLogger,
+	logger log.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -68,12 +68,12 @@ func (m *Migrator) Migrate(
 	}
 
 	if m.startFrom > 0 {
-		log.Info("Resuming Casm hash metadata migration",
+		logger.Info("Resuming Casm hash metadata migration",
 			zap.Uint64("chain_height", chainHeight),
 			zap.Uint64("resuming_from", m.startFrom),
 		)
 	} else {
-		log.Info("Starting Casm hash metadata migration",
+		logger.Info("Starting Casm hash metadata migration",
 			zap.Uint64("chain_height", chainHeight),
 		)
 	}
@@ -85,7 +85,7 @@ func (m *Migrator) Migrate(
 	)
 	maxWorkers := runtime.GOMAXPROCS(0)
 	// setup progress tracker and logger
-	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(log, chainHeight, m.startFrom)
+	progressTracker := deprecatedprogresslogger.NewBlockProgressTracker(logger, chainHeight, m.startFrom)
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
 
@@ -107,7 +107,7 @@ func (m *Migrator) Migrate(
 
 		resumeFrom, err := migrateRange(
 			ctx,
-			log,
+			logger,
 			batchSemaphore,
 			m.startFrom,
 			toBlock,
@@ -120,7 +120,7 @@ func (m *Migrator) Migrate(
 
 		// Check for cancellation after processing
 		if shouldResume := resumeFrom <= toBlock; shouldResume {
-			log.Info("Casm hash metadata migration interrupted",
+			logger.Info("Casm hash metadata migration interrupted",
 				zap.Uint64("resume_from", resumeFrom),
 				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
@@ -139,7 +139,7 @@ func (m *Migrator) Migrate(
 		)
 		resumeFrom, err := migrateRange(
 			ctx,
-			log,
+			logger,
 			batchSemaphore,
 			phase2Start,
 			chainHeight,
@@ -151,7 +151,7 @@ func (m *Migrator) Migrate(
 		}
 
 		if shouldResume := resumeFrom <= chainHeight; shouldResume {
-			log.Info("Casm hash metadata migration interrupted",
+			logger.Info("Casm hash metadata migration interrupted",
 				zap.Uint64("resume_from", resumeFrom),
 				zap.Duration("elapsed", progressTracker.Elapsed()),
 			)
@@ -159,7 +159,7 @@ func (m *Migrator) Migrate(
 		}
 	}
 
-	log.Info("Casm hash metadata migration completed",
+	logger.Info("Casm hash metadata migration completed",
 		zap.Duration("elapsed", progressTracker.Elapsed()),
 	)
 
@@ -168,7 +168,7 @@ func (m *Migrator) Migrate(
 
 func migrateRange(
 	ctx context.Context,
-	log log.StructuredLogger,
+	logger log.StructuredLogger,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	fromBlock, toBlock uint64,
 	maxWorkers int,
@@ -187,7 +187,7 @@ func migrateRange(
 	committerPipeline := pipeline.New(
 		ingestorPipeline,
 		maxWorkers,
-		newCommitter(log, batchSemaphore),
+		newCommitter(logger, batchSemaphore),
 	)
 
 	_, wait := committerPipeline.Run(ctx)

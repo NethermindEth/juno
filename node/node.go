@@ -142,7 +142,7 @@ type Node struct {
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
-	log           log.Logger
+	logger        log.Logger
 
 	version string
 }
@@ -493,7 +493,7 @@ func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) { /
 
 	n := &Node{
 		cfg:           cfg,
-		log:           logger,
+		logger:        logger,
 		version:       version,
 		db:            database,
 		blockchain:    chain,
@@ -509,7 +509,7 @@ func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) { /
 		}
 
 		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.log)
+		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
@@ -518,7 +518,7 @@ func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) { /
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
-		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
+		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger)
 		n.services = append(n.services, ug)
 	} else {
 		logger.Warn("Failed to parse Juno version, will not warn about new releases",
@@ -562,22 +562,22 @@ func newL1Client(
 func (n *Node) Run(ctx context.Context) {
 	defer func() {
 		if closeErr := n.db.Close(); closeErr != nil {
-			n.log.Error("Error while closing the DB", zap.Error(closeErr))
+			n.logger.Error("Error while closing the DB", zap.Error(closeErr))
 		}
 	}()
 
 	defer func() {
 		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
-			n.log.Error("Error while storing running event filter", zap.Error(dbErr))
+			n.logger.Error("Error while storing running event filter", zap.Error(dbErr))
 		}
 	}()
 
 	yamlConfig, err := yaml.Marshal(n.cfg)
 	if err != nil {
-		n.log.Error("Error while marshalling config", zap.Error(err))
+		n.logger.Error("Error while marshalling config", zap.Error(err))
 		return
 	}
-	n.log.Debug(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
+	n.logger.Debug(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
 	wg := conc.NewWaitGroup()
 	defer wg.Wait()
@@ -588,20 +588,20 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	err = migrateIfNeeded(ctx, n.db, n.cfg, n.log)
+	err = migrateIfNeeded(ctx, n.db, n.cfg, n.logger)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			n.log.Info("DB Migration cancelled")
+			n.logger.Info("DB Migration cancelled")
 			return
 		}
-		n.log.Error("Error while running migrations", zap.Error(err))
+		n.logger.Error("Error while running migrations", zap.Error(err))
 		return
 	}
 
 	if n.cfg.Sequencer {
 		// Custom networks are not supported in sequencer mode yet
 		if !slices.Contains(networks.KnownNetworkNames, n.cfg.Network.Name) {
-			n.log.Error("Custom networks are not supported in sequencer mode yet")
+			n.logger.Error("Custom networks are not supported in sequencer mode yet")
 			return
 		}
 		feeTokens := networks.DefaultFeeTokenAddresses
@@ -614,13 +614,13 @@ func (n *Node) Run(ctx context.Context) {
 			ctx,
 			n.cfg.SeqGenesisFile,
 			n.blockchain,
-			vm.New(&chainInfo, false, n.log),
+			vm.New(&chainInfo, false, n.logger),
 			n.cfg.RPCCallMaxSteps,
 			n.cfg.RPCCallMaxGas,
 			n.compiler,
 		)
 		if err != nil {
-			n.log.Error("Error building genesis state", zap.Error(err))
+			n.logger.Error("Error building genesis state", zap.Error(err))
 			return
 		}
 	}
@@ -630,7 +630,7 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
-	n.log.Info("Shutting down Juno...")
+	n.logger.Info("Shutting down Juno...")
 }
 
 func (n *Node) StartService(
@@ -641,7 +641,7 @@ func (n *Node) StartService(
 		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 		defer cancel()
 		if err := s.Run(ctx); err != nil {
-			n.log.Error(
+			n.logger.Error(
 				"Service error",
 				zap.String("name", reflect.TypeOf(s).String()),
 				zap.Error(err),

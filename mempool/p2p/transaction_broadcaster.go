@@ -15,24 +15,24 @@ import (
 
 type transactionBroadcaster struct {
 	buffered.ProtoBroadcaster[*transaction.MempoolTransaction]
-	log log.Logger
+	logger log.Logger
 }
 
 func NewTransactionBroadcaster(
-	log log.Logger,
+	logger log.Logger,
 	bufferSize int,
 	retryInterval time.Duration,
 ) transactionBroadcaster {
 	return transactionBroadcaster{
-		log:              log,
-		ProtoBroadcaster: buffered.NewProtoBroadcaster[*transaction.MempoolTransaction](log, bufferSize, retryInterval, nil),
+		logger:           logger,
+		ProtoBroadcaster: buffered.NewProtoBroadcaster[*transaction.MempoolTransaction](logger, bufferSize, retryInterval, nil),
 	}
 }
 
 func (b *transactionBroadcaster) Broadcast(ctx context.Context, message *mempool.BroadcastedTransaction) {
 	msg, err := mempool2p2p.AdaptTransaction(message)
 	if err != nil {
-		b.log.Error("unable to convert transaction", zap.Error(err))
+		b.logger.Error("unable to convert transaction", zap.Error(err))
 		return
 	}
 

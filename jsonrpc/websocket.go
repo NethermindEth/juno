@@ -22,7 +22,7 @@ const (
 
 type Websocket struct {
 	rpc        *Server
-	log        log.StructuredLogger
+	logger     log.StructuredLogger
 	connParams *WebsocketConnParams
 	listener   NewRequestListener
 	shutdown   <-chan struct{}
@@ -31,10 +31,10 @@ type Websocket struct {
 	connSem *semaphore.Weighted
 }
 
-func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log log.StructuredLogger) *Websocket {
+func NewWebsocket(rpc *Server, shutdown <-chan struct{}, logger log.StructuredLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
-		log:        log,
+		logger:     logger,
 		connParams: DefaultWebsocketConnParams(),
 		listener:   &SelectiveListener{},
 		shutdown:   shutdown,
@@ -73,10 +73,10 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check connection limit
 	if err := ws.connSem.Acquire(acquireCtx, 1); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			ws.log.Warn("Connection request timed out while waiting for slot")
+			ws.logger.Warn("Connection request timed out while waiting for slot")
 			http.Error(w, "Too many connections", http.StatusServiceUnavailable)
 		} else {
-			ws.log.Warn("Connection request was canceled while waiting for slot")
+			ws.logger.Warn("Connection request was canceled while waiting for slot")
 		}
 		return
 	}
@@ -84,7 +84,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
-		ws.log.Error("Failed to upgrade connection", zap.Error(err))
+		ws.logger.Error("Failed to upgrade connection", zap.Error(err))
 		return
 	}
 
@@ -120,11 +120,11 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if status := websocket.CloseStatus(err); status != -1 {
-		ws.log.Info("Client closed websocket connection", zap.Int("status", int(status)))
+		ws.logger.Info("Client closed websocket connection", zap.Int("status", int(status)))
 		return
 	}
 
-	ws.log.Warn("Closing websocket connection", zap.Error(err))
+	ws.logger.Warn("Closing websocket connection", zap.Error(err))
 	errString := err.Error()
 	if len(errString) > closeReasonMaxBytes {
 		errString = errString[:closeReasonMaxBytes]
@@ -135,7 +135,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// could initiate the close handshake.
 		errString = err.Error()
 		if !strings.Contains(errString, "already wrote close") && !strings.Contains(errString, "WebSocket closed") {
-			ws.log.Error("Failed to close websocket connection", zap.String("err", errString))
+			ws.logger.Error("Failed to close websocket connection", zap.String("err", errString))
 		}
 	}
 }

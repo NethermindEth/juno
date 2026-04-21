@@ -219,7 +219,7 @@ func getBlockchain(t *testing.T) *blockchain.Blockchain {
 	return bc
 }
 
-func getBuilder(t *testing.T, log log.Logger, bc *blockchain.Blockchain) *builder.Builder {
+func getBuilder(t *testing.T, logger log.Logger, bc *blockchain.Blockchain) *builder.Builder {
 	t.Helper()
 
 	genesisConfig, err := genesis.Read("../../genesis/genesis_prefund_accounts.json")
@@ -237,7 +237,7 @@ func getBuilder(t *testing.T, log log.Logger, bc *blockchain.Blockchain) *builde
 	diff, classes, err := genesis.GenesisStateDiff(
 		t.Context(),
 		genesisConfig,
-		vm.New(&chainInfo, false, log),
+		vm.New(&chainInfo, false, logger),
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
@@ -245,7 +245,7 @@ func getBuilder(t *testing.T, log log.Logger, bc *blockchain.Blockchain) *builde
 	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, logger), logger, false, true)
 	testBuilder := builder.New(bc, executor)
 	return &testBuilder
 }

@@ -27,7 +27,7 @@ const (
 
 type P2P struct {
 	host             host.Host
-	log              log.Logger
+	logger           log.Logger
 	network          *networks.Network
 	pool             mempool.Pool
 	broadcaster      transactionBroadcaster
@@ -39,7 +39,7 @@ type P2P struct {
 func New(
 	network *networks.Network,
 	host host.Host,
-	log log.Logger,
+	logger log.Logger,
 	pool mempool.Pool,
 	config *config.BufferSizes,
 	bootstrapPeersFn func() []peer.AddrInfo,
@@ -47,11 +47,11 @@ func New(
 ) *P2P {
 	return &P2P{
 		host:             host,
-		log:              log,
+		logger:           logger,
 		network:          network,
 		pool:             pool,
-		broadcaster:      NewTransactionBroadcaster(log, config.MempoolBroadcaster, config.RetryInterval),
-		listener:         NewTransactionListener(network, log, pool, config.MempoolListener, compiler),
+		broadcaster:      NewTransactionBroadcaster(logger, config.MempoolBroadcaster, config.RetryInterval),
+		listener:         NewTransactionListener(network, logger, pool, config.MempoolListener, compiler),
 		config:           config,
 		bootstrapPeersFn: bootstrapPeersFn,
 	}

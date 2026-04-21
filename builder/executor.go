@@ -19,7 +19,7 @@ type Executor interface {
 }
 
 type executor struct {
-	log          log.Logger
+	logger       log.Logger
 	blockchain   *blockchain.Blockchain
 	vm           vm.VM
 	disableFees  bool
@@ -29,14 +29,14 @@ type executor struct {
 func NewExecutor(
 	blockchain *blockchain.Blockchain,
 	vm vm.VM,
-	log log.Logger,
+	logger log.Logger,
 	disableFees bool,
 	skipValidate bool,
 ) Executor {
 	return &executor{
 		blockchain:   blockchain,
 		vm:           vm,
-		log:          log,
+		logger:       logger,
 		disableFees:  disableFees,
 		skipValidate: skipValidate,
 	}
@@ -55,7 +55,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}
 	defer func() {
 		if err := headCloser(); err != nil {
-			e.log.Error("failed to close head state", zap.Error(err))
+			e.logger.Error("failed to close head state", zap.Error(err))
 		}
 	}()
 
@@ -139,13 +139,13 @@ func (e *executor) processClassDeclaration(
 ) error {
 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 		if err := state.SetContractClass(t.ClassHash, txn.DeclaredClass); err != nil {
-			e.log.Error("failed to set contract class", zap.Error(err))
+			e.logger.Error("failed to set contract class", zap.Error(err))
 			return err
 		}
 
 		if t.CompiledClassHash != nil {
 			if err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash); err != nil {
-				e.log.Error("failed to SetCompiledClassHash", zap.Error(err))
+				e.logger.Error("failed to SetCompiledClassHash", zap.Error(err))
 				return err
 			}
 		}

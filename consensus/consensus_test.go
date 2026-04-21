@@ -74,7 +74,7 @@ func getBlockchain(
 
 func loadGenesis(
 	t *testing.T,
-	log *log.ZapLogger,
+	logger *log.ZapLogger,
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition) {
 	t.Helper()
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
@@ -93,7 +93,7 @@ func loadGenesis(
 	diff, classes, err := genesis.GenesisStateDiff(
 		t.Context(),
 		genesisConfig,
-		vm.New(&chainInfo, false, log),
+		vm.New(&chainInfo, false, logger),
 		&network,
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,

@@ -27,8 +27,8 @@ type Database struct {
 	cleanCache *cleanCache
 	dirtyCache *dirtyCache
 
-	lock sync.RWMutex
-	log  log.StructuredLogger
+	lock   sync.RWMutex
+	logger log.StructuredLogger
 }
 
 // Creates a new hash-based database. If the config is not provided, it will use the default config,
@@ -45,7 +45,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		config:     *config,
 		cleanCache: &cleanCache,
 		dirtyCache: newDirtyCache(),
-		log:        log.NewNopZapLogger(),
+		logger:     log.NewNopZapLogger(),
 	}
 }
 
@@ -177,7 +177,7 @@ func (d *Database) Commit(_ *felt.StateRootHash) error {
 
 	d.dirtyCache.reset()
 
-	d.log.Debug("Flushed dirty cache to disk",
+	d.logger.Debug("Flushed dirty cache to disk",
 		zap.Int("nodes", nodes-d.dirtyCache.len()),
 		zap.Duration("duration", time.Since(startTime)),
 		zap.Int("liveNodes", d.dirtyCache.len()),

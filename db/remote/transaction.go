@@ -21,7 +21,7 @@ var (
 
 type transaction struct {
 	client gen.KV_TxClient
-	log    log.StructuredLogger
+	logger log.StructuredLogger
 }
 
 func (t *transaction) NewIterator(_ []byte, _ bool) (db.Iterator, error) {
@@ -40,7 +40,7 @@ func (t *transaction) NewIterator(_ []byte, _ bool) (db.Iterator, error) {
 	return &iterator{
 		client:   t.client,
 		cursorID: pair.CursorId,
-		log:      t.log,
+		logger:   t.logger,
 	}, nil
 }
 

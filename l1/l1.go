@@ -33,7 +33,7 @@ type Subscriber interface {
 type Client struct {
 	l1                    Subscriber
 	l2Chain               *blockchain.Blockchain
-	log                   log.StructuredLogger
+	logger                log.StructuredLogger
 	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
@@ -43,11 +43,11 @@ type Client struct {
 
 var _ service.Service = (*Client)(nil)
 
-func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log log.StructuredLogger) *Client {
+func NewClient(l1 Subscriber, chain *blockchain.Blockchain, logger log.StructuredLogger) *Client {
 	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,
-		log:                   log,
+		logger:                logger,
 		network:               chain.Network(),
 		resubscribeDelay:      10 * time.Second,
 		pollFinalisedInterval: time.Minute,
@@ -82,7 +82,7 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 			if err == nil {
 				return updateSub, nil
 			}
-			c.log.Debug("Failed to subscribe to L1 state updates",
+			c.logger.Debug("Failed to subscribe to L1 state updates",
 				zap.Duration("tryAgainIn", c.resubscribeDelay),
 				zap.Error(err),
 			)
@@ -115,7 +115,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 	buffer := 128
 
-	c.log.Info("Subscribing to L1 updates...")
+	c.logger.Info("Subscribing to L1 updates...")
 
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
 	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
@@ -124,7 +124,7 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 	defer updateSub.Unsubscribe()
 
-	c.log.Info("Subscribed to L1 updates")
+	c.logger.Info("Subscribed to L1 updates")
 
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
@@ -140,7 +140,7 @@ func (c *Client) Run(ctx context.Context) error {
 					// TODO can we use geth's event.Resubscribe?
 					// We can't use a warn log level here since we guarantee the L1 url will only be printed
 					// in debug logs and panics (to avoid leaking the API key).
-					c.log.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
+					c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
 					updateSub.Unsubscribe()
 
 					updateSub, err = c.subscribeToUpdates(ctx, updateChan)
@@ -149,7 +149,7 @@ func (c *Client) Run(ctx context.Context) error {
 					}
 					defer updateSub.Unsubscribe() //nolint:gocritic
 				case logStateUpdate := <-updateChan:
-					c.log.Debug("Received L1 LogStateUpdate",
+					c.logger.Debug("Received L1 LogStateUpdate",
 						zap.String("number", logStateUpdate.BlockNumber.String()),
 						zap.String("stateRoot", logStateUpdate.GlobalRoot.Text(felt.Base16)),
 						zap.String("blockHash", logStateUpdate.BlockHash.Text(felt.Base16)),
@@ -187,7 +187,7 @@ func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 			if err == nil {
 				return finalisedHeight
 			}
-			c.log.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
+			c.logger.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
@@ -223,7 +223,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
 	}
 	c.listener.OnNewL1Head(head)
-	c.log.Info("Updated l1 head",
+	c.logger.Info("Updated l1 head",
 		zap.Uint64("blockNumber", head.BlockNumber),
 		zap.String("blockHash", head.BlockHash.ShortString()),
 		zap.String("stateRoot", head.StateRoot.ShortString()),

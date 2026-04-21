@@ -16,7 +16,7 @@ import (
 )
 
 type proposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log             log.Logger
+	logger          log.Logger
 	proposalAdapter ProposerAdapter[V, H, A]
 	proposalStore   *proposal.ProposalStore[H]
 	broadcaster     buffered.ProtoBroadcaster[*consensus.StreamMessage]
@@ -24,17 +24,17 @@ type proposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr] struct
 }
 
 func NewProposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr](
-	log log.Logger,
+	logger log.Logger,
 	proposalAdapter ProposerAdapter[V, H, A],
 	proposalStore *proposal.ProposalStore[H],
 	bufferSize int,
 	retryInterval time.Duration,
 ) proposalBroadcaster[V, H, A] {
 	return proposalBroadcaster[V, H, A]{
-		log:             log,
+		logger:          logger,
 		proposalAdapter: proposalAdapter,
 		proposalStore:   proposalStore,
-		broadcaster:     buffered.NewProtoBroadcaster[*consensus.StreamMessage](log, bufferSize, retryInterval, nil),
+		broadcaster:     buffered.NewProtoBroadcaster[*consensus.StreamMessage](logger, bufferSize, retryInterval, nil),
 		proposals:       make(chan *types.Proposal[V, H, A], bufferSize),
 	}
 }
@@ -62,19 +62,19 @@ func (b *proposalBroadcaster[V, H, A]) processLoop(ctx context.Context) {
 			buildResult := b.proposalStore.Get(proposalHash)
 			if buildResult == nil {
 				// todo(rdr): need to update the constrains of `H` to be able to log it
-				b.log.Error("proposal not found", zap.Any("proposal", proposalHash))
+				b.logger.Error("proposal not found", zap.Any("proposal", proposalHash))
 				continue
 			}
 
 			dispatcher, err := newProposerDispatcher(b.proposalAdapter, proposal, buildResult)
 			if err != nil {
-				b.log.Error("unable to build dispatcher", zap.Error(err))
+				b.logger.Error("unable to build dispatcher", zap.Error(err))
 				continue
 			}
 
 			for msg, err := range dispatcher.run() {
 				if err != nil {
-					b.log.Error("unable to generate proposal part", zap.Error(err))
+					b.logger.Error("unable to generate proposal part", zap.Error(err))
 					return
 				}
 				b.broadcaster.Broadcast(ctx, msg)

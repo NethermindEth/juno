@@ -18,14 +18,14 @@ type Config struct{}
 type Database struct {
 	disk db.KeyValueStore
 
-	lock sync.RWMutex
-	log  log.StructuredLogger
+	lock   sync.RWMutex
+	logger log.StructuredLogger
 }
 
 func New(disk db.KeyValueStore) *Database {
 	return &Database{
-		disk: disk,
-		log:  log.NewNopZapLogger(),
+		disk:   disk,
+		logger: log.NewNopZapLogger(),
 	}
 }
 

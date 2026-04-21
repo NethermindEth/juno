@@ -56,14 +56,14 @@ type logStateUpdate struct {
 	removed bool
 }
 
-func (log *logStateUpdate) ToContractType() *contract.StarknetLogStateUpdate {
+func (logSU *logStateUpdate) ToContractType() *contract.StarknetLogStateUpdate {
 	return &contract.StarknetLogStateUpdate{
-		BlockNumber: new(big.Int).SetUint64(log.l2BlockNumber),
-		BlockHash:   new(big.Int).SetUint64(log.l2BlockNumber),
-		GlobalRoot:  new(big.Int).SetUint64(log.l2BlockNumber),
+		BlockNumber: new(big.Int).SetUint64(logSU.l2BlockNumber),
+		BlockHash:   new(big.Int).SetUint64(logSU.l2BlockNumber),
+		GlobalRoot:  new(big.Int).SetUint64(logSU.l2BlockNumber),
 		Raw: types.Log{
-			Removed:     log.removed,
-			BlockNumber: log.l1BlockNumber,
+			Removed:     logSU.removed,
+			BlockNumber: logSU.l1BlockNumber,
 		},
 	}
 }

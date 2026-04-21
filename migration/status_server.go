@@ -22,20 +22,20 @@ const ShutdownTimeout = 5 * time.Second
 // The server is started in a goroutine, the function is executed, and then
 // the server is shut down. If the function returns an error, it is returned.
 func RunWithServer(
-	log log.StructuredLogger,
+	logger log.StructuredLogger,
 	host string,
 	port uint16,
 	fn func() error,
 ) error {
-	srv := startMigrationServer(log, host, port)
-	defer closeMigrationServer(srv, log)
+	srv := startMigrationServer(logger, host, port)
+	defer closeMigrationServer(srv, logger)
 
 	return fn()
 }
 
 // startMigrationServer starts an HTTP server that provides health check endpoints.
 // The server runs in a goroutine and should be closed using closeMigrationServer.
-func startMigrationServer(log log.StructuredLogger, host string, port uint16) *http.Server {
+func startMigrationServer(logger log.StructuredLogger, host string, port uint16) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +46,7 @@ func startMigrationServer(log log.StructuredLogger, host string, port uint16) *h
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, err := w.Write([]byte("Database migration in progress."))
 		if err != nil {
-			log.Error("Failed to write migration status response", zap.Error(err))
+			logger.Error("Failed to write migration status response", zap.Error(err))
 		}
 	})
 
@@ -59,9 +59,9 @@ func startMigrationServer(log log.StructuredLogger, host string, port uint16) *h
 	}
 
 	go func() {
-		log.Debug("Starting migration status server", zap.String("addr", addr))
+		logger.Debug("Starting migration status server", zap.String("addr", addr))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("Migration status server failed", zap.Error(err))
+			logger.Error("Migration status server failed", zap.Error(err))
 		}
 	}()
 	return srv

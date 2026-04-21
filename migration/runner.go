@@ -46,7 +46,7 @@ type Migration interface {
 		ctx context.Context,
 		database db.KeyValueStore,
 		network *networks.Network,
-		log log.StructuredLogger,
+		logger log.StructuredLogger,
 	) ([]byte, error)
 }
 
@@ -56,7 +56,7 @@ type MigrationRunner struct {
 	metadata      SchemaMetadata
 	database      db.KeyValueStore
 	network       *networks.Network
-	log           log.StructuredLogger
+	logger        log.StructuredLogger
 }
 
 // NewRunner creates a migration runner that executes pending migrations.
@@ -70,7 +70,7 @@ func NewRunner(
 	registry *Registry,
 	database db.KeyValueStore,
 	network *networks.Network,
-	log log.StructuredLogger,
+	logger log.StructuredLogger,
 ) (*MigrationRunner, error) {
 	metadata, err := GetSchemaMetadata(database)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -107,7 +107,7 @@ func NewRunner(
 		metadata:      metadata,
 		database:      database,
 		network:       network,
-		log:           log,
+		logger:        logger,
 	}, nil
 }
 
@@ -133,7 +133,7 @@ func (mr *MigrationRunner) Run(ctx context.Context) error {
 			return err
 		}
 
-		mr.log.Info("Applying migration",
+		mr.logger.Info("Applying migration",
 			zap.String("progress", fmt.Sprintf("%d/%d", migrationIndex+1, totalInTarget)),
 		)
 
@@ -142,7 +142,7 @@ func (mr *MigrationRunner) Run(ctx context.Context) error {
 			return err
 		}
 
-		mr.log.Info("Migration applied",
+		mr.logger.Info("Migration applied",
 			zap.String("progress", fmt.Sprintf("%d/%d", migrationIndex+1, totalInTarget)),
 		)
 	}
@@ -165,7 +165,7 @@ func (mr *MigrationRunner) runMigration(ctx context.Context, migrationIndex uint
 		return err
 	}
 
-	intermediateState, err = migration.Migrate(ctx, mr.database, mr.network, mr.log)
+	intermediateState, err = migration.Migrate(ctx, mr.database, mr.network, mr.logger)
 
 	if err != nil && !errors.Is(err, ctx.Err()) {
 		return err

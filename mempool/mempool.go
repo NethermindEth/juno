@@ -114,7 +114,7 @@ func (t *memTxnList) popBatch(numToPop int) ([]BroadcastedTransaction, error) {
 // SequencerMempool represents a blockchain mempool, managing transactions using both an
 // in-memory and persistent database.
 type SequencerMempool struct {
-	log         log.StructuredLogger
+	logger      log.StructuredLogger
 	bc          blockchain.Reader
 	db          db.KeyValueStore // to store the persistent mempool
 	txPushed    chan struct{}
@@ -127,10 +127,10 @@ type SequencerMempool struct {
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
 func New(
-	mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log log.StructuredLogger,
+	mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, logger log.StructuredLogger,
 ) *SequencerMempool {
 	pool := SequencerMempool{
-		log:         log,
+		logger:      logger,
 		bc:          bc,
 		db:          mainDB, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
 		txPushed:    make(chan struct{}, 1),
@@ -154,7 +154,7 @@ func (p *SequencerMempool) dbWriter() {
 		for txn := range p.dbWriteChan {
 			err := p.writeToDB(txn)
 			if err != nil {
-				p.log.Error("error in handling user transaction in persistent mempool", zap.Error(err))
+				p.logger.Error("error in handling user transaction in persistent mempool", zap.Error(err))
 			}
 		}
 	}()
@@ -238,10 +238,10 @@ func (p *SequencerMempool) writeToDB(userTxn *BroadcastedTransaction) error {
 
 // Push queues a transaction to the pool
 func (p *SequencerMempool) Push(ctx context.Context, userTxn *BroadcastedTransaction) error {
-	p.log.Debug("mempool received transaction for pre-processing")
+	p.logger.Debug("mempool received transaction for pre-processing")
 	err := p.validate(userTxn)
 	if err != nil {
-		p.log.Debug("mempool transaction failed validation")
+		p.logger.Debug("mempool transaction failed validation")
 		return err
 	}
 
@@ -251,19 +251,19 @@ func (p *SequencerMempool) Push(ctx context.Context, userTxn *BroadcastedTransac
 		select {
 		case _, ok := <-p.dbWriteChan:
 			if !ok {
-				p.log.Error("cannot store user transaction in persistent pool, " +
+				p.logger.Error("cannot store user transaction in persistent pool, " +
 					"database write channel is closed",
 				)
 			}
-			p.log.Error("cannot store user transasction in persistent pool, database is full")
+			p.logger.Error("cannot store user transasction in persistent pool, database is full")
 		default:
-			p.log.Error("cannot store user transasction in persistent pool, database is full")
+			p.logger.Error("cannot store user transasction in persistent pool, database is full")
 		}
 	}
 
 	newNode := &memPoolTxn{Txn: *userTxn, Next: nil}
 	p.memTxnList.push(newNode)
-	p.log.Debug("successfully pushed transaction to the mempool")
+	p.logger.Debug("successfully pushed transaction to the mempool")
 
 	select {
 	case p.txPushed <- struct{}{}:
@@ -285,7 +285,7 @@ func (p *SequencerMempool) validate(userTxn *BroadcastedTransaction) error {
 
 	defer func() {
 		if err := closer(); err != nil {
-			p.log.Error("closing state in mempool validate", zap.Error(err))
+			p.logger.Error("closing state in mempool validate", zap.Error(err))
 		}
 	}()
 

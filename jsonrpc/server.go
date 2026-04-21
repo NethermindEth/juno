@@ -127,7 +127,7 @@ type Server struct {
 	methods              map[string]Method
 	validator            Validator
 	pool                 *pool.Pool
-	log                  log.StructuredLogger
+	logger               log.StructuredLogger
 	listener             EventListener
 	disableBatchRequests bool
 }
@@ -137,9 +137,9 @@ type Validator interface {
 }
 
 // NewServer instantiates a JSONRPC server
-func NewServer(poolMaxGoroutines int, log log.StructuredLogger) *Server {
+func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 	s := &Server{
-		log:      log,
+		logger:   logger,
 		methods:  make(map[string]Method),
 		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
 		listener: &SelectiveListener{},
@@ -359,7 +359,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 	addResponse := func(response any, header http.Header) {
 		if responseJSON, err := json.Marshal(response); err != nil {
-			s.log.Error("failed to marshal response", zap.Error(err))
+			s.logger.Error("failed to marshal response", zap.Error(err))
 		} else {
 			mutex.Lock()
 			responses = append(responses, responseJSON)
@@ -462,11 +462,11 @@ func isNilOrEmpty(i any) (bool, error) {
 // instead of crashing the HTTP connection
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
 	// todo(rdr): have a way of representing a `req` so the structured logger has a way of showing it
-	s.log.Trace("Received request", zap.Any("req", req))
+	s.logger.Trace("Received request", zap.Any("req", req))
 
 	header := http.Header{}
 	if err := req.isSane(); err != nil {
-		s.log.Trace("Request sanity check failed", zap.Error(err))
+		s.logger.Trace("Request sanity check failed", zap.Error(err))
 		return nil, header, err
 	}
 
@@ -478,7 +478,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
-		s.log.Trace("Method not found in request", zap.String("method", req.Method))
+		s.logger.Trace("Method not found in request", zap.String("method", req.Method))
 		return res, header, nil
 	}
 
@@ -487,7 +487,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
-		s.log.Trace("Error building arguments for RPC call", zap.Error(err))
+		s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
 		return res, header, nil
 	}
 	defer func() {
@@ -496,7 +496,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
-		s.log.Trace("Notification received, no response expected")
+		s.logger.Trace("Notification received, no response expected")
 		return nil, header, nil
 	}
 
@@ -512,7 +512,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 			s.listener.OnRequestFailed(req.Method, res.Error)
 			reqJSON, _ := json.Marshal(req)
 			errJSON, _ := json.Marshal(res.Error)
-			s.log.Debug("Failed handing RPC request",
+			s.logger.Debug("Failed handing RPC request",
 				zap.String("req", string(reqJSON)),
 				zap.String("res", string(errJSON)),
 			)

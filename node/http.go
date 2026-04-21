@@ -98,7 +98,7 @@ func makeRPCOverHTTP(
 	port uint16,
 	servers map[string]*jsonrpc.Server,
 	httpHandlers map[string]http.HandlerFunc,
-	log log.StructuredLogger,
+	logger log.StructuredLogger,
 	metricsEnabled bool,
 	corsEnabled bool,
 	rpcRequestTimeout time.Duration,
@@ -110,7 +110,7 @@ func makeRPCOverHTTP(
 
 	mux := http.NewServeMux()
 	for path, server := range servers {
-		httpHandler := jsonrpc.NewHTTP(server, log).
+		httpHandler := jsonrpc.NewHTTP(server, logger).
 			WithRequestTimeout(rpcRequestTimeout)
 		if listener != nil {
 			httpHandler = httpHandler.WithListener(listener)
@@ -134,7 +134,7 @@ func makeRPCOverHTTP(
 }
 
 func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log log.StructuredLogger, metricsEnabled bool, corsEnabled bool,
+	logger log.StructuredLogger, metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -145,7 +145,7 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 
 	mux := http.NewServeMux()
 	for path, server := range servers {
-		wsHandler := jsonrpc.NewWebsocket(server, shutdown, log)
+		wsHandler := jsonrpc.NewWebsocket(server, shutdown, logger)
 		if listener != nil {
 			wsHandler = wsHandler.WithListener(listener)
 		}

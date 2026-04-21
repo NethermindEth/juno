@@ -18,7 +18,7 @@ import (
 
 func NewTransactionListener(
 	network *networks.Network,
-	log log.Logger,
+	logger log.Logger,
 	pool mempool.Pool,
 	bufferSize int,
 	compiler compiler.Compiler,
@@ -26,7 +26,7 @@ func NewTransactionListener(
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		var p2pTransaction mempooltransaction.MempoolTransaction
 		if err := proto.Unmarshal(msg.Data, &p2pTransaction); err != nil {
-			log.Error("unable to unmarshal transaction message", zap.Error(err))
+			logger.Error("unable to unmarshal transaction message", zap.Error(err))
 			return
 		}
 
@@ -34,14 +34,14 @@ func NewTransactionListener(
 			ctx, compiler, &p2pTransaction, network,
 		)
 		if err != nil {
-			log.Error("unable to convert transaction message to transaction", zap.Error(err))
+			logger.Error("unable to convert transaction message to transaction", zap.Error(err))
 			return
 		}
 
 		if err := pool.Push(ctx, &transaction); err != nil {
-			log.Error("unable to push transaction to mempool", zap.Error(err))
+			logger.Error("unable to push transaction to mempool", zap.Error(err))
 		}
 	}
 
-	return buffered.NewTopicSubscription(log, bufferSize, onMessage)
+	return buffered.NewTopicSubscription(logger, bufferSize, onMessage)
 }

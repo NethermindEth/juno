@@ -13,7 +13,7 @@ import (
 
 type Upgrader struct {
 	client         *http.Client
-	log            log.StructuredLogger
+	logger         log.StructuredLogger
 	apiURL         string
 	currentVersion *semver.Version
 	releasesURL    string
@@ -25,12 +25,12 @@ func NewUpgrader(
 	apiURL,
 	releasesURL string,
 	delay time.Duration,
-	log log.StructuredLogger,
+	logger log.StructuredLogger,
 ) *Upgrader {
 	return &Upgrader{
 		currentVersion: version,
 		client:         &http.Client{},
-		log:            log,
+		logger:         logger,
 		apiURL:         apiURL,
 		releasesURL:    releasesURL,
 		delay:          delay,
@@ -54,32 +54,32 @@ func (u *Upgrader) Run(ctx context.Context) error {
 			var req *http.Request
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.apiURL, http.NoBody)
 			if err != nil {
-				u.log.Debug("Failed to create new request with context")
+				u.logger.Debug("Failed to create new request with context")
 				continue
 			}
 
 			resp, err := u.client.Do(req)
 			if err != nil {
-				u.log.Debug("Failed to fetch latest release", zap.Error(err))
+				u.logger.Debug("Failed to fetch latest release", zap.Error(err))
 				continue
 			} else if resp.StatusCode != http.StatusOK {
-				u.log.Debug("Failed to fetch latest release", zap.String("status", resp.Status))
+				u.logger.Debug("Failed to fetch latest release", zap.String("status", resp.Status))
 				continue
 			}
 
 			latest := new(Release)
 			if err := json.NewDecoder(resp.Body).Decode(latest); err == nil {
 				if needsUpdate(*u.currentVersion, *latest.Version) {
-					u.log.Warn("New release is available.",
+					u.logger.Warn("New release is available.",
 						zap.String("currentVersion", u.currentVersion.String()),
 						zap.String("newVersion", latest.Version.String()),
 						zap.String("link", u.releasesURL),
 					)
 				} else {
-					u.log.Debug("Application is up-to-date.")
+					u.logger.Debug("Application is up-to-date.")
 				}
 			} else {
-				u.log.Debug("Failed to unmarshal latest release")
+				u.logger.Debug("Failed to unmarshal latest release")
 			}
 
 			timer.Reset(u.delay)

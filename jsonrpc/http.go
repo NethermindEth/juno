@@ -17,17 +17,17 @@ import (
 const MaxRequestBodySize = 10 * db.Megabyte
 
 type HTTP struct {
-	rpc *Server
-	log log.StructuredLogger
+	rpc    *Server
+	logger log.StructuredLogger
 
 	listener       NewRequestListener
 	requestTimeout time.Duration
 }
 
-func NewHTTP(rpc *Server, log log.StructuredLogger) *HTTP {
+func NewHTTP(rpc *Server, logger log.StructuredLogger) *HTTP {
 	h := &HTTP{
 		rpc:      rpc,
-		log:      log,
+		logger:   logger,
 		listener: &SelectiveListener{},
 	}
 	return h
@@ -75,7 +75,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	maps.Copy(writer.Header(), header) // overwrites duplicate headers
 
 	if err != nil {
-		h.log.Error("Handler failure", zap.Error(err))
+		h.logger.Error("Handler failure", zap.Error(err))
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {
@@ -92,7 +92,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		}
 		_, err = ioWriter.Write(resp)
 		if err != nil {
-			h.log.Warn("Failed writing response", zap.Error(err))
+			h.logger.Warn("Failed writing response", zap.Error(err))
 		}
 	}
 }

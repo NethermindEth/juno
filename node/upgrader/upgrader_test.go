@@ -124,9 +124,9 @@ func TestUpgrader(t *testing.T) {
 				require.NoError(t, err)
 			}))
 			t.Cleanup(srv.Close)
-			log := &upgradeLogger{}
+			logger := &upgradeLogger{}
 			ug := upgrader.NewUpgrader(
-				&test.current, srv.URL, "example.com/releases", time.Millisecond, log,
+				&test.current, srv.URL, "example.com/releases", time.Millisecond, logger,
 			)
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -135,12 +135,12 @@ func TestUpgrader(t *testing.T) {
 			require.NoError(t, ug.Run(ctx))
 
 			if test.equal {
-				assert.Empty(t, log.warnMsg)
+				assert.Empty(t, logger.warnMsg)
 			} else {
-				assert.Equal(t, "New release is available.", log.warnMsg)
+				assert.Equal(t, "New release is available.", logger.warnMsg)
 			}
-			assert.Empty(t, log.errorMsg)
-			assert.Empty(t, log.infoMsg)
+			assert.Empty(t, logger.errorMsg)
+			assert.Empty(t, logger.infoMsg)
 		})
 	}
 }

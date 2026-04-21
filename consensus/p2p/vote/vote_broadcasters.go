@@ -14,20 +14,20 @@ import (
 
 type voteBroadcaster[H types.Hash, A types.Addr] struct {
 	buffered.ProtoBroadcaster[*consensus.Vote]
-	log         log.Logger
+	logger      log.Logger
 	voteAdapter VoteAdapter[H, A]
 }
 
 func NewVoteBroadcaster[H types.Hash, A types.Addr](
-	log log.Logger,
+	logger log.Logger,
 	voteAdapter VoteAdapter[H, A],
 	bufferSizeConfig *config.BufferSizes,
 ) voteBroadcaster[H, A] {
 	return voteBroadcaster[H, A]{
-		log:         log,
+		logger:      logger,
 		voteAdapter: voteAdapter,
 		ProtoBroadcaster: buffered.NewProtoBroadcaster[*consensus.Vote](
-			log,
+			logger,
 			bufferSizeConfig.VoteProtoBroadcaster,
 			bufferSizeConfig.RetryInterval,
 			nil,
@@ -38,7 +38,7 @@ func NewVoteBroadcaster[H types.Hash, A types.Addr](
 func (b *voteBroadcaster[H, A]) broadcast(ctx context.Context, message *types.Vote[H, A], voteType consensus.Vote_VoteType) {
 	msg, err := b.voteAdapter.FromVote(message, voteType)
 	if err != nil {
-		b.log.Error("unable to convert vote", zap.Error(err))
+		b.logger.Error("unable to convert vote", zap.Error(err))
 		return
 	}
 

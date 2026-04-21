@@ -78,10 +78,10 @@ type vm struct {
 	concurrencyMode bool
 }
 
-func New(chainInfo *ChainInfo, concurrencyMode bool, log log.StructuredLogger) VM {
+func New(chainInfo *ChainInfo, concurrencyMode bool, logger log.StructuredLogger) VM {
 	return &vm{
 		chainInfo:       chainInfo,
-		logger:          log,
+		logger:          logger,
 		concurrencyMode: concurrencyMode,
 	}
 }

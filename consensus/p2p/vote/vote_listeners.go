@@ -34,13 +34,13 @@ func (l voteListener[M]) Receive(ctx context.Context, message M) {
 
 type voteListeners[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	buffered.TopicSubscription
-	log               log.Logger
+	logger            log.Logger
 	PrevoteListener   voteListener[*types.Prevote[H, A]]
 	PrecommitListener voteListener[*types.Precommit[H, A]]
 }
 
 func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
-	log log.Logger,
+	logger log.Logger,
 	voteAdapter VoteAdapter[H, A],
 	bufferSizeConfig *config.BufferSizes,
 ) voteListeners[V, H, A] {
@@ -50,13 +50,13 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		p2pVote := consensus.Vote{}
 		if err := proto.Unmarshal(msg.Data, &p2pVote); err != nil {
-			log.Error("unable to unmarshal vote message", zap.Error(err))
+			logger.Error("unable to unmarshal vote message", zap.Error(err))
 			return
 		}
 
 		vote, err := voteAdapter.ToVote(&p2pVote)
 		if err != nil {
-			log.Error("unable to convert vote message to vote", zap.Error(err))
+			logger.Error("unable to convert vote message to vote", zap.Error(err))
 			return
 		}
 
@@ -69,8 +69,8 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 
 	return voteListeners[V, H, A]{
-		TopicSubscription: buffered.NewTopicSubscription(log, bufferSizeConfig.VoteSubscription, onMessage),
-		log:               log,
+		TopicSubscription: buffered.NewTopicSubscription(logger, bufferSizeConfig.VoteSubscription, onMessage),
+		logger:            logger,
 		PrevoteListener:   prevoteListener,
 		PrecommitListener: precommitListener,
 	}

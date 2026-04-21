@@ -38,7 +38,7 @@ type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log             log.Logger
+	logger          log.Logger
 	nodeAddr        A
 	state           state[V, H] // Todo: Does state need to be protected?
 	voteCounter     votecounter.VoteCounter[V, H, A]
@@ -65,14 +65,14 @@ type state[V types.Hashable[H], H types.Hash] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	log log.Logger,
+	logger log.Logger,
 	nodeAddr A,
 	app Application[V, H],
 	vals votecounter.Validators[A],
 	height types.Height,
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{
-		log:      log,
+		logger:   logger,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			height:      height,
@@ -108,7 +108,7 @@ func (s *stateMachine[V, H, A]) startRound(r types.Round) actions.Action[V, H, A
 
 	if r > 0 {
 		proposer := felt.Felt(s.voteCounter.Proposer(r - 1))
-		s.log.Debug(
+		s.logger.Debug(
 			"Failed round",
 			zap.Uint("height", uint(s.state.height)),
 			zap.Int("round", int(r-1)),

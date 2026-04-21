@@ -26,7 +26,7 @@ type Client struct {
 	maxRetries int
 	maxWait    time.Duration
 	minWait    time.Duration
-	log        log.StructuredLogger
+	logger     log.StructuredLogger
 	userAgent  string
 	apiKey     string
 	listener   EventListener
@@ -58,8 +58,8 @@ func (c *Client) WithMinWait(d time.Duration) *Client {
 	return c
 }
 
-func (c *Client) WithLogger(log log.StructuredLogger) *Client {
-	c.log = log
+func (c *Client) WithLogger(logger log.StructuredLogger) *Client {
+	c.logger = logger
 	return c
 }
 
@@ -103,7 +103,7 @@ func NewClient(clientURL string) *Client {
 		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
 		maxWait:    2 * time.Second,
 		minWait:    500 * time.Millisecond,
-		log:        log.NewNopZapLogger(),
+		logger:     log.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
 	}
 	client.timeouts.Store(&defaultTimeouts)
@@ -163,13 +163,13 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {
-				c.log.Warn("Failed query to feeder, retrying...",
+				c.logger.Warn("Failed query to feeder, retrying...",
 					zap.String("req", req.URL.String()),
 					zap.String("retryAfter", wait.String()),
 					zap.Error(err),
 					zap.String("newHTTPTimeout", currentTimeout.String()),
 				)
-				c.log.Warn("Timeouts can be updated via HTTP PUT request",
+				c.logger.Warn("Timeouts can be updated via HTTP PUT request",
 					zap.String("timeout", currentTimeout.String()),
 					zap.String("hint",
 						`Set --http-update-port and --http-update-host flags and `+
@@ -177,7 +177,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 					),
 				)
 			} else {
-				c.log.Debug("Failed query to feeder, retrying...",
+				c.logger.Debug("Failed query to feeder, retrying...",
 					zap.String("req", req.URL.String()),
 					zap.String("retryAfter", wait.String()),
 					zap.Error(err),

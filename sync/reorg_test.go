@@ -197,13 +197,13 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 	dataSource.setBlocks(b.blocks)
 }
 
-func newTestBuilder(log log.Logger, bc *blockchain.Blockchain) *builder.Builder {
+func newTestBuilder(logger log.Logger, bc *blockchain.Blockchain) *builder.Builder {
 	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, logger), logger, false, true)
 	builder := builder.New(bc, executor)
 	return &builder
 }

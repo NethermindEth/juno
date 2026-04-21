@@ -20,12 +20,12 @@ type DB struct {
 	ctx        context.Context
 	grpcClient *grpc.ClientConn
 	kvClient   gen.KVClient
-	log        log.StructuredLogger
+	logger     log.StructuredLogger
 	listener   db.EventListener
 }
 
 func New(
-	rawURL string, ctx context.Context, log log.StructuredLogger, opts ...grpc.DialOption,
+	rawURL string, ctx context.Context, logger log.StructuredLogger, opts ...grpc.DialOption,
 ) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {
@@ -41,7 +41,7 @@ func New(
 		ctx:        ctx,
 		grpcClient: grpcClient,
 		kvClient:   gen.NewKVClient(grpcClient),
-		log:        log,
+		logger:     logger,
 		listener:   listener,
 	}, nil
 }
@@ -54,7 +54,7 @@ func (d *DB) NewTransaction(write bool) (*transaction, error) {
 		return nil, err
 	}
 
-	return &transaction{client: txClient, log: d.log}, nil
+	return &transaction{client: txClient, logger: d.logger}, nil
 }
 
 func (d *DB) View(fn func(txn db.Snapshot) error) error {
@@ -129,7 +129,7 @@ func (d *DB) NewBatch() db.Batch {
 		panic(err)
 	}
 
-	return &transaction{client: txClient, log: d.log}
+	return &transaction{client: txClient, logger: d.logger}
 }
 
 func (d *DB) NewBatchWithSize(size int) db.Batch {
@@ -144,7 +144,7 @@ func (d *DB) NewIndexedBatch() db.IndexedBatch {
 		panic(err)
 	}
 
-	return &transaction{client: txClient, log: d.log}
+	return &transaction{client: txClient, logger: d.logger}
 }
 
 func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
@@ -168,7 +168,7 @@ func (d *DB) NewSnapshot() db.Snapshot {
 		panic(err)
 	}
 
-	return &transaction{client: txClient, log: d.log}
+	return &transaction{client: txClient, logger: d.logger}
 }
 
 func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
