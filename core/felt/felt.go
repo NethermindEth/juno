@@ -14,9 +14,6 @@ import (
 const (
 	Base16 = 16
 	Base10 = 10
-
-	// maxHexDigits is the maximum number of hex digits in a felt value (32 bytes = 64 hex chars).
-	maxHexDigits = Bytes * 2
 )
 
 const (
@@ -60,20 +57,22 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	}
 
 	src := data[3 : len(data)-1] // hex digits after "0x
+	// maxHexDigits is the maximum number of hex digits in a felt value (32 bytes = 64 hex chars).
+	const maxHexDigits = Bytes * 2
 	if len(src) > maxHexDigits {
 		return errors.New("felt: value exceeds field size")
 	}
 
 	// Left-pad with '0' to 64 hex chars so hex.Decode produces exactly 32 bytes.
-	var padded [64]byte
+	var padded [maxHexDigits]byte
 	for i := range padded {
 		padded[i] = '0'
 	}
-	copy(padded[64-len(src):], src)
+	copy(padded[maxHexDigits-len(src):], src)
 
 	var buf [32]byte
 	if _, err := hex.Decode(buf[:], padded[:]); err != nil {
-		return fmt.Errorf("felt: %w", err)
+		return fmt.Errorf("felt: couldn't decode hex value: %w", err)
 	}
 	return (*fp.Element)(z).SetBytesCanonical(buf[:])
 }
