@@ -266,7 +266,15 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	err = memTxn.Put(key, bsBytes)
 	require.NoError(t, err)
 
-	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &networks.Mainnet))
+	require.NoError(
+		t,
+		migrateTrieRootKeysFromBitsetToTrieKeys(
+			memTxn,
+			key,
+			bsBytes,
+			&networks.Mainnet,
+		),
+	)
 
 	var trieKey trie.BitArray
 	err = memTxn.Get(key, trieKey.UnmarshalBinary)
@@ -490,7 +498,10 @@ type testMigration struct {
 }
 
 func (f testMigration) Migrate(
-	ctx context.Context, database db.KeyValueStore, network *networks.Network, _ utils.StructuredLogger,
+	ctx context.Context,
+	database db.KeyValueStore,
+	network *networks.Network,
+	_ utils.StructuredLogger,
 ) ([]byte, error) {
 	return f.exec(ctx, database, network)
 }

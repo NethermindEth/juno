@@ -99,7 +99,11 @@ func TestTraceFallback(t *testing.T) {
 	})
 }
 
-func AssertTracedBlockTransactions(t *testing.T, n *networks.Network, tests map[string]expectedBlockTrace) {
+func AssertTracedBlockTransactions(
+	t *testing.T,
+	n *networks.Network,
+	tests map[string]expectedBlockTrace,
+) {
 	t.Helper()
 
 	mockCtrl := gomock.NewController(t)

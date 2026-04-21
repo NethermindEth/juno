@@ -50,7 +50,12 @@ func SetChainHeight(t *testing.T, database db.KeyValueStore, chainHeight types.H
 	}))
 }
 
-func LoadBlockDependencies(t *testing.T, database db.KeyValueStore, height types.Height, network *networks.Network) (headBlock, revealedBlock *core.Block) {
+func LoadBlockDependencies(
+	t *testing.T,
+	database db.KeyValueStore,
+	height types.Height,
+	network *networks.Network,
+) (headBlock, revealedBlock *core.Block) {
 	var err error
 	t.Helper()
 

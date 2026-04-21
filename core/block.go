@@ -98,7 +98,11 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network *networks.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
+func VerifyBlockHash(
+	b *Block,
+	network *networks.Network,
+	stateDiff *StateDiff,
+) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))

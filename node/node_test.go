@@ -19,16 +19,17 @@ import (
 // Create a new node with all services enabled.
 func TestNewNode(t *testing.T) {
 	config := &node.Config{
-		LogLevel:                           "info",
-		HTTP:                               true,
-		HTTPPort:                           0,
-		Websocket:                          true,
-		WebsocketPort:                      0,
-		GRPC:                               true,
-		GRPCPort:                           0,
-		DatabasePath:                       t.TempDir(),
-		DBCompression:                      "zstd",
-		Network:                            networks.Sepolia, // P2P will only work with Sepolia (for the time being)
+		LogLevel:      "info",
+		HTTP:          true,
+		HTTPPort:      0,
+		Websocket:     true,
+		WebsocketPort: 0,
+		GRPC:          true,
+		GRPCPort:      0,
+		DatabasePath:  t.TempDir(),
+		DBCompression: "zstd",
+		// P2P will only work with Sepolia (for the time being)
+		Network:                            networks.Sepolia,
 		EthNode:                            "",
 		DisableL1Verification:              true,
 		Pprof:                              true,

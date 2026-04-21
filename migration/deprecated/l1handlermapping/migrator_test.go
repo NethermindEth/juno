@@ -21,7 +21,12 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 		testdb := memory.New()
 		m := l1handlermapping.Migrator{}
 		require.NoError(t, m.Before(nil))
-		intermediateState, err := m.Migrate(t.Context(), testdb, &networks.Sepolia, utils.NewNopZapLogger())
+		intermediateState, err := m.Migrate(
+			t.Context(),
+			testdb,
+			&networks.Sepolia,
+			utils.NewNopZapLogger(),
+		)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 	})
@@ -93,7 +98,12 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 		// Run migration
 		m := l1handlermapping.Migrator{}
 		require.NoError(t, m.Before(nil))
-		intermediateState, err := m.Migrate(t.Context(), testdb, &networks.Sepolia, utils.NewNopZapLogger())
+		intermediateState, err := m.Migrate(
+			t.Context(),
+			testdb,
+			&networks.Sepolia,
+			utils.NewNopZapLogger(),
+		)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 

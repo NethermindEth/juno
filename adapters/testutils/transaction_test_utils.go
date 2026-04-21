@@ -32,7 +32,11 @@ type TransactionBuilder[C, P any] struct {
 
 type factory[C, P any] func(t *testing.T, network *networks.Network) (C, P)
 
-func GetTestTransactions[C, P any](t *testing.T, network *networks.Network, factories ...factory[C, P]) ([]C, []P) {
+func GetTestTransactions[C, P any](
+	t *testing.T,
+	network *networks.Network,
+	factories ...factory[C, P],
+) ([]C, []P) {
 	t.Helper()
 	consensusTransactions := make([]C, len(factories))
 	p2pTransactions := make([]P, len(factories))
@@ -147,7 +151,10 @@ func getTransactionHash(
 	return hash, adaptedHash
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, network *networks.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(
+	t *testing.T,
+	network *networks.Network,
+) (C, P) {
 	t.Helper()
 	classHash, sierraClass := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
@@ -200,7 +207,10 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 		b.ToP2PDeclareV3(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *networks.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(
+	t *testing.T,
+	network *networks.Network,
+) (C, P) {
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
 	classHash, classHashBytes := getRandomFelt(t)
@@ -252,7 +262,10 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T,
 	return b.ToCore(&consensusDeployAccountTransaction, nil, nil), b.ToP2PDeploy(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, network *networks.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(
+	t *testing.T,
+	network *networks.Network,
+) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
@@ -301,7 +314,10 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, networ
 	return b.ToCore(&consensusInvokeTransaction, nil, nil), b.ToP2PInvoke(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, network *networks.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(
+	t *testing.T,
+	network *networks.Network,
+) (C, P) {
 	t.Helper()
 	contractAddress, contractAddressBytes := getRandomFelt(t)
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)

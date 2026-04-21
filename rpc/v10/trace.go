@@ -580,7 +580,10 @@ func (h *Handler) buildBlockInfo(header *core.Header) (vm.BlockInfo, *jsonrpc.Er
 
 // shouldFetchTracesFromFeederGateway determines if
 // traces for a block should be fetched from the feeder gateway.
-func shouldFetchTracesFromFeederGateway(block *core.Block, network *networks.Network) (bool, error) {
+func shouldFetchTracesFromFeederGateway(
+	block *core.Block,
+	network *networks.Network,
+) (bool, error) {
 	blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
 	if err != nil {
 		return false, err
