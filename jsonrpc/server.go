@@ -49,10 +49,16 @@ func (r *Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("jsonrpc", log.SanitizeString(r.Version))
 	enc.AddString("method", log.SanitizeString(r.Method))
 	if r.ID != nil {
-		enc.AddReflected("id", r.ID)
+		err := enc.AddReflected("id", r.ID)
+		if err != nil {
+			return err
+		}
 	}
 	if r.Params != nil {
-		enc.AddReflected("params", r.Params)
+		err := enc.AddReflected("params", r.Params)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -491,7 +497,10 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
-		s.logger.Trace("Method not found in request", zap.String("method", log.SanitizeString(req.Method)))
+		s.logger.Trace(
+			"Method not found in request",
+			zap.String("method", log.SanitizeString(req.Method)),
+		)
 		return res, header, nil
 	}
 
