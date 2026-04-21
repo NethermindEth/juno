@@ -86,7 +86,7 @@ func (h *Handler) subscribe(
 
 		if subscriber.onStart != nil {
 			if err := subscriber.onStart(subscriptionCtx, id, sub, nil); err != nil {
-				h.log.Warn("Error starting subscription", zap.Error(err))
+				h.logger.Warn("Error starting subscription", zap.Error(err))
 				return
 			}
 		}
@@ -97,33 +97,33 @@ func (h *Handler) subscribe(
 				return
 			case reorg := <-reorgRecv:
 				if err := subscriber.onReorg(subscriptionCtx, id, sub, reorg); err != nil {
-					h.log.Warn("Error on reorg", zap.String("id", id), zap.Error(err))
+					h.logger.Warn("Error on reorg", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case l1Head := <-l1HeadRecv:
 				if err := subscriber.onL1Head(subscriptionCtx, id, sub, l1Head); err != nil {
-					h.log.Warn("Error on l1 head", zap.String("id", id), zap.Error(err))
+					h.logger.Warn("Error on l1 head", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case head := <-newHeadsRecv:
 				if err := subscriber.onNewHead(subscriptionCtx, id, sub, head); err != nil {
-					h.log.Warn("Error on new head", zap.String("id", id), zap.Error(err))
+					h.logger.Warn("Error on new head", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case preConfirmed := <-preConfirmedRecv:
 				if err := subscriber.onPreConfirmed(subscriptionCtx, id, sub, preConfirmed); err != nil {
-					h.log.Warn("Error on pre confirmed", zap.String("id", id), zap.Error(err))
+					h.logger.Warn("Error on pre confirmed", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case preLatest := <-preLatestRecv:
 				if err := subscriber.onPreLatest(subscriptionCtx, id, sub, preLatest); err != nil {
-					h.log.Warn("Error on preLatest", zap.String("id", id), zap.Error(err))
+					h.logger.Warn("Error on preLatest", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case transaction := <-receivedTransactionRecv:
 				err := subscriber.onReceivedTransaction(subscriptionCtx, id, sub, transaction)
 				if err != nil {
-					h.log.Warn("Error on received transaction",
+					h.logger.Warn("Error on received transaction",
 						zap.String("id", id),
 						zap.Error(err),
 					)

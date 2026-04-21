@@ -10,7 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"google.golang.org/grpc"
 )
 
@@ -20,12 +20,12 @@ type DB struct {
 	ctx        context.Context
 	grpcClient *grpc.ClientConn
 	kvClient   gen.KVClient
-	log        utils.StructuredLogger
+	log        log.StructuredLogger
 	listener   db.EventListener
 }
 
 func New(
-	rawURL string, ctx context.Context, log utils.StructuredLogger, opts ...grpc.DialOption,
+	rawURL string, ctx context.Context, log log.StructuredLogger, opts ...grpc.DialOption,
 ) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {

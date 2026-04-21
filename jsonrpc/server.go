@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
@@ -126,7 +127,7 @@ type Server struct {
 	methods              map[string]Method
 	validator            Validator
 	pool                 *pool.Pool
-	log                  utils.StructuredLogger
+	log                  log.StructuredLogger
 	listener             EventListener
 	disableBatchRequests bool
 }
@@ -136,7 +137,7 @@ type Validator interface {
 }
 
 // NewServer instantiates a JSONRPC server
-func NewServer(poolMaxGoroutines int, log utils.StructuredLogger) *Server {
+func NewServer(poolMaxGoroutines int, log log.StructuredLogger) *Server {
 	s := &Server{
 		log:      log,
 		methods:  make(map[string]Method),

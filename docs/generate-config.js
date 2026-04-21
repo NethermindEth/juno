@@ -129,7 +129,7 @@ function parseValue(value) {
   }
 
   // Logging level
-  if (value === "utils.INFO") {
+  if (value === "log.INFO") {
     return "info";
   }
 

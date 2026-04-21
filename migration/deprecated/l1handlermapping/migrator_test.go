@@ -10,9 +10,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/migration/deprecated/l1handlermapping"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +25,7 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 			t.Context(),
 			testdb,
 			&networks.Sepolia,
-			utils.NewNopZapLogger(),
+			log.NewNopZapLogger(),
 		)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
@@ -102,7 +102,7 @@ func TestRecalculateL1HandlerMsgHashesToTxnHashes(t *testing.T) {
 			t.Context(),
 			testdb,
 			&networks.Sepolia,
-			utils.NewNopZapLogger(),
+			log.NewNopZapLogger(),
 		)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)

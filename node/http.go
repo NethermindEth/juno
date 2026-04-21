@@ -17,9 +17,9 @@ import (
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
@@ -98,7 +98,7 @@ func makeRPCOverHTTP(
 	port uint16,
 	servers map[string]*jsonrpc.Server,
 	httpHandlers map[string]http.HandlerFunc,
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 	metricsEnabled bool,
 	corsEnabled bool,
 	rpcRequestTimeout time.Duration,
@@ -134,7 +134,7 @@ func makeRPCOverHTTP(
 }
 
 func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log utils.StructuredLogger, metricsEnabled bool, corsEnabled bool,
+	log log.StructuredLogger, metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -173,10 +173,10 @@ func makeMetrics(host string, port uint16) *httpService {
 }
 
 // Create a new service that updates the log level and timeouts settings.
-func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
+func makeHTTPUpdateService(host string, port uint16, logLevel *log.LogLevel, feederClient *feeder.Client) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
-		utils.HTTPLogSettings(w, r, logLevel)
+		log.HTTPLogSettings(w, r, logLevel)
 	})
 	mux.HandleFunc("/feeder/timeouts", func(w http.ResponseWriter, r *http.Request) {
 		feeder.HTTPTimeoutsSettings(w, r, feederClient)

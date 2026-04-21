@@ -4,14 +4,14 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/grpc/gen"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
 type iterator struct {
 	client   gen.KV_TxClient
 	cursorID uint32
-	log      utils.StructuredLogger
+	log      log.StructuredLogger
 	currentK []byte
 	currentV []byte
 }

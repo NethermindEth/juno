@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/coder/websocket"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
@@ -22,7 +22,7 @@ const (
 
 type Websocket struct {
 	rpc        *Server
-	log        utils.StructuredLogger
+	log        log.StructuredLogger
 	connParams *WebsocketConnParams
 	listener   NewRequestListener
 	shutdown   <-chan struct{}
@@ -31,7 +31,7 @@ type Websocket struct {
 	connSem *semaphore.Weighted
 }
 
-func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.StructuredLogger) *Websocket {
+func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log log.StructuredLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
 		log:        log,

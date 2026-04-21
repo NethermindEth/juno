@@ -13,11 +13,11 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -165,8 +165,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	n := new(networks.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	logger := log.NewNopZapLogger()
+	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -281,7 +281,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 
@@ -290,7 +290,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			block, rpcErr := handler.BlockWithTxHashes(&id)
 			assert.Nil(t, block)
@@ -479,7 +479,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 
@@ -488,7 +488,7 @@ func TestBlockWithTxs(t *testing.T) {
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
 
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			block, rpcErr := handler.BlockWithTxs(&id)
 			assert.Nil(t, block)

@@ -18,9 +18,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/pool"
@@ -40,7 +40,7 @@ const (
 var allBatchSizes = []int{1, 0, 3, 2, 4, 0, 1}
 
 func TestProposer(t *testing.T) {
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
+	logger, err := log.NewZapLogger(log.NewLogLevel(logLevel), log.WithColour(true))
 	require.NoError(t, err)
 
 	proposerAddr := starknet.Address(felt.Zero)
@@ -219,7 +219,7 @@ func getBlockchain(t *testing.T) *blockchain.Blockchain {
 	return bc
 }
 
-func getBuilder(t *testing.T, log utils.Logger, bc *blockchain.Blockchain) *builder.Builder {
+func getBuilder(t *testing.T, log log.Logger, bc *blockchain.Blockchain) *builder.Builder {
 	t.Helper()
 
 	genesisConfig, err := genesis.Read("../../genesis/genesis_prefund_accounts.json")

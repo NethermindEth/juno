@@ -9,6 +9,8 @@ import (
 	"strings"
 	stdsync "sync"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -20,7 +22,6 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/lru"
@@ -34,7 +35,7 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	compiler      compiler.Compiler
-	log           utils.Logger
+	logger        log.Logger
 	memPool       mempool.Pool
 
 	newHeads                *feed.Feed[*core.Block]
@@ -71,7 +72,7 @@ func New(
 	bcReader blockchain.Reader,
 	syncReader sync.Reader,
 	virtualMachine vm.VM,
-	logger utils.Logger,
+	logger log.Logger,
 ) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
 	if err != nil {
@@ -80,7 +81,7 @@ func New(
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
-		log:        logger,
+		logger:     logger,
 		vm:         virtualMachine,
 		idgen: func() string {
 			var n uint64

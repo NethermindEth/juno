@@ -17,12 +17,12 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -1244,7 +1244,7 @@ func TestAddTransaction(t *testing.T) {
 				}`), nil).
 				Times(1)
 
-			handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger())
+			handler := rpc.New(nil, nil, nil, log.NewNopZapLogger())
 			_, rpcErr := handler.AddTransaction(t.Context(), new(test.txn))
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
@@ -1288,7 +1288,7 @@ func TestAddTransaction(t *testing.T) {
 					AddTransaction(gomock.Any(), gomock.Any()).
 					Return(nil, tc.gatewayError)
 
-				handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger()).WithGateway(mockGateway)
+				handler := rpc.New(nil, nil, nil, log.NewNopZapLogger()).WithGateway(mockGateway)
 				addTxRes, rpcErr := handler.AddTransaction(
 					t.Context(),
 					new(tests["invoke v0"].txn),
@@ -1334,7 +1334,7 @@ func TestAddTransaction(t *testing.T) {
 			}`, tx.Hash().String())), nil).
 				Times(1)
 
-			handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger()).
+			handler := rpc.New(mockReader, nil, nil, log.NewNopZapLogger()).
 				WithGateway(mockGateway).
 				WithReceivedTransactionFeed(receivedTxFeed)
 
@@ -1377,7 +1377,7 @@ func TestTransactionStatus(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -1432,7 +1432,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, log)
+					handler := rpc.New(mockReader, nil, nil, logger)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1457,7 +1457,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, log)
+					handler := rpc.New(mockReader, nil, nil, logger)
 
 					want := &rpc.TransactionStatusV0_7{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1492,7 +1492,7 @@ func TestTransactionStatus(t *testing.T) {
 						).Return(
 							uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
-						handler := rpc.New(mockReader, mockSyncReader, nil, log)
+						handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1512,7 +1512,7 @@ func TestTransactionStatus(t *testing.T) {
 					(*felt.TransactionHash)(test.notFoundTxHash),
 				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+				handler := rpc.New(mockReader, mockSyncReader, nil, logger).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
@@ -1528,7 +1528,7 @@ func TestTransactionStatus(t *testing.T) {
 		txHash, err := new(felt.Felt).SetString("0x1111")
 		require.NoError(t, err)
 
-		handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+		handler := rpc.New(mockReader, mockSyncReader, nil, logger).WithFeeder(client)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
@@ -1942,7 +1942,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	ctx := t.Context()
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	network := networks.Integration
 
 	client := feeder.NewTestClient(t, &network)
@@ -2010,7 +2010,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		handler := rpc.New(mockReader, mockSyncReader, nil, log).
+		handler := rpc.New(mockReader, mockSyncReader, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
@@ -2036,7 +2036,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		handler := rpc.New(mockReader, mockSyncReader, nil, log).
+		handler := rpc.New(mockReader, mockSyncReader, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)

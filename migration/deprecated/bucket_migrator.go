@@ -10,7 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 )
 
 var _ Migration = (*BucketMigrator)(nil)
@@ -86,7 +86,7 @@ func (m *BucketMigrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *networks.Network,
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 ) ([]byte, error) {
 	remainingInBatch := m.batchSize
 	iterator, err := database.NewIterator(nil, false)

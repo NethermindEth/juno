@@ -10,11 +10,11 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/log"
 	deprecatedprogresslogger "github.com/NethermindEth/juno/migration/deprecated/progresslogger"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	progresslogger "github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -45,7 +45,7 @@ func (m *Migrator) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	_ *networks.Network,
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 ) ([]byte, error) {
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
@@ -98,7 +98,7 @@ func (m *Migrator) Migrate(
 func migrateBlockRange(
 	ctx context.Context,
 	database db.KeyValueStore,
-	logger utils.StructuredLogger,
+	logger log.StructuredLogger,
 	startFrom uint64,
 	rangeEnd uint64,
 	maxWorkers int,

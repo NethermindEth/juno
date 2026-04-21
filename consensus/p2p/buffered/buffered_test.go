@@ -11,8 +11,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
-	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
@@ -47,7 +47,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 	t.Run(
 		fmt.Sprintf("%d nodes, each sending %d messages", nodeCount, messageCount),
 		func(t *testing.T) {
-			logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
+			logger, err := log.NewZapLogger(log.NewLogLevel(logLevel), log.WithColour(true))
 			require.NoError(t, err)
 
 			nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(nodeCount))
@@ -158,7 +158,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 		})
 
 	t.Run("canceled context", func(t *testing.T) {
-		logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
+		logger, err := log.NewZapLogger(log.NewLogLevel(logLevel), log.WithColour(true))
 		require.NoError(t, err)
 
 		nodes := testutils.BuildNetworks(t, testutils.NewAdjacentNodes(1))

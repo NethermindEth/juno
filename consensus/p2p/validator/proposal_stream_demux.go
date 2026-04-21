@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/pool"
@@ -48,7 +49,7 @@ type ProposalStreamDemux[V types.Hashable[H], H types.Hash, A types.Addr] interf
 // Although the methods must be called sequentially and the streams are created, loaded, started, and stopped sequentially,
 // the streams run concurrently.
 type proposalStreamDemux struct {
-	log                  utils.Logger
+	log                  log.Logger
 	proposalStore        *proposal.ProposalStore[starknet.Hash]
 	transition           Transition
 	bufferSizeConfig     *config.BufferSizes
@@ -62,7 +63,7 @@ type proposalStreamDemux struct {
 }
 
 func NewProposalStreamDemux(
-	log utils.Logger,
+	log log.Logger,
 	proposalStore *proposal.ProposalStore[starknet.Hash],
 	transition Transition,
 	bufferSizeConfig *config.BufferSizes,

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
@@ -18,13 +18,13 @@ const MaxRequestBodySize = 10 * db.Megabyte
 
 type HTTP struct {
 	rpc *Server
-	log utils.StructuredLogger
+	log log.StructuredLogger
 
 	listener       NewRequestListener
 	requestTimeout time.Duration
 }
 
-func NewHTTP(rpc *Server, log utils.StructuredLogger) *HTTP {
+func NewHTTP(rpc *Server, log log.StructuredLogger) *HTTP {
 	h := &HTTP{
 		rpc:      rpc,
 		log:      log,

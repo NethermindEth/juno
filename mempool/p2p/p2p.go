@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
@@ -12,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/sourcegraph/conc"
@@ -26,7 +27,7 @@ const (
 
 type P2P struct {
 	host             host.Host
-	log              utils.Logger
+	log              log.Logger
 	network          *networks.Network
 	pool             mempool.Pool
 	broadcaster      transactionBroadcaster
@@ -38,7 +39,7 @@ type P2P struct {
 func New(
 	network *networks.Network,
 	host host.Host,
-	log utils.Logger,
+	log log.Logger,
 	pool mempool.Pool,
 	config *config.BufferSizes,
 	bootstrapPeersFn func() []peer.AddrInfo,

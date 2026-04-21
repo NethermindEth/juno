@@ -26,6 +26,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/node/upgrader"
 	"github.com/NethermindEth/juno/p2p"
@@ -40,7 +41,6 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/sourcegraph/conc"
@@ -142,7 +142,7 @@ type Node struct {
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
-	log           utils.Logger
+	log           log.Logger
 
 	version string
 }
@@ -150,11 +150,11 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 // Todo: (immediate follow-up PR) tidy this function up.
-func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
-	log, err := utils.NewZapLogger(
+func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
+	logger, err := log.NewZapLogger(
 		logLevel,
-		utils.WithColour(cfg.Colour),
-		utils.WithJSON(cfg.LogJSON),
+		log.WithColour(cfg.Colour),
+		log.WithJSON(cfg.LogJSON),
 	)
 	if err != nil {
 		return nil, err
@@ -163,14 +163,14 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.KeyValueStore
 	if dbIsRemote {
-		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		database, err = remote.New(cfg.RemoteDB, context.TODO(), logger, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		// note(rdr): A dedicated logger with level Error to avoid noise.
-		var dbLog *utils.ZapLogger
-		dbLog, err = utils.NewZapLogger(
-			utils.NewLogLevel(utils.ERROR),
-			utils.WithColour(cfg.Colour),
-			utils.WithJSON(cfg.LogJSON),
+		var dbLog *log.ZapLogger
+		dbLog, err = log.NewZapLogger(
+			log.NewLogLevel(log.ERROR),
+			log.WithColour(cfg.Colour),
+			log.WithJSON(cfg.LogJSON),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("create DB logger: %w", err)
@@ -246,7 +246,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	compiler := compiler.New(
 		cfg.MaxConcurrentCompilations,
 		"",
-		log,
+		logger,
 	)
 
 	if cfg.Sequencer {
@@ -264,15 +264,15 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			ChainID:           cfg.Network.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		nodeVM = vm.New(&chainInfo, false, log)
+		nodeVM = vm.New(&chainInfo, false, logger)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
-		mempool := mempool.New(database, chain, mempoolLimit, log)
-		executor := builder.NewExecutor(chain, nodeVM, log, cfg.SeqDisableFees, false)
+		mempool := mempool.New(database, chain, mempoolLimit, logger)
+		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
-			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
+			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger)
 		seq.WithPlugin(junoPlugin)
-		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network).
+		rpcHandler = rpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).
 			WithCompiler(compiler).
 			WithMempool(mempool).
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
@@ -288,7 +288,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 		client = feeder.NewClient(cfg.Network.FeederURL).
 			WithUserAgent(ua).
-			WithLogger(log).
+			WithLogger(logger).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
 
@@ -307,13 +307,13 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			ChainID:           cfg.Network.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		nodeVM = vm.New(&chainInfo, false, log)
+		nodeVM = vm.New(&chainInfo, false, logger)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(
 			chain,
 			feederGatewayDataSource,
-			log,
+			logger,
 			cfg.PreLatestPollInterval,
 			cfg.PreConfirmedPollInterval,
 			dbIsRemote,
@@ -321,7 +321,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		)
 		synchronizer.WithPlugin(junoPlugin)
 
-		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).
+		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, logger).
 			WithUserAgent(ua).
 			WithAPIKey(cfg.GatewayAPIKey)
 
@@ -329,7 +329,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			if cfg.Network == networks.Mainnet {
 				return nil, fmt.Errorf("P2P cannot be used on %v network", networks.Mainnet)
 			}
-			log.Warn("P2P features enabled. Please note P2P is in experimental stage")
+			logger.Warn("P2P features enabled. Please note P2P is in experimental stage")
 
 			if !cfg.P2PFeederNode {
 				// Do not start the feeder synchronisation
@@ -344,7 +344,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 				cfg.P2PFeederNode,
 				chain,
 				&cfg.Network,
-				log,
+				logger,
 				database,
 				compiler,
 			)
@@ -365,7 +365,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			cfg.SubmittedTransactionsCacheSize,
 		)
 		services = append(services, submittedTransactionsCache)
-		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, logger, &cfg.Network).
 			WithCompiler(compiler).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
@@ -388,7 +388,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 
-	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, log).
+	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv10.Validator()).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV10, pathV10 := rpcHandler.MethodsV0_10()
@@ -396,7 +396,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).
+	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv9.Validator()).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
@@ -404,7 +404,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).
+	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv8.Validator()).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
@@ -445,7 +445,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 				cfg.HTTPPort,
 				rpcServers,
 				httpHandlers,
-				log,
+				logger,
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
@@ -454,10 +454,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 	if cfg.Websocket {
 		services = append(services,
-			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, logger, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		log.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+		logger.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
 			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
 		)
 		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
@@ -493,7 +493,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	n := &Node{
 		cfg:           cfg,
-		log:           log,
+		log:           logger,
 		version:       version,
 		db:            database,
 		blockchain:    chain,
@@ -521,7 +521,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
 		n.services = append(n.services, ug)
 	} else {
-		log.Warn("Failed to parse Juno version, will not warn about new releases",
+		logger.Warn("Failed to parse Juno version, will not warn about new releases",
 			zap.String("version", version),
 		)
 	}
@@ -530,7 +530,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 }
 
 func newL1Client(
-	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.StructuredLogger,
+	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log log.StructuredLogger,
 ) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {

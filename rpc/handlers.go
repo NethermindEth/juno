@@ -3,6 +3,8 @@ package rpc
 import (
 	"context"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -16,7 +18,6 @@ import (
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"golang.org/x/sync/errgroup"
 )
@@ -29,7 +30,7 @@ type Handler struct {
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
-	logger utils.Logger, network *networks.Network,
+	logger log.Logger, network *networks.Network,
 ) *Handler {
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
 	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)

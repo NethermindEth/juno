@@ -15,8 +15,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
-	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
@@ -42,7 +42,7 @@ const (
 var network = &networks.Mainnet
 
 func TestProposalStreamDemux(t *testing.T) {
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
+	logger, err := log.NewZapLogger(log.NewLogLevel(logLevel), log.WithColour(true))
 	require.NoError(t, err)
 
 	nodes := testutils.BuildNetworks(t, testutils.NewAdjacentNodes(1))

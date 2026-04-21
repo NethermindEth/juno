@@ -10,10 +10,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -158,7 +158,7 @@ func TestSimulateTransactions(t *testing.T) {
 			mockState := mocks.NewMockStateReader(mockCtrl)
 
 			test.mockBehavior(mockReader, mockVM, mockState)
-			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+			handler := rpc.New(mockReader, nil, mockVM, log.NewNopZapLogger())
 
 			blockID := blockIDLatest(t)
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
@@ -286,7 +286,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
-			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+			handler := rpc.New(mockReader, nil, mockVM, log.NewNopZapLogger())
 
 			blockID := blockIDLatest(t)
 			_, _, err := handler.SimulateTransactions(

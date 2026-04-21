@@ -13,12 +13,12 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/stretchr/testify/require"
@@ -36,12 +36,12 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	log := utils.NewNopZapLogger()
-	p := mempool.New(memory.New(), bc, 1000, log)
+	logger := log.NewNopZapLogger()
+	p := mempool.New(memory.New(), bc, 1000, logger)
 
-	executor := builder.NewExecutor(bc, mockVM, log, false, false)
+	executor := builder.NewExecutor(bc, mockVM, logger, false, false)
 	testBuilder := builder.New(bc, executor)
-	return sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log), bc
+	return sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, logger), bc
 }
 
 // Sequencer contains prefunded accounts.
@@ -106,10 +106,10 @@ func getGenesisSequencer(
 	testDB := memory.New()
 	network := &networks.Mainnet
 	bc := blockchain.New(testDB, network)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	txnPool := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
+	txnPool := mempool.New(testDB, bc, 1000, log.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func getGenesisSequencer(
 	diff, classes, err := genesis.GenesisStateDiff(
 		t.Context(),
 		genesisConfig,
-		vm.New(&chainInfo, false, log),
+		vm.New(&chainInfo, false, logger),
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
@@ -134,10 +134,10 @@ func getGenesisSequencer(
 	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, logger), logger, false, true)
 	testBuilder := builder.New(bc, executor)
-	rpcHandler := rpc.New(bc, nil, nil, utils.NewNopZapLogger()).WithMempool(txnPool)
-	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
+	rpcHandler := rpc.New(bc, nil, nil, log.NewNopZapLogger()).WithMempool(txnPool)
+	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, logger), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
 }
 
 func TestBuildEmptyBlocks(t *testing.T) {

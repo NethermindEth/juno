@@ -15,7 +15,7 @@ import (
 func (s *Sequencer) RunOnce() (*core.Header, error) {
 	err := s.buildState.ClearPending()
 	if err != nil {
-		s.log.Error("clearing pending", zap.Error(err))
+		s.logger.Error("clearing pending", zap.Error(err))
 	}
 
 	if err := s.initPendingBlock(); err != nil {
@@ -26,22 +26,22 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	cancel()
 	if pErr := s.listenPool(ctx); pErr != nil {
 		if pErr != mempool.ErrTxnPoolEmpty {
-			s.log.Warn("listening pool", zap.Error(pErr))
+			s.logger.Warn("listening pool", zap.Error(pErr))
 		}
 	}
 
 	preConfirmed, err := s.PreConfirmed()
 	if err != nil {
-		s.log.Infof("Failed to get pending block")
+		s.logger.Infof("Failed to get pending block")
 	}
 	if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
 		return nil, err
 	}
-	s.log.Infof("Finalised new block")
+	s.logger.Infof("Finalised new block")
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(preConfirmed.Block, preConfirmed.StateUpdate, preConfirmed.NewClasses)
 		if err != nil {
-			s.log.Error("error sending new block to plugin", zap.Error(err))
+			s.logger.Error("error sending new block to plugin", zap.Error(err))
 		}
 	}
 	// push the new head to the feed

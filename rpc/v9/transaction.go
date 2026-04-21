@@ -714,7 +714,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 		adaptedTxn, _, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
 		if aErr != nil {
 			// Log error but don't fail the transaction submission
-			h.log.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
+			h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
 		} else {
 			h.receivedTransactionFeed.Send(adaptedTxn)
 		}
@@ -881,7 +881,7 @@ func (h *Handler) TransactionStatus(
 		status, err := AdaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, ErrTransactionNotFound) {
-				h.log.Error("Failed to adapt transaction status", zap.Error(err))
+				h.logger.Error("Failed to adapt transaction status", zap.Error(err))
 			}
 			return TransactionStatus{}, rpccore.ErrTxnHashNotFound
 		}

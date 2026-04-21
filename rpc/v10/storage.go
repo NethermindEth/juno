@@ -110,7 +110,7 @@ func (h *Handler) StorageAt(
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.log.Error("Failed to get contract class hash", zap.Error(err))
+		h.logger.Error("Failed to get contract class hash", zap.Error(err))
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
@@ -125,7 +125,7 @@ func (h *Handler) StorageAt(
 
 	lastUpdateBlock, err := stateReader.ContractStorageLastUpdatedBlock(address, key)
 	if err != nil {
-		h.log.Error(
+		h.logger.Error(
 			"Failed to find last updated block for storage key",
 			zap.Error(err),
 			zap.String("storage key", key.String()),

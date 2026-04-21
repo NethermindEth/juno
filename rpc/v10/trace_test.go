@@ -17,12 +17,12 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -325,7 +325,7 @@ func TestTraceTransaction(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
+	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		t.Run("key not found", func(t *testing.T) {
@@ -610,7 +610,7 @@ func TestTraceTransaction(t *testing.T) {
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
 		n := &networks.Sepolia
 
-		handler := rpcv10.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
+		handler := rpcv10.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
@@ -656,10 +656,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	for description, blockID := range errTests {
 		t.Run(description, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
-			handler := rpcv10.New(chain, nil, nil, log)
+			handler := rpcv10.New(chain, nil, nil, logger)
 
 			if description == "pre_confirmed" {
 				mockCtrl := gomock.NewController(t)
@@ -686,9 +686,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
-	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, log)
+	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, logger)
 
 	t.Run("regular block", func(t *testing.T) {
 		blockHash := felt.NewUnsafeFromString[felt.Felt](
@@ -1172,7 +1172,7 @@ func TestCall(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+	handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -1425,7 +1425,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 				InitialReads:     test.initialReads,
 			}, nil)
 
-			handler := rpcv10.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
+			handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
 
 			blockID := rpcv10.BlockIDFromHash(&blockHash)
 			traces, _, err := handler.TraceBlockTransactions(

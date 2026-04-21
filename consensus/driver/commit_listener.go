@@ -4,10 +4,11 @@ import (
 	"context"
 	gosync "sync"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -24,14 +25,14 @@ type CommitListener[V types.Hashable[H], H types.Hash] interface {
 }
 
 type commitListener[V types.Hashable[H], H types.Hash] struct {
-	log             utils.Logger
+	log             log.Logger
 	proposalStore   *proposal.ProposalStore[H]
 	postCommitHooks []CommitHook[V, H]
 	commits         chan sync.CommittedBlock
 }
 
 func NewCommitListener[V types.Hashable[H], H types.Hash](
-	log utils.Logger,
+	log log.Logger,
 	proposalStore *proposal.ProposalStore[H],
 	postCommitHooks ...CommitHook[V, H],
 ) CommitListener[V, H] {

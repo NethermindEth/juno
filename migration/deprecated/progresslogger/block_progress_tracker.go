@@ -4,13 +4,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
 // BlockProgressTracker tracks the progress of a migration by block number.
 type BlockProgressTracker struct {
-	logger          utils.StructuredLogger
+	logger          log.StructuredLogger
 	totalBlocks     uint64
 	completedBlocks atomic.Uint64
 	startTimestamp  time.Time
@@ -19,7 +19,7 @@ type BlockProgressTracker struct {
 // NewBlockProgressTracker creates a new progress tracker for block-based migrations.
 // initialCompletedBlocks allows resuming from a previous migration state.
 func NewBlockProgressTracker(
-	logger utils.StructuredLogger,
+	logger log.StructuredLogger,
 	totalBlocks uint64,
 	initialCompletedBlocks uint64,
 ) *BlockProgressTracker {

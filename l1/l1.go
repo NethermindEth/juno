@@ -11,8 +11,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/service"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
@@ -33,7 +33,7 @@ type Subscriber interface {
 type Client struct {
 	l1                    Subscriber
 	l2Chain               *blockchain.Blockchain
-	log                   utils.StructuredLogger
+	log                   log.StructuredLogger
 	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
@@ -43,7 +43,7 @@ type Client struct {
 
 var _ service.Service = (*Client)(nil)
 
-func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.StructuredLogger) *Client {
+func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log log.StructuredLogger) *Client {
 	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,

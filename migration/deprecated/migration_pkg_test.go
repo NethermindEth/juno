@@ -18,8 +18,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/log"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -418,7 +418,7 @@ func TestSchemaMetadata(t *testing.T) {
 	t.Run("conversion", func(t *testing.T) {
 		t.Run("version not set", func(t *testing.T) {
 			testDB := memory.New()
-			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
+			metadata, err := SchemaMetadata(log.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(0), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -432,7 +432,7 @@ func TestSchemaMetadata(t *testing.T) {
 				return txn.Put(db.DeprecatedSchemaVersion.Key(), version[:])
 			}))
 
-			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
+			metadata, err := SchemaMetadata(log.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -448,7 +448,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: nil,
 				})
 			}))
-			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
+			metadata, err := SchemaMetadata(log.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -466,7 +466,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
+			metadata, err := SchemaMetadata(log.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
@@ -484,7 +484,7 @@ func TestSchemaMetadata(t *testing.T) {
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(utils.NewNopZapLogger(), testDB)
+			metadata, err := SchemaMetadata(log.NewNopZapLogger(), testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
@@ -501,7 +501,7 @@ func (f testMigration) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *networks.Network,
-	_ utils.StructuredLogger,
+	_ log.StructuredLogger,
 ) ([]byte, error) {
 	return f.exec(ctx, database, network)
 }
@@ -526,7 +526,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				t.Context(),
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 				migrations,
 			),
 			"bar",
@@ -556,7 +556,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				t.Context(),
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 				migrations,
 			),
 		)
@@ -580,7 +580,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				t.Context(),
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 				migrations,
 			),
 			"foo",
@@ -605,7 +605,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				t.Context(),
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 				migrations,
 			),
 		)
@@ -616,7 +616,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				t.Context(),
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 				[]Migration{},
 			),
 			want,

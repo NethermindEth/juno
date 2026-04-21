@@ -5,21 +5,22 @@ import (
 	"errors"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
+
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
 type ProtoBroadcaster[M proto.Message] struct {
-	log                 utils.Logger
+	log                 log.Logger
 	ch                  chan M
 	retryInterval       time.Duration
 	rebroadcastStrategy RebroadcastStrategy[M]
 }
 
 func NewProtoBroadcaster[M proto.Message](
-	log utils.Logger,
+	log log.Logger,
 	bufferSize int,
 	retryInterval time.Duration,
 	rebroadcastStrategy RebroadcastStrategy[M],

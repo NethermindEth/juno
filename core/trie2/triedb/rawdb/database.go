@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 )
 
 var _ database.TrieDB = (*Database)(nil)
@@ -19,13 +19,13 @@ type Database struct {
 	disk db.KeyValueStore
 
 	lock sync.RWMutex
-	log  utils.StructuredLogger
+	log  log.StructuredLogger
 }
 
 func New(disk db.KeyValueStore) *Database {
 	return &Database{
 		disk: disk,
-		log:  utils.NewNopZapLogger(),
+		log:  log.NewNopZapLogger(),
 	}
 }
 

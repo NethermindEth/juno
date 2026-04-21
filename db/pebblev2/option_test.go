@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	pebbledb "github.com/cockroachdb/pebble/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,8 +20,8 @@ const (
 )
 
 func TestOptions(t *testing.T) {
-	logLevel := utils.NewLogLevel(utils.ERROR)
-	logger, err := utils.NewZapLogger(logLevel, utils.WithColour(true))
+	logLevel := log.NewLogLevel(log.ERROR)
+	logger, err := log.NewZapLogger(logLevel, log.WithColour(true))
 	require.NoError(t, err)
 
 	options := []pebblev2.Option{
@@ -42,7 +42,7 @@ func TestOptions(t *testing.T) {
 	assert.Equal(t, testMaxOpenFiles, opt.MaxOpenFiles)
 	assert.Equal(t, testMemtableCount, opt.MemTableStopWritesThreshold)
 	assert.NotNil(t, opt.Logger)
-	assert.IsType(t, &utils.ZapLogger{}, opt.Logger)
+	assert.IsType(t, &log.ZapLogger{}, opt.Logger)
 }
 
 func TestWithCompression(t *testing.T) {

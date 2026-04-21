@@ -7,11 +7,11 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -22,8 +22,8 @@ func TestPendingWrapper_Pending(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	n := new(networks.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	logger := log.NewNopZapLogger()
+	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 

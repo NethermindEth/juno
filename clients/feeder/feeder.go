@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -26,7 +26,7 @@ type Client struct {
 	maxRetries int
 	maxWait    time.Duration
 	minWait    time.Duration
-	log        utils.StructuredLogger
+	log        log.StructuredLogger
 	userAgent  string
 	apiKey     string
 	listener   EventListener
@@ -58,7 +58,7 @@ func (c *Client) WithMinWait(d time.Duration) *Client {
 	return c
 }
 
-func (c *Client) WithLogger(log utils.StructuredLogger) *Client {
+func (c *Client) WithLogger(log log.StructuredLogger) *Client {
 	c.log = log
 	return c
 }
@@ -103,7 +103,7 @@ func NewClient(clientURL string) *Client {
 		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
 		maxWait:    2 * time.Second,
 		minWait:    500 * time.Millisecond,
-		log:        utils.NewNopZapLogger(),
+		log:        log.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
 	}
 	client.timeouts.Store(&defaultTimeouts)

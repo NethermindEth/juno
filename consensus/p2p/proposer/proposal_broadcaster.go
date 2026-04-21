@@ -4,10 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
@@ -15,7 +16,7 @@ import (
 )
 
 type proposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log             utils.Logger
+	log             log.Logger
 	proposalAdapter ProposerAdapter[V, H, A]
 	proposalStore   *proposal.ProposalStore[H]
 	broadcaster     buffered.ProtoBroadcaster[*consensus.StreamMessage]
@@ -23,7 +24,7 @@ type proposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr] struct
 }
 
 func NewProposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr](
-	log utils.Logger,
+	log log.Logger,
 	proposalAdapter ProposerAdapter[V, H, A],
 	proposalStore *proposal.ProposalStore[H],
 	bufferSize int,

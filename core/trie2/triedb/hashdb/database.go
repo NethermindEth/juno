@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +28,7 @@ type Database struct {
 	dirtyCache *dirtyCache
 
 	lock sync.RWMutex
-	log  utils.StructuredLogger
+	log  log.StructuredLogger
 }
 
 // Creates a new hash-based database. If the config is not provided, it will use the default config,
@@ -45,7 +45,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		config:     *config,
 		cleanCache: &cleanCache,
 		dirtyCache: newDirtyCache(),
-		log:        utils.NewNopZapLogger(),
+		log:        log.NewNopZapLogger(),
 	}
 }
 

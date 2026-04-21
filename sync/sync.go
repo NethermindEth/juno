@@ -14,9 +14,9 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/log"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
 	"go.uber.org/zap"
 )
@@ -122,7 +122,7 @@ type Synchronizer struct {
 	preConfirmedDataFeed *feed.Feed[*pending.PreConfirmed]
 	preLatestDataFeed    *feed.Feed[*pending.PreLatest]
 
-	log      utils.StructuredLogger
+	logger   log.StructuredLogger
 	listener EventListener
 
 	preConfirmed             atomic.Pointer[pending.PreConfirmed]
@@ -138,7 +138,7 @@ type Synchronizer struct {
 func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 	preLatestPollInterval,
 	preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
@@ -148,7 +148,7 @@ func New(
 		blockchain:               bc,
 		dataSource:               dataSource,
 		db:                       database,
-		log:                      log,
+		logger:                   logger,
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
@@ -257,19 +257,19 @@ func (s *Synchronizer) isReverting(
 func (s *Synchronizer) handlePluginRevertBlock() {
 	fromBlock, err := s.blockchain.Head()
 	if err != nil {
-		s.log.Warn("Failed to retrieve the reverted blockchain head block for the plugin", zap.Error(err))
+		s.logger.Warn("Failed to retrieve the reverted blockchain head block for the plugin", zap.Error(err))
 		return
 	}
 	fromSU, err := s.blockchain.StateUpdateByNumber(fromBlock.Number)
 	if err != nil {
-		s.log.Warn("Failed to retrieve the reverted blockchain head state-update for the plugin",
+		s.logger.Warn("Failed to retrieve the reverted blockchain head state-update for the plugin",
 			zap.Error(err),
 		)
 		return
 	}
 	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
 	if err != nil {
-		s.log.Warn("Failed to retrieve reverse state diff",
+		s.logger.Warn("Failed to retrieve reverse state diff",
 			zap.Uint64("head", fromBlock.Number),
 			zap.String("hash", fromBlock.Hash.ShortString()),
 			zap.Error(err),
@@ -281,12 +281,12 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	if fromBlock.Number != 0 {
 		toBlock, err := s.blockchain.BlockByHash(fromBlock.ParentHash)
 		if err != nil {
-			s.log.Warn("Failed to retrieve the parent block for the plugin", zap.Error(err))
+			s.logger.Warn("Failed to retrieve the parent block for the plugin", zap.Error(err))
 			return
 		}
 		toSU, err := s.blockchain.StateUpdateByNumber(toBlock.Number)
 		if err != nil {
-			s.log.Warn("Failed to retrieve the parents state-update for the plugin", zap.Error(err))
+			s.logger.Warn("Failed to retrieve the parents state-update for the plugin", zap.Error(err))
 			return
 		}
 		toBlockAndStateUpdate = &junoplugin.BlockAndStateUpdate{
@@ -299,7 +299,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 		toBlockAndStateUpdate,
 		&reverseStateDiff)
 	if err != nil {
-		s.log.Error("Plugin RevertBlock failure:", zap.Error(err))
+		s.logger.Error("Plugin RevertBlock failure:", zap.Error(err))
 	}
 }
 
@@ -317,7 +317,7 @@ func (s *Synchronizer) verifierTask(
 	if err != nil {
 		return func() {
 			defer close(committedBlock.Persisted)
-			s.log.Warn(
+			s.logger.Warn(
 				"Sanity checks failed",
 				zap.Uint64("number", committedBlock.Block.Number),
 				zap.String("hash", committedBlock.Block.Hash.ShortString()),
@@ -358,14 +358,14 @@ func (s *Synchronizer) storeTask(
 			return
 		}
 
-		s.log.Warn("Failed storing Block", zap.Uint64("number", block.Number),
+		s.logger.Warn("Failed storing Block", zap.Uint64("number", block.Number),
 			zap.String("hash", block.Hash.ShortString()), zap.Error(err))
 		resetStreams()
 		return
 	}
 
 	if err := s.storeEmptyPreConfirmed(block.Header, nil); err != nil {
-		s.log.Error("Failed to store empty pre-confirmed data", zap.Error(err))
+		s.logger.Error("Failed to store empty pre-confirmed data", zap.Error(err))
 	}
 
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
@@ -389,12 +389,12 @@ func (s *Synchronizer) storeTask(
 	}
 
 	s.newHeads.Send(block)
-	s.log.Info("Stored Block", zap.Uint64("number", block.Number), zap.String("hash",
+	s.logger.Info("Stored Block", zap.Uint64("number", block.Number), zap.String("hash",
 		block.Hash.ShortString()), zap.String("root", block.GlobalStateRoot.ShortString()))
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(block, stateUpdate, newClasses)
 		if err != nil {
-			s.log.Error("Plugin NewBlock failure:", zap.Error(err))
+			s.logger.Error("Plugin NewBlock failure:", zap.Error(err))
 		}
 	}
 }
@@ -407,7 +407,7 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 	for shouldContinue {
 		localHeader, err := s.blockchain.HeadsHeader()
 		if err != nil {
-			s.log.Error("Failed to retrieve the local head header", zap.Error(err))
+			s.logger.Error("Failed to retrieve the local head header", zap.Error(err))
 			break
 		}
 		lastHead = localHeader
@@ -416,7 +416,7 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 		if localHeader.Number <= lastPossiblyValidHeight {
 			remoteBlock, err := s.dataSource.BlockByNumber(ctx, localHeader.Number)
 			if err != nil {
-				s.log.Error("Failed to retrieve the remote header", zap.Error(err))
+				s.logger.Error("Failed to retrieve the remote header", zap.Error(err))
 				break
 			}
 			remoteHeader := remoteBlock.Block.Header
@@ -439,7 +439,7 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 
 	if lastHead != nil {
 		if err := s.storeEmptyPreConfirmed(lastHead, nil); err != nil {
-			s.log.Error("Failed to store empty pre-confirmed data", zap.Error(err))
+			s.logger.Error("Failed to store empty pre-confirmed data", zap.Error(err))
 		}
 	}
 }
@@ -491,7 +491,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
 				pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
-				s.log.Warn("Restarting sync process",
+				s.logger.Warn("Restarting sync process",
 					zap.Uint64("height", nextHeight),
 					zap.Bool("catchUpMode", s.catchUpMode),
 				)
@@ -522,14 +522,14 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 }
 
 func (s *Synchronizer) revertHead(localHeader *core.Header) {
-	s.log.Info("Reorg detected", zap.String("localHead", localHeader.Hash.String()))
+	s.logger.Info("Reorg detected", zap.String("localHead", localHeader.Hash.String()))
 	if err := s.blockchain.RevertHead(); err != nil {
-		s.log.Warn("Failed reverting HEAD",
+		s.logger.Warn("Failed reverting HEAD",
 			zap.String("reverted", localHeader.Hash.String()),
 			zap.Error(err),
 		)
 	} else {
-		s.log.Info("Reverted HEAD", zap.String("reverted", localHeader.Hash.String()))
+		s.logger.Info("Reverted HEAD", zap.String("reverted", localHeader.Hash.String()))
 	}
 
 	if s.currReorg == nil { // first block of the reorg
@@ -580,7 +580,7 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	for {
 		header, err := s.dataSource.BlockHeaderLatest(ctx)
 		if err != nil {
-			s.log.Warn("Failed fetching latest block", zap.Error(err))
+			s.logger.Warn("Failed fetching latest block", zap.Error(err))
 		} else {
 			s.highestBlockHeader.Store(header)
 		}

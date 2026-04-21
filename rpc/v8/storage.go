@@ -41,7 +41,7 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.log.Error("Failed to get contract nonce", zap.Error(err))
+		h.logger.Error("Failed to get contract nonce", zap.Error(err))
 		return nil, rpccore.ErrInternal
 	}
 

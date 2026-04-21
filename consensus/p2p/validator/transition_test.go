@@ -13,10 +13,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/stretchr/testify/require"
@@ -32,11 +32,11 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 	testDB := memory.New()
 	network := &networks.Mainnet
 	bc := blockchain.New(testDB, network)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
+	p := mempool.New(testDB, bc, 1000, log.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../../../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 	diff, classes, err := genesis.GenesisStateDiff(
 		t.Context(),
 		genesisConfig,
-		vm.New(&chainInfo, false, log),
+		vm.New(&chainInfo, false, logger),
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
@@ -62,10 +62,10 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, logger), logger, false, true)
 	testBuilder := builder.New(bc, executor)
 	// We use the sequencer to build a non-empty blockchain
-	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
+	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, logger)
 	head, err := seq.RunOnce()
 	require.NoError(t, err)
 	return &testBuilder, head

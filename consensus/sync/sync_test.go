@@ -15,8 +15,8 @@ import (
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -71,7 +71,7 @@ func TestMessageExtractor(t *testing.T) {
 	})
 
 	t.Run(("State machine should be able to commit"), func(t *testing.T) {
-		logger := utils.NewNopZapLogger()
+		logger := log.NewNopZapLogger()
 		nodeAddr := felt.FromUint64[starknet.Address](uint64(nodeCount) + 1)
 
 		stateMachine := tendermint.New[starknet.Value, starknet.Hash, starknet.Address](

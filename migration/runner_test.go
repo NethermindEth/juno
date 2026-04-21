@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +34,7 @@ func (m *cancellableMockMigration) Migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
 	network *networks.Network,
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 ) ([]byte, error) {
 	m.migrateCalled = true
 
@@ -76,7 +76,7 @@ func createRunner(
 		registry,
 		testDB,
 		&networks.Mainnet,
-		utils.NewNopZapLogger(),
+		log.NewNopZapLogger(),
 	)
 	require.NoError(t, err)
 	return runner
@@ -125,7 +125,7 @@ func TestNewRunner(t *testing.T) {
 			registry,
 			testDB,
 			&networks.Mainnet,
-			utils.NewNopZapLogger(),
+			log.NewNopZapLogger(),
 		)
 		require.Error(t, err)
 		require.Nil(t, runner)
@@ -151,7 +151,7 @@ func TestNewRunner(t *testing.T) {
 			registry,
 			testDB,
 			&networks.Mainnet,
-			utils.NewNopZapLogger(),
+			log.NewNopZapLogger(),
 		)
 		require.Error(t, err)
 		require.Nil(t, runner)

@@ -14,11 +14,11 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -569,7 +569,7 @@ func TestEvents(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
+			handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
 
 			// Set up mock expectations
 			if tc.preConfirmed != nil {
@@ -600,7 +600,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
-	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
+	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
 
 	from := []felt.Address{
 		felt.UnsafeFromString[felt.Address](
@@ -661,7 +661,7 @@ func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
+	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
 
 	preConfirmedID := rpc.BlockIDPreConfirmed()
 	// Test pagination with small chunk size to trigger multiple calls

@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,7 +172,7 @@ func TestDriver(t *testing.T) {
 	}
 
 	driver := driver.New(
-		utils.NewNopZapLogger(),
+		log.NewNopZapLogger(),
 		newTendermintDB(t),
 		stateMachine,
 		newMockCommitListener(t, &commitAction),

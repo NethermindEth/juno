@@ -4,21 +4,22 @@ import (
 	"context"
 	"time"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/adapters/mempool2p2p"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/mempool/transaction"
 	"go.uber.org/zap"
 )
 
 type transactionBroadcaster struct {
 	buffered.ProtoBroadcaster[*transaction.MempoolTransaction]
-	log utils.Logger
+	log log.Logger
 }
 
 func NewTransactionBroadcaster(
-	log utils.Logger,
+	log log.Logger,
 	bufferSize int,
 	retryInterval time.Duration,
 ) transactionBroadcaster {

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,12 +25,12 @@ func TestHTTP(t *testing.T) {
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
 	listener := CountingEventListener{}
-	log := utils.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, log).WithListener(&listener)
+	logger := log.NewNopZapLogger()
+	rpc := jsonrpc.NewServer(1, logger).WithListener(&listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
-	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
+	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, logger))
 	t.Cleanup(srv.Close)
 
 	// Client
@@ -98,11 +98,11 @@ func TestGzipResponse(t *testing.T) {
 		},
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
-	log := utils.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, log)
+	logger := log.NewNopZapLogger()
+	rpc := jsonrpc.NewServer(1, logger)
 	require.NoError(t, rpc.RegisterMethods(method))
 
-	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
+	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, logger))
 	t.Cleanup(srv.Close)
 	client := new(http.Client)
 

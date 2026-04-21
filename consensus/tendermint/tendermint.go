@@ -1,12 +1,13 @@
 package tendermint
 
 import (
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/types/wal"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -37,7 +38,7 @@ type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log             utils.Logger
+	log             log.Logger
 	nodeAddr        A
 	state           state[V, H] // Todo: Does state need to be protected?
 	voteCounter     votecounter.VoteCounter[V, H, A]
@@ -64,7 +65,7 @@ type state[V types.Hashable[H], H types.Hash] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	log utils.Logger,
+	log log.Logger,
 	nodeAddr A,
 	app Application[V, H],
 	vals votecounter.Validators[A],

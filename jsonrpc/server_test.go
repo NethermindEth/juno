@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestServer_RegisterMethod(t *testing.T) {
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 	tests := map[string]struct {
 		handler    any
 		paramNames []jsonrpc.Parameter
@@ -195,7 +195,7 @@ func TestHandle(t *testing.T) {
 	}
 
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger()).
 		WithValidator(validator.New()).
 		WithListener(&listener)
 	require.NoError(t, server.RegisterMethods(methods...))
@@ -538,7 +538,7 @@ func TestHandle(t *testing.T) {
 }
 
 func TestServerWithDisabledBatchRequests(t *testing.T) {
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 
 	err := server.RegisterMethods(
 		jsonrpc.Method{
@@ -603,7 +603,7 @@ var benchHandleR http.Header
 
 func BenchmarkHandle(b *testing.B) {
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger()).
 		WithValidator(validator.New()).
 		WithListener(&listener)
 	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
@@ -624,7 +624,7 @@ func BenchmarkHandle(b *testing.B) {
 }
 
 func TestCannotWriteToConnInHandler(t *testing.T) {
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
 		Name: "test",
 		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
@@ -652,7 +652,7 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 
 func TestWriteToConnInHandler(t *testing.T) {
 	testBytes := "written from handler"
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 	wg := conc.NewWaitGroup()
 	t.Cleanup(wg.Wait)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
@@ -689,7 +689,7 @@ func TestWriteToConnInHandler(t *testing.T) {
 }
 
 func TestWriteToClosedConnInHandler(t *testing.T) {
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 	wg := conc.NewWaitGroup()
 	t.Cleanup(wg.Wait)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
@@ -18,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	libp2p "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -42,7 +43,7 @@ type P2P[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 
 type p2p[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	host             host.Host
-	log              utils.Logger
+	log              log.Logger
 	network          *networks.Network
 	commitNotifier   chan types.Height
 	broadcasters     Broadcasters[V, H, A]
@@ -58,7 +59,7 @@ type attachedToTopic interface {
 
 func New(
 	host host.Host,
-	log utils.Logger,
+	log log.Logger,
 	builder *builder.Builder,
 	proposalStore *proposal.ProposalStore[starknet.Hash],
 	currentHeight types.Height,

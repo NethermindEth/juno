@@ -2,22 +2,22 @@ package blocktransactions
 
 import (
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
 type committer struct {
 	counter        counter
-	logger         utils.StructuredLogger
+	logger         log.StructuredLogger
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
 }
 
 var _ pipeline.State[task, struct{}] = (*committer)(nil)
 
 func newCommitter(
-	logger utils.StructuredLogger,
+	logger log.StructuredLogger,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 ) *committer {
 	return &committer{

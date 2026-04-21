@@ -4,12 +4,12 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
 type counter struct {
-	logger      utils.StructuredLogger
+	logger      log.StructuredLogger
 	timeLogRate time.Duration
 	start       time.Time
 	size        uint64
@@ -17,7 +17,7 @@ type counter struct {
 	blockCount  uint64
 }
 
-func newCounter(logger utils.StructuredLogger, timeLogRate time.Duration) counter {
+func newCounter(logger log.StructuredLogger, timeLogRate time.Duration) counter {
 	return counter{
 		logger:      logger,
 		timeLogRate: timeLogRate,

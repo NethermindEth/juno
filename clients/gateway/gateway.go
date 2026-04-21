@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 )
 
 var (
@@ -43,7 +43,7 @@ type Client struct {
 	url       string
 	client    *http.Client
 	listener  EventListener
-	log       utils.StructuredLogger
+	log       log.StructuredLogger
 	userAgent string
 	apiKey    string
 }
@@ -63,7 +63,7 @@ func (c *Client) WithListener(l EventListener) *Client {
 	return c
 }
 
-func NewClient(gatewayURL string, log utils.StructuredLogger) *Client {
+func NewClient(gatewayURL string, log log.StructuredLogger) *Client {
 	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
 	return &Client{
 		url: gatewayURL,

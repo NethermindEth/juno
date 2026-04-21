@@ -11,11 +11,11 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -41,8 +41,8 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
-			log := utils.NewNopZapLogger()
-			handler := rpcv10.New(chain, mockSyncReader, nil, log)
+			logger := log.NewNopZapLogger()
+			handler := rpcv10.New(chain, mockSyncReader, nil, logger)
 
 			update, rpcErr := handler.StateUpdate(&id, nil)
 			assert.Empty(t, update)
@@ -57,10 +57,10 @@ func TestStateUpdate(t *testing.T) {
 
 	n := &networks.SepoliaIntegration
 
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, log)
+	handler := rpcv10.New(mockReader, mockSyncReader, nil, logger)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 

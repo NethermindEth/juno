@@ -14,8 +14,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/tracker"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -33,14 +33,14 @@ import (
 type Server struct {
 	host     host.Host
 	bcReader blockchain.Reader
-	log      utils.StructuredLogger
+	logger   log.StructuredLogger
 }
 
-func New(host host.Host, bcReader blockchain.Reader, log utils.StructuredLogger) Server {
+func New(host host.Host, bcReader blockchain.Reader, logger log.StructuredLogger) Server {
 	return Server{
 		host:     host,
 		bcReader: bcReader,
-		log:      log,
+		logger:   logger,
 	}
 }
 
@@ -89,7 +89,7 @@ func streamHandler[ReqT proto.Message](
 	tracker *tracker.Tracker,
 	stream network.Stream,
 	reqHandler func(req ReqT) (iter.Seq[proto.Message], error),
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 ) {
 	select {
 	case <-ctx.Done():
@@ -102,7 +102,7 @@ func streamHandler[ReqT proto.Message](
 
 	defer func() {
 		if err := stream.Close(); err != nil {
-			log.Debug(
+			logger.Debug(
 				"Error closing stream",
 				zap.String("peer", stream.ID()),
 				zap.String("protocol", string(stream.Protocol())),
@@ -117,7 +117,7 @@ func streamHandler[ReqT proto.Message](
 	// todo add limit reader
 	// todo add read timeout
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		log.Debug(
+		logger.Debug(
 			"Error reading from stream",
 			zap.String("peer", stream.ID()),
 			zap.String("protocol", string(stream.Protocol())),
@@ -130,7 +130,7 @@ func streamHandler[ReqT proto.Message](
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		log.Debug(
+		logger.Debug(
 			"Error unmarshalling message",
 			zap.String("peer", stream.ID()),
 			zap.String("protocol", string(stream.Protocol())),
@@ -142,7 +142,7 @@ func streamHandler[ReqT proto.Message](
 	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
-		log.Debug(
+		logger.Debug(
 			"Error handling request",
 			zap.String("peer", stream.ID()),
 			zap.String("protocol", string(stream.Protocol())),
@@ -158,7 +158,7 @@ func streamHandler[ReqT proto.Message](
 
 		// todo add write timeout
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			log.Debug(
+			logger.Debug(
 				"Error writing response",
 				zap.String("peer", stream.ID()),
 				zap.String("protocol", string(stream.Protocol())),
@@ -174,7 +174,7 @@ func (h *Server) headersHandler(
 	tracker *tracker.Tracker,
 	stream network.Stream,
 ) {
-	streamHandler(ctx, tracker, stream, h.onHeadersRequest, h.log)
+	streamHandler(ctx, tracker, stream, h.onHeadersRequest, h.logger)
 }
 
 func (h *Server) eventsHandler(
@@ -182,7 +182,7 @@ func (h *Server) eventsHandler(
 	tracker *tracker.Tracker,
 	stream network.Stream,
 ) {
-	streamHandler(ctx, tracker, stream, h.onEventsRequest, h.log)
+	streamHandler(ctx, tracker, stream, h.onEventsRequest, h.logger)
 }
 
 func (h *Server) transactionsHandler(
@@ -190,7 +190,7 @@ func (h *Server) transactionsHandler(
 	tracker *tracker.Tracker,
 	stream network.Stream,
 ) {
-	streamHandler(ctx, tracker, stream, h.onTransactionsRequest, h.log)
+	streamHandler(ctx, tracker, stream, h.onTransactionsRequest, h.logger)
 }
 
 func (h *Server) classesHandler(
@@ -198,7 +198,7 @@ func (h *Server) classesHandler(
 	tracker *tracker.Tracker,
 	stream network.Stream,
 ) {
-	streamHandler(ctx, tracker, stream, h.onClassesRequest, h.log)
+	streamHandler(ctx, tracker, stream, h.onClassesRequest, h.logger)
 }
 
 func (h *Server) stateDiffHandler(
@@ -206,7 +206,7 @@ func (h *Server) stateDiffHandler(
 	tracker *tracker.Tracker,
 	stream network.Stream,
 ) {
-	streamHandler(ctx, tracker, stream, h.onStateDiffRequest, h.log)
+	streamHandler(ctx, tracker, stream, h.onStateDiffRequest, h.logger)
 }
 
 func (h *Server) onHeadersRequest(
@@ -222,7 +222,7 @@ func (h *Server) onHeadersRequest(
 			return nil, err
 		}
 
-		h.log.Debug("Created Header Iterator", zap.Uint64("blockNumber", blockHeader.Number))
+		h.logger.Debug("Created Header Iterator", zap.Uint64("blockNumber", blockHeader.Number))
 
 		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
 		if err != nil {
@@ -462,7 +462,7 @@ func (h *Server) onClassesRequest(
 		}
 		defer func() {
 			if closeErr := closer(); closeErr != nil {
-				h.log.Error("Failed to close state reader", zap.Error(closeErr))
+				h.logger.Error("Failed to close state reader", zap.Error(closeErr))
 			}
 		}()
 
@@ -530,7 +530,7 @@ func (h *Server) processIterationRequest(
 			msg, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error(
+					h.logger.Error(
 						"Failed to generate data",
 						zap.Uint64("blockNumber", it.BlockNumber()),
 						zap.Error(err),
@@ -573,7 +573,7 @@ func (h *Server) processIterationRequestMulti(iteration *synccommon.Iteration, f
 			messages, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Error(
+					h.logger.Error(
 						"Failed to generate data",
 						zap.Uint64("blockNumber", it.BlockNumber()),
 						zap.Error(err),

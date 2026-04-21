@@ -9,10 +9,10 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db/pebblev2"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/node"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,7 +45,7 @@ func TestNewNode(t *testing.T) {
 		SubmittedTransactionsCacheEntryTTL: time.Second,
 	}
 
-	logLevel := utils.NewLogLevel(utils.INFO)
+	logLevel := log.NewLogLevel(log.INFO)
 	n, err := node.New(config, "v0.3", logLevel)
 	require.NoError(t, err)
 
@@ -73,13 +73,13 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
 			dbPath := t.TempDir()
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			database, err := pebblev2.New(dbPath)
 			require.NoError(t, err)
 			chain := blockchain.New(database, &network)
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
-			syncer := sync.New(chain, dataSource, log, 0, 0, false, database).
+			syncer := sync.New(chain, dataSource, logger, 0, 0, false, database).
 				WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
 					// Stop the syncer after we successfully stored block.
 					if op == sync.OpStore {
@@ -90,7 +90,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			cancel()
 			require.NoError(t, database.Close())
 
-			logLevel := utils.NewLogLevel(utils.INFO)
+			logLevel := log.NewLogLevel(log.INFO)
 			_, err = node.New(&node.Config{
 				DatabasePath:                       dbPath,
 				DBCompression:                      "zstd",

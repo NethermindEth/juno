@@ -6,6 +6,8 @@ import (
 	gosync "sync"
 	"time"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
 	consensusSync "github.com/NethermindEth/juno/consensus/sync"
@@ -13,14 +15,13 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/p2p/sync"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
 type TimeoutFn func(step types.Step, round types.Round) time.Duration
 
 type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log              utils.Logger
+	log              log.Logger
 	db               db.TendermintDB[V, H, A]
 	stateMachine     tendermint.StateMachine[V, H, A]
 	commitListener   CommitListener[V, H]
@@ -38,7 +39,7 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	log utils.Logger,
+	log log.Logger,
 	db db.TendermintDB[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
 	commitListener CommitListener[V, H],

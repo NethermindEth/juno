@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 
 type transaction struct {
 	client gen.KV_TxClient
-	log    utils.StructuredLogger
+	log    log.StructuredLogger
 }
 
 func (t *transaction) NewIterator(_ []byte, _ bool) (db.Iterator, error) {

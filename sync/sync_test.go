@@ -13,10 +13,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -53,12 +53,12 @@ func TestSyncBlocks(t *testing.T) {
 			return nil
 		}())
 	}
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := memory.New()
 		bc := blockchain.New(testDB, &networks.Mainnet)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -77,7 +77,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -137,7 +137,7 @@ func TestSyncBlocks(t *testing.T) {
 			}).AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
-		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -159,7 +159,7 @@ func TestReorg(t *testing.T) {
 	// sync to Sepolia for 2 blocks
 	bc := blockchain.New(testDB, &networks.Sepolia)
 	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
-	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
+	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), 0, 0, false, testDB)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -177,7 +177,7 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
-		synchronizer = sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
+		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), 0, 0, false, testDB)
 		sub := synchronizer.SubscribeReorg()
 		// Use a generous timeout with early cancellation once the expected block is stored.
 		// The reorg flow (detect mismatch → revert → re-sync 3 blocks) needs more than 1s on slow CI.
@@ -218,13 +218,13 @@ func TestReorg(t *testing.T) {
 func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
 	testDB := memory.New()
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	network := networks.Mainnet
 	chain := blockchain.New(testDB, &network)
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-	syncer := sync.New(chain, dataSource, log, 0, 0, false, testDB)
+	syncer := sync.New(chain, dataSource, logger, 0, 0, false, testDB)
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -248,13 +248,13 @@ func TestPreConfirmedAfterSync(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	bc := blockchain.New(testDB, &networks.Mainnet)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 	synchronizer := sync.New(
 		bc,
 		dataSource,
-		log,
+		logger,
 		time.Millisecond*100,
 		time.Millisecond*100,
 		false,
@@ -282,7 +282,7 @@ func TestPreConfirmedAfterSync(t *testing.T) {
 
 func TestPreConfirmed(t *testing.T) {
 	t.Parallel()
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -296,7 +296,7 @@ func TestPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, nil, log, 0, 0, false, testDB)
+		synchronizer := sync.New(bc, nil, logger, 0, 0, false, testDB)
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
@@ -321,7 +321,7 @@ func TestPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, nil, log, 0, 0, false, testDB)
+		synchronizer := sync.New(bc, nil, logger, 0, 0, false, testDB)
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 

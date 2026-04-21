@@ -12,11 +12,11 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -509,8 +509,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	n := new(networks.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	logger := log.NewNopZapLogger()
+	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -624,11 +624,11 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
@@ -753,12 +753,12 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
@@ -900,11 +900,11 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
@@ -1203,7 +1203,7 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 		StateDiff: &core.StateDiff{},
 	}, nil).AnyTimes()
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
 		responseFlags := rpc.ResponseFlags{IncludeProofFacts: true}
@@ -1299,7 +1299,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		StateDiff: &core.StateDiff{},
 	}, nil).AnyTimes()
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
 
 	t.Run("WithResponseFlag", func(t *testing.T) {
 		responseFlags := rpc.ResponseFlags{IncludeProofFacts: true}

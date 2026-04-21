@@ -13,10 +13,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	_ "github.com/NethermindEth/juno/encoder/registry"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -43,7 +43,7 @@ func setupDatabase(dbPath string, dltExisting bool) (db.KeyValueStore, func(), e
 
 func TestMempool(t *testing.T) {
 	testDB, dbCloser, err := setupDatabase("testmempool", true)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
@@ -51,7 +51,7 @@ func TestMempool(t *testing.T) {
 
 	require.NoError(t, err)
 	defer dbCloser()
-	pool := mempool.New(testDB, chain, 4, log)
+	pool := mempool.New(testDB, chain, 4, logger)
 	require.NoError(t, pool.LoadFromDB())
 
 	require.Equal(t, 0, pool.Len())
@@ -119,7 +119,7 @@ func TestMempool(t *testing.T) {
 }
 
 func TestRestoreMempool(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	state := mocks.NewMockStateReader(mockCtrl)
@@ -127,7 +127,7 @@ func TestRestoreMempool(t *testing.T) {
 	testDB, dbDeleter, err := setupDatabase("testrestoremempool", true)
 	require.NoError(t, err)
 	defer dbDeleter()
-	pool := mempool.New(testDB, chain, 1024, log)
+	pool := mempool.New(testDB, chain, 1024, logger)
 	require.NoError(t, pool.LoadFromDB())
 	// Check both pools are empty
 	lenDB, err := pool.LenDB()
@@ -164,7 +164,7 @@ func TestRestoreMempool(t *testing.T) {
 	testDB, _, err = setupDatabase("testrestoremempool", false)
 	require.NoError(t, err)
 
-	poolRestored := mempool.New(testDB, chain, 1024, log)
+	poolRestored := mempool.New(testDB, chain, 1024, logger)
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, poolRestored.LoadFromDB())
 	lenDB, err = poolRestored.LenDB()
@@ -189,7 +189,7 @@ func TestRestoreMempool(t *testing.T) {
 func TestWait(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB, dbCloser, err := setupDatabase("testwait", true)
 	require.NoError(t, err)
 	defer dbCloser()
@@ -205,7 +205,7 @@ func TestWait(t *testing.T) {
 	for k := range stateUpdate0.StateDiff.Nonces {
 		address = k
 	}
-	pool := mempool.New(testDB, bc, 1024, log)
+	pool := mempool.New(testDB, bc, 1024, logger)
 	require.NoError(t, pool.LoadFromDB())
 
 	select {
@@ -230,7 +230,7 @@ func TestWait(t *testing.T) {
 
 func TestPopBatch(t *testing.T) {
 	testDB, dbCloser, err := setupDatabase("testpopbatch", true)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
@@ -238,7 +238,7 @@ func TestPopBatch(t *testing.T) {
 
 	require.NoError(t, err)
 	defer dbCloser()
-	pool := mempool.New(testDB, chain, 10, log)
+	pool := mempool.New(testDB, chain, 10, logger)
 	require.NoError(t, pool.LoadFromDB())
 
 	require.Equal(t, 0, pool.Len())

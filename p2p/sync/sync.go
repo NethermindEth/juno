@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/hashstorage"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	junoSync "github.com/NethermindEth/juno/sync"
@@ -35,7 +36,7 @@ import (
 
 type Service struct {
 	blockchain *blockchain.Blockchain
-	log        utils.StructuredLogger
+	logger     log.StructuredLogger
 
 	blockFetcher *BlockFetcher
 	blockCh      chan BlockBody
@@ -43,12 +44,12 @@ type Service struct {
 
 func New(
 	bc *blockchain.Blockchain,
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 	blockFetcher *BlockFetcher,
 ) *Service {
 	return &Service{
 		blockchain:   bc,
-		log:          log,
+		logger:       logger,
 		blockFetcher: blockFetcher,
 		blockCh:      make(chan BlockBody),
 	}
@@ -67,7 +68,7 @@ func (s *Service) Run(ctx context.Context) {
 		if err := ctx.Err(); err != nil {
 			break
 		}
-		s.log.Debug("Continuous iteration", zap.Int("i", i))
+		s.logger.Debug("Continuous iteration", zap.Int("i", i))
 
 		iterCtx, cancelIteration := context.WithCancel(ctx)
 		nextHeight, err := s.getNextHeight()
@@ -77,7 +78,7 @@ func (s *Service) Run(ctx context.Context) {
 			continue
 		}
 
-		s.log.Info(
+		s.logger.Info(
 			"Start Pipeline",
 			zap.Int("Current height", nextHeight-1),
 			zap.Int("Start", nextHeight),
@@ -110,16 +111,16 @@ func (s *Service) getNextHeight() (int, error) {
 
 func (s *Service) logError(msg string, err error) {
 	if !errors.Is(err, context.Canceled) {
-		var log utils.StructuredLogger
-		if v, ok := s.log.(*utils.ZapLogger); ok {
-			log = v.WithOptions(zap.AddCallerSkip(1))
+		var logger log.StructuredLogger
+		if v, ok := s.logger.(*log.ZapLogger); ok {
+			logger = v.WithOptions(zap.AddCallerSkip(1))
 		} else {
-			log = s.log
+			logger = s.logger
 		}
 
-		log.Error(msg, zap.Error(err))
+		logger.Error(msg, zap.Error(err))
 	} else {
-		s.log.Debug("Sync context canceled")
+		s.logger.Debug("Sync context canceled")
 	}
 }
 
@@ -129,7 +130,7 @@ type BlockFetcher struct {
 	blockchain *blockchain.Blockchain
 	compiler   compiler.Compiler
 	listener   junoSync.EventListener
-	log        utils.StructuredLogger
+	logger     log.StructuredLogger
 }
 
 func NewBlockFetcher(
@@ -137,15 +138,15 @@ func NewBlockFetcher(
 	compiler compiler.Compiler,
 	h host.Host,
 	n *networks.Network,
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 ) BlockFetcher {
 	return BlockFetcher{
 		network:    n,
 		blockchain: bc,
 		compiler:   compiler,
-		log:        log,
+		logger:     logger,
 		listener:   &junoSync.SelectiveListener{},
-		client:     NewClient(randomPeerStream(h, log), n, log),
+		client:     NewClient(randomPeerStream(h, logger), n, logger),
 	}
 }
 
@@ -233,7 +234,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debug(
+					s.logger.Debug(
 						"Received Block Header with signatures",
 						zap.Uint64("blockNumber", p.blockNumber()),
 					)
@@ -241,7 +242,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
-					s.log.Debug(
+					s.logger.Debug(
 						"Received Transactions with receipts",
 						zap.Uint64("blockNumber", p.blockNumber()),
 						zap.Int("txLen", len(p.txs)),
@@ -250,7 +251,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 						specTransactionsM[part.blockNumber()] = p
 					}
 				case specEvents:
-					s.log.Debug(
+					s.logger.Debug(
 						"Received Events",
 						zap.Uint64("blockNumber", p.blockNumber()),
 						zap.Int("len", len(p.events)),
@@ -259,17 +260,17 @@ func (s *BlockFetcher) processSpecBlockParts(
 						specEventsM[part.blockNumber()] = p
 					}
 				case specClasses:
-					s.log.Debug("Received Classes", zap.Uint64("blockNumber", p.blockNumber()))
+					s.logger.Debug("Received Classes", zap.Uint64("blockNumber", p.blockNumber()))
 					if _, ok := specClassesM[part.blockNumber()]; !ok {
 						specClassesM[part.blockNumber()] = p
 					}
 				case specContractDiffs:
-					s.log.Debug("Received ContractDiffs", zap.Uint64("blockNumber", p.blockNumber()))
+					s.logger.Debug("Received ContractDiffs", zap.Uint64("blockNumber", p.blockNumber()))
 					if _, ok := specContractDiffsM[part.blockNumber()]; !ok {
 						specContractDiffsM[part.blockNumber()] = p
 					}
 				default:
-					s.log.Warn(
+					s.logger.Warn(
 						"Unsupported part type",
 						zap.Uint64("blockNumber", part.blockNumber()),
 						zap.String("type", reflect.TypeOf(p).String()),
@@ -282,7 +283,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 				cls, okClasses := specClassesM[curBlockNum]
 				diffs, okDiffs := specContractDiffsM[curBlockNum]
 				if okHeader && okTxs && okEvents && okClasses && okDiffs {
-					s.log.Debug(
+					s.logger.Debug(
 						"----- Received all block parts from peers for block number -----",
 						zap.Uint64("blockNumber", curBlockNum),
 					)
@@ -298,7 +299,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 							} else {
 								oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
 								if err != nil {
-									s.log.Error("Failed to get Header", zap.Uint64("number", curBlockNum), zap.Error(err))
+									s.logger.Error("Failed to get Header", zap.Uint64("number", curBlockNum), zap.Error(err))
 									return
 								}
 								prevBlockRoot = oldHeader.GlobalStateRoot
@@ -377,7 +378,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 			coreBlock.Header = header
 
 			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
-				s.log.Error(
+				s.logger.Error(
 					"Number of transactions != count",
 					zap.Uint64("transactionCount", coreBlock.TransactionCount),
 					zap.Int("len(transactions)", len(coreBlock.Transactions)),
@@ -385,7 +386,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 				return
 			}
 			if int(coreBlock.EventCount) != len(events) {
-				s.log.Error(
+				s.logger.Error(
 					"Number of events != count",
 					zap.Uint64("eventCount", coreBlock.EventCount),
 					zap.Int("len(events)", len(events)),
@@ -424,7 +425,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 				}
 
 				if closeErr := stateCloser(); closeErr != nil {
-					s.log.Error("Failed to close state reader", zap.Error(closeErr))
+					s.logger.Error("Failed to close state reader", zap.Error(closeErr))
 				}
 			}()
 
@@ -516,7 +517,7 @@ func (s *BlockFetcher) genHeadersAndSigs(
 			case *header.BlockHeadersResponse_Fin:
 				break loop
 			default:
-				s.log.Warn(
+				s.logger.Warn(
 					"Unexpected HeaderMessage from getBlockHeaders",
 					zap.String("v", fmt.Sprintf("%T", v)),
 				)
@@ -566,7 +567,7 @@ func (s *BlockFetcher) genClasses(
 			case *syncclass.ClassesResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected ClassMessage from getClasses", zap.String("v", fmt.Sprintf("%T", v)))
+				s.logger.Warn("Unexpected ClassMessage from getClasses", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 		}
@@ -577,7 +578,7 @@ func (s *BlockFetcher) genClasses(
 			number:  blockNumber,
 			classes: classes,
 		}:
-			s.log.Debug(
+			s.logger.Debug(
 				"Received classes for block",
 				zap.Uint64("blockNumber", blockNumber),
 				zap.Int("lenClasses", len(classes)),
@@ -618,11 +619,11 @@ func (s *BlockFetcher) genStateDiffs(
 			case *state.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
 			case *state.StateDiffsResponse_DeclaredClass:
-				s.log.Warn("Unimplemented message StateDiffsResponse_DeclaredClass")
+				s.logger.Warn("Unimplemented message StateDiffsResponse_DeclaredClass")
 			case *state.StateDiffsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected ClassMessage from getStateDiffs", zap.String("v", fmt.Sprintf("%T", v)))
+				s.logger.Warn("Unexpected ClassMessage from getStateDiffs", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 		}
@@ -671,7 +672,7 @@ func (s *BlockFetcher) genEvents(
 			case *event.EventsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected EventMessage from getEvents", zap.String("v", fmt.Sprintf("%T", v)))
+				s.logger.Warn("Unexpected EventMessage from getEvents", zap.String("v", fmt.Sprintf("%T", v)))
 				break loop
 			}
 		}
@@ -726,7 +727,7 @@ func (s *BlockFetcher) genTransactions(
 			case *synctransaction.TransactionsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn(
+				s.logger.Warn(
 					"Unexpected TransactionMessage from getTransactions",
 					zap.String("v", fmt.Sprintf("%T", v)),
 				)
@@ -734,7 +735,7 @@ func (s *BlockFetcher) genTransactions(
 			}
 		}
 
-		s.log.Debug("Transactions length", zap.Int("len", len(transactions)))
+		s.logger.Debug("Transactions length", zap.Int("len", len(transactions)))
 		spexTxs := specTxWithReceipts{
 			number:   blockNumber,
 			txs:      transactions,
@@ -749,7 +750,7 @@ func (s *BlockFetcher) genTransactions(
 	return txsCh, nil
 }
 
-func randomPeer(host host.Host, log utils.StructuredLogger) peer.ID {
+func randomPeer(host host.Host, log log.StructuredLogger) peer.ID {
 	store := host.Peerstore()
 	// todo do not request same block from all peers
 	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
@@ -769,7 +770,7 @@ func randomPeer(host host.Host, log utils.StructuredLogger) peer.ID {
 
 var errNoPeers = errors.New("no peers available")
 
-func randomPeerStream(host host.Host, log utils.StructuredLogger) NewStreamFunc {
+func randomPeerStream(host host.Host, log log.StructuredLogger) NewStreamFunc {
 	return func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		randPeer := randomPeer(host, log)
 		if randPeer == "" {
@@ -785,7 +786,7 @@ func randomPeerStream(host host.Host, log utils.StructuredLogger) NewStreamFunc 
 	}
 }
 
-func removePeer(host host.Host, log utils.StructuredLogger, id peer.ID) {
+func removePeer(host host.Host, log log.StructuredLogger, id peer.ID) {
 	log.Debug("Removing peer", zap.Stringer("peerID", id))
 	host.Peerstore().RemovePeer(id)
 	host.Peerstore().ClearAddrs(id)

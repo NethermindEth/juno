@@ -16,8 +16,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	_ "github.com/NethermindEth/juno/jemalloc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -283,7 +283,7 @@ func main() {
 			return err
 		}
 
-		logLevel := utils.NewLogLevel(utils.INFO)
+		logLevel := log.NewLogLevel(log.INFO)
 		err = logLevel.Set(config.LogLevel)
 		if err != nil {
 			return err
@@ -400,7 +400,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().String(logLevelF, utils.INFO.String(), logLevelFlagUsage)
+	junoCmd.Flags().String(logLevelF, log.INFO.String(), logLevelFlagUsage)
 	junoCmd.Flags().Bool(logJSONF, defaultLogJSON, logJSONUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaultHost, httpHostUsage)

@@ -22,11 +22,11 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -138,7 +138,7 @@ func setupMockEventFiltererWithMultiple(
 }
 
 func TestSubscribeEventsInvalidInputs(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	t.Run("Return error if too many keys in filter", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -146,7 +146,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		keys := make([][]felt.Felt, 1024+1)
 		fromAddr := felt.FromBytes[felt.Address]([]byte("from_address"))
@@ -169,7 +169,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		keys := make([][]felt.Felt, 1)
 		fromAddr := felt.FromBytes[felt.Address]([]byte("from_address"))
@@ -209,7 +209,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 }
 
 func TestSubscribeEvents(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -369,7 +369,7 @@ func TestSubscribeEvents(t *testing.T) {
 		Return(nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().AnyTimes()
 
-	handler := New(mockChain, mockSyncer, nil, log)
+	handler := New(mockChain, mockSyncer, nil, logger)
 
 	type stepInfo struct {
 		description   string
@@ -883,7 +883,7 @@ func TestSubscribeEvents(t *testing.T) {
 }
 
 func TestSubscribeTxnStatus(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	txHash := felt.NewFromUint64[felt.Felt](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
@@ -903,7 +903,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
-		handler := New(mockChain, mockSyncer, nil, log).WithSubmittedTransactionsCache(cache)
+		handler := New(mockChain, mockSyncer, nil, logger).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
@@ -926,7 +926,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 		handler.WithFeeder(feeder.NewTestClient(t, &networks.SepoliaIntegration))
 		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -979,7 +979,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
-		handler := New(mockChain, mockSyncer, nil, log).
+		handler := New(mockChain, mockSyncer, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
@@ -1161,7 +1161,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		adapterFeeder := adaptfeeder.New(client)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(nil, mockSyncer, nil, log)
+		handler := New(nil, mockSyncer, nil, logger)
 		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
@@ -1229,7 +1229,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		adapterFeeder := adaptfeeder.New(client)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(nil, mockSyncer, nil, log)
+		handler := New(nil, mockSyncer, nil, logger)
 		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
@@ -1284,7 +1284,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 func TestSubscribeNewHeadsErrorCases(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	t.Run("BlockID - Number, Invalid Input", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -1292,7 +1292,7 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -1326,7 +1326,7 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 }
 
 func TestSubscribeNewHeads(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
@@ -1339,7 +1339,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, log)
+	handler := New(mockChain, nil, nil, logger)
 
 	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
 
@@ -1372,7 +1372,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 }
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
@@ -1385,7 +1385,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, log)
+	handler := New(mockChain, nil, nil, logger)
 
 	mockChain.EXPECT().HeadsHeader().Return(block2.Header, nil)
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
@@ -1420,7 +1420,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 }
 
 func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
@@ -1429,7 +1429,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, log)
+	handler := New(mockChain, nil, nil, logger)
 
 	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
 
@@ -1471,7 +1471,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
@@ -1483,7 +1483,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, log)
+	handler := New(mockChain, nil, nil, logger)
 
 	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil).Times(2)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
@@ -1533,7 +1533,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	)
 	receivedTxFeed := feed.New[core.Transaction]()
-	handler := New(mockChain, syncer, nil, utils.NewNopZapLogger()).
+	handler := New(mockChain, syncer, nil, log.NewNopZapLogger()).
 		WithReceivedTransactionFeed(receivedTxFeed)
 	handlerCtx, handlerCancel := context.WithCancel(t.Context())
 	var handlerWg stdsync.WaitGroup
@@ -2315,7 +2315,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			Subscription: l1Feed.Subscribe(),
 		},
 	)
-	handler := New(mockChain, syncer, nil, utils.NewNopZapLogger())
+	handler := New(mockChain, syncer, nil, log.NewNopZapLogger())
 	handlerCtx, handlerCancel := context.WithCancel(t.Context())
 	var handlerWg stdsync.WaitGroup
 	handlerWg.Go(func() {
@@ -2803,7 +2803,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 }
 
 func TestUnsubscribe(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	t.Run("error when no connection in context", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -2811,7 +2811,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		success, rpcErr := handler.Unsubscribe(t.Context(), "1")
 		assert.False(t, success)
@@ -2824,7 +2824,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -2843,7 +2843,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		// Create original subscription
 		serverConn1, _ := net.Pipe()
@@ -2877,7 +2877,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {

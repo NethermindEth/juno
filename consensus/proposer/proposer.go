@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -16,7 +18,6 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -46,7 +47,7 @@ type Proposer[V types.Hashable[H], H types.Hash] interface {
 
 type proposer[V types.Hashable[H], H types.Hash] struct {
 	// Dependencies
-	log           utils.Logger
+	log           log.Logger
 	builder       *builder.Builder
 	proposalStore *proposal.ProposalStore[H]
 	nodeAddress   starknet.Address
@@ -66,7 +67,7 @@ type proposer[V types.Hashable[H], H types.Hash] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash](
-	log utils.Logger,
+	log log.Logger,
 	b *builder.Builder,
 	proposalStore *proposal.ProposalStore[H],
 	nodeAddress starknet.Address,

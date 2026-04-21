@@ -6,8 +6,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/deprecated"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,12 +23,12 @@ func TestMigrateIfNeeded(t *testing.T) {
 				ctx,
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 			),
 			ctx.Err())
 	})
 
-	meta, err := deprecated.SchemaMetadata(utils.NewNopZapLogger(), testDB)
+	meta, err := deprecated.SchemaMetadata(log.NewNopZapLogger(), testDB)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), meta.Version)
 	require.Nil(t, meta.IntermediateState)
@@ -40,12 +40,12 @@ func TestMigrateIfNeeded(t *testing.T) {
 				t.Context(),
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 			),
 		)
 	})
 
-	meta, err = deprecated.SchemaMetadata(utils.NewNopZapLogger(), testDB)
+	meta, err = deprecated.SchemaMetadata(log.NewNopZapLogger(), testDB)
 	require.NoError(t, err)
 	require.NotEqual(t, uint64(0), meta.Version)
 	require.Nil(t, meta.IntermediateState)
@@ -57,10 +57,10 @@ func TestMigrateIfNeeded(t *testing.T) {
 				t.Context(),
 				testDB,
 				&networks.Mainnet,
-				utils.NewNopZapLogger(),
+				log.NewNopZapLogger(),
 			),
 		)
-		postVersion, postErr := deprecated.SchemaMetadata(utils.NewNopZapLogger(), testDB)
+		postVersion, postErr := deprecated.SchemaMetadata(log.NewNopZapLogger(), testDB)
 		require.NoError(t, postErr)
 		require.Equal(t, meta, postVersion)
 	})

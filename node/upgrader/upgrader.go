@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
 type Upgrader struct {
 	client         *http.Client
-	log            utils.StructuredLogger
+	log            log.StructuredLogger
 	apiURL         string
 	currentVersion *semver.Version
 	releasesURL    string
@@ -25,7 +25,7 @@ func NewUpgrader(
 	apiURL,
 	releasesURL string,
 	delay time.Duration,
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 ) *Upgrader {
 	return &Upgrader{
 		currentVersion: version,

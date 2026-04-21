@@ -13,8 +13,8 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -35,7 +35,7 @@ const (
 var network = &networks.Mainnet
 
 func TestVoteBroadcastersAndListeners(t *testing.T) {
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
+	logger, err := log.NewZapLogger(log.NewLogLevel(logLevel), log.WithColour(true))
 	require.NoError(t, err)
 
 	prevotes := make([]starknet.Prevote, voteCount)

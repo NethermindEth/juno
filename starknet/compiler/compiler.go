@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +25,7 @@ type Compiler interface {
 type compiler struct {
 	binaryPath string
 	sem        chan struct{}
-	log        utils.StructuredLogger
+	logger     log.StructuredLogger
 }
 
 // New creates a Compiler that runs Sierra-to-CASM compilation
@@ -34,7 +34,7 @@ type compiler struct {
 func New(
 	maxConcurrent uint,
 	binaryPath string,
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 ) Compiler {
 	if binaryPath == "" {
 		var err error
@@ -46,7 +46,7 @@ func New(
 	return &compiler{
 		binaryPath: binaryPath,
 		sem:        make(chan struct{}, maxConcurrent),
-		log:        log,
+		logger:     logger,
 	}
 }
 
@@ -55,7 +55,7 @@ func New(
 func (c *compiler) Compile(
 	ctx context.Context, sierra *starknet.SierraClass,
 ) (*starknet.CasmClass, error) {
-	c.log.Debug("Compilation request received")
+	c.logger.Debug("Compilation request received")
 
 	sierraJSON, err := json.Marshal(starknet.SierraClass{
 		EntryPoints: sierra.EntryPoints,
@@ -86,7 +86,7 @@ func (c *compiler) Compile(
 
 	if err := cmd.Run(); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			c.log.Warn("Sierra to CASM compilation timed out",
+			c.logger.Warn("Sierra to CASM compilation timed out",
 				zap.Error(ctxErr),
 			)
 			return nil, fmt.Errorf(

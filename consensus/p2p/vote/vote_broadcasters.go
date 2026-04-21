@@ -3,22 +3,23 @@ package vote
 import (
 	"context"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"go.uber.org/zap"
 )
 
 type voteBroadcaster[H types.Hash, A types.Addr] struct {
 	buffered.ProtoBroadcaster[*consensus.Vote]
-	log         utils.Logger
+	log         log.Logger
 	voteAdapter VoteAdapter[H, A]
 }
 
 func NewVoteBroadcaster[H types.Hash, A types.Addr](
-	log utils.Logger,
+	log log.Logger,
 	voteAdapter VoteAdapter[H, A],
 	bufferSizeConfig *config.BufferSizes,
 ) voteBroadcaster[H, A] {

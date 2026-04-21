@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +20,7 @@ func NewTestClient(t *testing.T) *Client {
 	apiKey := "API_KEY"
 	t.Cleanup(srv.Close)
 
-	return NewClient(srv.URL, utils.NewNopZapLogger()).WithUserAgent(ua).WithAPIKey(apiKey)
+	return NewClient(srv.URL, log.NewNopZapLogger()).WithUserAgent(ua).WithAPIKey(apiKey)
 }
 
 func newTestServer(t *testing.T) *httptest.Server {

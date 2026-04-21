@@ -12,11 +12,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -261,11 +261,11 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			block, rpcErr := handler.BlockWithTxHashes(&id)
 			assert.Nil(t, block)
@@ -452,11 +452,11 @@ func TestBlockWithTxs(t *testing.T) {
 
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
+			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
 			chain := blockchain.New(memory.New(), n)
 
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			block, rpcErr := handler.BlockWithTxs(&id)
 			assert.Nil(t, block)

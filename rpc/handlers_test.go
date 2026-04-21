@@ -11,12 +11,12 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,11 +81,11 @@ func TestRun(t *testing.T) {
 func TestHandlerParamValidatorCompatibility(t *testing.T) {
 	t.Parallel()
 
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	handler := &Handler{
-		rpcv8Handler:  rpcv8.New(nil, nil, nil, log),
-		rpcv9Handler:  rpcv9.New(nil, nil, nil, log),
-		rpcv10Handler: rpcv10.New(nil, nil, nil, log),
+		rpcv8Handler:  rpcv8.New(nil, nil, nil, logger),
+		rpcv9Handler:  rpcv9.New(nil, nil, nil, logger),
+		rpcv10Handler: rpcv10.New(nil, nil, nil, logger),
 		version:       "test",
 	}
 

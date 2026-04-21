@@ -135,7 +135,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 ) bool {
 	preLatest, err := s.dataSource.BlockPreLatest(ctx)
 	if err != nil {
-		s.log.Debug("Error while trying to poll pre_latest block", zap.Error(err))
+		s.logger.Debug("Error while trying to poll pre_latest block", zap.Error(err))
 		return false
 	}
 
@@ -159,7 +159,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 // it is cached keyed by ParentHash and emitted immediately when that head arrives.
 func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.PreLatest) {
 	if s.preLatestPollInterval == 0 {
-		s.log.Info("Pre-latest block polling is disabled")
+		s.logger.Info("Pre-latest block polling is disabled")
 		return
 	}
 
@@ -235,7 +235,7 @@ func (s *Synchronizer) pollPreConfirmed(
 	out chan<- *pending.PreConfirmed,
 ) {
 	if s.preConfirmedPollInterval == 0 {
-		s.log.Info("Pre-confirmed block polling is disabled")
+		s.logger.Info("Pre-confirmed block polling is disabled")
 		return
 	}
 
@@ -256,7 +256,7 @@ func (s *Synchronizer) pollPreConfirmed(
 
 			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetBlockNum)
 			if err != nil {
-				s.log.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
+				s.logger.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
 				continue
 			}
 
@@ -292,7 +292,7 @@ func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 
 	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-		s.log.Debug("Error storing empty pre_confirmed (from head)", zap.Error(err))
+		s.logger.Debug("Error storing empty pre_confirmed (from head)", zap.Error(err))
 	}
 	return nil
 }
@@ -312,7 +312,7 @@ func (s *Synchronizer) handlePreLatest(
 
 	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
-		s.log.Debug("Error storing empty pre_confirmed (with pre_latest)", zap.Error(err))
+		s.logger.Debug("Error storing empty pre_confirmed (with pre_latest)", zap.Error(err))
 	}
 
 	s.preLatestDataFeed.Send(pl)
@@ -328,7 +328,7 @@ func (s *Synchronizer) handlePreConfirmed(
 	pc.WithPreLatest(stagedPreLatest)
 	changed, err := s.StorePreConfirmed(pc)
 	if err != nil {
-		s.log.Debug("Error while trying to store pre_confirmed block", zap.Error(err))
+		s.logger.Debug("Error while trying to store pre_confirmed block", zap.Error(err))
 		return
 	}
 
@@ -340,7 +340,7 @@ func (s *Synchronizer) handlePreConfirmed(
 // pollPendingData coordinates pre_latest and pre_confirmed polling.
 func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	if s.preLatestPollInterval == 0 || s.preConfirmedPollInterval == 0 {
-		s.log.Info("Pending data polling is disabled")
+		s.logger.Info("Pending data polling is disabled")
 		return
 	}
 

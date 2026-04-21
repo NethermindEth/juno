@@ -18,9 +18,9 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -115,7 +115,7 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 	diff, classes, err := genesis.GenesisStateDiff(
 		t.Context(),
 		genesisConfig,
-		vm.New(&chainInfo, false, utils.NewNopZapLogger()),
+		vm.New(&chainInfo, false, log.NewNopZapLogger()),
 		bc.Network(),
 		vm.DefaultMaxGas,
 		vm.DefaultMaxGas,
@@ -144,7 +144,7 @@ func newBlockGenerator(
 	sequencer uint64,
 ) *blockGenerator {
 	bc := blockchain.New(database, network)
-	builder := newTestBuilder(utils.NewNopZapLogger(), bc)
+	builder := newTestBuilder(log.NewNopZapLogger(), bc)
 
 	return &blockGenerator{
 		blocks:     blocks,
@@ -197,7 +197,7 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 	dataSource.setBlocks(b.blocks)
 }
 
-func newTestBuilder(log utils.Logger, bc *blockchain.Blockchain) *builder.Builder {
+func newTestBuilder(log log.Logger, bc *blockchain.Blockchain) *builder.Builder {
 	feeTokens := networks.DefaultFeeTokenAddresses
 	chainInfo := vm.ChainInfo{
 		ChainID:           network.L2ChainID,
@@ -239,7 +239,7 @@ func setup(
 	)
 	blockGenerator.mine(t, dataSource, 10)
 
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel))
+	logger, err := log.NewZapLogger(log.NewLogLevel(logLevel))
 	require.NoError(t, err)
 
 	blockchain := blockchain.New(synchronizerDatabase, network)

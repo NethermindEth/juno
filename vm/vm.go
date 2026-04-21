@@ -20,8 +20,8 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 )
 
 const (
@@ -74,14 +74,14 @@ type VM interface {
 
 type vm struct {
 	chainInfo       *ChainInfo
-	log             utils.StructuredLogger
+	logger          log.StructuredLogger
 	concurrencyMode bool
 }
 
-func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.StructuredLogger) VM {
+func New(chainInfo *ChainInfo, concurrencyMode bool, log log.StructuredLogger) VM {
 	return &vm{
 		chainInfo:       chainInfo,
-		log:             log,
+		logger:          log,
 		concurrencyMode: concurrencyMode,
 	}
 }
@@ -89,8 +89,8 @@ func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.StructuredLogger)
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
-	state core.StateReader
-	log   utils.StructuredLogger
+	state  core.StateReader
+	logger log.StructuredLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
 	// index of the transaction that generated err
@@ -300,7 +300,7 @@ func (v *vm) Call(
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
-		log:      v.log,
+		logger:   v.logger,
 	}
 
 	handle := cgo.NewHandle(context)
@@ -357,8 +357,8 @@ func (v *vm) Execute(
 	returnInitialReads bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
-		state: state,
-		log:   v.log,
+		state:  state,
+		logger: v.logger,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()

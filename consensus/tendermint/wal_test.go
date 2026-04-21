@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,7 +39,7 @@ func getPrecommit(idx int, value *starknet.Value) starknet.Precommit {
 }
 
 func newStateMachine(nodeAddr *starknet.Address, vals *validators) *testStateMachine {
-	return New(utils.NewNopZapLogger(), *nodeAddr, newApp(), vals, types.Height(0)).(*testStateMachine)
+	return New(log.NewNopZapLogger(), *nodeAddr, newApp(), vals, types.Height(0)).(*testStateMachine)
 }
 
 func TestReplayWAL(t *testing.T) {

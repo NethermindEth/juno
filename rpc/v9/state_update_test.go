@@ -11,11 +11,11 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -41,8 +41,8 @@ func TestStateUpdate(t *testing.T) {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 			}
-			log := utils.NewNopZapLogger()
-			handler := rpc.New(chain, mockSyncReader, nil, log)
+			logger := log.NewNopZapLogger()
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			update, rpcErr := handler.StateUpdate(&id)
 			assert.Empty(t, update)
@@ -50,9 +50,9 @@ func TestStateUpdate(t *testing.T) {
 		})
 	}
 
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 

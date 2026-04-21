@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
@@ -83,7 +83,7 @@ func testProposalStreamStart(t *testing.T, expectedHeight types.Height, expected
 	t.Helper()
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	stream := newSingleProposalStream(
-		utils.NewNopZapLogger(),
+		log.NewNopZapLogger(),
 		&proposalStore,
 		NewTransition(nil, nil),
 		0,
@@ -315,7 +315,7 @@ func testProposalStreamProcessMessage(t *testing.T, builder *builder.Builder, pr
 	outputs := make(chan *starknet.Proposal, 1)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	stream := newSingleProposalStream(
-		utils.NewNopZapLogger(),
+		log.NewNopZapLogger(),
 		&proposalStore,
 		NewTransition(builder, nil),
 		0,

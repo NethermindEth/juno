@@ -20,11 +20,11 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/coder/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -138,7 +138,7 @@ func setupMockEventFiltererWithMultiple(
 }
 
 func TestSubscribeEventsInvalidInputs(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	t.Run("Return error if too many keys in filter", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -146,7 +146,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		keys := make([][]felt.Felt, 1024+1)
 		fromAddr := felt.NewFromBytes[felt.Address]([]byte("from_address"))
@@ -169,7 +169,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		keys := make([][]felt.Felt, 1)
 		fromAddr := felt.NewFromBytes[felt.Address]([]byte("from_address"))
@@ -209,7 +209,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 }
 
 func TestSubscribeEvents(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -355,7 +355,7 @@ func TestSubscribeEvents(t *testing.T) {
 		Return(nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().AnyTimes()
 
-	handler := New(mockChain, mockSyncer, nil, log)
+	handler := New(mockChain, mockSyncer, nil, logger)
 
 	type stepInfo struct {
 		description string
@@ -810,7 +810,7 @@ func TestSubscribeEvents(t *testing.T) {
 }
 
 func TestSubscribeTxnStatus(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	txHash := felt.NewFromUint64[felt.Felt](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
@@ -829,7 +829,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
-		handler := New(mockChain, mockSyncer, nil, log).WithSubmittedTransactionsCache(cache)
+		handler := New(mockChain, mockSyncer, nil, logger).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
@@ -852,7 +852,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 		handler.WithFeeder(feeder.NewTestClient(t, &networks.SepoliaIntegration))
 		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -888,7 +888,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
-		handler := New(mockChain, mockSyncer, nil, log).
+		handler := New(mockChain, mockSyncer, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
@@ -1027,7 +1027,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		adapterFeeder := adaptfeeder.New(client)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(nil, mockSyncer, nil, log)
+		handler := New(nil, mockSyncer, nil, logger)
 		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
@@ -1082,7 +1082,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 func TestSubscribeNewHeads(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	t.Run("BlockID - Number, Invalid Input", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -1090,7 +1090,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -1223,7 +1223,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
 
-	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(server, nil, log.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
 	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose
@@ -2365,7 +2365,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 }
 
 func TestUnsubscribe(t *testing.T) {
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	t.Run("error when no connection in context", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -2373,7 +2373,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		success, rpcErr := handler.Unsubscribe(t.Context(), "1")
 		assert.False(t, success)
@@ -2386,7 +2386,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -2405,7 +2405,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		// Create original subscription
 		serverConn1, _ := net.Pipe()
@@ -2439,7 +2439,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, logger)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -2466,7 +2466,7 @@ func TestUnsubscribe(t *testing.T) {
 }
 
 func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *websocket.Conn {
-	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(server, nil, log.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
 	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose
@@ -2508,16 +2508,16 @@ func newHeadsResponse(id string) string {
 func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader) (*Handler, *jsonrpc.Server) {
 	t.Helper()
 
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	receivedTxFeed := feed.New[core.Transaction]()
-	handler := New(chain, syncer, nil, log).WithReceivedTransactionFeed(receivedTxFeed)
+	handler := New(chain, syncer, nil, logger).WithReceivedTransactionFeed(receivedTxFeed)
 
 	go func() {
 		require.NoError(t, handler.Run(ctx))
 	}()
 	time.Sleep(50 * time.Millisecond)
 
-	server := jsonrpc.NewServer(1, log)
+	server := jsonrpc.NewServer(1, logger)
 	methods, _ := handler.methods()
 	require.NoError(t, server.RegisterMethods(methods...))
 

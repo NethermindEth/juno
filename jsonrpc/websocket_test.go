@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/coder/websocket"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
@@ -17,11 +17,11 @@ import (
 
 // The caller is responsible for closing the connection.
 func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, listener jsonrpc.EventListener) *websocket.Conn {
-	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithListener(listener)
+	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger()).WithListener(listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
-	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, nil, utils.NewNopZapLogger()))
+	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()))
 
 	// Client
 	conn, resp, err := websocket.Dial(ctx, srv.URL, nil) //nolint:bodyclose // websocket package closes resp.Body for us.
@@ -98,8 +98,8 @@ func TestSendFromHandler(t *testing.T) {
 func TestWebsocketConnectionLimit(t *testing.T) {
 	t.Parallel()
 
-	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
-	ws := jsonrpc.NewWebsocket(rpc, nil, utils.NewNopZapLogger()).WithMaxConnections(2)
+	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithMaxConnections(2)
 	httpSrv := httptest.NewServer(ws)
 	defer httpSrv.Close()
 

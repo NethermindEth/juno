@@ -26,11 +26,11 @@ import (
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/migration/deprecated/casmhashmetadata"
 	"github.com/NethermindEth/juno/migration/deprecated/l1handlermapping"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
@@ -56,7 +56,7 @@ type Migration interface {
 		context.Context,
 		db.KeyValueStore,
 		*networks.Network,
-		utils.StructuredLogger,
+		log.StructuredLogger,
 	) ([]byte, error)
 }
 
@@ -65,7 +65,7 @@ type MigrationFunc func(db.IndexedBatch, *networks.Network) error
 
 // Migrate returns f(txn).
 func (f MigrationFunc) Migrate(
-	_ context.Context, database db.KeyValueStore, network *networks.Network, _ utils.StructuredLogger,
+	_ context.Context, database db.KeyValueStore, network *networks.Network, _ log.StructuredLogger,
 ) ([]byte, error) {
 	txn := database.NewIndexedBatch()
 	if err := f(txn, network); err != nil {
@@ -111,7 +111,7 @@ func MigrateIfNeeded(
 	ctx context.Context,
 	targetDB db.KeyValueStore,
 	network *networks.Network,
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 ) error {
 	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
 }
@@ -120,7 +120,7 @@ func migrateIfNeeded(
 	ctx context.Context,
 	targetDB db.KeyValueStore,
 	network *networks.Network,
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 	migrations []Migration,
 ) error {
 	/*
@@ -193,7 +193,7 @@ func migrateIfNeeded(
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
-func SchemaMetadata(log utils.StructuredLogger, targetDB db.KeyValueStore) (schemaMetadata, error) {
+func SchemaMetadata(log log.StructuredLogger, targetDB db.KeyValueStore) (schemaMetadata, error) {
 	metadata := schemaMetadata{}
 	txn := targetDB
 
@@ -444,7 +444,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 }
 
 func (m *changeTrieNodeEncoding) Migrate(
-	_ context.Context, database db.KeyValueStore, _ *networks.Network, _ utils.StructuredLogger,
+	_ context.Context, database db.KeyValueStore, _ *networks.Network, _ log.StructuredLogger,
 ) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a custom struct to force the encoder to use the default encoding.

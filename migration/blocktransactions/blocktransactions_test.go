@@ -14,9 +14,9 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/typed/prefix"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
-	"github.com/NethermindEth/juno/utils"
 	conciter "github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -37,7 +37,7 @@ func TestBlockTransactionsMigration(t *testing.T) {
 			t.Context(),
 			database,
 			&networks.Sepolia,
-			utils.NewNopZapLogger(),
+			log.NewNopZapLogger(),
 		)
 		require.NoError(t, err)
 		require.Nil(t, state)
@@ -154,7 +154,7 @@ func runTestBlockTransactionsMigration(
 			t.Run(name, func(t *testing.T) {
 				database := openDatabase(t, dir)
 
-				logger, err := utils.NewZapLogger(utils.NewLogLevel(zapcore.InfoLevel), utils.WithColour(true))
+				logger, err := log.NewZapLogger(log.NewLogLevel(zapcore.InfoLevel), log.WithColour(true))
 				require.NoError(t, err)
 
 				ctx := t.Context()

@@ -27,7 +27,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 	val, err := context.state.ContractStorage(contractAddressFelt, storageLocationFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Error("JunoStateGetStorageAt failed to read contract storage", zap.Error(err))
+			context.logger.Error("JunoStateGetStorageAt failed to read contract storage", zap.Error(err))
 			return 0
 		}
 		val = felt.Zero
@@ -44,7 +44,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 	val, err := context.state.ContractNonce(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Error("JunoStateGetNonceAt failed to read contract nonce", zap.Error(err))
+			context.logger.Error("JunoStateGetNonceAt failed to read contract nonce", zap.Error(err))
 			return 0
 		}
 		val = felt.Zero
@@ -61,7 +61,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 	val, err := context.state.ContractClassHash(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Error("JunoStateGetClassHashAt failed to read contract class", zap.Error(err))
+			context.logger.Error("JunoStateGetClassHashAt failed to read contract class", zap.Error(err))
 			return 0
 		}
 		val = felt.Zero
@@ -78,14 +78,14 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 	val, err := context.state.Class(classHashFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			context.log.Error("JunoStateGetCompiledClass failed to read class", zap.Error(err))
+			context.logger.Error("JunoStateGetCompiledClass failed to read class", zap.Error(err))
 		}
 		return nil
 	}
 
 	compiledClass, err := marshalClassInfo(val.Class)
 	if err != nil {
-		context.log.Error("JunoStateGetCompiledClass failed to marshal compiled class", zap.Error(err))
+		context.logger.Error("JunoStateGetCompiledClass failed to marshal compiled class", zap.Error(err))
 		return nil
 	}
 

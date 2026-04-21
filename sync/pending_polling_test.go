@@ -15,8 +15,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,7 +65,7 @@ func TestPollPreLatest(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	t.Run("Parent matches: immediate forward on tick", func(t *testing.T) {
 		head, err := gw.BlockLatest(t.Context())
@@ -78,7 +78,7 @@ func TestPollPreLatest(t *testing.T) {
 			},
 		}
 
-		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s := New(bc, mockDS, logger, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
 		preLatestCh := make(chan *pending.PreLatest, 1)
@@ -120,7 +120,7 @@ func TestPollPreLatest(t *testing.T) {
 				return makeEmptyPreLatestForParent(latest.Header), nil
 			},
 		}
-		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s := New(bc, mockDS, logger, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(latestMinusOne.Header)
 
 		preLatestCh := make(chan *pending.PreLatest, 1)
@@ -169,7 +169,7 @@ func TestPollPreLatest(t *testing.T) {
 			preConfirmedErrorThreshold: 0,
 		}
 
-		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s := New(bc, mockDS, logger, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
 		preLatestCh := make(chan *pending.PreLatest, 2)
@@ -207,7 +207,7 @@ func TestPollPreLatest(t *testing.T) {
 			},
 		}
 
-		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s := New(bc, mockDS, logger, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
 		preLatestCh := make(chan *pending.PreLatest, 2)
@@ -239,7 +239,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	// Store block 0 as head
 	head0, err := gw.BlockByNumber(t.Context(), 0)
@@ -258,7 +258,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 			DataSource:                 dataSource,
 			preConfirmedErrorThreshold: 2,
 		}
-		s := New(bc, mockDS, log, 0, 30*time.Millisecond, false, testDB)
+		s := New(bc, mockDS, logger, 0, 30*time.Millisecond, false, testDB)
 
 		var preConfirmedBlockNumberToPoll atomic.Uint64
 		out := make(chan *pending.PreConfirmed, 1)
@@ -309,7 +309,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 			DataSource:                 dataSource,
 			preConfirmedErrorThreshold: ^uint(0), // never stop erroring
 		}
-		s := New(bc, mockDS, log, 0, 30*time.Millisecond, false, testDB)
+		s := New(bc, mockDS, logger, 0, 30*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head0.Header)
 		var preConfirmedBlockNumberToPoll atomic.Uint64
 		preConfirmedBlockNumberToPoll.Store(1)
@@ -334,7 +334,7 @@ func TestPollPendingData(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 
 	// Set up head 0
 	block0, err := gw.BlockByNumber(t.Context(), 0)
@@ -360,7 +360,7 @@ func TestPollPendingData(t *testing.T) {
 		PendingFunc:           pendingFunc,
 		pendingErrorThreshold: 2, // introduce delay to receive pre_latest
 	}
-	s := New(bc, mockDataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
+	s := New(bc, mockDataSource, logger, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
 	s.highestBlockHeader.Store(block0.Header)
 
 	// Subscribe to pre-confirmed feed to observe stored pre_confirmed
@@ -421,12 +421,12 @@ func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 		require.NoError(t, err)
 		return makeEmptyPreLatestForParent(head), nil
 	}
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	mockDataSource := &MockDataSource{
 		DataSource:  dataSource,
 		PendingFunc: pendingFunc,
 	}
-	s := New(bc, mockDataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
+	s := New(bc, mockDataSource, logger, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
 
 	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
@@ -472,11 +472,11 @@ func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 func TestStorePreConfirmed(t *testing.T) {
 	testDB := memory.New()
 	bc := blockchain.New(testDB, &networks.Mainnet)
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	s := New(bc, NewFeederGatewayDataSource(bc, nil), log, 0, 0, false, testDB)
+	s := New(bc, NewFeederGatewayDataSource(bc, nil), logger, 0, 0, false, testDB)
 
 	t.Run("stores pre_confirmed when there is none (first entry)", func(t *testing.T) {
 		preConfirmed := pending.PreConfirmed{

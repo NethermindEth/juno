@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
@@ -33,8 +34,8 @@ func TestStorageAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	logger := log.NewNopZapLogger()
+	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 
 	targetAddress := felt.FromUint64[felt.Felt](1234)
 	targetSlot := felt.FromUint64[felt.Felt](5678)
@@ -229,8 +230,8 @@ func TestStorageProof(t *testing.T) {
 	mockState.EXPECT().ClassTrie().Return(tempTrie, nil).AnyTimes()
 	mockState.EXPECT().ContractTrie().Return(tempTrie, nil).AnyTimes()
 
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, log)
+	logger := log.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, nil, logger)
 
 	t.Run("global roots are filled", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -744,11 +745,11 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	bc := blockchain.New(testDB, &networks.Mainnet)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
+	synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 
 	require.NoError(t, synchronizer.Run(ctx))
@@ -821,7 +822,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 	})
 
 	t.Run("get contract proof", func(t *testing.T) {
-		handler := rpc.New(bc, nil, nil, log)
+		handler := rpc.New(bc, nil, nil, logger)
 		blockID := blockIDLatest(t)
 		result, rpcErr := handler.StorageProof(
 			&blockID, nil, []felt.Felt{*expectedContractAddress}, nil)

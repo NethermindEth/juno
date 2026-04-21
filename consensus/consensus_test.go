@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/dht"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
 	"github.com/NethermindEth/juno/p2p/server"
@@ -25,7 +26,6 @@ import (
 	p2psync "github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
@@ -74,7 +74,7 @@ func getBlockchain(
 
 func loadGenesis(
 	t *testing.T,
-	log *utils.ZapLogger,
+	log *log.ZapLogger,
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition) {
 	t.Helper()
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
@@ -109,7 +109,7 @@ func initNode(
 	index int,
 	consensusNode *testutils.Node,
 	syncNode *testutils.Node,
-	logger *utils.ZapLogger,
+	logger *log.ZapLogger,
 	commits chan commit,
 	cfg *testConfig,
 	genesisDiff core.StateDiff,
@@ -233,7 +233,7 @@ func commitStream(t *testing.T, commits chan commit) goitre.Seq[commit] {
 	}
 }
 
-func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *utils.ZapLogger) {
+func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *log.ZapLogger) {
 	t.Helper()
 
 	honestNodeCount := cfg.nodeCount - cfg.faultyNodeCount
@@ -297,7 +297,7 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 func setupNodes(
 	t *testing.T,
 	msg string,
-	logger utils.Logger,
+	logger log.Logger,
 	cfg *testConfig,
 	honestNodeCount int,
 ) testutils.Nodes {
@@ -314,7 +314,7 @@ func setupNodes(
 
 func runTest(t *testing.T, cfg testConfig) {
 	t.Helper()
-	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), utils.WithColour(true))
+	logger, err := log.NewZapLogger(log.NewLogLevel(logLevel), log.WithColour(true))
 	require.NoError(t, err)
 
 	genesisDiff, genesisClasses := loadGenesis(t, logger)

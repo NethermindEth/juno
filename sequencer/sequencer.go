@@ -6,6 +6,8 @@ import (
 	syncLock "sync"
 	"time"
 
+	"github.com/NethermindEth/juno/log"
+
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -15,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"go.uber.org/zap"
@@ -32,7 +33,7 @@ type Sequencer struct {
 	buildState       *builder.BuildState
 	sequencerAddress *felt.Felt
 	privKey          *ecdsa.PrivateKey
-	log              utils.Logger
+	logger           log.Logger
 	blockTime        time.Duration
 	mempool          *mempool.SequencerMempool
 
@@ -51,7 +52,7 @@ func New(
 	sequencerAddress *felt.Felt,
 	privKey *ecdsa.PrivateKey,
 	blockTime time.Duration,
-	log utils.Logger,
+	logger log.Logger,
 ) Sequencer {
 	return Sequencer{
 		builder:          b,
@@ -59,7 +60,7 @@ func New(
 		mempool:          mempool,
 		sequencerAddress: sequencerAddress,
 		privKey:          privKey,
-		log:              log,
+		logger:           logger,
 		blockTime:        blockTime,
 		subNewHeads:      feed.New[*core.Block](),
 		subPreConfirmed:  feed.New[*pending.PreConfirmed](),
@@ -79,7 +80,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 	// Clear pending state on shutdown
 	defer func() {
 		if pErr := s.buildState.ClearPending(); pErr != nil {
-			s.log.Error("clearing pending", zap.Error(pErr))
+			s.logger.Error("clearing pending", zap.Error(pErr))
 		}
 	}()
 
@@ -91,7 +92,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 	go func() {
 		if pErr := s.listenPool(ctx); pErr != nil {
 			if pErr != mempool.ErrTxnPoolEmpty {
-				s.log.Warn("listening pool", zap.Error(pErr))
+				s.logger.Warn("listening pool", zap.Error(pErr))
 			}
 		}
 		close(doneListen)
@@ -107,16 +108,16 @@ func (s *Sequencer) Run(ctx context.Context) error {
 
 			preConfirmed, err := s.PreConfirmed()
 			if err != nil {
-				s.log.Infof("Failed to get pending block")
+				s.logger.Infof("Failed to get pending block")
 			}
 			if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
 				return err
 			}
-			s.log.Infof("Finalised new block")
+			s.logger.Infof("Finalised new block")
 			if s.plugin != nil {
 				err := s.plugin.NewBlock(preConfirmed.Block, preConfirmed.StateUpdate, preConfirmed.NewClasses)
 				if err != nil {
-					s.log.Error("error sending new block to plugin", zap.Error(err))
+					s.logger.Error("error sending new block to plugin", zap.Error(err))
 				}
 			}
 			// push the new head to the feed
@@ -187,15 +188,15 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.log.Debug("running txns", zap.Int("txns", len(userTxns)))
+		s.logger.Debug("running txns", zap.Int("txns", len(userTxns)))
 		if err = s.builder.RunTxns(s.buildState, userTxns); err != nil {
-			s.log.Debug("failed running txn", zap.Error(err))
+			s.logger.Debug("failed running txn", zap.Error(err))
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
 				return err
 			}
 		}
-		s.log.Debug("running txns success")
+		s.logger.Debug("running txns success")
 		select {
 		case <-ctx.Done():
 			return nil

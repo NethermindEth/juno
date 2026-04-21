@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
@@ -114,7 +114,7 @@ func (t *memTxnList) popBatch(numToPop int) ([]BroadcastedTransaction, error) {
 // SequencerMempool represents a blockchain mempool, managing transactions using both an
 // in-memory and persistent database.
 type SequencerMempool struct {
-	log         utils.StructuredLogger
+	log         log.StructuredLogger
 	bc          blockchain.Reader
 	db          db.KeyValueStore // to store the persistent mempool
 	txPushed    chan struct{}
@@ -127,7 +127,7 @@ type SequencerMempool struct {
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
 func New(
-	mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log utils.StructuredLogger,
+	mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log log.StructuredLogger,
 ) *SequencerMempool {
 	pool := SequencerMempool{
 		log:         log,

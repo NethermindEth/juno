@@ -150,7 +150,7 @@ func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {
 	if err := f(); err != nil {
-		h.log.Error(msg, zap.Error(err))
+		h.logger.Error(msg, zap.Error(err))
 	}
 }
 

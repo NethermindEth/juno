@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/dht"
 	"github.com/NethermindEth/juno/p2p/server"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
@@ -44,7 +45,7 @@ type Service struct {
 
 	network *networks.Network
 	server  *server.Server
-	log     utils.StructuredLogger
+	logger  log.StructuredLogger
 
 	dht *libp2pdht.IpfsDHT
 
@@ -63,7 +64,7 @@ func New(
 	feederNode bool,
 	bc *blockchain.Blockchain,
 	snNetwork *networks.Network,
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 	database db.KeyValueStore,
 	compiler compiler.Compiler,
 ) (*Service, error) {
@@ -123,7 +124,7 @@ func New(
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
 	return NewWithHost(
-		p2pHost, peers, feederNode, bc, snNetwork, log, database, compiler,
+		p2pHost, peers, feederNode, bc, snNetwork, logger, database, compiler,
 	)
 }
 
@@ -133,13 +134,13 @@ func NewWithHost(
 	feederNode bool,
 	bc *blockchain.Blockchain,
 	snNetwork *networks.Network,
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 	database db.KeyValueStore,
 	compiler compiler.Compiler,
 ) (*Service, error) {
 	peersAddrInfoS, err := loadPeers(database)
 	if err != nil {
-		log.Warn("Failed to load peers", zap.Error(err))
+		logger.Warn("Failed to load peers", zap.Error(err))
 	}
 
 	configuredPeers, err := dht.ExtractPeers(peers)
@@ -164,12 +165,12 @@ func NewWithHost(
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	blockFetcher := p2pSync.NewBlockFetcher(bc, compiler, p2phost, snNetwork, log)
-	synchroniser := p2pSync.New(bc, log, &blockFetcher)
-	server := server.New(p2phost, bc, log)
+	blockFetcher := p2pSync.NewBlockFetcher(bc, compiler, p2phost, snNetwork, logger)
+	synchroniser := p2pSync.New(bc, logger, &blockFetcher)
+	server := server.New(p2phost, bc, logger)
 	s := &Service{
 		synchroniser: synchroniser,
-		log:          log,
+		logger:       logger,
 		host:         p2phost,
 		network:      snNetwork,
 		dht:          p2pdht,
@@ -220,7 +221,7 @@ func (s *Service) Listen() <-chan p2pSync.BlockBody {
 func (s *Service) Run(ctx context.Context) error {
 	defer func() {
 		if err := s.host.Close(); err != nil {
-			s.log.Warn("Failed to close host", zap.Error(err))
+			s.logger.Warn("Failed to close host", zap.Error(err))
 		}
 	}()
 
@@ -236,7 +237,7 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 	for _, addr := range listenAddrs {
-		s.log.Info("Listening on", zap.Stringer("addr", addr))
+		s.logger.Info("Listening on", zap.Stringer("addr", addr))
 	}
 
 	g := errgroup.Group{}
@@ -258,10 +259,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 	<-ctx.Done()
 	if err := s.persistPeers(); err != nil {
-		s.log.Warn("Failed to persist peers", zap.Error(err))
+		s.logger.Warn("Failed to persist peers", zap.Error(err))
 	}
 	if err := s.dht.Close(); err != nil {
-		s.log.Warn("Failed stopping DHT", zap.Error(err))
+		s.logger.Warn("Failed stopping DHT", zap.Error(err))
 	}
 	return nil
 }
@@ -269,7 +270,7 @@ func (s *Service) Run(ctx context.Context) error {
 func (s *Service) callAndLogErr(f func() error, msg string) {
 	err := f()
 	if err != nil {
-		s.log.Warn(msg, zap.Error(err))
+		s.logger.Warn(msg, zap.Error(err))
 	}
 }
 
@@ -342,7 +343,7 @@ func (s *Service) persistPeers() error {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	s.log.Info("Stored peers", zap.Int("num", len(peers)))
+	s.logger.Info("Stored peers", zap.Int("num", len(peers)))
 
 	return nil
 }

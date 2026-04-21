@@ -21,12 +21,12 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -834,7 +834,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(1), uint64(0)).
 			Return(invokeTxCore, nil).AnyTimes()
 		mockReader.EXPECT().Network().Return(network).AnyTimes()
-		h := rpcv10.New(mockReader, mockSyncReader, nil, utils.NewNopZapLogger())
+		h := rpcv10.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
 
 		t.Run("WithResponseFlag", func(t *testing.T) {
 			tx, rpcErr := h.TransactionByBlockIDAndIndex(
@@ -1454,7 +1454,7 @@ func TestAddTransaction(t *testing.T) {
 				}`), nil).
 				Times(1)
 
-			handler := rpcv10.New(nil, nil, nil, utils.NewNopZapLogger())
+			handler := rpcv10.New(nil, nil, nil, log.NewNopZapLogger())
 			_, rpcErr := handler.AddTransaction(t.Context(), new(test.txn))
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
@@ -1537,7 +1537,7 @@ func TestAddTransaction(t *testing.T) {
 					AddTransaction(gomock.Any(), gomock.Any()).
 					Return(nil, tc.gatewayError)
 
-				handler := rpcv10.New(nil, nil, nil, utils.NewNopZapLogger()).WithGateway(mockGateway)
+				handler := rpcv10.New(nil, nil, nil, log.NewNopZapLogger()).WithGateway(mockGateway)
 				addTxRes, rpcErr := handler.AddTransaction(
 					t.Context(),
 					new(tests["invoke v0"].txn),
@@ -1585,7 +1585,7 @@ func TestAddTransaction(t *testing.T) {
 			}`, tx.Hash().String())), nil).
 			Times(1)
 
-		handler := rpcv10.New(mockReader, nil, nil, utils.NewNopZapLogger()).
+		handler := rpcv10.New(mockReader, nil, nil, log.NewNopZapLogger()).
 			WithReceivedTransactionFeed(receivedTxFeed).
 			WithGateway(mockGateway)
 
@@ -1819,7 +1819,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	log := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	network := networks.Integration
 
 	client := feeder.NewTestClient(t, &network)
@@ -1868,7 +1868,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		handler := rpcv10.New(mockReader, mockSyncReader, nil, log).
+		handler := rpcv10.New(mockReader, mockSyncReader, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
@@ -1897,7 +1897,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		handler := rpcv10.New(mockReader, mockSyncReader, nil, log).
+		handler := rpcv10.New(mockReader, mockSyncReader, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)

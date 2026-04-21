@@ -9,8 +9,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	syncclass "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/class"
@@ -33,16 +33,16 @@ type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Strea
 type Client struct {
 	newStream NewStreamFunc
 	network   *networks.Network
-	log       utils.StructuredLogger
+	logger    log.StructuredLogger
 }
 
 func NewClient(
-	newStream NewStreamFunc, snNetwork *networks.Network, log utils.StructuredLogger,
+	newStream NewStreamFunc, snNetwork *networks.Network, logger log.StructuredLogger,
 ) *Client {
 	return &Client{
 		newStream: newStream,
 		network:   snNetwork,
-		log:       log,
+		logger:    logger,
 	}
 }
 
@@ -66,7 +66,7 @@ func receiveInto(stream network.Stream, res proto.Message) error {
 }
 
 func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context.Context,
-	newStream NewStreamFunc, protocolID protocol.ID, req ReqT, log utils.StructuredLogger,
+	newStream NewStreamFunc, protocolID protocol.ID, req ReqT, logger log.StructuredLogger,
 ) (iter.Seq[ResT], error) {
 	stream, err := newStream(ctx, protocolID)
 	if err != nil {
@@ -80,7 +80,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
-		log.Error("sendAndCloseWrite (stream is not closed)", zap.Error(err), zap.String("streamID", id))
+		logger.Error("sendAndCloseWrite (stream is not closed)", zap.Error(err), zap.String("streamID", id))
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		defer func() {
 			closeErr := stream.Close()
 			if closeErr != nil {
-				log.Error("Error while closing stream", zap.Error(closeErr))
+				logger.Error("Error while closing stream", zap.Error(closeErr))
 			}
 		}()
 
@@ -97,7 +97,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		for {
 			if err := receiveInto(stream, res); err != nil {
 				if !errors.Is(err, io.EOF) {
-					log.Debug("Error while reading from stream", zap.Error(err))
+					logger.Debug("Error while reading from stream", zap.Error(err))
 				}
 
 				break
@@ -120,7 +120,7 @@ func (c *Client) RequestBlockHeaders(
 		c.newStream,
 		starknetp2p.Sync(c.network, starknetp2p.HeadersSyncSubProtocol),
 		req,
-		c.log,
+		c.logger,
 	)
 }
 
@@ -130,7 +130,7 @@ func (c *Client) RequestEvents(ctx context.Context, req *event.EventsRequest) (i
 		c.newStream,
 		starknetp2p.Sync(c.network, starknetp2p.EventsSyncSubProtocol),
 		req,
-		c.log,
+		c.logger,
 	)
 }
 
@@ -140,7 +140,7 @@ func (c *Client) RequestClasses(ctx context.Context, req *syncclass.ClassesReque
 		c.newStream,
 		starknetp2p.Sync(c.network, starknetp2p.ClassesSyncSubProtocol),
 		req,
-		c.log,
+		c.logger,
 	)
 }
 
@@ -150,7 +150,7 @@ func (c *Client) RequestStateDiffs(ctx context.Context, req *state.StateDiffsReq
 		c.newStream,
 		starknetp2p.Sync(c.network, starknetp2p.StateDiffSyncSubProtocol),
 		req,
-		c.log,
+		c.logger,
 	)
 }
 
@@ -163,6 +163,6 @@ func (c *Client) RequestTransactions(
 		c.newStream,
 		starknetp2p.Sync(c.network, starknetp2p.TransactionsSyncSubProtocol),
 		req,
-		c.log,
+		c.logger,
 	)
 }

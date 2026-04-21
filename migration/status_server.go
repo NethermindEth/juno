@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"go.uber.org/zap"
 )
 
@@ -22,7 +22,7 @@ const ShutdownTimeout = 5 * time.Second
 // The server is started in a goroutine, the function is executed, and then
 // the server is shut down. If the function returns an error, it is returned.
 func RunWithServer(
-	log utils.StructuredLogger,
+	log log.StructuredLogger,
 	host string,
 	port uint16,
 	fn func() error,
@@ -35,7 +35,7 @@ func RunWithServer(
 
 // startMigrationServer starts an HTTP server that provides health check endpoints.
 // The server runs in a goroutine and should be closed using closeMigrationServer.
-func startMigrationServer(log utils.StructuredLogger, host string, port uint16) *http.Server {
+func startMigrationServer(log log.StructuredLogger, host string, port uint16) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +69,7 @@ func startMigrationServer(log utils.StructuredLogger, host string, port uint16) 
 
 // closeMigrationServer gracefully shuts down the status HTTP server.
 // Uses a timeout to ensure the server doesn't hang indefinitely.
-func closeMigrationServer(srv *http.Server, log utils.StructuredLogger) {
+func closeMigrationServer(srv *http.Server, log log.StructuredLogger) {
 	log.Debug("Shutting down migration status server...")
 
 	// Create a context with timeout for graceful shutdown

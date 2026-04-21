@@ -6,7 +6,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 )
 
 // Implements Hashable interface
@@ -69,7 +69,7 @@ func setupStateMachine(
 	}
 
 	thisNodeAddr := getVal(thisValidator)
-	return New(utils.NewNopZapLogger(), *thisNodeAddr, app, vals, types.Height(0)).(*testStateMachine)
+	return New(log.NewNopZapLogger(), *thisNodeAddr, app, vals, types.Height(0)).(*testStateMachine)
 }
 
 // Todo: Add tests for round change where existing messages are processed

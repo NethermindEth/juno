@@ -10,9 +10,9 @@ import (
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -177,8 +177,8 @@ func TestCallCairo(t *testing.T) {
 	declaredClass := map[felt.Felt]core.ClassDefinition{*classHash: simpleClass}
 	require.NoError(t, state.Update(&core.Header{Number: 0}, &firstStateUpdate, declaredClass, false))
 
-	logLevel := utils.NewLogLevel(utils.ERROR)
-	log, err := utils.NewZapLogger(logLevel)
+	logLevel := log.NewLogLevel(log.ERROR)
+	logger, err := log.NewZapLogger(logLevel)
 	require.NoError(t, err)
 
 	// test_storage_read
@@ -192,7 +192,7 @@ func TestCallCairo(t *testing.T) {
 		ChainID:           networks.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	vm := New(&chainInfo, false, log)
+	vm := New(&chainInfo, false, logger)
 
 	callInfo := CallInfo{
 		ContractAddress: contractAddr,
@@ -269,8 +269,8 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		*classHash: simpleClass,
 	}, false))
 
-	logLevel := utils.NewLogLevel(utils.ERROR)
-	log, err := utils.NewZapLogger(logLevel)
+	logLevel := log.NewLogLevel(log.ERROR)
+	logger, err := log.NewZapLogger(logLevel)
 	require.NoError(t, err)
 
 	callInfo := &CallInfo{
@@ -286,7 +286,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		ChainID:           networks.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	ret, err := New(&chainInfo, false, log).Call(
+	ret, err := New(&chainInfo, false, logger).Call(
 		callInfo,
 		&BlockInfo{
 			Header: &core.Header{
@@ -303,7 +303,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	require.ErrorContains(t, err, "not found in contract")
 
 	// Starknet version 0.13.4 should return an "error" in the CallInfo
-	ret, err = New(&chainInfo, false, log).Call(
+	ret, err = New(&chainInfo, false, logger).Call(
 		callInfo,
 		&BlockInfo{
 			Header: &core.Header{

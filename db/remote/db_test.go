@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -39,7 +39,7 @@ func TestRemote(t *testing.T) {
 		require.NoError(t, grpcSrv.Serve(l))
 	}()
 
-	remoteDB, err := New(l.Addr().String(), t.Context(), utils.NewNopZapLogger(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	remoteDB, err := New(l.Addr().String(), t.Context(), log.NewNopZapLogger(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 
 	t.Run("Get", func(t *testing.T) {
