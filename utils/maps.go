@@ -15,9 +15,11 @@ func ToSlice[K comparable, V any, T any](m map[K]V, f func(K, V) T) []T {
 		return nil
 	}
 
-	sl := make([]T, 0, len(m))
+	sl := make([]T, len(m))
+	i := 0
 	for k, v := range m {
-		sl = append(sl, f(k, v))
+		sl[i] = f(k, v)
+		i++
 	}
 
 	return sl
