@@ -70,7 +70,7 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	}
 	copy(padded[maxHexDigits-len(src):], src)
 
-	var buf [32]byte
+	var buf [Bytes]byte
 	if _, err := hex.Decode(buf[:], padded[:]); err != nil {
 		return fmt.Errorf("felt: couldn't decode hex value: %w", err)
 	}
