@@ -314,7 +314,7 @@ func setupNodes(
 
 func runTest(t *testing.T, cfg testConfig) {
 	t.Helper()
-	logger, err := log.NewZapLogger(log.NewLogLevel(logLevel), log.WithColour(true))
+	logger, err := log.NewZapLogger(log.NewLevel(logLevel), log.WithColour(true))
 	require.NoError(t, err)
 
 	genesisDiff, genesisClasses := loadGenesis(t, logger)

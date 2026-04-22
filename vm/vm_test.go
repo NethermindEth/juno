@@ -177,7 +177,7 @@ func TestCallCairo(t *testing.T) {
 	declaredClass := map[felt.Felt]core.ClassDefinition{*classHash: simpleClass}
 	require.NoError(t, state.Update(&core.Header{Number: 0}, &firstStateUpdate, declaredClass, false))
 
-	logLevel := log.NewLogLevel(log.ERROR)
+	logLevel := log.NewLevel(log.ERROR)
 	logger, err := log.NewZapLogger(logLevel)
 	require.NoError(t, err)
 
@@ -269,7 +269,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		*classHash: simpleClass,
 	}, false))
 
-	logLevel := log.NewLogLevel(log.ERROR)
+	logLevel := log.NewLevel(log.ERROR)
 	logger, err := log.NewZapLogger(logLevel)
 	require.NoError(t, err)
 

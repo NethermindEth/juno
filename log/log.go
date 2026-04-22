@@ -20,23 +20,23 @@ var ErrUnknownLogLevel = fmt.Errorf(
 	TRACE, DEBUG, INFO, WARN, ERROR,
 )
 
-type LogLevel struct {
+type Level struct {
 	atomicLevel zap.AtomicLevel
 }
 
-func (l LogLevel) GetAtomicLevel() zap.AtomicLevel {
+func (l Level) GetAtomicLevel() zap.AtomicLevel {
 	return l.atomicLevel
 }
 
-func NewLogLevel(level zapcore.Level) *LogLevel {
-	return &LogLevel{atomicLevel: zap.NewAtomicLevelAt(level)}
+func NewLevel(level zapcore.Level) *Level {
+	return &Level{atomicLevel: zap.NewAtomicLevelAt(level)}
 }
 
 // The following are necessary for Cobra and Viper, respectively, to unmarshal log level
 // CLI/config parameters properly.
 var (
-	_ pflag.Value              = (*LogLevel)(nil)
-	_ encoding.TextUnmarshaler = (*LogLevel)(nil)
+	_ pflag.Value              = (*Level)(nil)
+	_ encoding.TextUnmarshaler = (*Level)(nil)
 )
 
 const (
@@ -47,7 +47,7 @@ const (
 	ERROR
 )
 
-func (l LogLevel) String() string {
+func (l Level) String() string {
 	switch l.Level() {
 	case DEBUG:
 		return "debug"
@@ -65,15 +65,15 @@ func (l LogLevel) String() string {
 	}
 }
 
-func (l LogLevel) Level() zapcore.Level {
+func (l Level) Level() zapcore.Level {
 	return l.atomicLevel.Level()
 }
 
-func (l LogLevel) MarshalYAML() (any, error) {
+func (l Level) MarshalYAML() (any, error) {
 	return l.String(), nil
 }
 
-func (l *LogLevel) Set(s string) error {
+func (l *Level) Set(s string) error {
 	switch strings.ToUpper(s) {
 	case "DEBUG":
 		l.atomicLevel.SetLevel(DEBUG)
@@ -91,15 +91,15 @@ func (l *LogLevel) Set(s string) error {
 	return nil
 }
 
-func (l *LogLevel) Type() string {
+func (l *Level) Type() string {
 	return "LogLevel"
 }
 
-func (l *LogLevel) MarshalText() ([]byte, error) {
+func (l *Level) MarshalText() ([]byte, error) {
 	return []byte(l.String()), nil
 }
 
-func (l *LogLevel) UnmarshalText(text []byte) error {
+func (l *Level) UnmarshalText(text []byte) error {
 	return l.Set(string(text))
 }
 
@@ -158,7 +158,7 @@ func WithWriter(w io.Writer) LoggerOption {
 	}
 }
 
-func NewZapLogger(logLevel *LogLevel, opts ...LoggerOption) (*ZapLogger, error) {
+func NewZapLogger(logLevel *Level, opts ...LoggerOption) (*ZapLogger, error) {
 	var cfg loggerConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -341,7 +341,7 @@ func SanitizeString(s string) string {
 
 // HTTPLogSettings is an HTTP handler that allows changing the log level of the logger.
 // It can also be used to query what's the current log level.
-func HTTPLogSettings(w http.ResponseWriter, r *http.Request, log *LogLevel) {
+func HTTPLogSettings(w http.ResponseWriter, r *http.Request, log *Level) {
 	switch r.Method {
 	case http.MethodGet:
 		fmt.Fprint(w, log.String()+"\n")

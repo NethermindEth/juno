@@ -154,7 +154,7 @@ func runTestBlockTransactionsMigration(
 			t.Run(name, func(t *testing.T) {
 				database := openDatabase(t, dir)
 
-				logger, err := log.NewZapLogger(log.NewLogLevel(zapcore.InfoLevel), log.WithColour(true))
+				logger, err := log.NewZapLogger(log.NewLevel(zapcore.InfoLevel), log.WithColour(true))
 				require.NoError(t, err)
 
 				ctx := t.Context()

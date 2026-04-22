@@ -45,7 +45,7 @@ func TestNewNode(t *testing.T) {
 		SubmittedTransactionsCacheEntryTTL: time.Second,
 	}
 
-	logLevel := log.NewLogLevel(log.INFO)
+	logLevel := log.NewLevel(log.INFO)
 	n, err := node.New(config, "v0.3", logLevel)
 	require.NoError(t, err)
 
@@ -90,7 +90,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			cancel()
 			require.NoError(t, database.Close())
 
-			logLevel := log.NewLogLevel(log.INFO)
+			logLevel := log.NewLevel(log.INFO)
 			_, err = node.New(&node.Config{
 				DatabasePath:                       dbPath,
 				DBCompression:                      "zstd",

@@ -283,7 +283,7 @@ func main() {
 			return err
 		}
 
-		logLevel := log.NewLogLevel(log.INFO)
+		logLevel := log.NewLevel(log.INFO)
 		err = logLevel.Set(config.LogLevel)
 		if err != nil {
 			return err

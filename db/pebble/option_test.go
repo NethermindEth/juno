@@ -16,7 +16,7 @@ const (
 )
 
 func TestOptions(t *testing.T) {
-	logLevel := log.NewLogLevel(log.ERROR)
+	logLevel := log.NewLevel(log.ERROR)
 	logger, err := log.NewZapLogger(logLevel, log.WithColour(true))
 	require.NoError(t, err)
 

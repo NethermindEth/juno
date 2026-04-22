@@ -176,7 +176,7 @@ func makeMetrics(host string, port uint16) *httpService {
 func makeHTTPUpdateService(
 	host string,
 	port uint16,
-	logLevel *log.LogLevel,
+	logLevel *log.Level,
 	feederClient *feeder.Client,
 ) *httpService {
 	mux := http.NewServeMux()

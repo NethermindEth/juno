@@ -19,12 +19,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var levelStrings = map[*log.LogLevel]string{
-	log.NewLogLevel(log.DEBUG): "debug",
-	log.NewLogLevel(log.INFO):  "info",
-	log.NewLogLevel(log.WARN):  "warn",
-	log.NewLogLevel(log.ERROR): "error",
-	log.NewLogLevel(log.TRACE): "trace",
+var levelStrings = map[*log.Level]string{
+	log.NewLevel(log.DEBUG): "debug",
+	log.NewLevel(log.INFO):  "info",
+	log.NewLevel(log.WARN):  "warn",
+	log.NewLevel(log.ERROR): "error",
+	log.NewLevel(log.TRACE): "trace",
 }
 
 func TestLogLevelString(t *testing.T) {
@@ -42,20 +42,20 @@ func TestLogLevelString(t *testing.T) {
 func TestLogLevelSet(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level "+str, func(t *testing.T) {
-			l := log.NewLogLevel(log.TRACE)
+			l := log.NewLevel(log.TRACE)
 			require.NoError(t, l.Set(str))
 			assert.Equal(t, *level, *l)
 		})
 		uppercase := strings.ToUpper(str)
 		t.Run("level "+uppercase, func(t *testing.T) {
-			l := log.NewLogLevel(log.TRACE)
+			l := log.NewLevel(log.TRACE)
 			require.NoError(t, l.Set(uppercase))
 			assert.Equal(t, *level, *l)
 		})
 	}
 
 	t.Run("unknown log level", func(t *testing.T) {
-		l := new(log.LogLevel)
+		l := new(log.Level)
 		require.ErrorIs(t, l.Set("blah"), log.ErrUnknownLogLevel)
 	})
 }
@@ -63,20 +63,20 @@ func TestLogLevelSet(t *testing.T) {
 func TestLogLevelUnmarshalText(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level "+str, func(t *testing.T) {
-			l := log.NewLogLevel(log.TRACE)
+			l := log.NewLevel(log.TRACE)
 			require.NoError(t, l.UnmarshalText([]byte(str)))
 			assert.Equal(t, *level, *l)
 		})
 		uppercase := strings.ToUpper(str)
 		t.Run("level "+uppercase, func(t *testing.T) {
-			l := log.NewLogLevel(log.TRACE)
+			l := log.NewLevel(log.TRACE)
 			require.NoError(t, l.UnmarshalText([]byte(uppercase)))
 			assert.Equal(t, *level, *l)
 		})
 	}
 
 	t.Run("unknown log level", func(t *testing.T) {
-		l := new(log.LogLevel)
+		l := new(log.Level)
 		require.ErrorIs(t, l.UnmarshalText([]byte("blah")), log.ErrUnknownLogLevel)
 	})
 }
@@ -94,12 +94,12 @@ func TestLogLevelMarshalJSON(t *testing.T) {
 }
 
 func TestLogLevelType(t *testing.T) {
-	assert.Equal(t, "LogLevel", new(log.LogLevel).Type())
+	assert.Equal(t, "LogLevel", new(log.Level).Type())
 }
 
 func TestZapWithColour(t *testing.T) {
 	var buf bytes.Buffer
-	logLevel := log.NewLogLevel(log.INFO)
+	logLevel := log.NewLevel(log.INFO)
 	logger, err := log.NewZapLogger(
 		logLevel, log.WithWriter(&buf), log.WithColour(true),
 	)
@@ -114,7 +114,7 @@ func TestZapWithColour(t *testing.T) {
 
 func TestZapWithoutColour(t *testing.T) {
 	var buf bytes.Buffer
-	logLevel := log.NewLogLevel(log.INFO)
+	logLevel := log.NewLevel(log.INFO)
 	logger, err := log.NewZapLogger(
 		logLevel, log.WithWriter(&buf),
 	)
@@ -128,7 +128,7 @@ func TestZapWithoutColour(t *testing.T) {
 }
 
 func TestZapWithJSON(t *testing.T) {
-	logLevel := log.NewLogLevel(log.INFO)
+	logLevel := log.NewLevel(log.INFO)
 
 	t.Run("produces valid JSON output", func(t *testing.T) {
 		var buf bytes.Buffer
@@ -208,7 +208,7 @@ func TestZapWithJSON(t *testing.T) {
 func TestConsoleOutput(t *testing.T) {
 	t.Run("timestamp format", func(t *testing.T) {
 		var buf bytes.Buffer
-		logLevel := log.NewLogLevel(log.INFO)
+		logLevel := log.NewLevel(log.INFO)
 		logger, err := log.NewZapLogger(
 			logLevel, log.WithWriter(&buf),
 		)
@@ -223,7 +223,7 @@ func TestConsoleOutput(t *testing.T) {
 
 	t.Run("TRACE level is cyan with colour", func(t *testing.T) {
 		var buf bytes.Buffer
-		logLevel := log.NewLogLevel(log.TRACE)
+		logLevel := log.NewLevel(log.TRACE)
 		logger, err := log.NewZapLogger(
 			logLevel, log.WithWriter(&buf), log.WithColour(true),
 		)
@@ -237,7 +237,7 @@ func TestConsoleOutput(t *testing.T) {
 }
 
 func TestHTTPLogSettings(t *testing.T) {
-	logLevel := log.NewLogLevel(log.INFO)
+	logLevel := log.NewLevel(log.INFO)
 	ctx := t.Context()
 
 	t.Run("GET current log level", func(t *testing.T) {
@@ -322,14 +322,14 @@ func TestHTTPLogSettings(t *testing.T) {
 func TestMarshalYAML(t *testing.T) {
 	tests := []struct {
 		name     string
-		logLevel log.LogLevel
+		logLevel log.Level
 		expected string
 	}{
-		{"InfoLevel", *log.NewLogLevel(log.INFO), "info"},
-		{"DebugLevel", *log.NewLogLevel(log.DEBUG), "debug"},
-		{"ErrorLevel", *log.NewLogLevel(log.ERROR), "error"},
-		{"WarnLevel", *log.NewLogLevel(log.WARN), "warn"},
-		{"TraceLevel", *log.NewLogLevel(log.TRACE), "trace"},
+		{"InfoLevel", *log.NewLevel(log.INFO), "info"},
+		{"DebugLevel", *log.NewLevel(log.DEBUG), "debug"},
+		{"ErrorLevel", *log.NewLevel(log.ERROR), "error"},
+		{"WarnLevel", *log.NewLevel(log.WARN), "warn"},
+		{"TraceLevel", *log.NewLevel(log.TRACE), "trace"},
 	}
 
 	for _, tt := range tests {
@@ -343,14 +343,14 @@ func TestMarshalYAML(t *testing.T) {
 
 func TestIsTraceEnabled(t *testing.T) {
 	t.Run("Trace enabled", func(t *testing.T) {
-		logLevel := log.NewLogLevel(log.TRACE)
+		logLevel := log.NewLevel(log.TRACE)
 		logger, err := log.NewZapLogger(logLevel)
 		require.NoError(t, err)
 		assert.True(t, logger.IsTraceEnabled())
 	})
 
 	t.Run("Trace disabled", func(t *testing.T) {
-		logLevel := log.NewLogLevel(log.INFO)
+		logLevel := log.NewLevel(log.INFO)
 		logger, err := log.NewZapLogger(logLevel)
 		require.NoError(t, err)
 		assert.False(t, logger.IsTraceEnabled())
@@ -360,7 +360,7 @@ func TestIsTraceEnabled(t *testing.T) {
 func TestTrace(t *testing.T) {
 	t.Run("enabled", func(t *testing.T) {
 		var buf bytes.Buffer
-		logLevel := log.NewLogLevel(log.TRACE)
+		logLevel := log.NewLevel(log.TRACE)
 		logger, err := log.NewZapLogger(
 			logLevel, log.WithWriter(&buf),
 		)
@@ -375,7 +375,7 @@ func TestTrace(t *testing.T) {
 
 	t.Run("disabled", func(t *testing.T) {
 		var buf bytes.Buffer
-		logLevel := log.NewLogLevel(log.INFO)
+		logLevel := log.NewLevel(log.INFO)
 		logger, err := log.NewZapLogger(
 			logLevel, log.WithWriter(&buf),
 		)

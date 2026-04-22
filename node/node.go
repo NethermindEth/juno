@@ -152,7 +152,7 @@ type Node struct {
 // Todo: (immediate follow-up PR) tidy this function up.
 //
 //nolint:gocyclo,funlen // TODO: refactor this function to reduce complexity
-func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) {
+func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	logger, err := log.NewZapLogger(
 		logLevel,
 		log.WithColour(cfg.Colour),
@@ -175,7 +175,7 @@ func New(cfg *Config, version string, logLevel *log.LogLevel) (*Node, error) {
 		// note(rdr): A dedicated logger with level Error to avoid noise.
 		var dbLog *log.ZapLogger
 		dbLog, err = log.NewZapLogger(
-			log.NewLogLevel(log.ERROR),
+			log.NewLevel(log.ERROR),
 			log.WithColour(cfg.Colour),
 			log.WithJSON(cfg.LogJSON),
 		)
