@@ -139,17 +139,24 @@ type BuiltinInstanceCounter struct {
 type Transaction interface {
 	// TODO: This should be TransactionHash instead of Felt.
 	Hash() *felt.Felt
-	Signature() []*felt.Felt
 	TxVersion() *TransactionVersion
 }
 
+type SignedTransaction interface {
+	Transaction
+	Signature() []*felt.Felt
+}
+
 var (
-	_            Transaction = (*DeployTransaction)(nil)
-	_            Transaction = (*DeployAccountTransaction)(nil)
-	_            Transaction = (*DeclareTransaction)(nil)
-	_            Transaction = (*InvokeTransaction)(nil)
-	_            Transaction = (*L1HandlerTransaction)(nil)
-	queryVersion             = new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(queryBit))
+	_            Transaction       = (*DeployTransaction)(nil)
+	_            Transaction       = (*DeployAccountTransaction)(nil)
+	_            Transaction       = (*DeclareTransaction)(nil)
+	_            Transaction       = (*InvokeTransaction)(nil)
+	_            Transaction       = (*L1HandlerTransaction)(nil)
+	_            SignedTransaction = (*DeployAccountTransaction)(nil)
+	_            SignedTransaction = (*DeclareTransaction)(nil)
+	_            SignedTransaction = (*InvokeTransaction)(nil)
+	queryVersion                   = new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(queryBit))
 )
 
 const (
@@ -230,10 +237,6 @@ func (d *DeployTransaction) TxVersion() *TransactionVersion {
 
 func (d *DeployTransaction) Hash() *felt.Felt {
 	return d.TransactionHash
-}
-
-func (d *DeployTransaction) Signature() []*felt.Felt {
-	return make([]*felt.Felt, 0)
 }
 
 type DeployAccountTransaction struct {
@@ -382,10 +385,6 @@ func (l *L1HandlerTransaction) TxVersion() *TransactionVersion {
 
 func (l *L1HandlerTransaction) Hash() *felt.Felt {
 	return l.TransactionHash
-}
-
-func (l *L1HandlerTransaction) Signature() []*felt.Felt {
-	return make([]*felt.Felt, 0)
 }
 
 func (l *L1HandlerTransaction) MessageHash() []byte {
@@ -701,6 +700,14 @@ func VerifyTransactions(txs []Transaction, n *networks.Network, protocolVersion 
 
 const commitmentTrieHeight = 64
 
+func transactionSignature(transaction Transaction) []*felt.Felt {
+	signedTx, ok := transaction.(SignedTransaction)
+	if !ok {
+		return nil
+	}
+	return signedTx.Signature()
+}
+
 // transactionCommitmentPedersen is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
 func transactionCommitmentPedersen(
@@ -716,14 +723,14 @@ func transactionCommitmentPedersen(
 	var hashFunc processFunc[Transaction]
 	if blockVersion.GreaterThanEqual(v0_11_1) {
 		hashFunc = func(transaction Transaction) felt.Felt {
-			signatureHash := crypto.PedersenArray(transaction.Signature()...)
+			signatureHash := crypto.PedersenArray(transactionSignature(transaction)...)
 			return crypto.Pedersen(transaction.Hash(), &signatureHash)
 		}
 	} else {
 		hashFunc = func(transaction Transaction) felt.Felt {
 			signatureHash := crypto.PedersenArray()
-			if _, ok := transaction.(*InvokeTransaction); ok {
-				signatureHash = crypto.PedersenArray(transaction.Signature()...)
+			if invokeTransaction, ok := transaction.(*InvokeTransaction); ok {
+				signatureHash = crypto.PedersenArray(invokeTransaction.Signature()...)
 			}
 			return crypto.Pedersen(transaction.Hash(), &signatureHash)
 		}
@@ -742,7 +749,7 @@ func transactionCommitmentPoseidon0134(transactions []Transaction) (felt.Felt, e
 			var digest crypto.PoseidonDigest
 			digest.Update(transaction.Hash())
 
-			if txSignature := transaction.Signature(); len(txSignature) > 0 {
+			if txSignature := transactionSignature(transaction); len(txSignature) > 0 {
 				digest.Update(txSignature...)
 			}
 
@@ -760,7 +767,7 @@ func transactionCommitmentPoseidon0132(transactions []Transaction) (felt.Felt, e
 			var digest crypto.PoseidonDigest
 			digest.Update(transaction.Hash())
 
-			if txSignature := transaction.Signature(); len(txSignature) > 0 {
+			if txSignature := transactionSignature(transaction); len(txSignature) > 0 {
 				digest.Update(txSignature...)
 			} else {
 				digest.Update(&felt.Zero)
