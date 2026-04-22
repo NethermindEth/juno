@@ -1,8 +1,6 @@
 package statebackend
 
 import (
-	"errors"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
@@ -12,25 +10,6 @@ import (
 type stateBackend struct {
 	baseState
 	stateDB *state.StateDB
-}
-
-func (b *stateBackend) StateCommitment() (felt.Felt, error) {
-	height, err := core.GetChainHeight(b.database)
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return felt.Felt{}, nil
-		}
-		return felt.Felt{}, err
-	}
-	header, err := core.GetBlockHeaderByNumber(b.database, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	stateReader, err := state.NewStateReader(header.GlobalStateRoot, b.stateDB)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return stateReader.Commitment(header.ProtocolVersion)
 }
 
 func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
