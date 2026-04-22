@@ -63,7 +63,7 @@ func TestUpdate(t *testing.T) {
 	scValue := felt.NewUnsafeFromString[felt.Felt](
 		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
 	)
-	scAddr := felt.NewFromUint64[felt.Felt](1)
+	scAddr := &felt.One
 
 	stateUpdates := getStateUpdates(t)
 
@@ -175,7 +175,7 @@ func TestUpdate(t *testing.T) {
 		state, err := New(stateUpdates[4].NewRoot, stateDB, batch)
 		require.NoError(t, err)
 		err = state.Update(&core.Header{Number: block5}, su5, nil, false)
-		require.ErrorIs(t, err, ErrContractNotDeployed)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
@@ -306,7 +306,9 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Revert(&core.Header{Number: block2}, storageStateUpdate))
 		require.NoError(t, batch.Write())
 
-		storage, sErr := state.ContractStorage(&su1FirstDeployedAddress, replacedVal)
+		reader, err = NewStateReader(storageStateUpdate.OldRoot, stateDB)
+		require.NoError(t, err)
+		storage, sErr := reader.ContractStorage(&su1FirstDeployedAddress, replacedVal)
 		require.NoError(t, sErr)
 		assert.Equal(t, felt.Zero, storage)
 	})

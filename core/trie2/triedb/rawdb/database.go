@@ -125,12 +125,14 @@ func (d *Database) updateNode(
 	)
 }
 
-// This method was added to satisfy the TrieDB interface, but it is not used.
+// Commit is a no-op for the raw scheme; This method was added
+// to satisfy the TrieDB interface
 func (d *Database) Commit(_ *felt.StateRootHash) error {
 	return nil
 }
 
-// This method was added to satisfy the TrieDB interface, but it is not used.
+// Close is a no-op for the raw scheme; This method was added
+// to satisfy the TrieDB interface
 func (d *Database) Close() error {
 	return nil
 }

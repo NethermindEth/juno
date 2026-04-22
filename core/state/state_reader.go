@@ -92,7 +92,7 @@ func (s *StateReader) ContractStorageLastUpdatedBlock(
 func (s *StateReader) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
-		if errors.Is(err, ErrContractNotDeployed) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -272,7 +272,17 @@ func (s *StateReader) valueAt(prefix []byte, blockNum uint64, cb func(val []byte
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 	if !it.Seek(seekKey) {
-		return ErrNoHistoryValue
+		// All existing keys (if any) are before seekKey.
+		// The last stored value is the correct answer for this blockNum.
+		if !it.Prev() {
+			// Iterator is truly empty for this prefix — no history exists.
+			return ErrNoHistoryValue
+		}
+		val, err := it.Value()
+		if err != nil {
+			return err
+		}
+		return cb(val)
 	}
 
 	key := it.Key()

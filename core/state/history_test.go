@@ -122,7 +122,7 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	t.Run("NonExistentContract", func(t *testing.T) {
 		nonExistentAddr := new(felt.Felt).SetUint64(999)
 		_, err := historyBlock0.ContractClassHash(nonExistentAddr)
-		assert.ErrorIs(t, err, ErrContractNotDeployed)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 

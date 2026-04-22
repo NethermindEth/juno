@@ -497,7 +497,7 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 	for addr, storage := range storage {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
-			if _, ok := noClassContracts[addr]; ok && errors.Is(err, ErrContractNotDeployed) {
+			if _, ok := noClassContracts[addr]; ok && errors.Is(err, db.ErrKeyNotFound) {
 				contract := newContractDeployed(noClassContractsClassHash, blockNum)
 				newObj := newStateObject(s, &addr, &contract)
 				obj = &newObj

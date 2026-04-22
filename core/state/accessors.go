@@ -1,7 +1,6 @@
 package state
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
@@ -19,21 +18,10 @@ func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateO
 	return &obj, nil
 }
 
-// Gets a contract instance from the database. If it doesn't exist returns a contract not deployed error
-func GetContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
-	contract, err := getContract(r, addr)
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return stateContract{}, ErrContractNotDeployed
-		}
-		return stateContract{}, err
-	}
-
-	return contract, nil
-}
-
 // Gets a contract instance from the database.
-func getContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
+// Returns db.ErrKeyNotFound when the contract does not exist, for backward compatibility.
+// TODO: return more precise error (e.g. ErrContractNotDeployed) once deprecated state is removed.
+func GetContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
 	key := db.ContractKey(addr)
 	var contract stateContract
 	if err := r.Get(key, func(val []byte) error {

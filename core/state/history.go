@@ -76,9 +76,10 @@ func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 	}
 
 	if !isDeployed {
-		// TODO(weiihann): previously this was db.ErrKeyNotFound
-		// remember to handle it in the rpc
-		return ErrContractNotDeployed
+		// TODO: return a dedicated error like ErrContractNotFound
+		// once deprecated state is removed. Using db.ErrKeyNotFound
+		// for backward compatibility.
+		return db.ErrKeyNotFound
 	}
 
 	return nil
