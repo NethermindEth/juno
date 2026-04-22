@@ -65,8 +65,7 @@ func New(
 		network:       network,
 	}
 
-	switch stateVersion {
-	case true:
+	if stateVersion {
 		trieDB, err := triedb.New(database, nil)
 		if err != nil {
 			panic(err)
@@ -77,8 +76,7 @@ func New(
 			baseState: base,
 			stateDB:   stateDB,
 		}
-	case false:
-		return &deprecatedStateBackend{baseState: base}
 	}
-	return nil
+
+	return &deprecatedStateBackend{baseState: base}
 }

@@ -18,7 +18,6 @@ func TestNew(t *testing.T) {
 
 		backend := New(memDB, filter, network, true)
 
-		require.NotNil(t, backend)
 		sb, ok := backend.(*stateBackend)
 		require.True(t, ok, "expected *stateBackend, got %T", backend)
 		assert.Equal(t, memDB, sb.baseState.database)
@@ -34,7 +33,6 @@ func TestNew(t *testing.T) {
 
 		backend := New(memDB, filter, network, false)
 
-		require.NotNil(t, backend)
 		dsb, ok := backend.(*deprecatedStateBackend)
 		require.True(t, ok, "expected *deprecatedStateBackend, got %T", backend)
 		assert.Equal(t, memDB, dsb.baseState.database)
