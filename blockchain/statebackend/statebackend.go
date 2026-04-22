@@ -15,15 +15,14 @@ type stateBackend struct {
 }
 
 func (b *stateBackend) StateCommitment() (felt.Felt, error) {
-	txn := b.database.NewIndexedBatch()
-	height, err := core.GetChainHeight(txn)
+	height, err := core.GetChainHeight(b.database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return felt.Felt{}, nil
 		}
 		return felt.Felt{}, err
 	}
-	header, err := core.GetBlockHeaderByNumber(txn, height)
+	header, err := core.GetBlockHeaderByNumber(b.database, height)
 	if err != nil {
 		return felt.Felt{}, err
 	}
