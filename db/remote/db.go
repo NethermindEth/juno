@@ -83,6 +83,17 @@ func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
 	return errors.Join(txn.Commit(), txn.Discard())
 }
 
+func (d *DB) Write(fn func(w db.Batch) error) error {
+	defer d.listener.OnCommit(time.Now())
+
+	batch := d.NewBatch()
+	if err := fn(batch); err != nil {
+		return err
+	}
+
+	return batch.Write()
+}
+
 func (d *DB) Close() error {
 	return d.grpcClient.Close()
 }

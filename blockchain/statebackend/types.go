@@ -4,6 +4,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -62,9 +64,21 @@ func New(
 		runningFilter: runningFilter,
 		network:       network,
 	}
-	if stateVersion {
-		panic("statebackend: new state version backend is not yet implemented")
-	}
 
-	return &deprecatedStateBackend{baseState: base}
+	switch stateVersion {
+	case true:
+		trieDB, err := triedb.New(database, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		stateDB := state.NewStateDB(database, trieDB)
+		return &stateBackend{
+			baseState: base,
+			stateDB:   stateDB,
+		}
+	case false:
+		return &deprecatedStateBackend{baseState: base}
+	}
+	return nil
 }
