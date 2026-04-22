@@ -1000,6 +1000,7 @@ func chainStateCommitment(t *testing.T, database db.KeyValueStore) felt.Felt {
 	header, err := core.GetBlockHeaderByNumber(database, height)
 	require.NoError(t, err)
 
+	//nolint:staticcheck,nolintlint // used by old state
 	txn := database.NewIndexedBatch()
 	commitment, err := deprecatedstate.New(txn).Commitment(header.ProtocolVersion)
 	require.NoError(t, err)
