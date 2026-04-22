@@ -6,8 +6,8 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 

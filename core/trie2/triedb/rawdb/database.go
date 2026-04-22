@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 var _ database.TrieDB = (*Database)(nil)

@@ -15,8 +15,8 @@ import (
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )

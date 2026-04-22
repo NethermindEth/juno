@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 var (

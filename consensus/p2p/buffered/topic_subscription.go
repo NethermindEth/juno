@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"go.uber.org/zap"
 )

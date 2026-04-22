@@ -8,9 +8,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed/prefix"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/fxamacker/cbor/v2"
 	"go.uber.org/zap"
 )

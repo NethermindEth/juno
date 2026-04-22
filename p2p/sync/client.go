@@ -9,8 +9,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	syncclass "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/class"

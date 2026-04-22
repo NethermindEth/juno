@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

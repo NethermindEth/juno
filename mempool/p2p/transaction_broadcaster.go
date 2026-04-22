@@ -6,8 +6,8 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/mempool2p2p"
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/mempool/transaction"
 	"go.uber.org/zap"
 )

@@ -12,8 +12,8 @@ import (
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 

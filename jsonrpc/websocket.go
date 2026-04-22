@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/coder/websocket"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"

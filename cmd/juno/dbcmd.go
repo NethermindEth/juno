@@ -12,10 +12,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint // deprecated package will be removed later
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )

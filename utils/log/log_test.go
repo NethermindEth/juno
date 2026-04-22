@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -289,7 +289,8 @@ func TestHTTPLogSettings(t *testing.T) {
 	})
 
 	t.Run("PUT update log level with invalid level", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/log/level?level=invalid", http.NoBody)
+		req, err := http.NewRequestWithContext(
+			ctx, http.MethodPut, "/log/level?level=invalid", http.NoBody)
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()

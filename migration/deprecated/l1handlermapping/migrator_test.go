@@ -10,9 +10,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/migration/deprecated/l1handlermapping"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )
 

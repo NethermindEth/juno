@@ -14,9 +14,9 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
-	"github.com/NethermindEth/juno/log"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/sourcegraph/conc/stream"
 	"go.uber.org/zap"
 )

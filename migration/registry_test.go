@@ -6,8 +6,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )
 

@@ -2,9 +2,9 @@ package casmhashmetadata
 
 import (
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 

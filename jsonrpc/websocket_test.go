@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/coder/websocket"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"

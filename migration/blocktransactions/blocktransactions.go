@@ -11,10 +11,10 @@ import (
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/prefix"
 	_ "github.com/NethermindEth/juno/encoder/registry"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 const (

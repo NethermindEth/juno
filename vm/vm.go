@@ -20,8 +20,8 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 const (

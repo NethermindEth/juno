@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/NethermindEth/juno/log"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 

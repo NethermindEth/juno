@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 var (

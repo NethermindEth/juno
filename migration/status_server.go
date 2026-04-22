@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NethermindEth/juno/log"
+	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 
