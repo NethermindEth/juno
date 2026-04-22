@@ -66,15 +66,10 @@ func New(
 	}
 
 	if stateVersion {
-		trieDB, err := triedb.New(database, nil)
-		if err != nil {
-			panic(err)
-		}
-
-		stateDB := state.NewStateDB(database, trieDB)
+		trieDB := triedb.New(database, nil)
 		return &stateBackend{
 			baseState: base,
-			stateDB:   stateDB,
+			stateDB:   state.NewStateDB(database, trieDB),
 		}
 	}
 

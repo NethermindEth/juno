@@ -775,9 +775,6 @@ func setupState(t *testing.T, stateUpdates []*core.StateUpdate, blocks uint64) *
 
 func newTestStateDB() *StateDB {
 	memDB := memory.New()
-	db, err := triedb.New(memDB, nil)
-	if err != nil {
-		panic(err)
-	}
-	return NewStateDB(memDB, db)
+	trieDB := triedb.New(memDB, nil)
+	return NewStateDB(memDB, trieDB)
 }
