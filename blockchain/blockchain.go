@@ -145,13 +145,6 @@ func (b *Blockchain) Network() *networks.Network {
 	return b.network
 }
 
-// StateCommitment returns the latest block state commitment.
-// If blockchain is empty zero felt is returned.
-func (b *Blockchain) StateCommitment() (felt.Felt, error) {
-	b.listener.OnRead("StateCommitment")
-	return b.stateBackend.StateCommitment()
-}
-
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
 	b.listener.OnRead("Height")

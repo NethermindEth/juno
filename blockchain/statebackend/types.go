@@ -9,7 +9,6 @@ import (
 
 // StateBackend is the interface for state operations in blockchain.
 type StateBackend interface {
-	StateCommitment() (felt.Felt, error)
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
