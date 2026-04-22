@@ -15,7 +15,7 @@ func TestValidateStateVersion(t *testing.T) {
 		require.NoError(t, ValidateStateVersion(testDB, true))
 	})
 
-	t.Run("deprecated-state DB with new-state flag returns error", func(t *testing.T) {
+	t.Run("old-state DB with new-state flag returns error", func(t *testing.T) {
 		testDB := memory.New()
 		seedChainHeight(t, testDB)
 		seedBucket(t, testDB, db.ClassesTrie)
@@ -35,7 +35,7 @@ func TestValidateStateVersion(t *testing.T) {
 		require.ErrorContains(t, err, "--new-state")
 	})
 
-	t.Run("deprecated-state DB without new-state flag is accepted", func(t *testing.T) {
+	t.Run("old-state DB without new-state flag is accepted", func(t *testing.T) {
 		testDB := memory.New()
 		seedChainHeight(t, testDB)
 		seedBucket(t, testDB, db.ClassesTrie)
@@ -59,7 +59,7 @@ func TestValidateStateVersion(t *testing.T) {
 		require.NoError(t, ValidateStateVersion(testDB, true))
 	})
 
-	t.Run("deprecated-state detected via StateTrie when ClassesTrie is empty", func(t *testing.T) {
+	t.Run("old-state detected via StateTrie when ClassesTrie is empty", func(t *testing.T) {
 		testDB := memory.New()
 		seedChainHeight(t, testDB)
 		seedBucket(t, testDB, db.StateTrie)
@@ -69,7 +69,7 @@ func TestValidateStateVersion(t *testing.T) {
 		require.NoError(t, ValidateStateVersion(testDB, false))
 	})
 
-	t.Run("deprecated-state detected via ContractStorage when other old buckets empty", func(t *testing.T) {
+	t.Run("old-state detected via ContractStorage when other old buckets empty", func(t *testing.T) {
 		testDB := memory.New()
 		seedChainHeight(t, testDB)
 		seedBucket(t, testDB, db.ContractStorage)
