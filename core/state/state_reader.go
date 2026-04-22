@@ -259,10 +259,18 @@ func (s *StateReader) getHistoricalValue(prefix []byte, blockNum uint64) (felt.F
 }
 
 // Returns the value at the given block number.
-// First, it attempts to seek for the key at the given block number.
-// If the key exists, it means that the key was modified at the given block number.
-// Otherwise, it moves the iterator one step back.
-// If a key-value pair exists, we have found the value.
+// Seeks to the entry for blockNum if it exists; otherwise steps back to the
+// last recorded block strictly less than blockNum. Returns ErrNoHistoryValue
+// if no entry exists at or before blockNum.
+//
+// Each history entry stores the post-update value at the block it was written.
+// Example — a nonce updated at blocks 10 and 25:
+//
+//	stored: (prefix, 10) -> 7   (prefix, 25) -> 42
+//	query @ 5  -> no entry <= 5               -> ErrNoHistoryValue (-> Zero)
+//	query @ 10 -> exact hit on (prefix, 10)   -> 7
+//	query @ 20 -> Seek lands on 25, Prev -> 10 -> 7
+//	query @ 30 -> Seek fails, Prev -> 25       -> 42
 func (s *StateReader) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) error) error {
 	it, err := s.db.disk.NewIterator(prefix, true)
 	if err != nil {
@@ -271,44 +279,19 @@ func (s *StateReader) valueAt(prefix []byte, blockNum uint64, cb func(val []byte
 	defer it.Close()
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
-	if !it.Seek(seekKey) {
-		// All existing keys (if any) are before seekKey.
-		// The last stored value is the correct answer for this blockNum.
-		if !it.Prev() {
-			// Iterator is truly empty for this prefix — no history exists.
-			return ErrNoHistoryValue
-		}
-		val, err := it.Value()
-		if err != nil {
-			return err
-		}
-		return cb(val)
-	}
 
 	key := it.Key()
 	keyBlockNum := binary.BigEndian.Uint64(key[len(prefix):])
-	if keyBlockNum == blockNum {
-		// Found the value
-		val, err := it.Value()
-		if err != nil {
-			return err
+	if !it.Seek(seekKey) || keyBlockNum != blockNum {
+		if !it.Prev() {
+			return ErrNoHistoryValue
 		}
-
-		return cb(val)
-	}
-
-	// Otherwise, move the iterator backwards
-	if !it.Prev() {
-		// Moving iterator backwards is invalid, this means we were already at the first key
-		// No values will be found beyond the first key
-		return ErrNoHistoryValue
 	}
 
 	val, err := it.Value()
 	if err != nil {
 		return err
 	}
-
 	return cb(val)
 }
 

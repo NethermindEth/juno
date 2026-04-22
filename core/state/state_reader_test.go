@@ -402,6 +402,31 @@ func TestContractHistory(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, *storageValue, gotStorage)
 	})
+
+	t.Run("retrieve block height after last update", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		batch := stateDB.disk.NewBatch()
+		state0, err := New(&felt.Zero, stateDB, batch)
+		require.NoError(t, err)
+		su0 := su
+		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
+		require.NoError(t, batch.Write())
+
+		reader, err := NewStateReader(su0.NewRoot, stateDB)
+		require.NoError(t, err)
+
+		gotNonce, err := reader.ContractNonceAt(&addr, block5)
+		require.NoError(t, err)
+		assert.Equal(t, *nonce, gotNonce)
+
+		gotClassHash, err := reader.ContractClassHashAt(&addr, block5)
+		require.NoError(t, err)
+		assert.Equal(t, *classHash, gotClassHash)
+
+		gotStorage, err := reader.ContractStorageAt(&addr, storageKey, block5)
+		require.NoError(t, err)
+		assert.Equal(t, *storageValue, gotStorage)
+	})
 }
 
 func TestContractStorageLastUpdatedBlock(t *testing.T) {
