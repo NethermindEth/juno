@@ -1,6 +1,8 @@
 package trie
 
 import (
+	"slices"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -19,19 +21,16 @@ const (
 	ContractStorageTrie TrieType = "contract-storage"
 )
 
+var allTrieTypes = []TrieType{ContractTrie, ClassTrie, ContractStorageTrie}
+
 func (t TrieType) IsValid() bool {
-	switch t {
-	case ContractTrie, ClassTrie, ContractStorageTrie:
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(allTrieTypes, t)
 }
 
 type TrieInfo struct {
 	Name       string
 	Prefix     []byte
 	HashFn     crypto.HashFn
-	ReaderFunc func(db.KeyValueReader, []byte, uint8) (trie.TrieReader, error)
+	ReaderFunc func(db.KeyValueReader, uint8) (trie.TrieReader, error)
 	Height     uint8
 }

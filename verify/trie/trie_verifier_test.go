@@ -8,13 +8,13 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTrieVerifier_Run_ValidStateTrie(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -54,7 +54,7 @@ func TestTrieVerifier_Run_ValidStateTrie(t *testing.T) {
 }
 
 func TestTrieVerifier_Run_ValidClassTrie(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -89,7 +89,7 @@ func TestTrieVerifier_Run_ValidClassTrie(t *testing.T) {
 }
 
 func TestTrieVerifier_Run_CorruptedTrie(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -146,7 +146,7 @@ func TestTrieVerifier_Run_CorruptedTrie(t *testing.T) {
 }
 
 func TestTrieVerifier_Run_MultipleTrieTypes(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -198,7 +198,7 @@ func TestTrieVerifier_Run_MultipleTrieTypes(t *testing.T) {
 }
 
 func TestTrieVerifier_Run_EmptyTrie(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -224,7 +224,7 @@ func TestTrieVerifier_Run_EmptyTrie(t *testing.T) {
 }
 
 func TestTrieVerifier_Run_ValidContractStorageTrie(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -279,8 +279,64 @@ func TestTrieVerifier_Run_ValidContractStorageTrie(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTrieVerifier_Run_ContractStorageCorruption(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	testDB := memory.New()
+	defer testDB.Close()
+
+	txn := testDB.NewIndexedBatch()
+
+	statePrefix := db.StateTrie.Key()
+	stateTrie, err := trie.NewTriePedersen(txn, statePrefix, StarknetTrieHeight)
+	require.NoError(t, err)
+
+	contractAddr := felt.NewFromUint64[felt.Felt](0x1234)
+	_, err = stateTrie.Put(contractAddr, felt.NewFromUint64[felt.Felt](1))
+	require.NoError(t, err)
+	require.NoError(t, stateTrie.Commit())
+
+	stateStorage := trie.NewStorage(txn, statePrefix)
+	if stateTrie.RootKey() != nil {
+		require.NoError(t, stateStorage.PutRootKey(stateTrie.RootKey()))
+	}
+
+	storagePrefix := db.ContractStorage.Key(contractAddr.Marshal())
+	storageTrie, err := trie.NewTriePedersen(txn, storagePrefix, StarknetTrieHeight)
+	require.NoError(t, err)
+
+	storageKey1 := felt.NewFromUint64[felt.Felt](1)
+	storageKey2 := felt.NewFromUint64[felt.Felt](2)
+	_, err = storageTrie.Put(storageKey1, felt.NewFromUint64[felt.Felt](100))
+	require.NoError(t, err)
+	_, err = storageTrie.Put(storageKey2, felt.NewFromUint64[felt.Felt](200))
+	require.NoError(t, err)
+	require.NoError(t, storageTrie.Commit())
+
+	storageTrieStorage := trie.NewStorage(txn, storagePrefix)
+	if storageTrie.RootKey() != nil {
+		require.NoError(t, storageTrieStorage.PutRootKey(storageTrie.RootKey()))
+	}
+
+	var leafKey trie.BitArray
+	leafKey.SetFelt(StarknetTrieHeight, storageKey1)
+	leafNode, err := storageTrieStorage.Get(&leafKey)
+	require.NoError(t, err)
+	require.NotNil(t, leafNode)
+
+	leafNode.Value = felt.NewFromUint64[felt.Felt](999999)
+	require.NoError(t, storageTrieStorage.Put(&leafKey, leafNode))
+
+	require.NoError(t, txn.Write())
+
+	verifier := NewTrieVerifier(testDB, logger, []TrieType{ContractStorageTrie}, contractAddr)
+
+	err = verifier.Run(context.Background())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrCorruptionDetected)
+}
+
 func TestTrieVerifier_Run_ContractStorageWithFilter(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -340,7 +396,7 @@ func TestTrieVerifier_Run_ContractStorageWithFilter(t *testing.T) {
 }
 
 func TestTrieVerifier_Run_ContextCancellation(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 
@@ -377,7 +433,7 @@ func TestTrieVerifier_Run_ContextCancellation(t *testing.T) {
 }
 
 func TestTrieVerifier_Run_RootHashMismatch(t *testing.T) {
-	logger := utils.NewNopZapLogger()
+	logger := log.NewNopZapLogger()
 	testDB := memory.New()
 	defer testDB.Close()
 

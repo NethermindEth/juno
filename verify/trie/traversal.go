@@ -2,7 +2,8 @@ package trie
 
 import (
 	"context"
-	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func TraverseBinary[T any](
@@ -23,23 +24,22 @@ func traverseConcurrently[T any](
 	leftFn func(ctx context.Context) (T, error),
 	rightFn func(ctx context.Context) (T, error),
 ) (left, right T, err error) {
-	var leftErr, rightErr error
-	var wg sync.WaitGroup
+	eg, gCtx := errgroup.WithContext(ctx)
 
-	wg.Go(func() {
-		left, leftErr = leftFn(ctx)
+	eg.Go(func() error {
+		var err error
+		left, err = leftFn(gCtx)
+		return err
 	})
 
-	right, rightErr = rightFn(ctx)
-	wg.Wait()
+	eg.Go(func() error {
+		var err error
+		right, err = rightFn(gCtx)
+		return err
+	})
 
-	if leftErr != nil {
-		return left, right, leftErr
-	}
-	if rightErr != nil {
-		return left, right, rightErr
-	}
-	return left, right, nil
+	err = eg.Wait()
+	return left, right, err
 }
 
 func traverseSequentially[T any](

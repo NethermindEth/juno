@@ -8,8 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/verify/trie"
 	"github.com/spf13/cobra"
 )
 
@@ -29,42 +27,8 @@ func VerifyCmd(defaultDBPath string) *cobra.Command {
 
 	verifyCmd.PersistentFlags().String(verifyDBPathF, defaultDBPath, "Path to the database")
 	verifyCmd.AddCommand(verifyTrieCmd())
-	verifyCmd.RunE = verifyAll
 
 	return verifyCmd
-}
-
-func verifyAll(cmd *cobra.Command, args []string) error {
-	dbPath, err := cmd.Flags().GetString(verifyDBPathF)
-	if err != nil {
-		return err
-	}
-
-	database, err := openDB(dbPath)
-	if err != nil {
-		return err
-	}
-	defer database.Close()
-
-	logLevel := utils.NewLogLevel(utils.INFO)
-	logger, err := utils.NewZapLogger(logLevel, true)
-	if err != nil {
-		return fmt.Errorf("failed to create logger: %w", err)
-	}
-
-	ctx := cmd.Context()
-
-	verifiers := []Verifier{
-		trie.NewTrieVerifier(database, logger, nil, nil),
-	}
-
-	for _, v := range verifiers {
-		if err := v.Run(ctx); err != nil {
-			return fmt.Errorf("%s verification stopped: %w", v.Name(), err)
-		}
-	}
-
-	return nil
 }
 
 func openDB(path string) (db.KeyValueStore, error) {

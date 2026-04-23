@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/log"
 	verifytrie "github.com/NethermindEth/juno/verify/trie"
 	"github.com/spf13/cobra"
 )
@@ -48,12 +48,6 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	database, err := openDB(dbPath)
-	if err != nil {
-		return err
-	}
-	defer database.Close()
-
 	trieTypes, err := cmd.Flags().GetStringSlice(verifyTrieType)
 	if err != nil {
 		return err
@@ -78,11 +72,7 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 
 	var contractAddr *felt.Felt
 	if contractAddrStr != "" {
-		hasContractStorage := slices.Contains(tries, verifytrie.ContractStorageTrie)
-		if len(tries) == 0 {
-			hasContractStorage = true
-		}
-
+		hasContractStorage := len(tries) == 0 || slices.Contains(tries, verifytrie.ContractStorageTrie)
 		if !hasContractStorage {
 			return fmt.Errorf("--address flag can only be used with --type contract-storage")
 		}
@@ -95,8 +85,13 @@ func runTrieVerify(cmd *cobra.Command, args []string) error {
 		contractAddr = &addr
 	}
 
-	logLevel := utils.NewLogLevel(utils.INFO)
-	logger, err := utils.NewZapLogger(logLevel, true)
+	database, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	logger, err := log.NewZapLogger(log.NewLevel(log.INFO))
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}

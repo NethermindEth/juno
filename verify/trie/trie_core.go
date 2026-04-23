@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -29,18 +28,15 @@ func VerifyTrie(
 		return nil
 	}
 
-	startTime := time.Now()
 	rootHash, err := verifyNode(ctx, reader, rootKey, nil, height, hashFn)
 	if err != nil {
 		return err
 	}
 
-	elapsed := time.Since(startTime)
-
 	if rootHash.Cmp(expectedRoot) != 0 {
 		return fmt.Errorf(
-			"%w: root hash mismatch, expected %s, got %s (verification took %v)",
-			ErrCorruptionDetected, expectedRoot.String(), rootHash.String(), elapsed.Round(time.Second),
+			"%w: root hash mismatch, expected %s, got %s",
+			ErrCorruptionDetected, expectedRoot.String(), rootHash.String(),
 		)
 	}
 
@@ -55,10 +51,8 @@ func verifyNode(
 	height uint8,
 	hashFn crypto.HashFn,
 ) (felt.Felt, error) {
-	select {
-	case <-ctx.Done():
-		return felt.Zero, ctx.Err()
-	default:
+	if err := ctx.Err(); err != nil {
+		return felt.Zero, err
 	}
 
 	node, err := reader.Get(key)
@@ -66,10 +60,10 @@ func verifyNode(
 		return felt.Zero, fmt.Errorf("failed to get node at key %s: %w", key.String(), err)
 	}
 
+	p := path(key, parentKey)
+
 	if key.Len() == height {
-		p := path(key, parentKey)
-		h := node.Hash(&p, hashFn)
-		return h, nil
+		return node.Hash(&p, hashFn), nil
 	}
 
 	leftFn := func(ctx context.Context) (felt.Felt, error) {
@@ -99,12 +93,7 @@ func verifyNode(
 		)
 	}
 
-	tmp := *node
-	tmp.Value = &recomputed
-
-	p := path(key, parentKey)
-	h := tmp.Hash(&p, hashFn)
-	return h, nil
+	return node.Hash(&p, hashFn), nil
 }
 
 func path(key, parentKey *trie.BitArray) trie.BitArray {

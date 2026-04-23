@@ -486,8 +486,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(
 		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
 	)
-	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
-	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), verify.VerifyCmd(defaultDBPath))
+	junoCmd.AddCommand(
+		GenP2PKeyPair(),
+		DBCmd(defaultDBPath),
+		CompileSierraCmd(),
+		verify.VerifyCmd(defaultDBPath),
+	)
 
 	return junoCmd
 }
