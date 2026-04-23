@@ -13,6 +13,11 @@ type timedValue[K any] struct {
 }
 
 type TimeCache[K comparable] struct {
+	// todo(rdr): there is a possibility of make the value an `index` and find the time
+	//            information on `timestamps`. This would reduce duplication of time.Time
+	//            and it would also allow to easily detect expired values (no longer need to
+	//            perform time.Time substractions since everything before `index` is expired)
+	//            This is might be hyper-optimising....
 	// Access valid keys in O(1)
 	values map[K]time.Time
 	// Clean expired keys O(k) where `k` is the amount of expired keys
@@ -112,9 +117,7 @@ func (tc *TimeCache[K]) removeExpired(now time.Time) {
 
 // almostFull returns if the time cache will get full on the next insertion
 func (tc *TimeCache[K]) almostFull() bool {
-	nextEnd := tc.end
-	tc.increaseIndex(&nextEnd)
-	return nextEnd == tc.start
+	return (tc.end+1)%index(tc.size) == tc.start
 }
 
 func (tc *TimeCache[K]) regrowth() {

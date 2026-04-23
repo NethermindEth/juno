@@ -209,7 +209,7 @@ func (s *Scheduler) ShardIndexForPublisher(
 // ValidateShardOrigin verifies that a shard unit was received from the expected sender.
 // The sender has to be either the publisher for direct shards or a designated
 // broadcaster for the given shard index.
-// todo(rdr): Maybe the unit validator should have this implementation
+// todo(rdr): This implementation should probably be part of `UnitValidator`
 func (s *Scheduler) ValidateShardOrigin(
 	sender peer.ID,
 	publisher peer.ID,
@@ -252,6 +252,7 @@ func (s *Scheduler) ValidateShardOrigin(
 // BroadcastTargets returns all peers whom to broadcast to, in shard-index order.
 // The i-th element of the returned slice is the peer responsible for shard i.
 func (s *Scheduler) BroadcastTargets() []peer.ID {
+	// todo(rdr): I would like to not use `append` and index directly instead (it's faster)
 	targets := make([]peer.ID, 0, s.NumTotalShards())
 	for i, p := range s.peers {
 		if i == s.localPeerIDIndex {

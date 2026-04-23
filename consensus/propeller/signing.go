@@ -20,7 +20,7 @@ func buildSignPayload(
 	const prefix = "<propeller>"
 	const suffix = "<propeller/>"
 
-	// cumulative lenghts denoting the ranges in where each bytes of data should be stored
+	// cumulative lengths denoting the ranges in where each bytes of data should be stored
 	const prefixLen = len(prefix)
 	const rootLen = prefixLen + 32
 	const committeeIDLen = rootLen + 32

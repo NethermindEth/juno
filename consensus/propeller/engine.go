@@ -11,16 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Channel buffer sizes for the engine's internal channels. These are large
-// enough to absorb bursts without blocking, but bounded to prevent unbounded
-// memory growth from slow consumers.
-const (
-	eventChSize    = 256
-	cleanupChSize  = 256
-	appEventChSize = 256
-	cmdChSize      = 64
-)
-
 type broadcastResult struct {
 	units []Unit
 	err   error
@@ -60,13 +50,13 @@ type registerCommittee struct {
 	errCh       chan error
 }
 
-func (registerCommittee) isCommand()
+func (registerCommittee) isCommand() {}
 
 type unregisterCommittee struct {
 	committeeID CommitteeID
 }
 
-func (unregisterCommittee) isCommand()
+func (unregisterCommittee) isCommand() {}
 
 type broadcast struct {
 	committeeID CommitteeID
@@ -74,14 +64,14 @@ type broadcast struct {
 	errCh       chan error
 }
 
-func (broadcast) isCommand()
+func (broadcast) isCommand() {}
 
 type processUnit struct {
 	unit   *Unit
 	sender peer.ID
 }
 
-func (processUnit) isCommand()
+func (processUnit) isCommand() {}
 
 // Engine is the central orchestrator of the Propeller protocol. It:
 //
@@ -119,7 +109,7 @@ type Engine struct {
 	// eventCh chan Event
 
 	// cmdCh receives commands from the propeller service and act on those
-	cmdCh <-chan engineCommand
+	cmdCh chan engineCommand
 }
 
 // NewEngine creates an engine instance. It returns the engine and the channel to
@@ -173,7 +163,7 @@ func (e *Engine) registerCommittee(
 	if _, ok := e.committees[*committeeID]; ok {
 		e.log.Warn(
 			"committee already registered, will ignore re-registration attempt",
-			// todo(rdr): give a propper string repr
+			// todo(rdr): give a proper string repr
 			zap.Any("committee id", committeeID),
 		)
 		return nil
@@ -286,7 +276,7 @@ func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
 	if !ok {
 		// note(rdr): maybe debug?
 		e.log.Warn("received key for unregistered committee, dropping",
-			// todo(rdr): give a propper string representation
+			// todo(rdr): give a proper string representation
 			zap.Any("committee id", unit.CommitteeID),
 		)
 		return
@@ -333,8 +323,39 @@ func (e *Engine) Run(ctx context.Context) error {
 		case broadcastResult := <-e.unitsPrepared:
 			if broadcastResult.err != nil {
 				e.log.Error("couldn't prepare units", zap.Error(broadcastResult.err))
+				// todo(rdr): send error to service, probably don't log it
 			}
-			e.broadcast(broadcastResult.units)
+			err := e.broadcast(broadcastResult.units)
+			if err != nil {
+				// log it?
+				// send error to service?
+			}
 		}
 	}
+}
+
+func (e *Engine) Broadcast(msg []byte) {
+}
+
+func (e *Engine) RegisterCommittee(
+	committeeID *CommitteeID,
+	peers []PeerCommittee,
+	// todo(rdr): peersKeys is something I don't know how to set correctly yet
+	peersKeys []*StakerID,
+) error {
+	// todo(rdr): does creating an error channel per call is performant or
+	//            should we have a pool of err channels or that is too crazy :3
+	//            Thinking  on the GC cost...
+	errCh := make(chan error)
+	e.cmdCh <- &registerCommittee{
+		committeeID: *committeeID,
+		peers:       peers,
+		peersKeys:   peersKeys,
+		errCh:       errCh,
+	}
+	return <-errCh
+}
+
+func (e *Engine) UnregisterCommittee(committeeID *CommitteeID) {
+	e.cmdCh <- &unregisterCommittee{committeeID: *committeeID}
 }

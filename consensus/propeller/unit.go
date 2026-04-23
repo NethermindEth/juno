@@ -11,11 +11,23 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// The actual shard fragmen
+// CommitteeID identifies a committee or logical broadcast group. Multiple committees
+// can operate concurrently within the same engine, each with its own peer set.
+type CommitteeID [32]byte
+
+// MessageRoot is the SHA-256 Merkle root over all shard leaves. It uniquely
+// identifies a message and is signed by the publisher to bind authenticity.
+type MessageRoot merkle.Hash
+
+// The actual shard fragment
 type Shard []byte
 
-// Holds the shard fragments carried by the Propeller Unit
+// Set of shard fragments held by the Propeller Unit
 type ShardData []Shard
+
+// ShardIndex is the position of a shard within the erasure-coded output.
+// Valid range is [0, N-2] where N is the total number of peers.
+type ShardIndex uint32
 
 func (sd ShardData) MarshalProto() []byte {
 	shards := make([]*pb.Shard, len(sd))

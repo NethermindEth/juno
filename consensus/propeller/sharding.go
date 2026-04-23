@@ -49,7 +49,7 @@ func CreatePropellerUnits(
 			Signature:   signature,
 			ShardIndex:  ShardIndex(i),
 			// todo(rdr): assigning one shard per unit until multi shard algo per unit
-			// is clear to me
+			//            is clear to me.
 			ShardData: []Shard{shard},
 		}
 	}
@@ -73,6 +73,7 @@ func ConstructMessageFromUnits(
 		if units[i] != nil {
 			// todo(rdr): we are assuming that every unit only carries one shard data for now
 			// Not sure how the matrix is built when unit carries more than one
+			// Probably it is an algorithm based on stake levels (?)
 			shards[i] = units[i].ShardData[0]
 		}
 	}

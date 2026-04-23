@@ -178,8 +178,15 @@ func (s *propellerService) Recv() <-chan []byte {
 	return s.messageRecv
 }
 
-func (s *propellerService) RegisterCommittee(committeeID *CommitteeID) {
+func (s *propellerService) RegisterCommittee(
+	committeeID *CommitteeID,
+	peers []PeerCommittee,
+	// todo(rdr): peersKeys is something I don't know how to set correctly yet
+	peersKeys []*StakerID,
+) error {
+	return s.engine.RegisterCommittee(committeeID, peers, peersKeys)
 }
 
 func (s *propellerService) UnregisterCommittee(comitteeID *CommitteeID) {
+	s.engine.UnregisterCommittee(comitteeID)
 }

@@ -22,6 +22,7 @@ type UnitValidator struct {
 	publisherPubKey crypto.PubKey
 	scheduler       *Scheduler
 
+	// todo(rdr): `receivedShards` can surely be an boolean array (cheaper than map)
 	// track of every shard index received
 	receivedShards map[ShardIndex]struct{}
 	// Once the validation is done it's stored here, subsequent validation
@@ -29,11 +30,10 @@ type UnitValidator struct {
 	verifiedSignature Signature
 }
 
-// todo(rdr): maybe just pass the publisher?
 func NewValidator(publisher peer.ID, scheduler *Scheduler) UnitValidator {
-	pubKey, err := publisher.ExtractPublicKey()
 	// for now we are assuming that extracting a publisher key is always successful
 	// and done in constant time
+	pubKey, err := publisher.ExtractPublicKey()
 	if err != nil {
 		panic(err)
 	}

@@ -11,22 +11,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/propeller/merkle"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
-
-// CommitteeID identifies a committee or logical broadcast group. Multiple committees
-// can operate concurrently within the same engine, each with its own peer set.
-type CommitteeID [32]byte
-
-// ShardIndex is the position of a shard within the erasure-coded output.
-// Valid range is [0, N-2] where N is the total number of peers.
-type ShardIndex uint32
-
-// MessageRoot is the SHA-256 Merkle root over all shard leaves. It uniquely
-// identifies a message and is signed by the publisher to bind authenticity.
-type MessageRoot merkle.Hash
 
 // Config holds tunable parameters for the propeller engine. Sensible defaults
 // are provided by DefaultConfig().
