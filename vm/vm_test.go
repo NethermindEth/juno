@@ -35,9 +35,6 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 	testState, err := NewState(t, &felt.Zero, testDB, batch)
 	require.NoError(t, err)
-	newRoot := felt.NewUnsafeFromString[felt.Felt](
-		"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
-	)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -79,6 +76,9 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	// for new state, each block needs a fresh batch and a state rooted at the previous block's root
 	if statetestutils.UseNewState() {
 		batch = testDB.NewBatch()
+		newRoot := felt.NewUnsafeFromString[felt.Felt](
+			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+		)
 		testState, err = NewState(t, newRoot, testDB, batch)
 		require.NoError(t, err)
 	}
@@ -432,6 +432,7 @@ func NewState(
 	batch db.Batch,
 ) (core.State, error) {
 	if !statetestutils.UseNewState() {
+		//nolint:staticcheck,nolintlint // used by old state
 		txn := testDB.NewIndexedBatch()
 		deprecatedState := deprecatedstate.New(txn)
 		return deprecatedState, nil

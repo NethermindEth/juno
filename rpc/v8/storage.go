@@ -226,7 +226,7 @@ func getClassProof(tr core.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 				return nil, err
 			}
 		}
-		return adaptTrieProofNodes(classProof), nil
+		return adaptTrieProofNodes(classProof)
 	default:
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
 	}
@@ -255,7 +255,8 @@ func buildContractLeavesData(
 
 	for i, contract := range contracts {
 		classHash, err := state.ContractClassHash(&contract)
-		if err != nil { // contract does not exist, skip getting leaf data
+		if err != nil {
+			// contract does not exist, skip getting leaf data
 			if errors.Is(err, db.ErrKeyNotFound) {
 				continue
 			}
@@ -329,8 +330,13 @@ func getContractProofWithTrie(
 		return nil, err
 	}
 
+	nodes, err := adaptTrieProofNodes(contractProof)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ContractProof{
-		Nodes:      adaptTrieProofNodes(contractProof),
+		Nodes:      nodes,
 		LeavesData: contractLeavesData,
 	}, nil
 }
@@ -362,7 +368,13 @@ func getContractStorageProof(
 					return nil, err
 				}
 			}
-			contractStorageRes[i] = adaptTrieProofNodes(contractStorageProof)
+
+			nodes, err := adaptTrieProofNodes(contractStorageProof)
+			if err != nil {
+				return nil, err
+			}
+
+			contractStorageRes[i] = nodes
 		default:
 			return nil, fmt.Errorf("unknown trie type: %T", contractStorageTrie)
 		}
@@ -401,7 +413,7 @@ func adaptDeprecatedTrieProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 	return nodes
 }
 
-func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
+func adaptTrieProofNodes(proof *trie2.ProofNodeSet) ([]*HashToNode, error) {
 	nodes := make([]*HashToNode, proof.Size())
 	nodeList := proof.List()
 	for i, hash := range proof.Keys() {
@@ -409,16 +421,28 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 
 		switch n := nodeList[i].(type) {
 		case *trienode.BinaryNode:
+			leftChild, err := nodeFelt(n.Children[0])
+			if err != nil {
+				return nil, err
+			}
+			rightChild, err := nodeFelt(n.Children[1])
+			if err != nil {
+				return nil, err
+			}
 			node = &BinaryNode{
-				Left:  nodeFelt(n.Children[0]),
-				Right: nodeFelt(n.Children[1]),
+				Left:  &leftChild,
+				Right: &rightChild,
 			}
 		case *trienode.EdgeNode:
 			pathFelt := n.Path.Felt()
+			child, err := nodeFelt(n.Child)
+			if err != nil {
+				return nil, err
+			}
 			node = &EdgeNode{
 				Path:   pathFelt.String(),
 				Length: int(n.Path.Len()),
-				Child:  nodeFelt(n.Child),
+				Child:  &child,
 			}
 		}
 
@@ -428,17 +452,17 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 		}
 	}
 
-	return nodes
+	return nodes, nil
 }
 
-func nodeFelt(n trienode.Node) *felt.Felt {
+func nodeFelt(n trienode.Node) (felt.Felt, error) {
 	switch n := n.(type) {
 	case *trienode.HashNode:
-		return (*felt.Felt)(n)
+		return felt.Felt(*n), nil
 	case *trienode.ValueNode:
-		return (*felt.Felt)(n)
+		return felt.Felt(*n), nil
 	default:
-		panic(fmt.Sprintf("unknown node type: %T", n))
+		return felt.Zero, fmt.Errorf("unknown node type: %T", n)
 	}
 }
 

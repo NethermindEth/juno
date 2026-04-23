@@ -221,7 +221,7 @@ func TestStorageProof(t *testing.T) {
 	trieRoot := felt.Zero
 
 	if !statetestutils.UseNewState() {
-		tempTrie := emptyTrie(t)
+		tempTrie := emptyDeprecatedTrie(t)
 		_, _ = tempTrie.Put(key, value)
 		_, _ = tempTrie.Put(key2, value2)
 		_ = tempTrie.Commit()
@@ -486,7 +486,7 @@ func TestStorageProof(t *testing.T) {
 			Return(headBlock.Header, nil)
 
 		// Build a separate storage trie with different contents so its root differs from the contracts trie root.
-		contractStorageTrie := emptyTrie(t)
+		contractStorageTrie := emptyDeprecatedTrie(t)
 		storageKey := felt.NewFromUint64[felt.Felt](99)
 		storageVal := felt.NewFromUint64[felt.Felt](999)
 		_, _ = contractStorageTrie.Put(storageKey, storageVal)
@@ -519,7 +519,7 @@ func TestStorageProof(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
 		contract := felt.NewUnsafeFromString[felt.Felt]("0xdead")
-		mockState.EXPECT().ContractStorageTrie(contract).Return(emptyCommonTrie(t), nil).Times(1)
+		mockState.EXPECT().ContractStorageTrie(contract).Return(emptyTrie(t), nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
@@ -984,7 +984,7 @@ func verifyIf(
 	require.Equal(t, leaf, *value)
 }
 
-func emptyTrie(t *testing.T) *trie.Trie {
+func emptyDeprecatedTrie(t *testing.T) *trie.Trie {
 	memdb := memory.New()
 	txn := memdb.NewIndexedBatch()
 
@@ -993,13 +993,13 @@ func emptyTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-func emptyCommonTrie(t *testing.T) core.Trie {
+func emptyTrie(t *testing.T) core.Trie {
 	if statetestutils.UseNewState() {
 		tempTrie, err := trie2.NewEmptyPedersen()
 		require.NoError(t, err)
 		return tempTrie
 	}
-	return emptyTrie(t)
+	return emptyDeprecatedTrie(t)
 }
 
 func verifyGlobalStateRoot(t *testing.T, globalStateRoot, classRoot, storageRoot *felt.Felt) {
