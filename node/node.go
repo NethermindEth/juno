@@ -198,9 +198,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
-	if err = blockchain.ValidateStateVersion(database, cfg.NewState); err != nil {
-		return nil, err
-	}
 
 	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 

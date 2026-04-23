@@ -176,10 +176,6 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	if err = blockchain.ValidateStateVersion(database, newState); err != nil {
-		return err
-	}
-
 	for {
 		chain := blockchain.New(
 			database,
