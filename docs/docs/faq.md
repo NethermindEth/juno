@@ -21,7 +21,7 @@ Check out the [Running Juno](running-juno) guide to learn the simplest and faste
 <details>
   <summary>What are the hardware requirements for running Juno?</summary>
 
-We recommend running Juno with at least 4GB of RAM and 250GB of SSD storage. Check out the [Hardware Requirements](hardware-requirements) for more information.
+We recommend running Juno with at least 8GB of RAM. Check out the [Hardware Requirements](hardware-requirements) for more information.
 
 </details>
 
