@@ -32,7 +32,11 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -106,7 +110,11 @@ func getGenesisSequencer(
 
 	testDB := memory.New()
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	logger := log.NewNopZapLogger()
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)

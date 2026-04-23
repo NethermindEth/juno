@@ -149,7 +149,11 @@ func newBlockGenerator(
 	database *memory.Database,
 	sequencer uint64,
 ) *blockGenerator {
-	bc := blockchain.New(database, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		database,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	builder := newTestBuilder(log.NewNopZapLogger(), bc)
 
 	return &blockGenerator{

@@ -62,7 +62,11 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 
 func TestPollPreLatest(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &networks.Mainnet, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -236,7 +240,11 @@ func TestPollPreLatest(t *testing.T) {
 
 func TestPollPreConfirmedLoop(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &networks.Sepolia, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		&networks.Sepolia,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -331,7 +339,11 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 
 func TestPollPendingData(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &networks.Sepolia, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		&networks.Sepolia,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -411,7 +423,11 @@ func TestPollPendingData(t *testing.T) {
 
 func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &networks.Sepolia, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		&networks.Sepolia,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
@@ -472,7 +488,11 @@ func TestPollPendingDataPreConfirmedPolling(t *testing.T) {
 
 func TestStorePreConfirmed(t *testing.T) {
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &networks.Mainnet, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)

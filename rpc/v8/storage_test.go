@@ -801,7 +801,11 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 
 	logger := log.NewNopZapLogger()
 	testDB := memory.New()
-	bc := blockchain.New(testDB, &networks.Mainnet, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 	synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)

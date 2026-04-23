@@ -216,7 +216,11 @@ func getBlockchain(t *testing.T) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	return bc
 }
 

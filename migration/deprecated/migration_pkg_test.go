@@ -90,7 +90,11 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 func TestRecalculateBloomFilters(t *testing.T) {
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &networks.Mainnet, statetestutils.UseNewState())
+	chain := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 

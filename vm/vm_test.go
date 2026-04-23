@@ -436,8 +436,7 @@ func NewState(
 		deprecatedState := deprecatedstate.New(txn)
 		return deprecatedState, nil
 	}
-	triedb, err := triedb.New(testDB, nil)
-	require.NoError(t, err)
+	triedb := triedb.New(testDB, nil)
 	stateDB := state.NewStateDB(testDB, triedb)
 	state, err := state.New(stateRoot, stateDB, batch)
 	if err != nil {

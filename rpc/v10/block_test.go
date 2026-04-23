@@ -627,7 +627,11 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 
 			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
-			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
@@ -756,7 +760,11 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
-			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
@@ -903,7 +911,11 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 
 			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
-			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
