@@ -34,7 +34,7 @@ This installs Juno with the default configuration (Sepolia network) and disables
 juno:
   network: mainnet
   image:
-    tag: "v0.15.19"
+    tag: "v0.16.0"
   extraArgs:
     - --eth-node=wss://mainnet.infura.io/ws/v3/<YOUR-PROJECT-ID>
   persistence:

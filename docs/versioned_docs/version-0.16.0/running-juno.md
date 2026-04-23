@@ -83,10 +83,16 @@ You should replace `<YOUR-ETH-NODE>` with your actual Ethereum node address.
 If you're using Infura, your Ethereum node address might look something like: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`.
 Make sure you are using the WebSockets URL `ws`/`wss` and not the http URL `http`/`https`.
 
-To view logs from the Docker container, use the following command:
+When running the standalone binary, logs are written to stdout/stderr. To save them to a file, you can redirect the output:
 
 ```shell
-docker logs -f juno
+./juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path $HOME/snapshots/juno_mainnet \
+  > juno.log 2>&1
 ```
 
 ## Building from source

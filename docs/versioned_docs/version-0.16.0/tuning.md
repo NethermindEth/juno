@@ -11,13 +11,14 @@ The default values of each of these options are set to maximize performance with
 Set by the `--db-compression` flag, it applies a compression algorithm over the database **every time** Juno writes to it.
 
 Available options:
+
 - `snappy`: Fast compression with a low compression ratio
 - `zstd`: Slower but reduces storage quite a lot
 - `minlz`: Alternative compression option
 
 Depending on the compression algorithm used it becomes a trade-off between **disk space** and **CPU** usage every time there is a disk operation.
 
-We recommend `zstd` because it is fast enough that it doesn't delays any process significantly while providing huge database size reduction.
+We recommend `zstd` because it is fast enough that it doesn't delay any process significantly while providing huge database size reduction.
 
 :::info
 Note that once the compression is changed the new database is not compressed immediately, but gradually through the node usage by writing new information.
@@ -52,6 +53,7 @@ Each additional memtable consumes up to `--db-memtable-size` MB of memory. For e
 Set by the `--db-compaction-concurrency` flag, this controls how many concurrent compaction workers the database uses. Compaction is the background process that merges and optimises data on disk.
 
 Format options:
+
 - `N`: Sets the range from 1 to N workers (e.g., `--db-compaction-concurrency=4`)
 - `M,N`: Sets the range from M to N workers (e.g., `--db-compaction-concurrency=2,8`)
 
