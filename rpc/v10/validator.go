@@ -31,7 +31,7 @@ func validateVersion03(fl validator.FieldLevel) bool {
 // Validator returns a singleton that can be used to validate various objects
 func Validator() *validator.Validate {
 	once.Do(func() {
-		v = validator.New()
+		v = validator.New(validator.WithRequiredStructEnabled())
 
 		if err := v.RegisterValidation("resource_bounds_required", validateResourceBounds); err != nil {
 			panic("failed to register validation: " + err.Error())

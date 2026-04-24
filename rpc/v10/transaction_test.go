@@ -2193,3 +2193,63 @@ func TestResourceBoundsValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestContractClassEntryPointUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    rpcv10.ContractClassEntryPoint
+		expectedErr string
+	}{
+		{
+			name:  "valid with both fields",
+			input: `{"function_idx": 42, "selector": "0x1"}`,
+			expected: rpcv10.ContractClassEntryPoint{
+				Index:    42,
+				Selector: felt.FromUint64[felt.Felt](1),
+			},
+		},
+		{
+			name:  "valid with zero values",
+			input: `{"function_idx": 0, "selector": "0x0"}`,
+			expected: rpcv10.ContractClassEntryPoint{
+				Index:    0,
+				Selector: felt.Felt{},
+			},
+		},
+		{
+			name:        "missing function_idx",
+			input:       `{"selector": "0x1"}`,
+			expectedErr: "field `function_idx` is required",
+		},
+		{
+			name:        "missing selector",
+			input:       `{"function_idx": 1}`,
+			expectedErr: "field `selector` is required",
+		},
+		{
+			name:        "missing both fields",
+			input:       `{}`,
+			expectedErr: "field `function_idx` is required",
+		},
+		{
+			name:        "invalid json",
+			input:       `{invalid}`,
+			expectedErr: "invalid character",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ep rpcv10.ContractClassEntryPoint
+			err := json.Unmarshal([]byte(tt.input), &ep)
+
+			if tt.expectedErr != "" {
+				require.ErrorContains(t, err, tt.expectedErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, ep)
+			}
+		})
+	}
+}
