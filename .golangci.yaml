@@ -79,8 +79,6 @@ linters:
         - nilness
     lll:
       line-length: 140 # todo(rdr): change this to 100
-    misspell:
-      locale: UK
     mnd:
       checks:
         - argument
