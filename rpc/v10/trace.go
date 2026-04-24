@@ -424,24 +424,19 @@ func (h *Handler) traceInPreConfirmedBlock(
 func (h *Handler) traceBlockTransactions(
 	ctx context.Context, block *core.Block, returnInitialReads bool,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
-	// Check if it was already traced
+	// Check if it was already traced. If the caller requested initial reads but
+	// the cached entry was produced without them, fall through to re-trace so we
+	// can populate them (cache gets overwritten below).
 	cacheKey := rpccore.TraceCacheKey{BlockHash: *block.Hash}
 	cachedResponse, hit := h.blockTraceCache.Get(cacheKey)
-	if hit {
+	if hit && (!returnInitialReads || cachedResponse.InitialReads != nil) {
 		if returnInitialReads {
-			if cachedResponse.InitialReads != nil {
-				return cachedResponse, defaultExecutionHeader(), nil
-			}
-			return TraceBlockTransactionsResponse{
-				Traces:       cachedResponse.Traces,
-				InitialReads: &InitialReads{},
-			}, defaultExecutionHeader(), nil
-		} else {
-			return TraceBlockTransactionsResponse{
-				Traces:       cachedResponse.Traces,
-				InitialReads: nil,
-			}, defaultExecutionHeader(), nil
+			return cachedResponse, defaultExecutionHeader(), nil
 		}
+		return TraceBlockTransactionsResponse{
+			Traces:       cachedResponse.Traces,
+			InitialReads: nil,
+		}, defaultExecutionHeader(), nil
 	}
 
 	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(block, h.bcReader.Network())
@@ -452,18 +447,23 @@ func (h *Handler) traceBlockTransactions(
 	}
 
 	if fetchFromFeederGW {
-		traces, err := h.fetchTracesFromFeederGateway(ctx, block)
-		if err != nil {
-			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), err
+		// Feeder gateway can't supply initial reads. If we already have cached
+		// traces from a previous fetch, reuse them instead of re-hitting the GW.
+		traces := cachedResponse.Traces
+		if !hit {
+			var fetchErr *jsonrpc.Error
+			traces, fetchErr = h.fetchTracesFromFeederGateway(ctx, block)
+			if fetchErr != nil {
+				return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), fetchErr
+			}
+			h.blockTraceCache.Add(
+				rpccore.TraceCacheKey{BlockHash: *block.Hash},
+				TraceBlockTransactionsResponse{
+					Traces:       traces,
+					InitialReads: nil,
+				},
+			)
 		}
-		// Feeder gateway doesn't provide initial reads, so cache without them
-		h.blockTraceCache.Add(
-			rpccore.TraceCacheKey{BlockHash: *block.Hash},
-			TraceBlockTransactionsResponse{
-				Traces:       traces,
-				InitialReads: nil,
-			},
-		)
 
 		var initialReads *InitialReads
 		if returnInitialReads {
