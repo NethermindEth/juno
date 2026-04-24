@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -426,10 +427,39 @@ type Transaction struct {
 // ContractClass represents a contract class to be declared in the DECLARE broadcast transaction.
 // https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L3373
 type ContractClass struct {
-	SierraProgram        []*felt.Felt             `json:"sierra_program"`
+	SierraProgram        []felt.Felt              `json:"sierra_program"`
 	ContractClassVersion string                   `json:"contract_class_version"`
 	EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type" validate:"required"`
-	Abi                  string                   `json:"abi,omitempty"`
+	ABI                  string                   `json:"abi,omitempty"`
+}
+
+// ToGatewayPayload returns the contract class payload in the format
+// expected by the gateway.
+// @todo add test
+func (c *ContractClass) ToGatewayPayload() ([]byte, error) {
+	sierraProgBytes, err := json.Marshal(c.SierraProgram)
+	if err != nil {
+		return nil, err
+	}
+
+	gwSierraProg, err := utils.Gzip64Encode(sierraProgBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	temp := struct {
+		SierraProgram        string                   `json:"sierra_program"`
+		ContractClassVersion string                   `json:"contract_class_version"`
+		EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type" validate:"required"`
+		ABI                  string                   `json:"abi,omitempty"`
+	}{
+		SierraProgram:        gwSierraProg,
+		ContractClassVersion: c.ContractClassVersion,
+		EntryPoints:          c.EntryPoints,
+		ABI:                  c.ABI,
+	}
+
+	return json.Marshal(temp)
 }
 
 type ContractClassEntryPoints struct {
@@ -475,9 +505,9 @@ func (c *ContractClassEntryPoint) UnmarshalJSON(data []byte) error {
 //nolint:lll // We can't break the json tags lines
 type BroadcastedTransaction struct {
 	Transaction
-	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
-	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
-	Proof         core.Base64     `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
+	ContractClass ContractClass `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
+	PaidFeeOnL1   *felt.Felt    `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
+	Proof         core.Base64   `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
 }
 
 type TransactionExecutionErrorData struct {

@@ -1139,48 +1139,6 @@ func TestAddTransaction(t *testing.T) {
 		txn          rpcv10.BroadcastedTransaction
 		expectedJSON string
 	}{
-		"invoke v0": {
-			txn: txWithoutClass("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
-			expectedJSON: `{
-				"transaction_hash": "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3",
-				"version": "0x0",
-				"max_fee": "0x0",
-				"signature": [],
-				"entry_point_selector": "0x218f305395474a84a39307fa5297be118fe17bf65e27ac5e2de6617baa44c64",
-				"calldata": [
-				  "0x79631f37538379fc32739605910733219b836b050766a2349e93ec375e62885",
-				  "0x0"
-				],
-				"contract_address": "0x2cbc1f6e80a024900dc949914c7692f802ba90012cda39115db5640f5eca847",
-				"type": "INVOKE_FUNCTION"
-			  }`,
-		},
-		"invoke v1": {
-			txn: txWithoutClass("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
-			expectedJSON: `{
-				"transaction_hash": "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838",
-				"version": "0x1",
-				"max_fee": "0x2386f26fc10000",
-				"signature": [
-				  "0x89aa2f42e07913b6dee313c3ef680efb99892feb3e2d08287e01e63418da7a",
-				  "0x458fb4c942d5407d8c1ef1557d29487ab8217842d28a907d75ee0828243361"
-				],
-				"nonce": "0x99d",
-				"sender_address": "0x219937256cd88844f9fdc9c33a2d6d492e253ae13814c2dc0ecab7f26919d46",
-				"calldata": [
-				  "0x1",
-				  "0x7812357541c81dd9a320c2339c0c76add710db15f8cc29e8dde8e588cad4455",
-				  "0x7772be8b80a8a33dc6c1f9a6ab820c02e537c73e859de67f288c70f92571bb",
-				  "0x0",
-				  "0x3",
-				  "0x3",
-				  "0x24b037cd0ffd500467f4cc7d0b9df27abdc8646379e818e3ce3d9925fc9daec",
-				  "0x4b7797c3f6a6d9b1a28bbd6645d3f009bd12587581e21011aeb9b176f801ab0",
-				  "0xdfeaf5f022324453e6058c00c7d35ee449c1d01bb897ccb5df20f697d98f26"
-				],
-				"type": "INVOKE_FUNCTION"
-			  }`,
-		},
 		"invoke v3": {
 			txn: txWithoutClass("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
 			expectedJSON: `{
@@ -1231,65 +1189,20 @@ func TestAddTransaction(t *testing.T) {
 				"type": "INVOKE_FUNCTION"
 			  }`,
 		},
-		"deploy v0": {
-			txn: txWithoutClass("0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"),
-			expectedJSON: `{
-				"transaction_hash": "0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa",
-				"version": "0x0",
-				"contract_address_salt": "0x5de1c0a37865820ce4896872e78da6877b0a8eede3d363131734556a8815d52",
-				"class_hash": "0x71468bd837666b3a05cca1a5363b0d9e15cacafd6eeaddfbc4f00d5c7b9a51d",
-				"constructor_calldata": [],
-				"type": "DEPLOY"
-			  }`,
-		},
-		"declare v1": {
-			txn: txWithoutClass("0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4"),
-			expectedJSON: `{
-				"transaction_hash": "0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4",
-				"version": "0x1",
-				"max_fee": "0x2386f26fc10000",
-				"signature": [
-				  "0x17872d12092aa60331394f514de908309fdba185997fd3d0be1e2896cd1e053",
-				  "0x66124ebfe1a34809b2223a9707ac796dc6f4b6310cb002bda1e4c062a4b2867"
-				],
-				"nonce": "0x1078",
-				"class_hash": "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
-				"sender_address": "0x52125c1e043126c637d1436d9551ef6c4f6e3e36945676bbd716a56e3a41b7a",
-				"type": "DECLARE"
-			  }`,
-		},
-		"declare v2": {
-			txn: func() rpcv10.BroadcastedTransaction {
-				tx := txWithoutClass(
-					"0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4",
-				)
-				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
-				return tx
-			}(),
-			expectedJSON: `{
-				"transaction_hash": "0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4",
-				"version": "0x2",
-				"max_fee": "0x50c8f30c048",
-				"signature": [
-				  "0x42a40a113a4381e5f304fd28a707ba4182609db42062a7f36b9291bf8ae8ae7",
-				  "0x6035bcf022f887c80dbc2b615e927d662637d2213335ee657893dce8ddabe5b"
-				],
-				"nonce": "0x11",
-				"class_hash": "0x7cb013a4139335cefce52adc2ac342c0110811353e7992baefbe547200223c7",
-				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
-				},
-				"compiled_class_hash": "0x67f7deab53a3ba70500bdafe66fb3038bbbaadb36a6dd1a7a5fc5b094e9d724",
-				"sender_address": "0x3bb81d22ecd0e0a6f3138bdc5c072ff5726c5add02bcfd5b81cd657a6ae10a8",
-				"type": "DECLARE"
-			  }`,
-		},
 		"declare v3": {
 			txn: func() rpcv10.BroadcastedTransaction {
 				tx := txWithoutClass(
 					"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 				)
-				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
+				tx.ContractClass = rpcv10.ContractClass{
+					SierraProgram:        []felt.Felt{},
+					ContractClassVersion: "0.1.0",
+					EntryPoints: rpcv10.ContractClassEntryPoints{
+						Constructor: []rpcv10.ContractClassEntryPoint{},
+						External:    []rpcv10.ContractClassEntryPoint{},
+						L1Handler:   []rpcv10.ContractClassEntryPoint{},
+					},
+				}
 				return tx
 			}(),
 			expectedJSON: `{
@@ -1324,28 +1237,15 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
+					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA=",
+					"contract_class_version": "0.1.0",
+					"entry_points_by_type": {
+						"CONSTRUCTOR": [],
+						"EXTERNAL": [],
+						"L1_HANDLER": []
+					}
 				}
-			  }`,
-		},
-		"deploy account v1": {
-			txn: txWithoutClass("0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a"),
-			expectedJSON: `{
-				"transaction_hash": "0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a",
-				"version": "0x1",
-				"max_fee": "0x2386f273b213da",
-				"signature": [
-				  "0x7d31509f555031323050ed226012f0c6361b3dc34f0f5d2c65a76870fd8908b",
-				  "0x58d64f6d39dfb20586da0c40e3d575cab940009cdee6423b03268fd893bd27a"
-				],
-				"nonce": "0x0",
-				"contract_address_salt": "0x7b9f4b7d6d49b60686004dd850a4b41c818d6eb69e226b8ea37ea025e6830f5",
-				"class_hash": "0x5a9941d0cc16b8619a3325055472da709a66113afcc6a8ab86055da7d29c5f8",
-				"constructor_calldata": [
-				  "0x7b16a9b7bb08d36950aa5d27d4d2c64bfd54f3ae16a0e01f21a6d410cb5179c"
-				],
-				"type": "DEPLOY_ACCOUNT"
-			  }`,
+			}`,
 		},
 		"deploy account v3": {
 			txn: txWithoutClass("0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),

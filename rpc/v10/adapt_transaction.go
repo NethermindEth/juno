@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var ErrTransactionNotFound = errors.New("transaction not found")
@@ -169,14 +170,6 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 		AccountDeploymentData: rpcTx.AccountDeploymentData,
 		PaymasterData:         rpcTx.PaymasterData,
 		ProofFacts:            rpcTx.ProofFacts,
-	}
-}
-
-func AdaptRPCTxToAddTxGatewayPayload(rpcTx *BroadcastedTransaction) AddTxGatewayPayload {
-	return AddTxGatewayPayload{
-		Transaction:   AdaptRPCTxToFeederTx(&rpcTx.Transaction),
-		ContractClass: rpcTx.ContractClass,
-		Proof:         rpcTx.Proof,
 	}
 }
 
@@ -375,6 +368,32 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	return tx
+}
+
+func adaptContractClass2Starknet(class *ContractClass) starknet.SierraClass {
+	handleEntryPoints := func(
+		entryPoints []ContractClassEntryPoint,
+	) []starknet.SierraEntryPoint {
+		starknetEntryPoints := make([]starknet.SierraEntryPoint, len(entryPoints))
+		for i, entryPoint := range entryPoints {
+			starknetEntryPoints[i] = starknet.SierraEntryPoint{
+				Index:    entryPoint.Index,
+				Selector: &entryPoint.Selector,
+			}
+		}
+		return starknetEntryPoints
+	}
+
+	return starknet.SierraClass{
+		Abi:     class.ABI,
+		Version: class.ContractClassVersion,
+		Program: utils.ToPtrSlice(class.SierraProgram),
+		EntryPoints: starknet.SierraEntryPoints{
+			Constructor: handleEntryPoints(class.EntryPoints.Constructor),
+			External:    handleEntryPoints(class.EntryPoints.External),
+			L1Handler:   handleEntryPoints(class.EntryPoints.L1Handler),
+		},
+	}
 }
 
 //nolint:gocyclo // maps gateway error codes to RPC errors

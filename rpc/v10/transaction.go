@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -91,16 +90,20 @@ func handleDeclaredClass(
 	compiler compiler.Compiler,
 	broadcastedTxn *BroadcastedTransaction,
 	txn core.Transaction,
-) (core.ClassDefinition, error) {
-	var declaredClass core.ClassDefinition
-	if len(broadcastedTxn.ContractClass) != 0 {
-		var err error
-		declaredClass, err = adaptDeclaredClass(
-			ctx, compiler, broadcastedTxn.ContractClass,
-		)
+) (declaredClass core.ClassDefinition, err error) {
+	if broadcastedTxn.Type == TxnDeclare {
+		class := adaptContractClass2Starknet(&broadcastedTxn.ContractClass)
+
+		// @todo can we make the Compile function accept generic structs to avoid the adaptation?
+		compiledClass, err := compiler.Compile(ctx, &class)
 		if err != nil {
 			return nil, err
 		}
+		declaredClass, err = sn2core.AdaptSierraClass(&class, compiledClass)
+		if err != nil {
+			return nil, err
+		}
+
 		if t, ok := txn.(*core.DeclareTransaction); ok {
 			classHash, err := declaredClass.Hash()
 			if err != nil {
@@ -108,48 +111,8 @@ func handleDeclaredClass(
 			}
 			t.ClassHash = &classHash
 		}
-	} else if broadcastedTxn.Type == TxnDeclare {
-		return nil, errors.New("declare without a class definition")
 	}
-	return declaredClass, nil
-}
-
-func adaptDeclaredClass(
-	ctx context.Context,
-	compiler compiler.Compiler,
-	declaredClass json.RawMessage,
-) (core.ClassDefinition, error) {
-	var feederClass starknet.ClassDefinition
-	err := json.Unmarshal(declaredClass, &feederClass)
-	if err != nil {
-		return nil, err
-	}
-
-	switch {
-	case feederClass.Sierra != nil:
-		compiledClass, cErr := compiler.Compile(ctx, feederClass.Sierra)
-		if cErr != nil {
-			return nil, cErr
-		}
-		return sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
-	case feederClass.DeprecatedCairo != nil:
-		program := feederClass.DeprecatedCairo.Program
-
-		// strip the quotes
-		if len(program) < 2 {
-			return nil, errors.New("invalid program")
-		}
-		base64Program := string(program[1 : len(program)-1])
-
-		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
-		if err != nil {
-			return nil, err
-		}
-
-		return sn2core.AdaptDeprecatedCairoClass(feederClass.DeprecatedCairo)
-	default:
-		return nil, errors.New("empty class")
-	}
+	return
 }
 
 type AddTxResponse struct {
@@ -237,43 +200,19 @@ func (h *Handler) pushToFeederGateway(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
-	if tx.Transaction.Type == TxnDeclare &&
-		tx.Transaction.Version.Cmp(felt.NewFromUint64[felt.Felt](2)) != -1 {
-		contractClass := make(map[string]any)
-		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
-				fmt.Sprintf("unmarshal contract class: %v", err),
-			)
-		}
-		sierraProg, ok := contractClass["sierra_program"]
-		if !ok {
-			return AddTxResponse{}, jsonrpc.Err(
-				jsonrpc.InvalidParams,
-				"{'sierra_program': ['Missing data for required field.']}",
-			)
-		}
-
-		sierraProgBytes, errIn := json.Marshal(sierraProg)
-		if errIn != nil {
-			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
-		if errIn != nil {
-			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		contractClass["sierra_program"] = gwSierraProg
-		newContractClass, err := json.Marshal(contractClass)
-		if err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
-				fmt.Sprintf("marshal revised contract class: %v", err),
-			)
-		}
-		tx.ContractClass = newContractClass
+	classPayload, err := tx.ContractClass.ToGatewayPayload()
+	if err != nil {
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+			fmt.Sprintf("failed to get contract class payload: %v", err),
+		)
 	}
 
-	payload := AdaptRPCTxToAddTxGatewayPayload(tx)
+	payload := AddTxGatewayPayload{
+		Transaction:   AdaptRPCTxToFeederTx(&tx.Transaction),
+		ContractClass: classPayload,
+		Proof:         tx.Proof,
+	}
+
 	txJSON, err := json.Marshal(&payload)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
