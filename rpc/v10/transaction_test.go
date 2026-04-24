@@ -1194,7 +1194,7 @@ func TestAddTransaction(t *testing.T) {
 				tx := txWithoutClass(
 					"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 				)
-				tx.ContractClass = rpcv10.ContractClass{
+				tx.ContractClass = &rpcv10.ContractClass{
 					SierraProgram:        []felt.Felt{},
 					ContractClassVersion: "0.1.0",
 					EntryPoints: rpcv10.ContractClassEntryPoints{

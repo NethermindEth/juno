@@ -139,7 +139,7 @@ func TestEstimateFee(t *testing.T) {
 					felt.NewUnsafeFromString[felt.Felt]("0x123"),
 				},
 			},
-			ContractClass: rpcv10.ContractClass{},
+			ContractClass: &rpcv10.ContractClass{},
 		}
 		_, _, err := handler.EstimateFee(
 			t.Context(),

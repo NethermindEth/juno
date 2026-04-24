@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -92,7 +93,7 @@ func handleDeclaredClass(
 	txn core.Transaction,
 ) (declaredClass core.ClassDefinition, err error) {
 	if broadcastedTxn.Type == TxnDeclare {
-		class := adaptContractClass2Starknet(&broadcastedTxn.ContractClass)
+		class := adaptContractClass2Starknet(broadcastedTxn.ContractClass)
 
 		// @todo can we make the Compile function accept generic structs to avoid the adaptation?
 		compiledClass, err := compiler.Compile(ctx, &class)
@@ -200,7 +201,7 @@ func (h *Handler) pushToFeederGateway(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
-	classPayload, err := tx.ContractClass.ToGatewayPayload()
+	classPayload, err := ContractClassToGatewayPayload(tx.ContractClass)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
 			fmt.Sprintf("failed to get contract class payload: %v", err),
@@ -247,6 +248,39 @@ func (h *Handler) pushToFeederGateway(
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil
+}
+
+// ContractClassToGatewayPayload returns the contract class payload in the format
+// expected by the gateway.
+// @todo add test
+func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
+	if class == nil {
+		return []byte{}, nil
+	}
+
+	sierraProgBytes, err := json.Marshal(class.SierraProgram)
+	if err != nil {
+		return nil, err
+	}
+
+	gwSierraProg, err := utils.Gzip64Encode(sierraProgBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	temp := struct {
+		SierraProgram        string                   `json:"sierra_program"`
+		ContractClassVersion string                   `json:"contract_class_version"`
+		EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type" validate:"required"`
+		ABI                  string                   `json:"abi,omitempty"`
+	}{
+		SierraProgram:        gwSierraProg,
+		ContractClassVersion: class.ContractClassVersion,
+		EntryPoints:          class.EntryPoints,
+		ABI:                  class.ABI,
+	}
+
+	return json.Marshal(temp)
 }
 
 func (h *Handler) TransactionStatus(

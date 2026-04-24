@@ -13,15 +13,6 @@ var (
 	v    *validator.Validate
 )
 
-func validateResourceBounds(fl validator.FieldLevel) bool {
-	switch req := fl.Parent().Interface().(type) {
-	case Transaction:
-		return req.ResourceBounds != nil
-	default:
-		return false
-	}
-}
-
 // Custom validation function for version
 func validateVersion03(fl validator.FieldLevel) bool {
 	version, ok := fl.Field().Interface().(string)
@@ -32,10 +23,6 @@ func validateVersion03(fl validator.FieldLevel) bool {
 func Validator() *validator.Validate {
 	once.Do(func() {
 		v = validator.New(validator.WithRequiredStructEnabled())
-
-		if err := v.RegisterValidation("resource_bounds_required", validateResourceBounds); err != nil {
-			panic("failed to register validation: " + err.Error())
-		}
 
 		if err := v.RegisterValidation("version_0x3", validateVersion03); err != nil {
 			panic("failed to register validation: " + err.Error())

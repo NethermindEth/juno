@@ -441,15 +441,15 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 					CallData:      &[]*felt.Felt{},
 					Signature:     &[]*felt.Felt{&felt.Zero},
 					ResourceBounds: &rpcv10.ResourceBoundsMap{
-						L1Gas: &rpcv10.ResourceBounds{
+						L1Gas: rpcv10.ResourceBounds{
 							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
 							MaxPricePerUnit: &felt.Zero,
 						},
-						L1DataGas: &rpcv10.ResourceBounds{
+						L1DataGas: rpcv10.ResourceBounds{
 							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
 							MaxPricePerUnit: &felt.Zero,
 						},
-						L2Gas: &rpcv10.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
+						L2Gas: rpcv10.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
 					},
 				},
 			}}

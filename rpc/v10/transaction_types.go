@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -231,24 +230,22 @@ func (r *Resource) UnmarshalText(data []byte) error {
 }
 
 type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
+	MaxAmount *felt.Felt `json:"max_amount" validate:"required"`
+	// TODO: 'max_price_per_unit' is a uint128 by the spec, so we need to
+	// verify whether it is within the range of a uint128.
+	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit" validate:"required"`
 }
 
-// TODO: using Value fields here is a good idea, however
-// we are currently keeping the field's type Reference since the current
-// validation tags we are using does not work well with Value field.
-// We should revisit this when we start implementing custom validations.
 type ResourceBoundsMap struct {
-	L1Gas     *ResourceBounds `json:"l1_gas" validate:"required"`
-	L2Gas     *ResourceBounds `json:"l2_gas" validate:"required"`
-	L1DataGas *ResourceBounds `json:"l1_data_gas" validate:"required"`
+	L1Gas     ResourceBounds `json:"l1_gas" validate:"required"`
+	L2Gas     ResourceBounds `json:"l2_gas" validate:"required"`
+	L1DataGas ResourceBounds `json:"l1_data_gas" validate:"required"`
 }
 
 func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
 	// Check if L1DataGas is nil, if it is, provide default values
-	if r.L1DataGas == nil {
-		r.L1DataGas = &ResourceBounds{
+	if r.L1DataGas.MaxAmount == nil && r.L1DataGas.MaxPricePerUnit == nil {
+		r.L1DataGas = ResourceBounds{
 			MaxAmount:       &felt.Zero,
 			MaxPricePerUnit: &felt.Zero,
 		}
@@ -415,7 +412,7 @@ type Transaction struct {
 	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
 	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
-	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
+	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"required"`
 	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
 	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required"`
 	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
@@ -431,35 +428,6 @@ type ContractClass struct {
 	ContractClassVersion string                   `json:"contract_class_version"`
 	EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type" validate:"required"`
 	ABI                  string                   `json:"abi,omitempty"`
-}
-
-// ToGatewayPayload returns the contract class payload in the format
-// expected by the gateway.
-// @todo add test
-func (c *ContractClass) ToGatewayPayload() ([]byte, error) {
-	sierraProgBytes, err := json.Marshal(c.SierraProgram)
-	if err != nil {
-		return nil, err
-	}
-
-	gwSierraProg, err := utils.Gzip64Encode(sierraProgBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	temp := struct {
-		SierraProgram        string                   `json:"sierra_program"`
-		ContractClassVersion string                   `json:"contract_class_version"`
-		EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type" validate:"required"`
-		ABI                  string                   `json:"abi,omitempty"`
-	}{
-		SierraProgram:        gwSierraProg,
-		ContractClassVersion: c.ContractClassVersion,
-		EntryPoints:          c.EntryPoints,
-		ABI:                  c.ABI,
-	}
-
-	return json.Marshal(temp)
 }
 
 type ContractClassEntryPoints struct {
@@ -505,9 +473,9 @@ func (c *ContractClassEntryPoint) UnmarshalJSON(data []byte) error {
 //nolint:lll // We can't break the json tags lines
 type BroadcastedTransaction struct {
 	Transaction
-	ContractClass ContractClass `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
-	PaidFeeOnL1   *felt.Felt    `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
-	Proof         core.Base64   `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
+	ContractClass *ContractClass `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
+	PaidFeeOnL1   *felt.Felt     `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
+	Proof         core.Base64    `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
 }
 
 type TransactionExecutionErrorData struct {
