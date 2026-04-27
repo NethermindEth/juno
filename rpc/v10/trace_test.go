@@ -1446,6 +1446,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 // key is the block hash only, so a prior call without the flag used to cause
 // subsequent calls with the flag to return empty initial reads.
 func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
+	t.Parallel()
 	n := &networks.Mainnet
 
 	addr := felt.FromUint64[felt.Address](123)
@@ -1463,7 +1464,9 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		}
 	}
 	expectedPopulatedReads := &rpcv10.InitialReads{
-		Storage:           []rpcv10.StorageEntry{{ContractAddress: addr, Key: storageKey, Value: storageValue}},
+		Storage: []rpcv10.StorageEntry{
+			{ContractAddress: addr, Key: storageKey, Value: storageValue},
+		},
 		Nonces:            []rpcv10.NonceEntry{},
 		ClassHashes:       []rpcv10.ClassHashEntry{},
 		DeclaredContracts: []rpcv10.DeclaredContractEntry{},
