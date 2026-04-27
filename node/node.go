@@ -204,15 +204,13 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	opts := make([]blockchain.Option, 0, 1)
+	opts := make([]blockchain.Option, 0, 2)
 	if cfg.Metrics {
 		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
 	}
-	if cfg.NewState {
-		opts = append(opts, blockchain.WithNewState(
-			cfg.NewState,
-		))
-	}
+	opts = append(opts, blockchain.WithNewState(
+		cfg.NewState,
+	))
 	chain := blockchain.New(database, &cfg.Network, opts...)
 
 	// Verify that cfg.Network is compatible with the database.

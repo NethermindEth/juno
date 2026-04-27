@@ -439,9 +439,5 @@ func NewState(
 	}
 	triedb := triedb.New(testDB, nil)
 	stateDB := state.NewStateDB(testDB, triedb)
-	state, err := state.New(stateRoot, stateDB, batch)
-	if err != nil {
-		return nil, err
-	}
-	return state, nil
+	return state.New(stateRoot, stateDB, batch)
 }
