@@ -210,7 +210,7 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	return nil
 }
 
-func getClassProof(tr core.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+func getClassProof(tr core.TrieReader, classes []felt.Felt) ([]*HashToNode, error) {
 	switch t := tr.(type) {
 	case *trie.Trie:
 		classProof := trie.NewProofNodeSet()
@@ -234,7 +234,7 @@ func getClassProof(tr core.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 }
 
 func getContractProof(
-	tr core.Trie,
+	tr core.TrieReader,
 	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {

@@ -43,20 +43,18 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
+	dbCmd.PersistentFlags().Bool(newStateF, defaultNewState, newStateUsage)
 	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
 	return dbCmd
 }
 
 func DBInfoCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "info",
 		Short: "Retrieve database information",
 		Long:  `This subcommand retrieves and displays blockchain information stored in the database.`,
 		RunE:  dbInfo,
 	}
-	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
-
-	return cmd
 }
 
 func DBSizeCmd() *cobra.Command {
@@ -76,7 +74,6 @@ func DBRevertCmd() *cobra.Command {
 		RunE:  dbRevert,
 	}
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
-	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 
 	return cmd
 }

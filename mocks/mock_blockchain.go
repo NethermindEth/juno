@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	blockchain "github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/blockchain/networks"
+	networks "github.com/NethermindEth/juno/blockchain/networks"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
 	pending "github.com/NethermindEth/juno/core/pending"

@@ -102,7 +102,7 @@ func VerifyBlockHash(
 	b *Block,
 	network *networks.Network,
 	stateDiff *StateDiff,
-	engine TrieBackend,
+	backend TrieBackend,
 ) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
@@ -139,7 +139,7 @@ func VerifyBlockHash(
 			overrideSeq = fallbackSeq
 		}
 
-		hash, commitments, err := BlockHash(b, stateDiff, network, overrideSeq, engine)
+		hash, commitments, err := BlockHash(b, stateDiff, network, overrideSeq, backend)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +162,7 @@ func BlockHash(
 	stateDiff *StateDiff,
 	network *networks.Network,
 	overrideSeqAddr *felt.Felt,
-	engine TrieBackend,
+	backend TrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo
 
@@ -173,19 +173,19 @@ func BlockHash(
 
 	// if block.version >= 0.13.4
 	if blockVer.GreaterThanEqual(Ver0_13_4) {
-		return post0134Hash(b, stateDiff, engine)
+		return post0134Hash(b, stateDiff, backend)
 	}
 
 	// if 0.13.2 <= block.version < 0.13.4
 	if blockVer.GreaterThanEqual(Ver0_13_2) {
-		return Post0132Hash(b, stateDiff, engine)
+		return Post0132Hash(b, stateDiff, backend)
 	}
 
 	// following statements applied only if block.version < 0.13.2
 	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.L2ChainIDFelt(), engine)
+		return pre07Hash(b, network.L2ChainIDFelt(), backend)
 	}
-	return post07Hash(b, overrideSeqAddr, engine)
+	return post07Hash(b, overrideSeqAddr, backend)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0

@@ -67,10 +67,10 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 	return crypto.PoseidonArray(chain...)
 }
 
-func receiptCommitment(receipts []*TransactionReceipt, engine TrieBackend) (felt.Felt, error) {
+func receiptCommitment(receipts []*TransactionReceipt, backend TrieBackend) (felt.Felt, error) {
 	return calculateCommitment(
 		receipts,
-		engine.Poseidon(),
+		backend.Poseidon,
 		func(receipt *TransactionReceipt) felt.Felt {
 			return receipt.hash()
 		},

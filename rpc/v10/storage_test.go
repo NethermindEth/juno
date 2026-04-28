@@ -569,7 +569,7 @@ func TestStorageProof(t *testing.T) {
 		blockNumber = uint64(1313)
 	)
 
-	var classTrie, contractTrie core.Trie
+	var classTrie, contractTrie core.TrieReader
 	var trieRoot felt.Felt
 
 	if !statetestutils.UseNewState() {
@@ -1581,7 +1581,7 @@ func emptyDeprecatedTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-func emptyTrie(t *testing.T) core.Trie {
+func emptyTrie(t *testing.T) core.TrieReader {
 	if statetestutils.UseNewState() {
 		tempTrie, err := trie2.NewEmptyPedersen()
 		require.NoError(t, err)

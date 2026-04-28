@@ -105,15 +105,15 @@ func (s *StateReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition
 	return GetClass(s.db.disk, classHash)
 }
 
-func (s *StateReader) ClassTrie() (core.Trie, error) {
+func (s *StateReader) ClassTrie() (core.TrieReader, error) {
 	return s.classTrie, nil
 }
 
-func (s *StateReader) ContractTrie() (core.Trie, error) {
+func (s *StateReader) ContractTrie() (core.TrieReader, error) {
 	return s.contractTrie, nil
 }
 
-func (s *StateReader) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
+func (s *StateReader) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 

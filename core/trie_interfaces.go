@@ -7,53 +7,50 @@ import (
 	"github.com/NethermindEth/juno/core/trie2"
 )
 
-// Trie provides access to a Merkle-Patricia trie used to store and commit state data.
-type Trie interface {
-	// Get returns the value stored at key in the trie.
+// TrieReader provides read-only access to a trie. It is the
+// view returned from state readers for proof generation and storage lookups.
+type TrieReader interface {
+	// Get returns the value stored at key in the trie. Missing keys map to felt.Zero.
 	Get(key *felt.Felt) (felt.Felt, error)
-	// Update sets the value at key in the trie to value.
-	Update(key, value *felt.Felt) error
 	// Hash returns the root hash of the trie, committing all current entries.
 	Hash() (felt.Felt, error)
 	// HashFn returns the hash function used by the trie for node hashing.
 	HashFn() crypto.HashFn
 }
 
-type TrieBackend uint8
-
-const (
-	DeprecatedTrieBackend TrieBackend = iota
-	NewTrieBackend
-)
+// Trie is the mutable view of a trie.
+type Trie interface {
+	TrieReader
+	// Update sets the value at key in the trie. A zero value deletes the key.
+	Update(key, value *felt.Felt) error
+}
 
 type runOnTempTrieFn func(height uint8, do func(Trie) error) error
 
-func (e TrieBackend) Pedersen() runOnTempTrieFn {
-	switch e {
-	case NewTrieBackend:
-		return func(h uint8, do func(Trie) error) error {
-			return trie2.RunOnTempTriePedersen(h, func(t *trie2.Trie) error { return do(t) })
-		}
-	case DeprecatedTrieBackend:
-		return func(h uint8, do func(Trie) error) error {
-			return trie.RunOnTempTriePedersen(h, func(t *trie.Trie) error { return do(t) })
-		}
-	default:
-		panic("unsupported trie backend")
-	}
+// TrieBackend selects which trie implementation backs the temporary tries
+// used during commitment hashing.
+type TrieBackend struct {
+	// Pedersen runs do on Pedersen-hashed trie.
+	Pedersen runOnTempTrieFn
+	// Poseidon runs do on Poseidon-hashed trie.
+	Poseidon runOnTempTrieFn
 }
 
-func (e TrieBackend) Poseidon() runOnTempTrieFn {
-	switch e {
-	case NewTrieBackend:
-		return func(h uint8, do func(Trie) error) error {
-			return trie2.RunOnTempTriePoseidon(h, func(t *trie2.Trie) error { return do(t) })
-		}
-	case DeprecatedTrieBackend:
-		return func(h uint8, do func(Trie) error) error {
+var (
+	DeprecatedTrieBackend = TrieBackend{
+		Pedersen: func(h uint8, do func(Trie) error) error {
+			return trie.RunOnTempTriePedersen(h, func(t *trie.Trie) error { return do(t) })
+		},
+		Poseidon: func(h uint8, do func(Trie) error) error {
 			return trie.RunOnTempTriePoseidon(h, func(t *trie.Trie) error { return do(t) })
-		}
-	default:
-		panic("unsupported trie backend")
+		},
 	}
-}
+	NewTrieBackend = TrieBackend{
+		Pedersen: func(h uint8, do func(Trie) error) error {
+			return trie2.RunOnTempTriePedersen(h, func(t *trie2.Trie) error { return do(t) })
+		},
+		Poseidon: func(h uint8, do func(Trie) error) error {
+			return trie2.RunOnTempTriePoseidon(h, func(t *trie2.Trie) error { return do(t) })
+		},
+	}
+)

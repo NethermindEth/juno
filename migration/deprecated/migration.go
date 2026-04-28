@@ -563,6 +563,8 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *networks.Network) e
 			return err
 		}
 		txnLock.Lock()
+		// Pinned to DeprecatedTrieBackend: this migration backfills commitments for
+		// blocks originally hashed under the legacy trie
 		commitments, err := core.VerifyBlockHash(block, network, nil, core.DeprecatedTrieBackend)
 		txnLock.Unlock()
 		if err != nil {
