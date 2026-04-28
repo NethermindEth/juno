@@ -67,4 +67,4 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
-          files: coverage.out
+          files: coverage/coverage.old.out,coverage/coverage.new.out
