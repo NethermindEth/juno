@@ -25,15 +25,15 @@ type Trie interface {
 	Update(key, value *felt.Felt) error
 }
 
-type runOnTempTrieFn func(height uint8, do func(Trie) error) error
+type onTempTrieFunc func(height uint8, do func(Trie) error) error
 
 // TrieBackend selects which trie implementation backs the temporary tries
 // used during commitment hashing.
 type TrieBackend struct {
 	// Pedersen runs do on Pedersen-hashed trie.
-	Pedersen runOnTempTrieFn
+	Pedersen onTempTrieFunc
 	// Poseidon runs do on Poseidon-hashed trie.
-	Poseidon runOnTempTrieFn
+	Poseidon onTempTrieFunc
 }
 
 var (

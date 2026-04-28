@@ -82,7 +82,7 @@ type processFunc[T any] func(T) felt.Felt
 // General function for parallel processing of items and calculation of a commitment
 func calculateCommitment[T any](
 	items []T,
-	runOnTempTrie runOnTempTrieFn,
+	runOnTempTrie onTempTrieFunc,
 	process processFunc[T],
 ) (felt.Felt, error) {
 	var commitment *felt.Felt
