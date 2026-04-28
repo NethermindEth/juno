@@ -48,12 +48,15 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 }
 
 func DBInfoCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "info",
 		Short: "Retrieve database information",
 		Long:  `This subcommand retrieves and displays blockchain information stored in the database.`,
 		RunE:  dbInfo,
 	}
+	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
+
+	return cmd
 }
 
 func DBSizeCmd() *cobra.Command {
@@ -124,8 +127,17 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
 
+	newState, err := cmd.Flags().GetBool(newStateF)
+	if err != nil {
+		return err
+	}
+	trieBackend := core.DeprecatedTrieBackend
+	if newState {
+		trieBackend = core.NewTrieBackend
+	}
+
 	info.SchemaVersion = schemaVersion
-	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
+	info.Network = getNetwork(headBlock, stateUpdate.StateDiff, trieBackend)
 	info.ChainHeight = headBlock.Number
 	info.LatestBlockHash = headBlock.Hash
 	info.LatestStateRoot = headBlock.GlobalStateRoot
@@ -314,7 +326,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
+func getNetwork(head *core.Block, stateDiff *core.StateDiff, trieBackend core.TrieBackend) string {
 	networks := []*networks.Network{
 		&networks.Mainnet,
 		&networks.Sepolia,
@@ -325,7 +337,7 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	}
 
 	for _, network := range networks {
-		if _, err := core.VerifyBlockHash(head, network, stateDiff, core.DeprecatedTrieBackend); err == nil {
+		if _, err := core.VerifyBlockHash(head, network, stateDiff, trieBackend); err == nil {
 			return network.Name
 		}
 	}

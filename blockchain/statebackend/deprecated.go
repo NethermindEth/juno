@@ -1,6 +1,7 @@
 package statebackend
 
 import (
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
@@ -177,7 +178,7 @@ func (b *deprecatedStateBackend) Simulate(
 		return SimulateResult{}, err
 	}
 
-	commitments, err := updateBlockHash(block, stateUpdate, b.network)
+	commitments, err := updateBlockHash(block, stateUpdate, b.network, core.DeprecatedTrieBackend)
 	if err != nil {
 		return SimulateResult{}, err
 	}
@@ -215,7 +216,7 @@ func (b *deprecatedStateBackend) Finalise(
 			return err
 		}
 
-		commitments, err := updateBlockHash(block, stateUpdate, b.network)
+		commitments, err := updateBlockHash(block, stateUpdate, b.network, core.DeprecatedTrieBackend)
 		if err != nil {
 			return err
 		}
@@ -242,4 +243,12 @@ func (b *deprecatedStateBackend) Finalise(
 	}
 
 	return b.runningFilter.Insert(block.EventsBloom, block.Number)
+}
+
+func (b *deprecatedStateBackend) VerifyBlockHash(
+	block *core.Block,
+	network *networks.Network,
+	stateDiff *core.StateDiff,
+) (*core.BlockCommitments, error) {
+	return core.VerifyBlockHash(block, network, stateDiff, core.DeprecatedTrieBackend)
 }
