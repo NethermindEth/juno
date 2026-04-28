@@ -240,6 +240,7 @@ func (h *Server) onHeadersRequest(
 			if err != nil {
 				return nil, err
 			}
+			// TODO: switch to core.NewTrieBackend once the legacy trie and state are removed.
 			_, commitments, err = core.Post0132Hash(block, stateUpdate.StateDiff, core.DeprecatedTrieBackend)
 			if err != nil {
 				return nil, err
