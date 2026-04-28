@@ -96,53 +96,22 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 	return rpcResourceBounds
 }
 
-func AdaptToFeederResourceBounds(
-	rb *ResourceBoundsMap,
-) map[starknet.Resource]starknet.ResourceBounds {
-	if rb == nil {
-		return nil
-	}
-	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	feederResourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1Gas.MaxAmount,
-		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
-	}
-	feederResourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L2Gas.MaxAmount,
-		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
-	}
-	feederResourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1DataGas.MaxAmount,
-		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
-	}
-
-	return feederResourceBounds
-}
-
-func AdaptToFeederDAMode(mode *DataAvailabilityMode) starknet.DataAvailabilityMode {
-	if mode == nil {
-		return 0
-	}
-	return starknet.DataAvailabilityMode(*mode)
-}
-
+// AdaptRPCTxToFeederTx adapts a Transaction to a starknet.Transaction.
+// No nil checks here since this function is only called with broadcasted txs, and
+// the fields are required by the 'validate' tag.
 func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
-	resourceBounds := AdaptToFeederResourceBounds(rpcTx.ResourceBounds)
-	var resourceBoundsPtr *map[starknet.Resource]starknet.ResourceBounds
-	if resourceBounds != nil {
-		resourceBoundsPtr = &resourceBounds
+	resourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
+	resourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
+		MaxAmount:       rpcTx.ResourceBounds.L1Gas.MaxAmount,
+		MaxPricePerUnit: rpcTx.ResourceBounds.L1Gas.MaxPricePerUnit,
 	}
-
-	var nonceDAModePtr *starknet.DataAvailabilityMode
-	if rpcTx.NonceDAMode != nil {
-		nonceDAMode := AdaptToFeederDAMode(rpcTx.NonceDAMode)
-		nonceDAModePtr = &nonceDAMode
+	resourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
+		MaxAmount:       rpcTx.ResourceBounds.L2Gas.MaxAmount,
+		MaxPricePerUnit: rpcTx.ResourceBounds.L2Gas.MaxPricePerUnit,
 	}
-
-	var feeDAModePtr *starknet.DataAvailabilityMode
-	if rpcTx.FeeDAMode != nil {
-		feeDAMode := AdaptToFeederDAMode(rpcTx.FeeDAMode)
-		feeDAModePtr = &feeDAMode
+	resourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
+		MaxAmount:       rpcTx.ResourceBounds.L1DataGas.MaxAmount,
+		MaxPricePerUnit: rpcTx.ResourceBounds.L1DataGas.MaxPricePerUnit,
 	}
 
 	return starknet.Transaction{
@@ -160,10 +129,10 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        resourceBoundsPtr,
+		ResourceBounds:        &resourceBounds,
 		Tip:                   rpcTx.Tip,
-		NonceDAMode:           nonceDAModePtr,
-		FeeDAMode:             feeDAModePtr,
+		NonceDAMode:           (*starknet.DataAvailabilityMode)(rpcTx.NonceDAMode),
+		FeeDAMode:             (*starknet.DataAvailabilityMode)(rpcTx.FeeDAMode),
 		AccountDeploymentData: rpcTx.AccountDeploymentData,
 		PaymasterData:         rpcTx.PaymasterData,
 		ProofFacts:            rpcTx.ProofFacts,
