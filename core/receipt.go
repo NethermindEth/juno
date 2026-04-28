@@ -70,7 +70,7 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 func receiptCommitment(receipts []*TransactionReceipt, backend TrieBackend) (felt.Felt, error) {
 	return calculateCommitment(
 		receipts,
-		backend.Poseidon,
+		backend.RunOnTempTriePoseidon,
 		func(receipt *TransactionReceipt) felt.Felt {
 			return receipt.hash()
 		},

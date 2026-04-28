@@ -31,25 +31,25 @@ type onTempTrieFunc func(height uint8, do func(Trie) error) error
 // used during commitment hashing.
 type TrieBackend struct {
 	// Pedersen runs do on Pedersen-hashed trie.
-	Pedersen onTempTrieFunc
+	RunOnTempTriePedersen onTempTrieFunc
 	// Poseidon runs do on Poseidon-hashed trie.
-	Poseidon onTempTrieFunc
+	RunOnTempTriePoseidon onTempTrieFunc
 }
 
 var (
 	DeprecatedTrieBackend = TrieBackend{
-		Pedersen: func(h uint8, do func(Trie) error) error {
+		RunOnTempTriePedersen: func(h uint8, do func(Trie) error) error {
 			return trie.RunOnTempTriePedersen(h, func(t *trie.Trie) error { return do(t) })
 		},
-		Poseidon: func(h uint8, do func(Trie) error) error {
+		RunOnTempTriePoseidon: func(h uint8, do func(Trie) error) error {
 			return trie.RunOnTempTriePoseidon(h, func(t *trie.Trie) error { return do(t) })
 		},
 	}
 	NewTrieBackend = TrieBackend{
-		Pedersen: func(h uint8, do func(Trie) error) error {
+		RunOnTempTriePedersen: func(h uint8, do func(Trie) error) error {
 			return trie2.RunOnTempTriePedersen(h, func(t *trie2.Trie) error { return do(t) })
 		},
-		Poseidon: func(h uint8, do func(Trie) error) error {
+		RunOnTempTriePoseidon: func(h uint8, do func(Trie) error) error {
 			return trie2.RunOnTempTriePoseidon(h, func(t *trie2.Trie) error { return do(t) })
 		},
 	}

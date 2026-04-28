@@ -728,7 +728,7 @@ func transactionCommitmentPedersen(
 			return crypto.Pedersen(transaction.Hash(), &signatureHash)
 		}
 	}
-	return calculateCommitment(transactions, backend.Pedersen, hashFunc)
+	return calculateCommitment(transactions, backend.RunOnTempTriePedersen, hashFunc)
 }
 
 // transactionCommitmentPoseidon0134 handles empty signatures compared to
@@ -740,7 +740,7 @@ func transactionCommitmentPoseidon0134(
 ) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,
-		backend.Poseidon,
+		backend.RunOnTempTriePoseidon,
 		func(transaction Transaction) felt.Felt {
 			var digest crypto.PoseidonDigest
 			digest.Update(transaction.Hash())
@@ -761,7 +761,7 @@ func transactionCommitmentPoseidon0132(
 ) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,
-		backend.Poseidon,
+		backend.RunOnTempTriePoseidon,
 		func(transaction Transaction) felt.Felt {
 			var digest crypto.PoseidonDigest
 			digest.Update(transaction.Hash())
@@ -802,7 +802,7 @@ func eventCommitmentPoseidon(
 	}
 	return calculateCommitment(
 		items,
-		backend.Poseidon,
+		backend.RunOnTempTriePoseidon,
 		func(item *eventWithTxHash) felt.Felt {
 			return crypto.PoseidonArray(
 				slices.Concat(
@@ -835,7 +835,7 @@ func eventCommitmentPedersen(
 	for _, receipt := range receipts {
 		events = append(events, receipt.Events...)
 	}
-	return calculateCommitment(events, backend.Pedersen, func(event *Event) felt.Felt {
+	return calculateCommitment(events, backend.RunOnTempTriePedersen, func(event *Event) felt.Felt {
 		keysHash := crypto.PedersenArray(event.Keys...)
 		dataHash := crypto.PedersenArray(event.Data...)
 		return crypto.PedersenArray(
