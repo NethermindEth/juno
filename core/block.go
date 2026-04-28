@@ -189,8 +189,16 @@ func BlockHash(
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
-func pre07Hash(b *Block, chain *felt.Felt, engine TrieBackend) (felt.Felt, *BlockCommitments, error) {
-	txCommitment, err := transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion, engine)
+func pre07Hash(
+	b *Block,
+	chain *felt.Felt,
+	backend TrieBackend,
+) (felt.Felt, *BlockCommitments, error) {
+	txCommitment, err := transactionCommitmentPedersen(
+		b.Transactions,
+		b.Header.ProtocolVersion,
+		backend,
+	)
 	if err != nil {
 		return felt.Felt{}, nil, err
 	}
@@ -210,20 +218,24 @@ func pre07Hash(b *Block, chain *felt.Felt, engine TrieBackend) (felt.Felt, *Bloc
 	), &BlockCommitments{TransactionCommitment: &txCommitment}, nil
 }
 
-func post0134Hash(b *Block, stateDiff *StateDiff, engine TrieBackend) (felt.Felt, *BlockCommitments, error) {
+func post0134Hash(
+	b *Block,
+	stateDiff *StateDiff,
+	backend TrieBackend,
+) (felt.Felt, *BlockCommitments, error) {
 	var txCommitment, eCommitment, rCommitment, sdCommitment felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitmentPoseidon0134(b.Transactions, engine)
+		txCommitment, tErr = transactionCommitmentPoseidon0134(b.Transactions, backend)
 	})
 	wg.Go(func() {
-		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts, engine)
+		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts, backend)
 	})
 	wg.Go(func() {
-		rCommitment, rErr = receiptCommitment(b.Receipts, engine)
+		rCommitment, rErr = receiptCommitment(b.Receipts, backend)
 	})
 
 	wg.Go(func() {
@@ -277,20 +289,24 @@ func post0134Hash(b *Block, stateDiff *StateDiff, engine TrieBackend) (felt.Felt
 		}, nil
 }
 
-func Post0132Hash(b *Block, stateDiff *StateDiff, engine TrieBackend) (felt.Felt, *BlockCommitments, error) {
+func Post0132Hash(
+	b *Block,
+	stateDiff *StateDiff,
+	backend TrieBackend,
+) (felt.Felt, *BlockCommitments, error) {
 	var txCommitment, eCommitment, rCommitment, sdCommitment felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitmentPoseidon0132(b.Transactions, engine)
+		txCommitment, tErr = transactionCommitmentPoseidon0132(b.Transactions, backend)
 	})
 	wg.Go(func() {
-		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts, engine)
+		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts, backend)
 	})
 	wg.Go(func() {
-		rCommitment, rErr = receiptCommitment(b.Receipts, engine)
+		rCommitment, rErr = receiptCommitment(b.Receipts, backend)
 	})
 
 	wg.Go(func() {
@@ -361,7 +377,11 @@ func Post0132Hash(b *Block, stateDiff *StateDiff, engine TrieBackend) (felt.Felt
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
-func post07Hash(b *Block, overrideSeqAddr *felt.Felt, engine TrieBackend) (felt.Felt, *BlockCommitments, error) {
+func post07Hash(
+	b *Block,
+	overrideSeqAddr *felt.Felt,
+	backend TrieBackend,
+) (felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
@@ -372,15 +392,19 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt, engine TrieBackend) (felt.
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion, engine)
+		txCommitment, tErr = transactionCommitmentPedersen(
+			b.Transactions,
+			b.Header.ProtocolVersion,
+			backend,
+		)
 	})
 	wg.Go(func() {
-		eCommitment, eErr = eventCommitmentPedersen(b.Receipts, engine)
+		eCommitment, eErr = eventCommitmentPedersen(b.Receipts, backend)
 	})
 	wg.Go(func() {
 		// even though rCommitment is not required for pre 0.13.2 hash
 		// we need to calculate it for BlockCommitments that will be stored in db
-		rCommitment, rErr = receiptCommitment(b.Receipts, engine)
+		rCommitment, rErr = receiptCommitment(b.Receipts, backend)
 	})
 	wg.Wait()
 

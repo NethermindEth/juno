@@ -229,7 +229,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if cfg.NewState {
 			trieBackend = core.NewTrieBackend
 		}
-		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff, trieBackend); err != nil {
+		if _, err = core.VerifyBlockHash(
+			head,
+			&cfg.Network,
+			stateUpdate.StateDiff,
+			trieBackend,
+		); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
 		}
 	}

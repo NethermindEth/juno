@@ -734,10 +734,13 @@ func transactionCommitmentPedersen(
 // transactionCommitmentPoseidon0134 handles empty signatures compared to
 // transactionCommitmentPoseidon0132.
 // Empty signatures are interpreted as [] instead of [0]
-func transactionCommitmentPoseidon0134(transactions []Transaction, engine TrieBackend) (felt.Felt, error) {
+func transactionCommitmentPoseidon0134(
+	transactions []Transaction,
+	backend TrieBackend,
+) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,
-		engine.Poseidon(),
+		backend.Poseidon(),
 		func(transaction Transaction) felt.Felt {
 			var digest crypto.PoseidonDigest
 			digest.Update(transaction.Hash())
@@ -752,10 +755,13 @@ func transactionCommitmentPoseidon0134(transactions []Transaction, engine TrieBa
 
 // transactionCommitmentPoseidon0132 is used to calculate tx commitment for
 // 0.13.2 <= block.version < 0.13.4
-func transactionCommitmentPoseidon0132(transactions []Transaction, engine TrieBackend) (felt.Felt, error) {
+func transactionCommitmentPoseidon0132(
+	transactions []Transaction,
+	backend TrieBackend,
+) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,
-		engine.Poseidon(),
+		backend.Poseidon(),
 		func(transaction Transaction) felt.Felt {
 			var digest crypto.PoseidonDigest
 			digest.Update(transaction.Hash())
@@ -777,7 +783,10 @@ type eventWithTxHash struct {
 }
 
 // eventCommitmentPoseidon computes the event commitment for a block.
-func eventCommitmentPoseidon(receipts []*TransactionReceipt, engine TrieBackend) (felt.Felt, error) {
+func eventCommitmentPoseidon(
+	receipts []*TransactionReceipt,
+	backend TrieBackend,
+) (felt.Felt, error) {
 	eventCounter := 0
 	for _, receipt := range receipts {
 		eventCounter += len(receipt.Events)
@@ -793,7 +802,7 @@ func eventCommitmentPoseidon(receipts []*TransactionReceipt, engine TrieBackend)
 	}
 	return calculateCommitment(
 		items,
-		engine.Poseidon(),
+		backend.Poseidon(),
 		func(item *eventWithTxHash) felt.Felt {
 			return crypto.PoseidonArray(
 				slices.Concat(
@@ -814,7 +823,10 @@ func eventCommitmentPoseidon(receipts []*TransactionReceipt, engine TrieBackend)
 }
 
 // eventCommitmentPedersen computes the event commitment for a block.
-func eventCommitmentPedersen(receipts []*TransactionReceipt, engine TrieBackend) (felt.Felt, error) {
+func eventCommitmentPedersen(
+	receipts []*TransactionReceipt,
+	backend TrieBackend,
+) (felt.Felt, error) {
 	eventCounter := 0
 	for _, receipt := range receipts {
 		eventCounter += len(receipt.Events)
@@ -823,7 +835,7 @@ func eventCommitmentPedersen(receipts []*TransactionReceipt, engine TrieBackend)
 	for _, receipt := range receipts {
 		events = append(events, receipt.Events...)
 	}
-	return calculateCommitment(events, engine.Pedersen(), func(event *Event) felt.Felt {
+	return calculateCommitment(events, backend.Pedersen(), func(event *Event) felt.Felt {
 		keysHash := crypto.PedersenArray(event.Keys...)
 		dataHash := crypto.PedersenArray(event.Data...)
 		return crypto.PedersenArray(
