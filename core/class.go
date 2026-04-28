@@ -109,8 +109,8 @@ type SierraEntryPointsByType struct {
 }
 
 type SierraEntryPoint struct {
-	Index    uint64
 	Selector *felt.Felt
+	Index    uint64
 }
 
 func (c *SierraClass) Version() uint64 {

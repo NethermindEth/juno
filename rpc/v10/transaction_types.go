@@ -424,8 +424,8 @@ type Transaction struct {
 // ContractClass represents a contract class to be declared in the DECLARE broadcast transaction.
 // https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L3373
 type ContractClass struct {
-	SierraProgram        []felt.Felt              `json:"sierra_program"`
-	ContractClassVersion string                   `json:"contract_class_version"`
+	SierraProgram        []felt.Felt              `json:"sierra_program" validate:"required"`
+	ContractClassVersion string                   `json:"contract_class_version" validate:"required"`
 	EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type" validate:"required"`
 	ABI                  string                   `json:"abi,omitempty"`
 }
@@ -437,35 +437,8 @@ type ContractClassEntryPoints struct {
 }
 
 type ContractClassEntryPoint struct {
-	Index    uint64    `json:"function_idx"`
-	Selector felt.Felt `json:"selector"`
-}
-
-// UnmarshalJSON implements the [json.Unmarshaler] interface.
-func (c *ContractClassEntryPoint) UnmarshalJSON(data []byte) error {
-	// Same as [ContractClassEntryPoint] but with the fields as pointers,
-	// to assert they are present in the JSON object (since Go would default them
-	// to zero values if not present).
-	var temp struct {
-		Index    *uint64    `json:"function_idx"`
-		Selector *felt.Felt `json:"selector"`
-	}
-
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-
-	if temp.Index == nil {
-		return errors.New("field `function_idx` is required")
-	}
-	if temp.Selector == nil {
-		return errors.New("field `selector` is required")
-	}
-
-	c.Index = *temp.Index
-	c.Selector = *temp.Selector
-
-	return nil
+	Index    *uint64    `json:"function_idx" validate:"required"`
+	Selector *felt.Felt `json:"selector" validate:"required"`
 }
 
 // BroadcastedTransaction represents a transaction submitted via the RPC API.

@@ -47,15 +47,13 @@ type SierraEntryPoints struct {
 type SierraClass struct {
 	Abi         string            `json:"abi,omitempty"`
 	EntryPoints SierraEntryPoints `json:"entry_points_by_type"`
-	// @todo make it a felt value slice
-	Program []*felt.Felt `json:"sierra_program"`
-	Version string       `json:"contract_class_version"`
+	Program     []*felt.Felt      `json:"sierra_program"`
+	Version     string            `json:"contract_class_version"`
 }
 
 type SierraEntryPoint struct {
-	Index uint64 `json:"function_idx"`
-	// @todo make it a felt value
 	Selector *felt.Felt `json:"selector"`
+	Index    uint64     `json:"function_idx"`
 }
 
 type EntryPoints struct {

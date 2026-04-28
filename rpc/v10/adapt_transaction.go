@@ -374,8 +374,8 @@ func adaptContractClass2Starknet(class *ContractClass) starknet.SierraClass {
 		starknetEntryPoints := make([]starknet.SierraEntryPoint, len(entryPoints))
 		for i, entryPoint := range entryPoints {
 			starknetEntryPoints[i] = starknet.SierraEntryPoint{
-				Index:    entryPoint.Index,
-				Selector: &entryPoint.Selector,
+				Index:    *entryPoint.Index,
+				Selector: entryPoint.Selector,
 			}
 		}
 		return starknetEntryPoints
