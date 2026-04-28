@@ -179,7 +179,7 @@ func TestBlockHash(t *testing.T) {
 			block, err := gw.BlockByNumber(t.Context(), tc.number)
 			require.NoError(t, err)
 
-			commitments, err := core.VerifyBlockHash(block, &tc.chain, nil)
+			commitments, err := core.VerifyBlockHash(block, &tc.chain, nil, core.DeprecatedTrieBackend)
 			assert.NoError(t, err)
 			assert.NotNil(t, commitments)
 		})
@@ -196,7 +196,7 @@ func TestBlockHash(t *testing.T) {
 		mainnetBlock1.Hash = h1
 
 		expectedErr := "can not verify hash in block header"
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, &networks.Mainnet, nil)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &networks.Mainnet, nil, core.DeprecatedTrieBackend)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
@@ -207,7 +207,7 @@ func TestBlockHash(t *testing.T) {
 		block119802, err := goerliGW.BlockByNumber(t.Context(), 119802)
 		require.NoError(t, err)
 
-		commitments, err := core.VerifyBlockHash(block119802, &networks.Goerli, nil)
+		commitments, err := core.VerifyBlockHash(block119802, &networks.Goerli, nil, core.DeprecatedTrieBackend)
 		assert.NoError(t, err)
 		assert.NotNil(t, commitments)
 	})
@@ -221,7 +221,7 @@ func TestBlockHash(t *testing.T) {
 		expectedErr := fmt.Sprintf("len of transactions: %v do not match len of receipts: %v",
 			len(mainnetBlock1.Transactions), len(mainnetBlock1.Receipts))
 
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, &networks.Mainnet, nil)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &networks.Mainnet, nil, core.DeprecatedTrieBackend)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
@@ -235,7 +235,7 @@ func TestBlockHash(t *testing.T) {
 			"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
 			mainnetBlock1.Transactions[1].Hash().String(), 1,
 			mainnetBlock1.Receipts[1].TransactionHash)
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, &networks.Mainnet, nil)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &networks.Mainnet, nil, core.DeprecatedTrieBackend)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
@@ -260,7 +260,7 @@ func Test0132BlockHash(t *testing.T) {
 			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
-			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff)
+			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff, core.DeprecatedTrieBackend)
 			require.NoError(t, err)
 			assert.NotNil(t, c)
 		})
@@ -285,7 +285,7 @@ func Test0134BlockHash(t *testing.T) {
 			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
-			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff)
+			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff, core.DeprecatedTrieBackend)
 			require.NoError(t, err)
 			assert.NotNil(t, c)
 		})

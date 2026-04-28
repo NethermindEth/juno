@@ -58,6 +58,7 @@ func updateBlockHash(
 		stateUpdate.StateDiff,
 		network,
 		block.SequencerAddress,
+		core.DeprecatedTrieBackend,
 	)
 	if err != nil {
 		return nil, err

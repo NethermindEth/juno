@@ -332,7 +332,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return nil, err
 	}
 
-	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
+	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff, core.DeprecatedTrieBackend)
 }
 
 // HeadState returns a StateReader that provides a stable view to the latest state

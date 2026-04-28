@@ -563,7 +563,7 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *networks.Network) e
 			return err
 		}
 		txnLock.Lock()
-		commitments, err := core.VerifyBlockHash(block, network, nil)
+		commitments, err := core.VerifyBlockHash(block, network, nil, core.DeprecatedTrieBackend)
 		txnLock.Unlock()
 		if err != nil {
 			return err
