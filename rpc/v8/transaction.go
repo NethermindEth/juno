@@ -20,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -236,7 +237,7 @@ func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
 
 	// Define an alias to avoid recursion
 	type alias ResourceBoundsMap
-	return json.Marshal((*alias)(r))
+	return jsonx.Marshal((*alias)(r))
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
@@ -697,7 +698,7 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 func (h *Handler) pushToFeederGateway(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
-		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
+		if err := jsonx.Unmarshal(tx.ContractClass, &contractClass); err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
 		}
 		sierraProg, ok := contractClass["sierra_program"]
@@ -705,7 +706,7 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx *BroadcastedTransa
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
 		}
 
-		sierraProgBytes, errIn := json.Marshal(sierraProg)
+		sierraProgBytes, errIn := jsonx.Marshal(sierraProg)
 		if errIn != nil {
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
@@ -716,14 +717,14 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx *BroadcastedTransa
 		}
 
 		contractClass["sierra_program"] = gwSierraProg
-		newContractClass, err := json.Marshal(contractClass)
+		newContractClass, err := jsonx.Marshal(contractClass)
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
 		}
 		tx.ContractClass = newContractClass
 	}
 
-	txJSON, err := json.Marshal(&struct {
+	txJSON, err := jsonx.Marshal(&struct {
 		*starknet.Transaction
 		ContractClass json.RawMessage `json:"contract_class,omitempty"`
 	}{
@@ -748,7 +749,7 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx *BroadcastedTransa
 		ContractAddress *felt.Felt `json:"address"`
 		ClassHash       *felt.Felt `json:"class_hash"`
 	}
-	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
+	if err = jsonx.Unmarshal(respJSON, &gatewayResponse); err != nil {
 		return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
 	}
 

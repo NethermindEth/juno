@@ -1,10 +1,9 @@
 package rpcv8
 
 import (
-	"encoding/json"
-
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L1228
@@ -20,11 +19,11 @@ type Sync struct {
 
 func (s Sync) MarshalJSON() ([]byte, error) {
 	if s.Syncing != nil && !*s.Syncing {
-		return json.Marshal(false)
+		return jsonx.Marshal(false)
 	}
 
 	type alias Sync
-	return json.Marshal(alias(s))
+	return jsonx.Marshal(alias(s))
 }
 
 /****************************************************

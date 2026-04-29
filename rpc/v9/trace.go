@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -39,10 +40,10 @@ type ExecuteInvocation struct {
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
+		return jsonx.Marshal(e.FunctionInvocation)
 	}
 	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
+	return jsonx.Marshal(alias(e))
 }
 
 type FunctionInvocation struct {

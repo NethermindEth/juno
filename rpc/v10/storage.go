@@ -1,7 +1,6 @@
 package rpcv10
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +30,7 @@ type StorageAtResponseFlags struct {
 // UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResponseFlags.
 func (f *StorageAtResponseFlags) UnmarshalJSON(data []byte) error {
 	var flags []string
-	if err := json.Unmarshal(data, &flags); err != nil {
+	if err := jsonx.Unmarshal(data, &flags); err != nil {
 		return err
 	}
 	*f = StorageAtResponseFlags{}
@@ -60,7 +60,7 @@ type StorageAtResponse struct {
 func (st *StorageAtResponse) MarshalJSON() ([]byte, error) {
 	if st.includeLastUpdateBlock {
 		type storageResultAlias StorageAtResponse
-		return json.Marshal((*storageResultAlias)(st))
+		return jsonx.Marshal((*storageResultAlias)(st))
 	}
 
 	return st.Value.MarshalJSON()
@@ -71,7 +71,7 @@ func (st *StorageAtResponse) UnmarshalJSON(data []byte) error {
 	type storageResultAlias StorageAtResponse
 	var alias storageResultAlias
 
-	if err := json.Unmarshal(data, &alias); err == nil {
+	if err := jsonx.Unmarshal(data, &alias); err == nil {
 		alias.includeLastUpdateBlock = true
 		*st = StorageAtResponse(alias)
 		return nil

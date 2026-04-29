@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]
@@ -51,7 +52,7 @@ func AdaptDeclaredClass(
 	declaredClass json.RawMessage,
 ) (core.ClassDefinition, error) {
 	var feederClass starknet.ClassDefinition
-	err := json.Unmarshal(declaredClass, &feederClass)
+	err := jsonx.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
 		return nil, err
 	}

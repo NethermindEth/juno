@@ -13,6 +13,14 @@ type SubscriptionResponse struct {
 	Params  any    `json:"params"`
 }
 
+// SubscriptionParams is the typed payload for SubscriptionResponse.Params.
+// Using a struct (instead of map[string]any) ensures deterministic field order
+// in the emitted JSON regardless of the encoder's map-key handling.
+type SubscriptionParams struct {
+	Result         any    `json:"result"`
+	SubscriptionID string `json:"subscription_id"`
+}
+
 // As per the spec, this is the same as BlockID, but without `pre_confirmed` and `l1_accepted`
 type SubscriptionBlockID BlockID
 

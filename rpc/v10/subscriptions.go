@@ -2,7 +2,6 @@ package rpcv10
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -11,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"go.uber.org/zap"
 )
 
@@ -224,12 +224,12 @@ func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
 }
 
 func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
-	resp, err := json.Marshal(SubscriptionResponse{
+	resp, err := jsonx.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams{
+			Result:         result,
+			SubscriptionID: id,
 		},
 	})
 	if err != nil {

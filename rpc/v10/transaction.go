@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"go.uber.org/zap"
 )
 
@@ -118,7 +119,7 @@ func adaptDeclaredClass(
 	declaredClass json.RawMessage,
 ) (core.ClassDefinition, error) {
 	var feederClass starknet.ClassDefinition
-	err := json.Unmarshal(declaredClass, &feederClass)
+	err := jsonx.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +238,7 @@ func (h *Handler) pushToFeederGateway(
 	if tx.Transaction.Type == TxnDeclare &&
 		tx.Transaction.Version.Cmp(felt.NewFromUint64[felt.Felt](2)) != -1 {
 		contractClass := make(map[string]any)
-		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
+		if err := jsonx.Unmarshal(tx.ContractClass, &contractClass); err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
 				fmt.Sprintf("unmarshal contract class: %v", err),
 			)
@@ -250,7 +251,7 @@ func (h *Handler) pushToFeederGateway(
 			)
 		}
 
-		sierraProgBytes, errIn := json.Marshal(sierraProg)
+		sierraProgBytes, errIn := jsonx.Marshal(sierraProg)
 		if errIn != nil {
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
@@ -261,7 +262,7 @@ func (h *Handler) pushToFeederGateway(
 		}
 
 		contractClass["sierra_program"] = gwSierraProg
-		newContractClass, err := json.Marshal(contractClass)
+		newContractClass, err := jsonx.Marshal(contractClass)
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
 				fmt.Sprintf("marshal revised contract class: %v", err),
@@ -271,7 +272,7 @@ func (h *Handler) pushToFeederGateway(
 	}
 
 	payload := AdaptRPCTxToAddTxGatewayPayload(tx)
-	txJSON, err := json.Marshal(&payload)
+	txJSON, err := jsonx.Marshal(&payload)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
 			fmt.Sprintf("marshal transaction: %v", err),
@@ -293,7 +294,7 @@ func (h *Handler) pushToFeederGateway(
 		ContractAddress *felt.Address        `json:"address"`
 		ClassHash       *felt.ClassHash      `json:"class_hash"`
 	}
-	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
+	if err = jsonx.Unmarshal(respJSON, &gatewayResponse); err != nil {
 		return AddTxResponse{}, jsonrpc.Err(
 			jsonrpc.InternalError,
 			fmt.Sprintf("unmarshal gateway response: %v", err),

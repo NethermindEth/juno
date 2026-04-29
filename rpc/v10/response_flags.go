@@ -1,8 +1,9 @@
 package rpcv10
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 type ResponseFlags struct {
@@ -11,7 +12,7 @@ type ResponseFlags struct {
 
 func (r *ResponseFlags) UnmarshalJSON(data []byte) error {
 	var flags []string
-	if err := json.Unmarshal(data, &flags); err != nil {
+	if err := jsonx.Unmarshal(data, &flags); err != nil {
 		return err
 	}
 	*r = ResponseFlags{}
@@ -34,7 +35,7 @@ type SubscriptionTags struct {
 
 func (r *SubscriptionTags) UnmarshalJSON(data []byte) error {
 	var flags []string
-	if err := json.Unmarshal(data, &flags); err != nil {
+	if err := jsonx.Unmarshal(data, &flags); err != nil {
 		return err
 	}
 

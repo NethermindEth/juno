@@ -1,7 +1,6 @@
 package rpcv10
 
 import (
-	"encoding/json"
 	"slices"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -9,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 type Event struct {
@@ -45,13 +45,13 @@ func (a *AddressList) UnmarshalJSON(data []byte) error {
 	}
 
 	var single felt.Address
-	if err := json.Unmarshal(data, &single); err == nil {
+	if err := jsonx.Unmarshal(data, &single); err == nil {
 		*a = []felt.Address{single}
 		return nil
 	}
 
 	var list []felt.Address
-	if err := json.Unmarshal(data, &list); err != nil {
+	if err := jsonx.Unmarshal(data, &list); err != nil {
 		return err
 	}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
@@ -147,7 +148,7 @@ func (b *BlockID) Number() uint64 {
 
 func (b *BlockID) UnmarshalJSON(data []byte) error {
 	var blockTag string
-	if err := json.Unmarshal(data, &blockTag); err == nil {
+	if err := jsonx.Unmarshal(data, &blockTag); err == nil {
 		switch blockTag {
 		case "latest":
 			b.typeID = latest
@@ -160,19 +161,19 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 		}
 	} else {
 		jsonObject := make(map[string]json.RawMessage)
-		if err := json.Unmarshal(data, &jsonObject); err != nil {
+		if err := jsonx.Unmarshal(data, &jsonObject); err != nil {
 			return err
 		}
 		blockHash, ok := jsonObject["block_hash"]
 		if ok {
 			b.typeID = hash
-			return json.Unmarshal(blockHash, &b.data)
+			return jsonx.Unmarshal(blockHash, &b.data)
 		}
 
 		blockNumber, ok := jsonObject["block_number"]
 		if ok {
 			b.typeID = number
-			return json.Unmarshal(blockNumber, &b.data[0])
+			return jsonx.Unmarshal(blockNumber, &b.data[0])
 		}
 
 		return errors.New("cannot unmarshal block id")

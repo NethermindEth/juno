@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -255,7 +256,7 @@ func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
 
 	// Define an alias to avoid recursion
 	type alias ResourceBoundsMap
-	return json.Marshal((*alias)(r))
+	return jsonx.Marshal((*alias)(r))
 }
 
 type FeePayment struct {

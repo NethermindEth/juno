@@ -2,7 +2,6 @@ package rpcv10
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -103,11 +103,11 @@ type SimulateTransactionsResponse struct {
 
 func (r SimulateTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
-		return json.Marshal(r.SimulatedTransactions)
+		return jsonx.Marshal(r.SimulatedTransactions)
 	}
 	type simulateTransactionsResponse SimulateTransactionsResponse
 	response := simulateTransactionsResponse(r)
-	return json.Marshal(response)
+	return jsonx.Marshal(response)
 }
 
 type TracedBlockTransaction struct {
@@ -125,11 +125,11 @@ type TraceBlockTransactionsResponse struct {
 
 func (r TraceBlockTransactionsResponse) MarshalJSON() ([]byte, error) {
 	if r.InitialReads == nil {
-		return json.Marshal(r.Traces)
+		return jsonx.Marshal(r.Traces)
 	}
 	type traceBlockTransactionsResponse TraceBlockTransactionsResponse
 	response := traceBlockTransactionsResponse(r)
-	return json.Marshal(response)
+	return jsonx.Marshal(response)
 }
 
 type StorageEntry struct {

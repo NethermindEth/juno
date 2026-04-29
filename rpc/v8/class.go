@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L3159
@@ -44,7 +45,7 @@ func adaptDeclaredClass(
 	declaredClass json.RawMessage,
 ) (core.ClassDefinition, error) {
 	var feederClass starknet.ClassDefinition
-	err := json.Unmarshal(declaredClass, &feederClass)
+	err := jsonx.Unmarshal(declaredClass, &feederClass)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,6 @@ package rpcv8
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"go.uber.org/zap"
 )
 
@@ -32,6 +32,14 @@ type SubscriptionResponse struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Params  any    `json:"params"`
+}
+
+// SubscriptionParams is the typed payload for SubscriptionResponse.Params.
+// Using a struct (instead of map[string]any) ensures deterministic field order
+// in the emitted JSON regardless of the encoder's map-key handling.
+type SubscriptionParams struct {
+	Result         any    `json:"result"`
+	SubscriptionID string `json:"subscription_id"`
 }
 
 type errorTxnHashNotFound struct {
@@ -661,12 +669,12 @@ func sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id stri
 }
 
 func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
-	resp, err := json.Marshal(SubscriptionResponse{
+	resp, err := jsonx.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams{
+			Result:         result,
+			SubscriptionID: id,
 		},
 	})
 	if err != nil {

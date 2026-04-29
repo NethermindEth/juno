@@ -1,9 +1,8 @@
 package rpcv10
 
 import (
-	"encoding/json"
-
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 type OrderedEvent struct {
@@ -42,8 +41,8 @@ type ExecuteInvocation struct {
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
+		return jsonx.Marshal(e.FunctionInvocation)
 	}
 	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
+	return jsonx.Marshal(alias(e))
 }
