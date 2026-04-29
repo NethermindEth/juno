@@ -175,13 +175,14 @@ func (h *Handler) SimulateTransactions(
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
+	return h.simulateTransactions(ctx, id, transactions.Data, nil, simulationFlags, false, false)
 }
 
 func (h *Handler) simulateTransactions(
 	ctx context.Context,
 	id *BlockID,
 	transactions []BroadcastedTransaction,
+	messageFeePayload *MessageFeePayload,
 	simulationFlags []SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
@@ -197,7 +198,7 @@ func (h *Handler) simulateTransactions(
 	if rpcErr != nil {
 		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
+	defer h.callAndLogErr(closer, "Failed to close state after simulating transactions")
 
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
@@ -205,11 +206,23 @@ func (h *Handler) simulateTransactions(
 	}
 
 	network := h.bcReader.Network()
-	txns, classes, paidFeesOnL1, rpcErr := h.prepareTransactions(
-		ctx, transactions, network,
+
+	var (
+		txns         []core.Transaction
+		classes      []core.ClassDefinition
+		paidFeesOnL1 []*felt.Felt
 	)
-	if rpcErr != nil {
-		return SimulateTransactionsResponse{}, httpHeader, rpcErr
+
+	if messageFeePayload != nil {
+		txns = []core.Transaction{&messageFeePayload.L1Handler}
+		paidFeesOnL1 = []*felt.Felt{&messageFeePayload.PaidFeeOnL1}
+	} else {
+		txns, classes, rpcErr = h.prepareTransactions(
+			ctx, transactions, network,
+		)
+		if rpcErr != nil {
+			return SimulateTransactionsResponse{}, httpHeader, rpcErr
+		}
 	}
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
@@ -275,10 +288,9 @@ func (h *Handler) prepareTransactions(
 	ctx context.Context,
 	transactions []BroadcastedTransaction,
 	network *networks.Network,
-) ([]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
+) ([]core.Transaction, []core.ClassDefinition, *jsonrpc.Error) {
 	txns := make([]core.Transaction, len(transactions))
 	var classes []core.ClassDefinition
-	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {
 		// Check for missing required fields in struct that can't be validated by
@@ -288,31 +300,27 @@ func (h *Handler) prepareTransactions(
 		// it might be a good idea to implement a custom validator and unmarshal handler
 		// to solve this problem in a more elegant way
 		if checkTxHasSenderAddress(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(
+			return nil, nil, jsonrpc.Err(
 				jsonrpc.InvalidParams,
 				"sender_address is required for this transaction type",
 			)
 		}
 
 		if checkTxHasResourceBounds(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(
+			return nil, nil, jsonrpc.Err(
 				jsonrpc.InvalidParams,
 				"resource_bounds is required for this transaction type",
 			)
 		}
 
-		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(
+		txn, declaredClass, _, aErr := AdaptBroadcastedTransaction(
 			ctx,
 			h.compiler,
 			&transactions[idx],
 			network,
 		)
 		if aErr != nil {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
-		}
-
-		if paidFeeOnL1 != nil {
-			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
 
 		txns[idx] = txn
@@ -321,7 +329,7 @@ func (h *Handler) prepareTransactions(
 		}
 	}
 
-	return txns, classes, paidFeesOnL1, nil
+	return txns, classes, nil
 }
 
 func handleExecutionError(err error) *jsonrpc.Error {

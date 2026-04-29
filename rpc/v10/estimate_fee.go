@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -47,6 +48,7 @@ func (h *Handler) EstimateFee(
 		ctx,
 		id,
 		broadcastedTxns.Data,
+		nil,
 		append(simulationFlags, SkipFeeChargeFlag),
 		true,
 		true,
@@ -62,6 +64,11 @@ func (h *Handler) EstimateFee(
 	}
 
 	return feeEstimates, httpHeader, nil
+}
+
+type MessageFeePayload struct {
+	L1Handler   core.L1HandlerTransaction
+	PaidFeeOnL1 felt.Felt
 }
 
 func (h *Handler) EstimateMessageFee(
@@ -84,26 +91,32 @@ func (h *Handler) EstimateMessageFee(
 		return FeeEstimate{}, nil, rpccore.ErrContractNotFound
 	}
 
-	tx := BroadcastedTransaction{
-		Transaction: Transaction{
-			Type:               TxnL1Handler,
+	payload := MessageFeePayload{
+		L1Handler: core.L1HandlerTransaction{
+			TransactionHash:    nil,
 			ContractAddress:    &msg.To,
 			EntryPointSelector: &msg.Selector,
-			CallData:           &calldata,
-			Version:            &felt.Zero, // Needed for transaction hash calculation.
-			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+			CallData:           calldata,
+			// Needed for L1_HANDLER transaction hash calculation. Every transaction to be
+			// simulated must contain a valid tx hash; since we are just estimating the fees,
+			// we can set the remaining required fields to zero, as we don't care about the
+			// final tx hash.
+			Version: (*core.TransactionVersion)(&felt.Zero),
+			Nonce:   &felt.Zero,
 		},
 		// Needed to marshal to blockifier type.
 		// Must be greater than zero to successfully execute transaction.
-		PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
+		PaidFeeOnL1: felt.FromUint64[felt.Felt](1),
 	}
 
-	bcTxn := [1]BroadcastedTransaction{tx}
-	estimates, httpHeader, err := h.EstimateFee(
+	result, httpHeader, err := h.simulateTransactions(
 		ctx,
-		rpccore.LimitSlice[BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
-		nil,
 		id,
+		nil,
+		&payload,
+		[]SimulationFlag{SkipFeeChargeFlag},
+		true,
+		true,
 	)
 	if err != nil {
 		if err.Code == rpccore.ErrTransactionExecutionError.Code {
@@ -112,5 +125,6 @@ func (h *Handler) EstimateMessageFee(
 		}
 		return FeeEstimate{}, httpHeader, err
 	}
-	return estimates[0], httpHeader, nil
+
+	return result.SimulatedTransactions[0].FeeEstimation, httpHeader, nil
 }
