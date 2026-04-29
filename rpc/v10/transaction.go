@@ -93,7 +93,7 @@ func handleDeclaredClass(
 	txn core.Transaction,
 ) (declaredClass core.ClassDefinition, err error) {
 	if broadcastedTxn.Type == TxnDeclare {
-		class := adaptContractClass2Starknet(broadcastedTxn.ContractClass)
+		class := adaptContractClassToStarknet(broadcastedTxn.ContractClass)
 
 		// @todo can we make the Compile function accept generic structs to avoid the adaptation?
 		compiledClass, err := compiler.Compile(ctx, &class)
@@ -146,7 +146,7 @@ func (h *Handler) AddTransaction(
 	}
 
 	if h.receivedTransactionFeed != nil {
-		adaptedTxn, _, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
+		adaptedTxn, aErr := AdaptBroadcastedTransactionToCore(ctx, tx, h.bcReader.Network())
 		if aErr != nil {
 			// Log error but don't fail the transaction submission
 			h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))

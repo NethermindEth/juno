@@ -230,6 +230,8 @@ func (r *Resource) UnmarshalText(data []byte) error {
 }
 
 type ResourceBounds struct {
+	// TODO: 'max_amount' is a uint64 by the spec, so we need to
+	// verify whether it is within the range of a uint64.
 	MaxAmount *felt.Felt `json:"max_amount" validate:"required"`
 	// TODO: 'max_price_per_unit' is a uint128 by the spec, so we need to
 	// verify whether it is within the range of a uint128.

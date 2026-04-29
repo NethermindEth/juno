@@ -1,12 +1,14 @@
 package rpcv10
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -26,7 +28,6 @@ type AddTxGatewayPayload struct {
 }
 
 // AdaptCoreTransaction adapts a core.Transaction to a local *Transaction.
-// This is the v10-local equivalent of v9's AdaptTransaction.
 func AdaptCoreTransaction(t core.Transaction) *Transaction {
 	var txn *Transaction
 	switch v := t.(type) {
@@ -69,7 +70,7 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 	return txn
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
+func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
 	// Check if L1DataGas exists in the map
 	var l1DataGasResourceBounds ResourceBounds
 	if _, ok := rb[core.ResourceL1DataGas]; ok {
@@ -273,7 +274,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -301,7 +302,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -326,7 +327,7 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
@@ -336,7 +337,7 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	return tx
 }
 
-func adaptContractClass2Starknet(class *ContractClass) starknet.SierraClass {
+func adaptContractClassToStarknet(class *ContractClass) starknet.SierraClass {
 	handleEntryPoints := func(
 		entryPoints []ContractClassEntryPoint,
 	) []starknet.SierraEntryPoint {
@@ -409,4 +410,156 @@ func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	default:
 		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}
+}
+
+func adaptEntryPointsToCore(eps []ContractClassEntryPoint) []core.SierraEntryPoint {
+	result := make([]core.SierraEntryPoint, len(eps))
+	for i, ep := range eps {
+		result[i] = core.SierraEntryPoint{
+			Selector: ep.Selector,
+			Index:    *ep.Index,
+		}
+	}
+	return result
+}
+
+func adaptResourceBoundsToCore(
+	rb *ResourceBoundsMap,
+) map[core.Resource]core.ResourceBounds {
+	coreResourceBounds := make(map[core.Resource]core.ResourceBounds)
+	coreResourceBounds[core.ResourceL1Gas] = core.ResourceBounds{
+		MaxAmount:       rb.L1Gas.MaxAmount.Uint64(),
+		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+	}
+	coreResourceBounds[core.ResourceL2Gas] = core.ResourceBounds{
+		MaxAmount:       rb.L2Gas.MaxAmount.Uint64(),
+		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+	}
+	coreResourceBounds[core.ResourceL1DataGas] = core.ResourceBounds{
+		MaxAmount:       rb.L1DataGas.MaxAmount.Uint64(),
+		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+	}
+
+	return coreResourceBounds
+}
+
+func adaptBroadcastedInvokeToCore(tx *BroadcastedTransaction) *core.InvokeTransaction {
+	return &core.InvokeTransaction{
+		TransactionHash:       nil, // it will be set later
+		CallData:              *tx.CallData,
+		TransactionSignature:  *tx.Signature,
+		Nonce:                 tx.Nonce,
+		Version:               (*core.TransactionVersion)(tx.Version),
+		SenderAddress:         tx.SenderAddress,
+		ResourceBounds:        adaptResourceBoundsToCore(tx.ResourceBounds),
+		Tip:                   tx.Tip.Uint64(),
+		PaymasterData:         *tx.PaymasterData,
+		AccountDeploymentData: *tx.AccountDeploymentData,
+		NonceDAMode:           core.DataAvailabilityMode(*tx.NonceDAMode),
+		FeeDAMode:             core.DataAvailabilityMode(*tx.FeeDAMode),
+		ProofFacts:            utils.DerefSlice(tx.ProofFacts),
+		MaxFee:                nil, // not present in v3 invoke
+		ContractAddress:       nil, // not present in v3 invoke
+		EntryPointSelector:    nil, // not present in v3 invoke
+	}
+}
+
+func adaptBroadcastedDeclareToCore(
+	tx *BroadcastedTransaction,
+	classHash *felt.Felt,
+) *core.DeclareTransaction {
+	return &core.DeclareTransaction{
+		TransactionHash:       nil, // it will be set later
+		ClassHash:             classHash,
+		SenderAddress:         tx.SenderAddress,
+		TransactionSignature:  *tx.Signature,
+		Nonce:                 tx.Nonce,
+		Version:               (*core.TransactionVersion)(tx.Version),
+		CompiledClassHash:     tx.CompiledClassHash,
+		ResourceBounds:        adaptResourceBoundsToCore(tx.ResourceBounds),
+		Tip:                   tx.Tip.Uint64(),
+		PaymasterData:         *tx.PaymasterData,
+		AccountDeploymentData: *tx.AccountDeploymentData,
+		NonceDAMode:           core.DataAvailabilityMode(*tx.NonceDAMode),
+		FeeDAMode:             core.DataAvailabilityMode(*tx.FeeDAMode),
+		MaxFee:                nil, // not present in v3 declare
+	}
+}
+
+func adaptBroadcastedDeployAccountToCore(
+	tx *BroadcastedTransaction,
+) *core.DeployAccountTransaction {
+	return &core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     nil, // it will be set later
+			ContractAddressSalt: tx.ContractAddressSalt,
+			ClassHash:           tx.ClassHash,
+			ConstructorCallData: *tx.ConstructorCallData,
+			Version:             (*core.TransactionVersion)(tx.Version),
+			ContractAddress:     nil, // not present in v3 deploy account
+		},
+		MaxFee:               nil, // not present in v3 deploy account
+		TransactionSignature: *tx.Signature,
+		Nonce:                tx.Nonce,
+		ResourceBounds:       adaptResourceBoundsToCore(tx.ResourceBounds),
+		Tip:                  tx.Tip.Uint64(),
+		PaymasterData:        *tx.PaymasterData,
+		NonceDAMode:          core.DataAvailabilityMode(*tx.NonceDAMode),
+		FeeDAMode:            core.DataAvailabilityMode(*tx.FeeDAMode),
+	}
+}
+
+// AdaptBroadcastedTransactionToCore adapts a BroadcastedTransaction to a core.Transaction.
+// It also populates the transaction hash, and the class hash for Declare transactions.
+// @todo add tests for this function.
+func AdaptBroadcastedTransactionToCore(
+	ctx context.Context,
+	broadcastedTxn *BroadcastedTransaction,
+	network *networks.Network,
+) (core.Transaction, error) {
+	var coreTx core.Transaction
+
+	txType := broadcastedTxn.Type
+	switch txType {
+	case TxnInvoke:
+		txn := adaptBroadcastedInvokeToCore(broadcastedTxn)
+		txnHash, err := core.TransactionHash(txn, network)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
+		}
+		txn.TransactionHash = &txnHash
+		coreTx = txn
+	case TxnDeclare:
+		classHash, err := core.CalculateSierraClassHash(
+			utils.ToPtrSlice(broadcastedTxn.ContractClass.SierraProgram),
+			broadcastedTxn.ContractClass.ContractClassVersion,
+			adaptEntryPointsToCore(broadcastedTxn.ContractClass.EntryPoints.Constructor),
+			adaptEntryPointsToCore(broadcastedTxn.ContractClass.EntryPoints.External),
+			adaptEntryPointsToCore(broadcastedTxn.ContractClass.EntryPoints.L1Handler),
+			broadcastedTxn.ContractClass.ABI,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
+		}
+		txn := adaptBroadcastedDeclareToCore(broadcastedTxn, &classHash)
+
+		txnHash, err := core.TransactionHash(txn, network)
+		if err != nil {
+			return nil, err
+		}
+		txn.TransactionHash = &txnHash
+		coreTx = txn
+	case TxnDeployAccount:
+		txn := adaptBroadcastedDeployAccountToCore(broadcastedTxn)
+		txnHash, err := core.TransactionHash(txn, network)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
+		}
+		txn.TransactionHash = &txnHash
+		coreTx = txn
+	default:
+		return nil, fmt.Errorf("invalid transaction type %q", txType)
+	}
+
+	return coreTx, nil
 }
