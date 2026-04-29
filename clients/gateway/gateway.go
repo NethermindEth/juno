@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
@@ -91,7 +92,7 @@ func (c *Client) post(ctx context.Context, url string, data any) ([]byte, error)
 		var gatewayError Error
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr == nil && len(body) > 0 {
-			if err := json.Unmarshal(body, &gatewayError); err == nil {
+			if err := jsonx.Unmarshal(body, &gatewayError); err == nil {
 				if len(gatewayError.Code) != 0 {
 					return nil, &gatewayError
 				}
@@ -107,7 +108,7 @@ func (c *Client) post(ctx context.Context, url string, data any) ([]byte, error)
 // doPost performs a "POST" http request with the given URL and a JSON payload derived from the provided data
 // it returns response without additional error handling
 func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Response, error) {
-	jsonBody, err := json.Marshal(data)
+	jsonBody, err := jsonx.Marshal(data)
 	if err != nil {
 		return nil, err
 	}

@@ -2,11 +2,11 @@ package upgrader
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
@@ -68,7 +68,7 @@ func (u *Upgrader) Run(ctx context.Context) error {
 			}
 
 			latest := new(Release)
-			if err := json.NewDecoder(resp.Body).Decode(latest); err == nil {
+			if err := jsonx.NewDecoder(resp.Body).Decode(latest); err == nil {
 				if needsUpdate(*u.currentVersion, *latest.Version) {
 					u.logger.Warn("New release is available.",
 						zap.String("currentVersion", u.currentVersion.String()),

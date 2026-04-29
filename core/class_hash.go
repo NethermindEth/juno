@@ -10,13 +10,13 @@ package core
 import "C"
 
 import (
-	"encoding/json"
 	"errors"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
@@ -25,7 +25,7 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	classJSON, err := json.Marshal(definition)
+	classJSON, err := jsonx.Marshal(definition)
 	if err != nil {
 		return felt.Felt{}, err
 	}

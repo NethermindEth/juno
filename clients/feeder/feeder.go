@@ -2,7 +2,6 @@ package feeder
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
@@ -206,7 +206,7 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 	defer body.Close()
 
 	update := new(starknet.StateUpdate)
-	if err = json.NewDecoder(body).Decode(update); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(update); err != nil {
 		return nil, err
 	}
 	return update, nil
@@ -228,7 +228,7 @@ func (c *Client) Transaction(
 	defer body.Close()
 
 	txStatus := new(starknet.DeprecatedTransactionStatus)
-	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(txStatus); err != nil {
 		return nil, err
 	}
 	return txStatus, nil
@@ -251,7 +251,7 @@ func (c *Client) TransactionStatus(
 	defer body.Close()
 
 	txStatus := new(starknet.TransactionStatus)
-	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(txStatus); err != nil {
 		return nil, err
 	}
 	return txStatus, nil
@@ -269,7 +269,7 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 	defer body.Close()
 
 	block := new(starknet.Block)
-	if err = json.NewDecoder(body).Decode(block); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(block); err != nil {
 		return nil, err
 	}
 	return block, nil
@@ -290,7 +290,7 @@ func (c *Client) BlockHeader(
 	defer body.Close()
 
 	header := starknet.BlockHeader{}
-	if err = json.NewDecoder(body).Decode(&header); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(&header); err != nil {
 		return starknet.BlockHeader{}, err
 	}
 	return header, nil
@@ -309,7 +309,7 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 	defer body.Close()
 
 	class := new(starknet.ClassDefinition)
-	if err = json.NewDecoder(body).Decode(class); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(class); err != nil {
 		return nil, err
 	}
 	return class, nil
@@ -340,7 +340,7 @@ func (c *Client) CasmClassDefinition(
 	}
 
 	class := new(starknet.CasmClass)
-	if err = json.Unmarshal(definition, class); err != nil {
+	if err = jsonx.Unmarshal(definition, class); err != nil {
 		return nil, err
 	}
 	return class, nil
@@ -356,7 +356,7 @@ func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	defer body.Close()
 
 	var publicKey string // public key hex string
-	if err = json.NewDecoder(body).Decode(&publicKey); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(&publicKey); err != nil {
 		return nil, err
 	}
 
@@ -375,7 +375,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 	defer body.Close()
 
 	signature := new(starknet.Signature)
-	if err := json.NewDecoder(body).Decode(signature); err != nil {
+	if err := jsonx.NewDecoder(body).Decode(signature); err != nil {
 		return nil, err
 	}
 
@@ -395,7 +395,7 @@ func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*sta
 	defer body.Close()
 
 	stateUpdate := new(starknet.StateUpdateWithBlock)
-	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
+	if err := jsonx.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}
 
@@ -414,7 +414,7 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 	defer body.Close()
 
 	traces := new(starknet.BlockTrace)
-	if err = json.NewDecoder(body).Decode(traces); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(traces); err != nil {
 		return nil, err
 	}
 	return traces, nil
@@ -432,7 +432,7 @@ func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*st
 	defer body.Close()
 
 	preConfirmedBlock := new(starknet.PreConfirmedBlock)
-	if err = json.NewDecoder(body).Decode(preConfirmedBlock); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(preConfirmedBlock); err != nil {
 		return nil, err
 	}
 	return preConfirmedBlock, nil
@@ -447,7 +447,7 @@ func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddres
 	defer body.Close()
 
 	contractAddresses := new(starknet.FeeTokenAddresses)
-	if err = json.NewDecoder(body).Decode(contractAddresses); err != nil {
+	if err = jsonx.NewDecoder(body).Decode(contractAddresses); err != nil {
 		return starknet.FeeTokenAddresses{}, err
 	}
 	return *contractAddresses, nil
