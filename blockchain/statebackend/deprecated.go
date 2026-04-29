@@ -1,7 +1,6 @@
 package statebackend
 
 import (
-	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
@@ -247,8 +246,7 @@ func (b *deprecatedStateBackend) Finalise(
 
 func (b *deprecatedStateBackend) VerifyBlockHash(
 	block *core.Block,
-	network *networks.Network,
 	stateDiff *core.StateDiff,
 ) (*core.BlockCommitments, error) {
-	return core.VerifyBlockHash(block, network, stateDiff, core.DeprecatedTrieBackend)
+	return core.VerifyBlockHash(block, b.network, stateDiff, core.DeprecatedTrieBackend)
 }

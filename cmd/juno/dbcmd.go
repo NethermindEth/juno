@@ -130,7 +130,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	trieBackend := core.DeprecatedTrieBackend
 	if newState {
-		trieBackend = core.NewTrieBackend
+		trieBackend = core.TrieBackend
 	}
 
 	info.SchemaVersion = schemaVersion
@@ -323,7 +323,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getNetwork(head *core.Block, stateDiff *core.StateDiff, trieBackend core.TrieBackend) string {
+func getNetwork(head *core.Block, stateDiff *core.StateDiff, trieBackend core.TempTrieBackend) string {
 	networks := []*networks.Network{
 		&networks.Mainnet,
 		&networks.Sepolia,

@@ -293,9 +293,9 @@ func Test0134BlockHash(t *testing.T) {
 	}
 }
 
-func testTrieBackend() core.TrieBackend {
+func testTrieBackend() core.TempTrieBackend {
 	if statetestutils.UseNewState() {
-		return core.NewTrieBackend
+		return core.TrieBackend
 	}
 	return core.DeprecatedTrieBackend
 }

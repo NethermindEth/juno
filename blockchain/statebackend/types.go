@@ -36,7 +36,6 @@ type StateBackend interface {
 	) error
 	VerifyBlockHash(
 		b *core.Block,
-		network *networks.Network,
 		stateDiff *core.StateDiff,
 	) (*core.BlockCommitments, error)
 }

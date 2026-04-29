@@ -102,7 +102,7 @@ func VerifyBlockHash(
 	b *Block,
 	network *networks.Network,
 	stateDiff *StateDiff,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
@@ -162,7 +162,7 @@ func BlockHash(
 	stateDiff *StateDiff,
 	network *networks.Network,
 	overrideSeqAddr *felt.Felt,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo
 
@@ -192,7 +192,7 @@ func BlockHash(
 func pre07Hash(
 	b *Block,
 	chain *felt.Felt,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	txCommitment, err := transactionCommitmentPedersen(
 		b.Transactions,
@@ -221,7 +221,7 @@ func pre07Hash(
 func post0134Hash(
 	b *Block,
 	stateDiff *StateDiff,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	var txCommitment, eCommitment, rCommitment, sdCommitment felt.Felt
 	var sdLength uint64
@@ -292,7 +292,7 @@ func post0134Hash(
 func Post0132Hash(
 	b *Block,
 	stateDiff *StateDiff,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	var txCommitment, eCommitment, rCommitment, sdCommitment felt.Felt
 	var sdLength uint64
@@ -380,7 +380,7 @@ func Post0132Hash(
 func post07Hash(
 	b *Block,
 	overrideSeqAddr *felt.Felt,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {

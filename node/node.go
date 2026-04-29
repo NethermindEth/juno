@@ -227,7 +227,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
 		trieBackend := core.DeprecatedTrieBackend
 		if cfg.NewState {
-			trieBackend = core.NewTrieBackend
+			trieBackend = core.TrieBackend
 		}
 		if _, err = core.VerifyBlockHash(
 			head,

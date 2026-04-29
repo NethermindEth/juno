@@ -52,7 +52,7 @@ func updateBlockHash(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	network *networks.Network,
-	trieBackend core.TrieBackend,
+	trieBackend core.TempTrieBackend,
 ) (*core.BlockCommitments, error) {
 	blockHash, commitments, err := core.BlockHash(
 		block,

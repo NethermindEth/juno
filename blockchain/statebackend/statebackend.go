@@ -1,7 +1,6 @@
 package statebackend
 
 import (
-	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
@@ -168,7 +167,7 @@ func (b *stateBackend) Simulate(
 		return SimulateResult{}, err
 	}
 
-	commitments, err := updateBlockHash(block, stateUpdate, b.network, core.NewTrieBackend)
+	commitments, err := updateBlockHash(block, stateUpdate, b.network, core.TrieBackend)
 	if err != nil {
 		return SimulateResult{}, err
 	}
@@ -208,7 +207,7 @@ func (b *stateBackend) Finalise(
 			return err
 		}
 
-		commitments, err := updateBlockHash(block, stateUpdate, b.network, core.NewTrieBackend)
+		commitments, err := updateBlockHash(block, stateUpdate, b.network, core.TrieBackend)
 		if err != nil {
 			return err
 		}
@@ -239,8 +238,7 @@ func (b *stateBackend) Finalise(
 
 func (b *stateBackend) VerifyBlockHash(
 	block *core.Block,
-	network *networks.Network,
 	stateDiff *core.StateDiff,
 ) (*core.BlockCommitments, error) {
-	return core.VerifyBlockHash(block, network, stateDiff, core.NewTrieBackend)
+	return core.VerifyBlockHash(block, b.network, stateDiff, core.TrieBackend)
 }

@@ -705,7 +705,7 @@ const commitmentTrieHeight = 64
 func transactionCommitmentPedersen(
 	transactions []Transaction,
 	protocolVersion string,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, error) {
 	blockVersion, err := ParseBlockVersion(protocolVersion)
 	if err != nil {
@@ -736,7 +736,7 @@ func transactionCommitmentPedersen(
 // Empty signatures are interpreted as [] instead of [0]
 func transactionCommitmentPoseidon0134(
 	transactions []Transaction,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,
@@ -757,7 +757,7 @@ func transactionCommitmentPoseidon0134(
 // 0.13.2 <= block.version < 0.13.4
 func transactionCommitmentPoseidon0132(
 	transactions []Transaction,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, error) {
 	return calculateCommitment(
 		transactions,
@@ -785,7 +785,7 @@ type eventWithTxHash struct {
 // eventCommitmentPoseidon computes the event commitment for a block.
 func eventCommitmentPoseidon(
 	receipts []*TransactionReceipt,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, error) {
 	eventCounter := 0
 	for _, receipt := range receipts {
@@ -825,7 +825,7 @@ func eventCommitmentPoseidon(
 // eventCommitmentPedersen computes the event commitment for a block.
 func eventCommitmentPedersen(
 	receipts []*TransactionReceipt,
-	backend TrieBackend,
+	backend TempTrieBackend,
 ) (felt.Felt, error) {
 	eventCounter := 0
 	for _, receipt := range receipts {

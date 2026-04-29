@@ -140,9 +140,9 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 	})
 }
 
-func testTrieBackend() TrieBackend {
+func testTrieBackend() TempTrieBackend {
 	if statetestutils.UseNewState() {
-		return NewTrieBackend
+		return TrieBackend
 	}
 	return DeprecatedTrieBackend
 }

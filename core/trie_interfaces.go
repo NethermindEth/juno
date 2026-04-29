@@ -12,7 +12,7 @@ import (
 type TrieReader interface {
 	// Get returns the value stored at key in the trie. Missing keys map to felt.Zero.
 	Get(key *felt.Felt) (felt.Felt, error)
-	// Hash returns the root hash of the trie, committing all current entries.
+	// Hash returns the root hash of the trie.
 	Hash() (felt.Felt, error)
 	// HashFn returns the hash function used by the trie for node hashing.
 	HashFn() crypto.HashFn
@@ -29,7 +29,7 @@ type onTempTrieFunc func(height uint8, do func(Trie) error) error
 
 // TrieBackend selects which trie implementation backs the temporary tries
 // used during commitment hashing.
-type TrieBackend struct {
+type TempTrieBackend struct {
 	// Pedersen runs do on Pedersen-hashed trie.
 	RunOnTempTriePedersen onTempTrieFunc
 	// Poseidon runs do on Poseidon-hashed trie.
@@ -37,7 +37,7 @@ type TrieBackend struct {
 }
 
 var (
-	DeprecatedTrieBackend = TrieBackend{
+	DeprecatedTrieBackend = TempTrieBackend{
 		RunOnTempTriePedersen: func(h uint8, do func(Trie) error) error {
 			return trie.RunOnTempTriePedersen(h, func(t *trie.Trie) error { return do(t) })
 		},
@@ -45,7 +45,7 @@ var (
 			return trie.RunOnTempTriePoseidon(h, func(t *trie.Trie) error { return do(t) })
 		},
 	}
-	NewTrieBackend = TrieBackend{
+	TrieBackend = TempTrieBackend{
 		RunOnTempTriePedersen: func(h uint8, do func(Trie) error) error {
 			return trie2.RunOnTempTriePedersen(h, func(t *trie2.Trie) error { return do(t) })
 		},
