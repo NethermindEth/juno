@@ -114,7 +114,7 @@ func TestLimitSliceLaziness(t *testing.T) {
 
 	var b strings.Builder
 	b.WriteByte('[')
-	for i := 0; i < total; i++ {
+	for i := range total {
 		if i > 0 {
 			b.WriteByte(',')
 		}
@@ -139,7 +139,7 @@ func TestLimitSliceLaziness(t *testing.T) {
 	require.EqualValues(t, simulation, decoded,
 		"T.UnmarshalJSON ran %d times; expected exactly cap=%d", decoded, simulation)
 	require.Less(t, elapsed, 200*time.Millisecond,
-		"unmarshal of 1M-element payload past 5K cap took %v; lazy path should finish in tens of ms", elapsed)
+		"unmarshal of 1M-element payload past 5K cap took %v; should finish in tens of ms", elapsed)
 
 	t.Logf("payload=%d bytes, total elements=%d, cap=%d, decoded=%d, elapsed=%v",
 		len(payload), total, simulation, decoded, elapsed)

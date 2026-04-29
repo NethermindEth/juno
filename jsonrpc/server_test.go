@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc"
@@ -16,6 +17,78 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
+
+// assertResponseIgnoringErrorData compares two JSON-RPC responses, treating
+// `error.data` as opaque — it must be present and non-empty in the actual
+// response, but its text is not compared. Sonic's parse-error phrasing
+// differs across CPU architectures (AMD64 native asm path vs ARM64 compat
+// fallback), so any test whose `error.data` carries encoder-specific text
+// must use this helper rather than asserting the exact bytes.
+func assertResponseIgnoringErrorData(t *testing.T, expected, actual string) {
+	t.Helper()
+	strip := func(s string) any {
+		var v any
+		require.NoError(t, jsonx.Unmarshal([]byte(s), &v))
+		stripData(v)
+		return v
+	}
+	assert.Equal(t, strip(expected), strip(actual))
+	assert.True(t, hasNonEmptyErrorData([]byte(actual)),
+		"error.data must be present and non-empty in actual response")
+}
+
+// stripData removes `error.data` fields from the decoded JSON value so the
+// rest of the structure can be compared exactly.
+func stripData(v any) {
+	switch x := v.(type) {
+	case map[string]any:
+		if errObj, ok := x["error"].(map[string]any); ok {
+			delete(errObj, "data")
+		}
+		for _, child := range x {
+			stripData(child)
+		}
+	case []any:
+		for _, child := range x {
+			stripData(child)
+		}
+	}
+}
+
+// hasNonEmptyErrorData reports whether every `error` object in the parsed
+// JSON carries a non-empty `data` field. Guards against encoders that
+// silently drop the field.
+func hasNonEmptyErrorData(raw []byte) bool {
+	var v any
+	if err := jsonx.Unmarshal(raw, &v); err != nil {
+		return false
+	}
+	return checkErrorData(v)
+}
+
+func checkErrorData(v any) bool {
+	switch x := v.(type) {
+	case map[string]any:
+		if errObj, ok := x["error"].(map[string]any); ok {
+			s, _ := errObj["data"].(string)
+			if s == "" {
+				return false
+			}
+		}
+		for _, child := range x {
+			if !checkErrorData(child) {
+				return false
+			}
+		}
+	case []any:
+		for _, child := range x {
+			if !checkErrorData(child) {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 func TestServer_RegisterMethod(t *testing.T) {
 	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
@@ -206,22 +279,33 @@ func TestHandle(t *testing.T) {
 		res                  string
 		checkNewRequestEvent bool
 		checkFailedEvent     bool
+		// ignoreErrorData set when the JSON encoder's parse-error text is
+		// surfaced in `error.data`. Sonic's text differs across CPU
+		// architectures (AMD64 native vs ARM64 compat path), so we only
+		// assert that the field exists and is non-empty.
+		ignoreErrorData bool
 	}{
 		"invalid json": {
 			req: `{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"EOF"},"id":null}`,
+			//nolint:lll // We can't break the json value
+			res:             `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"placeholder"},"id":null}`,
+			ignoreErrorData: true,
 		},
 		"invalid json batch path": {
 			req: `[{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"Syntax error at index 2: expect a json key\\n\\n\\t[{]\\n\\t..^\\n\""},"id":null}`,
+			//nolint:lll // We can't break the json value
+			res:             `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"placeholder"},"id":null}`,
+			ignoreErrorData: true,
 		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request",
+			"data":"unsupported RPC request version"},"id":1}`,
 		},
 		"wrong version with null id": {
 			req: `{"jsonrpc" : "1.0", "id" : null}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request",
+			"data":"unsupported RPC request version"},"id":null}`,
 		},
 		"non existent method": {
 			req: `{"jsonrpc" : "2.0", "method" : "doesnotexits" , "id" : 2}`,
@@ -229,11 +313,14 @@ func TestHandle(t *testing.T) {
 		},
 		"no params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "id" : 5}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param field"},"id":5}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params",
+			"data":"missing non-optional param field"},"id":5}`,
 		},
 		"too many params": {
-			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
+			req: `{"jsonrpc" : "2.0", "method" : "method", 
+				"params" : [3, false, "error message", "too many"] , "id" : 3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params",
+			"data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"list params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message"] , "id" : 3}`,
@@ -313,7 +400,9 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 }}],
 					[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 }}]]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value array \"at index 0: mismatched type with value\\n\\n\\t[{\\\"jsonrpc\\\" : \\\"2.0\\\", \\\"method\\\" : \\n\\t^...............................\\n\""},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value array \"at index 0: mismatched type with value\\n\\n\\t[{\\\"jsonrpc\\\" : \\\"2.0\\\", \\\"method\\\" : \\n\\t^...............................\\n\""},"id":null}]`,
+			//nolint:lll // We can't break the json value
+			res:             `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"placeholder"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"placeholder"},"id":null}]`,
+			ignoreErrorData: true,
 		},
 		"no method": {
 			req: `{
@@ -370,8 +459,11 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"id should be a string or an integer"},"id":null}`,
 		},
 		"wrong param type": {
+			//nolint:lll // We can't break the json value
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : ["3", false, "error message"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Mismatch type int64 with value number \"at index 1: mismatched type with value\\n\\n\\t\\\"3\\\"\\n\\t.^.\\n\""},"id":3}`,
+			//nolint:lll // We can't break the json value
+			res:             `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"placeholder"},"id":3}`,
+			ignoreErrorData: true,
 		},
 		"multiple versions in batch": {
 			req: `[{"jsonrpc" : "1.0", "method" : "method",
@@ -464,22 +556,30 @@ func TestHandle(t *testing.T) {
 		},
 		"rpc call with invalid JSON": {
 			req: `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"EOF"},"id":null}`,
+			//nolint:lll // We can't break the json value
+			res:             `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"placeholder"},"id":null}`,
+			ignoreErrorData: true,
 		},
 		"rpc call Batch, invalid JSON:": {
 			req: `[
   {"jsonrpc": "2.0", "method": "sum", "params": [1,2,4], "id": "1"},
   {"jsonrpc": "2.0", "method"
 ]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"Syntax error at index 101: expect a ` + "`:`" + `\\n\\n\\t\\n  {\\\"jsonrpc\\\": \\\"2.0\\\", \\\"method\\\"\\n]\\n\\t...............................^\\n\""},"id":null}`,
+			//nolint:lll // We can't break the json value
+			res:             `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"placeholder"},"id":null}`,
+			ignoreErrorData: true,
 		},
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t1\\n\\t^\\n\""},"id":null}]`,
+			//nolint:lll // We can't break the json value
+			res:             `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"placeholder"},"id":null}]`,
+			ignoreErrorData: true,
 		},
 		"rpc call with invalid Batch": {
 			req: `[1,2,3]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t1\\n\\t^\\n\""},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t2\\n\\t^\\n\""},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t3\\n\\t^\\n\""},"id":null}]`,
+			//nolint:lll // We can't break the json value
+			res:             `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"placeholder"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"placeholder"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"placeholder"},"id":null}]`,
+			ignoreErrorData: true,
 		},
 		"fails internally": {
 			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,
@@ -495,6 +595,7 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
 		"empty multiple optional params": {
+			//nolint:lll // We can't break the json value
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": {"param1": 1, "param2": [2, 3]}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
@@ -520,7 +621,11 @@ func TestHandle(t *testing.T) {
 
 			// tests that have an empty response cannot be parsed into a json
 			if test.res != "" {
-				assert.JSONEq(t, test.res, string(res))
+				if test.ignoreErrorData {
+					assertResponseIgnoringErrorData(t, test.res, string(res))
+				} else {
+					assert.JSONEq(t, test.res, string(res))
+				}
 			} else {
 				assert.Equal(t, test.res, string(res))
 			}
