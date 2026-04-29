@@ -3,12 +3,12 @@ package compiler
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
@@ -57,7 +57,7 @@ func (c *compiler) Compile(
 ) (*starknet.CasmClass, error) {
 	c.logger.Debug("Compilation request received")
 
-	sierraJSON, err := json.Marshal(starknet.SierraClass{
+	sierraJSON, err := jsonx.Marshal(starknet.SierraClass{
 		EntryPoints: sierra.EntryPoints,
 		Program:     sierra.Program,
 		Version:     sierra.Version,
@@ -100,7 +100,7 @@ func (c *compiler) Compile(
 	}
 
 	var casmClass starknet.CasmClass
-	if err := json.Unmarshal(stdout.Bytes(), &casmClass); err != nil {
+	if err := jsonx.Unmarshal(stdout.Bytes(), &casmClass); err != nil {
 		return nil, fmt.Errorf("couldn't unmarshall casm class: %w", err)
 	}
 

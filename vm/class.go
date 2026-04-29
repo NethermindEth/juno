@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
@@ -41,5 +42,5 @@ func marshalClassInfo(class core.ClassDefinition) (json.RawMessage, error) {
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
-	return json.Marshal(classInfo)
+	return jsonx.Marshal(classInfo)
 }

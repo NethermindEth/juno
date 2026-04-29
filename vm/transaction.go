@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 // marshalTxn returns a json structure that includes the transaction serde will
@@ -43,7 +44,7 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	default:
 		return nil, fmt.Errorf("unsupported txn type %T", txn)
 	}
-	result, err := json.Marshal(txnAndQueryBit)
+	result, err := jsonx.Marshal(txnAndQueryBit)
 	if err != nil {
 		return nil, err
 	}

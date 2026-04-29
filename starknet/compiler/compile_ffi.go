@@ -16,16 +16,16 @@ extern void freeCstr(char* ptr);
 import "C"
 
 import (
-	"encoding/json"
 	"errors"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 // CompileFFI performs Sierra-to-CASM compilation via direct CGo FFI.
 func CompileFFI(sierra *starknet.SierraClass) (*starknet.CasmClass, error) {
-	sierraJSON, err := json.Marshal(starknet.SierraClass{
+	sierraJSON, err := jsonx.Marshal(starknet.SierraClass{
 		EntryPoints: sierra.EntryPoints,
 		Program:     sierra.Program,
 		Version:     sierra.Version,
@@ -50,7 +50,7 @@ func CompileFFI(sierra *starknet.SierraClass) (*starknet.CasmClass, error) {
 	casmJSON := C.GoString(result)
 
 	var casmClass starknet.CasmClass
-	if err := json.Unmarshal([]byte(casmJSON), &casmClass); err != nil {
+	if err := jsonx.Unmarshal([]byte(casmJSON), &casmClass); err != nil {
 		return nil, err
 	}
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 )
 
@@ -75,16 +76,16 @@ type ClassDefinition struct {
 
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	jsonMap := make(map[string]any)
-	if err := json.Unmarshal(data, &jsonMap); err != nil {
+	if err := jsonx.Unmarshal(data, &jsonMap); err != nil {
 		return err
 	}
 
 	if _, found := jsonMap["sierra_program"]; found {
 		c.Sierra = new(SierraClass)
-		return json.Unmarshal(data, c.Sierra)
+		return jsonx.Unmarshal(data, c.Sierra)
 	}
 	c.DeprecatedCairo = new(DeprecatedCairoClass)
-	return json.Unmarshal(data, c.DeprecatedCairo)
+	return jsonx.Unmarshal(data, c.DeprecatedCairo)
 }
 
 type SegmentLengths struct {
@@ -96,16 +97,16 @@ func (n *SegmentLengths) UnmarshalJSON(data []byte) error {
 	var err error
 	n.Length, err = strconv.ParseUint(string(data), 10, 64)
 	if err != nil {
-		return json.Unmarshal(data, &n.Children)
+		return jsonx.Unmarshal(data, &n.Children)
 	}
 	return err
 }
 
 func (n SegmentLengths) MarshalJSON() ([]byte, error) {
 	if len(n.Children) > 0 {
-		return json.Marshal(n.Children)
+		return jsonx.Marshal(n.Children)
 	}
-	return json.Marshal(n.Length)
+	return jsonx.Marshal(n.Length)
 }
 
 type CasmClass struct {
@@ -130,7 +131,7 @@ type CompiledEntryPoint struct {
 
 func IsDeprecatedCompiledClassDefinition(definition json.RawMessage) (bool, error) {
 	var classMap map[string]json.RawMessage
-	if err := json.Unmarshal(definition, &classMap); err != nil {
+	if err := jsonx.Unmarshal(definition, &classMap); err != nil {
 		return false, err
 	}
 	return len(classMap["program"]) > 0, nil

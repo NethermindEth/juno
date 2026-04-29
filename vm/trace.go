@@ -1,13 +1,13 @@
 package vm
 
 import (
-	"encoding/json"
 	"errors"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 )
 
 type StateDiff struct {
@@ -291,10 +291,10 @@ type ExecuteInvocation struct {
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
+		return jsonx.Marshal(e.FunctionInvocation)
 	}
 	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
+	return jsonx.Marshal(alias(e))
 }
 
 type OrderedEvent struct {

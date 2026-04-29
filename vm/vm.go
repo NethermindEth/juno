@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
@@ -387,7 +388,7 @@ func (v *vm) Call(
 	stateDiff := StateDiff{}
 	if returnStateDiff {
 		for _, statediffJSON := range context.stateDiff {
-			err := json.Unmarshal(statediffJSON, &stateDiff)
+			err := jsonx.Unmarshal(statediffJSON, &stateDiff)
 			if err != nil {
 				return CallResult{}, fmt.Errorf("unmarshal state diff: %v", err)
 			}
@@ -439,7 +440,7 @@ func (v *vm) prepareExecutionInputs(
 		return nil, err
 	}
 
-	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
+	paidFeesOnL1Bytes, err := jsonx.Marshal(paidFeesOnL1)
 	if err != nil {
 		handle.Delete()
 		return nil, err
@@ -470,15 +471,13 @@ func parseExecutionResults(context *callContext) (ExecutionResults, error) {
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
-		err := json.Unmarshal(traceJSON, &traces[index])
-		if err != nil {
+		if err := jsonx.Unmarshal(traceJSON, &traces[index]); err != nil {
 			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %w", err)
 		}
 	}
 	receipts := make([]TransactionReceipt, len(context.receipts))
 	for index, receiptJSON := range context.receipts {
-		err := json.Unmarshal(receiptJSON, &receipts[index])
-		if err != nil {
+		if err := jsonx.Unmarshal(receiptJSON, &receipts[index]); err != nil {
 			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %w", err)
 		}
 	}
@@ -486,8 +485,7 @@ func parseExecutionResults(context *callContext) (ExecutionResults, error) {
 	var initialReads *InitialReads
 	if len(context.initialReads) > 0 {
 		var reads InitialReads
-		err := json.Unmarshal(context.initialReads, &reads)
-		if err != nil {
+		if err := jsonx.Unmarshal(context.initialReads, &reads); err != nil {
 			return ExecutionResults{}, fmt.Errorf("unmarshal initial reads: %w", err)
 		}
 		initialReads = &reads
@@ -652,11 +650,11 @@ func marshalTxnsAndDeclaredClasses(
 		classJSONs = append(classJSONs, declaredClassJSON)
 	}
 
-	txnsJSON, err := json.Marshal(txnJSONs)
+	txnsJSON, err := jsonx.Marshal(txnJSONs)
 	if err != nil {
 		return nil, nil, err
 	}
-	classesJSON, err := json.Marshal(classJSONs)
+	classesJSON, err := jsonx.Marshal(classJSONs)
 	if err != nil {
 		return nil, nil, err
 	}
