@@ -6,11 +6,14 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/require"
 )
@@ -22,17 +25,17 @@ const (
 
 func TestLazySlice(t *testing.T) {
 	t.Run("BroadcastedTransaction", func(t *testing.T) {
-		runTest[rpcv9.BroadcastedTransactionInputs, rpccore.SimulationLimit](
+		runTest[rpcv10.BroadcastedTransactionInputs, rpccore.SimulationLimit](
 			t,
 			func(length int) []byte {
 				return []byte(jsonArrayString("{}", length))
 			},
-			func(length int) rpcv9.BroadcastedTransactionInputs {
-				return rpcv9.BroadcastedTransactionInputs{
-					Data: make([]rpcv9.BroadcastedTransaction, length),
+			func(length int) rpcv10.BroadcastedTransactionInputs {
+				return rpcv10.BroadcastedTransactionInputs{
+					Data: make([]rpcv10.BroadcastedTransaction, length),
 				}
 			},
-			func(transactions *rpcv9.BroadcastedTransactionInputs) {
+			func(transactions *rpcv10.BroadcastedTransactionInputs) {
 				for i := range transactions.Data {
 					transactions.Data[i] = randomBroadcastedTransaction(t)
 				}
@@ -41,14 +44,14 @@ func TestLazySlice(t *testing.T) {
 	})
 
 	t.Run("FunctionCall", func(t *testing.T) {
-		runTest[rpcv9.FunctionCall, rpccore.FunctionCalldataLimit](
+		runTest[rpcv10.FunctionCall, rpccore.FunctionCalldataLimit](
 			t,
 			func(length int) []byte {
 				return []byte(`{"calldata":` + jsonArrayString(`"0x0"`, length) + `}`)
 			},
-			func(length int) rpcv9.FunctionCall {
-				return rpcv9.FunctionCall{
-					Calldata: rpcv9.CalldataInputs{
+			func(length int) rpcv10.FunctionCall {
+				return rpcv10.FunctionCall{
+					Calldata: rpcv10.CalldataInputs{
 						Data: make([]felt.Felt, length),
 					},
 				}
@@ -59,10 +62,10 @@ func TestLazySlice(t *testing.T) {
 	})
 
 	t.Run("FunctionCall rejects non-hex calldata", func(t *testing.T) {
-		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":["123"]}`))
-		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":["abcd"]}`))
-		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":[123]}`))
-		assertFailed[rpcv9.FunctionCall](t, []byte(`{"calldata":"0x1g"}`))
+		assertFailed[rpcv10.FunctionCall](t, []byte(`{"calldata":["123"]}`))
+		assertFailed[rpcv10.FunctionCall](t, []byte(`{"calldata":["abcd"]}`))
+		assertFailed[rpcv10.FunctionCall](t, []byte(`{"calldata":[123]}`))
+		assertFailed[rpcv10.FunctionCall](t, []byte(`{"calldata":"0x1g"}`))
 	})
 
 	// This test ensures that the validation logic works for the values inside the Data slice.
@@ -85,6 +88,168 @@ func TestLazySlice(t *testing.T) {
 		validate := validator.New()
 		err := validate.Struct(withEmptyValues)
 		require.Error(t, err, "Validation is not working for the values inside the Data slice")
+	})
+}
+
+type smallLimit struct{}
+
+func (smallLimit) Limit() int { return 3 }
+
+// counted is a T whose UnmarshalJSON increments a package-level counter,
+// so the test can observe how many elements were actually decoded into T.
+type counted struct{ N int }
+
+var countedDecodes atomic.Int64
+
+func (c *counted) UnmarshalJSON(data []byte) error {
+	countedDecodes.Add(1)
+	return jsonx.Unmarshal(data, &c.N)
+}
+
+func TestLimitSliceLaziness(t *testing.T) {
+	const (
+		total      = 1_000_000 // total elements in the payload
+		simulation = 5000      // value of SimulationLimit
+	)
+
+	var b strings.Builder
+	b.WriteByte('[')
+	for i := 0; i < total; i++ {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString("0")
+	}
+	b.WriteByte(']')
+	payload := []byte(b.String())
+
+	type Slice = rpccore.LimitSlice[counted, rpccore.SimulationLimit]
+	var s Slice
+
+	countedDecodes.Store(0)
+	start := time.Now()
+	err := s.UnmarshalJSON(payload)
+	elapsed := time.Since(start)
+	decoded := countedDecodes.Load()
+
+	require.ErrorContains(t, err, "expected max 5000 items")
+	// If sonic lazily skipped past the limit, decoded == cap. If sonic
+	// pre-parsed the whole 1M array we'd see decoded much higher, or
+	// elapsed would be in the seconds (a full sonic Parse + 1M decodes).
+	require.EqualValues(t, simulation, decoded,
+		"T.UnmarshalJSON ran %d times; expected exactly cap=%d", decoded, simulation)
+	require.Less(t, elapsed, 200*time.Millisecond,
+		"unmarshal of 1M-element payload past 5K cap took %v; lazy path should finish in tens of ms", elapsed)
+
+	t.Logf("payload=%d bytes, total elements=%d, cap=%d, decoded=%d, elapsed=%v",
+		len(payload), total, simulation, decoded, elapsed)
+}
+
+func TestLimitSliceEdgeCases(t *testing.T) {
+	type IntSlice = rpccore.LimitSlice[int, smallLimit]
+	type StrSlice = rpccore.LimitSlice[string, smallLimit]
+	type NestedSlice = rpccore.LimitSlice[[]int, smallLimit]
+
+	t.Run("whitespace tolerated", func(t *testing.T) {
+		for _, in := range []string{
+			"[1,2,3]",
+			"[ 1 , 2 , 3 ]",
+			"[\n1,\t2,\r3]",
+			"[\n\t1\t,\n2\r,3\n]",
+		} {
+			var s IntSlice
+			require.NoError(t, jsonx.Unmarshal([]byte(in), &s), in)
+			require.Equal(t, []int{1, 2, 3}, s.Data, in)
+		}
+	})
+
+	t.Run("empty array", func(t *testing.T) {
+		for _, in := range []string{"[]", "[ ]", "[\n\t ]"} {
+			var s IntSlice
+			require.NoError(t, jsonx.Unmarshal([]byte(in), &s), in)
+			require.Equal(t, []int{}, s.Data, in)
+		}
+	})
+
+	t.Run("trailing comma rejected", func(t *testing.T) {
+		for _, in := range []string{"[1,]", "[1,2,]", "[ 1 , ]"} {
+			var s IntSlice
+			require.Error(t, jsonx.Unmarshal([]byte(in), &s), in)
+		}
+	})
+
+	t.Run("missing closing bracket", func(t *testing.T) {
+		for _, in := range []string{"[", "[1", "[1,", "[1,2"} {
+			var s IntSlice
+			require.Error(t, jsonx.Unmarshal([]byte(in), &s), in)
+		}
+	})
+
+	t.Run("not an array", func(t *testing.T) {
+		for _, in := range []string{"null", "42", `"x"`, "{}", "true"} {
+			var s IntSlice
+			require.Error(t, jsonx.Unmarshal([]byte(in), &s), in)
+		}
+	})
+
+	t.Run("empty or whitespace-only input", func(t *testing.T) {
+		for _, in := range []string{"", " ", "\n\t\r"} {
+			var s IntSlice
+			require.Error(t, jsonx.Unmarshal([]byte(in), &s), in)
+		}
+	})
+
+	t.Run("invalid separator between values", func(t *testing.T) {
+		for _, in := range []string{"[1 2]", "[1;2]", "[1:2]"} {
+			var s IntSlice
+			require.Error(t, jsonx.Unmarshal([]byte(in), &s), in)
+		}
+	})
+
+	t.Run("nested arrays counted as one element each", func(t *testing.T) {
+		var s NestedSlice
+		require.NoError(t, jsonx.Unmarshal([]byte("[[1,2],[3],[]]"), &s))
+		require.Equal(t, [][]int{{1, 2}, {3}, {}}, s.Data)
+	})
+
+	t.Run("strings containing structural characters", func(t *testing.T) {
+		var s StrSlice
+		require.NoError(t, jsonx.Unmarshal([]byte(`["a,b","c]d","e[f"]`), &s))
+		require.Equal(t, []string{"a,b", "c]d", "e[f"}, s.Data)
+	})
+
+	t.Run("escaped characters inside strings", func(t *testing.T) {
+		var s StrSlice
+		require.NoError(t, jsonx.Unmarshal([]byte(`["a\"b","c\\","\""]`), &s))
+		require.Equal(t, []string{`a"b`, `c\`, `"`}, s.Data)
+	})
+
+	t.Run("element parse error surfaces", func(t *testing.T) {
+		var s IntSlice
+		err := jsonx.Unmarshal([]byte(`[1,"x",3]`), &s)
+		require.Error(t, err)
+	})
+
+	t.Run("UnmarshalJSON enforces limit without upstream validation", func(t *testing.T) {
+		// Direct UnmarshalJSON call exercises the limit guard in
+		// isolation (no upstream Unmarshal pre-validation). Element 4
+		// is valid JSON, but the limit check rejects before sonic ever
+		// decodes it into T.
+		var s IntSlice
+		err := s.UnmarshalJSON([]byte("[1,2,3,4]"))
+		require.ErrorContains(t, err, "expected max 3 items")
+	})
+
+	t.Run("at limit boundary succeeds", func(t *testing.T) {
+		var s IntSlice
+		require.NoError(t, jsonx.Unmarshal([]byte("[1,2,3]"), &s))
+		require.Len(t, s.Data, 3)
+	})
+
+	t.Run("one over limit fails", func(t *testing.T) {
+		var s IntSlice
+		err := jsonx.Unmarshal([]byte("[1,2,3,4]"), &s)
+		require.ErrorContains(t, err, "expected max 3 items")
 	})
 }
 
@@ -132,7 +297,7 @@ func runTest[T any, L rpccore.Limit](
 					expected := buildEmptyExpected(testCase.length)
 					populateFullStruct(&expected)
 
-					input, err := json.Marshal(expected)
+					input, err := jsonx.Marshal(expected)
 					require.NoError(t, err)
 
 					if testCase.expected {
@@ -149,7 +314,7 @@ func runTest[T any, L rpccore.Limit](
 func assertPassed[T any](t *testing.T, data []byte, expected T) {
 	t.Helper()
 	var actual T
-	err := json.Unmarshal(data, &actual)
+	err := jsonx.Unmarshal(data, &actual)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 }
@@ -157,7 +322,7 @@ func assertPassed[T any](t *testing.T, data []byte, expected T) {
 func assertFailed[T any](t *testing.T, data []byte) {
 	t.Helper()
 	var actual T
-	require.Error(t, json.Unmarshal(data, &actual))
+	require.Error(t, jsonx.Unmarshal(data, &actual))
 }
 
 func jsonArrayString(element string, length int) string {
@@ -178,33 +343,33 @@ func randomEnum[T any](values ...T) T {
 	return values[rand.IntN(len(values))]
 }
 
-func randomBroadcastedTransaction(t *testing.T) rpcv9.BroadcastedTransaction {
+func randomBroadcastedTransaction(t *testing.T) rpcv10.BroadcastedTransaction {
 	t.Helper()
 	transactionType := randomEnum(
-		rpcv9.TxnInvoke,
-		rpcv9.TxnDeploy,
-		rpcv9.TxnDeployAccount,
-		rpcv9.TxnDeclare,
-		rpcv9.TxnL1Handler,
+		rpcv10.TxnInvoke,
+		rpcv10.TxnDeploy,
+		rpcv10.TxnDeployAccount,
+		rpcv10.TxnDeclare,
+		rpcv10.TxnL1Handler,
 	)
-	feeDAMode := randomEnum(rpcv9.DAModeL1, rpcv9.DAModeL2)
-	nonceDAMode := randomEnum(rpcv9.DAModeL1, rpcv9.DAModeL2)
-	resourceBounds := rpcv9.ResourceBoundsMap{
-		L1Gas: &rpcv9.ResourceBounds{
+	feeDAMode := randomEnum(rpcv10.DAModeL1, rpcv10.DAModeL2)
+	nonceDAMode := randomEnum(rpcv10.DAModeL1, rpcv10.DAModeL2)
+	resourceBounds := rpcv10.ResourceBoundsMap{
+		L1Gas: &rpcv10.ResourceBounds{
 			MaxAmount:       felt.NewRandom[felt.Felt](),
 			MaxPricePerUnit: felt.NewRandom[felt.Felt](),
 		},
-		L2Gas: &rpcv9.ResourceBounds{
+		L2Gas: &rpcv10.ResourceBounds{
 			MaxAmount:       felt.NewRandom[felt.Felt](),
 			MaxPricePerUnit: felt.NewRandom[felt.Felt](),
 		},
-		L1DataGas: &rpcv9.ResourceBounds{
+		L1DataGas: &rpcv10.ResourceBounds{
 			MaxAmount:       felt.NewRandom[felt.Felt](),
 			MaxPricePerUnit: felt.NewRandom[felt.Felt](),
 		},
 	}
-	return rpcv9.BroadcastedTransaction{
-		Transaction: rpcv9.Transaction{
+	return rpcv10.BroadcastedTransaction{
+		Transaction: rpcv10.Transaction{
 			Hash:                  felt.NewRandom[felt.Felt](),
 			Type:                  transactionType,
 			Version:               felt.NewRandom[felt.Felt](),

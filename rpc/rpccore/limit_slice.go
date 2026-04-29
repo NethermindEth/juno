@@ -1,9 +1,10 @@
 package rpccore
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
+
+	"github.com/NethermindEth/juno/utils/jsonx"
+	"github.com/bytedance/sonic/ast"
 )
 
 type Limit interface {
@@ -31,39 +32,50 @@ type LimitSlice[T any, L Limit] struct {
 }
 
 func (l LimitSlice[T, L]) MarshalJSON() ([]byte, error) {
-	return json.Marshal(l.Data)
+	return jsonx.Marshal(l.Data)
 }
 
+// UnmarshalJSON walks the input array via sonic's lazy AST iterator and
+// rejects as soon as the count exceeds L.Limit(), without decoding any
+// subsequent elements. This guards against payloads where each element
+// is cheap to encode but expensive to materialise as T (e.g. zero-valued
+// structs with many pointer fields).
 func (l *LimitSlice[T, L]) UnmarshalJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
+	if len(data) == 0 {
+		return fmt.Errorf("empty input")
+	}
 
-	if err := expectDelim(decoder, '['); err != nil {
+	// (*ast.Node).UnmarshalJSON aliases data via sonic's internal
+	// zero-copy []byte→string. The node is initially raw; first access
+	// (via Values below) promotes it to a lazy array so iteration
+	// scans one element at a time.
+	var node ast.Node
+	if err := node.UnmarshalJSON(data); err != nil {
+		return err
+	}
+
+	iter, err := node.Values()
+	if err != nil {
 		return err
 	}
 
 	var limit L
+	maxItems := limit.Limit()
 	l.Data = []T{}
-	for decoder.More() {
-		if len(l.Data) >= limit.Limit() {
-			return fmt.Errorf("expected max %d items", limit.Limit())
+	var elem ast.Node
+	for iter.Next(&elem) {
+		if len(l.Data) >= maxItems {
+			return fmt.Errorf("expected max %d items", maxItems)
 		}
-		var value T
-		if err := decoder.Decode(&value); err != nil {
+		raw, err := elem.Raw()
+		if err != nil {
 			return err
 		}
-		l.Data = append(l.Data, value)
-	}
-
-	return expectDelim(decoder, ']')
-}
-
-func expectDelim(decoder *json.Decoder, delim json.Delim) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	if token != delim {
-		return fmt.Errorf("expected %s, got %s", delim, token)
+		var v T
+		if err := jsonx.UnmarshalString(raw, &v); err != nil {
+			return err
+		}
+		l.Data = append(l.Data, v)
 	}
 	return nil
 }
