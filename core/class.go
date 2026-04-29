@@ -108,6 +108,13 @@ type SierraEntryPointsByType struct {
 	L1Handler   []SierraEntryPoint
 }
 
+type sierraEntryPoint interface {
+	~struct {
+		Selector *felt.Felt
+		Index    uint64
+	}
+}
+
 type SierraEntryPoint struct {
 	Selector *felt.Felt
 	Index    uint64
@@ -117,23 +124,49 @@ func (c *SierraClass) Version() uint64 {
 	return 1
 }
 
+// Hash calculates the class hash for a Sierra class.
 func (c *SierraClass) Hash() (felt.Felt, error) {
+	return CalculateSierraClassHash(
+		c.Program,
+		c.SemanticVersion,
+		c.EntryPoints.Constructor,
+		c.EntryPoints.External,
+		c.EntryPoints.L1Handler,
+		c.Abi,
+	)
+}
+
+// CalculateSierraClassHash calculates the class hash for a Sierra class.
+func CalculateSierraClassHash[
+	SE sierraEntryPoint,
+	EntryPoints []SE,
+](
+	program []*felt.Felt,
+	version string,
+	constructor []SE,
+	external []SE,
+	l1Handler []SE,
+	abi string,
+) (felt.Felt, error) {
 	externalEntryPointsHash := crypto.PoseidonArray(
-		flattenSierraEntryPoints(c.EntryPoints.External)...,
+		flattenSierraEntryPoints(external)...,
 	)
 	l1HandlerEntryPointsHash := crypto.PoseidonArray(
-		flattenSierraEntryPoints(c.EntryPoints.L1Handler)...,
+		flattenSierraEntryPoints(l1Handler)...,
 	)
 	constructorHash := crypto.PoseidonArray(
-		flattenSierraEntryPoints(c.EntryPoints.Constructor)...,
+		flattenSierraEntryPoints(constructor)...,
 	)
+	programHash := crypto.PoseidonArray(program...)
+	abiHash := crypto.StarknetKeccak([]byte(abi))
+
 	return crypto.PoseidonArray(
-		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
+		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+version)),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
 		&constructorHash,
-		c.AbiHash,
-		c.ProgramHash,
+		&abiHash,
+		&programHash,
 	), nil
 }
 
@@ -277,13 +310,14 @@ func SegmentedBytecodeHash(
 	return hash
 }
 
-func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
+func flattenSierraEntryPoints[SE sierraEntryPoint](entryPoints []SE) []*felt.Felt {
 	result := make([]*felt.Felt, len(entryPoints)*2)
 	for i, entryPoint := range entryPoints {
+		temp := SierraEntryPoint(entryPoint)
 		// It is important that Selector is first because the order
 		// influences the class hash.
-		result[2*i] = entryPoint.Selector
-		result[2*i+1] = felt.NewFromUint64[felt.Felt](entryPoint.Index)
+		result[2*i] = temp.Selector
+		result[2*i+1] = felt.NewFromUint64[felt.Felt](temp.Index)
 	}
 	return result
 }
