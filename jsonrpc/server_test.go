@@ -209,11 +209,11 @@ func TestHandle(t *testing.T) {
 	}{
 		"invalid json": {
 			req: `{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"EOF"},"id":null}`,
 		},
 		"invalid json batch path": {
 			req: `[{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"Syntax error at index 2: expect a json key\\n\\n\\t[{]\\n\\t..^\\n\""},"id":null}`,
 		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
@@ -313,7 +313,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 }}],
 					[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 }}]]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value array \"at index 0: mismatched type with value\\n\\n\\t[{\\\"jsonrpc\\\" : \\\"2.0\\\", \\\"method\\\" : \\n\\t^...............................\\n\""},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value array \"at index 0: mismatched type with value\\n\\n\\t[{\\\"jsonrpc\\\" : \\\"2.0\\\", \\\"method\\\" : \\n\\t^...............................\\n\""},"id":null}]`,
 		},
 		"no method": {
 			req: `{
@@ -371,7 +371,7 @@ func TestHandle(t *testing.T) {
 		},
 		"wrong param type": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : ["3", false, "error message"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal string into Go value of type int"},"id":3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Mismatch type int64 with value number \"at index 1: mismatched type with value\\n\\n\\t\\\"3\\\"\\n\\t.^.\\n\""},"id":3}`,
 		},
 		"multiple versions in batch": {
 			req: `[{"jsonrpc" : "1.0", "method" : "method",
@@ -464,22 +464,22 @@ func TestHandle(t *testing.T) {
 		},
 		"rpc call with invalid JSON": {
 			req: `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character 'p' after object key:value pair"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"EOF"},"id":null}`,
 		},
 		"rpc call Batch, invalid JSON:": {
 			req: `[
   {"jsonrpc": "2.0", "method": "sum", "params": [1,2,4], "id": "1"},
   {"jsonrpc": "2.0", "method"
 ]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' after object key"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"Syntax error at index 101: expect a ` + "`:`" + `\\n\\n\\t\\n  {\\\"jsonrpc\\\": \\\"2.0\\\", \\\"method\\\"\\n]\\n\\t...............................^\\n\""},"id":null}`,
 		},
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t1\\n\\t^\\n\""},"id":null}]`,
 		},
 		"rpc call with invalid Batch": {
 			req: `[1,2,3]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t1\\n\\t^\\n\""},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t2\\n\\t^\\n\""},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"Mismatch type jsonrpc.Request with value number \"at index 0: mismatched type with value\\n\\n\\t3\\n\\t^\\n\""},"id":null}]`,
 		},
 		"fails internally": {
 			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,

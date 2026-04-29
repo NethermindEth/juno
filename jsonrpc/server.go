@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
@@ -331,7 +332,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 
 	header := http.Header{}
 
-	dec := json.NewDecoder(bufferedReader)
+	dec := jsonx.NewDecoder(bufferedReader)
 	dec.UseNumber()
 
 	if !requestIsBatch {
@@ -366,7 +367,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		return nil, header, nil
 	}
 
-	result, err := json.Marshal(resp)
+	result, err := jsonx.Marshal(resp)
 	return result, header, err
 }
 
@@ -378,7 +379,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	)
 
 	addResponse := func(response any, header http.Header) {
-		if responseJSON, err := json.Marshal(response); err != nil {
+		if responseJSON, err := jsonx.Marshal(response); err != nil {
 			s.logger.Error("failed to marshal response", zap.Error(err))
 		} else {
 			mutex.Lock()
@@ -393,7 +394,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 	var wg sync.WaitGroup
 	for _, rawReq := range batchReq {
-		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
+		reqDec := jsonx.NewDecoder(bytes.NewBuffer(rawReq))
 		reqDec.UseNumber()
 
 		req := new(Request)
@@ -443,7 +444,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		return nil, finalHeaders, nil
 	}
 
-	result, err := json.Marshal(responses)
+	result, err := jsonx.Marshal(responses)
 
 	return result, finalHeaders, err // todo: fix batch request aggregate header
 }
@@ -532,8 +533,8 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 		res.Error = errAny.(*Error)
 		if res.Error.Code == InternalError {
 			s.listener.OnRequestFailed(req.Method, res.Error)
-			reqJSON, _ := json.Marshal(req)
-			errJSON, _ := json.Marshal(res.Error)
+			reqJSON, _ := jsonx.Marshal(req)
+			errJSON, _ := jsonx.Marshal(res.Error)
 			s.logger.Debug("Failed handing RPC request",
 				zap.String("req", log.SanitizeString(string(reqJSON))),
 				zap.String("res", log.SanitizeString(string(errJSON))),
@@ -643,11 +644,11 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 
 func (s *Server) parseParam(param any, t reflect.Type) (reflect.Value, error) {
 	handlerParam := reflect.New(t)
-	valueMarshaled, err := json.Marshal(param) // we have to marshal the value into JSON again
+	valueMarshaled, err := jsonx.Marshal(param)
 	if err != nil {
 		return reflect.ValueOf(nil), err
 	}
-	err = json.Unmarshal(valueMarshaled, handlerParam.Interface())
+	err = jsonx.Unmarshal(valueMarshaled, handlerParam.Interface())
 	if err != nil {
 		return reflect.ValueOf(nil), err
 	}
