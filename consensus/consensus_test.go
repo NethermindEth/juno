@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/p2p/dht"
@@ -67,7 +68,11 @@ func getBlockchain(
 	t.Helper()
 	testDB := memory.New()
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
 	return bc
 }
@@ -97,6 +102,7 @@ func loadGenesis(
 		&network,
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

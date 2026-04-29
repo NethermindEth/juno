@@ -13,6 +13,8 @@ import (
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	st "github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
@@ -100,14 +102,29 @@ func GenesisStateDiff(
 	network *networks.Network,
 	maxSteps uint64,
 	maxGas uint64,
+	useNewState bool,
 	compiler compiler.Compiler,
 ) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
+
+	var state core.StateReader
+	var err error
+	if !useNewState {
+		state = deprecatedstate.New(memDB.NewIndexedBatch())
+	} else {
+		triedb := triedb.New(memDB, nil)
+		stateDB := st.NewStateDB(memDB, triedb)
+		state, err = st.NewStateReader(&felt.Zero, stateDB)
+		if err != nil {
+			return core.StateDiff{}, nil, err
+		}
+	}
+
 	genesisState := pending.NewStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
-		deprecatedstate.New(memDB.NewIndexedBatch()),
+		state,
 	)
 
 	if err := declareClasses(ctx, config, &genesisState, compiler); err != nil {

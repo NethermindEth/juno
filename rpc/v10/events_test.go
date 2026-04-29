@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -178,7 +179,11 @@ func setupTestChain(
 ) (*blockchain.Blockchain, *adaptfeeder.Feeder) {
 	t.Helper()
 	testDB := memory.New()
-	chain := blockchain.New(testDB, network)
+	chain := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)

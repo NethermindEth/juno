@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
@@ -215,7 +216,11 @@ func getBlockchain(t *testing.T) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	return bc
 }
 
@@ -241,6 +246,7 @@ func getBuilder(t *testing.T, logger log.Logger, bc *blockchain.Blockchain) *bui
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

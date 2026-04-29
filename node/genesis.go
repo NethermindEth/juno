@@ -20,6 +20,7 @@ func buildGenesis(
 	v vm.VM,
 	maxSteps uint64,
 	maxGas uint64,
+	useNewState bool,
 	compiler compiler.Compiler,
 ) error {
 	if _, err := bc.Height(); !errors.Is(err, db.ErrKeyNotFound) {
@@ -42,6 +43,7 @@ func buildGenesis(
 			bc.Network(),
 			maxSteps,
 			maxGas,
+			useNewState,
 			compiler,
 		)
 		if err != nil {

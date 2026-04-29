@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
@@ -31,7 +32,11 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -105,7 +110,11 @@ func getGenesisSequencer(
 
 	testDB := memory.New()
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	logger := log.NewNopZapLogger()
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
@@ -130,6 +139,7 @@ func getGenesisSequencer(
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

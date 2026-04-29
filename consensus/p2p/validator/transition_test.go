@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
@@ -31,7 +32,11 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 	t.Helper()
 	testDB := memory.New()
 	network := &networks.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(
+		testDB,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	logger := log.NewNopZapLogger()
 
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -57,6 +62,7 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 		bc.Network(),
 		vm.DefaultMaxSteps,
 		vm.DefaultMaxGas,
+		statetestutils.UseNewState(),
 		compiler.NewUnsafe(),
 	)
 	require.NoError(t, err)

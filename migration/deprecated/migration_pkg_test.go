@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -89,7 +90,11 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 func TestRecalculateBloomFilters(t *testing.T) {
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &networks.Mainnet)
+	chain := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 

@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
@@ -53,7 +54,11 @@ func TestProposalStreamDemux(t *testing.T) {
 
 	executor := NewMockExecutor(t, network)
 	database := memory.New()
-	bc := blockchain.New(database, network)
+	bc := blockchain.New(
+		database,
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	builder := builder.New(bc, executor)
 	transition := NewTransition(&builder, nil)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}

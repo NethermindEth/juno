@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -36,7 +37,11 @@ func TestStateUpdate(t *testing.T) {
 	n := &networks.Mainnet
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)

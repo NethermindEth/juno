@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	pendingpkg "github.com/NethermindEth/juno/core/pending"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -549,10 +550,18 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.NoError(t, err)
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &networks.Mainnet)
+	chain := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-	chain = blockchain.New(testDB, &networks.Mainnet)
+	chain = blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	syncer := newFakeSyncer()
 
 	ctx, cancel := context.WithCancel(t.Context())

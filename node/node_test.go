@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/node"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -76,7 +77,11 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			logger := log.NewNopZapLogger()
 			database, err := pebblev2.New(dbPath)
 			require.NoError(t, err)
-			chain := blockchain.New(database, &network)
+			chain := blockchain.New(
+				database,
+				&network,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
 			syncer := sync.New(chain, dataSource, logger, 0, 0, false, database).
@@ -95,6 +100,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 				DatabasePath:                       dbPath,
 				DBCompression:                      "zstd",
 				Network:                            test.network,
+				NewState:                           statetestutils.UseNewState(),
 				DisableL1Verification:              true,
 				SubmittedTransactionsCacheEntryTTL: time.Second,
 			}, "v0.1", logLevel)

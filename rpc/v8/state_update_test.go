@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -33,7 +34,11 @@ func TestStateUpdate(t *testing.T) {
 	n := &networks.Mainnet
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 
 			handler := rpc.New(chain, mockSyncReader, nil, nil)
 

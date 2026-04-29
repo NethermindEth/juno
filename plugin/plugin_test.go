@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -40,7 +41,11 @@ func TestPlugin(t *testing.T) {
 		require.NoError(t, err)
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
-	bc := blockchain.New(testDB, &networks.Integration)
+	bc := blockchain.New(
+		testDB,
+		&networks.Integration,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, integGw)
 	synchronizer := sync.New(
 		bc,
@@ -57,7 +62,11 @@ func TestPlugin(t *testing.T) {
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		bc := blockchain.New(testDB, &networks.Mainnet)
+		bc := blockchain.New(
+			testDB,
+			&networks.Mainnet,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()

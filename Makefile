@@ -73,6 +73,9 @@ clean-testcache: ## Clean Go test cache
 test: clean-testcache rustdeps ## Run tests
 	go test $(GO_TAGS) ./...
 
+test-new-state: clean-testcache rustdeps ## Run tests with new state
+	JUNO_NEW_STATE=true go test $(GO_TAGS) ./...
+
 test-cached: rustdeps ## Run cached tests
 	go test $(GO_TAGS) ./...
 
@@ -82,10 +85,11 @@ test-race: clean-testcache rustdeps ## Run tests with race detection
 benchmarks: rustdeps ## Run benchmarks
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
-test-cover: clean-testcache rustdeps ## Run tests with coverage
+test-cover: clean-testcache rustdeps ## Run tests with coverage in both old- and new-state modes
 	mkdir -p coverage
-	go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.out -covermode=atomic $(PKG)
-	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+	go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.old.out -covermode=atomic $(PKG)
+	JUNO_NEW_STATE=true go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.new.out -covermode=atomic $(PKG)
+	go tool cover -html=coverage/coverage.old.out -o coverage/coverage.html
 
 install-deps: install-gofumpt install-mockgen install-golangci-lint check-rust ## Install dependencies
 

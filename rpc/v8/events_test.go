@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -21,7 +22,11 @@ import (
 func TestEvents(t *testing.T) {
 	testDB := memory.New()
 	n := &networks.Sepolia
-	chain := blockchain.New(testDB, n)
+	chain := blockchain.New(
+		testDB,
+		n,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

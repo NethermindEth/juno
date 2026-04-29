@@ -157,6 +157,7 @@ const (
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
+	defaultNewState                           = false
 	defaultDisableRPCBatchRequests            = false
 	defaultDBCompactionConcurrency            = ""
 	defaultDBMemtableSize                     = 256
@@ -165,6 +166,7 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
 	defaultDisableReceivedTxnStream           = false
+	newStateF                                 = "new-state"
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -257,6 +259,7 @@ const (
 		"submitted through this node — these transactions are local to the node " +
 		"and are not sourced from the network. When this flag is enabled, the " +
 		"node will no longer notify subscribers about transactions submitted through it."
+	newStateUsage = "EXPERIMENTAL: Use the new state package implementation"
 )
 
 var Version string
@@ -475,6 +478,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
 	)
+	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)

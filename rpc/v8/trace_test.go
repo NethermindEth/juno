@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -563,7 +564,11 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			logger := log.NewNopZapLogger()
 			n := &networks.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
 			handler := rpc.New(chain, nil, nil, logger)
 
 			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
