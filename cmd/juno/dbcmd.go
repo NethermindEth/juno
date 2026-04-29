@@ -323,7 +323,11 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getNetwork(head *core.Block, stateDiff *core.StateDiff, trieBackend core.TempTrieBackend) string {
+func getNetwork(
+	head *core.Block,
+	stateDiff *core.StateDiff,
+	trieBackend core.TempTrieBackend,
+) string {
 	networks := []*networks.Network{
 		&networks.Mainnet,
 		&networks.Sepolia,
