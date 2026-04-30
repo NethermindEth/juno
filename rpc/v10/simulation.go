@@ -313,14 +313,16 @@ func (h *Handler) prepareTransactions(
 			)
 		}
 
-		txn, declaredClass, _, aErr := AdaptBroadcastedTransaction(
-			ctx,
-			h.compiler,
-			&transactions[idx],
-			network,
+		txn, err := AdaptBroadcastedTransactionToCore(ctx, &transactions[idx], h.bcReader.Network())
+		if err != nil {
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
+		}
+
+		declaredClass, err := CompileBroadcastedDeclareTxn(
+			ctx, h.compiler, &transactions[idx],
 		)
-		if aErr != nil {
-			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
+		if err != nil {
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
 		}
 
 		txns[idx] = txn

@@ -1910,16 +1910,15 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			"validation should pass for INVOKE v3 transaction with proof and proof_facts",
 		)
 
-		_, _, _, err = rpcv10.AdaptBroadcastedTransaction(
+		_, err = rpcv10.AdaptBroadcastedTransactionToCore(
 			t.Context(),
-			nil,
 			correctBroadcastedTxn,
 			network,
 		)
 		require.NoError(
 			t,
 			err,
-			"AdaptBroadcastedTransaction should succeed for valid INVOKE v3 with proof and proof_facts",
+			"AdaptBroadcastedTransactionToCore should succeed for valid INVOKE v3 with proof and proof_facts",
 		)
 	})
 }
