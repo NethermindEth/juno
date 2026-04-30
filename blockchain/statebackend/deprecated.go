@@ -177,7 +177,7 @@ func (b *deprecatedStateBackend) Simulate(
 		return SimulateResult{}, err
 	}
 
-	commitments, err := updateBlockHash(block, stateUpdate, b.network)
+	commitments, err := updateBlockHash(block, stateUpdate, b.network, core.DeprecatedTrieBackend)
 	if err != nil {
 		return SimulateResult{}, err
 	}
@@ -215,7 +215,7 @@ func (b *deprecatedStateBackend) Finalise(
 			return err
 		}
 
-		commitments, err := updateBlockHash(block, stateUpdate, b.network)
+		commitments, err := updateBlockHash(block, stateUpdate, b.network, core.DeprecatedTrieBackend)
 		if err != nil {
 			return err
 		}
@@ -242,4 +242,11 @@ func (b *deprecatedStateBackend) Finalise(
 	}
 
 	return b.runningFilter.Insert(block.EventsBloom, block.Number)
+}
+
+func (b *deprecatedStateBackend) VerifyBlockHash(
+	block *core.Block,
+	stateDiff *core.StateDiff,
+) (*core.BlockCommitments, error) {
+	return core.VerifyBlockHash(block, b.network, stateDiff, core.DeprecatedTrieBackend)
 }

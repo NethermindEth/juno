@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,7 @@ import (
 //nolint:dupl
 func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 	t.Run("nil", func(t *testing.T) {
-		c, err := transactionCommitmentPoseidon0134(nil)
+		c, err := transactionCommitmentPoseidon0134(nil, testTrieBackend())
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, c)
 	})
@@ -47,7 +48,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 			txs = append(txs, invoke, deployAccount, declare)
 		}
 
-		c, err := transactionCommitmentPoseidon0134(txs)
+		c, err := transactionCommitmentPoseidon0134(txs, testTrieBackend())
 		require.NoError(t, err)
 		expected := felt.UnsafeFromString[felt.Felt](
 			"0x4ca6d4ceb367bf070d896a1479190d3c7b751f525e69a46ee2c83f0afe7cb8",
@@ -65,7 +66,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 			},
 		}
 
-		c, err := transactionCommitmentPoseidon0134(txs)
+		c, err := transactionCommitmentPoseidon0134(txs, testTrieBackend())
 		require.NoError(t, err)
 		expected := felt.UnsafeFromString[felt.Felt](
 			"0x5ecb75d7a86984ec8ef9d5fbbe49ef8737c37246d33cf73037df1ceb412244e",
@@ -76,7 +77,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 
 func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 	t.Run("nil", func(t *testing.T) {
-		c, err := transactionCommitmentPoseidon0132(nil)
+		c, err := transactionCommitmentPoseidon0132(nil, testTrieBackend())
 		require.NoError(t, err)
 		assert.Equal(t, felt.Zero, c)
 	})
@@ -113,7 +114,7 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 			txs = append(txs, invoke, deployAccount, declare)
 		}
 
-		c, err := transactionCommitmentPoseidon0132(txs)
+		c, err := transactionCommitmentPoseidon0132(txs, testTrieBackend())
 		require.NoError(t, err)
 		expected := felt.UnsafeFromString[felt.Felt](
 			"0x68303856fce63d62acb85da0766b370c03754aa316b0b5bce05982f9561b73d",
@@ -130,11 +131,18 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 			},
 		}
 
-		c, err := transactionCommitmentPoseidon0132(txs)
+		c, err := transactionCommitmentPoseidon0132(txs, testTrieBackend())
 		require.NoError(t, err)
 		expected := felt.UnsafeFromString[felt.Felt](
 			"0x6e067f82eefc8efa75b4ad389253757f4992eee0f81f0b43815fa56135ca801",
 		)
 		assert.Equal(t, expected, c, "expected: %s, got: %s", expected, c)
 	})
+}
+
+func testTrieBackend() TempTrieBackend {
+	if statetestutils.UseNewState() {
+		return TrieBackend
+	}
+	return DeprecatedTrieBackend
 }

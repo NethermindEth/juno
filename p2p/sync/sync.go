@@ -443,7 +443,8 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 
 			if blockVer.LessThan(core.Ver0_13_2) && s.network.L2ChainID == "SN_SEPOLIA" {
 				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
-				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff)
+				// TODO: switch to core.NewTrieBackend once the legacy trie and state are removed.
+				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff, core.DeprecatedTrieBackend)
 				if err != nil {
 					bodyCh <- BlockBody{Err: fmt.Errorf("failed to compute p2p hash: %w", err)}
 					return

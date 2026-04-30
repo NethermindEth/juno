@@ -94,7 +94,7 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 	var err error
 	b.ResetTimer()
 	for range b.N {
-		f, err = receiptCommitment(receipts)
+		f, err = receiptCommitment(receipts, testTrieBackend())
 		require.NoError(b, err)
 	}
 	benchReceiptR = f

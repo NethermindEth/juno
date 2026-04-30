@@ -52,12 +52,14 @@ func updateBlockHash(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	network *networks.Network,
+	trieBackend core.TempTrieBackend,
 ) (*core.BlockCommitments, error) {
 	blockHash, commitments, err := core.BlockHash(
 		block,
 		stateUpdate.StateDiff,
 		network,
 		block.SequencerAddress,
+		trieBackend,
 	)
 	if err != nil {
 		return nil, err
