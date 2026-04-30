@@ -266,7 +266,7 @@ func (h *Handler) NodesFromRoot(classHash *felt.Felt) (*NodesFromRoot, *jsonrpc.
 	return &NodesFromRoot{Nodes: nodes}, nil
 }
 
-func getClassNodesFromRoot(tr core.Trie, classHash *felt.Felt) ([]*HashToNode, error) {
+func getClassNodesFromRoot(tr core.TrieReader, classHash *felt.Felt) ([]*HashToNode, error) {
 	switch t := tr.(type) {
 	case *trie.Trie:
 		proof := trie.NewProofNodeSet()
