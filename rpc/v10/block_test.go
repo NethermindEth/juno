@@ -802,6 +802,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Shares similar structure with other tests but tests different method
 func TestBlockWithTxs(t *testing.T) {
 	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
@@ -952,6 +953,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Shares similar structure with other tests but tests different method
 func TestBlockWithReceipts(t *testing.T) {
 	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
@@ -1361,6 +1363,7 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Shares similar structure with other tests but tests different method
 func TestBlockWithTxnHashesAndReceipts_ErrorCases(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        rpc.BlockIDLatest(),
@@ -1462,6 +1465,7 @@ func assertBlockWithTxnHashesAndReceipts(
 	}
 }
 
+//nolint:dupl // Shares similar structure with other tests but tests different method
 func TestBlockWithTxnHashesAndReceipts(t *testing.T) {
 	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
