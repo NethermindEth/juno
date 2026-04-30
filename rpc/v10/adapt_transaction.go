@@ -79,7 +79,10 @@ func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceB
 			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
 		}
 	} else {
-		l1DataGasResourceBounds = ResourceBounds{}
+		l1DataGasResourceBounds = ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
+		}
 	}
 
 	// As L1Gas & L2Gas will always be present, we can directly assign them

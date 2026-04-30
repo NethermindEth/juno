@@ -431,15 +431,20 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			version3 := felt.FromUint64[felt.Felt](3)
 			senderAddr := felt.FromUint64[felt.Felt](1)
 			nonce := felt.FromUint64[felt.Felt](1)
+			daMode := rpcv10.DAModeL1
 			broadcastedTxns := []rpcv10.BroadcastedTransaction{{
 				Transaction: rpcv10.Transaction{
-					Version:       &version3,
-					Type:          rpcv10.TxnInvoke,
-					SenderAddress: &senderAddr,
-					Nonce:         &nonce,
-					Tip:           &felt.Zero,
-					CallData:      &[]*felt.Felt{},
-					Signature:     &[]*felt.Felt{&felt.Zero},
+					Version:               &version3,
+					Type:                  rpcv10.TxnInvoke,
+					SenderAddress:         &senderAddr,
+					Nonce:                 &nonce,
+					Tip:                   &felt.Zero,
+					CallData:              &[]*felt.Felt{},
+					Signature:             &[]*felt.Felt{&felt.Zero},
+					PaymasterData:         &[]*felt.Felt{},
+					AccountDeploymentData: &[]*felt.Felt{},
+					NonceDAMode:           &daMode,
+					FeeDAMode:             &daMode,
 					ResourceBounds: &rpcv10.ResourceBoundsMap{
 						L1Gas: rpcv10.ResourceBounds{
 							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),

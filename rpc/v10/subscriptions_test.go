@@ -984,7 +984,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
-		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
+		block, err := adapterFeeder.BlockByNumber(t.Context(), 1164621)
 		require.NoError(t, err)
 
 		txToBroadcast := BroadcastedTransaction{

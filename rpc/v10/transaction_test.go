@@ -1237,7 +1237,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA=",
+					"sierra_program": "H4sIAAAAAAAA/4qOBQQAAP//KbtMDQIAAAA=",
 					"contract_class_version": "0.1.0",
 					"entry_points_by_type": {
 						"CONSTRUCTOR": [],
@@ -1440,7 +1440,7 @@ func TestAddTransaction(t *testing.T) {
 				handler := rpcv10.New(nil, nil, nil, log.NewNopZapLogger()).WithGateway(mockGateway)
 				addTxRes, rpcErr := handler.AddTransaction(
 					t.Context(),
-					new(tests["invoke v0"].txn),
+					new(tests["invoke v3"].txn),
 				)
 
 				require.Equal(t, tc.expectedError, rpcErr)
@@ -1918,7 +1918,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		require.NoError(
 			t,
 			err,
-			"AdaptBroadcastedTransactionToCore should succeed for valid INVOKE v3 with proof and proof_facts",
+			"adaptation should succeed for valid INVOKE v3 with proof and proof_facts",
 		)
 	})
 }
@@ -2066,7 +2066,7 @@ func TestResourceBoundsValidation(t *testing.T) {
 			wantErr: true,
 			expectedErr: []string{
 				"'Version' failed on the 'version_0x3' tag",
-				"'ResourceBounds' failed on the 'resource_bounds_required' tag",
+				"'ResourceBounds' failed on the 'required' tag",
 				"'Tip' failed on the 'required' tag",
 				"'PaymasterData' failed on the 'required' tag",
 				"'AccountDeploymentData' failed on the 'required_if' tag",

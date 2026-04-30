@@ -210,7 +210,7 @@ func (h *Handler) simulateTransactions(
 	var (
 		txns         []core.Transaction
 		classes      []core.ClassDefinition
-		paidFeesOnL1 []*felt.Felt
+		paidFeesOnL1 = []*felt.Felt{}
 	)
 
 	if messageFeePayload != nil {
@@ -313,7 +313,7 @@ func (h *Handler) prepareTransactions(
 			)
 		}
 
-		txn, err := AdaptBroadcastedTransactionToCore(ctx, &transactions[idx], h.bcReader.Network())
+		txn, err := AdaptBroadcastedTransactionToCore(ctx, &transactions[idx], network)
 		if err != nil {
 			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
 		}
