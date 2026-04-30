@@ -84,10 +84,11 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
-// TransactionWithHashAndReceipt represents a transaction with its receipt and hash
+// TransactionWithHashAndReceipt represents a transaction with its receipt and hash.
+// Hash is duplicated on purpose for onboarding, even though Transaction already holds it.
 type TransactionWithHashAndReceipt struct {
 	Transaction *Transaction        `json:"transaction"`
-	Hash        *felt.Felt          `json:"hash"` // I kwnow Transaction already holds the Hash internally, but this is part of the onboarding
+	Hash        *felt.Felt          `json:"hash"`
 	Receipt     *TransactionReceipt `json:"receipt"`
 }
 
@@ -256,9 +257,10 @@ func (h *Handler) BlockWithReceipts(
 	}, nil
 }
 
-// BlockWithTxnHashesAndReceipts returns the block information with transaction receipts and hashes given a block ID.
+// BlockWithTxnHashesAndReceipts returns the block information with transaction
+// receipts, and hashes given a block ID.
 //
-// It does not follow any specification 🔥
+// It does not follow any specification.
 func (h *Handler) BlockWithTxnHashesAndReceipts(
 	id *BlockID,
 	responseFlags ResponseFlags,
@@ -272,7 +274,10 @@ func (h *Handler) BlockWithTxnHashesAndReceipts(
 	}
 
 	// Adds an Extra O(n) loop, but it adds less maintenance
-	txsWithHashAndReceipts := make([]TransactionWithHashAndReceipt, len(blockWithReceipts.Transactions))
+	txsWithHashAndReceipts := make(
+		[]TransactionWithHashAndReceipt,
+		len(blockWithReceipts.Transactions),
+	)
 	for idx, txn := range blockWithReceipts.Transactions {
 		txsWithHashAndReceipts[idx] = TransactionWithHashAndReceipt{
 			Transaction: txn.Transaction,
