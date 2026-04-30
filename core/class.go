@@ -108,16 +108,9 @@ type SierraEntryPointsByType struct {
 	L1Handler   []SierraEntryPoint
 }
 
-type sierraEntryPoint interface {
-	~struct {
-		Selector *felt.Felt
-		Index    uint64
-	}
-}
-
 type SierraEntryPoint struct {
-	Selector *felt.Felt
 	Index    uint64
+	Selector *felt.Felt
 }
 
 func (c *SierraClass) Version() uint64 {
@@ -137,15 +130,12 @@ func (c *SierraClass) Hash() (felt.Felt, error) {
 }
 
 // CalculateSierraClassHash calculates the class hash for a Sierra class.
-func CalculateSierraClassHash[
-	SE sierraEntryPoint,
-	EntryPoints []SE,
-](
+func CalculateSierraClassHash(
 	program []*felt.Felt,
 	version string,
-	constructor []SE,
-	external []SE,
-	l1Handler []SE,
+	constructor []SierraEntryPoint,
+	external []SierraEntryPoint,
+	l1Handler []SierraEntryPoint,
 	abi string,
 ) (felt.Felt, error) {
 	externalEntryPointsHash := crypto.PoseidonArray(
@@ -310,14 +300,13 @@ func SegmentedBytecodeHash(
 	return hash
 }
 
-func flattenSierraEntryPoints[SE sierraEntryPoint](entryPoints []SE) []*felt.Felt {
+func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 	result := make([]*felt.Felt, len(entryPoints)*2)
 	for i, entryPoint := range entryPoints {
-		temp := SierraEntryPoint(entryPoint)
 		// It is important that Selector is first because the order
 		// influences the class hash.
-		result[2*i] = temp.Selector
-		result[2*i+1] = felt.NewFromUint64[felt.Felt](temp.Index)
+		result[2*i] = entryPoint.Selector
+		result[2*i+1] = felt.NewFromUint64[felt.Felt](entryPoint.Index)
 	}
 	return result
 }

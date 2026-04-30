@@ -35,9 +35,9 @@ func TestVersion0x3Validation(t *testing.T) {
 				Version: felt.NewUnsafeFromString[felt.Felt](txVer.version),
 				Nonce:   &felt.Zero,
 				ResourceBounds: &rpcv10.ResourceBoundsMap{
-					L1Gas:     rpcv10.ResourceBounds{&felt.Zero, &felt.Zero},
-					L2Gas:     rpcv10.ResourceBounds{&felt.Zero, &felt.Zero},
-					L1DataGas: rpcv10.ResourceBounds{&felt.Zero, &felt.Zero},
+					L1Gas:     rpcv10.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
+					L2Gas:     rpcv10.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
+					L1DataGas: rpcv10.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
 				},
 				SenderAddress:         &felt.Zero,
 				Signature:             &emptySlice,

@@ -100,10 +100,7 @@ func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceB
 	return rpcResourceBounds
 }
 
-// AdaptRPCTxToFeederTx adapts a Transaction to a starknet.Transaction.
-// No nil checks here since this function is only called with broadcasted txs, and
-// the fields are required by the 'validate' tag.
-func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
+func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet.Transaction {
 	resourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
 	resourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
 		MaxAmount:       rpcTx.ResourceBounds.L1Gas.MaxAmount,
@@ -446,9 +443,11 @@ func adaptResourceBoundsToCore(
 	return coreResourceBounds
 }
 
+// adapts BroadcastedInvokeTransaction to core.InvokeTransaction.
+// Returns a tx with a nil transaction hash.
 func adaptBroadcastedInvokeToCore(tx *BroadcastedTransaction) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
-		TransactionHash:       nil, // it will be set later
+		TransactionHash:       nil,
 		CallData:              *tx.CallData,
 		TransactionSignature:  *tx.Signature,
 		Nonce:                 tx.Nonce,
@@ -467,12 +466,14 @@ func adaptBroadcastedInvokeToCore(tx *BroadcastedTransaction) *core.InvokeTransa
 	}
 }
 
+// adapts BroadcastedDeclareTransaction to core.DeclareTransaction.
+// Returns a tx with a nil transaction hash.
 func adaptBroadcastedDeclareToCore(
 	tx *BroadcastedTransaction,
 	classHash *felt.Felt,
 ) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
-		TransactionHash:       nil, // it will be set later
+		TransactionHash:       nil,
 		ClassHash:             classHash,
 		SenderAddress:         tx.SenderAddress,
 		TransactionSignature:  *tx.Signature,
@@ -489,12 +490,14 @@ func adaptBroadcastedDeclareToCore(
 	}
 }
 
+// adapts BroadcastedDeployAccountTransaction to core.DeployAccountTransaction.
+// Returns a tx with a nil transaction hash.
 func adaptBroadcastedDeployAccountToCore(
 	tx *BroadcastedTransaction,
 ) *core.DeployAccountTransaction {
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
-			TransactionHash:     nil, // it will be set later
+			TransactionHash:     nil,
 			ContractAddressSalt: tx.ContractAddressSalt,
 			ClassHash:           tx.ClassHash,
 			ConstructorCallData: *tx.ConstructorCallData,
@@ -542,13 +545,13 @@ func AdaptBroadcastedTransactionToCore(
 			broadcastedTxn.ContractClass.ABI,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
+			return nil, fmt.Errorf("failed to calculate class hash: %w", err)
 		}
 		txn := adaptBroadcastedDeclareToCore(broadcastedTxn, &classHash)
 
 		txnHash, err := core.TransactionHash(txn, network)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
 		}
 		txn.TransactionHash = &txnHash
 		coreTx = txn
