@@ -346,6 +346,14 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv10Handler.BlockWithReceipts,
 		},
 		{
+			Name: "juno_getBlockWithTxnHashesAndReceipts",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "response_flags", Optional: true},
+			},
+			Handler: h.rpcv10Handler.BlockWithTxnHashesAndReceipts,
+		},
+		{
 			Name:    "starknet_getCompiledCasm",
 			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
 			Handler: h.rpcv10Handler.CompiledCasm,
