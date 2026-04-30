@@ -373,6 +373,13 @@ func (h *Handler) MethodsV0_10() ([]jsonrpc.Method, string) {
 			},
 			Handler: h.rpcv10Handler.StorageProof,
 		},
+		{
+			Name: "juno_getNodesFromRoot",
+			Params: []jsonrpc.Parameter{
+				{Name: "key"},
+			},
+			Handler: h.rpcv10Handler.NodesFromRoot,
+		},
 	}, "/v0_10"
 }
 
