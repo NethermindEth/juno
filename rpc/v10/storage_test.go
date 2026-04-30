@@ -960,6 +960,74 @@ func TestStorageProof(t *testing.T) {
 	})
 }
 
+func TestNodesFromRoot(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	key := felt.NewFromUint64[felt.Felt](1)
+	key2 := felt.NewFromUint64[felt.Felt](8)
+	value := felt.NewFromUint64[felt.Felt](51)
+	value2 := felt.NewFromUint64[felt.Felt](58)
+
+	var classTrie core.Trie
+	if !statetestutils.UseNewState() {
+		tempTrie := emptyDeprecatedTrie(t)
+		_, _ = tempTrie.Put(key, value)
+		_, _ = tempTrie.Put(key2, value2)
+		_ = tempTrie.Commit()
+		classTrie = tempTrie
+	} else {
+		newComm := felt.FromUint64[felt.StateRootHash](1)
+		trieDB := trie2.NewTestNodeDatabase(memory.New(), trie2.PathScheme)
+		tr, err := trie2.New(
+			trieutils.NewClassTrieID(felt.FromUint64[felt.StateRootHash](0)),
+			251,
+			crypto.Pedersen,
+			&trieDB,
+		)
+		require.NoError(t, err)
+		_ = tr.Update(key, value)
+		_ = tr.Update(key2, value2)
+		_, nodes := tr.Commit()
+		err = trieDB.Update((*felt.Felt)(&newComm), &felt.Zero, trienode.NewMergeNodeSet(nodes))
+		require.NoError(t, err)
+
+		classTrie, err = trie2.New(
+			trieutils.NewClassTrieID(newComm),
+			251,
+			crypto.Pedersen,
+			&trieDB,
+		)
+		require.NoError(t, err)
+	}
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
+	mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
+	mockState.EXPECT().ClassTrie().Return(classTrie, nil).AnyTimes()
+
+	logger := log.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, nil, logger)
+
+	t.Run("returns nodes for existing key", func(t *testing.T) {
+		result, rpcErr := handler.NodesFromRoot(key)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, result)
+		require.NotEmpty(t, result.Nodes)
+		for _, n := range result.Nodes {
+			require.NotNil(t, n.Hash)
+			require.NotNil(t, n.Node)
+		}
+	})
+
+	t.Run("returns nodes for non-existing key", func(t *testing.T) {
+		nonExisting := felt.NewFromUint64[felt.Felt](999)
+		result, rpcErr := handler.NodesFromRoot(nonExisting)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, result)
+	})
+}
+
 func TestStorageProof_VerifyPathfinderResponse(t *testing.T) {
 	t.Parallel()
 
