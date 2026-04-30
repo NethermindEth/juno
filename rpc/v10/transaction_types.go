@@ -449,7 +449,6 @@ type ContractClassEntryPoint struct {
 type BroadcastedTransaction struct {
 	Transaction
 	ContractClass *ContractClass `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
-	PaidFeeOnL1   *felt.Felt     `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 	Proof         core.Base64    `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
 }
 
