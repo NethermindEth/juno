@@ -56,6 +56,11 @@ type StorageAtResponse struct {
 	LastUpdateBlock uint64    `json:"last_update_block"`
 }
 
+// Not on the spec
+type NodesFromRoot struct {
+	Nodes []*HashToNode `json:"nodes"`
+}
+
 // MarshalJSON implements the [json.Marshaler] interface for StorageAtResponse.
 func (st *StorageAtResponse) MarshalJSON() ([]byte, error) {
 	if st.includeLastUpdateBlock {
@@ -236,6 +241,48 @@ func (h *Handler) StorageProof(
 			BlockHash:         header.Hash,
 		},
 	}, nil
+}
+
+// NodesFromRootreturns the set of nodes from the root to the key for the classes Trie.
+//
+// It does not follow any specification.
+func (h *Handler) NodesFromRoot(classHash *felt.Felt) (*NodesFromRoot, *jsonrpc.Error) {
+	state, closer, err := h.bcReader.HeadState()
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+	defer h.callAndLogErr(closer, "Error closing state reader in NodesFromRoot")
+
+	classTrie, err := state.ClassTrie()
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	nodes, err := getClassNodesFromRoot(classTrie, classHash)
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	return &NodesFromRoot{Nodes: nodes}, nil
+}
+
+func getClassNodesFromRoot(tr core.TrieReader, classHash *felt.Felt) ([]*HashToNode, error) {
+	switch t := tr.(type) {
+	case *trie.Trie:
+		proof := trie.NewProofNodeSet()
+		if err := t.Prove(classHash, proof); err != nil {
+			return nil, err
+		}
+		return adaptDeprecatedTrieProofNodes(proof), nil
+	case *trie2.Trie:
+		proof := trie2.NewProofNodeSet()
+		if err := t.Prove(classHash, proof); err != nil {
+			return nil, err
+		}
+		return adaptTrieProofNodes(proof)
+	default:
+		return nil, fmt.Errorf("unknown trie type: %T", tr)
+	}
 }
 
 // Ensures each contract is unique and each storage key in each contract is unique
