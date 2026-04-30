@@ -1360,3 +1360,161 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		})
 	})
 }
+
+func TestBlockWithTxnHashesAndReceipts_ErrorCases(t *testing.T) {
+	errTests := map[string]rpc.BlockID{
+		"latest":        rpc.BlockIDLatest(),
+		"pre_confirmed": rpc.BlockIDPreConfirmed(),
+		"hash":          rpc.BlockIDFromHash(&felt.One),
+		"number":        rpc.BlockIDFromNumber(2),
+	}
+
+	for description, id := range errTests {
+		t.Run(description, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
+
+			logger := log.NewNopZapLogger()
+			n := &networks.Mainnet
+			chain := blockchain.New(
+				memory.New(),
+				n,
+				blockchain.WithNewState(statetestutils.UseNewState()),
+			)
+			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+			handler := rpc.New(chain, mockSyncReader, nil, logger)
+
+			if description == "pre_confirmed" {
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
+			}
+
+			block, rpcErr := handler.BlockWithTxnHashesAndReceipts(&id, rpc.ResponseFlags{})
+			assert.Nil(t, block)
+			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		})
+	}
+
+	//nolint:dupl // Similar l1head failure test structure across all error test functions
+	t.Run("l1head failure", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpc.New(mockReader, nil, nil, nil)
+
+		blockID := rpc.BlockIDFromNumber(777)
+		block := &core.Block{
+			Header: &core.Header{},
+		}
+
+		err := errors.New("l1 failure")
+		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
+
+		resp, rpcErr := handler.BlockWithTxnHashesAndReceipts(&blockID, rpc.ResponseFlags{})
+		assert.Nil(t, resp)
+		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
+	})
+}
+
+func assertBlockWithTxnHashesAndReceipts(
+	t *testing.T,
+	expectedBlock *core.Block,
+	expectedStatus rpc.BlockStatus,
+	expectedCommitments *core.BlockCommitments,
+	expectedStateUpdate *core.StateUpdate,
+	actual *rpc.BlockWithTxnHashesAndReceipts,
+	responseFlags rpc.ResponseFlags,
+) {
+	t.Helper()
+	assert.Equal(t, expectedStatus, actual.Status)
+	if expectedStatus == rpc.BlockPreConfirmed {
+		assertPreConfirmedBlockHeader(t, expectedBlock, &actual.BlockHeader)
+	} else {
+		assertCommittedBlockHeader(
+			t,
+			expectedBlock,
+			expectedCommitments,
+			expectedStateUpdate.StateDiff.Length(),
+			&actual.BlockHeader,
+		)
+	}
+
+	expectedFinalityStatus := blockStatusToTxnFinalityStatus(expectedStatus)
+	require.Equal(t, len(expectedBlock.Receipts), len(actual.Transactions))
+	for i, expectedReceipt := range expectedBlock.Receipts {
+		require.Equal(t, expectedReceipt.TransactionHash, actual.Transactions[i].Hash)
+		require.Equal(t, expectedReceipt.TransactionHash, actual.Transactions[i].Receipt.Hash)
+
+		adaptedTransaction := rpc.AdaptTransaction(
+			expectedBlock.Transactions[i],
+			responseFlags.IncludeProofFacts,
+		)
+		adaptedTransaction.Hash = nil
+		adaptedReceipt := rpc.AdaptReceipt(
+			expectedReceipt,
+			expectedBlock.Transactions[i],
+			expectedFinalityStatus,
+		)
+
+		require.Equal(t, adaptedTransaction, *actual.Transactions[i].Transaction)
+		require.Equal(t, adaptedReceipt, actual.Transactions[i].Receipt)
+	}
+}
+
+func TestBlockWithTxnHashesAndReceipts(t *testing.T) {
+	network := &networks.Mainnet
+	client := feeder.NewTestClient(t, network)
+
+	block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(t, client, 16697)
+
+	testCases := createBlockTestCases(block, commitments, stateUpdate)
+
+	clientSepolia := feeder.NewTestClient(t, &networks.Sepolia)
+	blockWithProofFacts, commitmentsPF, stateUpdatePF := rpc.GetTestBlockWithCommitments(
+		t,
+		clientSepolia,
+		4072139,
+	)
+	testCases = append(
+		testCases,
+		createBlockResponseFlagsTestCases(
+			blockWithProofFacts,
+			commitmentsPF,
+			stateUpdatePF,
+		)...,
+	)
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+
+			setupMockBlockTest(
+				t,
+				mockReader,
+				mockSyncReader,
+				tc.block,
+				tc.commitments,
+				tc.stateUpdate,
+				tc.blockID,
+				tc.l1Head,
+			)
+
+			result, rpcErr := handler.BlockWithTxnHashesAndReceipts(tc.blockID, tc.responseFlags)
+			require.Nil(t, rpcErr)
+			assertBlockWithTxnHashesAndReceipts(
+				t,
+				tc.block,
+				tc.blockStatus,
+				tc.commitments,
+				tc.stateUpdate,
+				result,
+				tc.responseFlags,
+			)
+		})
+	}
+}
