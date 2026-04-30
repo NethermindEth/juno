@@ -91,19 +91,28 @@ func (h *Handler) EstimateMessageFee(
 		return FeeEstimate{}, nil, rpccore.ErrContractNotFound
 	}
 
+	// In order to estimate the message fee, since there's no "message fee" transaction,
+	// we wrap the message in a L1_HANDLER transaction.
+	l1Handler := core.L1HandlerTransaction{
+		TransactionHash:    nil, // to be calculated
+		ContractAddress:    &msg.To,
+		EntryPointSelector: &msg.Selector,
+		CallData:           calldata,
+		// Needed for L1_HANDLER transaction hash calculation. Every transaction to be
+		// simulated must contain a valid tx hash; since we are just estimating the fees,
+		// we can set the remaining required fields to zero, as we don't care about the
+		// final tx hash.
+		Version: (*core.TransactionVersion)(&felt.Zero),
+		Nonce:   &felt.Zero,
+	}
+	txnHash, hashErr := core.TransactionHash(&l1Handler, h.bcReader.Network())
+	if hashErr != nil {
+		return FeeEstimate{}, nil, rpccore.ErrInternal.CloneWithData(hashErr.Error())
+	}
+	l1Handler.TransactionHash = &txnHash
+
 	payload := MessageFeePayload{
-		L1Handler: core.L1HandlerTransaction{
-			TransactionHash:    nil,
-			ContractAddress:    &msg.To,
-			EntryPointSelector: &msg.Selector,
-			CallData:           calldata,
-			// Needed for L1_HANDLER transaction hash calculation. Every transaction to be
-			// simulated must contain a valid tx hash; since we are just estimating the fees,
-			// we can set the remaining required fields to zero, as we don't care about the
-			// final tx hash.
-			Version: (*core.TransactionVersion)(&felt.Zero),
-			Nonce:   &felt.Zero,
-		},
+		L1Handler: l1Handler,
 		// Needed to marshal to blockifier type.
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: felt.FromUint64[felt.Felt](1),
