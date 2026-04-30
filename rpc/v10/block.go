@@ -84,6 +84,20 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+// TransactionWithHashAndReceipt represents a transaction with its receipt and hash
+type TransactionWithHashAndReceipt struct {
+	Transaction *Transaction        `json:"transaction"`
+	Hash        *felt.Felt          `json:"hash"` // I kwnow Transaction already holds the Hash internally, but this is part of the onboarding
+	Receipt     *TransactionReceipt `json:"receipt"`
+}
+
+// Not on the spec
+type BlockWithTxnHashesAndReceipts struct {
+	Status BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	Transactions []TransactionWithHashAndReceipt `json:"txn_and_receipts"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L830-L848
 type BlockHashAndNumber struct {
 	Hash   *felt.Felt `json:"block_hash"`
@@ -239,6 +253,38 @@ func (h *Handler) BlockWithReceipts(
 		Status:       blockStatus,
 		BlockHeader:  AdaptBlockHeader(block.Header, commitments, stateDiff),
 		Transactions: txsWithReceipts,
+	}, nil
+}
+
+// BlockWithTxnHashesAndReceipts returns the block information with transaction receipts and hashes given a block ID.
+//
+// It does not follow any specification 🔥
+func (h *Handler) BlockWithTxnHashesAndReceipts(
+	id *BlockID,
+	responseFlags ResponseFlags,
+) (*BlockWithTxnHashesAndReceipts, *jsonrpc.Error) {
+	// I was faced with two options, copying the body of BlockWithReceipts, or calling it
+	// I decided to call it.
+
+	blockWithReceipts, err := h.BlockWithReceipts(id, responseFlags)
+	if err != nil {
+		return nil, err
+	}
+
+	// Adds an Extra O(n) loop, but it adds less maintenance
+	txsWithHashAndReceipts := make([]TransactionWithHashAndReceipt, len(blockWithReceipts.Transactions))
+	for idx, txn := range blockWithReceipts.Transactions {
+		txsWithHashAndReceipts[idx] = TransactionWithHashAndReceipt{
+			Transaction: txn.Transaction,
+			Hash:        txn.Receipt.Hash,
+			Receipt:     txn.Receipt,
+		}
+	}
+
+	return &BlockWithTxnHashesAndReceipts{
+		Status:       blockWithReceipts.Status,
+		BlockHeader:  blockWithReceipts.BlockHeader,
+		Transactions: txsWithHashAndReceipts,
 	}, nil
 }
 
