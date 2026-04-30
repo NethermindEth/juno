@@ -64,7 +64,7 @@ pub fn cairo_vm_execute(
         VecDeque::new()
     };
 
-    let mut paid_fees_on_l1: VecDeque<Box<Fee>> = parse_json(paid_fees_on_l1_json)?;
+    let mut paid_fees_on_l1: VecDeque<Fee> = parse_json(paid_fees_on_l1_json)?;
 
     let mut state = CachedState::new(reader);
     let concurrency_mode = concurrency_mode == 1;
@@ -82,7 +82,7 @@ pub fn cairo_vm_execute(
     let mut writer_buffer = Vec::with_capacity(10_000);
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
-        let class_info = match txn_and_query_bit.txn.clone() {
+        let class_info = match &txn_and_query_bit.txn {
             StarknetApiTransaction::Declare(_) => {
                 let class_json_str = classes.pop_front().ok_or_else(|| {
                     JunoError::tx_non_execution_error("missing declared class", txn_index)
@@ -96,12 +96,12 @@ pub fn cairo_vm_execute(
             _ => None,
         };
 
-        let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
+        let paid_fee_on_l1: Option<Fee> = match &txn_and_query_bit.txn {
             StarknetApiTransaction::L1Handler(_) => {
                 let paid_fee_on_l1 = paid_fees_on_l1.pop_front().ok_or_else(|| {
                     JunoError::tx_non_execution_error("missing fee paid on l1", txn_index)
                 })?;
-                Some(*paid_fee_on_l1)
+                Some(paid_fee_on_l1)
             }
             _ => None,
         };
