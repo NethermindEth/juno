@@ -55,10 +55,10 @@ type StateReader interface {
 	// CompiledClassHashV2 returns the CASM class hash for a Sierra class hash (blake2s-based, V2).
 	CompiledClassHashV2(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
 	// ClassTrie returns the trie of all declared classes, keyed by class hash.
-	ClassTrie() (Trie, error)
+	ClassTrie() (TrieReader, error)
 	// ContractTrie returns the global contracts trie, keyed by contract address.
-	ContractTrie() (Trie, error)
+	ContractTrie() (TrieReader, error)
 	// ContractStorageTrie returns the storage trie for the contract at addr.
 	// todo: change addr *felt.Felt to *felt.Address
-	ContractStorageTrie(addr *felt.Felt) (Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (TrieReader, error)
 }

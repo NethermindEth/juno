@@ -117,15 +117,15 @@ func (p *State) CompiledClassHashV2(
 	return p.head.CompiledClassHashV2(classHash)
 }
 
-func (p *State) ClassTrie() (core.Trie, error) {
+func (p *State) ClassTrie() (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *State) ContractTrie() (core.Trie, error) {
+func (p *State) ContractTrie() (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *State) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
+func (p *State) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 

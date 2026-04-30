@@ -1445,3 +1445,191 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 		})
 	}
 }
+
+// TestTraceBlockTransactionsInitialReadsCacheCoherence verifies that the
+// block-trace cache does not poison RETURN_INITIAL_READS responses. The cache
+// key is the block hash only, so a prior call without the flag used to cause
+// subsequent calls with the flag to return empty initial reads.
+func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
+	t.Parallel()
+	n := &networks.Mainnet
+
+	addr := felt.FromUint64[felt.Address](123)
+	storageKey := felt.FromUint64[felt.Felt](456)
+	storageValue := felt.FromUint64[felt.Felt](789)
+
+	populatedVMReads := func() *vm.InitialReads {
+		return &vm.InitialReads{
+			Storage: []vm.InitialReadsStorageEntry{
+				{ContractAddress: addr, Key: storageKey, Value: storageValue},
+			},
+			Nonces:            []vm.InitialReadsNonceEntry{},
+			ClassHashes:       []vm.InitialReadsClassHashEntry{},
+			DeclaredContracts: []vm.InitialReadsDeclaredContractEntry{},
+		}
+	}
+	expectedPopulatedReads := &rpcv10.InitialReads{
+		Storage: []rpcv10.StorageEntry{
+			{ContractAddress: addr, Key: storageKey, Value: storageValue},
+		},
+		Nonces:            []rpcv10.NonceEntry{},
+		ClassHashes:       []rpcv10.ClassHashEntry{},
+		DeclaredContracts: []rpcv10.DeclaredContractEntry{},
+	}
+
+	buildBlock := func() (*core.Block, *felt.Felt, *felt.Felt, *core.Header) {
+		blockHash := felt.FromUint64[felt.Felt](999)
+		parentHash := felt.FromUint64[felt.Felt](998)
+		revealedHash := felt.FromUint64[felt.Felt](90)
+		txHash := felt.FromUint64[felt.Felt](888)
+		header := &core.Header{
+			SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
+			L1GasPriceETH:    &felt.Zero,
+			L1GasPriceSTRK:   &felt.Zero,
+			L1DAMode:         0,
+			L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+			L2GasPrice:       &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+			Number:           100,
+			Hash:             &blockHash,
+			ParentHash:       &parentHash,
+			ProtocolVersion:  "0.13.2",
+		}
+		block := &core.Block{
+			Header:       header,
+			Transactions: []core.Transaction{&core.InvokeTransaction{TransactionHash: &txHash}},
+		}
+		return block, &blockHash, &txHash, &core.Header{Hash: &revealedHash}
+	}
+
+	execResultWithReads := func(reads *vm.InitialReads) vm.ExecutionResults {
+		return vm.ExecutionResults{
+			OverallFees:      []*felt.Felt{&felt.Zero},
+			DataAvailability: []core.DataAvailability{{L1Gas: 0}},
+			GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
+			Traces:           []vm.TransactionTrace{{}},
+			NumSteps:         100,
+			InitialReads:     reads,
+		}
+	}
+
+	// After TraceTransaction has cached the block without initial reads,
+	// a follow-up TraceBlockTransactions with RETURN_INITIAL_READS must
+	// re-execute the VM and return populated reads — not the empty struct
+	// that was served from the poisoned cache.
+	t.Run("TraceTransaction does not poison RETURN_INITIAL_READS", func(t *testing.T) {
+		t.Parallel()
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockVM := mocks.NewMockVM(mockCtrl)
+		mockState := mocks.NewMockStateReader(mockCtrl)
+		block, blockHash, txHash, revealedHeader := buildBlock()
+
+		mockReader.EXPECT().Network().Return(n).AnyTimes()
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil).AnyTimes()
+		mockReader.EXPECT().Receipt(txHash).Return(nil, blockHash, block.Number, nil)
+		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil).Times(2)
+		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil).Times(2)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(2)
+
+		// First VM call: no initial reads requested.
+		gomock.InOrder(
+			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+				false, false, false, true, false, false, false,
+			).Return(execResultWithReads(nil), nil),
+			// Second VM call: flag set, VM produces populated reads.
+			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+				false, false, false, true, false, false, true,
+			).Return(execResultWithReads(populatedVMReads()), nil),
+		)
+
+		handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+
+		_, _, err := handler.TraceTransaction(t.Context(), txHash)
+		require.Nil(t, err)
+
+		blockID := rpcv10.BlockIDFromHash(blockHash)
+		result, _, err := handler.TraceBlockTransactions(
+			t.Context(), &blockID,
+			[]rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+		)
+		require.Nil(t, err)
+		require.Equal(t, expectedPopulatedReads, result.InitialReads)
+	})
+
+	// With the flag first, the cached entry already has initial reads, so a
+	// repeat call must be served from cache (VM invoked exactly once).
+	t.Run("cache reused when initial reads already cached", func(t *testing.T) {
+		t.Parallel()
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockVM := mocks.NewMockVM(mockCtrl)
+		mockState := mocks.NewMockStateReader(mockCtrl)
+		block, blockHash, _, revealedHeader := buildBlock()
+
+		mockReader.EXPECT().Network().Return(n).AnyTimes()
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil).AnyTimes()
+		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil).Times(2)
+		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+
+		mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+			false, false, false, true, false, false, true,
+		).Return(execResultWithReads(populatedVMReads()), nil)
+
+		handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+
+		blockID := rpcv10.BlockIDFromHash(blockHash)
+		for range 2 {
+			result, _, err := handler.TraceBlockTransactions(
+				t.Context(), &blockID,
+				[]rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+			)
+			require.Nil(t, err)
+			require.Equal(t, expectedPopulatedReads, result.InitialReads)
+		}
+	})
+
+	// With the flag first, then without: the second call must be served from
+	// cache and strip initial reads from the response.
+	t.Run("cache reused for flag-less follow-up", func(t *testing.T) {
+		t.Parallel()
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockVM := mocks.NewMockVM(mockCtrl)
+		mockState := mocks.NewMockStateReader(mockCtrl)
+		block, blockHash, _, revealedHeader := buildBlock()
+
+		mockReader.EXPECT().Network().Return(n).AnyTimes()
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil).AnyTimes()
+		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil).Times(2)
+		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+
+		mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+			false, false, false, true, false, false, true,
+		).Return(execResultWithReads(populatedVMReads()), nil)
+
+		handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+
+		blockID := rpcv10.BlockIDFromHash(blockHash)
+		first, _, err := handler.TraceBlockTransactions(
+			t.Context(), &blockID,
+			[]rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+		)
+		require.Nil(t, err)
+		require.Equal(t, expectedPopulatedReads, first.InitialReads)
+
+		second, _, err := handler.TraceBlockTransactions(t.Context(), &blockID, nil)
+		require.Nil(t, err)
+		require.Nil(t, second.InitialReads)
+	})
+}

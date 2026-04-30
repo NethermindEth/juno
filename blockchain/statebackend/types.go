@@ -34,6 +34,10 @@ type StateBackend interface {
 		newClasses map[felt.Felt]core.ClassDefinition,
 		sign core.BlockSignFunc,
 	) error
+	VerifyBlockHash(
+		b *core.Block,
+		stateDiff *core.StateDiff,
+	) (*core.BlockCommitments, error)
 }
 
 // StateCloser is called to release resources associated with a state reader.

@@ -43,6 +43,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
+	dbCmd.PersistentFlags().Bool(newStateF, defaultNewState, newStateUsage)
 	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
 	return dbCmd
 }
@@ -73,7 +74,6 @@ func DBRevertCmd() *cobra.Command {
 		RunE:  dbRevert,
 	}
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
-	cmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 
 	return cmd
 }
@@ -124,8 +124,17 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
 
+	newState, err := cmd.Flags().GetBool(newStateF)
+	if err != nil {
+		return err
+	}
+	trieBackend := core.DeprecatedTrieBackend
+	if newState {
+		trieBackend = core.TrieBackend
+	}
+
 	info.SchemaVersion = schemaVersion
-	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
+	info.Network = getNetwork(headBlock, stateUpdate.StateDiff, trieBackend)
 	info.ChainHeight = headBlock.Number
 	info.LatestBlockHash = headBlock.Hash
 	info.LatestStateRoot = headBlock.GlobalStateRoot
@@ -314,7 +323,11 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
+func getNetwork(
+	head *core.Block,
+	stateDiff *core.StateDiff,
+	trieBackend core.TempTrieBackend,
+) string {
 	networks := []*networks.Network{
 		&networks.Mainnet,
 		&networks.Sepolia,
@@ -325,7 +338,7 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	}
 
 	for _, network := range networks {
-		if _, err := core.VerifyBlockHash(head, network, stateDiff); err == nil {
+		if _, err := core.VerifyBlockHash(head, network, stateDiff, trieBackend); err == nil {
 			return network.Name
 		}
 	}

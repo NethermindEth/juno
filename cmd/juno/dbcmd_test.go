@@ -40,6 +40,7 @@ func TestDBCmd(t *testing.T) {
 
 		cmd := juno.DBRevertCmd()
 		cmd.Flags().String("db-path", "", "")
+		cmd.Flags().Bool("new-state", false, "")
 
 		dbPath := prepareDB(t, &network, syncToBlock)
 
@@ -72,10 +73,14 @@ func TestDBCmd(t *testing.T) {
 
 func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 	cmd.Flags().String("db-path", "", "")
+	cmd.Flags().Bool("new-state", false, "")
 
 	dbPath := prepareDB(t, &networks.Mainnet, 0)
 
 	require.NoError(t, cmd.Flags().Set("db-path", dbPath))
+	if statetestutils.UseNewState() {
+		require.NoError(t, cmd.Flags().Set("new-state", "true"))
+	}
 	require.NoError(t, cmd.Execute())
 }
 

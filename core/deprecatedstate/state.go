@@ -132,18 +132,18 @@ func (s *State) Commitment(protocolVersion string) (felt.Felt, error) {
 	return root, nil
 }
 
-func (s *State) ClassTrie() (core.Trie, error) {
+func (s *State) ClassTrie() (core.TrieReader, error) {
 	// We don't need to call the closer function here because we are only reading the trie
 	tr, _, err := s.classesTrie()
 	return tr, err
 }
 
-func (s *State) ContractTrie() (core.Trie, error) {
+func (s *State) ContractTrie() (core.TrieReader, error) {
 	tr, _, err := s.storage()
 	return tr, err
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
 	return storage(addr, s.txn)
 }
 

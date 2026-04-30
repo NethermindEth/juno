@@ -57,10 +57,10 @@ func (mr *MockStateReaderMockRecorder) Class(classHash any) *gomock.Call {
 }
 
 // ClassTrie mocks base method.
-func (m *MockStateReader) ClassTrie() (core.Trie, error) {
+func (m *MockStateReader) ClassTrie() (core.TrieReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClassTrie")
-	ret0, _ := ret[0].(core.Trie)
+	ret0, _ := ret[0].(core.TrieReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -162,10 +162,10 @@ func (mr *MockStateReaderMockRecorder) ContractStorageLastUpdatedBlock(addr, key
 }
 
 // ContractStorageTrie mocks base method.
-func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (core.Trie, error) {
+func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageTrie", addr)
-	ret0, _ := ret[0].(core.Trie)
+	ret0, _ := ret[0].(core.TrieReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -177,10 +177,10 @@ func (mr *MockStateReaderMockRecorder) ContractStorageTrie(addr any) *gomock.Cal
 }
 
 // ContractTrie mocks base method.
-func (m *MockStateReader) ContractTrie() (core.Trie, error) {
+func (m *MockStateReader) ContractTrie() (core.TrieReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractTrie")
-	ret0, _ := ret[0].(core.Trie)
+	ret0, _ := ret[0].(core.TrieReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
