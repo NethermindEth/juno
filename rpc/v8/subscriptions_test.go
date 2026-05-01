@@ -1090,9 +1090,9 @@ func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte,
 	return json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams{
+			Result:         result,
+			SubscriptionID: string(id),
 		},
 	})
 }

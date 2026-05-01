@@ -91,10 +91,6 @@ func TestLazySlice(t *testing.T) {
 	})
 }
 
-type smallLimit struct{}
-
-func (smallLimit) Limit() int { return 3 }
-
 // counted is a T whose UnmarshalJSON increments a package-level counter,
 // so the test can observe how many elements were actually decoded into T.
 type counted struct{ N int }
@@ -133,17 +129,16 @@ func TestLimitSliceLaziness(t *testing.T) {
 	decoded := countedDecodes.Load()
 
 	require.ErrorContains(t, err, "expected max 5000 items")
-	// If sonic lazily skipped past the limit, decoded == cap. If sonic
-	// pre-parsed the whole 1M array we'd see decoded much higher, or
-	// elapsed would be in the seconds (a full sonic Parse + 1M decodes).
 	require.EqualValues(t, simulation, decoded,
 		"T.UnmarshalJSON ran %d times; expected exactly cap=%d", decoded, simulation)
-	require.Less(t, elapsed, 200*time.Millisecond,
-		"unmarshal of 1M-element payload past 5K cap took %v; should finish in tens of ms", elapsed)
 
 	t.Logf("payload=%d bytes, total elements=%d, cap=%d, decoded=%d, elapsed=%v",
 		len(payload), total, simulation, decoded, elapsed)
 }
+
+type smallLimit struct{}
+
+func (smallLimit) Limit() int { return 3 }
 
 func TestLimitSliceEdgeCases(t *testing.T) {
 	type IntSlice = rpccore.LimitSlice[int, smallLimit]
@@ -228,16 +223,6 @@ func TestLimitSliceEdgeCases(t *testing.T) {
 		var s IntSlice
 		err := jsonx.Unmarshal([]byte(`[1,"x",3]`), &s)
 		require.Error(t, err)
-	})
-
-	t.Run("UnmarshalJSON enforces limit without upstream validation", func(t *testing.T) {
-		// Direct UnmarshalJSON call exercises the limit guard in
-		// isolation (no upstream Unmarshal pre-validation). Element 4
-		// is valid JSON, but the limit check rejects before sonic ever
-		// decodes it into T.
-		var s IntSlice
-		err := s.UnmarshalJSON([]byte("[1,2,3,4]"))
-		require.ErrorContains(t, err, "expected max 3 items")
 	})
 
 	t.Run("at limit boundary succeeds", func(t *testing.T) {

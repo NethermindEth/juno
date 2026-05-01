@@ -37,9 +37,7 @@ func (l LimitSlice[T, L]) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON walks the input array via sonic's lazy AST iterator and
 // rejects as soon as the count exceeds L.Limit(), without decoding any
-// subsequent elements. This guards against payloads where each element
-// is cheap to encode but expensive to materialise as T (e.g. zero-valued
-// structs with many pointer fields).
+// subsequent elements.
 func (l *LimitSlice[T, L]) UnmarshalJSON(data []byte) error {
 	if len(data) == 0 {
 		return fmt.Errorf("empty input")

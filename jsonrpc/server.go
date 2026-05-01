@@ -177,9 +177,6 @@ func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 		listener: &SelectiveListener{},
 	}
 
-	// Pre-compile sonic encode/decode paths for the wire envelope so the
-	// first request doesn't pay JIT compile latency. Idempotent — sonic
-	// caches per-type internally.
 	s.pretouch(reflect.TypeFor[Request]())
 	s.pretouch(reflect.TypeFor[response]())
 	s.pretouch(reflect.TypeFor[Error]())
@@ -189,8 +186,7 @@ func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 
 // pretouch eagerly compiles sonic encode/decode paths for t. Failures
 // (rare — only types containing channels/funcs as fields) are logged but
-// do not block server startup. Each unique type is recorded once so
-// callers can inspect what was pre-compiled via PretouchedTypes.
+// do not block server startup. Each unique type is recorded once.
 func (s *Server) pretouch(t reflect.Type) {
 	if slices.Contains(s.pretouched, t) {
 		return

@@ -229,7 +229,7 @@ func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
 		Method:  method,
 		Params: SubscriptionParams{
 			Result:         result,
-			SubscriptionID: id,
+			SubscriptionID: SubscriptionID(id),
 		},
 	})
 	if err != nil {

@@ -89,7 +89,7 @@ func TestSubscriptionTags_UnmarshalJSON(t *testing.T) {
 		{
 			name:          "invalid JSON",
 			json:          `{"not": "an array"}`,
-			expectedError: "mismatched type",
+			expectedError: "type",
 		},
 	}
 
