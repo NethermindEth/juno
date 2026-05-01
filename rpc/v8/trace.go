@@ -233,8 +233,8 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, false, false, false, true, false, false, false)
+	executionResult, err := h.vm.Trace(block.Transactions, classes, paidFeesOnL1,
+		&blockInfo, state, vm.TraceOptions{})
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 

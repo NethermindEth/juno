@@ -49,31 +49,64 @@ func (tvm *ThrottledVM) Execute(
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *vm.BlockInfo,
 	state core.StateReader,
-	skipChargeFee,
-	skipValidate,
-	errOnRevert,
-	errStack,
-	allowBinarySearch bool,
-	isEstimateFee bool,
-	returnInitialReads bool,
+	opts vm.ExecutionOptions,
 ) (vm.ExecutionResults, error) {
 	var executionResult vm.ExecutionResults
-	return executionResult, tvm.Do(func(vm *vm.VM) error {
+	return executionResult, tvm.Do(func(inner *vm.VM) error {
 		var err error
-		executionResult, err = (*vm).Execute(
-			txns,
-			declaredClasses,
-			paidFeesOnL1,
-			blockInfo,
-			state,
-			skipChargeFee,
-			skipValidate,
-			errOnRevert,
-			errStack,
-			allowBinarySearch,
-			isEstimateFee,
-			returnInitialReads,
+		executionResult, err = (*inner).Execute(
+			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
 		)
 		return err
+	})
+}
+
+func (tvm *ThrottledVM) runExec(
+	fn func(inner vm.VM) (vm.ExecutionResults, error),
+) (vm.ExecutionResults, error) {
+	var result vm.ExecutionResults
+	return result, tvm.Do(func(inner *vm.VM) error {
+		var err error
+		result, err = fn(*inner)
+		return err
+	})
+}
+
+func (tvm *ThrottledVM) Simulate(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *vm.BlockInfo,
+	state core.StateReader,
+	opts vm.SimulateOptions,
+) (vm.ExecutionResults, error) {
+	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
+		return inner.Simulate(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	})
+}
+
+func (tvm *ThrottledVM) Trace(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *vm.BlockInfo,
+	state core.StateReader,
+	opts vm.TraceOptions,
+) (vm.ExecutionResults, error) {
+	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
+		return inner.Trace(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	})
+}
+
+func (tvm *ThrottledVM) BuildBlock(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *vm.BlockInfo,
+	state core.StateReader,
+	opts vm.BuildBlockOptions,
+) (vm.ExecutionResults, error) {
+	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
+		return inner.BuildBlock(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
 	})
 }

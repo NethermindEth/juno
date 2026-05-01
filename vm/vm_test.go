@@ -381,8 +381,7 @@ func TestExecute(t *testing.T) {
 					L1GasPriceETH:  &felt.Zero,
 					L1GasPriceSTRK: &felt.Zero,
 				},
-			}, state,
-				false, false, false, false, false, false, false)
+			}, state, ExecutionOptions{})
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
@@ -397,7 +396,7 @@ func TestExecute(t *testing.T) {
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
-		}, state, false, false, false, false, false, false, false)
+		}, state, ExecutionOptions{})
 		require.NoError(t, err)
 	})
 }

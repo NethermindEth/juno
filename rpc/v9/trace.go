@@ -188,7 +188,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 //
 // Parameters:
 //
-//   - vm: The virtual machine used for execution
+//   - runner: The virtual machine used for execution
 //
 //   - transactions: The transactions to trace
 //
@@ -199,7 +199,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 //
 //   - blockInfo: Block context for execution
 func traceTransactionsWithState(
-	vm vm.VM,
+	runner vm.VM,
 	transactions []core.Transaction,
 	executionState core.StateReader,
 	classLookupState core.StateReader,
@@ -216,19 +216,13 @@ func traceTransactionsWithState(
 		return nil, httpHeader, err
 	}
 
-	executionResult, vmErr := vm.Execute(
+	executionResult, vmErr := runner.Trace(
 		transactions,
 		declaredClasses,
 		paidFeesOnL1,
 		blockInfo,
 		executionState,
-		false, // skipValidate
-		false, // skipFeeCharge
-		false, // skipNonceCharge
-		true,  // allowZeroMaxFee
-		false, // allowNoSignature
-		false, // isEstimateFee
-		false, // returnInitialReads
+		vm.TraceOptions{},
 	)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
