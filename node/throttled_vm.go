@@ -78,6 +78,17 @@ func (tvm *ThrottledVM) Execute(
 	})
 }
 
+func (tvm *ThrottledVM) runExec(
+	fn func(inner vm.VM) (vm.ExecutionResults, error),
+) (vm.ExecutionResults, error) {
+	var result vm.ExecutionResults
+	return result, tvm.Do(func(inner *vm.VM) error {
+		var err error
+		result, err = fn(*inner)
+		return err
+	})
+}
+
 func (tvm *ThrottledVM) Simulate(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
@@ -86,13 +97,8 @@ func (tvm *ThrottledVM) Simulate(
 	state core.StateReader,
 	opts vm.SimulateOptions,
 ) (vm.ExecutionResults, error) {
-	var executionResult vm.ExecutionResults
-	return executionResult, tvm.Do(func(inner *vm.VM) error {
-		var err error
-		executionResult, err = (*inner).Simulate(
-			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
-		)
-		return err
+	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
+		return inner.Simulate(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
 	})
 }
 
@@ -104,13 +110,8 @@ func (tvm *ThrottledVM) Trace(
 	state core.StateReader,
 	opts vm.TraceOptions,
 ) (vm.ExecutionResults, error) {
-	var executionResult vm.ExecutionResults
-	return executionResult, tvm.Do(func(inner *vm.VM) error {
-		var err error
-		executionResult, err = (*inner).Trace(
-			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
-		)
-		return err
+	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
+		return inner.Trace(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
 	})
 }
 
@@ -122,12 +123,7 @@ func (tvm *ThrottledVM) BuildBlock(
 	state core.StateReader,
 	opts vm.BuildBlockOptions,
 ) (vm.ExecutionResults, error) {
-	var executionResult vm.ExecutionResults
-	return executionResult, tvm.Do(func(inner *vm.VM) error {
-		var err error
-		executionResult, err = (*inner).BuildBlock(
-			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
-		)
-		return err
+	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
+		return inner.BuildBlock(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
 	})
 }
