@@ -2,6 +2,7 @@ package l1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -153,6 +154,21 @@ func (c *Client) Run(ctx context.Context) error {
 		return err
 	}
 
+	// catchUpL1HeadUpdates is best-effort: a backward eth_getLogs scan can fail
+	// on free-tier RPC providers that cap range size or rate-limit. On failure
+	// we skip catch-up and proceed straight to the live subscription — the L1
+	// head will lag until the next on-chain LogStateUpdate is observed, which
+	// is acceptable rather terminating the execution.
+	if err := c.catchUpL1HeadUpdates(ctx); err != nil {
+		c.logger.Warn("L1 head catch-up failed; resuming with live subscription only",
+			zap.Error(err),
+		)
+	}
+
+	return c.watchL1StateUpdates(ctx)
+}
+
+func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 	buffer := 128
 
 	c.logger.Info("Subscribing to L1 updates...")
@@ -189,22 +205,7 @@ func (c *Client) Run(ctx context.Context) error {
 					}
 					defer updateSub.Unsubscribe() //nolint:gocritic
 				case logStateUpdate := <-updateChan:
-					c.logger.Debug("Received L1 LogStateUpdate",
-						zap.String("number", logStateUpdate.BlockNumber.String()),
-						zap.String("stateRoot", logStateUpdate.GlobalRoot.Text(felt.Base16)),
-						zap.String("blockHash", logStateUpdate.BlockHash.Text(felt.Base16)),
-					)
-
-					if logStateUpdate.Raw.Removed {
-						for l1BlockNumber := range c.nonFinalisedLogs {
-							if l1BlockNumber >= logStateUpdate.Raw.BlockNumber {
-								delete(c.nonFinalisedLogs, l1BlockNumber)
-							}
-						}
-						// TODO What if the finalised block is also reorged?
-					} else {
-						c.nonFinalisedLogs[logStateUpdate.Raw.BlockNumber] = logStateUpdate
-					}
+					c.applyLogStateUpdate(logStateUpdate)
 				default:
 					break Outer
 				}
@@ -214,6 +215,92 @@ func (c *Client) Run(ctx context.Context) error {
 				return err
 			}
 		}
+	}
+}
+
+// applyLogStateUpdate merges a LogStateUpdate (from either the forward
+// subscription or the historical filter) into nonFinalisedLogs. A removed
+// log clears all entries at or above its L1 block number.
+func (c *Client) applyLogStateUpdate(u *contract.StarknetLogStateUpdate) {
+	c.logger.Debug("Received L1 LogStateUpdate",
+		zap.String("number", u.BlockNumber.String()),
+		zap.String("stateRoot", u.GlobalRoot.Text(felt.Base16)),
+		zap.String("blockHash", u.BlockHash.Text(felt.Base16)),
+	)
+	if u.Raw.Removed {
+		for l1BlockNumber := range c.nonFinalisedLogs {
+			if l1BlockNumber >= u.Raw.BlockNumber {
+				delete(c.nonFinalisedLogs, l1BlockNumber)
+			}
+		}
+	} else {
+		c.nonFinalisedLogs[u.Raw.BlockNumber] = u
+	}
+}
+
+// catchUpL1HeadUpdates performs a backward scan of historical LogStateUpdate
+// events emitted while the node was offline (or before it ever ran), populating
+// nonFinalisedLogs so that the first setL1Head call can write an L1 head
+// without waiting for the next forward event. The scan walks back from
+// LatestHeight in chunks of catchUpChunkSize until at least one finalised event
+// is captured if any exists in the scanned range.
+//
+// On a mid-scan error the function returns without rolling back: entries
+// already merged into nonFinalisedLogs are real on-chain events and remain
+// usable by setL1Head and by the live subscription that runs afterward. The
+// caller (Run) treats the error as best-effort and proceeds to the live
+// subscription, so the partial state is an additive head-start, not a leak.
+func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
+	latest, err := c.l1.LatestHeight(ctx)
+	if err != nil {
+		return errors.Join(err, errors.New("L1 catch-up: failed to get latest height"))
+	}
+	finalised, err := c.l1.FinalisedHeight(ctx)
+	if err != nil {
+		return errors.Join(err, errors.New("L1 catch-up: failed to get finalised height"))
+	}
+
+	c.logger.Info("L1 catch-up starting",
+		zap.Uint64("latest", latest),
+		zap.Uint64("finalised", finalised),
+		zap.Uint64("chunkSize", c.catchUpChunkSize),
+	)
+
+	var chunks, total int
+	foundFinalised := false
+	to := latest
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		var from uint64
+		if to+1 > c.catchUpChunkSize {
+			from = to + 1 - c.catchUpChunkSize
+		}
+		events, err := c.l1.FilterLogStateUpdate(ctx, from, to)
+		if err != nil {
+			return err
+		}
+		chunks++
+		total += len(events)
+		for _, ev := range events {
+			c.applyLogStateUpdate(ev)
+			if !ev.Raw.Removed && ev.Raw.BlockNumber <= finalised {
+				foundFinalised = true
+			}
+		}
+		// Stop once we've captured at least one finalised event (so setL1Head
+		// has something to commit) or we've walked back to genesis.
+		if foundFinalised || from == 0 {
+			c.logger.Info("L1 catch-up complete",
+				zap.Int("chunks", chunks),
+				zap.Int("events", total),
+				zap.Int("nonFinalisedLogs", len(c.nonFinalisedLogs)),
+				zap.Bool("foundFinalised", foundFinalised),
+			)
+			return c.setL1Head(ctx)
+		}
+		to = from - 1
 	}
 }
 
