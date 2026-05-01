@@ -52,8 +52,8 @@ type SierraClass struct {
 }
 
 type SierraEntryPoint struct {
-	Selector *felt.Felt `json:"selector"`
 	Index    uint64     `json:"function_idx"`
+	Selector *felt.Felt `json:"selector"`
 }
 
 type EntryPoints struct {

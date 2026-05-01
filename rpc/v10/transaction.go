@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -40,27 +41,6 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 	return tx
 }
 
-// CompileBroadcastedDeclareTxn compiles a Class definition from a broadcasted declare
-// transaction and returns the compiled Sierra class.
-// If the transaction is not a declare transaction, it returns nil for the Sierra class
-// and a nil error.
-func CompileBroadcastedDeclareTxn(
-	ctx context.Context,
-	compiler compiler.Compiler,
-	broadcastedTxn *BroadcastedTransaction,
-) (*core.SierraClass, error) {
-	if broadcastedTxn.Type != TxnDeclare {
-		return nil, nil
-	}
-
-	class := adaptContractClassToStarknet(broadcastedTxn.ContractClass)
-	compiledClass, err := compiler.Compile(ctx, &class)
-	if err != nil {
-		return nil, err
-	}
-	return sn2core.AdaptSierraClass(&class, compiledClass)
-}
-
 type AddTxResponse struct {
 	TransactionHash felt.TransactionHash `json:"transaction_hash"`
 	ContractAddress *felt.Address        `json:"contract_address,omitempty"`
@@ -73,11 +53,12 @@ func (h *Handler) AddTransaction(
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
 	var (
-		res AddTxResponse
-		err *jsonrpc.Error
+		res      AddTxResponse
+		finalTxn core.Transaction
+		err      *jsonrpc.Error
 	)
 	if h.memPool != nil {
-		res, err = h.addToMempool(ctx, tx)
+		res, finalTxn, err = h.addToMempool(ctx, tx)
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
 	}
@@ -91,32 +72,63 @@ func (h *Handler) AddTransaction(
 	}
 
 	if h.receivedTransactionFeed != nil {
-		adaptedTxn, aErr := AdaptBroadcastedTransactionToCore(ctx, tx, h.bcReader.Network())
-		if aErr != nil {
-			// Log error but don't fail the transaction submission
-			h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
+		if finalTxn != nil {
+			h.receivedTransactionFeed.Send(finalTxn)
 		} else {
-			h.receivedTransactionFeed.Send(adaptedTxn)
+			adaptedTxn, _, aErr := adaptAndCompileBroadcastedTxToCore(
+				ctx, h.compiler, tx, h.bcReader.Network(),
+			)
+			if aErr != nil {
+				// Log error but don't fail the transaction submission
+				h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
+			} else {
+				h.receivedTransactionFeed.Send(adaptedTxn)
+			}
 		}
 	}
 
 	return res, nil
 }
 
+func adaptAndCompileBroadcastedTxToCore(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	tx *BroadcastedTransaction,
+	network *networks.Network,
+) (core.Transaction, *core.SierraClass, error) {
+	var classHash *felt.Felt
+	var sierraClass *core.SierraClass
+
+	if tx.Type == TxnDeclare {
+		class := adaptContractClassToStarknet(tx.ContractClass)
+		compiledClass, err := compiler.Compile(ctx, &class)
+		if err != nil {
+			return nil, nil, err
+		}
+		sierraClass, err = sn2core.AdaptSierraClass(&class, compiledClass)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		tempClassHash, err := sierraClass.Hash()
+		if err != nil {
+			return nil, nil, err
+		}
+		classHash = &tempClassHash
+	}
+	coreTx, err := AdaptBroadcastedTransactionToCore(ctx, tx, classHash, network)
+	return coreTx, sierraClass, err
+}
+
 func (h *Handler) addToMempool(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
-) (AddTxResponse, *jsonrpc.Error) {
-	userTxn, err := AdaptBroadcastedTransactionToCore(ctx, tx, h.bcReader.Network())
-	if err != nil {
-		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
-	}
-
-	userClass, err := CompileBroadcastedDeclareTxn(
-		ctx, h.compiler, tx,
+) (AddTxResponse, core.Transaction, *jsonrpc.Error) {
+	userTxn, userClass, err := adaptAndCompileBroadcastedTxToCore(
+		ctx, h.compiler, tx, h.bcReader.Network(),
 	)
 	if err != nil {
-		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
+		return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 
 	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
@@ -126,7 +138,7 @@ func (h *Handler) addToMempool(
 		PaidFeeOnL1: nil,
 		Proof:       tx.Proof,
 	}); err != nil {
-		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
+		return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 	userTxnHash := felt.TransactionHash(*userTxn.Hash())
 	res := AddTxResponse{TransactionHash: userTxnHash}
@@ -143,7 +155,7 @@ func (h *Handler) addToMempool(
 		// Class hash was already computed in AdaptBroadcastedTransactionToCore.
 		res.ClassHash = (*felt.ClassHash)(userTxn.(*core.DeclareTransaction).ClassHash)
 	}
-	return res, nil
+	return res, userTxn, nil
 }
 
 func (h *Handler) pushToFeederGateway(

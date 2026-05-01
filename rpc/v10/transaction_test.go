@@ -1913,6 +1913,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 		_, err = rpcv10.AdaptBroadcastedTransactionToCore(
 			t.Context(),
 			correctBroadcastedTxn,
+			nil,
 			network,
 		)
 		require.NoError(

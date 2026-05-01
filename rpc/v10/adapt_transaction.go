@@ -412,17 +412,6 @@ func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	}
 }
 
-func adaptEntryPointsToCore(eps []ContractClassEntryPoint) []core.SierraEntryPoint {
-	result := make([]core.SierraEntryPoint, len(eps))
-	for i, ep := range eps {
-		result[i] = core.SierraEntryPoint{
-			Selector: ep.Selector,
-			Index:    *ep.Index,
-		}
-	}
-	return result
-}
-
 func adaptResourceBoundsToCore(
 	rb *ResourceBoundsMap,
 ) map[core.Resource]core.ResourceBounds {
@@ -515,12 +504,13 @@ func adaptBroadcastedDeployAccountToCore(
 	}
 }
 
-// AdaptBroadcastedTransactionToCore adapts a BroadcastedTransaction to a core.Transaction.
-// It also populates the transaction hash, and the class hash for Declare transactions.
+// AdaptBroadcastedTransactionToCore adapts a BroadcastedTransaction to a core.Transaction,
+// and populates the transaction hash.
 // @todo add tests for this function.
 func AdaptBroadcastedTransactionToCore(
 	ctx context.Context,
 	broadcastedTxn *BroadcastedTransaction,
+	classHash *felt.Felt,
 	network *networks.Network,
 ) (core.Transaction, error) {
 	var coreTx core.Transaction
@@ -536,18 +526,7 @@ func AdaptBroadcastedTransactionToCore(
 		txn.TransactionHash = &txnHash
 		coreTx = txn
 	case TxnDeclare:
-		classHash, err := core.CalculateSierraClassHash(
-			utils.ToPtrSlice(broadcastedTxn.ContractClass.SierraProgram),
-			broadcastedTxn.ContractClass.ContractClassVersion,
-			adaptEntryPointsToCore(broadcastedTxn.ContractClass.EntryPoints.Constructor),
-			adaptEntryPointsToCore(broadcastedTxn.ContractClass.EntryPoints.External),
-			adaptEntryPointsToCore(broadcastedTxn.ContractClass.EntryPoints.L1Handler),
-			broadcastedTxn.ContractClass.ABI,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to calculate class hash: %w", err)
-		}
-		txn := adaptBroadcastedDeclareToCore(broadcastedTxn, &classHash)
+		txn := adaptBroadcastedDeclareToCore(broadcastedTxn, classHash)
 
 		txnHash, err := core.TransactionHash(txn, network)
 		if err != nil {

@@ -117,46 +117,23 @@ func (c *SierraClass) Version() uint64 {
 	return 1
 }
 
-// Hash calculates the class hash for a Sierra class.
 func (c *SierraClass) Hash() (felt.Felt, error) {
-	return CalculateSierraClassHash(
-		c.Program,
-		c.SemanticVersion,
-		c.EntryPoints.Constructor,
-		c.EntryPoints.External,
-		c.EntryPoints.L1Handler,
-		c.Abi,
-	)
-}
-
-// CalculateSierraClassHash calculates the class hash for a Sierra class.
-func CalculateSierraClassHash(
-	program []*felt.Felt,
-	version string,
-	constructor []SierraEntryPoint,
-	external []SierraEntryPoint,
-	l1Handler []SierraEntryPoint,
-	abi string,
-) (felt.Felt, error) {
 	externalEntryPointsHash := crypto.PoseidonArray(
-		flattenSierraEntryPoints(external)...,
+		flattenSierraEntryPoints(c.EntryPoints.External)...,
 	)
 	l1HandlerEntryPointsHash := crypto.PoseidonArray(
-		flattenSierraEntryPoints(l1Handler)...,
+		flattenSierraEntryPoints(c.EntryPoints.L1Handler)...,
 	)
 	constructorHash := crypto.PoseidonArray(
-		flattenSierraEntryPoints(constructor)...,
+		flattenSierraEntryPoints(c.EntryPoints.Constructor)...,
 	)
-	programHash := crypto.PoseidonArray(program...)
-	abiHash := crypto.StarknetKeccak([]byte(abi))
-
 	return crypto.PoseidonArray(
-		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+version)),
+		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
 		&constructorHash,
-		&abiHash,
-		&programHash,
+		c.AbiHash,
+		c.ProgramHash,
 	), nil
 }
 
