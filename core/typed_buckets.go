@@ -164,7 +164,7 @@ var BlockTransactionsBucket = prefix.NewPrefixedBucket(
 		key.Cbor[uint64](),
 		BlockTransactionsSerializer{},
 	),
-	prefix.Prefix(key.Uint64, prefix.End[BlockTransactions]()),
+	prefix.Prefix(key.Cbor[uint64](), prefix.End[BlockTransactions]()),
 )
 
 var BlockTransactionsTransactionPartialBucket = partial.NewPartialBucket(
