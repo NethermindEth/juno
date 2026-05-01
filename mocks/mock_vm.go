@@ -71,3 +71,48 @@ func (mr *MockVMMockRecorder) Execute(txns, declaredClasses, paidFeesOnL1, block
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), txns, declaredClasses, paidFeesOnL1, blockInfo, state, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch, isEstimateFee, returnInitialReads)
 }
+
+// Simulate mocks base method.
+func (m *MockVM) Simulate(txns []core.Transaction, declaredClasses []core.ClassDefinition, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, opts vm.SimulateOptions) (vm.ExecutionResults, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Simulate", txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	ret0, _ := ret[0].(vm.ExecutionResults)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Simulate indicates an expected call of Simulate.
+func (mr *MockVMMockRecorder) Simulate(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Simulate", reflect.TypeOf((*MockVM)(nil).Simulate), txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+}
+
+// Trace mocks base method.
+func (m *MockVM) Trace(txns []core.Transaction, declaredClasses []core.ClassDefinition, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, opts vm.TraceOptions) (vm.ExecutionResults, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Trace", txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	ret0, _ := ret[0].(vm.ExecutionResults)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Trace indicates an expected call of Trace.
+func (mr *MockVMMockRecorder) Trace(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Trace", reflect.TypeOf((*MockVM)(nil).Trace), txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+}
+
+// BuildBlock mocks base method.
+func (m *MockVM) BuildBlock(txns []core.Transaction, declaredClasses []core.ClassDefinition, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, opts vm.BuildBlockOptions) (vm.ExecutionResults, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BuildBlock", txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	ret0, _ := ret[0].(vm.ExecutionResults)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BuildBlock indicates an expected call of BuildBlock.
+func (mr *MockVMMockRecorder) BuildBlock(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildBlock", reflect.TypeOf((*MockVM)(nil).BuildBlock), txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+}

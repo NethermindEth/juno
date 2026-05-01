@@ -77,3 +77,57 @@ func (tvm *ThrottledVM) Execute(
 		return err
 	})
 }
+
+func (tvm *ThrottledVM) Simulate(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *vm.BlockInfo,
+	state core.StateReader,
+	opts vm.SimulateOptions,
+) (vm.ExecutionResults, error) {
+	var executionResult vm.ExecutionResults
+	return executionResult, tvm.Do(func(inner *vm.VM) error {
+		var err error
+		executionResult, err = (*inner).Simulate(
+			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
+		)
+		return err
+	})
+}
+
+func (tvm *ThrottledVM) Trace(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *vm.BlockInfo,
+	state core.StateReader,
+	opts vm.TraceOptions,
+) (vm.ExecutionResults, error) {
+	var executionResult vm.ExecutionResults
+	return executionResult, tvm.Do(func(inner *vm.VM) error {
+		var err error
+		executionResult, err = (*inner).Trace(
+			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
+		)
+		return err
+	})
+}
+
+func (tvm *ThrottledVM) BuildBlock(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *vm.BlockInfo,
+	state core.StateReader,
+	opts vm.BuildBlockOptions,
+) (vm.ExecutionResults, error) {
+	var executionResult vm.ExecutionResults
+	return executionResult, tvm.Do(func(inner *vm.VM) error {
+		var err error
+		executionResult, err = (*inner).BuildBlock(
+			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
+		)
+		return err
+	})
+}

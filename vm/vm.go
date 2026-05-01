@@ -45,6 +45,32 @@ type CallResult struct {
 	ExecutionFailed bool
 }
 
+// SimulateOptions carries the per-request flags relevant to RPC simulate /
+// estimateFee. errStack and allowBinarySearch are constants for this path
+// and are set internally.
+type SimulateOptions struct {
+	SkipChargeFee      bool
+	SkipValidate       bool
+	ErrOnRevert        bool
+	IsEstimateFee      bool
+	ReturnInitialReads bool
+}
+
+// TraceOptions carries the per-request flags relevant to replaying an
+// existing block. All execution flags are off; only errStack is on.
+type TraceOptions struct {
+	ReturnInitialReads bool
+}
+
+// BuildBlockOptions carries flags used when producing a block (builder or
+// genesis bootstrap). errStack is hardcoded true; the trace/estimate flags
+// don't apply here.
+type BuildBlockOptions struct {
+	SkipChargeFee bool
+	SkipValidate  bool
+	ErrOnRevert   bool
+}
+
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(
@@ -69,6 +95,30 @@ type VM interface {
 		allowBinarySearch bool,
 		isEstimateFee bool,
 		returnInitialReads bool,
+	) (ExecutionResults, error)
+	Simulate(
+		txns []core.Transaction,
+		declaredClasses []core.ClassDefinition,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		opts SimulateOptions,
+	) (ExecutionResults, error)
+	Trace(
+		txns []core.Transaction,
+		declaredClasses []core.ClassDefinition,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		opts TraceOptions,
+	) (ExecutionResults, error)
+	BuildBlock(
+		txns []core.Transaction,
+		declaredClasses []core.ClassDefinition,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		opts BuildBlockOptions,
 	) (ExecutionResults, error)
 }
 
@@ -442,6 +492,72 @@ func (v *vm) Execute(
 		Receipts:         receipts,
 		InitialReads:     initialReads,
 	}, nil
+}
+
+// Simulate runs the txn set under RPC simulate / estimateFee semantics:
+// errStack and allowBinarySearch are always on.
+func (v *vm) Simulate(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts SimulateOptions,
+) (ExecutionResults, error) {
+	return v.Execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		opts.SkipChargeFee,
+		opts.SkipValidate,
+		opts.ErrOnRevert,
+		true, // errStack
+		true, // allowBinarySearch
+		opts.IsEstimateFee,
+		opts.ReturnInitialReads,
+	)
+}
+
+// Trace replays an existing block. All exec flags are off; only errStack
+// is on so we get structured error frames if anything goes wrong.
+func (v *vm) Trace(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts TraceOptions,
+) (ExecutionResults, error) {
+	return v.Execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		false, // skipChargeFee
+		false, // skipValidate
+		false, // errOnRevert
+		true,  // errStack
+		false, // allowBinarySearch
+		false, // isEstimateFee
+		opts.ReturnInitialReads,
+	)
+}
+
+// BuildBlock executes txns in block-production mode (builder or genesis).
+// errStack is on; trace/estimate flags don't apply.
+func (v *vm) BuildBlock(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts BuildBlockOptions,
+) (ExecutionResults, error) {
+	return v.Execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		opts.SkipChargeFee,
+		opts.SkipValidate,
+		opts.ErrOnRevert,
+		true,  // errStack
+		false, // allowBinarySearch
+		false, // isEstimateFee
+		false, // returnInitialReads
+	)
 }
 
 func marshalTxnsAndDeclaredClasses(
