@@ -577,12 +577,11 @@ func newL1Client(
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
-	l1Client := l1.NewClient(ethSubscriber, chain, log)
-
+	opts := make([]l1.Option, 0, 1)
 	if includeMetrics {
-		l1Client.WithEventListener(makeL1Metrics(chain, ethSubscriber))
+		opts = append(opts, l1.WithEventListener(makeL1Metrics(chain, ethSubscriber)))
 	}
-	return l1Client, nil
+	return l1.NewClient(ethSubscriber, chain, log, opts...), nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
