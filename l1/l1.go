@@ -37,39 +37,75 @@ type Client struct {
 	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
+	catchUpChunkSize      uint64
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
 	listener              EventListener
 }
 
 var _ service.Service = (*Client)(nil)
 
-func NewClient(l1 Subscriber, chain *blockchain.Blockchain, logger log.StructuredLogger) *Client {
+// defaultCatchUpChunkSize is the L1 block range per backward eth_getLogs request.
+const defaultCatchUpChunkSize uint64 = 1_000
+
+// options holds configuration for constructing a l1 client.
+type options struct {
+	EventListener         EventListener
+	ResubscribeDelay      time.Duration
+	PollFinalisedInterval time.Duration
+	// CatchUpChunkSize is the L1 block range per backward eth_getLogs request
+	// during the startup catch-up scan.
+	CatchUpChunkSize uint64
+}
+
+// Option is a functional option for configuring l1 client options.
+type Option func(*options)
+
+func WithEventListener(l EventListener) Option {
+	return func(o *options) { o.EventListener = l }
+}
+
+func WithResubscribeDelay(d time.Duration) Option {
+	return func(o *options) { o.ResubscribeDelay = d }
+}
+
+// WithPollFinalisedInterval sets the time to wait before
+// checking for an update to the finalised L1 block.
+func WithPollFinalisedInterval(d time.Duration) Option {
+	return func(o *options) { o.PollFinalisedInterval = d }
+}
+
+// WithCatchUpChunkSize sets the L1 block range per backward eth_getLogs request
+// during the startup catch-up scan.
+func WithCatchUpChunkSize(size uint64) Option {
+	return func(o *options) { o.CatchUpChunkSize = size }
+}
+
+func NewClient(
+	l1 Subscriber,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+	opts ...Option,
+) *Client {
+	o := options{
+		EventListener:         SelectiveListener{},
+		ResubscribeDelay:      10 * time.Second,
+		PollFinalisedInterval: time.Minute,
+		CatchUpChunkSize:      defaultCatchUpChunkSize,
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,
 		logger:                logger,
 		network:               chain.Network(),
-		resubscribeDelay:      10 * time.Second,
-		pollFinalisedInterval: time.Minute,
-		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate, 0),
-		listener:              SelectiveListener{},
+		resubscribeDelay:      o.ResubscribeDelay,
+		pollFinalisedInterval: o.PollFinalisedInterval,
+		catchUpChunkSize:      o.CatchUpChunkSize,
+		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate),
+		listener:              o.EventListener,
 	}
-}
-
-func (c *Client) WithEventListener(l EventListener) *Client {
-	c.listener = l
-	return c
-}
-
-func (c *Client) WithResubscribeDelay(delay time.Duration) *Client {
-	c.resubscribeDelay = delay
-	return c
-}
-
-// WithPollFinalisedInterval sets the time to wait before checking for an update to the finalised L1 block.
-func (c *Client) WithPollFinalisedInterval(delay time.Duration) *Client {
-	c.pollFinalisedInterval = delay
-	return c
 }
 
 func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
