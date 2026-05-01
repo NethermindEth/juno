@@ -484,6 +484,13 @@ func adaptBroadcastedDeclareToCore(
 func adaptBroadcastedDeployAccountToCore(
 	tx *BroadcastedTransaction,
 ) *core.DeployAccountTransaction {
+	contractAddress := core.ContractAddress(
+		&felt.Zero,
+		tx.ClassHash,
+		tx.ContractAddressSalt,
+		*tx.ConstructorCallData,
+	)
+
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     nil,
@@ -491,7 +498,8 @@ func adaptBroadcastedDeployAccountToCore(
 			ClassHash:           tx.ClassHash,
 			ConstructorCallData: *tx.ConstructorCallData,
 			Version:             (*core.TransactionVersion)(tx.Version),
-			ContractAddress:     nil, // not present in v3 deploy account
+			// not present in v3 deploy account, but it is used in the core.TransactionHash function.
+			ContractAddress: &contractAddress,
 		},
 		MaxFee:               nil, // not present in v3 deploy account
 		TransactionSignature: *tx.Signature,
