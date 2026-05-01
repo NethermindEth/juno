@@ -24,9 +24,13 @@ type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	LatestHeight(ctx context.Context) (uint64, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
+	FilterLogStateUpdate(
+		ctx context.Context,
+		fromBlock,
+		toBlock uint64,
+	) ([]*contract.StarknetLogStateUpdate, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-
 	Close()
 }
 
