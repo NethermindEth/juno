@@ -30,6 +30,7 @@ import (
 	"github.com/NethermindEth/juno/node/upgrader"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
@@ -51,11 +52,12 @@ import (
 )
 
 const (
-	upgraderDelay    = 5 * time.Minute
-	mempoolLimit     = 1024
-	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
-	sequencerAddress = 1337
+	upgraderDelay      = 5 * time.Minute
+	mempoolLimit       = 1024
+	githubAPIUrl       = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL   = "https://github.com/NethermindEth/juno/releases/latest"
+	sequencerAddress   = 1337
+	RetainedBlocksFlag = "retained-blocks"
 )
 
 // Config is the top-level juno configuration.
@@ -133,6 +135,7 @@ type Config struct {
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	NewState                  bool          `mapstructure:"new-state"`
+	RetainedBlocks            uint64        `mapstructure:"retained-blocks"`
 }
 
 type Node struct {
@@ -299,6 +302,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
+		if cfg.RetainedBlocks > 0 {
+			prunerOpts := make([]pruner.Option, 0, 1)
+			if cfg.Metrics {
+				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
+			}
+			p := pruner.New(
+				database,
+				cfg.RetainedBlocks,
+				seq.SubscribeNewHeads().Subscription,
+				chain.SubscribeL1Head().Subscription,
+				logger,
+				prunerOpts...,
+			)
+			services = append(services, p)
+		}
 	} else {
 		if cfg.GatewayTimeouts == "" {
 			cfg.GatewayTimeouts = feeder.DefaultTimeouts
@@ -401,6 +419,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 		if synchronizer != nil {
 			services = append(services, synchronizer)
+			if cfg.RetainedBlocks > 0 {
+				prunerOpts := make([]pruner.Option, 0, 1)
+				if cfg.Metrics {
+					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
+				}
+				p := pruner.New(
+					database,
+					cfg.RetainedBlocks,
+					synchronizer.SubscribeNewHeads().Subscription,
+					chain.SubscribeL1Head().Subscription,
+					logger,
+					prunerOpts...,
+				)
+				services = append(services, p)
+			}
 		}
 	}
 

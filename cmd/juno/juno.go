@@ -107,6 +107,8 @@ const (
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
+	newStateF                           = "new-state"
+	retainedBlocksF                     = node.RetainedBlocksFlag
 
 	defaultConfig                             = ""
 	defaultLogJSON                            = false
@@ -166,7 +168,7 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
 	defaultDisableReceivedTxnStream           = false
-	newStateF                                 = "new-state"
+	defaultRetainedBlocks                     = uint64(0)
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -248,7 +250,22 @@ const (
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	disableReceivedTxnStreamUsage  = "The starknet_subscribeNewTransactions WebSocket API " +
+	retainedBlocksUsage            = "Size of the retention window for block contents and state " +
+		"history, measured in blocks counted back from the latest L1-verified head. " +
+		"Pruning is disabled by default (0); set this flag to a non-zero value to enable " +
+		"the pruner. When enabled, the pruner keeps blocks in the range " +
+		"(l1_head - retained_blocks, l2_head] and deletes everything below that floor; " +
+		"blocks at or above the L2 head are always kept regardless of this value. The " +
+		"floor is anchored on the L1-verified head — never on the local L2 head — so " +
+		"pruned blocks are reorg-safe. RPC methods remains fully functional" +
+		"for any block inside the retention window; requests targeting " +
+		"blocks below the floor will fail because their data has been deleted. " +
+		"Pruning is irreversible: data deleted under a small window cannot be " +
+		"recovered without re-syncing. " +
+		"Changing this value across restarts is safe: the window grows or " +
+		"shrinks accordingly. Growth is gradual — pruning pauses until the L1 " +
+		"head advances enough to reach the new floor."
+	disableReceivedTxnStreamUsage = "The starknet_subscribeNewTransactions WebSocket API " +
 		"allows users to subscribe to new transactions. By default, it streams " +
 		"transactions that have been accepted on L2. Users can optionally provide " +
 		"a set of finality statuses to be notified about, including transactions " +
@@ -489,6 +506,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(
 		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
 	)
+	junoCmd.Flags().Uint64(retainedBlocksF, defaultRetainedBlocks, retainedBlocksUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd
