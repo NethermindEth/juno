@@ -21,7 +21,7 @@ func Unmarshal(data []byte, v any) error { return api.Unmarshal(data, v) }
 // UnmarshalString is like Unmarshal but takes the JSON as a string,
 // avoiding a []byte→string copy when the caller already has a string.
 func UnmarshalString(data string, v any) error {
-	return sonic.UnmarshalString(data, v)
+	return api.UnmarshalFromString(data, v)
 }
 
 // Decoder mirrors sonic.Decoder (a superset of the stdlib decoder

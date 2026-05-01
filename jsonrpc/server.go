@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,10 +19,19 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/bytedance/sonic"
+	"github.com/bytedance/sonic/option"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+// pretouchRecursiveDepth controls how many extra passes sonic.Pretouch
+// makes over types that exceed its default inline depth (3 levels).
+// With value 4, total covered depth is MaxInlineDepth(3)+4 = 7 levels —
+// enough for any realistic Juno RPC type tree (transactions/traces nest
+// at most 5–6 levels deep).
+const pretouchRecursiveDepth = 4
 
 const (
 	InvalidJSON    = -32700 // Invalid JSON was received by the server.
@@ -151,6 +161,7 @@ type Server struct {
 	logger               log.StructuredLogger
 	listener             EventListener
 	disableBatchRequests bool
+	pretouched           []reflect.Type
 }
 
 type Validator interface {
@@ -166,7 +177,28 @@ func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 		listener: &SelectiveListener{},
 	}
 
+	// Pre-compile sonic encode/decode paths for the wire envelope so the
+	// first request doesn't pay JIT compile latency. Idempotent — sonic
+	// caches per-type internally.
+	s.pretouch(reflect.TypeFor[Request]())
+	s.pretouch(reflect.TypeFor[response]())
+	s.pretouch(reflect.TypeFor[Error]())
+
 	return s
+}
+
+// pretouch eagerly compiles sonic encode/decode paths for t. Failures
+// (rare — only types containing channels/funcs as fields) are logged but
+// do not block server startup. Each unique type is recorded once so
+// callers can inspect what was pre-compiled via PretouchedTypes.
+func (s *Server) pretouch(t reflect.Type) {
+	if slices.Contains(s.pretouched, t) {
+		return
+	}
+	s.pretouched = append(s.pretouched, t)
+	if err := sonic.Pretouch(t, option.WithCompileRecursiveDepth(pretouchRecursiveDepth)); err != nil {
+		s.logger.Warn("sonic pretouch failed", zap.String("type", t.String()), zap.Error(err))
+	}
 }
 
 // WithValidator registers a validator to validate handler struct arguments
@@ -195,11 +227,18 @@ func (s *Server) DisableBatchRequests(forbid bool) *Server {
 // - paramNames are the names of parameters in the order that they are expected
 // by the handler
 func (s *Server) RegisterMethods(methods ...Method) error {
+	// FIXME: Remove duration log before merging
+	startPretouched := len(s.pretouched)
+	start := time.Now()
 	for idx := range methods {
 		if err := s.registerMethod(methods[idx]); err != nil {
 			return err
 		}
 	}
+	s.logger.Info("registered jsonrpc methods",
+		zap.Int("count", len(methods)),
+		zap.Int("pretouched_types", len(s.pretouched)-startPretouched),
+		zap.Duration("pretouch_duration", time.Since(start)))
 	return nil
 }
 
@@ -243,7 +282,33 @@ func (s *Server) registerMethod(method Method) error {
 	// The method is valid. Mutate the appropriate fields and register on the server.
 	s.methods[method.Name] = method
 
+	s.pretouchHandlerTypes(handlerT, method.needsContext)
+
 	return nil
+}
+
+var (
+	errorType  = reflect.TypeFor[*Error]()
+	headerType = reflect.TypeFor[http.Header]()
+)
+
+// pretouchHandlerTypes pre-compiles sonic encode/decode paths for every
+// JSON-marshaled type the handler touches at request time: parameter
+// types (hit by parseParam) and non-envelope return types (hit by the
+// response wrapper).
+func (s *Server) pretouchHandlerTypes(handlerT reflect.Type, needsContext bool) {
+	for i := range handlerT.NumIn() {
+		if i == 0 && needsContext {
+			continue
+		}
+		s.pretouch(handlerT.In(i))
+	}
+	for out := range handlerT.Outs() {
+		if out == errorType || out == headerType {
+			continue
+		}
+		s.pretouch(out)
+	}
 }
 
 type Conn interface {

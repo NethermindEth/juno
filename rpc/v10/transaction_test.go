@@ -1284,6 +1284,70 @@ func TestAddTransaction(t *testing.T) {
 				"type": "DECLARE"
 			  }`,
 		},
+		"declare v3 with full contract_class": {
+			// Locks structural passthrough of all four top-level keys
+			// in a Sierra ContractClass when sonic re-marshals the map.
+			// `assert.JSONEq` is order-insensitive, which is the
+			// guarantee we want under sonic's no-sort map handling.
+			txn: func() rpcv10.BroadcastedTransaction {
+				tx := txWithoutClass(
+					"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
+				)
+				tx.ContractClass = json.RawMessage([]byte(`{
+					"sierra_program": {},
+					"contract_class_version": "0.1.0",
+					"entry_points_by_type": {
+						"EXTERNAL": [{"selector":"0x1","function_idx":2}],
+						"L1_HANDLER": [],
+						"CONSTRUCTOR": []
+					},
+					"abi": "[{\"name\":\"foo\",\"type\":\"function\"}]"
+				}`))
+				return tx
+			}(),
+			expectedJSON: `{
+				"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
+				"version": "0x3",
+				"signature": [
+				  "0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
+				  "0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"
+				],
+				"nonce": "0x1",
+				"nonce_data_availability_mode": 0,
+				"fee_data_availability_mode": 0,
+				"resource_bounds": {
+				  "L1_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x2540be400"
+				  },
+				  "L1_DATA_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x2540be400"
+				  },
+				  "L2_GAS": {
+					"max_amount": "0x0",
+					"max_price_per_unit": "0x0"
+				  }
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"sender_address": "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
+				"class_hash": "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7",
+				"compiled_class_hash": "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
+				"account_deployment_data": [],
+				"type": "DECLARE",
+				"contract_class": {
+					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA=",
+					"contract_class_version": "0.1.0",
+					"entry_points_by_type": {
+						"EXTERNAL": [{"selector":"0x1","function_idx":2}],
+						"L1_HANDLER": [],
+						"CONSTRUCTOR": []
+					},
+					"abi": "[{\"name\":\"foo\",\"type\":\"function\"}]"
+				}
+			  }`,
+		},
 		"declare v3": {
 			txn: func() rpcv10.BroadcastedTransaction {
 				tx := txWithoutClass(
