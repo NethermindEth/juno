@@ -186,7 +186,8 @@ func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 
 // pretouch eagerly compiles sonic encode/decode paths for t. Failures
 // (rare — only types containing channels/funcs as fields) are logged but
-// do not block server startup. Each unique type is recorded once.
+// do not block server startup. Each unique type is recorded once so
+// callers can inspect what was pre-compiled via PretouchedTypes.
 func (s *Server) pretouch(t reflect.Type) {
 	if slices.Contains(s.pretouched, t) {
 		return
@@ -195,6 +196,15 @@ func (s *Server) pretouch(t reflect.Type) {
 	if err := sonic.Pretouch(t, option.WithCompileRecursiveDepth(pretouchRecursiveDepth)); err != nil {
 		s.logger.Warn("sonic pretouch failed", zap.String("type", t.String()), zap.Error(err))
 	}
+}
+
+// PretouchedTypes returns the list of types submitted to sonic.Pretouch
+// during construction and method registration, in registration order.
+// Useful for verifying which encode/decode paths have been pre-compiled.
+func (s *Server) PretouchedTypes() []reflect.Type {
+	out := make([]reflect.Type, len(s.pretouched))
+	copy(out, s.pretouched)
+	return out
 }
 
 // WithValidator registers a validator to validate handler struct arguments

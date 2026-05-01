@@ -5,10 +5,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/go-playground/validator/v10"
@@ -887,6 +890,55 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 			enc := zapcore.NewMapObjectEncoder()
 			require.NoError(t, tc.req.MarshalLogObject(enc))
 			assert.Equal(t, tc.want, enc.Fields)
+		})
+	}
+}
+
+// TestPretouchProductionHandlers registers Juno's real RPC methods
+// (v8, v9, v10) on jsonrpc.Server instances and dumps the resulting
+// PretouchedTypes list. The list is the actual set of Go types that
+// sonic compiled encode/decode paths for at server startup, with no
+// placeholder/stub handlers.
+//
+// Network and storage interfaces (bcReader, syncReader, vm) are passed
+// nil — those are only touched when handlers run, not at registration.
+func TestPretouchProductionHandlers(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	handler := rpc.New(nil, nil, nil, "test", logger, &networks.Network{})
+
+	cases := []struct {
+		name    string
+		methods func() ([]jsonrpc.Method, string)
+	}{
+		{"v0.10", handler.MethodsV0_10},
+		{"v0.9", handler.MethodsV0_9},
+		{"v0.8", handler.MethodsV0_8},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			methods, _ := tc.methods()
+			server := jsonrpc.NewServer(1, logger)
+			require.NoError(t, server.RegisterMethods(methods...))
+
+			types := server.PretouchedTypes()
+			names := make([]string, len(types))
+			for i, ty := range types {
+				names[i] = ty.String()
+			}
+			sort.Strings(names)
+
+			t.Logf("%s: %d unique types pretouched", tc.name, len(names))
+			for _, n := range names {
+				t.Logf("  %s", n)
+			}
+
+			// Sanity: envelope must be there.
+			require.Contains(t, names, "jsonrpc.Request")
+			require.Contains(t, names, "jsonrpc.response")
+			require.Contains(t, names, "jsonrpc.Error")
+			// And we registered something beyond the envelope-only set.
+			require.Greater(t, len(names), 3)
 		})
 	}
 }
