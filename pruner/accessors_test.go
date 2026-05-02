@@ -307,52 +307,14 @@ func TestPruneUpto_RollingCarveOut(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(20), pruned)
 	assert.Equal(t, uint64(20), oldestKept)
+	testutils.AssertPostPruneState(t, database, blocks, 20, lag)
 
-	// After call 1: only block 19 keeps its hash→number mapping.
-	for i := range uint64(19) {
-		assert.False(t, testutils.BlockHeaderHashExists(database, blocks[i].Header.Hash),
-			"after call 1: hash→number for block %d should be gone", i)
-	}
-	assert.True(t, testutils.BlockHeaderHashExists(database, blocks[19].Header.Hash),
-		"after call 1: block 19's hash→number is the carve-out")
-	// And lag headers [10, 20) are kept.
-	for i := uint64(20) - lag; i < 20; i++ {
-		assert.True(t, testutils.BlockHeaderExists(database, i),
-			"after call 1: header at block %d should be in the lag window", i)
-	}
-
-	// Call 2: prune up to 30.
+	// Call 2: prune up to 30. OldestRetainedBlock returns 20 now, so we prune 10 more.
 	pruned, oldestKept, err = PruneUpto(context.Background(), database, 30, defaultTargetBatchByteSize)
 	require.NoError(t, err)
-	// OldestRetainedBlock returns 20 now, so we prune 10 more.
 	assert.Equal(t, uint64(10), pruned)
 	assert.Equal(t, uint64(30), oldestKept)
-
-	// After call 2: block 19's mapping has been swept by the start-1 cleanup.
-	assert.False(t, testutils.BlockHeaderHashExists(database, blocks[19].Header.Hash),
-		"after call 2: block 19's mapping should have been cleaned up")
-	for i := uint64(20); i < 29; i++ {
-		assert.False(t, testutils.BlockHeaderHashExists(database, blocks[i].Header.Hash),
-			"after call 2: hash→number for block %d should be gone", i)
-	}
-	assert.True(t, testutils.BlockHeaderHashExists(database, blocks[29].Header.Hash),
-		"after call 2: block 29's hash→number is the new carve-out")
-
-	// Header lag has rolled forward to [20, 30); the previous lag window
-	// [10, 20) is now fully gone.
-	for i := uint64(10); i < 20; i++ {
-		assert.False(t, testutils.BlockHeaderExists(database, i),
-			"after call 2: header at block %d should be pruned (no longer in lag)", i)
-	}
-	for i := uint64(30) - lag; i < 30; i++ {
-		assert.True(t, testutils.BlockHeaderExists(database, i),
-			"after call 2: header at block %d should be in the new lag window", i)
-	}
-
-	// Blocks beyond endExclusive still intact.
-	for i := uint64(30); i < totalBlocks; i++ {
-		testutils.AssertBlockExists(t, database, blocks[i])
-	}
+	testutils.AssertPostPruneState(t, database, blocks, 30, lag)
 }
 
 // TestPruneBlockDataUpto exercises the range-tombstone half on its own,
