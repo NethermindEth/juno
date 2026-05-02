@@ -27,7 +27,10 @@ func (e *BlockPrunedError) Error() string {
 	if e.OldestRetained == 0 {
 		return fmt.Sprintf("block %d is below the node's retention floor", e.BlockNumber)
 	}
-	return fmt.Sprintf("block %d has been pruned; oldest retained block is %d", e.BlockNumber, e.OldestRetained)
+	return fmt.Sprintf("block %d has been pruned; oldest retained block is %d",
+		e.BlockNumber,
+		e.OldestRetained,
+	)
 }
 
 func (e *BlockPrunedError) Is(target error) bool { return target == ErrBlockPruned }

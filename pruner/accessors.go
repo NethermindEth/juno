@@ -316,4 +316,3 @@ func pruneAggregatedBloomFiltersUpto(w db.KeyValueRangeDeleter, rangeEndExclusiv
 	endKey := db.AggregatedBloomFilterKey(oldestKept, oldestKept+core.NumBlocksPerFilter-1)
 	return w.DeleteRange(startKey, endKey)
 }
-
