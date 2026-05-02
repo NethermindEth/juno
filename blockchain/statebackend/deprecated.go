@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/pruner"
 )
 
 type deprecatedStateBackend struct {
@@ -33,15 +34,12 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 func (b *deprecatedStateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	//nolint:staticcheck,nolintlint // used by old state
-	txn := b.database.NewIndexedBatch()
-
-	// Note(Ege): Why do we fetch header here? To validate block exists?
-	_, err := core.GetBlockHeaderByNumber(txn, blockNumber)
+	_, err := pruner.HeaderByNumberIfStateRetained(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	//nolint:staticcheck,nolintlint // used by old state
+	txn := b.database.NewIndexedBatch()
 	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		blockNumber,
@@ -58,12 +56,12 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return deprecatedstate.New(txn), NoopStateCloser, nil
 	}
 
-	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
-	header, err := core.GetBlockHeaderByHash(txn, blockHash)
+	header, err := pruner.HeaderByHashIfStateRetained(b.database, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
 	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		header.Number,

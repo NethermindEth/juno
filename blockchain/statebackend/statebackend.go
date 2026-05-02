@@ -5,6 +5,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/pruner"
 )
 
 type stateBackend struct {
@@ -33,7 +34,7 @@ func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
 func (b *stateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+	header, err := pruner.HeaderByNumberIfStateRetained(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -56,12 +57,16 @@ func (b *stateBackend) StateAtBlockHash(
 		return st, NoopStateCloser, nil
 	}
 
-	blockNumber, err := core.GetBlockHeaderNumberByHash(b.database, blockHash)
+	header, err := pruner.HeaderByHashIfStateRetained(b.database, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return b.StateAtBlockNumber(blockNumber)
+	history, err := state.NewStateHistory(header.Number, header.GlobalStateRoot, b.stateDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &history, NoopStateCloser, nil
 }
 
 func (b *stateBackend) Store(
