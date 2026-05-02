@@ -2,9 +2,7 @@ package pruner
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -36,7 +34,7 @@ var (
 // window if ctx is cancelled mid-loop).
 //
 // Resumes automatically. The lower bound of the per-block sweep is
-// derived from [earliestBlockNumberByCommitments] — i.e., wherever the
+// derived from [OldestRetainedBlock] — i.e., wherever the
 // previous call left off — so two consecutive calls do no overlapping
 // per-block work. If a previous call exited mid-loop (ctx cancelled),
 // the next call picks up from the same block. If endExclusive is at or
@@ -79,7 +77,7 @@ func PruneUpto(
 	endExclusive uint64,
 	targetBatchByteSize int,
 ) (blocksPruned, oldestKept uint64, err error) {
-	start, err := earliestBlockNumberByCommitments(database)
+	start, err := OldestRetainedBlock(database)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return 0, 0, nil
 	}
@@ -104,6 +102,52 @@ func PruneUpto(
 	}
 
 	return blockNum - start, blockNum, nil
+}
+
+// PruneBlockDataUpto prunes the number-keyed block data for every block
+// strictly below rangeEndExclusive.
+//
+// Deleted for every block below rangeEndExclusive:
+//
+//   - block commitments
+//   - state update
+//   - block transactions
+//   - aggregated bloom filters fully below rangeEndExclusive
+//
+// Retained below rangeEndExclusive (intentional carve-out):
+//
+//   - Block headers in [rangeEndExclusive-BlockHashLag, rangeEndExclusive).
+//     The get_block_hash_syscall, run during execution of any block in
+//     [rangeEndExclusive, rangeEndExclusive+BlockHashLag), reads a header
+//     by number from this window — pruning it would break the syscall.
+func PruneBlockDataUpto(w db.KeyValueRangeDeleter, rangeEndExclusive uint64) error {
+	// When rangeEndExclusive <= BlockHashLag the whole range falls inside
+	// the lag carve-out, so no headers may be deleted.
+	headerEnd := uint64(0)
+	if rangeEndExclusive > core.BlockHashLag {
+		headerEnd = rangeEndExclusive - core.BlockHashLag
+	}
+	err := blockHeadersRange.Prefix().DeleteRange(w, 0, headerEnd)
+	if err != nil {
+		return err
+	}
+
+	err = blockCommitmentsRange.Prefix().DeleteRange(w, 0, rangeEndExclusive)
+	if err != nil {
+		return err
+	}
+
+	err = stateUpdatesRange.Prefix().DeleteRange(w, 0, rangeEndExclusive)
+	if err != nil {
+		return err
+	}
+
+	err = core.BlockTransactionsBucket.Prefix().DeleteRange(w, 0, rangeEndExclusive)
+	if err != nil {
+		return err
+	}
+
+	return pruneAggregatedBloomFiltersUpto(w, rangeEndExclusive)
 }
 
 // pruneHashKeyedUpto deletes the hash-keyed indexes for every block in
@@ -210,52 +254,6 @@ func deleteTransactionHashReverseLookups(
 	return nil
 }
 
-// PruneBlockDataUpto prunes the number-keyed block data for every block
-// strictly below rangeEndExclusive.
-//
-// Deleted for every block below rangeEndExclusive:
-//
-//   - block commitments
-//   - state update
-//   - block transactions
-//   - aggregated bloom filters fully below rangeEndExclusive
-//
-// Retained below rangeEndExclusive (intentional carve-out):
-//
-//   - Block headers in [rangeEndExclusive-BlockHashLag, rangeEndExclusive).
-//     The get_block_hash_syscall, run during execution of any block in
-//     [rangeEndExclusive, rangeEndExclusive+BlockHashLag), reads a header
-//     by number from this window — pruning it would break the syscall.
-func PruneBlockDataUpto(w db.KeyValueRangeDeleter, rangeEndExclusive uint64) error {
-	// When rangeEndExclusive <= BlockHashLag the whole range falls inside
-	// the lag carve-out, so no headers may be deleted.
-	headerEnd := uint64(0)
-	if rangeEndExclusive > core.BlockHashLag {
-		headerEnd = rangeEndExclusive - core.BlockHashLag
-	}
-	err := blockHeadersRange.Prefix().DeleteRange(w, 0, headerEnd)
-	if err != nil {
-		return err
-	}
-
-	err = blockCommitmentsRange.Prefix().DeleteRange(w, 0, rangeEndExclusive)
-	if err != nil {
-		return err
-	}
-
-	err = stateUpdatesRange.Prefix().DeleteRange(w, 0, rangeEndExclusive)
-	if err != nil {
-		return err
-	}
-
-	err = core.BlockTransactionsBucket.Prefix().DeleteRange(w, 0, rangeEndExclusive)
-	if err != nil {
-		return err
-	}
-
-	return pruneAggregatedBloomFiltersUpto(w, rangeEndExclusive)
-}
-
 // pruneStateHistoryFromUpdate deletes the state-history entries written
 // for a single block. Each entry records the value of a (contract, slot)
 // or (contract,) tuple *just before* the block was applied, keyed by block
@@ -319,33 +317,3 @@ func pruneAggregatedBloomFiltersUpto(w db.KeyValueRangeDeleter, rangeEndExclusiv
 	return w.DeleteRange(startKey, endKey)
 }
 
-// earliestBlockNumberByCommitments returns the lowest block number
-// present in [db.BlockCommitments] — the oldest block still fully
-// retained.
-//
-// BlockCommitments is the source of truth for "oldest kept" because
-// the BlockHeadersByNumber carry intentional carve-outs that sit
-// below the true retention floor (see [PruneUpto]).
-//
-// BlockCommitments has no such carve-out, so its lowest entry equals
-// oldestKept exactly.
-func earliestBlockNumberByCommitments(r db.KeyValueReader) (uint64, error) {
-	// Bucket (1 byte) + uint64BE (8 bytes)
-	const blockCommitmentsKeyByteSize = 9
-	for entry, err := range blockCommitmentsRange.Prefix().Scan(r) {
-		if err != nil {
-			return 0, err
-		}
-
-		if len(entry.Key) != blockCommitmentsKeyByteSize {
-			return 0, fmt.Errorf(
-				"invalid key size. expected: %v, actual %v",
-				blockCommitmentsKeyByteSize,
-				len(entry.Key),
-			)
-		}
-
-		return binary.BigEndian.Uint64(entry.Key[1:9]), nil
-	}
-	return 0, db.ErrKeyNotFound
-}

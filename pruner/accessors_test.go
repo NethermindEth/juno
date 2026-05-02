@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEarliestBlockNumberByCommitments(t *testing.T) {
+func TestOldestRetainedBlock(t *testing.T) {
 	t.Run("empty database returns ErrKeyNotFound", func(t *testing.T) {
 		database := newTestDB(t)
 
-		_, err := earliestBlockNumberByCommitments(database)
+		_, err := OldestRetainedBlock(database)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
@@ -27,7 +27,7 @@ func TestEarliestBlockNumberByCommitments(t *testing.T) {
 			storeBlock(t, database, i)
 		}
 
-		num, err := earliestBlockNumberByCommitments(database)
+		num, err := OldestRetainedBlock(database)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(5), num)
 	})
@@ -396,7 +396,7 @@ func TestPruneUpto_RollingCarveOut(t *testing.T) {
 	// Call 2: prune up to 30.
 	pruned, oldestKept, err = PruneUpto(context.Background(), database, 30, defaultTargetBatchByteSize)
 	require.NoError(t, err)
-	// earliestBlockNumberByCommitments returns 20 now, so we prune 10 more.
+	// OldestRetainedBlock returns 20 now, so we prune 10 more.
 	assert.Equal(t, uint64(10), pruned)
 	assert.Equal(t, uint64(30), oldestKept)
 
