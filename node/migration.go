@@ -17,12 +17,12 @@ import (
 // config variables from cfg to determine if they should be enabled.
 func registerMigrations(cfg *Config) *migration.Registry {
 	registry := migration.NewRegistry().
-		With(&blocktransactions.Migrator{})
-	registry = registry.WithOptional(
-		historyprunner.New(cfg.RetainedBlocks),
-		cfg.RetainedBlocks > 0,
-		RetainedBlocksFlag,
-	)
+		With(&blocktransactions.Migrator{}).
+		WithOptional(
+			historyprunner.New(cfg.RetainedBlocks),
+			cfg.RetainedBlocks > 0,
+			RetainedBlocksFlag,
+		)
 
 	return registry
 }
