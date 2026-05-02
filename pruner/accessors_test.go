@@ -8,23 +8,24 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	_ "github.com/NethermindEth/juno/encoder/registry"
+	"github.com/NethermindEth/juno/pruner/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOldestRetainedBlock(t *testing.T) {
 	t.Run("empty database returns ErrKeyNotFound", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 
 		_, err := OldestRetainedBlock(database)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("returns lowest block number with commitments", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 
 		for i := uint64(5); i <= 7; i++ {
-			storeBlock(t, database, i)
+			testutils.StoreBlock(t, database, i)
 		}
 
 		num, err := OldestRetainedBlock(database)
@@ -34,14 +35,14 @@ func TestOldestRetainedBlock(t *testing.T) {
 }
 
 func TestDeleteTransactionHashReverseLookups(t *testing.T) {
-	database := newTestDB(t)
+	database := testutils.NewTestDB(t)
 
-	blocks := make([]*storedBlock, 3)
+	blocks := make([]*testutils.StoredBlock, 3)
 	for i := range uint64(3) {
-		blocks[i] = storeBlock(t, database, i)
+		blocks[i] = testutils.StoreBlock(t, database, i)
 	}
 
-	withBatch(t, database, func(batch db.Batch) error {
+	testutils.WithBatch(t, database, func(batch db.Batch) error {
 		return deleteTransactionHashReverseLookups(database, batch, 1)
 	})
 
@@ -61,10 +62,10 @@ func TestDeleteTransactionHashReverseLookups(t *testing.T) {
 
 	// Header hash → number lookup is *not* this function's responsibility,
 	// so it must still be present for block 1.
-	assert.True(t, blockHeaderHashExists(database, blocks[1].Header.Hash))
+	assert.True(t, testutils.BlockHeaderHashExists(database, blocks[1].Header.Hash))
 
 	// Neighbouring blocks must be untouched.
-	for _, b := range []*storedBlock{blocks[0], blocks[2]} {
+	for _, b := range []*testutils.StoredBlock{blocks[0], blocks[2]} {
 		for _, txHash := range b.TxHashes {
 			_, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
 				database,
@@ -96,10 +97,10 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	}
 
 	t.Run("deletes filters fully below the boundary", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		writeFilters(t, database)
 
-		withBatch(t, database, func(batch db.Batch) error {
+		testutils.WithBatch(t, database, func(batch db.Batch) error {
 			return pruneAggregatedBloomFiltersUpto(batch, 2*n)
 		})
 
@@ -109,10 +110,10 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	})
 
 	t.Run("partial range does not delete the containing filter", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		writeFilters(t, database)
 
-		withBatch(t, database, func(batch db.Batch) error {
+		testutils.WithBatch(t, database, func(batch db.Batch) error {
 			return pruneAggregatedBloomFiltersUpto(batch, n/2)
 		})
 
@@ -124,10 +125,10 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	t.Run("rangeEndExclusive at filter boundary keeps that filter", func(t *testing.T) {
 		// rangeEndExclusive = n means filter [0, n-1] is fully below
 		// (to = n-1 < n) and filter [n, 2n-1] starts at n, so it's kept.
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		writeFilters(t, database)
 
-		withBatch(t, database, func(batch db.Batch) error {
+		testutils.WithBatch(t, database, func(batch db.Batch) error {
 			return pruneAggregatedBloomFiltersUpto(batch, n)
 		})
 
@@ -137,9 +138,9 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	})
 
 	t.Run("no-op when range below one filter span", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 
-		withBatch(t, database, func(batch db.Batch) error {
+		testutils.WithBatch(t, database, func(batch db.Batch) error {
 			return pruneAggregatedBloomFiltersUpto(batch, 0)
 		})
 	})
@@ -166,10 +167,10 @@ func TestPruneUpto(t *testing.T) {
 	lag := core.BlockHashLag
 	require.GreaterOrEqual(t, endExclusive, lag)
 
-	database := newTestDB(t)
-	blocks := make([]*storedBlock, totalBlocks)
+	database := testutils.NewTestDB(t)
+	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
-		blocks[i] = storeBlock(t, database, i)
+		blocks[i] = testutils.StoreBlock(t, database, i)
 	}
 	pruned, oldestKept, err := PruneUpto(
 		t.Context(),
@@ -181,85 +182,12 @@ func TestPruneUpto(t *testing.T) {
 	assert.Equal(t, endExclusive, pruned)
 	assert.Equal(t, endExclusive, oldestKept)
 
-	// Subtests below are read-only assertions on the shared post-prune state.
-
-	t.Run("blocks below the lag floor are completely gone", func(t *testing.T) {
-		for i := range endExclusive - lag {
-			assertBlockPruned(t, database, blocks[i])
-		}
-	})
-
-	t.Run("blocks in the lag window keep their header", func(t *testing.T) {
-		for i := endExclusive - lag; i < endExclusive; i++ { // 10..19
-			assert.True(t, blockHeaderExists(database, i),
-				"header at block %d must be kept (BlockHashLag carve-out)", i)
-		}
-	})
-
-	t.Run("blocks in the lag window have all non-header data deleted", func(t *testing.T) {
-		for i := endExclusive - lag; i < endExclusive; i++ { // 10..19
-			assert.False(t, blockCommitmentsExist(database, i),
-				"block %d commitments should be deleted", i)
-			assert.False(t, stateUpdateExists(database, i),
-				"block %d state update should be deleted", i)
-			assert.False(t, transactionsExist(database, i),
-				"block %d transactions should be deleted", i)
-			for j, txHash := range blocks[i].TxHashes {
-				_, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
-					database,
-					(*felt.TransactionHash)(txHash),
-				)
-				assert.Error(t, err, "block %d tx %d hash lookup should be deleted", i, j)
-			}
-			for _, msgHash := range blocks[i].L1HandlerMsgHashes {
-				_, err := core.GetL1HandlerTxnHashByMsgHash(database, msgHash)
-				assert.Error(t, err, "block %d L1 handler msg hash should be deleted", i)
-			}
-			assertStateHistoryPruned(t, database, i, blocks[i].StateUpdate)
-		}
-	})
-
-	t.Run("hash→number carve-out preserved at endExclusive-1 only", func(t *testing.T) {
-		for i := range endExclusive - 1 { // 0..18
-			assert.False(t, blockHeaderHashExists(database, blocks[i].Header.Hash),
-				"hash→number for block %d should be deleted", i)
-		}
-		assert.True(t, blockHeaderHashExists(database, blocks[endExclusive-1].Header.Hash))
-	})
-
-	t.Run("get_block_hash_syscall scenario", func(t *testing.T) {
-		// After the prune, oldestKept = endExclusive (no commitments below it).
-		// The syscall executes blocks in [endExclusive, endExclusive+lag) and
-		// for each, reads the header at (current - BlockHashLag), which lands
-		// somewhere in [endExclusive-lag, endExclusive). All those headers
-		// must be readable.
-		for i := endExclusive - lag; i < endExclusive; i++ {
-			h, err := core.GetBlockHeaderByNumber(database, i)
-			require.NoError(t, err, "syscall path: header at block %d must be readable", i)
-			assert.Equal(t, i, h.Number)
-		}
-	})
-
-	t.Run("StateAtBlockHash(oldestKept.parentHash) scenario", func(t *testing.T) {
-		// oldestKept after prune is endExclusive=20. Its parent is block 19,
-		// whose hash is blocks[19].Header.Hash. The chain must resolve:
-		// hash → number (carve-out) → header (lag carve-out).
-		parentHash := blocks[endExclusive-1].Header.Hash
-		header, err := core.GetBlockHeaderByHash(database, parentHash)
-		require.NoError(t, err)
-		assert.Equal(t, endExclusive-1, header.Number)
-	})
-
-	t.Run("blocks beyond endExclusive untouched", func(t *testing.T) {
-		for i := endExclusive; i < totalBlocks; i++ {
-			assertBlockExists(t, database, blocks[i])
-		}
-	})
+	testutils.AssertPostPruneState(t, database, blocks, endExclusive, lag)
 }
 
 func TestPruneUpto_NoOp(t *testing.T) {
 	t.Run("empty database returns 0", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		pruned, oldestKept, err := PruneUpto(t.Context(), database, 20, defaultTargetBatchByteSize)
 		require.NoError(t, err)
 		assert.Zero(t, pruned)
@@ -277,10 +205,10 @@ func TestPruneUpto_NoOp(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name+" is a no-op", func(t *testing.T) {
-			database := newTestDB(t)
-			blocks := make([]*storedBlock, 30)
+			database := testutils.NewTestDB(t)
+			blocks := make([]*testutils.StoredBlock, 30)
 			for i := tc.chainStart; i < 30; i++ {
-				blocks[i] = storeBlock(t, database, i)
+				blocks[i] = testutils.StoreBlock(t, database, i)
 			}
 			pruned, oldestKept, err := PruneUpto(
 				t.Context(),
@@ -292,7 +220,7 @@ func TestPruneUpto_NoOp(t *testing.T) {
 			assert.Zero(t, pruned)
 			assert.Equal(t, tc.wantOldestKept, oldestKept)
 			for i := tc.chainStart; i < 30; i++ {
-				assertBlockExists(t, database, blocks[i])
+				testutils.AssertBlockExists(t, database, blocks[i])
 			}
 		})
 	}
@@ -326,10 +254,10 @@ func TestPruneUpto_ResumeAfterMidwayCancel(t *testing.T) {
 	const endExclusive uint64 = 25
 	const cancelAfter = 10 // cancel after the 10th state-update Get
 
-	database := newTestDB(t)
-	blocks := make([]*storedBlock, totalBlocks)
+	database := testutils.NewTestDB(t)
+	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
-		blocks[i] = storeBlock(t, database, i)
+		blocks[i] = testutils.StoreBlock(t, database, i)
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -353,10 +281,10 @@ func TestPruneUpto_ResumeAfterMidwayCancel(t *testing.T) {
 
 	// End-state: blocks below the lag floor are gone, blocks ≥ endExclusive intact.
 	for i := range endExclusive - core.BlockHashLag {
-		assertBlockPruned(t, database, blocks[i])
+		testutils.AssertBlockPruned(t, database, blocks[i])
 	}
 	for i := endExclusive; i < totalBlocks; i++ {
-		assertBlockExists(t, database, blocks[i])
+		testutils.AssertBlockExists(t, database, blocks[i])
 	}
 }
 
@@ -368,10 +296,10 @@ func TestPruneUpto_RollingCarveOut(t *testing.T) {
 	const totalBlocks uint64 = 40
 	lag := core.BlockHashLag
 
-	database := newTestDB(t)
-	blocks := make([]*storedBlock, totalBlocks)
+	database := testutils.NewTestDB(t)
+	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
-		blocks[i] = storeBlock(t, database, i)
+		blocks[i] = testutils.StoreBlock(t, database, i)
 	}
 
 	// Call 1: prune up to 20.
@@ -382,14 +310,14 @@ func TestPruneUpto_RollingCarveOut(t *testing.T) {
 
 	// After call 1: only block 19 keeps its hash→number mapping.
 	for i := range uint64(19) {
-		assert.False(t, blockHeaderHashExists(database, blocks[i].Header.Hash),
+		assert.False(t, testutils.BlockHeaderHashExists(database, blocks[i].Header.Hash),
 			"after call 1: hash→number for block %d should be gone", i)
 	}
-	assert.True(t, blockHeaderHashExists(database, blocks[19].Header.Hash),
+	assert.True(t, testutils.BlockHeaderHashExists(database, blocks[19].Header.Hash),
 		"after call 1: block 19's hash→number is the carve-out")
 	// And lag headers [10, 20) are kept.
 	for i := uint64(20) - lag; i < 20; i++ {
-		assert.True(t, blockHeaderExists(database, i),
+		assert.True(t, testutils.BlockHeaderExists(database, i),
 			"after call 1: header at block %d should be in the lag window", i)
 	}
 
@@ -401,29 +329,29 @@ func TestPruneUpto_RollingCarveOut(t *testing.T) {
 	assert.Equal(t, uint64(30), oldestKept)
 
 	// After call 2: block 19's mapping has been swept by the start-1 cleanup.
-	assert.False(t, blockHeaderHashExists(database, blocks[19].Header.Hash),
+	assert.False(t, testutils.BlockHeaderHashExists(database, blocks[19].Header.Hash),
 		"after call 2: block 19's mapping should have been cleaned up")
 	for i := uint64(20); i < 29; i++ {
-		assert.False(t, blockHeaderHashExists(database, blocks[i].Header.Hash),
+		assert.False(t, testutils.BlockHeaderHashExists(database, blocks[i].Header.Hash),
 			"after call 2: hash→number for block %d should be gone", i)
 	}
-	assert.True(t, blockHeaderHashExists(database, blocks[29].Header.Hash),
+	assert.True(t, testutils.BlockHeaderHashExists(database, blocks[29].Header.Hash),
 		"after call 2: block 29's hash→number is the new carve-out")
 
 	// Header lag has rolled forward to [20, 30); the previous lag window
 	// [10, 20) is now fully gone.
 	for i := uint64(10); i < 20; i++ {
-		assert.False(t, blockHeaderExists(database, i),
+		assert.False(t, testutils.BlockHeaderExists(database, i),
 			"after call 2: header at block %d should be pruned (no longer in lag)", i)
 	}
 	for i := uint64(30) - lag; i < 30; i++ {
-		assert.True(t, blockHeaderExists(database, i),
+		assert.True(t, testutils.BlockHeaderExists(database, i),
 			"after call 2: header at block %d should be in the new lag window", i)
 	}
 
 	// Blocks beyond endExclusive still intact.
 	for i := uint64(30); i < totalBlocks; i++ {
-		assertBlockExists(t, database, blocks[i])
+		testutils.AssertBlockExists(t, database, blocks[i])
 	}
 }
 
@@ -435,46 +363,46 @@ func TestPruneBlockDataUpto(t *testing.T) {
 	const endExclusive uint64 = 20
 	lag := core.BlockHashLag
 
-	database := newTestDB(t)
+	database := testutils.NewTestDB(t)
 	for i := range totalBlocks {
-		storeBlock(t, database, i)
+		testutils.StoreBlock(t, database, i)
 	}
 
-	withBatch(t, database, func(batch db.Batch) error {
+	testutils.WithBatch(t, database, func(batch db.Batch) error {
 		return PruneBlockDataUpto(batch, endExclusive)
 	})
 
 	// Headers below the lag floor: gone.
 	for i := range endExclusive - lag {
-		assert.False(t, blockHeaderExists(database, i),
+		assert.False(t, testutils.BlockHeaderExists(database, i),
 			"header at block %d should be deleted", i)
 	}
 	// Headers in the lag window: kept.
 	for i := endExclusive - lag; i < endExclusive; i++ {
-		assert.True(t, blockHeaderExists(database, i),
+		assert.True(t, testutils.BlockHeaderExists(database, i),
 			"header at block %d should be kept (lag carve-out)", i)
 	}
 	// Headers beyond endExclusive: untouched.
 	for i := endExclusive; i < totalBlocks; i++ {
-		assert.True(t, blockHeaderExists(database, i),
+		assert.True(t, testutils.BlockHeaderExists(database, i),
 			"header at block %d should be untouched", i)
 	}
 
 	// Number-keyed buckets without a lag: deleted across the full window.
 	for i := range endExclusive {
-		assert.False(t, blockCommitmentsExist(database, i),
+		assert.False(t, testutils.BlockCommitmentsExist(database, i),
 			"commitments at block %d should be deleted", i)
-		assert.False(t, stateUpdateExists(database, i),
+		assert.False(t, testutils.StateUpdateExists(database, i),
 			"state update at block %d should be deleted", i)
-		assert.False(t, transactionsExist(database, i),
+		assert.False(t, testutils.TransactionsExist(database, i),
 			"transactions at block %d should be deleted", i)
 	}
 	for i := endExclusive; i < totalBlocks; i++ {
-		assert.True(t, blockCommitmentsExist(database, i),
+		assert.True(t, testutils.BlockCommitmentsExist(database, i),
 			"commitments at block %d should be untouched", i)
-		assert.True(t, stateUpdateExists(database, i),
+		assert.True(t, testutils.StateUpdateExists(database, i),
 			"state update at block %d should be untouched", i)
-		assert.True(t, transactionsExist(database, i),
+		assert.True(t, testutils.TransactionsExist(database, i),
 			"transactions at block %d should be untouched", i)
 	}
 }

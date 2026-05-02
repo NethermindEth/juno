@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/pruner/testutils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -111,10 +112,10 @@ func TestPruner_L1Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
 	t.Run("L1 head triggers prune and reports via listener", func(t *testing.T) {
-		database := newTestDB(t)
-		blocks := make([]*storedBlock, totalBlocks)
+		database := testutils.NewTestDB(t)
+		blocks := make([]*testutils.StoredBlock, totalBlocks)
 		for i := range totalBlocks {
-			blocks[i] = storeBlock(t, database, i)
+			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
@@ -125,14 +126,14 @@ func TestPruner_L1Path(t *testing.T) {
 		assert.Equal(t, uint64(86), ev.count)
 
 		for i := range uint64(86) - core.BlockHashLag {
-			assertBlockPruned(t, database, blocks[i])
+			testutils.AssertBlockPruned(t, database, blocks[i])
 		}
 	})
 
 	t.Run("L1 head at or beyond chainHeight is a no-op", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		for i := range totalBlocks {
-			storeBlock(t, database, i)
+			testutils.StoreBlock(t, database, i)
 		}
 		require.NoError(t, core.WriteChainHeight(database, 50))
 
@@ -151,10 +152,10 @@ func TestPruner_L1Path(t *testing.T) {
 		assert.Zero(t, prunes)
 	})
 	t.Run("L1 head inside the retention window is a no-op", func(t *testing.T) {
-		database := newTestDB(t)
-		blocks := make([]*storedBlock, totalBlocks)
+		database := testutils.NewTestDB(t)
+		blocks := make([]*testutils.StoredBlock, totalBlocks)
 		for i := range totalBlocks {
-			blocks[i] = storeBlock(t, database, i)
+			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
@@ -172,7 +173,7 @@ func TestPruner_L1Path(t *testing.T) {
 		require.NoError(t, p.onNewL1Head(t.Context(), &core.L1Head{BlockNumber: 50}))
 		assert.Zero(t, prunes)
 		for i := range totalBlocks {
-			assertBlockExists(t, database, blocks[i])
+			testutils.AssertBlockExists(t, database, blocks[i])
 		}
 	})
 }
@@ -187,9 +188,9 @@ func TestPruner_L2Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
 	t.Run("threshold=1 fires a prune on every L2 head", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		for i := range totalBlocks {
-			storeBlock(t, database, i)
+			testutils.StoreBlock(t, database, i)
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 95}))
@@ -205,9 +206,9 @@ func TestPruner_L2Path(t *testing.T) {
 	t.Run("coalesces N L2 heads before triggering one prune", func(t *testing.T) {
 		// Direct onNewBlock calls — silent no-op dispatches have no listener
 		// barrier, so we drive the dispatch synchronously.
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		for i := range totalBlocks {
-			storeBlock(t, database, i)
+			testutils.StoreBlock(t, database, i)
 		}
 		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 95}))
 
@@ -260,9 +261,9 @@ func TestPruner_L2Path(t *testing.T) {
 	}
 	for _, tc := range noopCases {
 		t.Run(tc.name+" is a no-op", func(t *testing.T) {
-			database := newTestDB(t)
+			database := testutils.NewTestDB(t)
 			for i := range totalBlocks {
-				storeBlock(t, database, i)
+				testutils.StoreBlock(t, database, i)
 			}
 			require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: tc.l1Head}))
 
@@ -306,10 +307,10 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 	lag := core.BlockHashLag
 
 	t.Run("shrinking retention drains backlog on next L1 event", func(t *testing.T) {
-		database := newTestDB(t)
-		blocks := make([]*storedBlock, totalBlocks)
+		database := testutils.NewTestDB(t)
+		blocks := make([]*testutils.StoredBlock, totalBlocks)
 		for i := range totalBlocks {
-			blocks[i] = storeBlock(t, database, i)
+			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
@@ -329,17 +330,17 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		// End-state: everything below the new lag floor is fully gone,
 		// blocks ≥ 90 untouched.
 		for i := range uint64(90) - lag {
-			assertBlockPruned(t, database, blocks[i])
+			testutils.AssertBlockPruned(t, database, blocks[i])
 		}
 		for i := uint64(90); i < totalBlocks; i++ {
-			assertBlockExists(t, database, blocks[i])
+			testutils.AssertBlockExists(t, database, blocks[i])
 		}
 	})
 
 	t.Run("growing retention pauses pruning until L1 catches up", func(t *testing.T) {
-		database := newTestDB(t)
+		database := testutils.NewTestDB(t)
 		for i := range totalBlocks {
-			storeBlock(t, database, i)
+			testutils.StoreBlock(t, database, i)
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
