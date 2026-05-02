@@ -106,7 +106,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 
 	filteredEvents, cTokenValue, err := filter.Events(cToken, args.ChunkSize)
 	if err != nil {
-		return nil, rpccore.ErrInternal
+		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 
 	emittedEvents := make([]EmittedEvent, len(filteredEvents))
