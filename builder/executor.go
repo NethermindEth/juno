@@ -80,7 +80,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}
 
 	// Execute the transaction
-	vmResults, err := e.vm.Execute(
+	vmResults, err := e.vm.BuildBlock(
 		coreTxns,
 		declaredClasses,
 		paidFeesOnL1,
@@ -89,13 +89,10 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 			BlockHashToBeRevealed: state.RevealedBlockHash,
 		},
 		stateWriter,
-		e.disableFees,
-		e.skipValidate,
-		false,
-		true,
-		false,
-		false,
-		false,
+		vm.BuildBlockOptions{
+			SkipChargeFee: e.disableFees,
+			SkipValidate:  e.skipValidate,
+		},
 	)
 	if err != nil {
 		return err

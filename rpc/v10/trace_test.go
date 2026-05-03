@@ -404,19 +404,13 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false).Return(vm.ExecutionResults{
+			vm.TraceOptions{}).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
 			Traces:      []vm.TransactionTrace{vmTrace},
@@ -481,19 +475,13 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			nil,
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false,
+			vm.TraceOptions{},
 		).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -575,19 +563,13 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false,
+			vm.TraceOptions{},
 		).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -733,19 +715,13 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false).Return(vm.ExecutionResults{
+			vm.TraceOptions{}).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
 			GasConsumed:      []core.GasConsumed{{}, {}},
@@ -1419,8 +1395,8 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 
 			returnInitialReads := slices.Contains(test.simulationFlags, rpcv10.ReturnInitialReadsFlag)
 
-			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-				false, false, false, true, false, false, returnInitialReads,
+			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+				vm.TraceOptions{ReturnInitialReads: returnInitialReads},
 			).Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{&felt.Zero},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}},
@@ -1536,12 +1512,12 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 
 		// First VM call: no initial reads requested.
 		gomock.InOrder(
-			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-				false, false, false, true, false, false, false,
+			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+				vm.TraceOptions{},
 			).Return(execResultWithReads(nil), nil),
 			// Second VM call: flag set, VM produces populated reads.
-			mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-				false, false, false, true, false, false, true,
+			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+				vm.TraceOptions{ReturnInitialReads: true},
 			).Return(execResultWithReads(populatedVMReads()), nil),
 		)
 
@@ -1578,8 +1554,8 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
-		mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-			false, false, false, true, false, false, true,
+		mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+			vm.TraceOptions{ReturnInitialReads: true},
 		).Return(execResultWithReads(populatedVMReads()), nil)
 
 		handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
@@ -1614,8 +1590,8 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
-		mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-			false, false, false, true, false, false, true,
+		mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+			vm.TraceOptions{ReturnInitialReads: true},
 		).Return(execResultWithReads(populatedVMReads()), nil)
 
 		handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())

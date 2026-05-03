@@ -120,8 +120,13 @@ func (h *Handler) simulateTransactions(
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, skipFeeCharge, skipValidate, errOnRevert, true, true, isEstimateFee, false)
+	executionResults, err := h.vm.Simulate(txns, classes, paidFeesOnL1, &blockInfo,
+		state, vm.SimulateOptions{
+			SkipChargeFee: skipFeeCharge,
+			SkipValidate:  skipValidate,
+			ErrOnRevert:   errOnRevert,
+			IsEstimateFee: isEstimateFee,
+		})
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}

@@ -370,19 +370,13 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false).Return(vm.ExecutionResults{
+			vm.TraceOptions{}).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
 			Traces:      []vm.TransactionTrace{*vmTrace},
@@ -602,11 +596,11 @@ func TestTraceBlockTransactions(t *testing.T) {
 		// PendingState() in v8 always returns HeadState
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
-		// vm.Execute is called with empty txns; use Any() for fields with dynamic content
-		mockVM.EXPECT().Execute(
+		// vm.Trace is called with empty txns; use Any() for fields with dynamic content
+		mockVM.EXPECT().Trace(
 			gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(),
-			false, false, false, true, false, false, false,
+			vm.TraceOptions{},
 		).Return(vm.ExecutionResults{}, nil)
 
 		blockID := blockIDPending(t)
@@ -668,19 +662,13 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false).Return(vm.ExecutionResults{
+			vm.TraceOptions{}).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
 			GasConsumed:      []core.GasConsumed{{}, {}},
