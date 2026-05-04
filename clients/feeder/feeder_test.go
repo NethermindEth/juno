@@ -1038,6 +1038,24 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.Nonces)
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
 	})
+	t.Run("Test with includeSignature", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(78541), true)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, actualStateUpdate.StateUpdate)
+		assert.NotEmpty(t, actualStateUpdate.Block)
+		assert.NotEmpty(t, actualStateUpdate.Signature)
+		assert.Equal(t, 2, len(actualStateUpdate.Signature))
+		assert.Equal(
+			t,
+			"0xe59046f297679492dec6987bf580707fc7a438bd3da98b9c73a6e495d915d",
+			actualStateUpdate.Signature[0].String(),
+		)
+		assert.Equal(
+			t,
+			"0x23e7e5fddc5e6be25f264e8571f98948600be4768a9f6ab7406ef1ef3da43c3",
+			actualStateUpdate.Signature[1].String(),
+		)
+	})
 	t.Run("Test on unexisting block", func(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(
 			t.Context(),
