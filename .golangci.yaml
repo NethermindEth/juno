@@ -48,8 +48,8 @@ linters:
       lines: 120
       statements: 50
     goconst:
-      min-len: 2
-      min-occurrences: 3
+      min-len: 4
+      min-occurrences: 4
     gocritic:
       disabled-checks:
         - sloppyReassign

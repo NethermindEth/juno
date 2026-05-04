@@ -17,7 +17,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const l1MetricsTimeout = 5 * time.Second
+const (
+	l1MetricsTimeout = 5 * time.Second
+
+	labelMethod   = "method"
+	labelVersion  = "version"
+	namespaceSync = "sync"
+)
 
 func makeDBMetrics() db.EventListener {
 	latencyBuckets := []float64{
@@ -120,19 +126,19 @@ func makeRPCMetrics(versions ...string) []jsonrpc.EventListener {
 		Subsystem: "server",
 		Name:      "requests",
 		Help:      "Total number of RPC requests by method and version",
-	}, []string{"method", "version"})
+	}, []string{labelMethod, labelVersion})
 	failedRequests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "failed_requests",
 		Help:      "Total number of failed RPC requests by method and version",
-	}, []string{"method", "version"})
+	}, []string{labelMethod, labelVersion})
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "requests_latency",
 		Help:      "RPC request processing latency in seconds",
-	}, []string{"method", "version"})
+	}, []string{labelMethod, labelVersion})
 	prometheus.MustRegister(requests, failedRequests, requestLatencies)
 
 	listeners := make([]jsonrpc.EventListener, len(versions))
@@ -154,22 +160,22 @@ func makeRPCMetrics(versions ...string) []jsonrpc.EventListener {
 
 func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {
 	opTimerHistogram := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "sync",
+		Namespace: namespaceSync,
 		Name:      "timers",
 		Help:      "Synchronisation operation duration in seconds",
 	}, []string{"op"})
 	blockCount := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "sync",
+		Namespace: namespaceSync,
 		Name:      "blocks",
 		Help:      "Total number of blocks processed during Synchronisation",
 	})
 	reorgCount := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "sync",
+		Namespace: namespaceSync,
 		Name:      "reorganisations",
 		Help:      "Total number of blockchain reorganisations encountered",
 	})
 	chainHeightGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "sync",
+		Namespace: namespaceSync,
 		Name:      "blockchain_height",
 		Help:      "Current blockchain height (latest block number)",
 	}, func() float64 {
@@ -177,7 +183,7 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		return float64(height)
 	})
 	bestBlockGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "sync",
+		Namespace: namespaceSync,
 		Name:      "best_known_block_number",
 		Help:      "Highest known block number from the network",
 	}, func() float64 {
@@ -208,7 +214,7 @@ func makeJunoMetrics(version string) {
 		Namespace:   "juno",
 		Name:        "info",
 		Help:        "Information about the Juno binary",
-		ConstLabels: prometheus.Labels{"version": version},
+		ConstLabels: prometheus.Labels{labelVersion: version},
 	}))
 }
 
@@ -217,7 +223,7 @@ func makeBlockchainMetrics() blockchain.EventListener {
 		Namespace: "blockchain",
 		Name:      "reads",
 		Help:      "Total number of calls to 'blockchain.Blockchain' read methods",
-	}, []string{"method"})
+	}, []string{labelMethod})
 	prometheus.MustRegister(reads)
 
 	return &blockchain.SelectiveListener{
@@ -276,7 +282,7 @@ func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.Ev
 		Subsystem: "client",
 		Name:      "request_latency",
 		Help:      "L1 client request latency in seconds",
-	}, []string{"method"})
+	}, []string{labelMethod})
 	prometheus.MustRegister(requestLatencies)
 
 	return l1.SelectiveListener{
@@ -292,7 +298,7 @@ func makeFeederMetrics() feeder.EventListener {
 		Subsystem: "client",
 		Name:      "request_latency",
 		Help:      "Feeder client request latency in seconds",
-	}, []string{"method", "status"})
+	}, []string{labelMethod, "status"})
 	prometheus.MustRegister(requestLatencies)
 	return &feeder.SelectiveListener{
 		OnResponseCb: func(urlPath string, status int, took time.Duration) {
@@ -308,7 +314,7 @@ func makeGatewayMetrics() gateway.EventListener {
 		Subsystem: "client",
 		Name:      "request_latency",
 		Help:      "Gateway client request latency in seconds",
-	}, []string{"method", "status"})
+	}, []string{labelMethod, "status"})
 	prometheus.MustRegister(requestLatencies)
 	return &gateway.SelectiveListener{
 		OnResponseCb: func(urlPath string, status int, took time.Duration) {
