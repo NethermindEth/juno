@@ -126,7 +126,7 @@ func (m *Migrator) Migrate(
 		zap.Uint64("l1_head", l1Head.BlockNumber),
 	)
 
-	if err := m.setupBeforeStager(database, logger, oldestBlockKept); err != nil {
+	if err := m.setupBeforeStager(database, oldestBlockKept); err != nil {
 		return nil, err
 	}
 
@@ -183,14 +183,11 @@ func (m *Migrator) Migrate(
 // delete restored data and corrupt the db.
 func (m *Migrator) setupBeforeStager(
 	database db.KeyValueStore,
-	logger log.StructuredLogger,
 	oldestBlockKept uint64,
 ) error {
 	if m.restorerProgress != 0 {
 		return nil
 	}
-	logger.Info("Range-deleting number-keyed buckets")
-	startTime := time.Now()
 	batch := database.NewBatch()
 	if err := pruner.PruneBlockDataUpto(batch, oldestBlockKept); err != nil {
 		return err
@@ -201,8 +198,6 @@ func (m *Migrator) setupBeforeStager(
 	if err := batch.Write(); err != nil {
 		return err
 	}
-	logger.Info("Range-deleted number-keyed buckets",
-		zap.Duration("elapsed", time.Since(startTime)))
 	return nil
 }
 
