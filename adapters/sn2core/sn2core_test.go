@@ -103,7 +103,7 @@ func TestAdaptBlock(t *testing.T) {
 
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
-			block, err := sn2core.AdaptBlock(response, test.sig)
+			block, err := sn2core.AdaptBlock(response, test.sig.Signature)
 			require.NoError(t, err)
 
 			expectedEventCount := uint64(0)

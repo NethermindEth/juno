@@ -81,7 +81,7 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		}
 	}
 
-	return sn2core.AdaptBlock(response, sig)
+	return sn2core.AdaptBlock(response, sig.Signature)
 }
 
 // Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,
@@ -144,22 +144,18 @@ func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, err
 	return f.stateUpdate(ctx, pendingID)
 }
 
-func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
-	response, err := f.client.StateUpdateWithBlock(ctx, blockID)
+func (f *Feeder) stateUpdateWithBlock(
+	ctx context.Context,
+	blockID string,
+	includeSignature bool,
+) (*core.StateUpdate, *core.Block, error) {
+	response, err := f.client.StateUpdateWithBlock(ctx, blockID, includeSignature)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if blockID == pendingID && response.Block.Status != "PENDING" {
 		return nil, nil, errors.New("no pending block")
-	}
-
-	var sig *starknet.Signature
-	if blockID != pendingID {
-		sig, err = f.client.Signature(ctx, blockID)
-		if err != nil {
-			return nil, nil, err
-		}
 	}
 
 	var adaptedState *core.StateUpdate
@@ -169,7 +165,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		return nil, nil, err
 	}
 
-	if adaptedBlock, err = sn2core.AdaptBlock(response.Block, sig); err != nil {
+	if adaptedBlock, err = sn2core.AdaptBlock(response.Block, response.Signature); err != nil {
 		return nil, nil, err
 	}
 
@@ -181,7 +177,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 func (f *Feeder) StateUpdatePendingWithBlock(
 	ctx context.Context,
 ) (*core.StateUpdate, *core.Block, error) {
-	return f.stateUpdateWithBlock(ctx, pendingID)
+	return f.stateUpdateWithBlock(ctx, pendingID, false)
 }
 
 // StateUpdateWithBlock gets both state update and block for a given block number from the feeder,
@@ -190,7 +186,7 @@ func (f *Feeder) StateUpdateWithBlock(
 	ctx context.Context,
 	blockNumber uint64,
 ) (*core.StateUpdate, *core.Block, error) {
-	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
+	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10), true)
 }
 
 // PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,

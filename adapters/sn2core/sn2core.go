@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block, error) {
+func AdaptBlock(response *starknet.Block, sig []*felt.Felt) (*core.Block, error) {
 	if response == nil {
 		return nil, errors.New("nil client block")
 	}
@@ -37,7 +37,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 
 	sigs := [][]*felt.Felt{}
 	if sig != nil {
-		sigs = append(sigs, sig.Signature)
+		sigs = append(sigs, sig)
 	}
 
 	return &core.Block{
