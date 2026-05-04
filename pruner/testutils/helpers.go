@@ -43,9 +43,9 @@ type StoredBlock struct {
 // Two fixed addresses that appear across multiple blocks to simulate
 // realistic state history where the same contract is touched repeatedly.
 var (
-	SharedAddr1 = new(felt.Felt).SetUint64(0xA001) //nolint:mnd // test fixture
-	SharedAddr2 = new(felt.Felt).SetUint64(0xA002) //nolint:mnd // test fixture
-	SharedSlot  = new(felt.Felt).SetUint64(0x5001) //nolint:mnd // test fixture
+	SharedAddr1 = felt.NewFromUint64[felt.Felt](0xA001) //nolint:mnd // test fixture
+	SharedAddr2 = felt.NewFromUint64[felt.Felt](0xA002) //nolint:mnd // test fixture
+	SharedSlot  = felt.NewFromUint64[felt.Felt](0x5001) //nolint:mnd // test fixture
 )
 
 // StoreBlock writes a complete block into the database covering all pruned buckets:
@@ -74,19 +74,19 @@ func StoreBlock(t *testing.T, database db.KeyValueStore, blockNum uint64) *Store
 	// Create transactions: 2 invoke + 1 L1 handler.
 	invokeTx1 := &core.InvokeTransaction{
 		TransactionHash: felt.NewRandom[felt.Felt](),
-		Version:         new(core.TransactionVersion).SetUint64(1),
+		Version:         new(core.TransactionVersion).SetUint64(3),
 	}
 	invokeTx2 := &core.InvokeTransaction{
 		TransactionHash: felt.NewRandom[felt.Felt](),
-		Version:         new(core.TransactionVersion).SetUint64(1),
+		Version:         new(core.TransactionVersion).SetUint64(3),
 	}
 	l1HandlerTx := &core.L1HandlerTransaction{
 		TransactionHash:    felt.NewRandom[felt.Felt](),
 		ContractAddress:    felt.NewRandom[felt.Felt](),
 		EntryPointSelector: felt.NewRandom[felt.Felt](),
-		Nonce:              new(felt.Felt).SetUint64(blockNum),
+		Nonce:              felt.NewFromUint64[felt.Felt](blockNum),
 		CallData:           []*felt.Felt{felt.NewRandom[felt.Felt](), felt.NewRandom[felt.Felt]()},
-		Version:            new(core.TransactionVersion).SetUint64(0),
+		Version:            new(core.TransactionVersion).SetUint64(3),
 	}
 
 	txs := []core.Transaction{invokeTx1, invokeTx2, l1HandlerTx}
@@ -96,7 +96,7 @@ func StoreBlock(t *testing.T, database db.KeyValueStore, blockNum uint64) *Store
 	for i, tx := range txs {
 		receipts[i] = &core.TransactionReceipt{
 			TransactionHash: tx.Hash(),
-			Fee:             new(felt.Felt).SetUint64(100), //nolint:mnd // test fixture
+			Fee:             felt.NewFromUint64[felt.Felt](100), //nolint:mnd // test fixture
 		}
 	}
 
@@ -111,9 +111,9 @@ func StoreBlock(t *testing.T, database db.KeyValueStore, blockNum uint64) *Store
 	// SharedAddr1: storage + nonce change in every block
 	// SharedAddr2: class hash change in every block
 	// Plus a unique address per block for variety.
-	uniqueAddr := new(felt.Felt).SetUint64(0xB000 + blockNum) //nolint:mnd // test fixture
-	uniqueSlot := new(felt.Felt).SetUint64(0xC000 + blockNum) //nolint:mnd // test fixture
-	oldValue := new(felt.Felt).SetUint64(blockNum * 100)      //nolint:mnd // test fixture
+	uniqueAddr := felt.NewFromUint64[felt.Felt](0xB000 + blockNum) //nolint:mnd // test fixture
+	uniqueSlot := felt.NewFromUint64[felt.Felt](0xC000 + blockNum) //nolint:mnd // test fixture
+	oldValue := felt.NewFromUint64[felt.Felt](blockNum * 100)      //nolint:mnd // test fixture
 
 	storageDiffs := map[felt.Felt]map[felt.Felt]*felt.Felt{
 		*SharedAddr1: {
