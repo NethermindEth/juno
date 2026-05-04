@@ -1,0 +1,102 @@
+package rpcv10
+
+import (
+	"testing"
+
+	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+// ------------------------------------------------------------------
+// simulateTransactions / estimateFee prep: per-tx adapt loop work.
+// Same per-tx call path that prepareTransactions runs for each entry,
+// without a Handler.
+// ------------------------------------------------------------------
+
+func BenchmarkSimulatePrep_3Mixed(b *testing.B) {
+	sierraRaw := loadSierraClassRaw(b)
+	declareJSON := buildDeclareBroadcastJSON(sierraRaw)
+
+	txs := []*BroadcastedTransaction{
+		loadBroadcastTxn(b, []byte(benchInvokeV3JSON)),
+		loadBroadcastTxn(b, []byte(benchDeployAccountV3JSON)),
+		loadBroadcastTxn(b, declareJSON),
+	}
+	ctx := b.Context()
+	stub := stubCompiler{}
+	network := &networks.Sepolia
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		coreTxs := make([]core.Transaction, 0, len(txs))
+		var classes []core.ClassDefinition
+		for _, tx := range txs {
+			coreTx, sierra, err := adaptAndCompileBroadcastedTxToCore(
+				ctx, stub, tx, network,
+			)
+			if err != nil {
+				b.Fatal(err)
+			}
+			coreTxs = append(coreTxs, coreTx)
+			if sierra != nil {
+				classes = append(classes, sierra)
+			}
+		}
+		_ = coreTxs
+		_ = classes
+	}
+}
+
+// ------------------------------------------------------------------
+// EstimateMessageFee prep: build the L1_HANDLER tx that simulateTx
+// will execute. v10 builds a core.L1HandlerTransaction directly and
+// hashes it; no broadcasted-to-core round trip.
+// ------------------------------------------------------------------
+
+func BenchmarkMessageFeePrep(b *testing.B) {
+	from := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
+	to := felt.NewUnsafeFromString[felt.Felt](
+		"0x4a3140b5a24d4010e8e7bd02142ebd6a3e6daf8d8aa5568f0db45961938d1ad",
+	)
+	selector := felt.NewUnsafeFromString[felt.Felt](
+		"0x3dbc508ba4afd040c8dc4ff8a61113a7bcaf5eae88a6ba27b3c50578b3587e3",
+	)
+	payload := []felt.Felt{
+		felt.FromUint64[felt.Felt](1),
+		felt.FromUint64[felt.Felt](2),
+		felt.FromUint64[felt.Felt](3),
+		felt.FromUint64[felt.Felt](4),
+	}
+	msg := &MsgFromL1{
+		From: from, To: *to, Selector: *selector, Payload: payload,
+	}
+	network := &networks.Sepolia
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		// Mirror v10's estimateMessageFee prep (skip the state lookup).
+		calldata := make([]*felt.Felt, len(msg.Payload)+1)
+		calldata[0] = felt.NewFromBytes[felt.Felt](msg.From.Bytes())
+		for j := range msg.Payload {
+			calldata[j+1] = &msg.Payload[j]
+		}
+		l1Handler := core.L1HandlerTransaction{
+			ContractAddress:    &msg.To,
+			EntryPointSelector: &msg.Selector,
+			CallData:           calldata,
+			Version:            (*core.TransactionVersion)(&felt.Zero),
+			Nonce:              &felt.Zero,
+		}
+		txnHash, err := core.TransactionHash(&l1Handler, network)
+		if err != nil {
+			b.Fatal(err)
+		}
+		l1Handler.TransactionHash = &txnHash
+		_ = MessageFeePayload{
+			L1Handler:   l1Handler,
+			PaidFeeOnL1: felt.FromUint64[felt.Felt](1),
+		}
+	}
+}
