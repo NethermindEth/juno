@@ -63,6 +63,7 @@ func fillStorageScratchKey(
 	addr, slot *felt.Felt,
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
+	buf = buf[:storageScratchKeyLen]
 	buf[0] = migrationScratchTag
 	buf[1] = byte(db.ContractStorageHistory)
 	addrBytes := addr.Bytes()
@@ -70,7 +71,7 @@ func fillStorageScratchKey(
 	slotBytes := slot.Bytes()
 	copy(buf[scratchPrefixLen+felt.Bytes:], slotBytes[:])
 	copy(buf[scratchPrefixLen+2*felt.Bytes:], blockBE[:])
-	return buf[:storageScratchKeyLen]
+	return buf
 }
 
 // fillNonceScratchKey writes [Temporary][15][addr:32][block:8] into dst.
@@ -79,12 +80,13 @@ func fillNonceScratchKey(
 	addr *felt.Felt,
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
+	buf = buf[:nonceScratchKeyLen]
 	buf[0] = migrationScratchTag
 	buf[1] = byte(db.ContractNonceHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[scratchPrefixLen:], addrBytes[:])
 	copy(buf[scratchPrefixLen+felt.Bytes:], blockBE[:])
-	return buf[:nonceScratchKeyLen]
+	return buf
 }
 
 // fillClassHashScratchKey writes [Temporary][16][addr:32][block:8] into dst.
@@ -93,12 +95,13 @@ func fillClassHashScratchKey(
 	addr *felt.Felt,
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
+	buf = buf[:classHashScratchKeyLen]
 	buf[0] = migrationScratchTag
 	buf[1] = byte(db.ContractClassHashHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[scratchPrefixLen:], addrBytes[:])
 	copy(buf[scratchPrefixLen+felt.Bytes:], blockBE[:])
-	return buf[:classHashScratchKeyLen]
+	return buf
 }
 
 // fillStorageHistoryKey writes [bucket][addr:32][slot:32][block:8] into dst.
@@ -107,13 +110,14 @@ func fillStorageHistoryKey(
 	addr, slot *felt.Felt,
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
+	buf = buf[:storageHistoryKeyLen]
 	buf[0] = byte(db.ContractStorageHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[1:], addrBytes[:])
 	slotBytes := slot.Bytes()
 	copy(buf[1+felt.Bytes:], slotBytes[:])
 	copy(buf[1+2*felt.Bytes:], blockBE[:])
-	return buf[:storageHistoryKeyLen]
+	return buf
 }
 
 // fillNonceHistoryKey writes [bucket][addr:32][block:8] into dst.
@@ -122,11 +126,12 @@ func fillNonceHistoryKey(
 	addr *felt.Felt,
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
+	buf = buf[:nonceHistoryKeyLen]
 	buf[0] = byte(db.ContractNonceHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[1:], addrBytes[:])
 	copy(buf[1+felt.Bytes:], blockBE[:])
-	return buf[:nonceHistoryKeyLen]
+	return buf
 }
 
 // fillClassHashHistoryKey writes [bucket][addr:32][block:8] into dst.
@@ -135,9 +140,10 @@ func fillClassHashHistoryKey(
 	addr *felt.Felt,
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
+	buf = buf[:classHashHistoryKeyLen]
 	buf[0] = byte(db.ContractClassHashHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[1:], addrBytes[:])
 	copy(buf[1+felt.Bytes:], blockBE[:])
-	return buf[:classHashHistoryKeyLen]
+	return buf
 }
