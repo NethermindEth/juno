@@ -3258,7 +3258,7 @@ func GetTestBlockWithCommitments(
 	t.Helper()
 
 	blockID := strconv.FormatUint(blockNumber, 10)
-	blockWithStateUpdate, err := client.StateUpdateWithBlock(t.Context(), blockID)
+	blockWithStateUpdate, err := client.StateUpdateWithBlock(t.Context(), blockID, false)
 	require.NoError(t, err)
 
 	sig, err := client.Signature(t.Context(), blockID)

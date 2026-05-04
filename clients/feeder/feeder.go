@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -409,10 +410,15 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 	return signature, nil
 }
 
-func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
+func (c *Client) StateUpdateWithBlock(
+	ctx context.Context,
+	blockID string,
+	includeSignature bool,
+) (*starknet.StateUpdateWithBlockAndSig, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		blockNumberArg: blockID,
-		"includeBlock": "true",
+		"blockNumber":      blockID,
+		"includeBlock":     "true",
+		"includeSignature": strconv.FormatBool(includeSignature),
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -421,7 +427,7 @@ func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*sta
 	}
 	defer body.Close()
 
-	stateUpdate := new(starknet.StateUpdateWithBlock)
+	stateUpdate := new(starknet.StateUpdateWithBlockAndSig)
 	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}

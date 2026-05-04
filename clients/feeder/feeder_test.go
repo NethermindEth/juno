@@ -1011,7 +1011,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0))
+		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0), false)
 		assert.NoError(t, err)
 		assert.Equal(
 			t,
@@ -1042,12 +1042,13 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(
 			t.Context(),
 			strconv.Itoa(10000000000),
+			false,
 		)
 		assert.Error(t, err)
 		assert.Nil(t, actualStateUpdate)
 	})
 	t.Run("Test on latest block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), "latest")
+		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), "latest", false)
 		assert.NoError(t, err)
 		assert.NotNil(t, actualStateUpdate)
 	})

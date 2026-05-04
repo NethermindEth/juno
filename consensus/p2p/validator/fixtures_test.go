@@ -89,7 +89,7 @@ func BuildTestFixture(
 	client := feeder.NewTestClient(t, testCase.Network)
 	gw := adaptfeeder.New(client)
 
-	rawStateUpdate, err := client.StateUpdateWithBlock(t.Context(), fmt.Sprintf("%d", testCase.Height))
+	rawStateUpdate, err := client.StateUpdateWithBlock(t.Context(), fmt.Sprintf("%d", testCase.Height), false)
 	require.NoError(t, err)
 
 	stateUpdate, block, err := gw.StateUpdateWithBlock(t.Context(), uint64(testCase.Height))
@@ -217,7 +217,7 @@ func buildTransactions(
 }
 
 func buildProposalCommitment(
-	rawStateUpdate *starknet.StateUpdateWithBlock,
+	rawStateUpdate *starknet.StateUpdateWithBlockAndSig,
 	block *core.Block,
 	previousBlock *core.Block,
 	proposer *common.Address,
@@ -267,7 +267,7 @@ func buildBuildResult(
 	gw *adaptfeeder.Feeder,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	rawStateUpdate *starknet.StateUpdateWithBlock,
+	rawStateUpdate *starknet.StateUpdateWithBlockAndSig,
 	concatCounts felt.Felt,
 	totalGasConsumed int,
 ) builder.BuildResult {
@@ -330,7 +330,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 	}
 }
 
-func calculateTotalGasConsumed(rawStateUpdate *starknet.StateUpdateWithBlock) int {
+func calculateTotalGasConsumed(rawStateUpdate *starknet.StateUpdateWithBlockAndSig) int {
 	totalGasConsumed := 0
 	for _, receipt := range rawStateUpdate.Block.Receipts {
 		consumed := receipt.ExecutionResources.TotalGasConsumed
