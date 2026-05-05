@@ -390,7 +390,11 @@ func (v *vm) Call(
 			}
 		}
 	}
-	return CallResult{Result: context.response, StateDiff: stateDiff, ExecutionFailed: context.executionFailed}, nil
+	return CallResult{
+		Result:          context.response,
+		StateDiff:       stateDiff,
+		ExecutionFailed: context.executionFailed,
+	}, nil
 }
 
 // cgoExecutionInputs holds the C-side resources for one execution call.
