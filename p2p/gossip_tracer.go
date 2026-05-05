@@ -129,11 +129,11 @@ func NewGossipTracer(h host.Host) *gossipTracer {
 	}
 }
 
-func (g *gossipTracer) AddPeer(p peer.ID, proto protocol.ID) {
+func (g *gossipTracer) OnNewOutboundStream(p peer.ID, proto protocol.ID) {
 	g.p2PPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Inc()
 }
 
-func (g *gossipTracer) RemovePeer(p peer.ID) {
+func (g *gossipTracer) OnClosedOutboundStream(p peer.ID) {
 	g.p2PPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Dec()
 }
 
