@@ -15,6 +15,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	blockNumberArg = "blockNumber"
+	classHashArg   = "classHash"
+)
+
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
 type Backoff func(wait time.Duration) time.Duration
@@ -191,7 +196,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 
 func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		"blockNumber": blockID,
+		blockNumberArg: blockID,
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -254,7 +259,7 @@ func (c *Client) TransactionStatus(
 
 func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
-		"blockNumber": blockID,
+		blockNumberArg: blockID,
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -274,8 +279,8 @@ func (c *Client) BlockHeader(
 	ctx context.Context, blockID string,
 ) (starknet.BlockHeader, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
-		"blockNumber": blockID,
-		"headerOnly":  "true",
+		blockNumberArg: blockID,
+		"headerOnly":   "true",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -293,8 +298,8 @@ func (c *Client) BlockHeader(
 
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
-		"classHash":   classHash.String(),
-		"blockNumber": "latest",
+		classHashArg:   classHash.String(),
+		blockNumberArg: "latest",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -315,8 +320,8 @@ func (c *Client) CasmClassDefinition(
 	classHash *felt.Felt,
 ) (*starknet.CasmClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
-		"classHash":   classHash.String(),
-		"blockNumber": "latest",
+		classHashArg:   classHash.String(),
+		blockNumberArg: "latest",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -360,7 +365,7 @@ func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 
 func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
 	queryURL := c.buildQueryString("get_signature", map[string]string{
-		"blockNumber": blockID,
+		blockNumberArg: blockID,
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -379,7 +384,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 
 func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		"blockNumber":  blockID,
+		blockNumberArg: blockID,
 		"includeBlock": "true",
 	})
 
@@ -417,7 +422,7 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 
 func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
 	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
-		"blockNumber": blockNumber,
+		blockNumberArg: blockNumber,
 	})
 
 	body, err := c.get(ctx, queryURL)

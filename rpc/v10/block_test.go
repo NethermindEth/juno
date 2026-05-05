@@ -802,6 +802,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Shares similar structure with TestBlockWithReceipts but tests BlockWithTxs
 func TestBlockWithTxs(t *testing.T) {
 	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
@@ -952,6 +953,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Shares similar structure with TestBlockWithTxs but tests BlockWithReceipts
 func TestBlockWithReceipts(t *testing.T) {
 	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)

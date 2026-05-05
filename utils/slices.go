@@ -48,7 +48,7 @@ func Set[T comparable](slice []T) []T {
 		return slice
 	}
 
-	if reflect.TypeOf(slice[0]).Kind() == reflect.Ptr {
+	if reflect.TypeOf(slice[0]).Kind() == reflect.Pointer {
 		panic("Set does not support pointer types")
 	}
 

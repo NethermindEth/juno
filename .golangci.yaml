@@ -44,14 +44,12 @@ linters:
           deny:
             - pkg: github.com/sirupsen/logrus
               desc: use github.com/NethermindEth/juno/utils for logging
-    dupl:
-      threshold: 100
     funlen:
       lines: 120
       statements: 50
     goconst:
-      min-len: 2
-      min-occurrences: 3
+      min-len: 4
+      min-occurrences: 4
     gocritic:
       disabled-checks:
         - sloppyReassign
