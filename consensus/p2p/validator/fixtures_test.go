@@ -221,7 +221,7 @@ func buildTransactions(
 }
 
 func buildProposalCommitment(
-	rawStateUpdate *starknet.StateUpdateWithBlockAndSig,
+	rawStateUpdate *starknet.StateUpdateWithBlock,
 	block *core.Block,
 	previousBlock *core.Block,
 	proposer *common.Address,
@@ -271,7 +271,7 @@ func buildBuildResult(
 	gw *adaptfeeder.Feeder,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	rawStateUpdate *starknet.StateUpdateWithBlockAndSig,
+	rawStateUpdate *starknet.StateUpdateWithBlock,
 	concatCounts felt.Felt,
 	totalGasConsumed int,
 ) builder.BuildResult {
@@ -334,7 +334,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 	}
 }
 
-func calculateTotalGasConsumed(rawStateUpdate *starknet.StateUpdateWithBlockAndSig) int {
+func calculateTotalGasConsumed(rawStateUpdate *starknet.StateUpdateWithBlock) int {
 	totalGasConsumed := 0
 	for _, receipt := range rawStateUpdate.Block.Receipts {
 		consumed := receipt.ExecutionResources.TotalGasConsumed

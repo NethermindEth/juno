@@ -243,21 +243,23 @@ func TestStateUpdateWithBlock(t *testing.T) {
 	ctx := t.Context()
 
 	for _, number := range numbers {
-		numberStr := strconv.FormatUint(number, 10)
-		t.Run("integration block number "+numberStr, func(t *testing.T) {
-			response, err := client.StateUpdateWithBlock(ctx, numberStr, false)
-			require.NoError(t, err)
-			sig, err := client.Signature(ctx, numberStr)
-			require.NoError(t, err)
-			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
-			require.NoError(t, err)
-			adaptedBlock, err := sn2core.AdaptBlock(response.Block, sig.Signature)
-			require.NoError(t, err)
-			adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
-			require.NoError(t, err)
-			assert.Equal(t, block, adaptedBlock)
-			assert.Equal(t, stateUpdate, adaptedStateUpdate)
-		})
+		for _, includeSignature := range [2]bool{false, true} {
+			numberStr := strconv.FormatUint(number, 10)
+			t.Run("integration block number "+numberStr, func(t *testing.T) {
+				response, err := client.StateUpdateWithBlock(ctx, numberStr, includeSignature)
+				require.NoError(t, err)
+				sig, err := client.Signature(ctx, numberStr)
+				require.NoError(t, err)
+				stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
+				require.NoError(t, err)
+				adaptedBlock, err := sn2core.AdaptBlock(response.Block, sig.Signature)
+				require.NoError(t, err)
+				adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
+				require.NoError(t, err)
+				assert.Equal(t, block, adaptedBlock)
+				assert.Equal(t, stateUpdate, adaptedStateUpdate)
+			})
+		}
 	}
 }
 

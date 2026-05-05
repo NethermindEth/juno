@@ -54,9 +54,9 @@ type StateDiff struct {
 	} `json:"migrated_compiled_classes"`
 }
 
-// StateUpdateWithBlockAndSig represents the object response by the feeder for "get_state_update"
-// endpoint with `includingBlock` and `includeSignature` arguments
-type StateUpdateWithBlockAndSig struct {
+// StateUpdateWithBlock represents the object response by the feeder for "get_state_update"
+// endpoint with `includeBlock` and `includeSignature` arguments
+type StateUpdateWithBlock struct {
 	StateUpdate *StateUpdate `json:"state_update"`
 
 	// Only present if `includeBlock` argument is set to `true`

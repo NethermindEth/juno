@@ -414,9 +414,9 @@ func (c *Client) StateUpdateWithBlock(
 	ctx context.Context,
 	blockID string,
 	includeSignature bool,
-) (*starknet.StateUpdateWithBlockAndSig, error) {
+) (*starknet.StateUpdateWithBlock, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		"blockNumber":      blockID,
+		blockNumberArg:     blockID,
 		"includeBlock":     "true",
 		"includeSignature": strconv.FormatBool(includeSignature),
 	})
@@ -427,7 +427,7 @@ func (c *Client) StateUpdateWithBlock(
 	}
 	defer body.Close()
 
-	stateUpdate := new(starknet.StateUpdateWithBlockAndSig)
+	stateUpdate := new(starknet.StateUpdateWithBlock)
 	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}
