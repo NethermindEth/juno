@@ -138,7 +138,9 @@ func (s *stateMachine[V, H, A]) processLoop(
 	return resultActions
 }
 
-func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (action actions.Action[V, H, A], shouldContinue bool) {
+func (s *stateMachine[V, H, A]) process(
+	recentlyReceivedRound *types.Round,
+) (action actions.Action[V, H, A], shouldContinue bool) {
 	cachedProposal := s.findProposal(s.state.round)
 
 	roundCachedProposal := cachedProposal
