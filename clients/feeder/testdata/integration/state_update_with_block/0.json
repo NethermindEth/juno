@@ -188,5 +188,9 @@
         "declared_classes": [],
         "replaced_classes": []
       }
-    }
+    },
+    "signature": [
+      "0x4ad6fcb4adc8f45ab532267a878cade0e576300fbd1bfcafac48c9b367ed53d",
+      "0x54d3cd3d76a3a1db3b8d4a934a5c15d4ca3de771146675f744b471104d5d138"
+    ]
   }

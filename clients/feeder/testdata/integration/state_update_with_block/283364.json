@@ -448,5 +448,9 @@
         ],
         "replaced_classes": []
       }
-    }
+    },
+    "signature": [
+      "0x405a7a6641a0c5990db264b67676e6bde816716be5665790bb314c80ca9f5f0",
+      "0x2665b141b14b80a3f96d7487665b49dba53d2a873a8d45561bfefd9499ca10a"
+    ]
 }
