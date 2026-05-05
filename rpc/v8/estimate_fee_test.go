@@ -104,7 +104,12 @@ func TestEstimateFee(t *testing.T) {
 			[]*felt.Felt{},
 			&blockInfo,
 			mockState,
-			vm.SimulateOptions{SkipChargeFee: true, SkipValidate: true, ErrOnRevert: true, IsEstimateFee: true}).
+			vm.SimulateOptions{
+				SkipChargeFee: true,
+				SkipValidate:  true,
+				ErrOnRevert:   true,
+				IsEstimateFee: true,
+			}).
 			Return(
 				vm.ExecutionResults{},
 				vm.TransactionExecutionError{
