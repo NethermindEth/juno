@@ -192,60 +192,71 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 
 // Currently only used for testing
 func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
+	// note(rdr): this constants are here to appease the linter god, but they shouldn't be.
+	// They exists because this package is exposing some methods for the sole purpose of unit
+	// testing :(
+	// The right solution is removing those methods but it is very low prio and not worth the hassle
+	// since this package will eventually be deleted
+	const (
+		paramBlockID         = "block_id"
+		paramTransactionHash = "transaction_hash"
+		paramContractAddress = "contract_address"
+	)
+
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_getBlockWithTxHashes",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
 			Handler: h.BlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
 			Handler: h.BlockWithTxs,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
 			Handler: h.TransactionByHash,
 		},
 		{
 			Name:    "starknet_getTransactionReceipt",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
 			Handler: h.TransactionReceiptByHash,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
 			Handler: h.BlockTransactionCount,
 		},
 		{
 			Name:    "starknet_getTransactionByBlockIdAndIndex",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: "index"}},
 			Handler: h.TransactionByBlockIDAndIndex,
 		},
 		{
 			Name:    "starknet_getStateUpdate",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
 			Handler: h.StateUpdate,
 		},
 		{
 			Name:    "starknet_getStorageAt",
-			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: paramContractAddress}, {Name: "key"}, {Name: paramBlockID}},
 			Handler: h.StorageAt,
 		},
 		{
 			Name:    "starknet_getClassHashAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: paramContractAddress}},
 			Handler: h.ClassHashAt,
 		},
 		{
 			Name:    "starknet_getClass",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: "class_hash"}},
 			Handler: h.Class,
 		},
 		{
 			Name:    "starknet_getClassAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: paramContractAddress}},
 			Handler: h.ClassAt,
 		},
 		{
@@ -270,42 +281,46 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
 			Handler: h.TransactionStatus,
 		},
 		{
 			Name:    "starknet_call",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: paramBlockID}},
 			Handler: h.Call,
 		},
 		{
-			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
+			Name: "starknet_estimateFee",
+			Params: []jsonrpc.Parameter{
+				{Name: "request"}, {Name: "simulation_flags"}, {Name: paramBlockID},
+			},
 			Handler: h.EstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
-			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: paramBlockID}},
 			Handler: h.EstimateMessageFee,
 		},
 		{
 			Name:    "starknet_getNonce",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: paramContractAddress}},
 			Handler: h.Nonce,
 		},
 		{
 			Name:    "starknet_traceTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
 			Handler: h.TraceTransaction,
 		},
 		{
-			Name:    "starknet_simulateTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
+			Name: "starknet_simulateTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: paramBlockID}, {Name: "transactions"}, {Name: "simulation_flags"},
+			},
 			Handler: h.SimulateTransactions,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
 			Handler: h.TraceBlockTransactions,
 		},
 		{
@@ -317,29 +332,35 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params: []jsonrpc.Parameter{
 				{Name: "from_address", Optional: true},
 				{Name: "keys", Optional: true},
-				{Name: "block_id", Optional: true},
+				{Name: paramBlockID, Optional: true},
 				{Name: "finality_status", Optional: true},
 			},
 			Handler: h.SubscribeEvents,
 		},
 		{
-			Name:    "starknet_subscribeNewTransactionReceipts",
-			Params:  []jsonrpc.Parameter{{Name: "sender_address", Optional: true}, {Name: "finality_status", Optional: true}},
+			Name: "starknet_subscribeNewTransactionReceipts",
+			Params: []jsonrpc.Parameter{
+				{Name: "sender_address", Optional: true},
+				{Name: "finality_status", Optional: true},
+			},
 			Handler: h.SubscribeNewTransactionReceipts,
 		},
 		{
 			Name:    "starknet_subscribeNewHeads",
-			Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID, Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{
 			Name:    "starknet_subscribeTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
 			Handler: h.SubscribeTransactionStatus,
 		},
 		{
-			Name:    "starknet_subscribeNewTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "finality_status", Optional: true}, {Name: "sender_address", Optional: true}},
+			Name: "starknet_subscribeNewTransactions",
+			Params: []jsonrpc.Parameter{
+				{Name: "finality_status", Optional: true},
+				{Name: "sender_address", Optional: true},
+			},
 			Handler: h.SubscribeNewTransactions,
 		},
 		{
@@ -349,7 +370,7 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_getBlockWithReceipts",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
 			Handler: h.BlockWithReceipts,
 		},
 		{
@@ -359,7 +380,7 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_getMessagesStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
 			Handler: h.GetMessageStatus,
 		},
 	}, "/v0_9"

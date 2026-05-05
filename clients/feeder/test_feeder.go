@@ -106,7 +106,6 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 
 	var dir, queryArg string
 	var err error
-	const blockNumberArg = "blockNumber"
 
 	switch {
 	case strings.HasSuffix(path, "get_block"):
@@ -131,11 +130,11 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 
 	case strings.HasSuffix(path, "get_class_by_hash"):
 		dir = "class"
-		queryArg = "classHash"
+		queryArg = classHashArg
 
 	case strings.HasSuffix(path, "get_compiled_class_by_class_hash"):
 		dir = "compiled_class"
-		queryArg = "classHash"
+		queryArg = classHashArg
 
 	case strings.HasSuffix(path, "get_public_key"):
 		dir = "public_key"
