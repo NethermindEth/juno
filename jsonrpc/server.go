@@ -233,18 +233,11 @@ func (s *Server) DisableBatchRequests(forbid bool) *Server {
 // - paramNames are the names of parameters in the order that they are expected
 // by the handler
 func (s *Server) RegisterMethods(methods ...Method) error {
-	// FIXME: Remove duration log before merging
-	startPretouched := len(s.pretouched)
-	start := time.Now()
 	for idx := range methods {
 		if err := s.registerMethod(methods[idx]); err != nil {
 			return err
 		}
 	}
-	s.logger.Info("registered jsonrpc methods",
-		zap.Int("count", len(methods)),
-		zap.Int("pretouched_types", len(s.pretouched)-startPretouched),
-		zap.Duration("pretouch_duration", time.Since(start)))
 	return nil
 }
 
