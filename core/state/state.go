@@ -394,7 +394,12 @@ func (s *State) flush(
 				}
 
 				if obj.classHashDirty {
-					if err := WriteClassHashHistory(s.batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
+					if err := WriteClassHashHistory(
+						s.batch,
+						&addr,
+						blockNum,
+						&obj.contract.ClassHash,
+					); err != nil {
 						return err
 					}
 				}
