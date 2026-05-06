@@ -115,6 +115,7 @@ func (s *State) Update(
 
 		contract := newContractDeployed(*classHash, blockNum)
 		newObj := newStateObject(s, &addr, &contract)
+		newObj.classHashDirty = true
 		s.stateObjects[addr] = &newObj
 	}
 
@@ -386,12 +387,16 @@ func (s *State) flush(
 					}
 				}
 
-				if err := WriteNonceHistory(s.batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
-					return err
+				if obj.nonceDirty {
+					if err := WriteNonceHistory(s.batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
+						return err
+					}
 				}
 
-				if err := WriteClassHashHistory(s.batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
-					return err
+				if obj.classHashDirty {
+					if err := WriteClassHashHistory(s.batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -500,6 +505,7 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 			if _, ok := noClassContracts[addr]; ok && errors.Is(err, db.ErrKeyNotFound) {
 				contract := newContractDeployed(noClassContractsClassHash, blockNum)
 				newObj := newStateObject(s, &addr, &contract)
+				newObj.classHashDirty = true
 				obj = &newObj
 				s.stateObjects[addr] = obj
 			} else {

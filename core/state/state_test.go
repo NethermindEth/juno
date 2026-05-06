@@ -699,6 +699,120 @@ func TestRevert(t *testing.T) {
 	})
 }
 
+func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
+	addr := felt.NewUnsafeFromString[felt.Felt]("0xA")
+	classH0 := felt.NewUnsafeFromString[felt.Felt]("0xC0")
+	classH1 := felt.NewUnsafeFromString[felt.Felt]("0xC1")
+	storageKey := felt.NewUnsafeFromString[felt.Felt]("0x10")
+	val1 := felt.NewUnsafeFromString[felt.Felt]("0x42")
+	val2 := felt.NewUnsafeFromString[felt.Felt]("0x43")
+	nonce1 := felt.NewUnsafeFromString[felt.Felt]("0x1")
+	nonce2 := felt.NewUnsafeFromString[felt.Felt]("0x2")
+
+	updates := []*core.StateUpdate{
+		// block 0: deploy A with classHash H0 — classHash entry expected
+		{
+			OldRoot: &felt.Zero,
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x2943515e306ea41bc1e477db596e403cd5187edd0eb721edf35ce41e0891e51",
+			),
+			StateDiff: &core.StateDiff{
+				DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classH0},
+			},
+		},
+		// block 1: nonce change only — nonce entry expected
+		{
+			OldRoot: &felt.Zero,
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x20120739338b51aa35c560b0006e95f9b5ccdda9818fce14cf3f5b19eb55a5c",
+			),
+			StateDiff: &core.StateDiff{
+				Nonces: map[felt.Felt]*felt.Felt{*addr: nonce1},
+			},
+		},
+		// block 2: storage only — must NOT produce nonce or classHash entries
+		{
+			OldRoot: &felt.Zero,
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x4ff4ae4e11a385b1272fe9d505ae944aca2e2737998a334879f1acae0b33397",
+			),
+			StateDiff: &core.StateDiff{
+				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+					*addr: {*storageKey: val1},
+				},
+			},
+		},
+		// block 3: nonce change only — nonce entry expected
+		{
+			OldRoot: &felt.Zero,
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0xf2bd6c8daf68dcb7e1d42380627d3cf5674025f3406185a0871b48dd42a586",
+			),
+			StateDiff: &core.StateDiff{
+				Nonces: map[felt.Felt]*felt.Felt{*addr: nonce2},
+			},
+		},
+		// block 4: classHash replacement — classHash entry expected
+		{
+			OldRoot: &felt.Zero,
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x885cc33de1055d510413c2afedc6c262d28224bacb21166a7d565a502933d6",
+			),
+			StateDiff: &core.StateDiff{
+				ReplacedClasses: map[felt.Felt]*felt.Felt{*addr: classH1},
+			},
+		},
+		// block 5: storage only — must NOT produce nonce or classHash entries
+		{
+			OldRoot: &felt.Zero,
+			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+				"0x530eeec8721aae7f0df0da066530c47c62a98f97c28db4c6cf760a627935368",
+			),
+			StateDiff: &core.StateDiff{
+				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+					*addr: {*storageKey: val2},
+				},
+			},
+		},
+	}
+
+	stateDB := setupState(t, updates, uint64(len(updates)))
+
+	t.Run("total entry counts match exact field-change count", func(t *testing.T) {
+		assert.Equal(t, 2, countNonceHistory(t, stateDB, addr),
+			"contract should have exactly 2 nonce history entries (blocks 1, 3)")
+		assert.Equal(t, 2, countClassHashHistory(t, stateDB, addr),
+			"contract should have exactly 2 classHash history entries (blocks 0, 4)")
+		assert.Equal(t, 2, countStorageHistory(t, stateDB, addr, storageKey),
+			"storage key should have exactly 2 history entries (blocks 2, 5)")
+	})
+
+	t.Run("entries exist on the change blocks", func(t *testing.T) {
+		assert.True(t, hasNonceHistory(t, stateDB, addr, 1))
+		assert.True(t, hasNonceHistory(t, stateDB, addr, 3))
+		assert.True(t, hasClassHashHistory(t, stateDB, addr, 0))
+		assert.True(t, hasClassHashHistory(t, stateDB, addr, 4))
+		assert.True(t, hasStorageHistory(t, stateDB, addr, storageKey, 2))
+		assert.True(t, hasStorageHistory(t, stateDB, addr, storageKey, 5))
+	})
+
+	t.Run("no nonce / classHash entries on storage-only blocks", func(t *testing.T) {
+		assert.False(t, hasNonceHistory(t, stateDB, addr, 2),
+			"storage-only block must not write nonce history")
+		assert.False(t, hasNonceHistory(t, stateDB, addr, 5),
+			"storage-only block must not write nonce history")
+		assert.False(t, hasClassHashHistory(t, stateDB, addr, 2),
+			"storage-only block must not write classHash history")
+		assert.False(t, hasClassHashHistory(t, stateDB, addr, 5),
+			"storage-only block must not write classHash history")
+	})
+
+	t.Run("no nonce entry at deployment block (initial nonce is zero by default)", func(t *testing.T) {
+		assert.False(t, hasNonceHistory(t, stateDB, addr, 0),
+			"deployment block must not write a redundant zero-nonce history entry")
+	})
+}
+
 func BenchmarkStateUpdate(b *testing.B) {
 	client := feeder.NewTestClient(b, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -779,4 +893,52 @@ func newTestStateDB() *StateDB {
 	memDB := memory.New()
 	trieDB := triedb.New(memDB, nil)
 	return NewStateDB(memDB, trieDB)
+}
+
+func hasNonceHistory(t *testing.T, stateDB *StateDB, addr *felt.Felt, blockNum uint64) bool {
+	t.Helper()
+	ok, err := stateDB.disk.Has(db.ContractNonceHistoryAtBlockKey(addr, blockNum))
+	require.NoError(t, err)
+	return ok
+}
+
+func hasClassHashHistory(t *testing.T, stateDB *StateDB, addr *felt.Felt, blockNum uint64) bool {
+	t.Helper()
+	ok, err := stateDB.disk.Has(db.ContractClassHashHistoryAtBlockKey(addr, blockNum))
+	require.NoError(t, err)
+	return ok
+}
+
+func hasStorageHistory(t *testing.T, stateDB *StateDB, addr, key *felt.Felt, blockNum uint64) bool {
+	t.Helper()
+	ok, err := stateDB.disk.Has(db.ContractStorageHistoryAtBlockKey(addr, key, blockNum))
+	require.NoError(t, err)
+	return ok
+}
+
+func countByPrefix(t *testing.T, stateDB *StateDB, prefix []byte) int {
+	t.Helper()
+	it, err := stateDB.disk.NewIterator(prefix, true)
+	require.NoError(t, err)
+	defer it.Close()
+	count := 0
+	for it.First(); it.Valid(); it.Next() {
+		count++
+	}
+	return count
+}
+
+func countNonceHistory(t *testing.T, stateDB *StateDB, addr *felt.Felt) int {
+	t.Helper()
+	return countByPrefix(t, stateDB, db.ContractNonceHistoryKey(addr))
+}
+
+func countClassHashHistory(t *testing.T, stateDB *StateDB, addr *felt.Felt) int {
+	t.Helper()
+	return countByPrefix(t, stateDB, db.ContractClassHashHistoryKey(addr))
+}
+
+func countStorageHistory(t *testing.T, stateDB *StateDB, addr, key *felt.Felt) int {
+	t.Helper()
+	return countByPrefix(t, stateDB, db.ContractStorageHistoryKey(addr, key))
 }
