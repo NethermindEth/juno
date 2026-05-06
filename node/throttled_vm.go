@@ -43,24 +43,6 @@ func (tvm *ThrottledVM) Call(
 	})
 }
 
-func (tvm *ThrottledVM) Execute(
-	txns []core.Transaction,
-	declaredClasses []core.ClassDefinition,
-	paidFeesOnL1 []*felt.Felt,
-	blockInfo *vm.BlockInfo,
-	state core.StateReader,
-	opts vm.ExecutionOptions,
-) (vm.ExecutionResults, error) {
-	var executionResult vm.ExecutionResults
-	return executionResult, tvm.Do(func(inner *vm.VM) error {
-		var err error
-		executionResult, err = (*inner).Execute(
-			txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts,
-		)
-		return err
-	})
-}
-
 func (tvm *ThrottledVM) runExec(
 	fn func(inner vm.VM) (vm.ExecutionResults, error),
 ) (vm.ExecutionResults, error) {
@@ -82,6 +64,19 @@ func (tvm *ThrottledVM) Simulate(
 ) (vm.ExecutionResults, error) {
 	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
 		return inner.Simulate(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	})
+}
+
+func (tvm *ThrottledVM) EstimateFee(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *vm.BlockInfo,
+	state core.StateReader,
+	opts vm.EstimateFeeOptions,
+) (vm.ExecutionResults, error) {
+	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
+		return inner.EstimateFee(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
 	})
 }
 

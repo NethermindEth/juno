@@ -359,8 +359,13 @@ func executeTransactions(
 	}
 
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
-	executionResults, err := v.BuildBlock(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-		&blockInfo, genesisState, vm.BuildBlockOptions{
+	executionResults, err := v.BuildBlock(
+		coreTxns,
+		nil,
+		[]*felt.Felt{felt.NewFromUint64[felt.Felt](1)},
+		&blockInfo,
+		genesisState,
+		vm.BuildBlockOptions{
 			SkipChargeFee: true,
 			SkipValidate:  true,
 			ErrOnRevert:   true,

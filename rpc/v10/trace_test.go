@@ -721,13 +721,14 @@ func TestTraceBlockTransactions(t *testing.T) {
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			vm.TraceOptions{}).Return(vm.ExecutionResults{
-			OverallFees:      nil,
-			DataAvailability: []core.DataAvailability{{}, {}},
-			GasConsumed:      []core.GasConsumed{{}, {}},
-			Traces:           []vm.TransactionTrace{vmTrace},
-			NumSteps:         stepsUsed,
-		}, nil)
+			vm.TraceOptions{}).
+			Return(vm.ExecutionResults{
+				OverallFees:      nil,
+				DataAvailability: []core.DataAvailability{{}, {}},
+				GasConsumed:      []core.GasConsumed{{}, {}},
+				Traces:           []vm.TransactionTrace{vmTrace},
+				NumSteps:         stepsUsed,
+			}, nil)
 
 		expectedTrace := rpcv10.AdaptVMTransactionTrace(&vmTrace)
 		expectedResult := []rpcv10.TracedBlockTransaction{

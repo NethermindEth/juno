@@ -45,9 +45,9 @@ type CallResult struct {
 	ExecutionFailed bool
 }
 
-// ExecutionOptions carries every flag accepted by the underlying VM.
-// Used by the generic Execute method
-type ExecutionOptions struct {
+// executeOptions carries every flag accepted by the underlying VM.
+// Used internally by the execute method
+type executeOptions struct {
 	SkipChargeFee      bool
 	SkipValidate       bool
 	ErrOnRevert        bool
@@ -57,12 +57,17 @@ type ExecutionOptions struct {
 	ReturnInitialReads bool
 }
 
-// SimulateOptions carries the flags relevant to simulate / estimateFee.
+// SimulateOptions carries the flags relevant to RPC simulate.
 type SimulateOptions struct {
 	SkipChargeFee      bool
 	SkipValidate       bool
 	ErrOnRevert        bool
-	IsEstimateFee      bool
+	ReturnInitialReads bool
+}
+
+// EstimateFeeOptions carries the flags relevant to RPC estimateFee.
+type EstimateFeeOptions struct {
+	SkipValidate       bool
 	ReturnInitialReads bool
 }
 
@@ -90,14 +95,6 @@ type VM interface {
 		structuredErrStack,
 		returnStateDiff bool,
 	) (CallResult, error)
-	Execute(
-		txns []core.Transaction,
-		declaredClasses []core.ClassDefinition,
-		paidFeesOnL1 []*felt.Felt,
-		blockInfo *BlockInfo,
-		state core.StateReader,
-		opts ExecutionOptions,
-	) (ExecutionResults, error)
 	Simulate(
 		txns []core.Transaction,
 		declaredClasses []core.ClassDefinition,
@@ -105,6 +102,14 @@ type VM interface {
 		blockInfo *BlockInfo,
 		state core.StateReader,
 		opts SimulateOptions,
+	) (ExecutionResults, error)
+	EstimateFee(
+		txns []core.Transaction,
+		declaredClasses []core.ClassDefinition,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		opts EstimateFeeOptions,
 	) (ExecutionResults, error)
 	Trace(
 		txns []core.Transaction,
@@ -501,14 +506,15 @@ func parseExecutionResults(context *callContext) (ExecutionResults, error) {
 	}, nil
 }
 
-// Execute is the generic entry point exposing full RPC control.
-func (v *vm) Execute(
+// execute is the generic entry point exposing full RPC control.
+// Kept unexported so external callers must use Simulate / Trace / BuildBlock.
+func (v *vm) execute(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
 	state core.StateReader,
-	opts ExecutionOptions,
+	opts executeOptions,
 ) (ExecutionResults, error) {
 	inputs, err := v.prepareExecutionInputs(txns, declaredClasses, paidFeesOnL1, blockInfo, state)
 	if err != nil {
@@ -533,7 +539,7 @@ func (v *vm) Execute(
 	return parseExecutionResults(inputs.context)
 }
 
-// Simulate runs the txn set under RPC simulate / estimateFee semantics.
+// Simulate runs the txn set under RPC simulate semantics.
 func (v *vm) Simulate(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
@@ -542,15 +548,38 @@ func (v *vm) Simulate(
 	state core.StateReader,
 	opts SimulateOptions,
 ) (ExecutionResults, error) {
-	return v.Execute(
+	return v.execute(
 		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
-		ExecutionOptions{
+		executeOptions{
 			SkipChargeFee:      opts.SkipChargeFee,
 			SkipValidate:       opts.SkipValidate,
 			ErrOnRevert:        opts.ErrOnRevert,
 			ErrStack:           true,
 			AllowBinarySearch:  true,
-			IsEstimateFee:      opts.IsEstimateFee,
+			ReturnInitialReads: opts.ReturnInitialReads,
+		},
+	)
+}
+
+// EstimateFee runs the txn set under RPC estimateFee semantics.
+// Fee charging is always skipped.
+func (v *vm) EstimateFee(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts EstimateFeeOptions,
+) (ExecutionResults, error) {
+	return v.execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		executeOptions{
+			SkipChargeFee:      true,
+			SkipValidate:       opts.SkipValidate,
+			ErrOnRevert:        true,
+			ErrStack:           true,
+			AllowBinarySearch:  true,
+			IsEstimateFee:      true,
 			ReturnInitialReads: opts.ReturnInitialReads,
 		},
 	)
@@ -565,9 +594,9 @@ func (v *vm) Trace(
 	state core.StateReader,
 	opts TraceOptions,
 ) (ExecutionResults, error) {
-	return v.Execute(
+	return v.execute(
 		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
-		ExecutionOptions{
+		executeOptions{
 			ErrStack:           true,
 			ReturnInitialReads: opts.ReturnInitialReads,
 		},
@@ -583,9 +612,9 @@ func (v *vm) BuildBlock(
 	state core.StateReader,
 	opts BuildBlockOptions,
 ) (ExecutionResults, error) {
-	return v.Execute(
+	return v.execute(
 		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
-		ExecutionOptions{
+		executeOptions{
 			SkipChargeFee: opts.SkipChargeFee,
 			SkipValidate:  opts.SkipValidate,
 			ErrOnRevert:   opts.ErrOnRevert,

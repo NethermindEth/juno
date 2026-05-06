@@ -38,13 +38,13 @@ func TestEstimateFee(t *testing.T) {
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Simulate(
+		mockVM.EXPECT().EstimateFee(
 			[]core.Transaction{},
 			nil,
 			[]*felt.Felt{},
 			&blockInfo,
 			mockState,
-			vm.SimulateOptions{SkipChargeFee: true, ErrOnRevert: true, IsEstimateFee: true}).
+			vm.EstimateFeeOptions{}).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -64,17 +64,14 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Simulate(
+		mockVM.EXPECT().EstimateFee(
 			[]core.Transaction{},
 			nil,
 			[]*felt.Felt{},
 			&blockInfo,
 			mockState,
-			vm.SimulateOptions{
-				SkipChargeFee: true,
-				SkipValidate:  true,
-				ErrOnRevert:   true,
-				IsEstimateFee: true,
+			vm.EstimateFeeOptions{
+				SkipValidate: true,
 			}).
 			Return(
 				vm.ExecutionResults{
@@ -100,17 +97,14 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Simulate(
+		mockVM.EXPECT().EstimateFee(
 			[]core.Transaction{},
 			nil,
 			[]*felt.Felt{},
 			&blockInfo,
 			mockState,
-			vm.SimulateOptions{
-				SkipChargeFee: true,
-				SkipValidate:  true,
-				ErrOnRevert:   true,
-				IsEstimateFee: true,
+			vm.EstimateFeeOptions{
+				SkipValidate: true,
 			}).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,

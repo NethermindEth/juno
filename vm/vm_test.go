@@ -371,8 +371,8 @@ func TestExecute(t *testing.T) {
 			ChainID:           networks.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		_, err := New(&chainInfo, false, nil).
-			Execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
+		_, err := New(&chainInfo, false, nil).(*vm).
+			execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
 				Header: &core.Header{
 					Timestamp: 1666877926,
 					SequencerAddress: felt.NewUnsafeFromString[felt.Felt](
@@ -381,7 +381,7 @@ func TestExecute(t *testing.T) {
 					L1GasPriceETH:  &felt.Zero,
 					L1GasPriceSTRK: &felt.Zero,
 				},
-			}, state, ExecutionOptions{})
+			}, state, executeOptions{})
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
@@ -390,13 +390,13 @@ func TestExecute(t *testing.T) {
 			ChainID:           networks.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		_, err := New(&chainInfo, false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
+		_, err := New(&chainInfo, false, nil).(*vm).execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
-		}, state, ExecutionOptions{})
+		}, state, executeOptions{})
 		require.NoError(t, err)
 	})
 }
