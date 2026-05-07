@@ -149,12 +149,11 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 }
 
 func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
-	const blockHashLag = 10
-	if blockNumber < blockHashLag {
+	if blockNumber < core.BlockHashLag {
 		return nil, nil
 	}
 
-	header, err := h.bcReader.BlockHeaderByNumber(blockNumber - blockHashLag)
+	header, err := h.bcReader.BlockHeaderByNumber(blockNumber - core.BlockHashLag)
 	if err != nil {
 		return nil, err
 	}

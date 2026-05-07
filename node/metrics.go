@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -20,9 +21,10 @@ import (
 const (
 	l1MetricsTimeout = 5 * time.Second
 
-	labelMethod   = "method"
-	labelVersion  = "version"
-	namespaceSync = "sync"
+	labelMethod     = "method"
+	labelVersion    = "version"
+	namespaceSync   = "sync"
+	namespacePruner = "pruner"
 )
 
 func makeDBMetrics() db.EventListener {
@@ -359,4 +361,45 @@ func makeVMThrottlerMetrics(throttledVM *ThrottledVM) {
 		return float64(throttledVM.QueueLen())
 	})
 	prometheus.MustRegister(vmJobs, vmQueue)
+}
+
+func makePrunerMetrics() pruner.EventListener {
+	oldestBlockKept := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespacePruner,
+		Name:      "oldest_block_kept",
+		Help:      "Block number of the oldest block retained after pruning",
+	})
+	pruneLatency := prometheus.NewSummary(prometheus.SummaryOpts{
+		Namespace: namespacePruner,
+		Name:      "prune_latency",
+		Help:      "Time taken per prune operation in seconds",
+	})
+	blocksPruned := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespacePruner,
+		Name:      "blocks_pruned_total",
+		Help:      "Total number of blocks pruned",
+	})
+	errors := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespacePruner,
+		Name:      "errors_total",
+		Help:      "Total number of errors encountered while pruning",
+	})
+	lastRunTimestamp := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespacePruner,
+		Name:      "last_run_timestamp_seconds",
+		Help:      "Unix timestamp of the last completed prune operation",
+	})
+	prometheus.MustRegister(oldestBlockKept, pruneLatency, blocksPruned, errors, lastRunTimestamp)
+
+	return &pruner.SelectiveListener{
+		OnPruneCb: func(oldest uint64, count uint64, took time.Duration) {
+			oldestBlockKept.Set(float64(oldest))
+			blocksPruned.Add(float64(count))
+			pruneLatency.Observe(took.Seconds())
+			lastRunTimestamp.SetToCurrentTime()
+		},
+		OnPruneErrorCb: func(err error) {
+			errors.Inc()
+		},
+	}
 }

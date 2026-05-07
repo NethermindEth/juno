@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/pruner"
 )
 
 var errChunkSizeReached = errors.New("chunk size reached")
@@ -26,7 +27,7 @@ type EventFilterer interface {
 }
 
 type EventFilter struct {
-	txn            db.KeyValueStore
+	database       db.KeyValueStore
 	fromBlock      uint64
 	toBlock        uint64
 	matcher        EventMatcher
@@ -44,7 +45,7 @@ const (
 )
 
 func newEventFilter(
-	txn db.KeyValueStore,
+	database db.KeyValueStore,
 	contractAddresses []felt.Address,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
@@ -53,7 +54,7 @@ func newEventFilter(
 	runningFilter *core.RunningEventFilter,
 ) *EventFilter {
 	return &EventFilter{
-		txn:            txn,
+		database:       database,
 		matcher:        NewEventMatcher(contractAddresses, keys),
 		fromBlock:      fromBlock,
 		toBlock:        toBlock,
@@ -91,7 +92,7 @@ func (e *EventFilter) SetRangeEndBlockByHash(
 	filterRange EventFilterRange,
 	blockHash *felt.Felt,
 ) error {
-	header, err := core.GetBlockHeaderByHash(e.txn, blockHash)
+	header, err := core.GetBlockHeaderByHash(e.database, blockHash)
 	if err != nil {
 		return err
 	}
@@ -100,7 +101,7 @@ func (e *EventFilter) SetRangeEndBlockByHash(
 
 // SetRangeEndBlockToL1Head sets an end of the block range to latest `l1_accepted` block
 func (e *EventFilter) SetRangeEndBlockToL1Head(filterRange EventFilterRange) error {
-	l1Head, err := core.GetL1Head(e.txn)
+	l1Head, err := core.GetL1Head(e.database)
 	if err != nil {
 		return err
 	}
@@ -151,7 +152,7 @@ func (e *EventFilter) Events(
 ) ([]FilteredEvent, ContinuationToken, error) {
 	var matchedEvents []FilteredEvent
 
-	latest, err := core.GetChainHeight(e.txn)
+	latest, err := core.GetChainHeight(e.database)
 	if err != nil {
 		return nil, ContinuationToken{}, err
 	}
@@ -162,6 +163,15 @@ func (e *EventFilter) Events(
 	if cToken != nil {
 		skippedEvents = cToken.processedEvents
 		startBlock = cToken.fromBlock
+	}
+
+	// Reject queries whose canonical start block has been pruned. Skipped
+	// when startBlock is in the pre-confirmed range (> latest), where
+	// retention semantics don't apply.
+	if startBlock <= latest {
+		if err := pruner.RequireRetained(e.database, startBlock); err != nil {
+			return nil, ContinuationToken{}, err
+		}
 	}
 
 	// Case [canonicalBlock, canonicalBlock]
@@ -237,13 +247,13 @@ func (e *EventFilter) canonicalEvents(
 		lastProccessedBlock = curBlock
 
 		var header *core.Header
-		header, err = core.GetBlockHeaderByNumber(e.txn, curBlock)
+		header, err = core.GetBlockHeaderByNumber(e.database, curBlock)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
 
 		var receipts []*core.TransactionReceipt
-		receipts, err = core.GetReceiptsByBlockNumber(e.txn, header.Number)
+		receipts, err = core.GetReceiptsByBlockNumber(e.database, header.Number)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}

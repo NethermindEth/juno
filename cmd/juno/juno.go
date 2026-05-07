@@ -107,6 +107,8 @@ const (
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
+	newStateF                           = "new-state"
+	pruneModeF                          = node.PruneModeFlag
 
 	defaultConfig                             = ""
 	defaultLogJSON                            = false
@@ -166,7 +168,7 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
 	defaultDisableReceivedTxnStream           = false
-	newStateF                                 = "new-state"
+	defaultPruneMode                          = uint64(0)
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -248,7 +250,22 @@ const (
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	disableReceivedTxnStreamUsage  = "The starknet_subscribeNewTransactions WebSocket API " +
+	pruneModeUsage                 = "Enables block-data and state-history pruning. Pruning is " +
+		"disabled by default; passing this flag (with or without a value) turns " +
+		"it on. The value is the size of the retention window in blocks, counted " +
+		"back from the latest L1-verified head:\n" +
+		"  --prune-mode      same as --prune-mode=0; prune up to the L1 head\n" +
+		"  --prune-mode=N    keep blocks in (l1_head - N, l2_head], prune below\n" +
+		"Blocks at or above the L2 head are always kept. The floor is anchored on " +
+		"the L1-verified head — never on the local L2 head — so pruned blocks are " +
+		"reorg-safe. RPC remains fully functional for any block inside the " +
+		"retention window; requests targeting blocks below the floor fail because " +
+		"their data has been deleted. Pruning is irreversible: data deleted under " +
+		"a small window cannot be recovered without re-syncing. Changing this " +
+		"value across restarts is safe: the window grows or shrinks accordingly. " +
+		"Growth is gradual — pruning pauses until the L1 head advances enough to " +
+		"reach the new floor."
+	disableReceivedTxnStreamUsage = "The starknet_subscribeNewTransactions WebSocket API " +
 		"allows users to subscribe to new transactions. By default, it streams " +
 		"transactions that have been accepted on L2. Users can optionally provide " +
 		"a set of finality statuses to be notified about, including transactions " +
@@ -358,6 +375,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc()))); err != nil {
 			return err
 		}
+
+		// Pruning is gated on the flag's *presence* (CLI, YAML, or env), not
+		// its numeric value — --prune-mode=0 is still "on, retain 0".
+		config.Prune = v.IsSet(pruneModeF)
 
 		// Set custom network
 		if v.IsSet(cnNameF) {
@@ -489,6 +510,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(
 		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
 	)
+	junoCmd.Flags().Uint64(pruneModeF, defaultPruneMode, pruneModeUsage)
+	// NoOptDefVal lets users pass --prune-mode without a value (treated as 0).
+	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "0"
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd

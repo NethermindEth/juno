@@ -30,6 +30,7 @@ import (
 	"github.com/NethermindEth/juno/node/upgrader"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
@@ -56,6 +57,7 @@ const (
 	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
 	sequencerAddress = 1337
+	PruneModeFlag    = "prune-mode"
 )
 
 // Config is the top-level juno configuration.
@@ -133,6 +135,11 @@ type Config struct {
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	NewState                  bool          `mapstructure:"new-state"`
+
+	// Prune is true when --prune-mode was provided (any value, including 0
+	// or absent). Set in cmd PreRunE; not bound via mapstructure.
+	Prune          bool
+	RetainedBlocks uint64 `mapstructure:"prune-mode"`
 }
 
 type Node struct {
@@ -299,6 +306,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
+		if cfg.Prune {
+			prunerOpts := make([]pruner.Option, 0, 1)
+			if cfg.Metrics {
+				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
+			}
+			p := pruner.New(
+				database,
+				cfg.RetainedBlocks,
+				seq.SubscribeNewHeads().Subscription,
+				chain.SubscribeL1Head().Subscription,
+				logger,
+				prunerOpts...,
+			)
+			services = append(services, p)
+		}
 	} else {
 		if cfg.GatewayTimeouts == "" {
 			cfg.GatewayTimeouts = feeder.DefaultTimeouts
@@ -401,6 +423,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 		if synchronizer != nil {
 			services = append(services, synchronizer)
+			if cfg.Prune {
+				prunerOpts := make([]pruner.Option, 0, 1)
+				if cfg.Metrics {
+					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
+				}
+				p := pruner.New(
+					database,
+					cfg.RetainedBlocks,
+					synchronizer.SubscribeNewHeads().Subscription,
+					chain.SubscribeL1Head().Subscription,
+					logger,
+					prunerOpts...,
+				)
+				services = append(services, p)
+			}
 		}
 	}
 
