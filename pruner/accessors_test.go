@@ -15,14 +15,14 @@ import (
 
 func TestOldestRetainedBlock(t *testing.T) {
 	t.Run("empty database returns ErrKeyNotFound", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 
 		_, err := OldestRetainedBlock(database)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("returns lowest block number with commitments", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 
 		for i := uint64(5); i <= 7; i++ {
 			testutils.StoreBlock(t, database, i)
@@ -35,7 +35,7 @@ func TestOldestRetainedBlock(t *testing.T) {
 }
 
 func TestDeleteTransactionHashReverseLookups(t *testing.T) {
-	database := testutils.NewTestDB(t)
+	database := testutils.NewPebbleTestDB(t)
 
 	blocks := make([]*testutils.StoredBlock, 3)
 	for i := range uint64(3) {
@@ -97,7 +97,7 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	}
 
 	t.Run("deletes filters fully below the boundary", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		writeFilters(t, database)
 
 		testutils.WithBatch(t, database, func(batch db.Batch) error {
@@ -110,7 +110,7 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	})
 
 	t.Run("partial range does not delete the containing filter", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		writeFilters(t, database)
 
 		testutils.WithBatch(t, database, func(batch db.Batch) error {
@@ -125,7 +125,7 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	t.Run("rangeEndExclusive at filter boundary keeps that filter", func(t *testing.T) {
 		// rangeEndExclusive = n means filter [0, n-1] is fully below
 		// (to = n-1 < n) and filter [n, 2n-1] starts at n, so it's kept.
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		writeFilters(t, database)
 
 		testutils.WithBatch(t, database, func(batch db.Batch) error {
@@ -138,7 +138,7 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 	})
 
 	t.Run("no-op when range below one filter span", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 
 		testutils.WithBatch(t, database, func(batch db.Batch) error {
 			return pruneAggregatedBloomFiltersUpto(batch, 0)
@@ -167,7 +167,7 @@ func TestPruneUpto(t *testing.T) {
 	lag := core.BlockHashLag
 	require.GreaterOrEqual(t, endExclusive, lag)
 
-	database := testutils.NewTestDB(t)
+	database := testutils.NewPebbleTestDB(t)
 	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
 		blocks[i] = testutils.StoreBlock(t, database, i)
@@ -187,7 +187,7 @@ func TestPruneUpto(t *testing.T) {
 
 func TestPruneUpto_NoOp(t *testing.T) {
 	t.Run("empty database returns 0", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		pruned, oldestKept, err := PruneUpto(t.Context(), database, 20, defaultTargetBatchByteSize)
 		require.NoError(t, err)
 		assert.Zero(t, pruned)
@@ -205,7 +205,7 @@ func TestPruneUpto_NoOp(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name+" is a no-op", func(t *testing.T) {
-			database := testutils.NewTestDB(t)
+			database := testutils.NewPebbleTestDB(t)
 			blocks := make([]*testutils.StoredBlock, 30)
 			for i := tc.chainStart; i < 30; i++ {
 				blocks[i] = testutils.StoreBlock(t, database, i)
@@ -254,7 +254,7 @@ func TestPruneUpto_ResumeAfterMidwayCancel(t *testing.T) {
 	const endExclusive uint64 = 25
 	const cancelAfter = 10 // cancel after the 10th state-update Get
 
-	database := testutils.NewTestDB(t)
+	database := testutils.NewPebbleTestDB(t)
 	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
 		blocks[i] = testutils.StoreBlock(t, database, i)
@@ -296,7 +296,7 @@ func TestPruneUpto_RollingCarveOut(t *testing.T) {
 	const totalBlocks uint64 = 40
 	lag := core.BlockHashLag
 
-	database := testutils.NewTestDB(t)
+	database := testutils.NewPebbleTestDB(t)
 	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
 		blocks[i] = testutils.StoreBlock(t, database, i)
@@ -325,7 +325,7 @@ func TestPruneBlockDataUpto(t *testing.T) {
 	const endExclusive uint64 = 20
 	lag := core.BlockHashLag
 
-	database := testutils.NewTestDB(t)
+	database := testutils.NewPebbleTestDB(t)
 	for i := range totalBlocks {
 		testutils.StoreBlock(t, database, i)
 	}

@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// NewTestDB returns an isolated pebble-backed KeyValueStore for the test.
+// NewPebbleTestDB returns an isolated pebble-backed KeyValueStore for the test.
 // We use pebble (not the in-memory db) because pebble's batch DeleteRange
 // performs a real range delete, while the memory implementation only
 // scans keys with the start byte sequence as a literal prefix.
-func NewTestDB(t *testing.T) db.KeyValueStore {
+func NewPebbleTestDB(t *testing.T) db.KeyValueStore {
 	t.Helper()
 	database, err := pebblev2.New(t.TempDir())
 	require.NoError(t, err)

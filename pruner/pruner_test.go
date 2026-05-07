@@ -112,7 +112,7 @@ func TestPruner_L1Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
 	t.Run("L1 head triggers prune and reports via listener", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		blocks := make([]*testutils.StoredBlock, totalBlocks)
 		for i := range totalBlocks {
 			blocks[i] = testutils.StoreBlock(t, database, i)
@@ -131,7 +131,7 @@ func TestPruner_L1Path(t *testing.T) {
 	})
 
 	t.Run("L1 head at or beyond chainHeight is a no-op", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
@@ -152,7 +152,7 @@ func TestPruner_L1Path(t *testing.T) {
 		assert.Zero(t, prunes)
 	})
 	t.Run("L1 head inside the retention window is a no-op", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		blocks := make([]*testutils.StoredBlock, totalBlocks)
 		for i := range totalBlocks {
 			blocks[i] = testutils.StoreBlock(t, database, i)
@@ -188,7 +188,7 @@ func TestPruner_L2Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
 	t.Run("threshold=1 fires a prune on every L2 head", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
@@ -206,7 +206,7 @@ func TestPruner_L2Path(t *testing.T) {
 	t.Run("coalesces N L2 heads before triggering one prune", func(t *testing.T) {
 		// Direct onNewBlock calls — silent no-op dispatches have no listener
 		// barrier, so we drive the dispatch synchronously.
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
@@ -261,7 +261,7 @@ func TestPruner_L2Path(t *testing.T) {
 	}
 	for _, tc := range noopCases {
 		t.Run(tc.name+" is a no-op", func(t *testing.T) {
-			database := testutils.NewTestDB(t)
+			database := testutils.NewPebbleTestDB(t)
 			for i := range totalBlocks {
 				testutils.StoreBlock(t, database, i)
 			}
@@ -307,7 +307,7 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 	lag := core.BlockHashLag
 
 	t.Run("shrinking retention drains backlog on next L1 event", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		blocks := make([]*testutils.StoredBlock, totalBlocks)
 		for i := range totalBlocks {
 			blocks[i] = testutils.StoreBlock(t, database, i)
@@ -338,7 +338,7 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 	})
 
 	t.Run("growing retention pauses pruning until L1 catches up", func(t *testing.T) {
-		database := testutils.NewTestDB(t)
+		database := testutils.NewPebbleTestDB(t)
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
