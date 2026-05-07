@@ -700,14 +700,14 @@ func TestRevert(t *testing.T) {
 }
 
 func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
-	addr := felt.NewUnsafeFromString[felt.Felt]("0xA")
-	classH0 := felt.NewUnsafeFromString[felt.Felt]("0xC0")
-	classH1 := felt.NewUnsafeFromString[felt.Felt]("0xC1")
-	storageKey := felt.NewUnsafeFromString[felt.Felt]("0x10")
-	val1 := felt.NewUnsafeFromString[felt.Felt]("0x42")
-	val2 := felt.NewUnsafeFromString[felt.Felt]("0x43")
-	nonce1 := felt.NewUnsafeFromString[felt.Felt]("0x1")
-	nonce2 := felt.NewUnsafeFromString[felt.Felt]("0x2")
+	addr := felt.NewFromUint64[felt.Felt](16)
+	classH0 := felt.NewFromUint64[felt.Felt](192)
+	classH1 := felt.NewFromUint64[felt.Felt](193)
+	storageKey := felt.NewFromUint64[felt.Felt](16)
+	val1 := felt.NewFromUint64[felt.Felt](66)
+	val2 := felt.NewFromUint64[felt.Felt](67)
+	nonce1 := felt.NewFromUint64[felt.Felt](1)
+	nonce2 := felt.NewFromUint64[felt.Felt](2)
 
 	updates := []*core.StateUpdate{
 		// block 0: deploy A with classHash H0 — classHash entry expected

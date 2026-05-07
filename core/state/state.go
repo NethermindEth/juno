@@ -382,24 +382,27 @@ func (s *State) flush(
 
 			if storeHistory {
 				for key, val := range obj.dirtyStorage {
-					if err := WriteStorageHistory(s.batch, &addr, &key, blockNum, val); err != nil {
+					err := WriteStorageHistory(s.batch, &addr, &key, blockNum, val)
+					if err != nil {
 						return err
 					}
 				}
 
 				if obj.nonceDirty {
-					if err := WriteNonceHistory(s.batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
+					err := WriteNonceHistory(s.batch, &addr, blockNum, &obj.contract.Nonce)
+					if err != nil {
 						return err
 					}
 				}
 
 				if obj.classHashDirty {
-					if err := WriteClassHashHistory(
+					err := WriteClassHashHistory(
 						s.batch,
 						&addr,
 						blockNum,
 						&obj.contract.ClassHash,
-					); err != nil {
+					)
+					if err != nil {
 						return err
 					}
 				}
