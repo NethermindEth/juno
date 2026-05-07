@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -155,10 +156,11 @@ func TestRestoreMempool(t *testing.T) {
 		require.Equal(t, int(i), pool.Len())
 	}
 	// check the db has stored the transactions
-	time.Sleep(100 * time.Millisecond)
-	lenDB, err = pool.LenDB()
-	require.NoError(t, err)
-	require.Equal(t, 3, lenDB)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		lenDB, err := pool.LenDB()
+		assert.NoError(c, err)
+		assert.Equal(c, 3, lenDB)
+	}, 2*time.Second, 10*time.Millisecond)
 	// Close the mempool
 	pool.Close()
 	require.NoError(t, testDB.Close())
@@ -166,7 +168,6 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 
 	poolRestored := mempool.New(testDB, chain, 1024, logger)
-	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, poolRestored.LoadFromDB())
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
