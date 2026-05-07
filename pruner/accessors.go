@@ -59,7 +59,7 @@ var (
 //  2. The hash → number mapping for endExclusive-1. Resolving
 //     StateAtBlockHash(endExclusive.parentHash) needs this single mapping;
 //     it is cleaned up by the next PruneUpto call's oldestKept-1 sweep, so
-//     at rest exactly one extra mapping survives below endExclusive.
+//     between calls exactly one extra mapping survives below endExclusive.
 //
 // ctx cancellation aborts the per-block loop after the current iteration;
 // any work already queued plus the range delete for the partial window is
