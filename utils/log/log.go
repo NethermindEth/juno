@@ -244,12 +244,6 @@ func (l *ZapLogger) Fatalf(msg string, args ...any) {
 	l.sugared.Fatalf(msg, args)
 }
 
-func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
-	if l.IsTraceEnabled() {
-		l.sugared.Logw(TRACE, msg, keysAndValues...)
-	}
-}
-
 func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {
 	l.structured.Debug(msg, fields...)
 }
