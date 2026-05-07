@@ -151,3 +151,24 @@ func TestHeaderByHashIfStateRetained(t *testing.T) {
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
+
+func TestOldestRetainedBlock(t *testing.T) {
+	t.Run("empty database returns ErrKeyNotFound", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+
+		_, err := pruner.OldestRetainedBlock(database)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("returns lowest block number with commitments", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+
+		for i := uint64(5); i <= 7; i++ {
+			testutils.StoreBlock(t, database, i)
+		}
+
+		num, err := pruner.OldestRetainedBlock(database)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(5), num)
+	})
+}
