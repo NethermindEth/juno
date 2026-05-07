@@ -2,7 +2,6 @@ package l1
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -253,11 +252,11 @@ func (c *Client) applyLogStateUpdate(u *contract.StarknetLogStateUpdate) {
 func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 	latest, err := c.l1.LatestHeight(ctx)
 	if err != nil {
-		return errors.Join(err, errors.New("L1 catch-up: failed to get latest height"))
+		return fmt.Errorf("L1 catch-up: failed to get latest height: %w", err)
 	}
 	finalised, err := c.l1.FinalisedHeight(ctx)
 	if err != nil {
-		return errors.Join(err, errors.New("L1 catch-up: failed to get finalised height"))
+		return fmt.Errorf("L1 catch-up: failed to get finalised height: %w", err)
 	}
 
 	c.logger.Info("L1 catch-up starting",
