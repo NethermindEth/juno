@@ -8,6 +8,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// committer is a pipeline stage that writes batches to the database and
+// releases the batch semaphore slot.
 type committer struct {
 	logger         log.StructuredLogger
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
