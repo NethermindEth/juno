@@ -403,19 +403,13 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false).Return(vm.ExecutionResults{
+			vm.TraceOptions{}).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
 			Traces:      []vm.TransactionTrace{vmTrace},
@@ -481,19 +475,13 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			nil,
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false,
+			vm.TraceOptions{},
 		).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -576,19 +564,13 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false,
+			vm.TraceOptions{},
 		).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
@@ -848,19 +830,13 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(
+		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			false,
-			false,
-			false,
-			true,
-			false,
-			false,
-			false).Return(vm.ExecutionResults{
+			vm.TraceOptions{}).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
 			GasConsumed:      []core.GasConsumed{{}, {}},

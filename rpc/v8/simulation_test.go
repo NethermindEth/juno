@@ -66,9 +66,9 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, true, false, false, true, true, false, false).
+				}, mockState, vm.SimulateOptions{SkipChargeFee: true}).
 					Return(vm.ExecutionResults{
 						OverallFees:      []*felt.Felt{},
 						DataAvailability: []core.DataAvailability{},
@@ -89,9 +89,9 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, false, true, false, true, true, false, false).
+				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{
 						OverallFees:      []*felt.Felt{},
 						DataAvailability: []core.DataAvailability{},
@@ -111,9 +111,9 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, false, true, false, true, true, false, false).
+				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 						Index: 44,
 						Cause: json.RawMessage("oops"),
@@ -133,9 +133,9 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
-				}, mockState, false, true, false, true, true, false, false).
+				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{
 						OverallFees:      []*felt.Felt{&felt.Zero},
 						DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},

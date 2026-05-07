@@ -45,6 +45,45 @@ type CallResult struct {
 	ExecutionFailed bool
 }
 
+// executeOptions carries every flag accepted by the underlying VM.
+// Used internally by the execute method
+type executeOptions struct {
+	SkipChargeFee      bool
+	SkipValidate       bool
+	ErrOnRevert        bool
+	ErrStack           bool
+	AllowBinarySearch  bool
+	IsEstimateFee      bool
+	ReturnInitialReads bool
+}
+
+// SimulateOptions carries the flags relevant to RPC simulate.
+type SimulateOptions struct {
+	SkipChargeFee      bool
+	SkipValidate       bool
+	ErrOnRevert        bool
+	ReturnInitialReads bool
+}
+
+// EstimateFeeOptions carries the flags relevant to RPC estimateFee.
+type EstimateFeeOptions struct {
+	SkipValidate       bool
+	ReturnInitialReads bool
+}
+
+// TraceOptions carries the flags relevant to replaying an existing block.
+type TraceOptions struct {
+	ReturnInitialReads bool
+}
+
+// BuildBlockOptions carries flags used when producing a block (builder or
+// genesis bootstrap).
+type BuildBlockOptions struct {
+	SkipChargeFee bool
+	SkipValidate  bool
+	ErrOnRevert   bool
+}
+
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(
@@ -56,19 +95,37 @@ type VM interface {
 		structuredErrStack,
 		returnStateDiff bool,
 	) (CallResult, error)
-	Execute(
+	Simulate(
 		txns []core.Transaction,
 		declaredClasses []core.ClassDefinition,
 		paidFeesOnL1 []*felt.Felt,
 		blockInfo *BlockInfo,
 		state core.StateReader,
-		skipChargeFee,
-		skipValidate,
-		errOnRevert,
-		errStack,
-		allowBinarySearch bool,
-		isEstimateFee bool,
-		returnInitialReads bool,
+		opts SimulateOptions,
+	) (ExecutionResults, error)
+	EstimateFee(
+		txns []core.Transaction,
+		declaredClasses []core.ClassDefinition,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		opts EstimateFeeOptions,
+	) (ExecutionResults, error)
+	Trace(
+		txns []core.Transaction,
+		declaredClasses []core.ClassDefinition,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		opts TraceOptions,
+	) (ExecutionResults, error)
+	BuildBlock(
+		txns []core.Transaction,
+		declaredClasses []core.ClassDefinition,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		opts BuildBlockOptions,
 	) (ExecutionResults, error)
 }
 
@@ -338,69 +395,71 @@ func (v *vm) Call(
 			}
 		}
 	}
-	return CallResult{Result: context.response, StateDiff: stateDiff, ExecutionFailed: context.executionFailed}, nil
+	return CallResult{
+		Result:          context.response,
+		StateDiff:       stateDiff,
+		ExecutionFailed: context.executionFailed,
+	}, nil
 }
 
-// Execute executes a given transaction set and returns the gas spent per transaction
-func (v *vm) Execute(
+// cgoExecutionInputs holds the C-side resources for one execution call.
+// Always pair with `defer inputs.free()`.
+type cgoExecutionInputs struct {
+	handle      cgo.Handle
+	context     *callContext
+	txnsCStr    *C.char
+	classesCStr *C.char
+	feesCStr    *C.char
+	blockInfo   C.BlockInfo
+	chainInfo   C.ChainInfo
+}
+
+func (i *cgoExecutionInputs) free() {
+	C.free(unsafe.Pointer(i.classesCStr))
+	C.free(unsafe.Pointer(i.feesCStr))
+	C.free(unsafe.Pointer(i.txnsCStr))
+	C.free(unsafe.Pointer(i.chainInfo.chain_id))
+	C.free(unsafe.Pointer(i.blockInfo.version))
+	i.handle.Delete()
+}
+
+// prepareExecutionInputs builds every C-side resource needed to invoke any
+// of the cairoVM* execution entry points.
+func (v *vm) prepareExecutionInputs(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
 	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
 	state core.StateReader,
-	skipChargeFee,
-	skipValidate,
-	errOnRevert,
-	errorStack,
-	allowBinarySearch bool,
-	isEstimateFee bool,
-	returnInitialReads bool,
-) (ExecutionResults, error) {
-	context := &callContext{
-		state:  state,
-		logger: v.logger,
-	}
+) (*cgoExecutionInputs, error) {
+	context := &callContext{state: state, logger: v.logger}
 	handle := cgo.NewHandle(context)
-	defer handle.Delete()
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return ExecutionResults{}, err
+		handle.Delete()
+		return nil, err
 	}
 
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return ExecutionResults{}, err
+		handle.Delete()
+		return nil, err
 	}
 
-	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
-	txnsJSONCstr := cstring(txnsJSON)
-	classesJSONCStr := cstring(classesJSON)
+	return &cgoExecutionInputs{
+		handle:      handle,
+		context:     context,
+		txnsCStr:    cstring(txnsJSON),
+		classesCStr: cstring(classesJSON),
+		feesCStr:    cstring(paidFeesOnL1Bytes),
+		blockInfo:   makeCBlockInfo(blockInfo),
+		chainInfo:   makeCChainInfo(v.chainInfo),
+	}, nil
+}
 
-	cBlockInfo := makeCBlockInfo(blockInfo)
-	cChainInfo := makeCChainInfo(v.chainInfo)
-	C.cairoVMExecute(txnsJSONCstr,
-		classesJSONCStr,
-		paidFeesOnL1CStr,
-		&cBlockInfo,
-		&cChainInfo,
-		C.uintptr_t(handle),
-		toUchar(skipChargeFee),
-		toUchar(skipValidate),
-		toUchar(errOnRevert),
-		toUchar(v.concurrencyMode),
-		toUchar(errorStack),
-		toUchar(allowBinarySearch),
-		toUchar(isEstimateFee),      //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
-		toUchar(returnInitialReads), //nolint:gocritic // false positive
-	)
-
-	C.free(unsafe.Pointer(classesJSONCStr))
-	C.free(unsafe.Pointer(paidFeesOnL1CStr))
-	C.free(unsafe.Pointer(txnsJSONCstr))
-	C.free(unsafe.Pointer(cChainInfo.chain_id))
-	C.free(unsafe.Pointer(cBlockInfo.version))
-
+// parseExecutionResults converts callContext into ExecutionResults.
+func parseExecutionResults(context *callContext) (ExecutionResults, error) {
 	if context.err != "" {
 		if context.errTxnIndex >= 0 {
 			return ExecutionResults{}, TransactionExecutionError{
@@ -413,22 +472,25 @@ func (v *vm) Execute(
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
-		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %v", err)
+		err := json.Unmarshal(traceJSON, &traces[index])
+		if err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %w", err)
 		}
 	}
 	receipts := make([]TransactionReceipt, len(context.receipts))
-	for index, traceJSON := range context.receipts {
-		if err := json.Unmarshal(traceJSON, &receipts[index]); err != nil {
-			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %v", err)
+	for index, receiptJSON := range context.receipts {
+		err := json.Unmarshal(receiptJSON, &receipts[index])
+		if err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %w", err)
 		}
 	}
 
 	var initialReads *InitialReads
 	if len(context.initialReads) > 0 {
 		var reads InitialReads
-		if err := json.Unmarshal(context.initialReads, &reads); err != nil {
-			return ExecutionResults{}, fmt.Errorf("unmarshal initial reads: %v", err)
+		err := json.Unmarshal(context.initialReads, &reads)
+		if err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal initial reads: %w", err)
 		}
 		initialReads = &reads
 	}
@@ -442,6 +504,123 @@ func (v *vm) Execute(
 		Receipts:         receipts,
 		InitialReads:     initialReads,
 	}, nil
+}
+
+// execute is the generic entry point exposing full RPC control.
+// Kept unexported so external callers must use Simulate / Trace / BuildBlock.
+func (v *vm) execute(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts executeOptions,
+) (ExecutionResults, error) {
+	inputs, err := v.prepareExecutionInputs(txns, declaredClasses, paidFeesOnL1, blockInfo, state)
+	if err != nil {
+		return ExecutionResults{}, err
+	}
+	defer inputs.free()
+
+	C.cairoVMExecute(
+		inputs.txnsCStr, inputs.classesCStr, inputs.feesCStr,
+		&inputs.blockInfo, &inputs.chainInfo, C.uintptr_t(inputs.handle),
+		toUchar(opts.SkipChargeFee),
+		toUchar(opts.SkipValidate),
+		toUchar(opts.ErrOnRevert),
+		toUchar(v.concurrencyMode),
+		toUchar(opts.ErrStack),
+		toUchar(opts.AllowBinarySearch),
+		toUchar(opts.IsEstimateFee),
+		//nolint:gocritic // false positive: dupSubExpr with cgo toUchar(opts.ReturnInitialReads),
+		toUchar(opts.ReturnInitialReads),
+	)
+
+	return parseExecutionResults(inputs.context)
+}
+
+// Simulate runs the txn set under RPC simulate semantics.
+func (v *vm) Simulate(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts SimulateOptions,
+) (ExecutionResults, error) {
+	return v.execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		executeOptions{
+			SkipChargeFee:      opts.SkipChargeFee,
+			SkipValidate:       opts.SkipValidate,
+			ErrOnRevert:        opts.ErrOnRevert,
+			ErrStack:           true,
+			AllowBinarySearch:  true,
+			ReturnInitialReads: opts.ReturnInitialReads,
+		},
+	)
+}
+
+// EstimateFee runs the txn set under RPC estimateFee semantics.
+// Fee charging is always skipped.
+func (v *vm) EstimateFee(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts EstimateFeeOptions,
+) (ExecutionResults, error) {
+	return v.execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		executeOptions{
+			SkipChargeFee:      true,
+			SkipValidate:       opts.SkipValidate,
+			ErrOnRevert:        true,
+			ErrStack:           true,
+			AllowBinarySearch:  true,
+			IsEstimateFee:      true,
+			ReturnInitialReads: opts.ReturnInitialReads,
+		},
+	)
+}
+
+// Trace replays an existing block.
+func (v *vm) Trace(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts TraceOptions,
+) (ExecutionResults, error) {
+	return v.execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		executeOptions{
+			ErrStack:           true,
+			ReturnInitialReads: opts.ReturnInitialReads,
+		},
+	)
+}
+
+// BuildBlock executes txns in block-production mode (builder or genesis).
+func (v *vm) BuildBlock(
+	txns []core.Transaction,
+	declaredClasses []core.ClassDefinition,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	opts BuildBlockOptions,
+) (ExecutionResults, error) {
+	return v.execute(
+		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		executeOptions{
+			SkipChargeFee: opts.SkipChargeFee,
+			SkipValidate:  opts.SkipValidate,
+			ErrOnRevert:   opts.ErrOnRevert,
+			ErrStack:      true,
+		},
+	)
 }
 
 func marshalTxnsAndDeclaredClasses(

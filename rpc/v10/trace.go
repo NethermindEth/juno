@@ -163,7 +163,7 @@ func (h *Handler) TraceBlockTransactions(
 //
 //   - returnInitialReads: Whether to return initial reads in the response
 func traceTransactionsWithState(
-	vm vm.VM,
+	runner vm.VM,
 	transactions []core.Transaction,
 	executionState core.StateReader,
 	classLookupState core.StateReader,
@@ -181,19 +181,13 @@ func traceTransactionsWithState(
 		return nil, nil, httpHeader, err
 	}
 
-	executionResult, vmErr := vm.Execute(
+	executionResult, vmErr := runner.Trace(
 		transactions,
 		declaredClasses,
 		paidFeesOnL1,
 		blockInfo,
 		executionState,
-		false, // skipValidate
-		false, // skipFeeCharge
-		false, // skipNonceCharge
-		true,  // allowZeroMaxFee
-		false, // allowNoSignature
-		false, // isEstimateFee
-		returnInitialReads,
+		vm.TraceOptions{ReturnInitialReads: returnInitialReads},
 	)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))

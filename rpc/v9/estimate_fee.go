@@ -281,7 +281,7 @@ func (h *Handler) EstimateFee(
 		ctx,
 		id,
 		broadcastedTxns.Data,
-		append(simulationFlags, SkipFeeChargeFlag),
+		simulationFlags,
 		true,
 		true,
 	)

@@ -34,7 +34,7 @@ func (h *Handler) EstimateFee(
 	estimateFlags []EstimateFlag,
 	id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	simulationFlags := make([]SimulationFlag, 0, len(estimateFlags)+1)
+	simulationFlags := make([]SimulationFlag, 0, len(estimateFlags))
 	for _, flag := range estimateFlags {
 		simulationFlag, err := flag.ToSimulationFlag()
 		if err != nil {
@@ -47,7 +47,7 @@ func (h *Handler) EstimateFee(
 		ctx,
 		id,
 		broadcastedTxns.Data,
-		append(simulationFlags, SkipFeeChargeFlag),
+		simulationFlags,
 		true,
 		true,
 	)
