@@ -52,12 +52,12 @@ import (
 )
 
 const (
-	upgraderDelay      = 5 * time.Minute
-	mempoolLimit       = 1024
-	githubAPIUrl       = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL   = "https://github.com/NethermindEth/juno/releases/latest"
-	sequencerAddress   = 1337
-	RetainedBlocksFlag = "retained-blocks"
+	upgraderDelay    = 5 * time.Minute
+	mempoolLimit     = 1024
+	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	sequencerAddress = 1337
+	PruneModeFlag    = "prune-mode"
 )
 
 // Config is the top-level juno configuration.
@@ -135,7 +135,11 @@ type Config struct {
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	NewState                  bool          `mapstructure:"new-state"`
-	RetainedBlocks            uint64        `mapstructure:"retained-blocks"`
+
+	// Prune is true when --prune-mode was provided (any value, including 0
+	// or absent). Set in cmd PreRunE; not bound via mapstructure.
+	Prune          bool
+	RetainedBlocks uint64 `mapstructure:"prune-mode"`
 }
 
 type Node struct {
@@ -302,7 +306,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
-		if cfg.RetainedBlocks > 0 {
+		if cfg.Prune {
 			prunerOpts := make([]pruner.Option, 0, 1)
 			if cfg.Metrics {
 				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
@@ -419,7 +423,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 		if synchronizer != nil {
 			services = append(services, synchronizer)
-			if cfg.RetainedBlocks > 0 {
+			if cfg.Prune {
 				prunerOpts := make([]pruner.Option, 0, 1)
 				if cfg.Metrics {
 					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
