@@ -18,16 +18,16 @@ Snapshots are provided in a compressed `.tar.zst` format for faster downloads an
 
 ```bash
 $date
-Thu Feb  5 15:35:59 CET 2026
+Fri May  8 00:34:15 CEST 2026
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-351.23 GB
+397.68 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-49.51 GB
+66.99 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-17.78 GB
+30.91 GB
 ```
 
 ## Run Juno with a snapshot
