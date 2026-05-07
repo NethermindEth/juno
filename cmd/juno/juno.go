@@ -318,10 +318,11 @@ func main() {
 //nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
-		Use:     "juno",
-		Short:   "Starknet client implementation in Go.",
-		Version: Version,
-		RunE:    run,
+		Use:          "juno",
+		Short:        "Starknet client implementation in Go.",
+		Version:      Version,
+		RunE:         run,
+		SilenceUsage: true,
 	}
 
 	var cfgFile string
