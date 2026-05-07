@@ -816,6 +816,24 @@ func TestGenP2PKeyPair(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 }
 
+func TestUnknownFlagDoesNotPrintUsage(t *testing.T) {
+	config := new(node.Config)
+	cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+
+	var buf strings.Builder
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--some-unknown-flag"})
+
+	err := cmd.ExecuteContext(t.Context())
+	require.Error(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "unknown flag")
+	assert.NotContains(t, output, "Available Commands:")
+	assert.NotContains(t, output, "Global Flags:")
+}
+
 func tempCfgFile(t *testing.T, cfg string) string {
 	t.Helper()
 
