@@ -1,6 +1,6 @@
 # Become a Staking Validator
 
-Staking on Starknet provides an opportunity to contribute to network security and earn rewards by becoming a validator. Check out the [Becoming a Validator](https://docs.starknet.io/staking/entering-staking/) guide to learn more about the validator process.
+Staking on Starknet provides an opportunity to contribute to network security and earn rewards by becoming a validator. Check out the [Becoming a Validator](https://docs.starknet.io/secure/quickstart/becoming-a-validator/) guide to learn more about the validator process.
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ Juno is a reliable choice for running a Starknet node. Follow the [Running Juno]
 
 ## 2. Stake STRK tokens
 
-Register as a validator by staking STRK tokens through the Starknet staking contract. Check out the [Becoming a Validator](https://docs.starknet.io/staking/entering-staking/) guide for complete instructions. The staking process includes:
+Register as a validator by staking STRK tokens through the Starknet staking contract. Check out the [Becoming a Validator](https://docs.starknet.io/secure/quickstart/becoming-a-validator/) guide for complete instructions. The staking process includes:
 
 - **Pre-approving STRK Transfer**: Allow the staking contract to lock your tokens.
 - **Calling the `stake` Function**: Register operational and reward addresses, set commission rates, and enable pooling if desired.
