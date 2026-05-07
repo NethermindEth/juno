@@ -388,6 +388,46 @@ func TestTrace(t *testing.T) {
 	})
 }
 
+func TestCallerInfo(t *testing.T) {
+	// Verifies that caller info points at the actual call site (this test
+	// file) rather than the ZapLogger wrapper in utils/log/log.go.
+	// Regression test for https://github.com/NethermindEth/juno/issues/3610.
+	logLevel := log.NewLevel(log.TRACE)
+
+	tests := map[string]func(l *log.ZapLogger){
+		"Debug": func(l *log.ZapLogger) { l.Debug("m") },
+		"Info":  func(l *log.ZapLogger) { l.Info("m") },
+		"Warn":  func(l *log.ZapLogger) { l.Warn("m") },
+		"Error": func(l *log.ZapLogger) { l.Error("m") },
+		"Trace": func(l *log.ZapLogger) { l.Trace("m") },
+	}
+
+	for name, emit := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger, err := log.NewZapLogger(
+				logLevel, log.WithJSON(true), log.WithWriter(&buf),
+			)
+			require.NoError(t, err)
+
+			emit(logger)
+
+			var m map[string]any
+			require.NoError(t, json.Unmarshal(buf.Bytes(), &m))
+
+			caller, ok := m["caller"].(string)
+			require.True(t, ok, "caller field missing or not a string: %v", m)
+			assert.Contains(
+				t,
+				caller,
+				"log/log_test.go:",
+				"caller should point at test file, not the wrapper (got %q)",
+				caller,
+			)
+		})
+	}
+}
+
 func TestSanitizeString(t *testing.T) {
 	tests := map[string]struct {
 		input    string
