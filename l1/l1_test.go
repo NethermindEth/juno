@@ -236,8 +236,7 @@ func TestEventListenerCatchUp(t *testing.T) {
 		Return(newFakeSubscription(), nil).
 		AnyTimes()
 
-	// LatestHeight=10, FinalisedHeight=5, catchUpChunkSize=1000 →
-	// single chunk [0, 10] (from = max(0, 11-1000) = 0).
+	// LatestHeight=10, FinalisedHeight=5, catchUpChunkSize=1000 → single chunk [0, 10].
 	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
 	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
 
