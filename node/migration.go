@@ -20,8 +20,8 @@ func registerMigrations(cfg *Config) *migration.Registry {
 		With(&blocktransactions.Migrator{}).
 		WithOptional(
 			historyprunner.New(cfg.RetainedBlocks),
-			cfg.RetainedBlocks > 0,
-			RetainedBlocksFlag,
+			cfg.Prune,
+			PruneModeFlag,
 		)
 
 	return registry

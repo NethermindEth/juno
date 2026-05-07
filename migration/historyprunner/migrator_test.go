@@ -27,7 +27,7 @@ func setupChain(
 	totalBlocks uint64,
 ) (db.KeyValueStore, []*testutils.StoredBlock) {
 	t.Helper()
-	database := testutils.NewTestDB(t)
+	database := testutils.NewPebbleTestDB(t)
 	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
 		blocks[i] = testutils.StoreBlock(t, database, i)
@@ -91,7 +91,7 @@ func TestMigrate_NoOpWhenChainShorterThanRetention(t *testing.T) {
 // TestMigrate_NoOpOnEmptyDB covers the early exit when the chain head
 // pointer is missing. This is the cold-start path on a fresh node.
 func TestMigrate_NoOpOnEmptyDB(t *testing.T) {
-	database := testutils.NewTestDB(t)
+	database := testutils.NewPebbleTestDB(t)
 	m := historyprunner.New(10)
 	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
