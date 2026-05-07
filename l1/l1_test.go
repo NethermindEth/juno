@@ -76,9 +76,25 @@ func TestFailToCreateSubscription(t *testing.T) {
 		Return(network.L1ChainID, nil).
 		Times(1)
 
+	// catchUp runs before subscribe; let it complete cleanly so the test
+	// reaches the subscription failure path it actually exercises.
+	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.
+		EXPECT().
+		FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		AnyTimes()
+
 	subscriber.EXPECT().Close().Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(
+		subscriber,
+		chain,
+		nopLog,
+		l1.WithResubscribeDelay(0),
+		l1.WithPollFinalisedInterval(time.Nanosecond),
+	)
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
@@ -106,7 +122,13 @@ func TestMismatchedChainID(t *testing.T) {
 		Return(new(big.Int), nil).
 		Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(
+		subscriber,
+		chain,
+		nopLog,
+		l1.WithResubscribeDelay(0),
+		l1.WithPollFinalisedInterval(time.Nanosecond),
+	)
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancel)
@@ -148,6 +170,18 @@ func TestEventListener(t *testing.T) {
 
 	subscriber.
 		EXPECT().
+		LatestHeight(gomock.Any()).
+		Return(uint64(0), nil).
+		AnyTimes()
+
+	subscriber.
+		EXPECT().
+		FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		AnyTimes()
+
+	subscriber.
+		EXPECT().
 		ChainID(gomock.Any()).
 		Return(network.L1ChainID, nil).
 		Times(1)
@@ -155,14 +189,15 @@ func TestEventListener(t *testing.T) {
 	subscriber.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog).
-		WithResubscribeDelay(0).
-		WithPollFinalisedInterval(time.Nanosecond).
-		WithEventListener(l1.SelectiveListener{
+	client := l1.NewClient(subscriber, chain, nopLog,
+		l1.WithResubscribeDelay(0),
+		l1.WithPollFinalisedInterval(time.Nanosecond),
+		l1.WithEventListener(l1.SelectiveListener{
 			OnNewL1HeadCb: func(head *core.L1Head) {
 				got = head
 			},
-		})
+		}),
+	)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	require.NoError(t, client.Run(ctx))
@@ -172,6 +207,78 @@ func TestEventListener(t *testing.T) {
 		BlockHash: new(felt.Felt),
 		StateRoot: new(felt.Felt),
 	}, got)
+}
+
+func TestEventListenerCatchUp(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	nopLog := log.NewNopZapLogger()
+	network := networks.Mainnet
+	chain := blockchain.New(
+		memory.New(),
+		&network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	subscriber := mocks.NewMockSubscriber(ctrl)
+	subscriber.
+		EXPECT().
+		ChainID(gomock.Any()).
+		Return(network.L1ChainID, nil).
+		Times(1)
+
+	// Live subscription delivers nothing; the catch-up scan alone must
+	// populate nonFinalisedLogs so setL1Head fires the listener callback.
+	subscriber.
+		EXPECT().
+		WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+		Return(newFakeSubscription(), nil).
+		AnyTimes()
+
+	// LatestHeight=10, FinalisedHeight=5, catchUpChunkSize=1000 → single chunk [0, 10].
+	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
+	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
+
+	backfilled := &contract.StarknetLogStateUpdate{
+		BlockNumber: new(big.Int).SetUint64(7),
+		BlockHash:   new(big.Int).SetUint64(7),
+		GlobalRoot:  new(big.Int).SetUint64(7),
+		Raw:         types.Log{BlockNumber: 3},
+	}
+	subscriber.
+		EXPECT().
+		FilterLogStateUpdate(gomock.Any(), uint64(0), uint64(10)).
+		Return([]*contract.StarknetLogStateUpdate{backfilled}, nil).
+		Times(1)
+
+	subscriber.EXPECT().Close().Times(1)
+
+	var got *core.L1Head
+	client := l1.NewClient(subscriber, chain, nopLog,
+		l1.WithResubscribeDelay(0),
+		l1.WithPollFinalisedInterval(time.Hour),
+		l1.WithEventListener(l1.SelectiveListener{
+			OnNewL1HeadCb: func(head *core.L1Head) {
+				got = head
+			},
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+	require.NoError(t, client.Run(ctx))
+	cancel()
+
+	want := &core.L1Head{
+		BlockNumber: 7,
+		BlockHash:   new(felt.Felt).SetUint64(7),
+		StateRoot:   new(felt.Felt).SetUint64(7),
+	}
+	require.Equal(t, want, got)
+
+	persisted, err := chain.L1Head()
+	require.NoError(t, err)
+	require.Equal(t, *want, persisted)
 }
 
 func newTestL1Client(service service) *rpc.Server {

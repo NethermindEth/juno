@@ -72,6 +72,21 @@ func (mr *MockSubscriberMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockSubscriber)(nil).Close))
 }
 
+// FilterLogStateUpdate mocks base method.
+func (m *MockSubscriber) FilterLogStateUpdate(ctx context.Context, fromBlock, toBlock uint64) ([]*contract.StarknetLogStateUpdate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilterLogStateUpdate", ctx, fromBlock, toBlock)
+	ret0, _ := ret[0].([]*contract.StarknetLogStateUpdate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FilterLogStateUpdate indicates an expected call of FilterLogStateUpdate.
+func (mr *MockSubscriberMockRecorder) FilterLogStateUpdate(ctx, fromBlock, toBlock any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterLogStateUpdate", reflect.TypeOf((*MockSubscriber)(nil).FilterLogStateUpdate), ctx, fromBlock, toBlock)
+}
+
 // FinalisedHeight mocks base method.
 func (m *MockSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
 	m.ctrl.T.Helper()
