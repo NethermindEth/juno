@@ -1,4 +1,4 @@
-package pruner
+package pruner_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/pruner/testutils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
@@ -36,22 +37,28 @@ func startPrunerService(
 	t *testing.T,
 	database db.KeyValueStore,
 	retention uint64,
-	extraOpts ...Option,
+	extraOpts ...pruner.Option,
 ) *servicePruner {
 	t.Helper()
 	l1Feed := feed.New[*core.L1Head]()
 	l2Feed := feed.New[*core.Block]()
 	pruned := make(chan pruneEvent, 16)
 
-	opts := append([]Option{
-		WithListener(&SelectiveListener{
+	opts := append([]pruner.Option{
+		pruner.WithListener(&pruner.SelectiveListener{
 			OnPruneCb: func(oldest, count uint64, _ time.Duration) {
 				pruned <- pruneEvent{oldest: oldest, count: count}
+			},
+			// Handler errors are logged-and-continued by Run, so without this
+			// hook a broken test setup would surface only as an OnPrune
+			// timeout. Fail loud instead.
+			OnPruneErrorCb: func(err error) {
+				t.Errorf("pruner handler error: %v", err)
 			},
 		}),
 	}, extraOpts...)
 
-	p := New(
+	p := pruner.New(
 		database,
 		retention,
 		l2Feed.Subscribe(),
@@ -66,7 +73,9 @@ func startPrunerService(
 
 	t.Cleanup(func() {
 		cancel()
-		<-done
+		if err := <-done; err != nil {
+			t.Errorf("pruner Run returned error: %v", err)
+		}
 	})
 
 	return &servicePruner{l1Feed: l1Feed, l2Feed: l2Feed, pruned: pruned}
@@ -102,12 +111,41 @@ func (sp *servicePruner) sendL2AndAwait(t *testing.T, blockNum uint64) pruneEven
 	}
 }
 
+// noOpQuietWindow is how long the sendAndExpectNoOp helpers wait before declaring "no prune fired."
+const noOpQuietWindow = 200 * time.Millisecond
+
+// sendL1AndExpectNoOp broadcasts an L1 head and verifies no prune dispatch
+// fires within noOpQuietWindow. Use for events that hit a guard
+// short-circuit before reaching pruneUpto, since no-op dispatches don't
+// fire OnPrune and so provide no listener barrier.
+func (sp *servicePruner) sendL1AndExpectNoOp(t *testing.T, blockNum uint64) {
+	t.Helper()
+	sp.l1Feed.Send(&core.L1Head{BlockNumber: blockNum})
+	select {
+	case ev := <-sp.pruned:
+		t.Fatalf("unexpected prune after L1 head %d: %+v", blockNum, ev)
+	case <-time.After(noOpQuietWindow):
+	}
+}
+
+// sendL2AndExpectNoOp broadcasts an L2 head and verifies no prune dispatch
+// fires within noOpQuietWindow. Use for events that hit a guard
+// short-circuit before reaching pruneUpto.
+func (sp *servicePruner) sendL2AndExpectNoOp(t *testing.T, blockNum uint64) {
+	t.Helper()
+	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum}})
+	select {
+	case ev := <-sp.pruned:
+		t.Fatalf("unexpected prune after L2 head %d: %+v", blockNum, ev)
+	case <-time.After(noOpQuietWindow):
+	}
+}
+
 // TestPruner_L1Path covers the L1 head dispatch handler. The L1 path is
 // gated by two guards (L1 ahead of chainHeight, L1 inside retention
-// window) and only triggers a prune once both pass. The happy path is
-// service-driven; the no-op guards are driven via direct onNewL1Head
-// calls because no-op dispatches don't fire OnPrune, so the listener
-// barrier doesn't apply.
+// window) and only triggers a prune once both pass. All cases are
+// service-driven; the happy path uses the OnPrune barrier, the
+// guard-no-op cases use sendL1AndExpectNoOp's quiet-window check.
 func TestPruner_L1Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
@@ -137,19 +175,8 @@ func TestPruner_L1Path(t *testing.T) {
 		}
 		require.NoError(t, core.WriteChainHeight(database, 50))
 
-		var prunes int
-		p := New(
-			database,
-			10,
-			nil, nil,
-			log.NewNopZapLogger(),
-			WithListener(&SelectiveListener{
-				OnPruneCb: func(uint64, uint64, time.Duration) { prunes++ },
-			}),
-		)
-
-		require.NoError(t, p.onNewL1Head(t.Context(), &core.L1Head{BlockNumber: 50}))
-		assert.Zero(t, prunes)
+		sp := startPrunerService(t, database, 10)
+		sp.sendL1AndExpectNoOp(t, 50)
 	})
 	t.Run("L1 head inside the retention window is a no-op", func(t *testing.T) {
 		database := testutils.NewPebbleTestDB(t)
@@ -159,19 +186,10 @@ func TestPruner_L1Path(t *testing.T) {
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
-		var prunes int
-		p := New(
-			database,
-			1000, // retention way larger than current L1 head
-			nil, nil,
-			log.NewNopZapLogger(),
-			WithListener(&SelectiveListener{
-				OnPruneCb: func(uint64, uint64, time.Duration) { prunes++ },
-			}),
-		)
+		// retention way larger than current L1 head → guard short-circuits.
+		sp := startPrunerService(t, database, 1000)
+		sp.sendL1AndExpectNoOp(t, 50)
 
-		require.NoError(t, p.onNewL1Head(t.Context(), &core.L1Head{BlockNumber: 50}))
-		assert.Zero(t, prunes)
 		for i := range totalBlocks {
 			testutils.AssertBlockExists(t, database, blocks[i])
 		}
@@ -181,9 +199,9 @@ func TestPruner_L1Path(t *testing.T) {
 // TestPruner_L2Path covers the L2 head dispatch handler. The L2 path is
 // gated by three guards (L2 ahead of L1, block too shallow for retention,
 // coalesce threshold not reached) and only triggers a prune once all
-// three pass. The happy path is service-driven; the no-op guards are
-// driven via direct onNewBlock calls because no-op dispatches don't fire
-// OnPrune, so the listener barrier doesn't apply.
+// three pass. All cases are service-driven; the happy path and the
+// coalesce test use the OnPrune barrier on the trigger event, the
+// guard-no-op cases use sendL2AndExpectNoOp's quiet-window check.
 func TestPruner_L2Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
@@ -197,50 +215,37 @@ func TestPruner_L2Path(t *testing.T) {
 
 		// retention=10, l1Head=95 → L2 path uses the L2 block as the floor
 		// pivot. Sending L2 head 90 → floor = 90-10+1 = 81. Prunes [0, 81).
-		sp := startPrunerService(t, database, 10, WithL2HeadsPerPrune(1))
+		sp := startPrunerService(t, database, 10, pruner.WithL2HeadsPerPrune(1))
 		ev := sp.sendL2AndAwait(t, 90)
 		assert.Equal(t, uint64(81), ev.oldest)
 		assert.Equal(t, uint64(81), ev.count)
 	})
 
 	t.Run("coalesces N L2 heads before triggering one prune", func(t *testing.T) {
-		// Direct onNewBlock calls — silent no-op dispatches have no listener
-		// barrier, so we drive the dispatch synchronously.
 		database := testutils.NewPebbleTestDB(t)
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
+		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 95}))
 
-		var prunes int
-		p := New(
-			database,
-			10,
-			nil, nil,
-			log.NewNopZapLogger(),
-			WithL2HeadsPerPrune(3),
-			WithListener(&SelectiveListener{
-				OnPruneCb: func(uint64, uint64, time.Duration) { prunes++ },
-			}),
-		)
+		// retention=10, l1Head=95, threshold=3. With L2 heads 88, 89, 90:
+		// the first two coalesce silently; the third tips the counter and
+		// triggers a prune at floor 90-10+1 = 81.
+		sp := startPrunerService(t, database, 10, pruner.WithL2HeadsPerPrune(3))
+		sp.sendL2AndExpectNoOp(t, 88)
+		sp.sendL2AndExpectNoOp(t, 89)
+		ev1 := sp.sendL2AndAwait(t, 90)
+		assert.Equal(t, uint64(81), ev1.oldest)
+		assert.Equal(t, uint64(81), ev1.count)
 
-		// First two L2 heads coalesce silently; the third one tips the
-		// counter and triggers a prune.
-		for i := uint64(88); i <= 90; i++ {
-			require.NoError(t, p.onNewBlock(t.Context(), &core.Block{
-				Header: &core.Header{Number: i},
-			}))
-		}
-		assert.Equal(t, 1, prunes, "exactly one prune dispatch after threshold reached")
-
-		// The next two events coalesce again (counter reset after the prune);
-		// the third triggers a second prune.
-		for i := uint64(91); i <= 93; i++ {
-			require.NoError(t, p.onNewBlock(t.Context(), &core.Block{
-				Header: &core.Header{Number: i},
-			}))
-		}
-		assert.Equal(t, 2, prunes, "counter resets after each prune")
+		// Counter resets after the prune; next two coalesce, the third
+		// triggers a second prune at floor 93-10+1 = 84, deleting [81, 84).
+		sp.sendL2AndExpectNoOp(t, 91)
+		sp.sendL2AndExpectNoOp(t, 92)
+		ev2 := sp.sendL2AndAwait(t, 93)
+		assert.Equal(t, uint64(84), ev2.oldest)
+		assert.Equal(t, uint64(3), ev2.count, "counter resets after each prune")
 	})
 
 	noopCases := []struct {
@@ -248,16 +253,9 @@ func TestPruner_L2Path(t *testing.T) {
 		l1Head    uint64
 		retention uint64
 		l2Block   uint64
-		why       string
 	}{
-		{
-			name: "L2 ahead of L1", l1Head: 50, retention: 10, l2Block: 60,
-			why: "L2 ahead of L1 — block not yet L1-confirmed, floor can't move",
-		},
-		{
-			name: "block shallower than retention", l1Head: 95, retention: 50, l2Block: 20,
-			why: "block.Number < retention would underflow oldestToKeep",
-		},
+		{name: "L2 ahead of L1", l1Head: 50, retention: 10, l2Block: 60},
+		{name: "block shallower than retention", l1Head: 95, retention: 50, l2Block: 20},
 	}
 	for _, tc := range noopCases {
 		t.Run(tc.name+" is a no-op", func(t *testing.T) {
@@ -265,24 +263,11 @@ func TestPruner_L2Path(t *testing.T) {
 			for i := range totalBlocks {
 				testutils.StoreBlock(t, database, i)
 			}
+			require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 			require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: tc.l1Head}))
 
-			var prunes int
-			p := New(
-				database,
-				tc.retention,
-				nil, nil,
-				log.NewNopZapLogger(),
-				WithL2HeadsPerPrune(1),
-				WithListener(&SelectiveListener{
-					OnPruneCb: func(uint64, uint64, time.Duration) { prunes++ },
-				}),
-			)
-
-			require.NoError(t, p.onNewBlock(t.Context(), &core.Block{
-				Header: &core.Header{Number: tc.l2Block},
-			}))
-			assert.Zero(t, prunes, tc.why)
+			sp := startPrunerService(t, database, tc.retention, pruner.WithL2HeadsPerPrune(1))
+			sp.sendL2AndExpectNoOp(t, tc.l2Block)
 		})
 	}
 }
