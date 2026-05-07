@@ -15,8 +15,6 @@ jobs:
         network:
           - name: "Mainnet"
             url: "https://juno-snapshots.nethermind.io/files/mainnet/latest"
-          - name: "Mainnet CL"
-            url: "https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest"
           - name: "Sepolia"
             url: "https://juno-snapshots.nethermind.io/files/sepolia/latest"
           - name: "Sepolia Integration"
