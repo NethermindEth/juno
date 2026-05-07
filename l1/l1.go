@@ -284,7 +284,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 		total += len(events)
 		for _, ev := range events {
 			c.applyLogStateUpdate(ev)
-			if !ev.Raw.Removed && ev.Raw.BlockNumber <= finalised {
+			if ev.Raw.BlockNumber <= finalised {
 				foundFinalised = true
 			}
 		}
