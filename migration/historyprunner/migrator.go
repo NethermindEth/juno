@@ -51,8 +51,9 @@ type Migrator struct {
 }
 
 // New constructs a history pruner migrator that retains the most recent
-// retainedBlocks blocks. Callers should only register this migration when
-// retainedBlocks > 0; a zero value makes Migrate a no-op.
+// retainedBlocks blocks. retainedBlocks == 0 is valid and prunes every
+// block at or below the L1-confirmed head, keeping only the reorg-safe
+// window above it.
 func New(retainedBlocks uint64) *Migrator {
 	return &Migrator{
 		numRetainedBlocks: retainedBlocks,
@@ -87,13 +88,7 @@ func (m *Migrator) Migrate(
 	network *networks.Network,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	if m.numRetainedBlocks == 0 {
-		// Invariant violation: registerMigrations gates registration on
-		// RetainedBlocks > 0. Don't ask for a re-run — the config would need
-		// to change first, which restarts the process anyway.
-		return nil, errors.New("retainedBlocks must be non-zero positive integer")
-	}
-	if m.configured != 0 && m.configured != m.numRetainedBlocks {
+	if m.configured != m.numRetainedBlocks {
 		logger.Info("Resuming pruning migration; new retention ignored until completion",
 			zap.Uint64("active_retained_blocks", m.numRetainedBlocks),
 			zap.Uint64("requested_retained_blocks", m.configured),
