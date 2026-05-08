@@ -16,10 +16,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bytedance/sonic"
+	"github.com/bytedance/sonic/ast"
 	"github.com/bytedance/sonic/option"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
@@ -45,14 +45,47 @@ var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
 	bufferSize       = 128
-	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
+	contextInterface = reflect.TypeFor[context.Context]()
 )
 
 type Request struct {
-	Version string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  any    `json:"params,omitempty"`
-	ID      any    `json:"id,omitempty"`
+	Version string          `json:"jsonrpc"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+	ID      any             `json:"id,omitempty"`
+}
+
+// Params kind sentinels returned by paramsKind. Decoding params at the
+// envelope level as json.RawMessage means we never materialize them as
+// []any/map[string]any; the leading non-whitespace byte tells us how to
+// route the per-slot decode.
+const (
+	paramsKindNone    byte = 'N' // missing, "null", or whitespace-only
+	paramsKindArray   byte = 'A' // leading '['
+	paramsKindObject  byte = 'O' // leading '{'
+	paramsKindInvalid byte = 'X' // anything else (number, string, boolean)
+)
+
+func paramsKind(p json.RawMessage) byte {
+	for i := range p {
+		c := p[i]
+		switch c {
+		case ' ', '\t', '\r', '\n':
+			continue
+		case '[':
+			return paramsKindArray
+		case '{':
+			return paramsKindObject
+		case 'n':
+			if len(p)-i >= 4 && p[i+1] == 'u' && p[i+2] == 'l' && p[i+3] == 'l' {
+				return paramsKindNone
+			}
+			return paramsKindInvalid
+		default:
+			return paramsKindInvalid
+		}
+	}
+	return paramsKindNone
 }
 
 // MarshalLogObject implements [zapcore.ObjectMarshaler].
@@ -117,19 +150,18 @@ func (r *Request) isSane() error {
 		return errors.New("no method specified")
 	}
 
-	if r.Params != nil {
-		paramType := reflect.TypeOf(r.Params)
-		if paramType.Kind() != reflect.Slice && paramType.Kind() != reflect.Map {
-			return errors.New("params should be an array or an object")
-		}
+	if paramsKind(r.Params) == paramsKindInvalid {
+		return errors.New("params should be an array or an object")
 	}
 
-	if r.ID != nil {
-		idType := reflect.TypeOf(r.ID)
-		floating := idType.Name() == "Number" && strings.Contains(r.ID.(json.Number).String(), ".")
-		if (idType.Kind() != reflect.String && idType.Name() != "Number") || floating {
+	switch id := r.ID.(type) {
+	case nil, string:
+	case json.Number:
+		if strings.Contains(id.String(), ".") {
 			return ErrInvalidID
 		}
+	default:
+		return ErrInvalidID
 	}
 
 	return nil
@@ -152,6 +184,24 @@ type Method struct {
 	// The number of required parameters in the method.
 	// Set upon successful registration.
 	requiredParamCount int
+
+	// Per-method binding plan, populated once at registration so the
+	// request hot path performs no reflection on the handler signature.
+	//
+	// inTypes / inZeroes are one entry per declared param (excluding
+	// context); index matches Params[i]. inZeroes[i] is a cached zero
+	// reflect.Value used for missing-optional slots. paramByName maps a
+	// param name to its inTypes index for O(1) named-arg lookup.
+	// handlerVal is reflect.ValueOf of the handler, cached so per-request
+	// dispatch skips that conversion. needsValidation[i] is true iff the
+	// i-th param's type (or anything reachable through it) carries a
+	// `validate:` tag; tag-free types skip the validateParam recursion
+	// entirely on the hot path.
+	inTypes         []reflect.Type
+	inZeroes        []reflect.Value
+	paramByName     map[string]int
+	handlerVal      reflect.Value
+	needsValidation []bool
 }
 
 type Server struct {
@@ -260,13 +310,13 @@ func (s *Server) registerMethod(method Method) error {
 	if outSize < 2 || outSize > 3 {
 		return errors.New("handler must return 2 or 3 values")
 	}
-	if outSize == 2 && handlerT.Out(1) != reflect.TypeOf(&Error{}) {
+	if outSize == 2 && handlerT.Out(1) != errorType {
 		return errors.New("second return value must be a *jsonrpc.Error for 2 tuple handler")
-	} else if outSize == 3 && handlerT.Out(2) != reflect.TypeOf(&Error{}) {
+	} else if outSize == 3 && handlerT.Out(2) != errorType {
 		return errors.New("third return value must be a *jsonrpc.Error for 3 tuple handler")
 	}
 
-	if outSize == 3 && handlerT.Out(1) != reflect.TypeOf(http.Header{}) {
+	if outSize == 3 && handlerT.Out(1) != headerType {
 		return errors.New("second return value must be a http.Header for 3 tuple handler")
 	}
 
@@ -277,6 +327,30 @@ func (s *Server) registerMethod(method Method) error {
 		}
 	}
 	method.requiredParamCount = requiredParamCount
+
+	// Build the per-request binding plan once. inTypes[i] is the slot
+	// type for the i-th declared param (skipping context); the hot path
+	// reads it as a plain slice index, never recomputes via reflect.
+	addContext := 0
+	if method.needsContext {
+		addContext = 1
+	}
+	method.inTypes = make([]reflect.Type, len(method.Params))
+	method.inZeroes = make([]reflect.Value, len(method.Params))
+	method.needsValidation = make([]bool, len(method.Params))
+	for i := range method.Params {
+		t := handlerT.In(i + addContext)
+		method.inTypes[i] = t
+		method.inZeroes[i] = reflect.Zero(t)
+		method.needsValidation[i] = typeHasValidateTag(t, nil)
+	}
+	if len(method.Params) > 0 {
+		method.paramByName = make(map[string]int, len(method.Params))
+		for i, p := range method.Params {
+			method.paramByName[p.Name] = i
+		}
+	}
+	method.handlerVal = reflect.ValueOf(method.Handler)
 
 	// The method is valid. Mutate the appropriate fields and register on the server.
 	s.methods[method.Name] = method
@@ -290,6 +364,42 @@ var (
 	errorType  = reflect.TypeFor[*Error]()
 	headerType = reflect.TypeFor[http.Header]()
 )
+
+// typeHasValidateTag reports whether t — or anything reachable through
+// its fields, slice/array elems, map values, or pointer indirection —
+// carries a `validate` struct tag. Used at registration to decide
+// whether the validateParam reflect walk needs to run on the hot path.
+// Cycles are guarded via the visited set.
+func typeHasValidateTag(t reflect.Type, visited map[reflect.Type]bool) bool {
+	if t == nil {
+		return false
+	}
+	if visited == nil {
+		visited = make(map[reflect.Type]bool)
+	}
+	if visited[t] {
+		return false
+	}
+	visited[t] = true
+
+	switch t.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Array:
+		return typeHasValidateTag(t.Elem(), visited)
+	case reflect.Map:
+		return typeHasValidateTag(t.Key(), visited) || typeHasValidateTag(t.Elem(), visited)
+	case reflect.Struct:
+		for i := range t.NumField() {
+			f := t.Field(i)
+			if _, ok := f.Tag.Lookup("validate"); ok {
+				return true
+			}
+			if typeHasValidateTag(f.Type, visited) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // pretouchHandlerTypes pre-compiles sonic encode/decode paths for every
 // JSON-marshaled type the handler touches at request time: parameter
@@ -530,19 +640,6 @@ func isBatch(reader *bufio.Reader) bool {
 	return false
 }
 
-func isNilOrEmpty(i any) (bool, error) {
-	if utils.IsNil(i) {
-		return true, nil
-	}
-
-	switch reflect.TypeOf(i).Kind() {
-	case reflect.Slice, reflect.Array, reflect.Map:
-		return reflect.ValueOf(i).Len() == 0, nil
-	default:
-		return false, fmt.Errorf("impossible param type: check request.isSane")
-	}
-}
-
 // TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
 // instead of crashing the HTTP connection
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
@@ -571,7 +668,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 
 	handlerTimer := time.Now()
 	s.listener.OnNewRequest(req.Method)
-	args, err := s.buildArguments(ctx, req.Params, calledMethod)
+	args, err := s.buildArguments(ctx, req.Params, &calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
 		s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
@@ -581,7 +678,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
 	}()
 
-	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
+	tuple := calledMethod.handlerVal.Call(args)
 	if res.ID == nil { // notification
 		s.logger.Trace("Notification received, no response expected")
 		return nil, header, nil
@@ -593,8 +690,8 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 		header = (tuple[1].Interface()).(http.Header)
 	}
 
-	if errAny := tuple[errorIndex].Interface(); !utils.IsNil(errAny) {
-		res.Error = errAny.(*Error)
+	if !tuple[errorIndex].IsNil() {
+		res.Error = tuple[errorIndex].Interface().(*Error)
 		if res.Error.Code == InternalError {
 			s.listener.OnRequestFailed(req.Method, res.Error)
 			reqJSON, _ := jsonx.Marshal(req)
@@ -611,119 +708,149 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	return res, header, nil
 }
 
-//nolint:gocyclo
-func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
-	handlerType := reflect.TypeOf(method.Handler)
-
-	numArgs := handlerType.NumIn()
-	args := make([]reflect.Value, 0, numArgs)
+// buildArguments materializes []reflect.Value for the handler call from
+// the request's raw params. The hot path reads only cached fields on
+// Method (inTypes, paramByName, handlerVal); no reflect.TypeOf /
+// NumIn / In is called per request, and per-slot decode is a single
+// jsonx.UnmarshalString — no Marshal→Unmarshal round-trip.
+func (s *Server) buildArguments(ctx context.Context, params json.RawMessage, method *Method) ([]reflect.Value, error) {
+	numNonCtx := len(method.inTypes)
 	addContext := 0
-
 	if method.needsContext {
-		args = append(args, reflect.ValueOf(ctx))
 		addContext = 1
 	}
+	args := make([]reflect.Value, 0, numNonCtx+addContext)
+	if method.needsContext {
+		args = append(args, reflect.ValueOf(ctx))
+	}
 
-	isNilOrEmpty, err := isNilOrEmpty(params)
+	switch paramsKind(params) {
+	case paramsKindNone:
+		if method.requiredParamCount > 0 {
+			return nil, errors.New("missing non-optional param field")
+		}
+		for i := range numNonCtx {
+			args = append(args, method.inZeroes[i])
+		}
+		return args, nil
+	case paramsKindArray:
+		var node ast.Node
+		if err := node.UnmarshalJSON(params); err != nil {
+			return nil, err
+		}
+		return s.buildPositionalArgs(&node, method, args)
+	case paramsKindObject:
+		var node ast.Node
+		if err := node.UnmarshalJSON(params); err != nil {
+			return nil, err
+		}
+		return s.buildNamedArgs(&node, method, args)
+	default:
+		// Unreachable: isSane already rejects non-container params.
+		return nil, errors.New("impossible param type: check request.isSane")
+	}
+}
+
+func (s *Server) buildPositionalArgs(
+	node *ast.Node, method *Method, args []reflect.Value,
+) ([]reflect.Value, error) {
+	iter, err := node.Values()
 	if err != nil {
 		return nil, err
 	}
-
-	if isNilOrEmpty {
-		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
-			return p.Optional
-		})
-
-		if len(method.Params) > 0 && !allParamsAreOptional {
-			return nil, errors.New("missing non-optional param field")
-		}
-
-		for i := addContext; i < numArgs; i++ {
-			arg := reflect.New(handlerType.In(i)).Elem()
-			args = append(args, arg)
-		}
-
-		return args, nil
-	}
-
-	switch reflect.TypeOf(params).Kind() {
-	case reflect.Slice:
-		paramsList := params.([]any)
-
-		// Ensure that the number of provided parameters is between required and total parameters
-		if len(paramsList) < method.requiredParamCount || len(paramsList) > len(method.Params) {
+	consumed := 0
+	var elem ast.Node
+	for iter.Next(&elem) {
+		if consumed >= len(method.inTypes) {
 			return nil, errors.New("missing/unexpected params in list")
 		}
-
-		for i, param := range paramsList {
-			v, err := s.parseParam(param, handlerType.In(i+addContext))
-			if err != nil {
-				return nil, err
-			}
-			args = append(args, v)
+		raw, rawErr := elem.Raw()
+		if rawErr != nil {
+			return nil, rawErr
 		}
-		// Add remaining optional parameters if available
-		for i := addContext + len(paramsList); i < numArgs; i++ {
-			args = append(args, reflect.New(handlerType.In(i)).Elem())
+		v, decErr := s.decodeIntoSlot(raw, method, consumed)
+		if decErr != nil {
+			return nil, decErr
 		}
-	case reflect.Map:
-		paramsMap := params.(map[string]any)
-
-		for i, configuredParam := range method.Params {
-			var v reflect.Value
-			if param, found := paramsMap[configuredParam.Name]; found {
-				var err error
-				v, err = s.parseParam(param, handlerType.In(i+addContext))
-				if err != nil {
-					return nil, err
-				}
-
-				delete(paramsMap, configuredParam.Name)
-			} else if configuredParam.Optional {
-				// optional parameter
-				v = reflect.New(handlerType.In(i + addContext)).Elem()
-			} else {
-				return nil, errors.New("missing non-optional param: " + configuredParam.Name)
-			}
-
-			args = append(args, v)
-		}
-
-		// If there are any remaining parameters in the given parameters, it means that
-		// there are extra junks in the request, which could be a typo. We return an error
-		// to ensure that the request only contains the expected parameters.
-		remainingKeys := make([]string, 0, len(paramsMap))
-		for k := range paramsMap {
-			remainingKeys = append(remainingKeys, k)
-		}
-		if len(remainingKeys) > 0 {
-			return nil, errors.New("unexpected params: " + strings.Join(remainingKeys, ", "))
-		}
-	default:
-		// Todo: consider returning InternalError
-		return nil, errors.New("impossible param type: check request.isSane")
+		args = append(args, v)
+		consumed++
+	}
+	if consumed < method.requiredParamCount {
+		return nil, errors.New("missing/unexpected params in list")
+	}
+	for i := consumed; i < len(method.inTypes); i++ {
+		args = append(args, method.inZeroes[i])
 	}
 	return args, nil
 }
 
-func (s *Server) parseParam(param any, t reflect.Type) (reflect.Value, error) {
-	handlerParam := reflect.New(t)
-	valueMarshaled, err := jsonx.Marshal(param)
+func (s *Server) buildNamedArgs(
+	node *ast.Node, method *Method, args []reflect.Value,
+) ([]reflect.Value, error) {
+	iter, err := node.Properties()
 	if err != nil {
-		return reflect.ValueOf(nil), err
-	}
-	err = jsonx.Unmarshal(valueMarshaled, handlerParam.Interface())
-	if err != nil {
-		return reflect.ValueOf(nil), err
+		return nil, err
 	}
 
-	elem := handlerParam.Elem()
-	if s.validator != nil {
-		if err = s.validateParam(elem); err != nil {
-			return reflect.ValueOf(nil), err
+	rawByIndex := make([]string, len(method.inTypes))
+	found := make([]bool, len(method.inTypes))
+	var unknown []string
+
+	var pair ast.Pair
+	for iter.Next(&pair) {
+		idx, ok := method.paramByName[pair.Key]
+		if !ok {
+			unknown = append(unknown, pair.Key)
+			continue
+		}
+		raw, rawErr := pair.Value.Raw()
+		if rawErr != nil {
+			return nil, rawErr
+		}
+		rawByIndex[idx] = raw
+		found[idx] = true
+	}
+
+	// Preserve the original error precedence: missing-required wins over
+	// unexpected-extras when both are present.
+	for i, param := range method.Params {
+		if !found[i] && !param.Optional {
+			return nil, errors.New("missing non-optional param: " + param.Name)
 		}
 	}
+	if len(unknown) > 0 {
+		return nil, errors.New("unexpected params: " + strings.Join(unknown, ", "))
+	}
 
+	for i := range method.inTypes {
+		if found[i] {
+			v, decErr := s.decodeIntoSlot(rawByIndex[i], method, i)
+			if decErr != nil {
+				return nil, decErr
+			}
+			args = append(args, v)
+		} else {
+			args = append(args, method.inZeroes[i])
+		}
+	}
+	return args, nil
+}
+
+// decodeIntoSlot unmarshals raw JSON directly into a freshly-allocated
+// value of the i-th declared param's type (single sonic decode pass —
+// no Marshal first). validateParam is skipped for types whose registry
+// scan found no `validate:` tags transitively.
+func (s *Server) decodeIntoSlot(raw string, method *Method, i int) (reflect.Value, error) {
+	handlerParam := reflect.New(method.inTypes[i])
+	if err := jsonx.UnmarshalString(raw, handlerParam.Interface()); err != nil {
+		return reflect.Value{}, err
+	}
+	elem := handlerParam.Elem()
+	if s.validator != nil && method.needsValidation[i] {
+		if err := s.validateParam(elem); err != nil {
+			return reflect.Value{}, err
+		}
+	}
 	return elem, nil
 }
 

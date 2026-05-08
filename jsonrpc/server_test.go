@@ -2,6 +2,7 @@ package jsonrpc_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -841,14 +842,14 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 			req: &jsonrpc.Request{
 				Version: "2.0",
 				Method:  "starknet_getBlockWithTxs",
-				Params:  []any{"latest"},
+				Params:  json.RawMessage(`["latest"]`),
 				ID:      1,
 			},
 			want: map[string]any{
 				"jsonrpc": "2.0",
 				"method":  "starknet_getBlockWithTxs",
 				"id":      1,
-				"params":  []any{"latest"},
+				"params":  json.RawMessage(`["latest"]`),
 			},
 		},
 		"nil id and params omitted": {
