@@ -714,7 +714,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		{
 			OldRoot: &felt.Zero,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0x2943515e306ea41bc1e477db596e403cd5187edd0eb721edf35ce41e0891e51",
+				"0x15fc57d3df218117c4baa5b894357bfe195a27874f52efee3914d8594756d6c",
 			),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classH0},
@@ -724,7 +724,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		{
 			OldRoot: &felt.Zero,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0x20120739338b51aa35c560b0006e95f9b5ccdda9818fce14cf3f5b19eb55a5c",
+				"0x19be1c130f862c06576c14163ffd597ef49de2dd3eed0cd0329fc24a972f40d",
 			),
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{*addr: nonce1},
@@ -734,7 +734,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		{
 			OldRoot: &felt.Zero,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0x4ff4ae4e11a385b1272fe9d505ae944aca2e2737998a334879f1acae0b33397",
+				"0x7b5f15dda7999552e8af72b55965c0f033c77f0e2d3b54a448ebbfdec22d7c4",
 			),
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -746,7 +746,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		{
 			OldRoot: &felt.Zero,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0xf2bd6c8daf68dcb7e1d42380627d3cf5674025f3406185a0871b48dd42a586",
+				"0xa6e0bf8b99f39da84226ab00e8ede81133f60c72a86215f8c62eb2e9458d95",
 			),
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{*addr: nonce2},
@@ -756,7 +756,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		{
 			OldRoot: &felt.Zero,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0x885cc33de1055d510413c2afedc6c262d28224bacb21166a7d565a502933d6",
+				"0x66e9a93ed05f4561da6527bcb1c98c1a6724a585c18167711291ef6e56d3875",
 			),
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{*addr: classH1},
@@ -766,7 +766,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		{
 			OldRoot: &felt.Zero,
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
-				"0x530eeec8721aae7f0df0da066530c47c62a98f97c28db4c6cf760a627935368",
+				"0x4829eceed3f9be83ece51f354dbbb028172410e17ea7c4d5e98ad7c0e475e2a",
 			),
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{

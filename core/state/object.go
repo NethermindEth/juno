@@ -17,10 +17,8 @@ type stateObject struct {
 	addr     felt.Felt      // address of the contract
 	contract *stateContract // contract info
 
-	dirtyStorage   Storage     // storage changes
-	storageTrie    *trie2.Trie // storage trie
-	nonceDirty     bool
-	classHashDirty bool
+	dirtyStorage Storage     // storage changes
+	storageTrie  *trie2.Trie // storage trie
 }
 
 func newStateObject(state *State, addr *felt.Felt, contract *stateContract) stateObject {
@@ -34,12 +32,10 @@ func newStateObject(state *State, addr *felt.Felt, contract *stateContract) stat
 
 func (s *stateObject) setClassHash(classHash *felt.Felt) {
 	s.contract.ClassHash = *classHash
-	s.classHashDirty = true
 }
 
 func (s *stateObject) setNonce(nonce *felt.Felt) {
 	s.contract.Nonce = *nonce
-	s.nonceDirty = true
 }
 
 func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
