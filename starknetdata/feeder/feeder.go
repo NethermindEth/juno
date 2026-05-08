@@ -199,21 +199,59 @@ func (f *Feeder) StateUpdateWithBlock(
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
 
-// PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,
-// then adapts them to the pending.PreConfirmed and list of transaction hashes types respectively
+// PreConfirmedBlockByNumber fetches the pre_confirmed block at the given
+// height and returns a delta-aware update. knownBlockIdentifier and
+// knownTransactionCount tell the server what the caller already has so the
+// server can return a no-change marker, only the transactions appended since
+// knownTransactionCount, or the full block when the round identifier no
+// longer matches. Set both to zero values to get a full block.
 func (f *Feeder) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-) (pending.PreConfirmed, error) {
-	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
+	knownBlockIdentifier string,
+	knownTransactionCount uint64,
+) (pending.PreConfirmedUpdate, error) {
+	response, err := f.client.PreConfirmedBlock(
+		ctx,
+		strconv.FormatUint(blockNumber, 10),
+		knownBlockIdentifier,
+		knownTransactionCount,
+	)
 	if err != nil {
-		return pending.PreConfirmed{}, err
+		return pending.PreConfirmedUpdate{}, err
 	}
 
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
-	if err != nil {
-		return pending.PreConfirmed{}, err
+	if !response.Changed {
+		return pending.PreConfirmedUpdate{
+			Mode:            pending.PreConfirmedNoChange,
+			BlockIdentifier: knownBlockIdentifier,
+		}, nil
 	}
 
-	return adaptedPreConfirmed, nil
+	// only present on full responses
+	if response.SequencerAddress != nil {
+		full, adaptErr := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
+		if adaptErr != nil {
+			return pending.PreConfirmedUpdate{}, adaptErr
+		}
+		return pending.PreConfirmedUpdate{
+			Mode:            pending.PreConfirmedFull,
+			BlockIdentifier: response.KnownBlockIdentifier,
+			Full:            &full,
+		}, nil
+	}
+
+	// otherwise it's a delta response
+	txs, receipts, stateDiffs, candidateTxs, adaptErr := sn2core.AdaptPreConfirmedDelta(response)
+	if adaptErr != nil {
+		return pending.PreConfirmedUpdate{}, adaptErr
+	}
+	return pending.PreConfirmedUpdate{
+		Mode:               pending.PreConfirmedDelta,
+		BlockIdentifier:    response.KnownBlockIdentifier,
+		AppendTransactions: txs,
+		AppendReceipts:     receipts,
+		AppendStateDiffs:   stateDiffs,
+		AppendCandidateTxs: candidateTxs,
+	}, nil
 }
