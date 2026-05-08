@@ -599,6 +599,8 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(
 		t.Context(),
 		strconv.FormatUint(blockNumber, 10),
+		"",
+		0,
 	)
 	require.NoError(t, err)
 

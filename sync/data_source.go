@@ -23,7 +23,12 @@ type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockHeaderLatest(ctx context.Context) (*core.Header, error)
 	BlockPreLatest(ctx context.Context) (pending.PreLatest, error)
-	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error)
+	PreConfirmedBlockByNumber(
+		ctx context.Context,
+		blockNumber uint64,
+		knownBlockIdentifier string,
+		knownTransactionCount uint64,
+	) (pending.PreConfirmedUpdate, error)
 }
 
 type feederGatewayDataSource struct {
@@ -141,11 +146,13 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-) (pending.PreConfirmed, error) {
-	preConfirmed, err := f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
-	if err != nil {
-		return pending.PreConfirmed{}, err
-	}
-
-	return preConfirmed, nil
+	knownBlockIdentifier string,
+	knownTransactionCount uint64,
+) (pending.PreConfirmedUpdate, error) {
+	return f.starknetData.PreConfirmedBlockByNumber(
+		ctx,
+		blockNumber,
+		knownBlockIdentifier,
+		knownTransactionCount,
+	)
 }

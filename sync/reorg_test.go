@@ -69,8 +69,10 @@ func (t *testBlockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLa
 func (t *testBlockDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-) (pending.PreConfirmed, error) {
-	return pending.PreConfirmed{}, errors.New("not implemented")
+	knownBlockIdentifier string,
+	knownTransactionCount uint64,
+) (pending.PreConfirmedUpdate, error) {
+	return pending.PreConfirmedUpdate{}, errors.New("not implemented")
 }
 
 func (t *testBlockDataSource) setBlocks(blocks []sync.CommittedBlock) {
