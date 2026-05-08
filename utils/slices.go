@@ -41,6 +41,15 @@ func AnyOf[T comparable](e T, values ...T) bool {
 	return slices.Contains(values, e)
 }
 
+// Concat concatenates two slices into a new slice, preserving the order
+// of the elements (a first, then b).
+func Concat[T any](a, b []T) []T {
+	out := make([]T, len(a)+len(b))
+	copy(out, a)
+	copy(out[len(a):], b)
+	return out
+}
+
 // Unique returns a new slice with duplicates removed.
 // Panics if the slice contains pointer types.
 func Set[T comparable](slice []T) []T {
