@@ -65,6 +65,44 @@ type PreConfirmed struct {
 	CandidateTxs          []core.Transaction
 	// Optional field, exists if pre_confirmed is N+2 when latest is N
 	PreLatest *PreLatest
+	// BlockIdentifier is an identifier returned by the feeder gateway
+	// that uniquely identifies the current round of the pre_confirmed block.
+	// It is used to negotiate delta-sync responses on subsequent polls.
+	BlockIdentifier string
+}
+
+// PreConfirmedUpdateMode classifies a delta-aware pre_confirmed fetch result.
+type PreConfirmedUpdateMode int
+
+const (
+	// PreConfirmedNoChange means the server's pre_confirmed matches what the
+	// caller already has and no further action is required.
+	PreConfirmedNoChange PreConfirmedUpdateMode = iota
+	// PreConfirmedDelta means new transactions/receipts/state diffs have been
+	// appended since the caller's known transaction count and should be merged
+	// onto the existing stored pre_confirmed.
+	PreConfirmedDelta
+	// PreConfirmedFull means the server's pre_confirmed is for a different
+	// round and the caller should discard existing data and replace it with
+	// Full.
+	PreConfirmedFull
+)
+
+// PreConfirmedUpdate is the result of a delta-aware pre_confirmed fetch. It
+// is the boundary type between data sources and the sync layer reconciler.
+// Only the fields appropriate for Mode are populated.
+type PreConfirmedUpdate struct {
+	Mode            PreConfirmedUpdateMode
+	BlockIdentifier string
+
+	// Full is set when Mode == PreConfirmedFull.
+	Full *PreConfirmed
+
+	// Append* are set when Mode == PreConfirmedDelta.
+	AppendTransactions []core.Transaction
+	AppendReceipts     []*core.TransactionReceipt
+	AppendStateDiffs   []*core.StateDiff
+	AppendCandidateTxs []core.Transaction
 }
 
 func NewPreConfirmed(

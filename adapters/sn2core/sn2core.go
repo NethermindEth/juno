@@ -527,13 +527,13 @@ func AdaptPreConfirmedBlock(
 		)
 	}
 
-	preConfirmedTxCount := 0
+	candidateCount := 0
 	for i := range len(response.Transactions) {
-		if !IsCandidateTx(response, i) {
-			preConfirmedTxCount++
+		if IsCandidateTx(response, i) {
+			candidateCount++
 		}
 	}
-	candidateCount := len(response.Transactions) - preConfirmedTxCount
+	preConfirmedTxCount := len(response.Transactions) - candidateCount
 
 	txns := make([]core.Transaction, preConfirmedTxCount)
 	txStateDiffs := make([]*core.StateDiff, preConfirmedTxCount)
@@ -545,27 +545,28 @@ func AdaptPreConfirmedBlock(
 	preIdx := 0
 	candIdx := 0
 	for i := range len(response.Transactions) {
-		if !IsCandidateTx(response, i) {
-			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
-			if err != nil {
-				return pending.PreConfirmed{}, err
-			}
-			var stateDiff core.StateDiff
-			stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
-			if err != nil {
-				return pending.PreConfirmed{}, err
-			}
-			txStateDiffs[preIdx] = &stateDiff
-			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
-			eventCount += uint64(len(response.Receipts[i].Events))
-			preIdx++
-		} else {
+		if IsCandidateTx(response, i) {
 			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
 			if err != nil {
 				return pending.PreConfirmed{}, err
 			}
 			candIdx++
+			continue
 		}
+
+		txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
+		if err != nil {
+			return pending.PreConfirmed{}, err
+		}
+		var stateDiff core.StateDiff
+		stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
+		if err != nil {
+			return pending.PreConfirmed{}, err
+		}
+		txStateDiffs[preIdx] = &stateDiff
+		receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+		eventCount += uint64(len(response.Receipts[i].Events))
+		preIdx++
 	}
 
 	// Squash per-tx state updates
@@ -577,7 +578,6 @@ func AdaptPreConfirmedBlock(
 	stateUpdate := core.StateUpdate{
 		BlockHash: nil,
 		NewRoot:   nil,
-		// Must be set to previous global state root, when have access to latest header
 		OldRoot:   nil,
 		StateDiff: &stateDiff,
 	}
@@ -609,7 +609,72 @@ func AdaptPreConfirmedBlock(
 		Transactions: txns,
 		Receipts:     receipts,
 	}
-	return pending.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs), nil
+	preConfirmed := pending.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs)
+	preConfirmed.BlockIdentifier = response.KnownBlockIdentifier
+	return preConfirmed, nil
+}
+
+// AdaptPreConfirmedDelta extracts the per-transaction core types from a delta
+// 'get_preconfirmed_block' response.
+func AdaptPreConfirmedDelta(
+	response *starknet.PreConfirmedBlock,
+) (
+	txns []core.Transaction,
+	receipts []*core.TransactionReceipt,
+	stateDiffs []*core.StateDiff,
+	candidateTxs []core.Transaction,
+	err error,
+) {
+	if response == nil {
+		return nil, nil, nil, nil, errors.New("nil preconfirmed block")
+	}
+
+	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
+		len(response.Transactions) != len(response.Receipts)
+	if isInvalidPayloadSizes {
+		return nil, nil, nil, nil, errors.New(
+			"invalid sizes of transactions, state diffs and receipts",
+		)
+	}
+	candidateCount := 0
+	for i := range len(response.Transactions) {
+		if IsCandidateTx(response, i) {
+			candidateCount++
+		}
+	}
+	preConfirmedTxCount := len(response.Transactions) - candidateCount
+
+	txns = make([]core.Transaction, preConfirmedTxCount)
+	receipts = make([]*core.TransactionReceipt, preConfirmedTxCount)
+	stateDiffs = make([]*core.StateDiff, preConfirmedTxCount)
+	candidateTxs = make([]core.Transaction, candidateCount)
+
+	preIdx := 0
+	candIdx := 0
+	for i := range len(response.Transactions) {
+		if IsCandidateTx(response, i) {
+			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
+			if err != nil {
+				return nil, nil, nil, nil, err
+			}
+			candIdx++
+			continue
+		}
+
+		txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		var stateDiff core.StateDiff
+		stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		stateDiffs[preIdx] = &stateDiff
+		receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+		preIdx++
+	}
+	return
 }
 
 func safeFeltToUint64(f *felt.Felt) uint64 {

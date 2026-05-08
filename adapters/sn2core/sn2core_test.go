@@ -706,6 +706,24 @@ func TestAdaptPreConfirmed(t *testing.T) {
 		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
 		assertCandidateTxs(t, response, adapted.CandidateTxs)
 		assertStateDiffs(t, response, adapted.TransactionStateDiffs)
+
+		t.Run("Test AdaptPreConfirmedDelta", func(t *testing.T) {
+			// a simulated delta response based on the full response
+			deltaResponse := &starknet.PreConfirmedBlock{
+				Changed:               true,
+				KnownBlockIdentifier:  response.KnownBlockIdentifier,
+				Transactions:          response.Transactions,
+				Receipts:              response.Receipts,
+				TransactionStateDiffs: response.TransactionStateDiffs,
+			}
+
+			txs, receipts, stateDiffs, candidates, err := sn2core.AdaptPreConfirmedDelta(deltaResponse)
+			require.NoError(t, err)
+			assert.Equal(t, adapted.Block.Transactions, txs)
+			assert.Equal(t, adapted.Block.Receipts, receipts)
+			assert.Equal(t, adapted.TransactionStateDiffs, stateDiffs)
+			assert.Equal(t, adapted.CandidateTxs, candidates)
+		})
 	}
 }
 
@@ -746,6 +764,7 @@ func assertPreConfirmedBlockBasics(
 	assert.Equal(t, response.Version, preConfirmed.Block.ProtocolVersion)
 	assert.Equal(t, response.L1GasPrice.PriceInFri, preConfirmed.Block.L1GasPriceSTRK)
 	assert.Equal(t, response.L1GasPrice.PriceInWei, preConfirmed.Block.L1GasPriceETH)
+	assert.Equal(t, response.KnownBlockIdentifier, preConfirmed.BlockIdentifier)
 }
 
 func assertCandidateTxs(
