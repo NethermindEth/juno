@@ -8,30 +8,26 @@ You can download a snapshot of the Juno database to reduce the network syncing t
 
 Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
 
-| Network                | Download Link                                                                                                 |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Mainnet                | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
-| Mainnet (New Database) | [**juno_mainnet-newdb.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest)             |
-| Sepolia                | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
-| Sepolia-Integration    | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+| Network             | Download Link                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Mainnet             | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Sepolia             | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
+| Sepolia-Integration | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ## Getting snapshot sizes
 
 ```bash
 $date
-Thu Feb  5 15:35:59 CET 2026
+Fri May  8 00:34:15 CEST 2026
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-351.23 GB
-
-$curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet-newdb/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-334.14 GB
+397.68 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-49.51 GB
+66.99 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-17.78 GB
+30.91 GB
 ```
 
 ## Run Juno with a snapshot
