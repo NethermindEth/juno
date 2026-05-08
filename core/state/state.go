@@ -388,7 +388,11 @@ func (s *State) flush(
 				return err
 			}
 		} else {
-			if err := WriteClass(s.batch, &classHash, class, blockNum); err != nil {
+			err := WriteClass(s.batch, &classHash, &core.DeclaredClassDefinition{
+				At:    blockNum,
+				Class: class,
+			})
+			if err != nil {
 				return err
 			}
 		}

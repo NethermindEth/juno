@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -353,30 +352,19 @@ func (s *State) putClass(
 	class core.ClassDefinition,
 	declaredAt uint64,
 ) error {
-	classKey := db.ClassKey(classHash)
-
-	err := s.txn.Get(classKey, func(data []byte) error { return nil })
+	_, err := core.GetClass(s.txn, classHash)
 	if errors.Is(err, db.ErrKeyNotFound) {
-		classEncoded, encErr := encoder.Marshal(core.DeclaredClassDefinition{
+		return core.WriteClass(s.txn, classHash, &core.DeclaredClassDefinition{
 			At:    declaredAt,
 			Class: class,
 		})
-		if encErr != nil {
-			return encErr
-		}
-
-		return s.txn.Put(classKey, classEncoded)
 	}
 	return err
 }
 
 // Class returns the class object corresponding to the given classHash
 func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-	var class *core.DeclaredClassDefinition
-	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
-	})
-	return class, err
+	return core.GetClass(s.txn, classHash)
 }
 
 func (s *State) CompiledClassHash(
