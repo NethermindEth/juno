@@ -357,12 +357,13 @@ func TestPreConfirmedBlock(t *testing.T) {
 	ctx := t.Context()
 	blockNumber := uint64(1204672)
 	blockNumberStr := strconv.FormatUint(blockNumber, 10)
-	response, err := client.PreConfirmedBlock(ctx, blockNumberStr)
+	response, err := client.PreConfirmedBlock(ctx, blockNumberStr, "", 0)
 	require.NoError(t, err)
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
 	require.NoError(t, err)
 
-	preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber)
+	update, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber, "", 0)
 	require.NoError(t, err)
-	assert.Equal(t, preConfirmed, adaptedPreConfirmed)
+	require.NotNil(t, update.Full)
+	assert.Equal(t, adaptedPreConfirmed, *update.Full)
 }

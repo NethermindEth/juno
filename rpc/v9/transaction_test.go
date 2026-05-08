@@ -470,7 +470,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(1204672)
-	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(blockNumber, 10))
+	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(blockNumber, 10), "", 0)
 	require.NoError(t, err)
 
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
@@ -1797,8 +1797,11 @@ func TestTransactionStatus(t *testing.T) {
 			sepoliaIntClient := feeder.NewTestClient(t, network)
 			sepoliaIntGw := adaptfeeder.New(sepoliaIntClient)
 			blockNumber := uint64(1204672)
-			preConfirmed, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber)
+			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 			require.NoError(t, gwErr)
+			require.Equal(t, pending.PreConfirmedFull, update.Mode)
+			require.NotNil(t, update.Full)
+			preConfirmed := *update.Full
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
