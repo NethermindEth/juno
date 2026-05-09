@@ -424,12 +424,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
-	// --- Logging ---
-	junoCmd.Flags().String(logLevelF, log.INFO.String(), logLevelFlagUsage)
-	junoCmd.Flags().Bool(logJSONF, defaultLogJSON, logJSONUsage)
-	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
-	setCategory(junoCmd, catLogging, logLevelF, logJSONF, colourF)
-
 	// --- HTTP RPC ---
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaultHost, httpHostUsage)
@@ -453,11 +447,44 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage)
 	setCategory(junoCmd, catWebSocket, wsF, wsHostF, wsPortF, disableReceivedTxnStreamF)
 
-	// --- gRPC ---
-	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
-	junoCmd.Flags().String(grpcHostF, defaultHost, grpcHostUsage)
-	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
-	setCategory(junoCmd, catGRPC, grpcF, grpcHostF, grpcPortF)
+	// --- Network & L1 ---
+	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
+	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
+	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
+	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
+	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
+
+	// --- Sync & Polling ---
+	junoCmd.Flags().Duration(preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage)
+	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
+	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
+	junoCmd.Flags().Uint(readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage)
+	setCategory(junoCmd, catSyncPolling,
+		preLatestPollIntervalF, preConfirmedPollIntervalF,
+		remoteDBF, readinessBlockToleranceF,
+	)
+
+	// --- Gateway ---
+	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
+	junoCmd.Flags().String(gwTimeoutsF, defaultGwTimeout, gwTimeoutsUsage)
+	setCategory(junoCmd, catGateway, gwAPIKeyF, gwTimeoutsF)
+
+	// --- Pruning ---
+	junoCmd.Flags().Uint64(pruneModeF, defaultPruneMode, pruneModeUsage)
+	// NoOptDefVal lets users pass --prune-mode without a value (treated as 0).
+	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "0"
+	setCategory(junoCmd, catPruning, pruneModeF)
+
+	// --- Logging ---
+	junoCmd.Flags().String(logLevelF, log.INFO.String(), logLevelFlagUsage)
+	junoCmd.Flags().Bool(logJSONF, defaultLogJSON, logJSONUsage)
+	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
+	setCategory(junoCmd, catLogging, logLevelF, logJSONF, colourF)
+
+	// --- Logs HTTP Update Endpoint ---
+	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
+	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
+	setCategory(junoCmd, catLogsHTTPUpdate, httpUpdateHostF, httpUpdatePortF)
 
 	// --- Metrics & Profiling ---
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
@@ -470,11 +497,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		metricsF, metricsHostF, metricsPortF,
 		pprofF, pprofHostF, pprofPortF,
 	)
-
-	// --- HTTP Update Endpoint ---
-	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
-	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
-	setCategory(junoCmd, catHTTPUpdate, httpUpdateHostF, httpUpdatePortF)
 
 	// --- Database ---
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
@@ -489,12 +511,23 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		dbCompactionConcurrencyF, dbMemtableSizeF, dbMemtableCountF, dbCompressionF,
 	)
 
-	// --- Network & L1 ---
-	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
-	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
-	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
-	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
-	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
+	// --- Transaction Cache ---
+	junoCmd.Flags().Uint(submittedTransactionsCacheSizeF, defaultSubmittedTransactionsCacheSize, submittedTransactionsCacheSize)
+	junoCmd.Flags().Duration(
+		submittedTransactionsCacheEntryTTLF,
+		defaultSubmittedTransactionsCacheEntryTTL,
+		submittedTransactionsCacheEntryTTL,
+	)
+	setCategory(junoCmd, catTxCache, submittedTransactionsCacheSizeF, submittedTransactionsCacheEntryTTLF)
+
+	// --- VM & Compilation ---
+	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
+	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
+	junoCmd.Flags().Uint(maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage)
+	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
+	setCategory(junoCmd, catVMCompile,
+		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF, versionedConstantsFileF,
+	)
 
 	// --- Custom Network ---
 	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
@@ -510,11 +543,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		cnNameF, cnFeederURLF, cnGatewayURLF,
 		cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF,
 	)
-
-	// --- Gateway ---
-	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
-	junoCmd.Flags().String(gwTimeoutsF, defaultGwTimeout, gwTimeoutsUsage)
-	setCategory(junoCmd, catGateway, gwAPIKeyF, gwTimeoutsF)
 
 	// --- P2P (experimental) ---
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
@@ -535,39 +563,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 	setCategory(junoCmd, catSequencer, seqEnF, seqBlockTimeF, seqGenesisFileF, seqDisableFeesF)
 
-	// --- Sync & Polling ---
-	junoCmd.Flags().Duration(preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage)
-	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
-	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
-	junoCmd.Flags().Uint(readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage)
-	setCategory(junoCmd, catSyncPolling,
-		preLatestPollIntervalF, preConfirmedPollIntervalF,
-		remoteDBF, readinessBlockToleranceF,
-	)
-
-	// --- Pruning ---
-	junoCmd.Flags().Uint64(pruneModeF, defaultPruneMode, pruneModeUsage)
-	// NoOptDefVal lets users pass --prune-mode without a value (treated as 0).
-	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "0"
-	setCategory(junoCmd, catPruning, pruneModeF)
-
-	// --- VM & Compilation ---
-	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
-	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().Uint(maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage)
-	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
-	setCategory(junoCmd, catVMCompile,
-		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF, versionedConstantsFileF,
-	)
-
-	// --- Transaction Cache ---
-	junoCmd.Flags().Uint(submittedTransactionsCacheSizeF, defaultSubmittedTransactionsCacheSize, submittedTransactionsCacheSize)
-	junoCmd.Flags().Duration(
-		submittedTransactionsCacheEntryTTLF,
-		defaultSubmittedTransactionsCacheEntryTTL,
-		submittedTransactionsCacheEntryTTL,
-	)
-	setCategory(junoCmd, catTxCache, submittedTransactionsCacheSizeF, submittedTransactionsCacheEntryTTLF)
+	// --- gRPC ---
+	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
+	junoCmd.Flags().String(grpcHostF, defaultHost, grpcHostUsage)
+	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
+	setCategory(junoCmd, catGRPC, grpcF, grpcHostF, grpcPortF)
 
 	// --- Plugins & Misc ---
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)

@@ -14,25 +14,25 @@ import (
 
 const flagCategoryAnnotation = "juno_category"
 
-// expectedCategoryHeaders are rendered as "<header> Flags:" by groupedUsageFunc.
-// Keep this list in sync with orderedCategories in usage.go.
+// expectedCategoryHeaders are rendered as "<header> Flags:" by writeGroupedUsage.
+// Keep this list in sync (label and order) with orderedCategories in usage.go.
 var expectedCategoryHeaders = []string{
-	"Logging",
 	"HTTP RPC",
 	"WebSocket RPC",
-	"gRPC",
-	"Metrics & Profiling",
-	"HTTP Update Endpoint",
-	"Database",
 	"Network & L1",
-	"Custom Network",
+	"Sync & Polling",
 	"Gateway",
+	"Pruning",
+	"Logging",
+	"Logs HTTP Update Endpoint",
+	"Metrics & Profiling",
+	"Database",
+	"Transaction Cache",
+	"VM & Compilation",
+	"Custom Network",
 	"P2P (experimental)",
 	"Sequencer",
-	"Sync & Polling",
-	"Pruning",
-	"VM & Compilation",
-	"Transaction Cache",
+	"gRPC",
 	"Plugins & Misc",
 }
 

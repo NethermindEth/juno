@@ -15,24 +15,24 @@ import (
 const flagCategoryAnnotation = "juno_category"
 
 const (
-	catLogging       = "Logging"
-	catHTTPRPC       = "HTTP RPC"
-	catWebSocket     = "WebSocket RPC"
-	catGRPC          = "gRPC"
-	catObservability = "Metrics & Profiling"
-	catHTTPUpdate    = "HTTP Update Endpoint"
-	catDatabase      = "Database"
-	catNetwork       = "Network & L1"
-	catCustomNetwork = "Custom Network"
-	catGateway       = "Gateway"
-	catP2P           = "P2P (experimental)"
-	catSequencer     = "Sequencer"
-	catSyncPolling   = "Sync & Polling"
-	catPruning       = "Pruning"
-	catVMCompile     = "VM & Compilation"
-	catTxCache       = "Transaction Cache"
-	catMisc          = "Plugins & Misc"
-	catOther         = "Other"
+	catHTTPRPC        = "HTTP RPC"
+	catWebSocket      = "WebSocket RPC"
+	catNetwork        = "Network & L1"
+	catSyncPolling    = "Sync & Polling"
+	catGateway        = "Gateway"
+	catPruning        = "Pruning"
+	catLogging        = "Logging"
+	catLogsHTTPUpdate = "Logs HTTP Update Endpoint"
+	catObservability  = "Metrics & Profiling"
+	catDatabase       = "Database"
+	catTxCache        = "Transaction Cache"
+	catVMCompile      = "VM & Compilation"
+	catCustomNetwork  = "Custom Network"
+	catP2P            = "P2P (experimental)"
+	catSequencer      = "Sequencer"
+	catGRPC           = "gRPC"
+	catMisc           = "Plugins & Misc"
+	catOther          = "Other"
 )
 
 // setCategory tags every named flag on cmd with the given display category.
@@ -98,22 +98,22 @@ func writeFlagsSection(b *strings.Builder, cmd *cobra.Command) {
 	// orderedCategories controls render order. catOther is appended after these if
 	// non-empty, so a forgotten annotation is visible rather than silently dropped.
 	orderedCategories := []string{
-		catLogging,
 		catHTTPRPC,
 		catWebSocket,
-		catGRPC,
-		catObservability,
-		catHTTPUpdate,
-		catDatabase,
 		catNetwork,
-		catCustomNetwork,
+		catSyncPolling,
 		catGateway,
+		catPruning,
+		catLogging,
+		catLogsHTTPUpdate,
+		catObservability,
+		catDatabase,
+		catTxCache,
+		catVMCompile,
+		catCustomNetwork,
 		catP2P,
 		catSequencer,
-		catSyncPolling,
-		catPruning,
-		catVMCompile,
-		catTxCache,
+		catGRPC,
 		catMisc,
 	}
 
