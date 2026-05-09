@@ -433,7 +433,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
-	junoCmd.Flags().Bool(disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage)
+	junoCmd.Flags().Bool(
+		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
+	)
 	setCategory(junoCmd, catHTTPRPC,
 		httpF, httpHostF, httpPortF, corsEnableF,
 		rpcMaxBlockScanF, callMaxStepsF, callMaxGasF,
@@ -444,7 +446,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
 	junoCmd.Flags().String(wsHostF, defaultHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
-	junoCmd.Flags().Bool(disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage)
+	junoCmd.Flags().Bool(
+		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
+	)
 	setCategory(junoCmd, catWebSocket, wsF, wsHostF, wsPortF, disableReceivedTxnStreamF)
 
 	// --- Network & L1 ---
@@ -455,10 +459,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
 
 	// --- Sync & Polling ---
-	junoCmd.Flags().Duration(preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage)
-	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
+	junoCmd.Flags().Duration(
+		preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage,
+	)
+	junoCmd.Flags().Duration(
+		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
+	)
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
-	junoCmd.Flags().Uint(readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage)
+	junoCmd.Flags().Uint(
+		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
+	)
 	setCategory(junoCmd, catSyncPolling,
 		preLatestPollIntervalF, preConfirmedPollIntervalF,
 		remoteDBF, readinessBlockToleranceF,
@@ -502,7 +512,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
-	junoCmd.Flags().String(dbCompactionConcurrencyF, defaultDBCompactionConcurrency, dbCompactionConcurrencyUsage)
+	junoCmd.Flags().String(
+		dbCompactionConcurrencyF, defaultDBCompactionConcurrency, dbCompactionConcurrencyUsage,
+	)
 	junoCmd.Flags().Uint(dbMemtableSizeF, defaultDBMemtableSize, dbMemtableSizeUsage)
 	junoCmd.Flags().Uint(dbMemtableCountF, defaultDBMemtableCount, dbMemtableCountUsage)
 	junoCmd.Flags().String(dbCompressionF, defaultDBCompression, dbCompressionUsage)
@@ -518,13 +530,19 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
 	)
-	setCategory(junoCmd, catTxCache, submittedTransactionsCacheSizeF, submittedTransactionsCacheEntryTTLF)
+	setCategory(junoCmd, catTxCache,
+		submittedTransactionsCacheSizeF, submittedTransactionsCacheEntryTTLF,
+	)
 
 	// --- VM & Compilation ---
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().Uint(maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage)
-	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
+	junoCmd.Flags().Uint(
+		maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage,
+	)
+	junoCmd.Flags().String(
+		versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage,
+	)
 	setCategory(junoCmd, catVMCompile,
 		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF, versionedConstantsFileF,
 	)
@@ -535,9 +553,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
 	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
 	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
-	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
-	junoCmd.Flags().IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
-	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
+	junoCmd.Flags().String(
+		cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage,
+	)
+	junoCmd.Flags().IntSlice(
+		cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange,
+	)
+	junoCmd.MarkFlagsRequiredTogether(
+		cnNameF, cnFeederURLF, cnGatewayURLF,
+		cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF,
+	)
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	setCategory(junoCmd, catCustomNetwork,
 		cnNameF, cnFeederURLF, cnGatewayURLF,
