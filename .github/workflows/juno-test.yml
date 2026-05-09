@@ -20,23 +20,23 @@ jobs:
           # Test
           - os: ubuntu-latest
             stage: Run Tests
-            USE_NEW_STATE: false
+            JUNO_NEW_STATE: false
           - os: macos-latest
             stage: Run Tests
-            USE_NEW_STATE: false
+            JUNO_NEW_STATE: false
           - os: ubuntu-arm64-4-core
             stage: Run Tests
-            USE_NEW_STATE: false
+            JUNO_NEW_STATE: false
           # New state tests
           - os: ubuntu-latest
             stage: Run Tests [New State]
-            USE_NEW_STATE: true
+            JUNO_NEW_STATE: true
           - os: macos-latest
             stage: Run Tests [New State]
-            USE_NEW_STATE: true
+            JUNO_NEW_STATE: true
           - os: ubuntu-arm64-4-core
             stage: Run Tests [New State]
-            USE_NEW_STATE: true
+            JUNO_NEW_STATE: true
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.stage }}
     env:
