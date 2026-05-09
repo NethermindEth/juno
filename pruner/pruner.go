@@ -16,6 +16,7 @@ package pruner
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/core"
@@ -162,6 +163,10 @@ func (p *Pruner) Run(ctx context.Context) error {
 func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
 	l1Head, err := core.GetL1Head(p.database)
 	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			// No L1 head yet — can't anchor the retention floor.
+			return nil
+		}
 		return err
 	}
 
@@ -183,6 +188,10 @@ func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
 func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
 	chainHeight, err := core.GetChainHeight(p.database)
 	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			// No chain height yet — nothing to prune against.
+			return nil
+		}
 		return err
 	}
 

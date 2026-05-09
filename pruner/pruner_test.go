@@ -142,10 +142,10 @@ func (sp *servicePruner) sendL2AndExpectNoOp(t *testing.T, blockNum uint64) {
 }
 
 // TestPruner_L1Path covers the L1 head dispatch handler. The L1 path is
-// gated by two guards (L1 ahead of chainHeight, L1 inside retention
-// window) and only triggers a prune once both pass. All cases are
-// service-driven; the happy path uses the OnPrune barrier, the
-// guard-no-op cases use sendL1AndExpectNoOp's quiet-window check.
+// gated by three guards (chain height missing, L1 ahead of chainHeight,
+// L1 inside retention window) and only triggers a prune once all pass.
+// All cases are service-driven; the happy path uses the OnPrune barrier,
+// the guard-no-op cases use sendL1AndExpectNoOp's quiet-window check.
 func TestPruner_L1Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
@@ -194,14 +194,25 @@ func TestPruner_L1Path(t *testing.T) {
 			testutils.AssertBlockExists(t, database, blocks[i])
 		}
 	})
+
+	t.Run("L1 head with no chain height in DB is a no-op", func(t *testing.T) {
+		// Deliberately omit core.WriteChainHeight: onNewL1Head must
+		// short-circuit on ErrKeyNotFound instead of surfacing it to the
+		// listener (OnPruneErrorCb fails the test on any handler error).
+		database := testutils.NewPebbleTestDB(t)
+
+		sp := startPrunerService(t, database, 10)
+		sp.sendL1AndExpectNoOp(t, 95)
+	})
 }
 
 // TestPruner_L2Path covers the L2 head dispatch handler. The L2 path is
-// gated by three guards (L2 ahead of L1, block too shallow for retention,
-// coalesce threshold not reached) and only triggers a prune once all
-// three pass. All cases are service-driven; the happy path and the
-// coalesce test use the OnPrune barrier on the trigger event, the
-// guard-no-op cases use sendL2AndExpectNoOp's quiet-window check.
+// gated by four guards (L1 head missing, L2 ahead of L1, block too
+// shallow for retention, coalesce threshold not reached) and only
+// triggers a prune once all pass. All cases are service-driven; the
+// happy path and the coalesce test use the OnPrune barrier on the
+// trigger event, the guard-no-op cases use sendL2AndExpectNoOp's
+// quiet-window check.
 func TestPruner_L2Path(t *testing.T) {
 	const totalBlocks uint64 = 100
 
@@ -270,6 +281,20 @@ func TestPruner_L2Path(t *testing.T) {
 			sp.sendL2AndExpectNoOp(t, tc.l2Block)
 		})
 	}
+
+	t.Run("L2 head with no L1 head in DB is a no-op", func(t *testing.T) {
+		// Deliberately omit core.WriteL1Head: onNewBlock must short-circuit
+		// on ErrKeyNotFound instead of surfacing it to the listener
+		// (OnPruneErrorCb fails the test on any handler error).
+		database := testutils.NewPebbleTestDB(t)
+		for i := range totalBlocks {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+
+		sp := startPrunerService(t, database, 10, pruner.WithL2HeadsPerPrune(1))
+		sp.sendL2AndExpectNoOp(t, 90)
+	})
 }
 
 // TestPruner_RetentionChangeAcrossRestart simulates a node restart with a
