@@ -13,14 +13,35 @@ concurrency:
 
 jobs:
   test:
-    name: Run Tests
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
+        include:
+          # Test
+          - os: ubuntu-latest
+            stage: Run Tests
+            USE_NEW_STATE: false
+          - os: macos-latest
+            stage: Run Tests
+            USE_NEW_STATE: false
+          - os: ubuntu-arm64-4-core
+            stage: Run Tests
+            USE_NEW_STATE: false
+          # New state tests
+          - os: ubuntu-latest
+            stage: Run Tests [New State]
+            USE_NEW_STATE: true
+          - os: macos-latest
+            stage: Run Tests [New State]
+            USE_NEW_STATE: true
+          - os: ubuntu-arm64-4-core
+            stage: Run Tests [New State]
+            USE_NEW_STATE: true
     runs-on: ${{ matrix.os }}
+    name: ${{ matrix.stage }}
     env:
       VM_DEBUG: true
+      USE_NEW_STATE: ${{ matrix.USE_NEW_STATE }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Set up go
@@ -28,7 +49,7 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-  
+
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2.8.1
         with:
           key: rust-toolchain-${{ matrix.os }}
