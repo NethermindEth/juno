@@ -57,26 +57,24 @@ func (tvm *ThrottledVM) runExec(
 func (tvm *ThrottledVM) Simulate(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
-	paidFeesOnL1 []*felt.Felt,
 	blockInfo *vm.BlockInfo,
 	state core.StateReader,
 	opts vm.SimulateOptions,
 ) (vm.ExecutionResults, error) {
 	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
-		return inner.Simulate(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+		return inner.Simulate(txns, declaredClasses, blockInfo, state, opts)
 	})
 }
 
 func (tvm *ThrottledVM) EstimateFee(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
-	paidFeesOnL1 []*felt.Felt,
 	blockInfo *vm.BlockInfo,
 	state core.StateReader,
 	opts vm.EstimateFeeOptions,
 ) (vm.ExecutionResults, error) {
 	return tvm.runExec(func(inner vm.VM) (vm.ExecutionResults, error) {
-		return inner.EstimateFee(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+		return inner.EstimateFee(txns, declaredClasses, blockInfo, state, opts)
 	})
 }
 

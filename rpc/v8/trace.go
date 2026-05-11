@@ -217,8 +217,8 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 			}
 			classes = append(classes, class.Class)
 		case *core.L1HandlerTransaction:
-			var fee felt.Felt
-			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
+			// TODO (granza): use real L1 message fee.
+			paidFeesOnL1 = append(paidFeesOnL1, &felt.One)
 		}
 	}
 

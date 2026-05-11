@@ -172,7 +172,6 @@ func traceTransactionsWithState(
 ) ([]TracedBlockTransaction, *vm.InitialReads, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	// Collect declared classes and L1 fees for VM execution
 	declaredClasses, paidFeesOnL1, err := fetchDeclaredClassesAndL1Fees(
 		transactions,
 		classLookupState,
@@ -223,18 +222,12 @@ func traceTransactionsWithState(
 	return traces, executionResult.InitialReads, httpHeader, nil
 }
 
-// fetchDeclaredClassesAndL1Fees collects class declarations and L1 handler fees for VM execution.
-//
-// Parameters:
-//   - transactions: The transactions to process
-//   - state: The state reader used to look up class definitions
-//
-// Returns the list of declared classes, L1 handler fees, and an error if any.
+// fetchDeclaredClassesAndL1Fees collects class declarations and L1Handler placeholder fees.
 func fetchDeclaredClassesAndL1Fees(
 	transactions []core.Transaction, state core.StateReader,
 ) ([]core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
 	var declaredClasses []core.ClassDefinition
-	l1HandlerFees := []*felt.Felt{}
+	paidFeesOnL1 := []*felt.Felt{}
 
 	for _, transaction := range transactions {
 		switch tx := transaction.(type) {
@@ -245,11 +238,12 @@ func fetchDeclaredClassesAndL1Fees(
 			}
 			declaredClasses = append(declaredClasses, class.Class)
 		case *core.L1HandlerTransaction:
-			l1HandlerFees = append(l1HandlerFees, &felt.One)
+			// TODO (granza): use real L1 message fee.
+			paidFeesOnL1 = append(paidFeesOnL1, &felt.One)
 		}
 	}
 
-	return declaredClasses, l1HandlerFees, nil
+	return declaredClasses, paidFeesOnL1, nil
 }
 
 /****************************************************

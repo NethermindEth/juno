@@ -46,25 +46,24 @@ func AdaptBroadcastedTransaction(
 	compiler compiler.Compiler,
 	broadcastedTxn *BroadcastedTransaction,
 	network *networks.Network,
-) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
+) (core.Transaction, core.ClassDefinition, error) {
 	feederTxn := AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
 	txn, err := sn2core.AdaptTransaction(&feederTxn)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	declaredClass, err := handleDeclaredClass(ctx, compiler, broadcastedTxn, txn)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	txnHash, err := core.TransactionHash(txn, network)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
 		t.TransactionHash = &txnHash
@@ -74,16 +73,15 @@ func AdaptBroadcastedTransaction(
 		t.TransactionHash = &txnHash
 	case *core.L1HandlerTransaction:
 		t.TransactionHash = &txnHash
-		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
-		return nil, nil, nil, errors.New("unsupported transaction")
+		return nil, nil, errors.New("unsupported transaction")
 	}
 
 	if txn.Hash() == nil {
-		return nil, nil, nil, errors.New("deprecated transaction type")
+		return nil, nil, errors.New("deprecated transaction type")
 	}
 
-	return txn, declaredClass, paidFeeOnL1, nil
+	return txn, declaredClass, nil
 }
 
 func handleDeclaredClass(
@@ -182,7 +180,7 @@ func (h *Handler) AddTransaction(
 	}
 
 	if h.receivedTransactionFeed != nil {
-		adaptedTxn, _, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
+		adaptedTxn, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
 		if aErr != nil {
 			// Log error but don't fail the transaction submission
 			h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
@@ -198,7 +196,7 @@ func (h *Handler) addToMempool(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
-	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(
+	userTxn, userClass, err := AdaptBroadcastedTransaction(
 		ctx, h.compiler, tx, h.bcReader.Network(),
 	)
 	if err != nil {
@@ -207,7 +205,6 @@ func (h *Handler) addToMempool(
 	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
-		PaidFeeOnL1:   paidFeeOnL1,
 		Proof:         tx.Proof,
 	}); err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())

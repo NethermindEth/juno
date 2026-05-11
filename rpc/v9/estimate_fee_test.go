@@ -41,7 +41,6 @@ func TestEstimateFee(t *testing.T) {
 		mockVM.EXPECT().EstimateFee(
 			[]core.Transaction{},
 			nil,
-			[]*felt.Felt{},
 			&blockInfo,
 			mockState,
 			vm.EstimateFeeOptions{}).
@@ -67,7 +66,6 @@ func TestEstimateFee(t *testing.T) {
 		mockVM.EXPECT().EstimateFee(
 			[]core.Transaction{},
 			nil,
-			[]*felt.Felt{},
 			&blockInfo,
 			mockState,
 			vm.EstimateFeeOptions{
@@ -98,7 +96,6 @@ func TestEstimateFee(t *testing.T) {
 		mockVM.EXPECT().EstimateFee(
 			[]core.Transaction{},
 			nil,
-			[]*felt.Felt{},
 			&blockInfo,
 			mockState,
 			vm.EstimateFeeOptions{

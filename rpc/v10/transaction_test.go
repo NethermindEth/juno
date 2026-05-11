@@ -2010,7 +2010,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			"validation should pass for INVOKE v3 transaction with proof and proof_facts",
 		)
 
-		_, _, _, err = rpcv10.AdaptBroadcastedTransaction(
+		_, _, err = rpcv10.AdaptBroadcastedTransaction(
 			t.Context(),
 			nil,
 			correctBroadcastedTxn,

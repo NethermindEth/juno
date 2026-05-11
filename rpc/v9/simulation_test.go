@@ -62,7 +62,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, vm.SimulateOptions{SkipChargeFee: true}).
 					Return(vm.ExecutionResults{
@@ -85,7 +85,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{
@@ -107,7 +107,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
@@ -129,7 +129,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockState *mocks.MockStateReader,
 			) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
-				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				mockVM.EXPECT().Simulate([]core.Transaction{}, nil, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{

@@ -61,6 +61,7 @@ func (a *starknetProposerAdapter) ProposalTransactions(buildResult *builder.Buil
 				return nil, errors.New("class not found")
 			}
 		case *core.L1HandlerTransaction:
+			// TODO (granza): use real L1 message fee when P2P sequencer ingests L1 events.
 			paidFeeOnL1 = felt.One.Clone()
 		}
 

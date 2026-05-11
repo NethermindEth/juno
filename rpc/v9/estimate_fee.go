@@ -325,9 +325,6 @@ func (h *Handler) EstimateMessageFee(
 			Version:            &felt.Zero, // Needed for transaction hash calculation.
 			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
 		},
-		// Needed to marshal to blockifier type.
-		// Must be greater than zero to successfully execute transaction.
-		PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 	}
 
 	bcTxn := [1]BroadcastedTransaction{tx}
