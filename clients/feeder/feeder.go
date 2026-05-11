@@ -169,7 +169,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {
 				c.logger.Warn("Failed query to feeder, retrying...",
-					zap.String("req", req.URL.String()),
+					zap.String("req", log.SanitizeString(req.URL.String())),
 					zap.String("retryAfter", wait.String()),
 					zap.Error(err),
 					zap.String("newHTTPTimeout", currentTimeout.String()),
@@ -183,7 +183,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				)
 			} else {
 				c.logger.Debug("Failed query to feeder, retrying...",
-					zap.String("req", req.URL.String()),
+					zap.String("req", log.SanitizeString(req.URL.String())),
 					zap.String("retryAfter", wait.String()),
 					zap.Error(err),
 					zap.String("newHTTPTimeout", currentTimeout.String()),
