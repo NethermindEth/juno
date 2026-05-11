@@ -13,7 +13,7 @@ import (
 
 type broadcastResult struct {
 	units []Unit
-	err   error
+	errCh chan<- error
 }
 
 // todo(rdr): using String until I find a better type
@@ -61,7 +61,7 @@ func (unregisterCommittee) isCommand() {}
 type broadcast struct {
 	committeeID CommitteeID
 	msg         []byte
-	errCh       chan error
+	errCh       chan<- error
 }
 
 func (broadcast) isCommand() {}
@@ -217,7 +217,11 @@ func (e *Engine) unregisterCommittee(committeeID *CommitteeID) {
 
 // prepareUnitsForBroadcast creates Proppeller units asynchronously since it is a very expensive
 // operation.
-func (e *Engine) prepareUnitsForBroadcast(committeeID *CommitteeID, data []byte) error {
+func (e *Engine) prepareUnitsForBroadcast(
+	committeeID *CommitteeID,
+	data []byte,
+	errCh chan<- error,
+) error {
 	cs, ok := e.committees[*committeeID]
 	if !ok {
 		return fmt.Errorf("cannot broadcast to an unregistered committee: %s", committeeID)
@@ -236,9 +240,16 @@ func (e *Engine) prepareUnitsForBroadcast(committeeID *CommitteeID, data []byte)
 			scheduler.NumDataShards(),
 			scheduler.NumCodingShards(),
 		)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		// todo(rdr): Why do we send this back to the engine.Run thread instead of processing
+		//           it right here?
 		e.unitsPrepared <- broadcastResult{
 			units: units,
-			err:   err,
+			errCh: errCh,
 		}
 	}(e, cs.scheduler, *committeeID, data)
 
@@ -246,7 +257,7 @@ func (e *Engine) prepareUnitsForBroadcast(committeeID *CommitteeID, data []byte)
 }
 
 // broacast receives Propeller units (built in `prepareBroadcast`) and sends them
-func (e *Engine) broadcast(units []Unit) error {
+func (e *Engine) broadcast(ctx context.Context, units []Unit) error {
 	targetCommittee := units[0].CommitteeID
 
 	cs, ok := e.committees[targetCommittee]
@@ -263,6 +274,7 @@ func (e *Engine) broadcast(units []Unit) error {
 		)
 	}
 
+	broadcastMessage
 	// todo(rdr): I need to do the actual sending
 	// I need to pass to the eventCh all the units that it should receive
 
@@ -299,8 +311,7 @@ func (e *Engine) handleCommand(ctx context.Context, command engineCommand) {
 	case *broadcast:
 		// we might need to pass the error channel here so that the internal go-routine
 		// can forward it correctly (assuming a per command error channel)
-		err := e.prepareUnitsForBroadcast(&cmd.committeeID, cmd.msg)
-		cmd.errCh <- err
+		e.prepareUnitsForBroadcast(&cmd.committeeID, cmd.msg, cmd.errCh)
 	case *processUnit:
 		e.processUnit(ctx, cmd.unit, cmd.sender)
 	}
@@ -321,20 +332,21 @@ func (e *Engine) Run(ctx context.Context) error {
 			e.handleCommand(ctx, cmd)
 
 		case broadcastResult := <-e.unitsPrepared:
-			if broadcastResult.err != nil {
-				e.log.Error("couldn't prepare units", zap.Error(broadcastResult.err))
-				// todo(rdr): send error to service, probably don't log it
-			}
-			err := e.broadcast(broadcastResult.units)
-			if err != nil {
-				// log it?
-				// send error to service?
-			}
+			err := e.broadcast(ctx, broadcastResult.units)
+			broadcastResult.errCh <- err
 		}
 	}
 }
 
-func (e *Engine) Broadcast(msg []byte) {
+func (e *Engine) Broadcast(committeeID *CommitteeID, msg []byte) error {
+	// todo(rdr): check how costly is this? Is there a better way than creating a channel
+	errCh := make(chan error)
+	e.cmdCh <- &broadcast{
+		committeeID: *committeeID,
+		msg:         msg,
+		errCh:       errCh,
+	}
+	return <-errCh
 }
 
 func (e *Engine) RegisterCommittee(

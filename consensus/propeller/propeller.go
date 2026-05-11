@@ -114,7 +114,7 @@ func (s *propellerService) broadcastUnit(ctx context.Context, unit *Unit, peers 
 		err = s.sendToPeer(ctx, p, data)
 		if err != nil {
 			// Why would there be any error
-			// What should we do in this case
+			// Based on the error type, what should we do
 			panic(err)
 		}
 	}
@@ -141,6 +141,8 @@ func (s *propellerService) handleEvent(ctx context.Context, event Event) {
 		s.messageRecv <- event.message
 	case *broadcastUnit:
 		s.broadcastUnit(ctx, event.unit, event.peers)
+	case *broadcastMessage:
+		s.broadcastMessage(ctx, event.unit)
 	}
 }
 
@@ -171,7 +173,11 @@ func (s *propellerService) Run(ctx context.Context) error {
 	}
 }
 
-func (s *propellerService) Broadcast(msg []byte) {
+// todo(rdr): I am not sure of the Propeller <-> Engine separation...
+// TBD how it looks like or if there should be any in the future
+
+func (s *propellerService) Broadcast(committeeID *CommitteeID, msg []byte) error {
+	return s.engine.Broadcast(committeeID, msg)
 }
 
 func (s *propellerService) Recv() <-chan []byte {
