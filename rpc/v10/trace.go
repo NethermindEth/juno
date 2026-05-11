@@ -227,7 +227,7 @@ func fetchDeclaredClassesAndL1Fees(
 	transactions []core.Transaction, state core.StateReader,
 ) ([]core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
 	var declaredClasses []core.ClassDefinition
-	var paidFeesOnL1 []*felt.Felt
+	paidFeesOnL1 := []*felt.Felt{}
 
 	for _, transaction := range transactions {
 		switch tx := transaction.(type) {
