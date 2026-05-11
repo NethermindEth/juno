@@ -713,7 +713,11 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 // Method (inTypes, paramByName, handlerVal); no reflect.TypeOf /
 // NumIn / In is called per request, and per-slot decode is a single
 // jsonx.UnmarshalString — no Marshal→Unmarshal round-trip.
-func (s *Server) buildArguments(ctx context.Context, params json.RawMessage, method *Method) ([]reflect.Value, error) {
+func (s *Server) buildArguments(
+	ctx context.Context,
+	params json.RawMessage,
+	method *Method,
+) ([]reflect.Value, error) {
 	numNonCtx := len(method.inTypes)
 	addContext := 0
 	if method.needsContext {

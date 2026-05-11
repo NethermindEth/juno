@@ -98,7 +98,11 @@ func BenchmarkHandle_HotPath(b *testing.B) {
 				return *n, nil
 			},
 		})
-		runBench(b, s, `{"jsonrpc":"2.0","id":1,"method":"mixed","params":[1,"hello",{"block_number":99}]}`)
+		runBench(
+			b,
+			s,
+			`{"jsonrpc":"2.0","id":1,"method":"mixed","params":[1,"hello",{"block_number":99}]}`,
+		)
 	})
 
 	b.Run("three_named_required", func(b *testing.B) {
@@ -109,7 +113,12 @@ func BenchmarkHandle_HotPath(b *testing.B) {
 				return *n, nil
 			},
 		})
-		runBench(b, s, `{"jsonrpc":"2.0","id":1,"method":"named","params":{"n":1,"s":"hello","block":{"block_number":99}}}`)
+		runBench(
+			b,
+			s,
+			`{"jsonrpc":"2.0","id":1,"method":"named",
+			"params":{"n":1,"s":"hello","block":{"block_number":99}}}`,
+		)
 	})
 
 	b.Run("named_opt_missing", func(b *testing.B) {
@@ -139,7 +148,12 @@ func BenchmarkHandle_HotPath(b *testing.B) {
 				return *n, nil
 			},
 		})
-		runBench(b, s, `{"jsonrpc":"2.0","id":1,"method":"namedopt","params":{"n":1,"s":"hi","block":{"block_number":99}}}`)
+		runBench(
+			b,
+			s,
+			`{"jsonrpc":"2.0","id":1,"method":"namedopt",
+			"params":{"n":1,"s":"hi","block":{"block_number":99}}}`,
+		)
 	})
 
 	b.Run("validator_pass", func(b *testing.B) {
