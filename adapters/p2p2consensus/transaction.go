@@ -50,6 +50,7 @@ func AdaptTransaction(
 		}
 	case *p2pconsensus.ConsensusTransaction_L1Handler:
 		tx = p2p2core.AdaptL1Handler(t.GetL1Handler(), t.TransactionHash)
+		// TODO (granza): use real L1 message fee when P2P sequencer ingests L1 events.
 		paidFeeOnL1 = felt.One.Clone()
 	default:
 		return consensus.Transaction{}, fmt.Errorf("unsupported tx type %T", t.Txn)
