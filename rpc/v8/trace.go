@@ -206,7 +206,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
 	var classes []core.ClassDefinition
-	paidFeesOnL1 := []*felt.Felt{}
+	var paidFeesOnL1 []*felt.Felt
 
 	for _, transaction := range block.Transactions {
 		switch tx := transaction.(type) {
@@ -217,8 +217,8 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 			}
 			classes = append(classes, class.Class)
 		case *core.L1HandlerTransaction:
-			var fee felt.Felt
-			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
+			// TODO (granza): use real L1 message fee.
+			paidFeesOnL1 = append(paidFeesOnL1, &felt.One)
 		}
 	}
 

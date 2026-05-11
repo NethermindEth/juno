@@ -406,7 +406,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
-			[]*felt.Felt{},
+			[]*felt.Felt(nil),
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
 			vm.TraceOptions{}).Return(vm.ExecutionResults{
@@ -478,7 +478,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			nil,
-			[]*felt.Felt{},
+			[]*felt.Felt(nil),
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
 			vm.TraceOptions{},
@@ -567,7 +567,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
-			[]*felt.Felt{},
+			[]*felt.Felt(nil),
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
 			vm.TraceOptions{},
@@ -833,7 +833,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
 			[]core.ClassDefinition{declaredClass.Class},
-			[]*felt.Felt{},
+			[]*felt.Felt(nil),
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
 			vm.TraceOptions{}).Return(vm.ExecutionResults{

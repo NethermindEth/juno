@@ -332,7 +332,6 @@ type AddTxResponse struct {
 type BroadcastedTransaction struct {
 	Transaction
 	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
-	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
 func AdaptBroadcastedTransaction(
@@ -340,12 +339,12 @@ func AdaptBroadcastedTransaction(
 	compiler compiler.Compiler,
 	broadcastedTxn *BroadcastedTransaction,
 	network *networks.Network,
-) (core.Transaction, core.ClassDefinition, *felt.Felt, error) {
+) (core.Transaction, core.ClassDefinition, error) {
 	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
 	txn, err := sn2core.AdaptTransaction(feederTxn)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	var declaredClass core.ClassDefinition
@@ -354,26 +353,25 @@ func AdaptBroadcastedTransaction(
 			ctx, compiler, broadcastedTxn.ContractClass,
 		)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 	} else if broadcastedTxn.Type == TxnDeclare {
-		return nil, nil, nil, errors.New("declare without a class definition")
+		return nil, nil, errors.New("declare without a class definition")
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
 		classHash, err := declaredClass.Hash()
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		t.ClassHash = &classHash
 	}
 
 	txnHash, err := core.TransactionHash(txn, network)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	var paidFeeOnL1 *felt.Felt
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
 		t.TransactionHash = &txnHash
@@ -383,15 +381,14 @@ func AdaptBroadcastedTransaction(
 		t.TransactionHash = &txnHash
 	case *core.L1HandlerTransaction:
 		t.TransactionHash = &txnHash
-		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
 	default:
-		return nil, nil, nil, errors.New("unsupported transaction")
+		return nil, nil, errors.New("unsupported transaction")
 	}
 
 	if txn.Hash() == nil {
-		return nil, nil, nil, errors.New("deprecated transaction type")
+		return nil, nil, errors.New("deprecated transaction type")
 	}
-	return txn, declaredClass, paidFeeOnL1, nil
+	return txn, declaredClass, nil
 }
 
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
@@ -650,7 +647,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 	}
 
 	if h.receivedTransactionFeed != nil {
-		adaptedTxn, _, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
+		adaptedTxn, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
 		if aErr != nil {
 			// Log error but don't fail the transaction submission
 			h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
@@ -663,7 +660,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 }
 
 func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
-	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(
+	userTxn, userClass, err := AdaptBroadcastedTransaction(
 		ctx, h.compiler, tx, h.bcReader.Network(),
 	)
 	if err != nil {
@@ -673,7 +670,6 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
-		PaidFeeOnL1:   paidFeeOnL1,
 	})
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())

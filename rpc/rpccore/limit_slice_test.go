@@ -227,6 +227,5 @@ func randomBroadcastedTransaction(t *testing.T) rpcv9.BroadcastedTransaction {
 			FeeDAMode:             &feeDAMode,
 		},
 		ContractClass: json.RawMessage("[]"),
-		PaidFeeOnL1:   felt.NewRandom[felt.Felt](),
 	}
 }
