@@ -1,12 +1,13 @@
 // Package pruner implements a background service that bounds on-disk storage
 // by deleting block data older than a configurable retention window.
 //
-// The retention floor is always anchored on the latest L1-confirmed head:
-// the pruner keeps blocks in (l1Head - numRetainedBlocks, l2Head] and
-// range-deletes everything below. Anchoring the floor on L1 — never on the
-// local L2 head — guarantees pruned blocks are reorg-safe, since blocks at
-// or below the L1-confirmed height cannot be reorged. The upper bound is
-// the L2 head simply because that is the highest block the node has.
+// The retention floor is anchored on the lower of the L1-confirmed head
+// and the local L2 head: floor = min(l1Head, l2Head) - numRetainedBlocks.
+// In normal operation L1 lags L2, so the floor tracks L1; during catch-up
+// where L2 is behind L1, we conservatively anchor on L2 instead. Either
+// way the floor stays at or below L1, so pruned blocks cannot be reorged.
+// The upper bound is the L2 head simply because that is the highest block
+// the node has.
 //
 // The Pruner runs as a [service.Service]. It listens to two trigger feeds —
 // new L2 heads and new L1 heads — to know when to re-evaluate the floor;
@@ -44,11 +45,12 @@ const defaultL2HeadsPerPrune uint64 = 128
 // Pruner deletes block data older than a retention window in response to
 // new-head events. Construct via [New]; do not zero-value.
 type Pruner struct {
-	// numRetainedBlocks is the size of the retention window. The retention
-	// floor (the lowest block we keep) is l1Head - numRetainedBlocks + 1,
-	// so the pruner keeps blocks in (l1Head - numRetainedBlocks, l2Head]
-	// and deletes everything below. Anchoring the floor on L1 (not on the
-	// local L2 head) guarantees pruned blocks cannot be reorged.
+	// numRetainedBlocks is the number of blocks retained below L1 head.
+	// L1 head is always retained on top, so the floor (lowest block we
+	// keep) is l1Head - numRetainedBlocks and the pruner keeps blocks in
+	// [l1Head - numRetainedBlocks, l2Head]. Anchoring the floor on L1
+	// (not on the local L2 head) guarantees pruned blocks cannot be
+	// reorged.
 	numRetainedBlocks uint64
 	// pendingL2Heads counts how many L2 head events have advanced past the
 	// retention floor since the last actual prune. Only touched from Run's
@@ -101,12 +103,12 @@ func WithL2HeadsPerPrune(n uint64) Option {
 	}
 }
 
-// New constructs a Pruner. retainedBlocks sets the size of the retention
-// window: the floor is anchored on L1, so the pruner keeps blocks in
-// (l1Head - retainedBlocks, l2Head] and deletes everything below.
-// newHeadSub and l1HeadSub are the two trigger feeds (see [Pruner]).
-// Subscriptions are [feed.Subscription.Unsubscribe]'d when [Pruner.Run]
-// returns.
+// New constructs a Pruner. retainedBlocks is the number of blocks
+// retained below L1 head (L1 head itself is always retained), so the
+// pruner keeps blocks in [l1Head - retainedBlocks, l2Head] and deletes
+// everything below. newHeadSub and l1HeadSub are the two trigger feeds
+// (see [Pruner]). Subscriptions are [feed.Subscription.Unsubscribe]'d
+// when [Pruner.Run] returns.
 func New(
 	database db.KeyValueStore,
 	retainedBlocks uint64,
@@ -203,7 +205,7 @@ func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
 	}
 	p.pendingL2Heads = 0
 
-	oldestToKeep := block.Number - p.numRetainedBlocks + 1
+	oldestToKeep := block.Number - p.numRetainedBlocks
 
 	return p.pruneUpto(ctx, oldestToKeep)
 }
@@ -223,7 +225,7 @@ func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
 	}
 	p.pendingL2Heads = 0
 
-	oldestBlockToKeep := l1Head.BlockNumber - p.numRetainedBlocks + 1
+	oldestBlockToKeep := l1Head.BlockNumber - p.numRetainedBlocks
 
 	return p.pruneUpto(ctx, oldestBlockToKeep)
 }
