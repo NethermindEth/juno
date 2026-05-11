@@ -25,16 +25,16 @@ jobs:
   find-smallest-rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Find smallest supported Rust version
         id: rust-version
-        uses: derrix060/detect-rust-minimum-version@v1.1.0
+        uses: derrix060/detect-rust-minimum-version@7758bf709a98d268224549d3e5b2285d23ca9baf # v1.1.0
         with:
           paths: core/rust/,vm/rust/,starknet/compiler/rust/
           locked: "true" # Enforce using Cargo.lock to prevent dependency drift
           min: "1.78.0" # Cargo.lock v4 requires Rust 1.78+
       - name: Send notification on PR
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const msrv = '${{ steps.rust-version.outputs.highest-msrv }}'
