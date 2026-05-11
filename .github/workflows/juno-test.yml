@@ -16,32 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Test
-          - os: ubuntu-latest
-            stage: Run Tests
-            JUNO_NEW_STATE: false
-          - os: macos-latest
-            stage: Run Tests
-            JUNO_NEW_STATE: false
-          - os: ubuntu-arm64-4-core
-            stage: Run Tests
-            JUNO_NEW_STATE: false
-          # New state tests
-          - os: ubuntu-latest
-            stage: Run Tests [New State]
-            JUNO_NEW_STATE: true
-          - os: macos-latest
-            stage: Run Tests [New State]
-            JUNO_NEW_STATE: true
-          - os: ubuntu-arm64-4-core
-            stage: Run Tests [New State]
-            JUNO_NEW_STATE: true
+        os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
+        juno-new-state: [false, true]
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.stage }}
+    name: Run Tests${{ matrix.juno-new-state && ' [New State]' || '' }}
     env:
       VM_DEBUG: true
-      USE_NEW_STATE: ${{ matrix.USE_NEW_STATE }}
+      JUNO_NEW_STATE: ${{ matrix.juno-new-state }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Set up go
@@ -89,3 +70,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           files: coverage/coverage.old.out,coverage/coverage.new.out
+          flags: ${{ matrix.juno-new-state && 'new-state' || 'old-state' }}
