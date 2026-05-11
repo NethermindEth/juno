@@ -47,25 +47,33 @@ func setupChain(
 // historyprunner migrator is a different code path (range-tombstone wipe
 // + scratch-stage + restore) but converges on the same on-disk shape as
 // PruneUpto for the keep window and the carve-outs.
-//
-// Setup: 30 blocks, retainedBlocks=10. With chainHeight=l1Head=29 the
-// migrator picks oldestBlockKept = 29 - 10 + 1 = 20, equivalent to
-// PruneUpto(20) in the pruner tests.
 func TestMigrate_FullRun(t *testing.T) {
 	const totalBlocks uint64 = 30
-	const retainedBlocks uint64 = 10
-	const oldestBlockKept = totalBlocks - retainedBlocks // 20
 	lag := core.BlockHashLag
-	require.GreaterOrEqual(t, oldestBlockKept, lag)
 
-	database, blocks := setupChain(t, totalBlocks)
+	tests := []struct {
+		name            string
+		retainedBlocks  uint64
+		oldestBlockKept uint64
+	}{
+		{name: "standard", retainedBlocks: 10, oldestBlockKept: totalBlocks - 10 - 1},
+		{name: "zero retained", retainedBlocks: 0, oldestBlockKept: totalBlocks - 1},
+	}
 
-	m := historyprunner.New(retainedBlocks)
-	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
-	require.NoError(t, err)
-	require.Nil(t, state, "fully completed migration must not return intermediate state")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.GreaterOrEqual(t, tc.oldestBlockKept, lag)
 
-	testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, lag)
+			database, blocks := setupChain(t, totalBlocks)
+
+			m := historyprunner.New(tc.retainedBlocks)
+			state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+			require.NoError(t, err)
+			require.Nil(t, state, "fully completed migration must not return intermediate state")
+
+			testutils.AssertPostPruneState(t, database, blocks, tc.oldestBlockKept, lag)
+		})
+	}
 }
 
 // TestMigrate_NoOpWhenChainShorterThanRetention covers the early exit when
@@ -163,7 +171,7 @@ func runCancellable(
 func TestMigrate_CancelAndResume(t *testing.T) {
 	const totalBlocks uint64 = 30
 	const retainedBlocks uint64 = 10
-	const oldestBlockKept = totalBlocks - retainedBlocks // 20
+	const oldestBlockKept = totalBlocks - retainedBlocks - 1 // 19
 	lag := core.BlockHashLag
 
 	database, blocks := setupChain(t, totalBlocks)

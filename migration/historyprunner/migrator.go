@@ -50,10 +50,10 @@ type Migrator struct {
 	restorerProgress  uint64
 }
 
-// New constructs a history pruner migrator that retains the most recent
-// retainedBlocks blocks. retainedBlocks == 0 is valid and prunes every
-// block at or below the L1-confirmed head, keeping only the reorg-safe
-// window above it.
+// New constructs a history pruner migrator. retainedBlocks is the number
+// of blocks retained below the L1-confirmed head; the head itself is
+// always retained on top. retainedBlocks == 0 keeps only the L1 head plus
+// the reorg-safe window above it.
 func New(retainedBlocks uint64) *Migrator {
 	return &Migrator{
 		numRetainedBlocks: retainedBlocks,
@@ -112,7 +112,7 @@ func (m *Migrator) Migrate(
 		// Chain shorter than the retention window — nothing to prune yet.
 		return nil, nil
 	}
-	oldestBlockKept := minHead - m.numRetainedBlocks + 1
+	oldestBlockKept := minHead - m.numRetainedBlocks
 
 	start := time.Now()
 	logger.Info("Starting history pruning migration",
