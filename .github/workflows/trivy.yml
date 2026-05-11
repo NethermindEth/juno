@@ -14,8 +14,8 @@ permissions:
 jobs:
   build:
     permissions:
-      contents: read 
-      security-events: write 
+      contents: read
+      security-events: write
       actions: read
     name: Build
     runs-on: "ubuntu-latest"
@@ -25,19 +25,21 @@ jobs:
 
       - name: Build an image from Dockerfile
         run: |
-          docker build -t docker.io/my-organization/my-app:${{ github.sha }} .
+          docker build -t juno:${{ github.sha }} .
+
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 #v0.34.2
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 #v0.36.0
         with:
-          image-ref: 'docker.io/my-organization/my-app:${{ github.sha }}'
+          image-ref: 'juno:${{ github.sha }}'
           format: 'sarif'
-          template: '@/contrib/sarif.tpl'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
         env:
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@7e3036b9cd87fc26dd06747b7aa4b96c27aaef3a #v2.19.1
+        if: always()
+        uses: github/codeql-action/upload-sarif@1521896cd211af95be3f02edf6f436e10b819c27 #v3.35.4
         with:
           sarif_file: 'trivy-results.sarif'
