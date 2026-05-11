@@ -177,11 +177,17 @@ func (h *Handler) prepareTransactions(
 		// it might be a good idea to implement a custom validator and unmarshal handler
 		// to solve this problem in a more elegant way
 		if checkTxHasSenderAddress(&transactions[idx]) {
-			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
+			return nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			)
 		}
 
 		if checkTxHasResourceBounds(&transactions[idx]) {
-			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
+			return nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			)
 		}
 
 		txn, declaredClass, aErr := AdaptBroadcastedTransaction(
