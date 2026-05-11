@@ -45,12 +45,11 @@ const defaultL2HeadsPerPrune uint64 = 128
 // Pruner deletes block data older than a retention window in response to
 // new-head events. Construct via [New]; do not zero-value.
 type Pruner struct {
-	// numRetainedBlocks is the number of blocks retained below L1 head.
-	// L1 head is always retained on top, so the floor (lowest block we
-	// keep) is l1Head - numRetainedBlocks and the pruner keeps blocks in
-	// [l1Head - numRetainedBlocks, l2Head]. Anchoring the floor on L1
-	// (not on the local L2 head) guarantees pruned blocks cannot be
-	// reorged.
+	// numRetainedBlocks is the number of blocks retained below the
+	// retention pivot (= min(l1Head, l2Head); see package doc). The floor
+	// (lowest block we keep) is pivot - numRetainedBlocks and the pruner
+	// keeps blocks in [pivot - numRetainedBlocks, l2Head]. The pivot
+	// stays at or below L1, so pruned blocks cannot be reorged.
 	numRetainedBlocks uint64
 	// pendingL2Heads counts how many L2 head events have advanced past the
 	// retention floor since the last actual prune. Only touched from Run's
@@ -63,13 +62,13 @@ type Pruner struct {
 	// before triggering a prune. See [defaultL2HeadsPerPrune].
 	l2HeadsPerPrune uint64
 	database        db.KeyValueStore
-	// newHeadSub fires on each new L2 head; the event acts only as a
-	// trigger to re-run the retention check. The retention floor itself is
-	// always recomputed from the L1 head, never from this event's block.
+	// newHeadSub fires on each new L2 head. During catch-up (L2 < L1) it
+	// drives the floor from this event's block number; otherwise the L1
+	// path drives the floor and this event acts only as a trigger.
 	newHeadSub *feed.Subscription[*core.Block]
-	// l1HeadSub fires on each new L1 head. L1 advances are what actually
-	// move the retention floor, since the floor is always anchored on the
-	// latest L1-confirmed height.
+	// l1HeadSub fires on each new L1 head. In normal operation (L1 < L2)
+	// L1 advances move the retention floor; during catch-up this path
+	// short-circuits and the L2 path drives the floor instead.
 	l1HeadSub *feed.Subscription[*core.L1Head]
 	listener  EventListener
 	logger    log.StructuredLogger
@@ -104,11 +103,12 @@ func WithL2HeadsPerPrune(n uint64) Option {
 }
 
 // New constructs a Pruner. retainedBlocks is the number of blocks
-// retained below L1 head (L1 head itself is always retained), so the
-// pruner keeps blocks in [l1Head - retainedBlocks, l2Head] and deletes
-// everything below. newHeadSub and l1HeadSub are the two trigger feeds
-// (see [Pruner]). Subscriptions are [feed.Subscription.Unsubscribe]'d
-// when [Pruner.Run] returns.
+// retained below the retention pivot (= min(l1Head, l2Head); the pivot
+// itself is always retained), so the pruner keeps blocks in
+// [pivot - retainedBlocks, l2Head] and deletes everything below.
+// newHeadSub and l1HeadSub are the two trigger feeds (see [Pruner]).
+// Subscriptions are [feed.Subscription.Unsubscribe]'d when [Pruner.Run]
+// returns.
 func New(
 	database db.KeyValueStore,
 	retainedBlocks uint64,
