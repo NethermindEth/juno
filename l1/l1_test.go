@@ -281,6 +281,54 @@ func TestEventListenerCatchUp(t *testing.T) {
 	require.Equal(t, *want, persisted)
 }
 
+// TestCatchUpL1Head is the regression for the history-pruning migration
+// bootstrap (node/migration.go). The migration crashes with a bare "key
+// not found" if it runs before any L1 head is on disk; the fix calls
+// Client.CatchUpL1Head in node/migration.go to write one up front. This
+// test pins the contract that CatchUpL1Head used by that path actually
+// persists the head — if a future change drops the setL1Head call inside
+// catchUpL1HeadUpdates, or short-circuits Client.CatchUpL1Head before it
+// reaches catch-up, chain.L1Head() below fails and the bug returns.
+func TestCatchUpL1Head(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	nopLog := log.NewNopZapLogger()
+	network := networks.Mainnet
+	chain := blockchain.New(
+		memory.New(),
+		&network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	subscriber := mocks.NewMockSubscriber(ctrl)
+	subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).AnyTimes()
+	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).AnyTimes()
+	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
+	subscriber.
+		EXPECT().
+		FilterLogStateUpdate(gomock.Any(), uint64(0), uint64(10)).
+		Return([]*contract.StarknetLogStateUpdate{{
+			BlockNumber: new(big.Int).SetUint64(7),
+			BlockHash:   new(big.Int).SetUint64(7),
+			GlobalRoot:  new(big.Int).SetUint64(7),
+			Raw:         types.Log{BlockNumber: 3},
+		}}, nil).
+		AnyTimes()
+	subscriber.EXPECT().Close().AnyTimes()
+
+	client := l1.NewClient(subscriber, chain, nopLog)
+	require.NoError(t, client.CatchUpL1Head(t.Context()))
+
+	persisted, err := chain.L1Head()
+	require.NoError(t, err)
+	require.Equal(t, core.L1Head{
+		BlockNumber: 7,
+		BlockHash:   new(felt.Felt).SetUint64(7),
+		StateRoot:   new(felt.Felt).SetUint64(7),
+	}, persisted)
+}
+
 func newTestL1Client(service service) *rpc.Server {
 	server := rpc.NewServer()
 	if err := server.RegisterName("eth", service); err != nil {
