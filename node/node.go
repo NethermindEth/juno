@@ -175,7 +175,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	// L1 verification makes pruning unsafe — reject the combination up front
 	// instead of crashing later when the migration cannot find an L1 head.
 	if cfg.Prune && cfg.DisableL1Verification {
-		return nil, errors.New("--prune-mode requires L1 verification; remove --disable-l1-verification or disable --prune-mode")
+		return nil, errors.New("--prune-mode requires L1 verification; " +
+			"remove --disable-l1-verification or disable --prune-mode")
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""

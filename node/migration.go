@@ -122,7 +122,8 @@ func bootstrapL1HeadIfMissing(
 
 	if _, err := core.GetL1Head(database); err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return errors.New("catch-up completed without a finalised LogStateUpdate; retry once L1 has a finalised Starknet state update")
+			return errors.New("catch-up completed without a finalised LogStateUpdate; " +
+				"retry once L1 has a finalised Starknet state update")
 		}
 		return err
 	}
