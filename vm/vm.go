@@ -98,7 +98,6 @@ type VM interface {
 	Simulate(
 		txns []core.Transaction,
 		declaredClasses []core.ClassDefinition,
-		paidFeesOnL1 []*felt.Felt,
 		blockInfo *BlockInfo,
 		state core.StateReader,
 		opts SimulateOptions,
@@ -106,7 +105,6 @@ type VM interface {
 	EstimateFee(
 		txns []core.Transaction,
 		declaredClasses []core.ClassDefinition,
-		paidFeesOnL1 []*felt.Felt,
 		blockInfo *BlockInfo,
 		state core.StateReader,
 		opts EstimateFeeOptions,
@@ -539,17 +537,27 @@ func (v *vm) execute(
 	return parseExecutionResults(inputs.context)
 }
 
+// Returns one felt.One per L1Handler in txns.
+func l1HandlerFees(txns []core.Transaction) []*felt.Felt {
+	var fees []*felt.Felt
+	for _, txn := range txns {
+		if _, ok := txn.(*core.L1HandlerTransaction); ok {
+			fees = append(fees, &felt.One)
+		}
+	}
+	return fees
+}
+
 // Simulate runs the txn set under RPC simulate semantics.
 func (v *vm) Simulate(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
-	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
 	state core.StateReader,
 	opts SimulateOptions,
 ) (ExecutionResults, error) {
 	return v.execute(
-		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		txns, declaredClasses, l1HandlerFees(txns), blockInfo, state,
 		executeOptions{
 			SkipChargeFee:      opts.SkipChargeFee,
 			SkipValidate:       opts.SkipValidate,
@@ -566,13 +574,12 @@ func (v *vm) Simulate(
 func (v *vm) EstimateFee(
 	txns []core.Transaction,
 	declaredClasses []core.ClassDefinition,
-	paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo,
 	state core.StateReader,
 	opts EstimateFeeOptions,
 ) (ExecutionResults, error) {
 	return v.execute(
-		txns, declaredClasses, paidFeesOnL1, blockInfo, state,
+		txns, declaredClasses, l1HandlerFees(txns), blockInfo, state,
 		executeOptions{
 			SkipChargeFee:      true,
 			SkipValidate:       opts.SkipValidate,

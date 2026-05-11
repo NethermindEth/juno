@@ -73,33 +73,33 @@ func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, maxSteps, maxGas,
 }
 
 // EstimateFee mocks base method.
-func (m *MockVM) EstimateFee(txns []core.Transaction, declaredClasses []core.ClassDefinition, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, opts vm.EstimateFeeOptions) (vm.ExecutionResults, error) {
+func (m *MockVM) EstimateFee(txns []core.Transaction, declaredClasses []core.ClassDefinition, blockInfo *vm.BlockInfo, state core.StateReader, opts vm.EstimateFeeOptions) (vm.ExecutionResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EstimateFee", txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	ret := m.ctrl.Call(m, "EstimateFee", txns, declaredClasses, blockInfo, state, opts)
 	ret0, _ := ret[0].(vm.ExecutionResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EstimateFee indicates an expected call of EstimateFee.
-func (mr *MockVMMockRecorder) EstimateFee(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts any) *gomock.Call {
+func (mr *MockVMMockRecorder) EstimateFee(txns, declaredClasses, blockInfo, state, opts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateFee", reflect.TypeOf((*MockVM)(nil).EstimateFee), txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateFee", reflect.TypeOf((*MockVM)(nil).EstimateFee), txns, declaredClasses, blockInfo, state, opts)
 }
 
 // Simulate mocks base method.
-func (m *MockVM) Simulate(txns []core.Transaction, declaredClasses []core.ClassDefinition, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, opts vm.SimulateOptions) (vm.ExecutionResults, error) {
+func (m *MockVM) Simulate(txns []core.Transaction, declaredClasses []core.ClassDefinition, blockInfo *vm.BlockInfo, state core.StateReader, opts vm.SimulateOptions) (vm.ExecutionResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Simulate", txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	ret := m.ctrl.Call(m, "Simulate", txns, declaredClasses, blockInfo, state, opts)
 	ret0, _ := ret[0].(vm.ExecutionResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Simulate indicates an expected call of Simulate.
-func (mr *MockVMMockRecorder) Simulate(txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts any) *gomock.Call {
+func (mr *MockVMMockRecorder) Simulate(txns, declaredClasses, blockInfo, state, opts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Simulate", reflect.TypeOf((*MockVM)(nil).Simulate), txns, declaredClasses, paidFeesOnL1, blockInfo, state, opts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Simulate", reflect.TypeOf((*MockVM)(nil).Simulate), txns, declaredClasses, blockInfo, state, opts)
 }
 
 // Trace mocks base method.
