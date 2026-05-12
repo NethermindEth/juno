@@ -253,17 +253,18 @@ const (
 	pruneModeUsage                 = "Enables block-data and state-history pruning. Pruning is " +
 		"disabled by default; passing this flag (with or without a value) turns " +
 		"it on. The value is the size of the retention window in blocks, counted " +
-		"back from the latest L1-verified head:\n" +
-		"  --prune-mode      same as --prune-mode=0; prune up to the L1 head\n" +
-		"  --prune-mode=N    keep blocks in (l1_head - N, l2_head], prune below\n" +
-		"Blocks at or above the L2 head are always kept. The floor is anchored on " +
-		"the L1-verified head — never on the local L2 head — so pruned blocks are " +
-		"reorg-safe. RPC remains fully functional for any block inside the " +
-		"retention window; requests targeting blocks below the floor fail because " +
-		"their data has been deleted. Pruning is irreversible: data deleted under " +
-		"a small window cannot be recovered without re-syncing. Changing this " +
-		"value across restarts is safe: the window grows or shrinks accordingly. " +
-		"Growth is gradual — pruning pauses until the L1 head advances enough to " +
+		"back from the retention pivot (the lower of the L1-verified head and " +
+		"the local L2 head):\n" +
+		"  --prune-mode      same as --prune-mode=0; prune up to the pivot\n" +
+		"  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\n" +
+		"Blocks at or above the L2 head are always kept. The pivot is at or " +
+		"below the L1-verified head, so pruned blocks are reorg-safe. RPC " +
+		"remains fully functional for any block inside the retention window; " +
+		"requests targeting blocks below the floor fail because their data has " +
+		"been deleted. Pruning is irreversible: data deleted under a small " +
+		"window cannot be recovered without re-syncing. Changing this value " +
+		"across restarts is safe: the window grows or shrinks accordingly. " +
+		"Growth is gradual — pruning pauses until the pivot advances enough to " +
 		"reach the new floor."
 	disableReceivedTxnStreamUsage = "The starknet_subscribeNewTransactions WebSocket API " +
 		"allows users to subscribe to new transactions. By default, it streams " +
