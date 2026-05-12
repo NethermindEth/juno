@@ -139,9 +139,28 @@ function parseValue(value) {
     return "[]";
   }
 
-  // Handle time duration represented in seconds
-  if (value.includes("* time.Second")) {
-    return value.split(" ")[0];
+  // Handle time.Duration expressions. Supports both bare `time.Unit`
+  // (e.g. `time.Second` → `1s`) and `N * time.Unit` (e.g.
+  // `500 * time.Millisecond` → `500ms`).
+  const timeUnitSuffix = {
+    Nanosecond: "ns",
+    Microsecond: "us",
+    Millisecond: "ms",
+    Second: "s",
+    Minute: "m",
+    Hour: "h",
+  };
+  const bareTime = value.match(
+    /^time\.(Nanosecond|Microsecond|Millisecond|Second|Minute|Hour)$/,
+  );
+  if (bareTime) {
+    return `1${timeUnitSuffix[bareTime[1]]}`;
+  }
+  const multipliedTime = value.match(
+    /^(\d+)\s*\*\s*time\.(Nanosecond|Microsecond|Millisecond|Second|Minute|Hour)$/,
+  );
+  if (multipliedTime) {
+    return `${multipliedTime[1]}${timeUnitSuffix[multipliedTime[2]]}`;
   }
 
   // Handle large unsigned integer value
@@ -162,6 +181,23 @@ function parseValue(value) {
   // Network type
   if (value === "networks.Mainnet") {
     return "mainnet";
+  }
+
+  // Prune-mode flag name lives in another package as a string constant.
+  if (value === "node.PruneModeFlag") {
+    return "prune-mode";
+  }
+
+  // VM default limits live in the `vm` package; hard-code their numeric
+  // values so the rendered table shows the resolved default rather than
+  // the raw Go identifier.
+  if (value === "vm.DefaultMaxSteps") return 4_000_000;
+  if (value === "vm.DefaultMaxGas") return 100_000_000;
+
+  // Strip uint64(...) / uint(...) type casts so e.g. `uint64(0)` becomes `0`.
+  const uintCast = value.match(/^uint(?:8|16|32|64)?\((.+)\)$/);
+  if (uintCast) {
+    return parseValue(uintCast[1]);
   }
 
   // Remove quotes from a string
