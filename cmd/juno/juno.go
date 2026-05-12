@@ -496,16 +496,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 	setCategory(junoCmd, catLogsHTTPUpdate, httpUpdateHostF, httpUpdatePortF)
 
-	// --- Metrics & Profiling ---
+	// --- Metrics ---
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaultHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
-	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
-	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
-	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
-	setCategory(junoCmd, catObservability,
+	setCategory(junoCmd, catMetrics,
 		metricsF, metricsHostF, metricsPortF,
-		pprofF, pprofHostF, pprofPortF,
 	)
 
 	// --- Database ---
@@ -567,6 +563,14 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	setCategory(junoCmd, catCustomNetwork,
 		cnNameF, cnFeederURLF, cnGatewayURLF,
 		cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF,
+	)
+
+	// --- Profiling ---
+	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
+	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
+	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
+	setCategory(junoCmd, catProfiling,
+		pprofF, pprofHostF, pprofPortF,
 	)
 
 	// --- P2P (experimental) ---

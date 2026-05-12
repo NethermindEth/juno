@@ -9,10 +9,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// flagCategoryAnnotation is the pflag annotation key used to tag a flag with a
+// FlagCategoryAnnotation is the pflag annotation key used to tag a flag with a
 // display category. The grouped usage func partitions flags by this annotation
 // when rendering --help.
-const flagCategoryAnnotation = "juno_category"
+const FlagCategoryAnnotation = "juno_category"
 
 const (
 	catHTTPRPC        = "HTTP RPC"
@@ -23,11 +23,12 @@ const (
 	catPruning        = "Pruning"
 	catLogging        = "Logging"
 	catLogsHTTPUpdate = "Logs HTTP Update Endpoint"
-	catObservability  = "Metrics & Profiling"
+	catMetrics        = "Metrics"
 	catDatabase       = "Database"
 	catTxCache        = "Transaction Cache"
 	catVMCompile      = "VM & Compilation"
 	catCustomNetwork  = "Custom Network"
+	catProfiling      = "Profiling"
 	catP2P            = "P2P (experimental)"
 	catSequencer      = "Sequencer"
 	catGRPC           = "gRPC"
@@ -35,11 +36,36 @@ const (
 	catOther          = "Other"
 )
 
+// FlagCategories returns all the categories flags can be grouped in, sorted based on Juno's today
+// more important flags.
+func FlagCategories() [18]string {
+	return [18]string{
+		catHTTPRPC,
+		catWebSocket,
+		catNetwork,
+		catSyncPolling,
+		catGateway,
+		catPruning,
+		catLogging,
+		catLogsHTTPUpdate,
+		catMetrics,
+		catDatabase,
+		catTxCache,
+		catVMCompile,
+		catCustomNetwork,
+		catProfiling,
+		catP2P,
+		catSequencer,
+		catGRPC,
+		catMisc,
+	}
+}
+
 // setCategory tags every named flag on cmd with the given display category.
 // It panics if a flag is not registered, surfacing wiring mistakes at startup.
 func setCategory(cmd *cobra.Command, category string, flagNames ...string) {
 	for _, name := range flagNames {
-		err := cmd.Flags().SetAnnotation(name, flagCategoryAnnotation, []string{category})
+		err := cmd.Flags().SetAnnotation(name, FlagCategoryAnnotation, []string{category})
 		if err != nil {
 			panic(fmt.Errorf("setCategory %q on %q: %w", category, name, err))
 		}
@@ -97,26 +123,7 @@ func writeFlagsSection(b *strings.Builder, cmd *cobra.Command) {
 
 	// orderedCategories controls render order. catOther is appended after these if
 	// non-empty, so a forgotten annotation is visible rather than silently dropped.
-	orderedCategories := []string{
-		catHTTPRPC,
-		catWebSocket,
-		catNetwork,
-		catSyncPolling,
-		catGateway,
-		catPruning,
-		catLogging,
-		catLogsHTTPUpdate,
-		catObservability,
-		catDatabase,
-		catTxCache,
-		catVMCompile,
-		catCustomNetwork,
-		catP2P,
-		catSequencer,
-		catGRPC,
-		catMisc,
-	}
-
+	orderedCategories := FlagCategories()
 	buckets := bucketFlags(cmd.LocalFlags())
 	for _, cat := range orderedCategories {
 		writeFlagSection(b, cat, buckets[cat])
@@ -181,7 +188,7 @@ func hasCategorisedFlags(fs *pflag.FlagSet) bool {
 		if found {
 			return
 		}
-		if vals, ok := f.Annotations[flagCategoryAnnotation]; ok && len(vals) > 0 {
+		if vals, ok := f.Annotations[FlagCategoryAnnotation]; ok && len(vals) > 0 {
 			found = true
 		}
 	})
@@ -199,7 +206,7 @@ func bucketFlags(fs *pflag.FlagSet) map[string][]*pflag.Flag {
 			return
 		}
 		cat := catOther
-		if vals, ok := f.Annotations[flagCategoryAnnotation]; ok && len(vals) > 0 {
+		if vals, ok := f.Annotations[FlagCategoryAnnotation]; ok && len(vals) > 0 {
 			cat = vals[0]
 		} else if f.Name == "help" {
 			cat = catMisc
