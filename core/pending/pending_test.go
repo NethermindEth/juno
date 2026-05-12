@@ -498,7 +498,7 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 					response, err := adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
 					require.NoError(t, err)
 					require.NotNil(t, response.FullBlock)
-					preConfirmed := *response.FullBlock
+					preConfirmed := response.FullBlock
 
 					new := preConfirmed.ApplyDelta(
 						deltaCase.update.AppendTransactions,
@@ -508,23 +508,16 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 						response.BlockIdentifier,
 					)
 
-					// helper function to get a brand new preConfirmed from the feeder
-					// to make sure we are not modifying the original preConfirmed
-					originalPreConfirmed := func() *pending.PreConfirmed {
-						response, err := adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
-						require.NoError(t, err)
-						require.NotNil(t, response.FullBlock)
-						return response.FullBlock
-					}
+					// get again a brand new preConfirmed from the feeder to use in the assertions
+					response, err = adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
+					require.NoError(t, err)
+					require.NotNil(t, response.FullBlock)
+					originalPreConfirmed := response.FullBlock
 
-					t.Run("check transactions", func(t *testing.T) {
-						original := originalPreConfirmed()
+					t.Run("assert changes related to transactions delta", func(t *testing.T) {
+						original := *originalPreConfirmed
 						txsLength := len(deltaCase.update.AppendTransactions)
 
-						assert.Equal(t,
-							len(original.Block.Transactions)+txsLength,
-							len(new.Block.Transactions),
-						)
 						assert.Equal(t,
 							original.Block.Transactions,
 							new.Block.Transactions[:len(new.Block.Transactions)-txsLength],
@@ -541,6 +534,74 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 							)
 						}
 					})
+
+					t.Run("assert changes related to receipts delta", func(t *testing.T) {
+						original := *originalPreConfirmed
+						receiptsLength := len(deltaCase.update.AppendReceipts)
+
+						assert.Equal(t,
+							original.Block.Receipts,
+							new.Block.Receipts[:len(new.Block.Receipts)-receiptsLength],
+						)
+
+						if len(deltaCase.update.AppendReceipts) > 0 {
+							assert.Equal(t,
+								deltaCase.update.AppendReceipts,
+								new.Block.Receipts[len(original.Block.Receipts):],
+							)
+						}
+
+						var eventCount uint64
+						for _, r := range deltaCase.update.AppendReceipts {
+							eventCount += uint64(len(r.Events))
+						}
+						assert.Equal(t,
+							original.Block.EventCount+eventCount,
+							new.Block.EventCount,
+						)
+
+						if eventCount > 0 {
+							deltaAndOriginalBloom := core.EventsBloom(deltaCase.update.AppendReceipts)
+							require.NoError(t, deltaAndOriginalBloom.Merge(original.Block.Header.EventsBloom))
+							assert.True(t, deltaAndOriginalBloom.Equal(new.Block.Header.EventsBloom))
+							return
+						}
+						assert.True(t, original.Block.Header.EventsBloom.Equal(new.Block.Header.EventsBloom))
+					})
+
+					t.Run("assert changes related to state diff delta", func(t *testing.T) {
+						original := *originalPreConfirmed
+						originalDiff := original.StateUpdate.StateDiff
+						deltaDiffs := deltaCase.update.AppendStateDiffs
+
+						assert.Equal(t,
+							original.TransactionStateDiffs,
+							new.TransactionStateDiffs[:len(new.TransactionStateDiffs)-len(deltaDiffs)],
+						)
+
+						if len(deltaDiffs) > 0 {
+							assert.Equal(t,
+								deltaDiffs,
+								new.TransactionStateDiffs[len(original.TransactionStateDiffs):],
+							)
+						}
+
+						deltaAndOriginalDiff := core.EmptyStateDiff()
+						deltaAndOriginalDiff.Merge(originalDiff)
+						for _, sd := range deltaDiffs {
+							deltaAndOriginalDiff.Merge(sd)
+						}
+						assert.Equal(t,
+							deltaAndOriginalDiff.Hash(),
+							new.StateUpdate.StateDiff.Hash(),
+						)
+
+						assert.Equal(t, original.StateUpdate.BlockHash, new.StateUpdate.BlockHash)
+						assert.Equal(t, original.StateUpdate.NewRoot, new.StateUpdate.NewRoot)
+						assert.Equal(t, original.StateUpdate.OldRoot, new.StateUpdate.OldRoot)
+					})
+
+					assert.Equal(t, originalPreConfirmed, preConfirmed)
 				})
 			}
 		})
