@@ -138,24 +138,47 @@ func New(
 // Run drives the prune loop until ctx is cancelled. It dispatches each new
 // L2 or L1 head event to the corresponding handler. Errors from a handler
 // are logged but do not stop the loop — errors returned from service terminates the node.
+// After some time without L1 heads received, warnings are logged periodically. With no L1
+// heads the pruner cannot work.
 func (p *Pruner) Run(ctx context.Context) error {
 	defer p.newHeadSub.Unsubscribe()
 	defer p.l1HeadSub.Unsubscribe()
+
+	const defaultStalenessTick = 24 * time.Hour
+	const periodicStalenessTick = 1 * time.Hour
+	staleTicker := time.NewTicker(defaultStalenessTick)
+	defer staleTicker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+
 		case block := <-p.newHeadSub.Recv():
 			if err := p.onNewBlock(ctx, block); err != nil {
 				p.listener.OnPruneError(err)
-				p.logger.Error("Pruner.Run.onNewBlock", zap.Error(err))
+				p.logger.Error("on new L2 block",
+					zap.Uint64("num", block.Number),
+					zap.Error(err),
+				)
 			}
+
 		case l1Head := <-p.l1HeadSub.Recv():
 			if err := p.onNewL1Head(ctx, l1Head); err != nil {
 				p.listener.OnPruneError(err)
-				p.logger.Error("Pruner.Run.onNewL1Head", zap.Error(err))
+				p.logger.Error("on new L1 Head",
+					zap.Uint64("num", l1Head.BlockNumber),
+					zap.Error(err),
+				)
 			}
+			staleTicker.Reset(defaultStalenessTick)
+
+		case <-staleTicker.C:
+			p.listener.OnL1Stale()
+			p.logger.Warn("no L1 head received in more than 24 hours. " +
+				"Pruning is paused and disk usage will slowly grow until L1 head delivery resumes",
+			)
+			staleTicker.Reset(periodicStalenessTick)
 		}
 	}
 }
