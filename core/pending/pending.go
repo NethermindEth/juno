@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var (
@@ -95,8 +96,8 @@ type PreConfirmedUpdate struct {
 	Mode            PreConfirmedUpdateMode
 	BlockIdentifier string
 
-	// Full is set when Mode == PreConfirmedFull.
-	Full *PreConfirmed
+	// FullBlock is set when Mode == PreConfirmedFull.
+	FullBlock *PreConfirmed
 
 	// Append* are set when Mode == PreConfirmedDelta.
 	AppendTransactions []core.Transaction
@@ -132,6 +133,60 @@ func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
 func (p *PreConfirmed) Copy() *PreConfirmed {
 	cp := *p // shallow copy of the struct
 	return &cp
+}
+
+// ApplyDelta returns a new PreConfirmed by appending the given transactions,
+// receipts, and candidate transactions, and merging the state diffs onto the
+// existing PreConfirmed. It does not modify the receiver.
+func (p *PreConfirmed) ApplyDelta(
+	txs []core.Transaction,
+	receipts []*core.TransactionReceipt,
+	txStateDiffs []*core.StateDiff,
+	candidateTxs []core.Transaction,
+	blockIdentifier string,
+) *PreConfirmed {
+	next := *p
+	next.BlockIdentifier = blockIdentifier
+
+	nextBlock := *p.Block
+	nextHeader := *p.Block.Header
+
+	newBloomFilter := core.EventsBloom(receipts)
+	if err := newBloomFilter.Merge(p.Block.Header.EventsBloom); err != nil {
+		panic(err) // should never happen since both filters are from the same type
+	}
+	nextHeader.EventsBloom = newBloomFilter
+
+	var eventCount uint64
+	for _, r := range receipts {
+		eventCount += uint64(len(r.Events))
+	}
+	nextHeader.EventCount += eventCount
+
+	nextHeader.TransactionCount += uint64(len(txs))
+	nextBlock.Header = &nextHeader
+	nextBlock.Transactions = utils.Concat(p.Block.Transactions, txs)
+	nextBlock.Receipts = utils.Concat(p.Block.Receipts, receipts)
+
+	next.Block = &nextBlock
+
+	newStateDiff := core.EmptyStateDiff()
+	newStateDiff.Merge(p.StateUpdate.StateDiff)
+	for _, sd := range txStateDiffs {
+		newStateDiff.Merge(sd)
+	}
+	nextStateUpdate := core.StateUpdate{
+		BlockHash: p.StateUpdate.BlockHash,
+		NewRoot:   p.StateUpdate.NewRoot,
+		OldRoot:   p.StateUpdate.OldRoot,
+		StateDiff: &newStateDiff,
+	}
+	next.TransactionStateDiffs = utils.Concat(p.TransactionStateDiffs, txStateDiffs)
+	next.StateUpdate = &nextStateUpdate
+
+	next.CandidateTxs = utils.Concat(p.CandidateTxs, candidateTxs)
+
+	return &next
 }
 
 func (p *PreConfirmed) GetBlock() *core.Block {
