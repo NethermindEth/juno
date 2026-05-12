@@ -621,7 +621,7 @@ func AdaptPreConfirmedDelta(
 ) (
 	txns []core.Transaction,
 	receipts []*core.TransactionReceipt,
-	stateDiffs []*core.StateDiff,
+	txStateDiffs []*core.StateDiff,
 	candidateTxs []core.Transaction,
 	err error,
 ) {
@@ -646,7 +646,7 @@ func AdaptPreConfirmedDelta(
 
 	txns = make([]core.Transaction, preConfirmedTxCount)
 	receipts = make([]*core.TransactionReceipt, preConfirmedTxCount)
-	stateDiffs = make([]*core.StateDiff, preConfirmedTxCount)
+	txStateDiffs = make([]*core.StateDiff, preConfirmedTxCount)
 	candidateTxs = make([]core.Transaction, candidateCount)
 
 	preIdx := 0
@@ -670,7 +670,7 @@ func AdaptPreConfirmedDelta(
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
-		stateDiffs[preIdx] = &stateDiff
+		txStateDiffs[preIdx] = &stateDiff
 		receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
 		preIdx++
 	}

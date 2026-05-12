@@ -364,6 +364,6 @@ func TestPreConfirmedBlock(t *testing.T) {
 
 	update, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber, "", 0)
 	require.NoError(t, err)
-	require.NotNil(t, update.Full)
-	assert.Equal(t, adaptedPreConfirmed, *update.Full)
+	require.NotNil(t, update.FullBlock)
+	assert.Equal(t, adaptedPreConfirmed, *update.FullBlock)
 }

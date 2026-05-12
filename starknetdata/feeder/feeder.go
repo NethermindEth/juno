@@ -237,7 +237,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 		return pending.PreConfirmedUpdate{
 			Mode:            pending.PreConfirmedFull,
 			BlockIdentifier: response.KnownBlockIdentifier,
-			Full:            &full,
+			FullBlock:       &full,
 		}, nil
 	}
 

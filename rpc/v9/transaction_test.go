@@ -1800,8 +1800,8 @@ func TestTransactionStatus(t *testing.T) {
 			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 			require.NoError(t, gwErr)
 			require.Equal(t, pending.PreConfirmedFull, update.Mode)
-			require.NotNil(t, update.Full)
-			preConfirmed := *update.Full
+			require.NotNil(t, update.FullBlock)
+			preConfirmed := *update.FullBlock
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
