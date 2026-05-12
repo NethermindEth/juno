@@ -471,28 +471,14 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 		},
 	}
 
-	type deltaCase struct {
-		description string
-		update      pending.PreConfirmedUpdate
-	}
-
-	makeTx := func() *core.InvokeTransaction {
-		return &core.InvokeTransaction{
-			TransactionHash: felt.NewRandom[felt.Felt](),
-		}
-	}
-
-	deltaCases := []deltaCase{
-		{
-			description: "Delta with one candidate",
-			update: pending.PreConfirmedUpdate{
-				AppendCandidateTxs: []core.Transaction{makeTx()},
-			},
-		},
-	}
-
 	for _, pcCase := range pcCases {
 		t.Run(pcCase.description, func(t *testing.T) {
+			// early fetch the pre-confirmed block; we need it to generate the delta test cases
+			resp, err := adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
+			require.NoError(t, err)
+			require.NotNil(t, resp.FullBlock)
+			deltaCases := makeDeltaCases(t, resp.FullBlock)
+
 			for _, deltaCase := range deltaCases {
 				t.Run(deltaCase.description, func(t *testing.T) {
 					response, err := adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
@@ -606,4 +592,157 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 			}
 		})
 	}
+}
+
+type deltaCase struct {
+	description string
+	update      pending.PreConfirmedUpdate
+}
+
+func makeDeltaCases(t *testing.T, prec *pending.PreConfirmed) []deltaCase {
+	t.Helper()
+
+	randFelt := func() *felt.Felt { return felt.NewRandom[felt.Felt]() }
+
+	makeTxsAndReceipts := func(count int) ([]core.Transaction, []*core.TransactionReceipt) {
+		txs := make([]core.Transaction, count)
+		receipts := make([]*core.TransactionReceipt, count)
+
+		for i := range count {
+			hash := randFelt()
+			txs[i] = &core.InvokeTransaction{
+				TransactionHash: hash,
+			}
+			receipts[i] = &core.TransactionReceipt{
+				TransactionHash: hash,
+			}
+		}
+
+		return txs, receipts
+	}
+
+	makeStateDiffs := func(count int) []*core.StateDiff {
+		stateDiffs := make([]*core.StateDiff, count)
+		for i := range count {
+			stateDiff := core.EmptyStateDiff()
+
+			// if there are state diffs available in the pre-confirmed block that we are going to
+			// apply the delta to, we use their data as a base in order to
+			// simulate a tx overwriting storage values already changed
+			// by a previous transaction.
+			if len(prec.TransactionStateDiffs) > i {
+				stateDiff.Merge(prec.TransactionStateDiffs[i])
+
+				// add a random new entry
+				stateDiff.StorageDiffs[*randFelt()] = map[felt.Felt]*felt.Felt{
+					*randFelt(): randFelt(),
+				}
+
+				// overwrite all existing entries
+				for addr, storageMap := range stateDiff.StorageDiffs {
+					for key := range storageMap {
+						stateDiff.StorageDiffs[addr][key] = randFelt()
+					}
+				}
+			} else {
+				// otherwise, a new state diff with random values
+				stateDiff.StorageDiffs[*randFelt()] = map[felt.Felt]*felt.Felt{
+					*randFelt(): randFelt(),
+					*randFelt(): randFelt(),
+				}
+				stateDiff.StorageDiffs[*randFelt()] = map[felt.Felt]*felt.Felt{
+					*randFelt(): randFelt(),
+				}
+			}
+
+			stateDiffs[i] = &stateDiff
+		}
+		return stateDiffs
+	}
+
+	deltaCases := []deltaCase{}
+
+	txs, _ := makeTxsAndReceipts(1)
+	deltaCases = append(
+		deltaCases,
+		deltaCase{
+			description: "Delta with one candidate",
+			update: pending.PreConfirmedUpdate{
+				AppendCandidateTxs: txs,
+			},
+		},
+	)
+
+	txs, _ = makeTxsAndReceipts(5)
+	deltaCases = append(
+		deltaCases,
+		deltaCase{
+			description: "Delta with multiple candidates",
+			update: pending.PreConfirmedUpdate{
+				AppendCandidateTxs: txs,
+			},
+		},
+	)
+
+	txs, receipts := makeTxsAndReceipts(1)
+	stateDiffs := makeStateDiffs(1)
+	deltaCases = append(
+		deltaCases,
+		deltaCase{
+			description: "Delta with one tx, receipt and state diff",
+			update: pending.PreConfirmedUpdate{
+				AppendTransactions: txs,
+				AppendReceipts:     receipts,
+				AppendStateDiffs:   stateDiffs,
+			},
+		},
+	)
+
+	txs, receipts = makeTxsAndReceipts(1)
+	candidateTxs, _ := makeTxsAndReceipts(1)
+	stateDiffs = makeStateDiffs(1)
+	deltaCases = append(
+		deltaCases,
+		deltaCase{
+			description: "Delta with one tx, receipt, state diff and candidate tx",
+			update: pending.PreConfirmedUpdate{
+				AppendTransactions: txs,
+				AppendReceipts:     receipts,
+				AppendStateDiffs:   stateDiffs,
+				AppendCandidateTxs: candidateTxs,
+			},
+		},
+	)
+
+	txs, receipts = makeTxsAndReceipts(10)
+	stateDiffs = makeStateDiffs(10)
+	deltaCases = append(
+		deltaCases,
+		deltaCase{
+			description: "Delta with multiple txs, receipts and state diffs",
+			update: pending.PreConfirmedUpdate{
+				AppendTransactions: txs,
+				AppendReceipts:     receipts,
+				AppendStateDiffs:   stateDiffs,
+			},
+		},
+	)
+
+	txs, receipts = makeTxsAndReceipts(10)
+	candidateTxs, _ = makeTxsAndReceipts(10)
+	stateDiffs = makeStateDiffs(10)
+	deltaCases = append(
+		deltaCases,
+		deltaCase{
+			description: "Delta with multiple txs, receipts, state diffs and candidate txs",
+			update: pending.PreConfirmedUpdate{
+				AppendTransactions: txs,
+				AppendReceipts:     receipts,
+				AppendStateDiffs:   stateDiffs,
+				AppendCandidateTxs: candidateTxs,
+			},
+		},
+	)
+
+	return deltaCases
 }
