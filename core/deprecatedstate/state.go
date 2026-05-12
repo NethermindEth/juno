@@ -81,7 +81,7 @@ func (s *State) ContractStorageLastUpdatedBlock(
 	key *felt.Felt,
 ) (uint64, error) {
 	return s.lastUpdatedBlockNumber(
-		db.ContractStorageHistoryKey((*felt.Felt)(addr), key),
+		db.DeprecatedContractStorageHistoryKey((*felt.Felt)(addr), key),
 		math.MaxUint64,
 	)
 }
@@ -305,7 +305,7 @@ func (s *State) updateContracts(
 		}
 
 		if logChanges {
-			if err = core.WriteContractClassHashHistory(
+			if err = core.WriteDeprecatedContractClassHashHistory(
 				s.txn, &addr, &oldClassHash, blockNumber,
 			); err != nil {
 				return err
@@ -321,7 +321,8 @@ func (s *State) updateContracts(
 		}
 
 		if logChanges {
-			if err = core.WriteContractNonceHistory(s.txn, &addr, &oldNonce, blockNumber); err != nil {
+			err = core.WriteDeprecatedContractNonceHistory(s.txn, &addr, &oldNonce, blockNumber)
+			if err != nil {
 				return err
 			}
 		}
@@ -405,7 +406,7 @@ func (s *State) updateStorageBuffered(
 
 	onValueChanged := func(location, oldValue *felt.Felt) error {
 		if logChanges {
-			return core.WriteContractStorageHistory(
+			return core.WriteDeprecatedContractStorageHistory(
 				bufferedState.txn,
 				contractAddr,
 				location,
@@ -833,7 +834,8 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *core.StateDiff) 
 	// storage diffs
 	for addr, storageDiffs := range diff.StorageDiffs {
 		for key := range storageDiffs {
-			if err := core.DeleteContractStorageHistory(s.txn, &addr, &key, blockNumber); err != nil {
+			err := core.DeleteDeprecatedContractStorageHistory(s.txn, &addr, &key, blockNumber)
+			if err != nil {
 				return err
 			}
 		}
@@ -841,14 +843,14 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *core.StateDiff) 
 
 	// nonces
 	for addr := range diff.Nonces {
-		if err := core.DeleteContractNonceHistory(s.txn, &addr, blockNumber); err != nil {
+		if err := core.DeleteDeprecatedContractNonceHistory(s.txn, &addr, blockNumber); err != nil {
 			return err
 		}
 	}
 
 	// replaced classes
 	for addr := range diff.ReplacedClasses {
-		if err := core.DeleteContractClassHashHistory(s.txn, &addr, blockNumber); err != nil {
+		if err := core.DeleteDeprecatedContractClassHashHistory(s.txn, &addr, blockNumber); err != nil {
 			return err
 		}
 	}
@@ -900,7 +902,7 @@ func (s *State) ContractStorageAt(
 	storageLocation *felt.Felt,
 	height uint64,
 ) (felt.Felt, error) {
-	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
+	key := db.DeprecatedContractStorageHistoryKey(contractAddress, storageLocation)
 	value, err := s.valueAt(key, height)
 	if err != nil {
 		return felt.Felt{}, err
@@ -917,7 +919,7 @@ func (s *State) ContractStorageLastUpdatedAt(
 	blockNumber uint64,
 ) (uint64, error) {
 	return s.lastUpdatedBlockNumber(
-		db.ContractStorageHistoryKey((*felt.Felt)(addr), key),
+		db.DeprecatedContractStorageHistoryKey((*felt.Felt)(addr), key),
 		blockNumber,
 	)
 }
@@ -926,7 +928,7 @@ func (s *State) ContractNonceAt(
 	contractAddress *felt.Felt,
 	height uint64,
 ) (felt.Felt, error) {
-	key := db.ContractNonceHistoryKey(contractAddress)
+	key := db.DeprecatedContractNonceHistoryKey(contractAddress)
 	value, err := s.valueAt(key, height)
 	if err != nil {
 		return felt.Felt{}, err
@@ -938,7 +940,7 @@ func (s *State) ContractClassHashAt(
 	contractAddress *felt.Felt,
 	height uint64,
 ) (felt.Felt, error) {
-	key := db.ContractClassHashHistoryKey(contractAddress)
+	key := db.DeprecatedContractClassHashHistoryKey(contractAddress)
 	value, err := s.valueAt(key, height)
 	if err != nil {
 		return felt.Felt{}, err

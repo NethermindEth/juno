@@ -68,7 +68,19 @@ func StateUpdateByBlockNumKey(num uint64) []byte {
 	return StateUpdatesByBlockNumber.Key(b[:])
 }
 
-func ContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
+func DeprecatedContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
+	return DeprecatedContractStorageHistory.Key(addr.Marshal(), loc.Marshal())
+}
+
+func DeprecatedContractNonceHistoryKey(addr *felt.Felt) []byte {
+	return DeprecatedContractNonceHistory.Key(addr.Marshal())
+}
+
+func DeprecatedContractClassHashHistoryKey(addr *felt.Felt) []byte {
+	return DeprecatedContractClassHashHistory.Key(addr.Marshal())
+}
+
+func ContractStorageHistoryKey(addr *felt.Felt, loc *felt.Felt) []byte {
 	return ContractStorageHistory.Key(addr.Marshal(), loc.Marshal())
 }
 
@@ -101,6 +113,21 @@ func ContractKey(addr *felt.Felt) []byte {
 	return Contract.Key(addr.Marshal())
 }
 
+func DeprecatedContractNonceHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
+	b := uint64ToBytes(blockNum)
+	return DeprecatedContractNonceHistory.Key(addr.Marshal(), b[:])
+}
+
+func DeprecatedContractClassHashHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
+	b := uint64ToBytes(blockNum)
+	return DeprecatedContractClassHashHistory.Key(addr.Marshal(), b[:])
+}
+
+func DeprecatedContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []byte {
+	b := uint64ToBytes(blockNum)
+	return DeprecatedContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
+}
+
 func ContractNonceHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractNonceHistory.Key(addr.Marshal(), b[:])
@@ -111,7 +138,7 @@ func ContractClassHashHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte
 	return ContractClassHashHistory.Key(addr.Marshal(), b[:])
 }
 
-func ContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []byte {
+func ContractStorageHistoryAtBlockKey(addr *felt.Felt, key *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }

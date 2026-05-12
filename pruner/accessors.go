@@ -277,7 +277,7 @@ func pruneStateHistoryFromUpdate(
 ) error {
 	for addr, storageChanges := range stateUpdate.StateDiff.StorageDiffs {
 		for slot := range storageChanges {
-			err := core.DeleteContractStorageHistory(w, &addr, &slot, blockNumber)
+			err := core.DeleteDeprecatedContractStorageHistory(w, &addr, &slot, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -285,14 +285,14 @@ func pruneStateHistoryFromUpdate(
 	}
 
 	for addr := range stateUpdate.StateDiff.Nonces {
-		err := core.DeleteContractNonceHistory(w, &addr, blockNumber)
+		err := core.DeleteDeprecatedContractNonceHistory(w, &addr, blockNumber)
 		if err != nil {
 			return err
 		}
 	}
 
 	for addr := range stateUpdate.StateDiff.ReplacedClasses {
-		err := core.DeleteContractClassHashHistory(w, &addr, blockNumber)
+		err := core.DeleteDeprecatedContractClassHashHistory(w, &addr, blockNumber)
 		if err != nil {
 			return err
 		}
