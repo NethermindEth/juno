@@ -138,7 +138,7 @@ func ContractClassHashHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte
 	return ContractClassHashHistory.Key(addr.Marshal(), b[:])
 }
 
-func ContractStorageHistoryAtBlockKey(addr *felt.Felt, key *felt.Felt, blockNum uint64) []byte {
+func ContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }
