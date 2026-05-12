@@ -3,9 +3,13 @@ package pending_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -427,4 +431,118 @@ func TestPending_PendingStateBeforeIndex(t *testing.T) {
 			assertPendingStateAtIndex(t, &preConfirmed, i)
 		}
 	})
+}
+
+func TestPreConfirmedApplyDelta(t *testing.T) {
+	n := &networks.SepoliaIntegration
+	client := feeder.NewTestClient(t, n)
+	adapter := adaptfeeder.New(client)
+	emptyPreConfirmedBlock := uint64(1201960)
+	blockWithCandidates := uint64(1204672)
+	blockWithNoCandidates := uint64(1204673)
+	blockFullOfCandidates := uint64(1204674)
+	blocksWithRandomCandidateOrder := uint64(1204675)
+
+	type preConfirmedCase struct {
+		description string
+		blockNumber uint64
+	}
+
+	pcCases := []preConfirmedCase{
+		{
+			description: "PreConfirmedBlock with no candidates",
+			blockNumber: blockWithNoCandidates,
+		},
+		{
+			description: "PreConfirmedBlock with candidates",
+			blockNumber: blockWithCandidates,
+		},
+		{
+			description: "PreConfirmedBlock full of candidates",
+			blockNumber: blockFullOfCandidates,
+		},
+		{
+			description: "PreConfirmedBlock empty",
+			blockNumber: emptyPreConfirmedBlock,
+		},
+		{
+			description: "PreConfirmedBlock with candidate in between preconfirmed txns",
+			blockNumber: blocksWithRandomCandidateOrder,
+		},
+	}
+
+	type deltaCase struct {
+		description string
+		update      pending.PreConfirmedUpdate
+	}
+
+	makeTx := func() *core.InvokeTransaction {
+		return &core.InvokeTransaction{
+			TransactionHash: felt.NewRandom[felt.Felt](),
+		}
+	}
+
+	deltaCases := []deltaCase{
+		{
+			description: "Delta with one candidate",
+			update: pending.PreConfirmedUpdate{
+				AppendCandidateTxs: []core.Transaction{makeTx()},
+			},
+		},
+	}
+
+	for _, pcCase := range pcCases {
+		t.Run(pcCase.description, func(t *testing.T) {
+			for _, deltaCase := range deltaCases {
+				t.Run(deltaCase.description, func(t *testing.T) {
+					response, err := adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
+					require.NoError(t, err)
+					require.NotNil(t, response.FullBlock)
+					preConfirmed := *response.FullBlock
+
+					new := preConfirmed.ApplyDelta(
+						deltaCase.update.AppendTransactions,
+						deltaCase.update.AppendReceipts,
+						deltaCase.update.AppendStateDiffs,
+						deltaCase.update.AppendCandidateTxs,
+						response.BlockIdentifier,
+					)
+
+					// helper function to get a brand new preConfirmed from the feeder
+					// to make sure we are not modifying the original preConfirmed
+					originalPreConfirmed := func() *pending.PreConfirmed {
+						response, err := adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
+						require.NoError(t, err)
+						require.NotNil(t, response.FullBlock)
+						return response.FullBlock
+					}
+
+					t.Run("check transactions", func(t *testing.T) {
+						original := originalPreConfirmed()
+						txsLength := len(deltaCase.update.AppendTransactions)
+
+						assert.Equal(t,
+							len(original.Block.Transactions)+txsLength,
+							len(new.Block.Transactions),
+						)
+						assert.Equal(t,
+							original.Block.Transactions,
+							new.Block.Transactions[:len(new.Block.Transactions)-txsLength],
+						)
+						assert.Equal(t,
+							original.Block.TransactionCount+uint64(txsLength),
+							new.Block.TransactionCount,
+						)
+
+						if len(deltaCase.update.AppendTransactions) > 0 {
+							assert.Equal(t,
+								deltaCase.update.AppendTransactions,
+								new.Block.Transactions[len(original.Block.Transactions):],
+							)
+						}
+					})
+				})
+			}
+		})
+	}
 }
