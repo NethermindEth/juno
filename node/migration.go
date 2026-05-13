@@ -51,15 +51,9 @@ func migrateIfNeeded(
 			return fmt.Errorf("deprecated migration failed: %w", err)
 		}
 
-		// The history pruning migration reads the L1 head to compute the
-		// reorg-safe cutoff. On a fresh sync the L1 client (which writes the
-		// head) only starts as a regular service AFTER this point, so a
-		// pruning-enabled node restarted mid-sync would fail with a cryptic
-		// "key not found". Bootstrap the head via a one-shot catch-up here,
-		// reusing the operator's existing --eth-node so no extra config is
-		// required. Skipped if the head is already on disk from a previous run.
+		// Make sure there is an available L1 head before starting pruning migration
 		if config.Prune {
-			if err := bootstrapL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
+			if err := fetchL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
 				return fmt.Errorf("bootstrap L1 head for pruning: %w", err)
 			}
 		}
@@ -91,30 +85,27 @@ func migrateIfNeeded(
 	return migrateFn()
 }
 
-// bootstrapL1HeadIfMissing ensures an L1 head is persisted before the
-// history pruning migration reads it. No-op when the head is already on
-// disk. Otherwise it builds a one-shot L1 client against the operator's
-// existing --eth-node and runs the same catch-up scan the regular L1
-// service runs on startup. Returns an explicit error if the catch-up
-// completes without finding any finalised LogStateUpdate, so the operator
-// sees a clear cause instead of a downstream "key not found".
-func bootstrapL1HeadIfMissing(
+// fetchL1HeadIfMissing writes an L1 head to disk before the history pruning
+// migration reads it. No-op when one is already stored.
+func fetchL1HeadIfMissing(
 	ctx context.Context,
 	database db.KeyValueStore,
 	config *Config,
 	chain *blockchain.Blockchain,
 	logger log.StructuredLogger,
 ) error {
-	if _, err := core.GetL1Head(database); err == nil {
+	_, err := core.GetL1Head(database)
+	if err == nil {
 		return nil
-	} else if !errors.Is(err, db.ErrKeyNotFound) {
+	}
+	if !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
 
-	logger.Info("Bootstrapping L1 head for pruning migration via --eth-node catch-up")
+	logger.Info("Fetching the L1 head before running the prune migration")
 	client, err := newL1Client(config.EthNode, config.Metrics, chain, logger)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating a new L1 client: %w", err)
 	}
 	if err := client.CatchUpL1Head(ctx); err != nil {
 		return err
@@ -122,8 +113,7 @@ func bootstrapL1HeadIfMissing(
 
 	if _, err := core.GetL1Head(database); err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return errors.New("catch-up completed without a finalised LogStateUpdate; " +
-				"retry once L1 has a finalised Starknet state update")
+			return errors.New("couldn't find a finalized Starknet state update on L1")
 		}
 		return err
 	}
