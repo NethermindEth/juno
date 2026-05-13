@@ -329,6 +329,26 @@ func TestCatchUpL1Head(t *testing.T) {
 	}, persisted)
 }
 
+func TestCatchUpL1Head_ChainIDMismatch(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	nopLog := log.NewNopZapLogger()
+	network := networks.Mainnet
+	chain := blockchain.New(
+		memory.New(),
+		&network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	subscriber := mocks.NewMockSubscriber(ctrl)
+	subscriber.EXPECT().ChainID(gomock.Any()).Return(big.NewInt(999), nil)
+	subscriber.EXPECT().Close()
+
+	err := l1.NewClient(subscriber, chain, nopLog).CatchUpL1Head(t.Context())
+	require.ErrorContains(t, err, "mismatched L1 and L2 networks")
+}
+
 func newTestL1Client(service service) *rpc.Server {
 	server := rpc.NewServer()
 	if err := server.RegisterName("eth", service); err != nil {
