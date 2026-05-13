@@ -61,6 +61,7 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*core.RunningEvent
 		}
 	}
 
+	// Multi-window gap, future-dated snapshot, or no snapshot — rebuild.
 	rf, err := rebuildRunningEventFilter(snap, database, latest, floor)
 	if err != nil {
 		return nil, fmt.Errorf(
