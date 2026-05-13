@@ -19,17 +19,17 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*core.RunningEvent
 			filter := core.NewAggregatedFilter(0)
 			return core.NewRunningEventFilterHot(database, &filter, 0), nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 
 	floor, err := OldestRetainedBlock(database)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, fmt.Errorf("InitializeRunningEventFilter: OldestRetainedBlock: %w", err)
+		return nil, fmt.Errorf("getting oldest retained block: %w", err)
 	}
 
 	stored, err := core.GetRunningEventFilter(database)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, err
+		return nil, fmt.Errorf("getting stored running event filter: %w", err)
 	}
 	if err == nil {
 		next := stored.NextBlock()
@@ -46,14 +46,24 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*core.RunningEvent
 			next = max(next, floor)
 			rf := core.NewRunningEventFilterHot(database, stored.InnerFilter(), next)
 			if fillErr := fillRunningEventFilter(database, rf, next, latest); fillErr != nil {
-				return nil, fmt.Errorf("fill running filter gap: %w", fillErr)
+				return nil, fmt.Errorf(
+					"filling running event filter [%d, %d]: %w",
+					next, latest, fillErr,
+				)
 			}
 			return rf, nil
 		}
 	}
 
 	// Multi-window gap, future-dated snapshot, or no snapshot — rebuild.
-	return rebuildRunningEventFilter(database, latest, floor)
+	rf, err := rebuildRunningEventFilter(database, latest, floor)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"rebuilding running event filter up to %d (floor=%d): %w",
+			latest, floor, err,
+		)
+	}
+	return rf, nil
 }
 
 // fillRunningEventFilter walks [from, end] and Inserts each block's
@@ -69,10 +79,10 @@ func fillRunningEventFilter(
 	for blockNum := from; blockNum <= end; blockNum++ {
 		header, err := core.GetBlockHeaderByNumber(txn, blockNum)
 		if err != nil {
-			return fmt.Errorf("GetBlockHeaderByNumber %d: %w", blockNum, err)
+			return fmt.Errorf("getting block header by number %d: %w", blockNum, err)
 		}
 		if err := rf.Insert(header.EventsBloom, blockNum); err != nil {
-			return fmt.Errorf("insert block %d: %w", blockNum, err)
+			return fmt.Errorf("inserting block %d in events bloom %w", blockNum, err)
 		}
 	}
 	return nil
@@ -94,16 +104,20 @@ func rebuildRunningEventFilter(
 	rangeStartAligned := latest - latest%core.NumBlocksPerFilter
 	lastStoredFilterRangeEnd := rangeStartAligned + core.NumBlocksPerFilter - 1
 
-	found := false
+	continueFrom := floor
+	windowStart := floorAligned
 	for {
 		_, err := core.GetAggregatedBloomFilter(database, rangeStartAligned, lastStoredFilterRangeEnd)
 		if err == nil {
-			found = true
+			continueFrom = lastStoredFilterRangeEnd + 1
+			windowStart = continueFrom
 			break
 		}
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, fmt.Errorf("rebuild: scan for anchor at [%d,%d]: %w",
-				rangeStartAligned, lastStoredFilterRangeEnd, err)
+			return nil, fmt.Errorf(
+				"scanning for aggregated bloom filter at range [%d, %d]: %w",
+				rangeStartAligned, lastStoredFilterRangeEnd, err,
+			)
 		}
 		if rangeStartAligned <= floorAligned {
 			break
@@ -112,25 +126,12 @@ func rebuildRunningEventFilter(
 		lastStoredFilterRangeEnd -= core.NumBlocksPerFilter
 	}
 
-	// When found, continueFrom is naturally aligned (anchor end + 1). When
-	// not, the partial filter is rooted at floorAligned but filling starts
-	// at floor itself — blocks in [floorAligned, floor) stay zero in the
-	// bitmap, which is correct since their commitments are pruned.
-	var continueFrom, windowStart uint64
-	if found {
-		continueFrom = lastStoredFilterRangeEnd + 1
-		windowStart = continueFrom
-	} else {
-		continueFrom = floor
-		windowStart = floorAligned
-	}
-
 	filter := core.NewAggregatedFilter(windowStart)
 	runningFilter := core.NewRunningEventFilterHot(database, &filter, continueFrom)
 	if err := fillRunningEventFilter(database, runningFilter, continueFrom, latest); err != nil {
 		return nil, fmt.Errorf(
-			"rebuild (latest=%d, anchorFound=%t, floor=%d): %w",
-			latest, found, floor, err,
+			"filling running event filter [%d, %d] (floor=%d): %w",
+			continueFrom, latest, floor, err,
 		)
 	}
 	return runningFilter, nil

@@ -37,7 +37,7 @@ func (f *RunningEventFilter) ensureInit() error {
 		f.lazyOnce.Do(func() {
 			filter, err := f.initialize(f.database)
 			if err != nil {
-				f.initErr = fmt.Errorf("InitializeRunningEventFilter: %w", err)
+				f.initErr = fmt.Errorf("couldn't initialize the running event filter: %w", err)
 				return
 			}
 			f.inner = filter.inner
@@ -83,12 +83,12 @@ func (f *RunningEventFilter) Insert(
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("ensureInit before block %d: %w", blockNumber, err)
+		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
 	}
 
 	if err := f.inner.Insert(bloom, blockNumber); err != nil {
 		return fmt.Errorf(
-			"insert block %d into window [%d,%d]: %w",
+			"inserting block %d into window [%d,%d]: %w",
 			blockNumber, f.inner.FromBlock(), f.inner.ToBlock(), err,
 		)
 	}
@@ -96,7 +96,7 @@ func (f *RunningEventFilter) Insert(
 	if blockNumber == f.inner.ToBlock() {
 		if err := WriteAggregatedBloomFilter(f.database, f.inner); err != nil {
 			return fmt.Errorf(
-				"persist aggregated filter for window [%d,%d]: %w",
+				"persisting aggregated filter for window [%d,%d]: %w",
 				f.inner.FromBlock(), f.inner.ToBlock(), err,
 			)
 		}
@@ -127,7 +127,7 @@ func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("ensureInit: %w", err)
+		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
 	}
 
 	return f.inner.BlocksForKeysInto(keys, out)
@@ -201,7 +201,7 @@ func (f *RunningEventFilter) OnReorg() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("ensureInit: %w", err)
+		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
 	}
 
 	currRangeStart := f.inner.FromBlock()
@@ -232,7 +232,7 @@ func (f *RunningEventFilter) Write() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("ensureInit: %w", err)
+		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
 	}
 
 	return WriteRunningEventFilter(f.database, f)
@@ -249,12 +249,12 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*RunningEventFilte
 			filter := NewAggregatedFilter(0)
 			return NewRunningEventFilterHot(database, &filter, 0), nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 
 	stored, err := GetRunningEventFilter(database)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, err
+		return nil, fmt.Errorf("getting stored running event filter: %w", err)
 	}
 	if err == nil {
 		next := stored.NextBlock()
@@ -266,14 +266,21 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*RunningEventFilte
 		if next <= latest && latest <= stored.InnerFilter().ToBlock() {
 			rf := NewRunningEventFilterHot(database, stored.InnerFilter(), next)
 			if fillErr := fillRunningEventFilter(database, rf, next, latest); fillErr != nil {
-				return nil, fmt.Errorf("fill running filter gap: %w", fillErr)
+				return nil, fmt.Errorf(
+					"filling running event filter [%d, %d]: %w",
+					next, latest, fillErr,
+				)
 			}
 			return rf, nil
 		}
 	}
 
 	// Multi-window gap, future-dated snapshot, or no snapshot — rebuild.
-	return rebuildRunningEventFilter(database, latest)
+	rf, err := rebuildRunningEventFilter(database, latest)
+	if err != nil {
+		return nil, fmt.Errorf("rebuilding running event filter up to %d: %w", latest, err)
+	}
+	return rf, nil
 }
 
 // fillRunningEventFilter walks [from, latest] and Inserts each block's
@@ -287,10 +294,10 @@ func fillRunningEventFilter(
 	for blockNum := from; blockNum <= latest; blockNum++ {
 		header, err := GetBlockHeaderByNumber(database, blockNum)
 		if err != nil {
-			return fmt.Errorf("GetBlockHeaderByNumber %d: %w", blockNum, err)
+			return fmt.Errorf("getting block header by number %d: %w", blockNum, err)
 		}
 		if err := rf.Insert(header.EventsBloom, blockNum); err != nil {
-			return fmt.Errorf("Insert block %d: %w", blockNum, err)
+			return fmt.Errorf("inserting block %d in events bloom %w", blockNum, err)
 		}
 	}
 	return nil
@@ -307,15 +314,16 @@ func rebuildRunningEventFilter(
 	rangeStartAligned := latest - latest%NumBlocksPerFilter
 	lastStoredFilterRangeEnd := rangeStartAligned + NumBlocksPerFilter - 1
 
-	found := false
+	var continueFrom uint64
 	for {
 		_, err := GetAggregatedBloomFilter(database, rangeStartAligned, lastStoredFilterRangeEnd)
 		if err == nil {
-			found = true
+			continueFrom = lastStoredFilterRangeEnd + 1
 			break
 		}
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, fmt.Errorf("rebuild: scan for anchor at [%d,%d]: %w",
+			return nil, fmt.Errorf(
+				"scanning for aggregated bloom filter at range [%d, %d]: %w",
 				rangeStartAligned, lastStoredFilterRangeEnd, err)
 		}
 		if rangeStartAligned == 0 {
@@ -325,15 +333,13 @@ func rebuildRunningEventFilter(
 		lastStoredFilterRangeEnd -= NumBlocksPerFilter
 	}
 
-	var continueFrom uint64
-	if found {
-		continueFrom = lastStoredFilterRangeEnd + 1
-	}
-
 	filter := NewAggregatedFilter(continueFrom)
 	runningFilter := NewRunningEventFilterHot(database, &filter, continueFrom)
 	if err := fillRunningEventFilter(database, runningFilter, continueFrom, latest); err != nil {
-		return nil, fmt.Errorf("rebuild (latest=%d, anchorFound=%t): %w", latest, found, err)
+		return nil, fmt.Errorf(
+			"filling running event filter [%d, %d]: %w",
+			continueFrom, latest, err,
+		)
 	}
 	return runningFilter, nil
 }
