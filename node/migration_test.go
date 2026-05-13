@@ -22,3 +22,10 @@ func TestFetchL1HeadIfMissing_SkipsL1FetchWhenHeadPresent(t *testing.T) {
 	cfg := &Config{EthNode: ""}
 	require.NoError(t, fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger()))
 }
+
+func TestFetchL1HeadIfMissing_WrapsL1ClientError(t *testing.T) {
+	database := memory.New()
+	cfg := &Config{EthNode: ""}
+	err := fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger())
+	require.ErrorContains(t, err, "creating a new L1 client")
+}
