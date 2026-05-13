@@ -481,6 +481,7 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 
 			for _, deltaCase := range deltaCases {
 				t.Run(deltaCase.description, func(t *testing.T) {
+					t.Parallel()
 					response, err := adapter.PreConfirmedBlockByNumber(t.Context(), pcCase.blockNumber, "", 0)
 					require.NoError(t, err)
 					require.NotNil(t, response.FullBlock)
@@ -500,7 +501,15 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 					require.NotNil(t, response.FullBlock)
 					originalPreConfirmed := response.FullBlock
 
+					assert.Equal(
+						t,
+						originalPreConfirmed,
+						preConfirmed,
+						"ApplyDelta should not modify the original block",
+					)
+
 					t.Run("assert changes related to transactions delta", func(t *testing.T) {
+						t.Parallel()
 						original := *originalPreConfirmed
 						txsLength := len(deltaCase.update.AppendTransactions)
 
@@ -522,6 +531,7 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 					})
 
 					t.Run("assert changes related to receipts delta", func(t *testing.T) {
+						t.Parallel()
 						original := *originalPreConfirmed
 						receiptsLength := len(deltaCase.update.AppendReceipts)
 
@@ -556,6 +566,7 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 					})
 
 					t.Run("assert changes related to state diff delta", func(t *testing.T) {
+						t.Parallel()
 						original := *originalPreConfirmed
 						originalDiff := original.StateUpdate.StateDiff
 						deltaDiffs := deltaCase.update.AppendStateDiffs
@@ -587,7 +598,42 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 						assert.Equal(t, original.StateUpdate.OldRoot, new.StateUpdate.OldRoot)
 					})
 
-					assert.Equal(t, originalPreConfirmed, preConfirmed)
+					t.Run("assert changes related to candidate transactions delta", func(t *testing.T) {
+						t.Parallel()
+						original := *originalPreConfirmed
+						candidateTxsLength := len(deltaCase.update.AppendCandidateTxs)
+
+						assert.Equal(t,
+							original.CandidateTxs,
+							new.CandidateTxs[:len(new.CandidateTxs)-candidateTxsLength],
+						)
+
+						if len(deltaCase.update.AppendCandidateTxs) > 0 {
+							assert.Equal(t,
+								deltaCase.update.AppendCandidateTxs,
+								new.CandidateTxs[len(original.CandidateTxs):],
+							)
+						}
+					})
+
+					t.Run("assert immutability of remaining fields", func(t *testing.T) {
+						t.Parallel()
+						localNew := copyPreConfirmed(t, new)
+						require.Equal(t, new, localNew)
+
+						//revert all the changes made by ApplyDelta
+						localNew.Block.Header.EventsBloom = originalPreConfirmed.Block.Header.EventsBloom
+						localNew.Block.Header.TransactionCount = originalPreConfirmed.Block.Header.TransactionCount
+						localNew.Block.Header.EventCount = originalPreConfirmed.Block.Header.EventCount
+						localNew.Block.Header.TransactionCount = originalPreConfirmed.Block.Header.TransactionCount
+						localNew.Block.Transactions = originalPreConfirmed.Block.Transactions
+						localNew.Block.Receipts = originalPreConfirmed.Block.Receipts
+						localNew.StateUpdate.StateDiff = originalPreConfirmed.StateUpdate.StateDiff
+						localNew.TransactionStateDiffs = originalPreConfirmed.TransactionStateDiffs
+						localNew.CandidateTxs = originalPreConfirmed.CandidateTxs
+
+						assert.Equal(t, originalPreConfirmed, localNew)
+					})
 				})
 			}
 		})
@@ -745,4 +791,27 @@ func makeDeltaCases(t *testing.T, prec *pending.PreConfirmed) []deltaCase {
 	)
 
 	return deltaCases
+}
+
+func copyPreConfirmed(t *testing.T, pc *pending.PreConfirmed) *pending.PreConfirmed {
+	t.Helper()
+
+	copiedPreConfirmed := *pc
+
+	header := *pc.Block.Header
+	block := core.Block{
+		Header:       &header,
+		Transactions: pc.Block.Transactions,
+		Receipts:     pc.Block.Receipts,
+	}
+	copiedPreConfirmed.Block = &block
+
+	copiedPreConfirmed.StateUpdate = &core.StateUpdate{
+		BlockHash: pc.StateUpdate.BlockHash,
+		NewRoot:   pc.StateUpdate.NewRoot,
+		OldRoot:   pc.StateUpdate.OldRoot,
+		StateDiff: pc.StateUpdate.StateDiff,
+	}
+
+	return &copiedPreConfirmed
 }
