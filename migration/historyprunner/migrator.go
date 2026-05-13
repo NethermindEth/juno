@@ -212,7 +212,8 @@ func (m *Migrator) setupBeforeRestorer(database db.KeyValueStore, oldestBlockKep
 	if err != nil {
 		return fmt.Errorf("getting block header at %d: %w", oldestBlockKept-1, err)
 	}
-	if err := core.WriteBlockHeaderNumberByHash(batch, header.Hash, oldestBlockKept-uint64(1)); err != nil {
+	err = core.WriteBlockHeaderNumberByHash(batch, header.Hash, oldestBlockKept-uint64(1))
+	if err != nil {
 		return fmt.Errorf(
 			"writing block header number by hash at %d: %w",
 			oldestBlockKept-1, err,
