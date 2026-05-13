@@ -85,11 +85,6 @@ func NewRunner(
 	}
 
 	targetVersion := registry.TargetVersion()
-	// Validate: check if database was migrated with a newer version of Juno (version downgrade)
-	err = validateNoVersionDowngrade(metadata.CurrentVersion, targetVersion)
-	if err != nil {
-		return nil, err
-	}
 
 	// Validate: check if any previously opted-in migrations are now missing (opt-out attempt)
 	err = validateNoOptOut(
@@ -97,6 +92,12 @@ func NewRunner(
 		metadata.LastTargetVersion,
 		registry.OptionalMigrationFlags(),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate: check if database was migrated with a newer version of Juno (version downgrade)
+	err = validateNoVersionDowngrade(metadata.CurrentVersion, targetVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -218,16 +219,23 @@ func validateNoOptOut(
 		return nil
 	}
 	// Build a list of migration flags that cannot be opted out of
-	flagList := make([]string, optOutAttempts.Len())
-	i := 0
+	flagList := make([]string, 0, optOutAttempts.Len())
 	for idx := range optOutAttempts.Iter() {
+		if int(idx) >= len(optionalMigrationFlags) {
+			// Bits beyond the current registry are unknown migrations from a newer
+			// Juno; let validateNoVersionDowngrade surface that. Iter yields in
+			// ascending order, so every remaining bit is also out of range.
+			break
+		}
 		if flag := optionalMigrationFlags[idx]; flag != "" {
-			flagList[i] = fmt.Sprintf("--%s", flag)
+			flagList = append(flagList, fmt.Sprintf("--%s", flag))
 		} else {
 			// Fallback to index if flag is not available
-			flagList[i] = fmt.Sprintf("--migration-%d", idx)
+			flagList = append(flagList, fmt.Sprintf("--migration-%d", idx))
 		}
-		i++
+	}
+	if len(flagList) == 0 {
+		return nil
 	}
 
 	return fmt.Errorf(
