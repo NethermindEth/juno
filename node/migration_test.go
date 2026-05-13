@@ -3,6 +3,7 @@ package node
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
@@ -28,4 +29,14 @@ func TestFetchL1HeadIfMissing_WrapsL1ClientError(t *testing.T) {
 	cfg := &Config{EthNode: ""}
 	err := fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger())
 	require.ErrorContains(t, err, "creating a new L1 client")
+}
+
+func TestMigrateIfNeeded_WrapsPruneFetchError(t *testing.T) {
+	cfg := &Config{
+		Prune:   true,
+		EthNode: "",
+		Network: networks.Sepolia,
+	}
+	err := migrateIfNeeded(t.Context(), memory.New(), cfg, nil, log.NewNopZapLogger())
+	require.ErrorContains(t, err, "fetch L1 head for pruning")
 }

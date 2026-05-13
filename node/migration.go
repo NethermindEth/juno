@@ -54,7 +54,7 @@ func migrateIfNeeded(
 		// Make sure there is an available L1 head before starting pruning migration
 		if config.Prune {
 			if err := fetchL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
-				return fmt.Errorf("bootstrap L1 head for pruning: %w", err)
+				return fmt.Errorf("fetch L1 head for pruning: %w", err)
 			}
 		}
 
