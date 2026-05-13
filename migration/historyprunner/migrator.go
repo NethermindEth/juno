@@ -101,11 +101,11 @@ func (m *Migrator) Migrate(
 			// No chain data yet; the rolling pruner takes over once blocks arrive.
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 	l1Head, err := core.GetL1Head(database)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting L1 head: %w", err)
 	}
 	minHead := min(l1Head.BlockNumber, chainHeight)
 	if minHead < m.numRetainedBlocks {
@@ -122,7 +122,7 @@ func (m *Migrator) Migrate(
 	)
 
 	if err := m.setupBeforeStager(database, oldestBlockKept); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("setting up before stager: %w", err)
 	}
 
 	maxWorkers := runtime.GOMAXPROCS(0)
@@ -142,14 +142,14 @@ func (m *Migrator) Migrate(
 		maxWorkers,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("running stager: %w", err)
 	}
 	if !done {
 		return state, nil
 	}
 
 	if err := m.setupBeforeRestorer(database); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("setting up before restorer: %w", err)
 	}
 
 	state, done, err = m.runRestorer(
@@ -162,7 +162,7 @@ func (m *Migrator) Migrate(
 		maxWorkers,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("running restorer: %w", err)
 	}
 	if !done {
 		return state, nil
@@ -185,13 +185,13 @@ func (m *Migrator) setupBeforeStager(
 	}
 	batch := database.NewBatch()
 	if err := pruner.PruneBlockDataUpto(batch, oldestBlockKept); err != nil {
-		return err
+		return fmt.Errorf("pruning block data upto %d: %w", oldestBlockKept, err)
 	}
 	if err := wipeReverseLookupBuckets(batch); err != nil {
-		return err
+		return fmt.Errorf("wiping reverse lookup buckets: %w", err)
 	}
 	if err := batch.Write(); err != nil {
-		return err
+		return fmt.Errorf("writing batch: %w", err)
 	}
 	return nil
 }
@@ -205,9 +205,12 @@ func (m *Migrator) setupBeforeRestorer(database db.KeyValueStore) error {
 	}
 	batch := database.NewBatch()
 	if err := wipeStorageHistoryBuckets(batch); err != nil {
-		return err
+		return fmt.Errorf("wiping storage history buckets: %w", err)
 	}
-	return batch.Write()
+	if err := batch.Write(); err != nil {
+		return fmt.Errorf("writing batch: %w", err)
+	}
+	return nil
 }
 
 // runStager stages the keeper-window history into the scratch namespace.
@@ -251,7 +254,10 @@ func (m *Migrator) runStager(
 		newStager(database, batchSemaphore, maxWorkers, progressTracker),
 	)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf(
+			"staging range [%d, %d]: %w",
+			m.stagerProgress, chainHeight, err,
+		)
 	}
 
 	if resumeFrom <= chainHeight {
@@ -287,16 +293,19 @@ func (m *Migrator) runRestorer(
 
 	header, err := core.GetBlockHeaderByNumber(database, oldestBlockKept-uint64(1))
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("getting block header at %d: %w", oldestBlockKept-1, err)
 	}
 
 	batch := database.NewBatch()
 	err = core.WriteBlockHeaderNumberByHash(batch, header.Hash, oldestBlockKept-uint64(1))
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf(
+			"writing block header number by hash at %d: %w",
+			oldestBlockKept-1, err,
+		)
 	}
 	if err := batch.Write(); err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("writing reverse-lookup seed batch: %w", err)
 	}
 
 	resumeFrom, err := migrateRange(
@@ -309,7 +318,10 @@ func (m *Migrator) runRestorer(
 		newRestorer(database, batchSemaphore, maxWorkers, progressTracker),
 	)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf(
+			"restoring range [%d, %d]: %w",
+			m.restorerProgress, chainHeight, err,
+		)
 	}
 
 	if resumeFrom <= chainHeight {
@@ -322,10 +334,10 @@ func (m *Migrator) runRestorer(
 	// Restorer completed: wipe the scratch namespace.
 	batch = database.NewBatch()
 	if err := wipeScratchSpace(batch); err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("wiping scratch space: %w", err)
 	}
 	if err := batch.Write(); err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("writing scratch-wipe batch: %w", err)
 	}
 	return nil, true, nil
 }
@@ -357,7 +369,7 @@ func migrateRange(
 
 	_, wait := committerPipeline.Run(ctx)
 	if res := wait(); res.Err != nil {
-		return 0, res.Err
+		return 0, fmt.Errorf("running pipeline: %w", res.Err)
 	}
 
 	return nextBlockNumber, nil
@@ -377,30 +389,30 @@ func wipeScratchSpace(batch db.Batch) error {
 
 func wipeReverseLookupBuckets(batch db.Batch) error {
 	if err := wipeBucket(batch, byte(db.TransactionBlockNumbersAndIndicesByHash)); err != nil {
-		return err
+		return fmt.Errorf("wiping TransactionBlockNumbersAndIndicesByHash: %w", err)
 	}
 
 	if err := wipeBucket(batch, byte(db.L1HandlerTxnHashByMsgHash)); err != nil {
-		return err
+		return fmt.Errorf("wiping L1HandlerTxnHashByMsgHash: %w", err)
 	}
 
 	if err := wipeBucket(batch, byte(db.BlockHeaderNumbersByHash)); err != nil {
-		return err
+		return fmt.Errorf("wiping BlockHeaderNumbersByHash: %w", err)
 	}
 	return nil
 }
 
 func wipeStorageHistoryBuckets(batch db.Batch) error {
 	if err := wipeBucket(batch, byte(db.ContractStorageHistory)); err != nil {
-		return err
+		return fmt.Errorf("wiping ContractStorageHistory: %w", err)
 	}
 
 	if err := wipeBucket(batch, byte(db.ContractClassHashHistory)); err != nil {
-		return err
+		return fmt.Errorf("wiping ContractClassHashHistory: %w", err)
 	}
 
 	if err := wipeBucket(batch, byte(db.ContractNonceHistory)); err != nil {
-		return err
+		return fmt.Errorf("wiping ContractNonceHistory: %w", err)
 	}
 	return nil
 }
@@ -408,5 +420,8 @@ func wipeStorageHistoryBuckets(batch db.Batch) error {
 func wipeBucket(batch db.Batch, bucket byte) error {
 	prefix := []byte{bucket}
 	end := dbutils.UpperBound(prefix)
-	return batch.DeleteRange(prefix, end)
+	if err := batch.DeleteRange(prefix, end); err != nil {
+		return fmt.Errorf("deleting range bucket=%d: %w", bucket, err)
+	}
+	return nil
 }

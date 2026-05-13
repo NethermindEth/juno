@@ -51,7 +51,10 @@ func copyStateHistory(
 				fillStorageHistoryKey(scratch.historyKey[:], &addr, &slot, blockBE),
 				fillStorageScratchKey(scratch.scratchKey[:], &addr, &slot, blockBE),
 			); err != nil {
-				return err
+				return fmt.Errorf(
+					"copying storage history at block %d, addr %x, slot %x: %w",
+					blockNum, addr, slot, err,
+				)
 			}
 		}
 	}
@@ -61,7 +64,10 @@ func copyStateHistory(
 			fillNonceHistoryKey(scratch.historyKey[:], &addr, blockBE),
 			fillNonceScratchKey(scratch.scratchKey[:], &addr, blockBE),
 		); err != nil {
-			return err
+			return fmt.Errorf(
+				"copying nonce history at block %d, addr %x: %w",
+				blockNum, addr, err,
+			)
 		}
 	}
 
@@ -70,7 +76,10 @@ func copyStateHistory(
 			fillClassHashHistoryKey(scratch.historyKey[:], &addr, blockBE),
 			fillClassHashScratchKey(scratch.scratchKey[:], &addr, blockBE),
 		); err != nil {
-			return err
+			return fmt.Errorf(
+				"copying class hash history at block %d, addr %x: %w",
+				blockNum, addr, err,
+			)
 		}
 	}
 
