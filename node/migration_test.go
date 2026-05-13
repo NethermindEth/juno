@@ -14,14 +14,19 @@ import (
 
 func TestFetchL1HeadIfMissing_SkipsL1FetchWhenHeadPresent(t *testing.T) {
 	database := memory.New()
-	require.NoError(t, core.WriteL1Head(database, &core.L1Head{
+	want := &core.L1Head{
 		BlockNumber: 1,
 		BlockHash:   felt.NewRandom[felt.Felt](),
 		StateRoot:   felt.NewRandom[felt.Felt](),
-	}))
+	}
+	require.NoError(t, core.WriteL1Head(database, want))
 
 	cfg := &Config{EthNode: ""}
 	require.NoError(t, fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger()))
+
+	got, err := core.GetL1Head(database)
+	require.NoError(t, err)
+	require.Equal(t, *want, got)
 }
 
 func TestFetchL1HeadIfMissing_WrapsL1ClientError(t *testing.T) {
