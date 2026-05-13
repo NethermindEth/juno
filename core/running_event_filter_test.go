@@ -95,8 +95,9 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	})
 
 	t.Run("Should panic when couldn't initialise", func(t *testing.T) {
-		testDB.Close()
-		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
+		closedDB := memory.New()
+		closedDB.Close()
+		rf := core.NewRunningEventFilterLazy(closedDB, core.InitializeRunningEventFilter)
 		require.Panics(t, func() {
 			rf.FromBlock()
 		})

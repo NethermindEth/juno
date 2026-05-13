@@ -127,7 +127,7 @@ func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		return fmt.Errorf("ensureInit: %w", err)
 	}
 
 	return f.inner.BlocksForKeysInto(keys, out)
@@ -201,7 +201,7 @@ func (f *RunningEventFilter) OnReorg() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		return fmt.Errorf("ensureInit: %w", err)
 	}
 
 	currRangeStart := f.inner.FromBlock()
@@ -232,7 +232,7 @@ func (f *RunningEventFilter) Write() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		return fmt.Errorf("ensureInit: %w", err)
 	}
 
 	return WriteRunningEventFilter(f.database, f)
