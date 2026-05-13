@@ -11,6 +11,7 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/bits-and-blooms/bitset"
@@ -58,7 +59,7 @@ func TestRunningEventFilter_HotInitialization(t *testing.T) {
 
 func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 	testDB := memory.New()
-	rf := core.NewRunningEventFilterLazy(testDB)
+	rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 	require.Equal(t, uint64(0), rf.FromBlock())
 	require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
 	require.NoError(t, rf.Insert(testBloomWithRandomKeys(t, 1), 0))
@@ -84,17 +85,10 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
 	}
 
-	t.Run("Rebuild when running fitler not persisted", func(t *testing.T) {
-		rf := core.NewRunningEventFilterLazy(testDB)
-		require.Equal(t, uint64(0), rf.FromBlock())
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
-		require.Equal(t, expectedNext, rf.NextBlock())
-	})
-
 	t.Run("Load from DB when running filter upto date", func(t *testing.T) {
 		require.NoError(t, chain.WriteRunningEventFilter())
 
-		rf := core.NewRunningEventFilterLazy(testDB)
+		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 		require.Equal(t, uint64(0), rf.FromBlock())
 		require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
 		require.Equal(t, expectedNext, rf.NextBlock())
@@ -102,9 +96,84 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 
 	t.Run("Should panic when couldn't initialise", func(t *testing.T) {
 		testDB.Close()
-		rf := core.NewRunningEventFilterLazy(testDB)
+		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 		require.Panics(t, func() {
 			rf.FromBlock()
+		})
+	})
+
+	t.Run("Rebuild filters when out-dated or not persisted", func(t *testing.T) {
+		// Same-window resume keeps the snapshot's bitmap and only fills the
+		// gap. We stamp the snapshot's [0, staleNext) bits with synthetic
+		// keys not present in the real Sepolia headers — if a rebuild ran
+		// instead, those positions would be refilled from header blooms and
+		// the synthetic keys would no longer hit.
+		t.Run("Single-window resume preserves bitmap", func(t *testing.T) {
+			const staleNext uint64 = 3
+			snapshotKeys := [][]byte{{0x77, 0x88}}
+			filter := core.NewAggregatedFilter(0)
+			snap := core.NewRunningEventFilterHot(testDB, &filter, 0)
+			for i := range staleNext {
+				require.NoError(t, snap.Insert(testBloomWithKeys(t, snapshotKeys), i))
+			}
+			require.NoError(t, core.WriteRunningEventFilter(testDB, snap))
+
+			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
+			require.Equal(t, expectedNext, rf.NextBlock(), "must catch up to chain height + 1")
+			require.Equal(t, uint64(0), rf.FromBlock())
+			require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
+
+			preserved := rf.BlocksForKeys(snapshotKeys)
+			for i := range staleNext {
+				require.True(t, preserved.Test(uint(i)),
+					"snapshot bit at block %d not preserved", i)
+			}
+		})
+
+		t.Run("Multi-window rebuild rotates and persists full windows", func(t *testing.T) {
+			const targetBatchByteSize = 96 * db.Megabyte
+			testDB, err := pebblev2.New(t.TempDir())
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, testDB.Close()) })
+			latest := core.NumBlocksPerFilter + 5
+
+			headerKeys := [][]byte{{0xEE}}
+			batch := testDB.NewBatch()
+			for i := uint64(0); i <= latest; i++ {
+				header := &core.Header{
+					Number:      i,
+					Hash:        felt.NewRandom[felt.Felt](),
+					EventsBloom: testBloomWithKeys(t, headerKeys),
+				}
+				require.NoError(t, core.WriteBlockHeaderByNumber(batch, header))
+				if batch.Size() >= targetBatchByteSize {
+					require.NoError(t, batch.Write())
+					batch = testDB.NewBatch()
+				}
+			}
+			require.NoError(t, batch.Write())
+			require.NoError(t, core.WriteChainHeight(testDB, latest))
+
+			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
+			require.Equal(t, core.NumBlocksPerFilter, rf.FromBlock(),
+				"window rotated to second window during fill")
+			require.Equal(t, 2*core.NumBlocksPerFilter-1, rf.ToBlock())
+			require.Equal(t, latest+1, rf.NextBlock())
+
+			// Second window: every position in [N, latest] hit.
+			filled := rf.BlocksForKeys(headerKeys)
+			for i := core.NumBlocksPerFilter; i <= latest; i++ {
+				require.True(t, filled.Test(uint(i-rf.FromBlock())),
+					"block %d (second window) not filled", i)
+			}
+			// First window persisted on rotation: every position [0, N-1] hit.
+			stored, err := core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
+			require.NoError(t, err)
+			storedMatches := stored.BlocksForKeys(headerKeys)
+			for i := range core.NumBlocksPerFilter {
+				require.True(t, storedMatches.Test(uint(i)),
+					"persisted block %d (first window) not filled", i)
+			}
 		})
 	})
 }
