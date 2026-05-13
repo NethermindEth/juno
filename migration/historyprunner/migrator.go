@@ -148,7 +148,7 @@ func (m *Migrator) Migrate(
 		return state, nil
 	}
 
-	if err := m.setupBeforeRestorer(database); err != nil {
+	if err := m.setupBeforeRestorer(database, oldestBlockKept); err != nil {
 		return nil, fmt.Errorf("setting up before restorer: %w", err)
 	}
 
@@ -197,15 +197,26 @@ func (m *Migrator) setupBeforeStager(
 }
 
 // setupBeforeRestorer wipes the live history buckets so the per-block restore
-// can copy staged keepers back. Gated by restorerProgress so a resumed
+// can copy staged keepers back, and seeds the reverse-lookup for the block
+// immediately below the keeper window. Gated by restorerProgress so a resumed
 // restorer doesn't re-wipe partial work.
-func (m *Migrator) setupBeforeRestorer(database db.KeyValueStore) error {
+func (m *Migrator) setupBeforeRestorer(database db.KeyValueStore, oldestBlockKept uint64) error {
 	if m.restorerProgress != 0 {
 		return nil
 	}
 	batch := database.NewBatch()
 	if err := wipeStorageHistoryBuckets(batch); err != nil {
 		return fmt.Errorf("wiping storage history buckets: %w", err)
+	}
+	header, err := core.GetBlockHeaderByNumber(database, oldestBlockKept-uint64(1))
+	if err != nil {
+		return fmt.Errorf("getting block header at %d: %w", oldestBlockKept-1, err)
+	}
+	if err := core.WriteBlockHeaderNumberByHash(batch, header.Hash, oldestBlockKept-uint64(1)); err != nil {
+		return fmt.Errorf(
+			"writing block header number by hash at %d: %w",
+			oldestBlockKept-1, err,
+		)
 	}
 	if err := batch.Write(); err != nil {
 		return fmt.Errorf("writing batch: %w", err)
@@ -291,23 +302,6 @@ func (m *Migrator) runRestorer(
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
 
-	header, err := core.GetBlockHeaderByNumber(database, oldestBlockKept-uint64(1))
-	if err != nil {
-		return nil, false, fmt.Errorf("getting block header at %d: %w", oldestBlockKept-1, err)
-	}
-
-	batch := database.NewBatch()
-	err = core.WriteBlockHeaderNumberByHash(batch, header.Hash, oldestBlockKept-uint64(1))
-	if err != nil {
-		return nil, false, fmt.Errorf(
-			"writing block header number by hash at %d: %w",
-			oldestBlockKept-1, err,
-		)
-	}
-	if err := batch.Write(); err != nil {
-		return nil, false, fmt.Errorf("writing reverse-lookup seed batch: %w", err)
-	}
-
 	resumeFrom, err := migrateRange(
 		ctx,
 		logger,
@@ -332,7 +326,7 @@ func (m *Migrator) runRestorer(
 	}
 
 	// Restorer completed: wipe the scratch namespace.
-	batch = database.NewBatch()
+	batch := database.NewBatch()
 	if err := wipeScratchSpace(batch); err != nil {
 		return nil, false, fmt.Errorf("wiping scratch space: %w", err)
 	}
