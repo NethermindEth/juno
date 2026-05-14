@@ -94,182 +94,110 @@ func checkErrorData(v any) bool {
 	return true
 }
 
-func TestServer_RegisterMethod(t *testing.T) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
-	tests := map[string]struct {
-		handler    any
-		paramNames []jsonrpc.Parameter
-		want       string
-	}{
-		"not a func handler": {
-			handler: 44,
-			want:    "handler must be a function",
-		},
-		"excess param names": {
-			handler:    func() {},
-			paramNames: []jsonrpc.Parameter{{Name: "param1"}},
-			want:       "number of non-context function params and param names must match",
-		},
-		"missing param names": {
-			handler:    func(param1, param2 int) {},
-			paramNames: []jsonrpc.Parameter{{Name: "param1"}},
-			want:       "number of non-context function params and param names must match",
-		},
-		"no return": {
-			handler:    func(param1, param2 int) {},
-			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "handler must return 2 or 3 values",
-		},
-		"int return": {
-			handler:    func(param1, param2 int) (int, int) { return 0, 0 },
-			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error for 2 tuple handler",
-		},
-		"no error return 3": {
-			handler:    func(param1, param2 int) (int, int, int) { return 0, 0, 0 },
-			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "third return value must be a *jsonrpc.Error for 3 tuple handler",
-		},
-		"no header return 3": {
-			handler:    func(param1, param2 int) (int, int, *jsonrpc.Error) { return 0, 0, &jsonrpc.Error{} },
-			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a http.Header for 3 tuple handler",
-		},
-		"no error return": {
-			handler:    func(param1, param2 int) (any, int) { return 0, 0 },
-			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error for 2 tuple handler",
-		},
-	}
+type testMethodParams struct {
+	Num         *int `json:"num"`
+	ShouldError bool `json:"shouldError,omitempty"`
+	Msg         any  `json:"msg,omitempty"`
+}
 
-	for desc, test := range tests {
-		t.Run(desc, func(t *testing.T) {
-			err := server.RegisterMethods(jsonrpc.Method{
-				Name:    "method",
-				Params:  test.paramNames,
-				Handler: test.handler,
-			})
-			assert.EqualError(t, err, test.want, desc)
-		})
-	}
+type testSubtractParams struct {
+	Minuend    int `json:"minuend"`
+	Subtrahend int `json:"subtrahend"`
+}
 
-	t.Run("should not fail", func(t *testing.T) {
-		err := server.RegisterMethods(jsonrpc.Method{
-			Name:    "method",
-			Params:  []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			Handler: func(param1, param2 int) (int, *jsonrpc.Error) { return 0, nil },
-		})
-		assert.NoError(t, err)
-	})
+type testUpdateParams struct {
+	A int `json:"a"`
+	B int `json:"b"`
+	C int `json:"c"`
+	D int `json:"d"`
+	E int `json:"e"`
+}
+
+type testValidationStruct struct {
+	A int `validate:"min=1"`
+}
+
+type testValidationParams struct {
+	Param testValidationStruct `json:"param"`
+}
+type testValidationSliceParams struct {
+	Param []testValidationStruct `json:"param" validate:"dive"`
+}
+type testValidationPointerParams struct {
+	Param *testValidationStruct `json:"param"`
+}
+type testValidationMapPointerParams struct {
+	Param map[string]*testValidationStruct `json:"param" validate:"dive"`
+}
+
+type testAcceptsContextAndTwoParamsParams struct {
+	A int `json:"a"`
+	B int `json:"b"`
+}
+
+type testSingleOptionalParam struct {
+	Param *int `json:"param,omitempty"`
+}
+
+type testMultipleOptionalParams struct {
+	Param1 *int  `json:"param1"`
+	Param2 []int `json:"param2"`
+	Param3 *int  `json:"param3,omitempty"`
+	Param4 []int `json:"param4,omitempty"`
 }
 
 func TestHandle(t *testing.T) {
-	type validationStruct struct {
-		A int `validate:"min=1"`
-	}
 	methods := []jsonrpc.Method{
-		{
-			Name:   "method",
-			Params: []jsonrpc.Parameter{{Name: "num"}, {Name: "shouldError", Optional: true}, {Name: "msg", Optional: true}},
-			Handler: func(num *int, shouldError bool, data any) (any, *jsonrpc.Error) {
-				if shouldError {
-					return nil, &jsonrpc.Error{Code: 44, Message: "Expected Error", Data: data}
-				}
-				return struct {
-					Doubled int `json:"doubled"`
-				}{*num * 2}, nil
-			},
-		},
-		{
-			Name:   "subtract",
-			Params: []jsonrpc.Parameter{{Name: "minuend"}, {Name: "subtrahend"}},
-			Handler: func(a, b int) (int, *jsonrpc.Error) {
-				return a - b, nil
-			},
-		},
-		{
-			Name:   "update",
-			Params: []jsonrpc.Parameter{{Name: "a"}, {Name: "b"}, {Name: "c"}, {Name: "d"}, {Name: "e"}},
-			Handler: func(a, b, c, d, e int) (int, *jsonrpc.Error) {
-				return 0, nil
-			},
-		},
-		{
-			Name:   "foobar",
-			Params: []jsonrpc.Parameter{},
-			Handler: func() (int, *jsonrpc.Error) {
-				return 0, nil
-			},
-		},
-		{
-			Name:   "validation",
-			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v validationStruct) (int, *jsonrpc.Error) {
-				return v.A, nil
-			},
-		},
-		{
-			Name:   "validationSlice",
-			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v []validationStruct) (int, *jsonrpc.Error) {
-				return v[0].A, nil
-			},
-		},
-		{
-			Name:   "validationPointer",
-			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v *validationStruct) (int, *jsonrpc.Error) {
-				return v.A, nil
-			},
-		},
-		{
-			Name:   "validationMapPointer",
-			Params: []jsonrpc.Parameter{{Name: "param"}},
-			Handler: func(v map[string]*validationStruct) (int, *jsonrpc.Error) {
-				return v["expectedkey"].A, nil
-			},
-		},
-		{
-			Name: "acceptsContext",
-			Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+		jsonrpc.Register("method", func(p *testMethodParams) (any, *jsonrpc.Error) {
+			if p.ShouldError {
+				return nil, &jsonrpc.Error{Code: 44, Message: "Expected Error", Data: p.Msg}
+			}
+			return struct {
+				Doubled int `json:"doubled"`
+			}{*p.Num * 2}, nil
+		}),
+		jsonrpc.Register("subtract", func(p *testSubtractParams) (int, *jsonrpc.Error) {
+			return p.Minuend - p.Subtrahend, nil
+		}),
+		jsonrpc.Register("update", func(_ *testUpdateParams) (int, *jsonrpc.Error) {
+			return 0, nil
+		}),
+		jsonrpc.Register("foobar", func(_ *jsonrpc.NoParams) (int, *jsonrpc.Error) {
+			return 0, nil
+		}),
+		jsonrpc.Register("validation", func(p *testValidationParams) (int, *jsonrpc.Error) {
+			return p.Param.A, nil
+		}),
+		jsonrpc.Register("validationSlice", func(p *testValidationSliceParams) (int, *jsonrpc.Error) {
+			return p.Param[0].A, nil
+		}),
+		jsonrpc.Register("validationPointer", func(p *testValidationPointerParams) (int, *jsonrpc.Error) {
+			return p.Param.A, nil
+		}),
+		jsonrpc.Register("validationMapPointer",
+			func(p *testValidationMapPointerParams) (int, *jsonrpc.Error) {
+				return p.Param["expectedkey"].A, nil
+			}),
+		jsonrpc.RegisterC("acceptsContext",
+			func(ctx context.Context, _ *jsonrpc.NoParams) (int, *jsonrpc.Error) {
 				require.NotNil(t, ctx)
 				return 0, nil
-			},
-		},
-		{
-			Name:   "acceptsContextAndTwoParams",
-			Params: []jsonrpc.Parameter{{Name: "a"}, {Name: "b"}},
-			Handler: func(ctx context.Context, a, b int) (int, *jsonrpc.Error) {
+			}),
+		jsonrpc.RegisterC("acceptsContextAndTwoParams",
+			func(ctx context.Context, p *testAcceptsContextAndTwoParamsParams) (int, *jsonrpc.Error) {
 				require.NotNil(t, ctx)
-				return b - a, nil
-			},
-		},
-		{
-			Name:   "errorsInternally",
-			Params: []jsonrpc.Parameter{},
-			Handler: func() (int, *jsonrpc.Error) {
-				return 0, jsonrpc.Err(jsonrpc.InternalError, nil)
-			},
-		},
-		{
-			Name:   "singleOptionalParam",
-			Params: []jsonrpc.Parameter{{Name: "param", Optional: true}},
-			Handler: func(param *int) (int, *jsonrpc.Error) {
+				return p.B - p.A, nil
+			}),
+		jsonrpc.Register("errorsInternally", func(_ *jsonrpc.NoParams) (int, *jsonrpc.Error) {
+			return 0, jsonrpc.Err(jsonrpc.InternalError, nil)
+		}),
+		jsonrpc.Register("singleOptionalParam", func(_ *testSingleOptionalParam) (int, *jsonrpc.Error) {
+			return 0, nil
+		}),
+		jsonrpc.Register("multipleOptionalParams",
+			func(_ *testMultipleOptionalParams) (int, *jsonrpc.Error) {
 				return 0, nil
-			},
-		},
-		{
-			Name: "multipleOptionalParams",
-			Params: []jsonrpc.Parameter{
-				{Name: "param1"},
-				{Name: "param2"},
-				{Name: "param3", Optional: true},
-				{Name: "param4", Optional: true},
-			},
-			Handler: func(param1 *int, param2 []int, param3 *int, param4 []int) (int, *jsonrpc.Error) {
-				return 0, nil
-			},
-		},
+			}),
 	}
 
 	listener := CountingEventListener{}
@@ -478,7 +406,9 @@ func TestHandle(t *testing.T) {
 		},
 		"invalid value in struct": {
 			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params",` +
+				`"data":"Key: 'testValidationParams.Param.A'` +
+				` Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
 		"valid value in struct": {
 			req:                  `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
@@ -487,7 +417,9 @@ func TestHandle(t *testing.T) {
 		},
 		"invalid value in struct pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 0} ], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params",` +
+				`"data":"Key: 'testValidationPointerParams.Param.A'` +
+				` Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
 		"valid value in struct pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 1} ], "id" : 1}`,
@@ -495,15 +427,20 @@ func TestHandle(t *testing.T) {
 		},
 		"invalid value in slice struct": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [ [{"A": 0}] ], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params",` +
+				`"data":"Key: 'testValidationSliceParams.Param[0].A'` +
+				` Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
 		"valid value in slice of struct": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [[{"A": 1}]], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
 		"invalid value in map of pointer": {
-			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "notthexpectedkey" : {"A": 0}} ], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer",` +
+				` "params" : [ { "notthexpectedkey" : {"A": 0}} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params",` +
+				`"data":"Key: 'testValidationMapPointerParams.Param[notthexpectedkey].A'` +
+				` Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
 		"valid value in map of pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "expectedkey" : {"A": 1}} ], "id" : 1}`,
@@ -647,17 +584,16 @@ func TestHandle(t *testing.T) {
 	}
 }
 
+type identityParams struct {
+	Num *int `json:"num"`
+}
+
 func TestServerWithDisabledBatchRequests(t *testing.T) {
 	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 
 	err := server.RegisterMethods(
-		jsonrpc.Method{
-			Name:   "identity",
-			Params: []jsonrpc.Parameter{{Name: "num"}},
-			Handler: func(num *int) (int, *jsonrpc.Error) {
-				return *num, nil
-			},
-		},
+		jsonrpc.Register("identity",
+			func(p *identityParams) (int, *jsonrpc.Error) { return *p.Num, nil }),
 	)
 	require.NoError(t, err)
 
@@ -716,10 +652,8 @@ func BenchmarkHandle(b *testing.B) {
 	server := jsonrpc.NewServer(1, log.NewNopZapLogger()).
 		WithValidator(validator.New()).
 		WithListener(&listener)
-	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
-		Name:    "bench",
-		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
-	}))
+	require.NoError(b, server.RegisterMethods(jsonrpc.Register("bench",
+		func(_ *jsonrpc.NoParams) (int, *jsonrpc.Error) { return 0, nil })))
 
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
 	var header http.Header
@@ -735,15 +669,13 @@ func BenchmarkHandle(b *testing.B) {
 
 func TestCannotWriteToConnInHandler(t *testing.T) {
 	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name: "test",
-		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+	require.NoError(t, server.RegisterMethods(jsonrpc.RegisterC("test",
+		func(ctx context.Context, _ *jsonrpc.NoParams) (int, *jsonrpc.Error) {
 			w, ok := jsonrpc.ConnFromContext(ctx)
 			require.False(t, ok)
 			require.Nil(t, w)
 			return 0, nil
-		},
-	}))
+		})))
 	res, header, err := server.HandleReader(t.Context(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
@@ -765,9 +697,8 @@ func TestWriteToConnInHandler(t *testing.T) {
 	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 	wg := conc.NewWaitGroup()
 	t.Cleanup(wg.Wait)
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name: "test",
-		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+	require.NoError(t, server.RegisterMethods(jsonrpc.RegisterC("test",
+		func(ctx context.Context, _ *jsonrpc.NoParams) (int, *jsonrpc.Error) {
 			w, ok := jsonrpc.ConnFromContext(ctx)
 			require.True(t, ok)
 			wg.Go(func() {
@@ -778,8 +709,7 @@ func TestWriteToConnInHandler(t *testing.T) {
 				require.False(t, w.Equal(&fakeConn{}))
 			})
 			return 0, nil
-		},
-	}))
+		})))
 
 	serverConn, clientConn := net.Pipe()
 	t.Cleanup(func() {
@@ -802,9 +732,8 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 	wg := conc.NewWaitGroup()
 	t.Cleanup(wg.Wait)
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name: "test",
-		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+	require.NoError(t, server.RegisterMethods(jsonrpc.RegisterC("test",
+		func(ctx context.Context, _ *jsonrpc.NoParams) (int, *jsonrpc.Error) {
 			w, ok := jsonrpc.ConnFromContext(ctx)
 			require.True(t, ok)
 			wg.Go(func() {
@@ -815,8 +744,7 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 				}
 			})
 			return 0, nil
-		},
-	}))
+		})))
 
 	serverConn, clientConn := net.Pipe()
 	t.Cleanup(func() {

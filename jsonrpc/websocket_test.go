@@ -35,13 +35,8 @@ func TestHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	method := jsonrpc.Method{
-		Name:   "test_echo",
-		Params: []jsonrpc.Parameter{{Name: "msg"}},
-		Handler: func(msg string) (string, *jsonrpc.Error) {
-			return msg, nil
-		},
-	}
+	method := jsonrpc.Register("test_echo",
+		func(p *echoParams) (string, *jsonrpc.Error) { return p.Msg, nil })
 	listener := CountingEventListener{}
 	conn := testConnection(t, ctx, method, &listener)
 
@@ -65,9 +60,8 @@ func TestSendFromHandler(t *testing.T) {
 	wg := conc.NewWaitGroup()
 	t.Cleanup(wg.Wait)
 	msg := "test msg"
-	method := jsonrpc.Method{
-		Name: "test",
-		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+	method := jsonrpc.RegisterC("test",
+		func(ctx context.Context, _ *jsonrpc.NoParams) (int, *jsonrpc.Error) {
 			conn, ok := jsonrpc.ConnFromContext(ctx)
 			require.True(t, ok)
 			wg.Go(func() {
@@ -75,8 +69,7 @@ func TestSendFromHandler(t *testing.T) {
 				require.NoError(t, err)
 			})
 			return 0, nil
-		},
-	}
+		})
 	conn := testConnection(t, ctx, method, &CountingEventListener{})
 
 	req := `{"jsonrpc" : "2.0", "method" : "test", "params":[], "id" : 1}`

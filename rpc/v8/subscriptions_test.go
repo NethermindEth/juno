@@ -1068,8 +1068,7 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	time.Sleep(50 * time.Millisecond)
 
 	server := jsonrpc.NewServer(1, logger)
-	methods, _ := handler.methods()
-	require.NoError(t, server.RegisterMethods(methods...))
+	require.NoError(t, server.RegisterMethods(handler.RegisterMethods()...))
 
 	return handler, server
 }
