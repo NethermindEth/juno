@@ -82,7 +82,7 @@ func fillRunningEventFilter(
 			return fmt.Errorf("getting block header by number %d: %w", blockNum, err)
 		}
 		if err := rf.Insert(header.EventsBloom, blockNum); err != nil {
-			return fmt.Errorf("inserting block %d in events bloom %w", blockNum, err)
+			return fmt.Errorf("inserting block %d in events bloom: %w", blockNum, err)
 		}
 	}
 	return nil
