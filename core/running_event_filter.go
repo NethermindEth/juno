@@ -83,7 +83,7 @@ func (f *RunningEventFilter) Insert(
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	if err := f.inner.Insert(bloom, blockNumber); err != nil {
@@ -115,7 +115,7 @@ func (f *RunningEventFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner.BlocksForKeys(keys)
@@ -127,7 +127,7 @@ func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	return f.inner.BlocksForKeysInto(keys, out)
@@ -139,7 +139,7 @@ func (f *RunningEventFilter) FromBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner.fromBlock
@@ -151,7 +151,7 @@ func (f *RunningEventFilter) ToBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner.toBlock
@@ -163,7 +163,7 @@ func (f *RunningEventFilter) NextBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.next
@@ -176,7 +176,7 @@ func (f *RunningEventFilter) Clone() *RunningEventFilter {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	innerCopy := f.inner.Clone()
@@ -191,7 +191,7 @@ func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner
@@ -203,7 +203,7 @@ func (f *RunningEventFilter) OnReorg() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	currRangeStart := f.inner.FromBlock()
@@ -234,7 +234,7 @@ func (f *RunningEventFilter) Write() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	return WriteRunningEventFilter(f.database, f)
