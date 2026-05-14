@@ -45,8 +45,17 @@ func shouldPreservePreConfirmed(
 	existingB := existingPending.GetBlock()
 	incomingB := incomingPending.GetBlock()
 
-	return (incomingB.Number < existingB.Number) ||
-		(incomingB.Number == existingB.Number && incomingB.TransactionCount <= existingB.TransactionCount)
+	if incomingB.Number < existingB.Number {
+		return true
+	}
+	if incomingB.Number > existingB.Number {
+		return false
+	}
+
+	if incomingPending.BlockIdentifier != existingPending.BlockIdentifier {
+		return false
+	}
+	return incomingB.TransactionCount <= existingB.TransactionCount
 }
 
 // UpdatePreLatestAttachment updates (or clears) the PreLatest attachment of the currently stored
@@ -98,7 +107,7 @@ func (s *Synchronizer) StorePreConfirmed(p *pending.PreConfirmed) (bool, error) 
 
 	existingPtr := s.preConfirmed.Load()
 
-	if existingPtr != nil && shouldPreservePreConfirmed(existingPtr, p, head) {
+	if shouldPreservePreConfirmed(existingPtr, p, head) {
 		_ = s.UpdatePreLatestAttachment(p.GetBlock().Number, p.PreLatest)
 		return false, nil
 	}
@@ -228,11 +237,14 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 
 // pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
 // The target is read from blockNumberToPoll and only polled while at tip.
-// On success, the pre_confirmed is forwarded to out.
+// Each poll echoes the currently stored pre_confirmed's identifier and
+// transaction count so the server can return a no-change marker, a delta of
+// appended transactions, or a fresh full block when the round identifier no
+// longer matches. On success, the resulting update is forwarded to out.
 func (s *Synchronizer) pollPreConfirmed(
 	ctx context.Context,
 	blockNumberToPoll *atomic.Uint64,
-	out chan<- *pending.PreConfirmed,
+	out chan<- *pending.PreConfirmedUpdate,
 ) {
 	if s.preConfirmedPollInterval == 0 {
 		s.logger.Info("Pre-confirmed block polling is disabled")
@@ -254,14 +266,27 @@ func (s *Synchronizer) pollPreConfirmed(
 				continue
 			}
 
-			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetBlockNum)
+			var (
+				knownBlockIdentifier  string = "0x0"
+				knownTransactionCount uint64 = 0
+			)
+
+			currentPreConf := s.preConfirmed.Load()
+			if currentPreConf != nil && currentPreConf.Block != nil {
+				knownBlockIdentifier = currentPreConf.BlockIdentifier
+				knownTransactionCount = uint64(len(currentPreConf.Block.Transactions)) + uint64(len(currentPreConf.CandidateTxs))
+			}
+
+			update, err := s.dataSource.PreConfirmedBlockByNumber(
+				ctx, targetBlockNum, knownBlockIdentifier, knownTransactionCount,
+			)
 			if err != nil {
 				s.logger.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
 				continue
 			}
 
 			select {
-			case out <- &preConfirmed:
+			case out <- &update:
 				continue
 			case <-ctx.Done():
 				return
@@ -319,21 +344,50 @@ func (s *Synchronizer) handlePreLatest(
 	return pl
 }
 
-// handlePreConfirmed finalises when the polled pre_confirmed equals the target.
-// It attaches the staged pre_latest, stores it, and feeds if changed.
+// handlePreConfirmed reconciles a polled pre_confirmed update with the stored
+// pre_confirmed. No-change updates are dropped silently. Full updates replace
+// the stored block. Delta updates are applied as an append onto the stored
+// block; if the stored identifier has drifted from the update's identifier the
+// delta is dropped and the next poll will return Full.
 func (s *Synchronizer) handlePreConfirmed(
-	pc *pending.PreConfirmed,
+	update *pending.PreConfirmedUpdate,
 	stagedPreLatest *pending.PreLatest,
 ) {
-	pc.WithPreLatest(stagedPreLatest)
-	changed, err := s.StorePreConfirmed(pc)
+	var nextPreConfirmed *pending.PreConfirmed
+
+	switch update.Mode {
+	case pending.PreConfirmedNoChange:
+		nextPreConfirmed = s.preConfirmed.Load()
+
+	case pending.PreConfirmedFull:
+		nextPreConfirmed = update.FullBlock
+
+	case pending.PreConfirmedDelta:
+		existing := s.preConfirmed.Load()
+		if existing.BlockIdentifier != update.BlockIdentifier {
+			// Stored identifier drifted; drop. Next poll will return Full.
+			nextPreConfirmed = s.preConfirmed.Load()
+			break
+		}
+		merged := existing.ApplyDelta(
+			update.AppendTransactions,
+			update.AppendReceipts,
+			update.AppendStateDiffs,
+			update.AppendCandidateTxs,
+			update.BlockIdentifier,
+		)
+		nextPreConfirmed = merged
+	}
+
+	nextPreConfirmed.WithPreLatest(stagedPreLatest)
+	changed, err := s.StorePreConfirmed(nextPreConfirmed)
 	if err != nil {
 		s.logger.Debug("Error while trying to store pre_confirmed block", zap.Error(err))
 		return
 	}
 
 	if changed {
-		s.preConfirmedDataFeed.Send(pc)
+		s.preConfirmedDataFeed.Send(nextPreConfirmed)
 	}
 }
 
@@ -348,7 +402,7 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	defer headsSub.Unsubscribe()
 
 	preLatestCh := make(chan *pending.PreLatest, 1)
-	preConfirmedCh := make(chan *pending.PreConfirmed, 1)
+	preConfirmedCh := make(chan *pending.PreConfirmedUpdate, 1)
 	var preConfirmedBlockNumberToPoll atomic.Uint64
 
 	go s.pollPreLatest(ctx, preLatestCh)
