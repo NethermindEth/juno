@@ -83,7 +83,7 @@ func (f *RunningEventFilter) Insert(
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	if err := f.inner.Insert(bloom, blockNumber); err != nil {
@@ -127,7 +127,7 @@ func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	return f.inner.BlocksForKeysInto(keys, out)
@@ -203,7 +203,7 @@ func (f *RunningEventFilter) OnReorg() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	currRangeStart := f.inner.FromBlock()
@@ -234,7 +234,7 @@ func (f *RunningEventFilter) Write() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return fmt.Errorf("couldn't initialize the running event filter: %w", err)
+		return err
 	}
 
 	return WriteRunningEventFilter(f.database, f)
