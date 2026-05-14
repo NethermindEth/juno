@@ -95,8 +95,8 @@ type SubscribeEventsParams struct {
 }
 
 type SubscribeNewTransactionReceiptsParams struct {
-	SenderAddress  []felt.Felt                  `json:"sender_address,omitempty"`
 	FinalityStatus []TxnFinalityStatusWithoutL1 `json:"finality_status,omitempty"`
+	SenderAddress  []felt.Felt                  `json:"sender_address,omitempty"`
 }
 
 type SubscribeNewHeadsParams struct {

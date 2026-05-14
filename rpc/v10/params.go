@@ -22,7 +22,7 @@ type BlockIDParams struct {
 
 type BlockIDFlagsParams struct {
 	BlockID       *BlockID      `json:"block_id"`
-	ResponseFlags ResponseFlags `json:"response_flags"`
+	ResponseFlags ResponseFlags `json:"response_flags,omitempty"`
 }
 
 type TxHashParams struct {
@@ -31,7 +31,7 @@ type TxHashParams struct {
 
 type TxHashFlagsParams struct {
 	TransactionHash *felt.Felt    `json:"transaction_hash"`
-	ResponseFlags   ResponseFlags `json:"response_flags"`
+	ResponseFlags   ResponseFlags `json:"response_flags,omitempty"`
 }
 
 type ClassHashParams struct {
@@ -43,7 +43,7 @@ type ClassHashParams struct {
 type TxByBlockIDAndIndexParams struct {
 	BlockID       *BlockID      `json:"block_id"`
 	Index         int           `json:"index"`
-	ResponseFlags ResponseFlags `json:"response_flags"`
+	ResponseFlags ResponseFlags `json:"response_flags,omitempty"`
 }
 
 type StateUpdateParams struct {
@@ -60,7 +60,7 @@ type StorageAtParams struct {
 	ContractAddress *felt.Address          `json:"contract_address"`
 	Key             *felt.Felt             `json:"key"`
 	BlockID         *BlockID               `json:"block_id"`
-	Flags           StorageAtResponseFlags `json:"response_flags"`
+	Flags           StorageAtResponseFlags `json:"response_flags,omitempty"`
 }
 
 type ClassParams struct {
@@ -124,8 +124,8 @@ type SubscribeEventsParams struct {
 }
 
 type SubscribeNewTransactionReceiptsParams struct {
-	SenderAddress  []felt.Address               `json:"sender_address,omitempty"`
 	FinalityStatus []TxnFinalityStatusWithoutL1 `json:"finality_status,omitempty"`
+	SenderAddress  []felt.Address               `json:"sender_address,omitempty"`
 }
 
 type SubscribeNewHeadsParams struct {
@@ -135,7 +135,7 @@ type SubscribeNewHeadsParams struct {
 type SubscribeNewTransactionsParams struct {
 	FinalityStatus []TxnStatusWithoutL1 `json:"finality_status,omitempty"`
 	SenderAddress  []felt.Address       `json:"sender_address,omitempty"`
-	Tags           SubscriptionTags     `json:"tags"`
+	Tags           SubscriptionTags     `json:"tags,omitempty"`
 }
 
 type UnsubscribeParams struct {
