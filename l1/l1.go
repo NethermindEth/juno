@@ -167,13 +167,9 @@ func (c *Client) Run(ctx context.Context) error {
 	return c.watchL1StateUpdates(ctx)
 }
 
-// CatchUpL1Head runs the startup phase (chain ID check + backward
-// catch-up scan that writes the L1 head via setL1Head) without entering
-// the live subscription loop. Intended for callers that need an L1 head
-// present in the database before subsequent steps — notably the history
-// pruning migration, which runs before the regular L1 service starts.
-// The Client closes its Subscriber on return; do not reuse the instance
-// afterward.
+// CatchUpL1Head verifies the chain ID then writes the L1 head to the
+// database, without entering the live subscription loop. Closes the
+// underlying Subscriber on return; the Client must not be reused.
 func (c *Client) CatchUpL1Head(ctx context.Context) error {
 	defer c.l1.Close()
 	if err := c.checkChainID(ctx); err != nil {
