@@ -183,7 +183,9 @@ func (f *RunningEventFilter) Clone() *RunningEventFilter {
 	return NewRunningEventFilterHot(f.database, &innerCopy, f.next)
 }
 
-// InnerFilter returns a deep copy of the current AggregatedBloomFilter window.
+// InnerFilter returns the current AggregatedBloomFilter window.
+// The returned pointer aliases internal state; mutations are visible to f.
+// Use [RunningEventFilter.Clone] for an independent copy.
 func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
