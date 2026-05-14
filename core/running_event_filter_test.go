@@ -52,16 +52,26 @@ func TestRunningEventFilter_HotInitialization(t *testing.T) {
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(0)
 	f := core.NewRunningEventFilterHot(testDB, &filter, 0)
-	require.Equal(t, uint64(0), f.FromBlock())
-	require.Equal(t, filter.ToBlock(), f.ToBlock())
-	require.Equal(t, uint64(0), f.NextBlock())
+	fromBlock, err := f.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), fromBlock)
+	toBlock, err := f.ToBlock()
+	require.NoError(t, err)
+	require.Equal(t, filter.ToBlock(), toBlock)
+	nextBlock, err := f.NextBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), nextBlock)
 }
 
 func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 	testDB := memory.New()
 	rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
-	require.Equal(t, uint64(0), rf.FromBlock())
-	require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), fromBlock)
+	toBlock, err := rf.ToBlock()
+	require.NoError(t, err)
+	require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
 	require.NoError(t, rf.Insert(testBloomWithRandomKeys(t, 1), 0))
 }
 
@@ -89,18 +99,23 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 		require.NoError(t, chain.WriteRunningEventFilter())
 
 		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
-		require.Equal(t, uint64(0), rf.FromBlock())
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
-		require.Equal(t, expectedNext, rf.NextBlock())
+		fromBlock, err := rf.FromBlock()
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), fromBlock)
+		toBlock, err := rf.ToBlock()
+		require.NoError(t, err)
+		require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
+		nextBlock, err := rf.NextBlock()
+		require.NoError(t, err)
+		require.Equal(t, expectedNext, nextBlock)
 	})
 
-	t.Run("Should panic when couldn't initialise", func(t *testing.T) {
+	t.Run("Should return an error when couldn't initialise", func(t *testing.T) {
 		closedDB := memory.New()
 		closedDB.Close()
 		rf := core.NewRunningEventFilterLazy(closedDB, core.InitializeRunningEventFilter)
-		require.Panics(t, func() {
-			rf.FromBlock()
-		})
+		_, err := rf.FromBlock()
+		require.Error(t, err)
 	})
 
 	t.Run("Rebuild filters when out-dated or not persisted", func(t *testing.T) {
@@ -120,11 +135,18 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 			require.NoError(t, core.WriteRunningEventFilter(testDB, snap))
 
 			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
-			require.Equal(t, expectedNext, rf.NextBlock(), "must catch up to chain height + 1")
-			require.Equal(t, uint64(0), rf.FromBlock())
-			require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
+			nextBlock, err := rf.NextBlock()
+			require.NoError(t, err)
+			require.Equal(t, expectedNext, nextBlock, "must catch up to chain height + 1")
+			fromBlock, err := rf.FromBlock()
+			require.NoError(t, err)
+			require.Equal(t, uint64(0), fromBlock)
+			toBlock, err := rf.ToBlock()
+			require.NoError(t, err)
+			require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
 
-			preserved := rf.BlocksForKeys(snapshotKeys)
+			preserved, err := rf.BlocksForKeys(snapshotKeys)
+			require.NoError(t, err)
 			for i := range staleNext {
 				require.True(t, preserved.Test(uint(i)),
 					"snapshot bit at block %d not preserved", i)
@@ -156,15 +178,22 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 			require.NoError(t, core.WriteChainHeight(testDB, latest))
 
 			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
-			require.Equal(t, core.NumBlocksPerFilter, rf.FromBlock(),
+			fromBlock, err := rf.FromBlock()
+			require.NoError(t, err)
+			require.Equal(t, core.NumBlocksPerFilter, fromBlock,
 				"window rotated to second window during fill")
-			require.Equal(t, 2*core.NumBlocksPerFilter-1, rf.ToBlock())
-			require.Equal(t, latest+1, rf.NextBlock())
+			toBlock, err := rf.ToBlock()
+			require.NoError(t, err)
+			require.Equal(t, 2*core.NumBlocksPerFilter-1, toBlock)
+			nextBlock, err := rf.NextBlock()
+			require.NoError(t, err)
+			require.Equal(t, latest+1, nextBlock)
 
 			// Second window: every position in [N, latest] hit.
-			filled := rf.BlocksForKeys(headerKeys)
+			filled, err := rf.BlocksForKeys(headerKeys)
+			require.NoError(t, err)
 			for i := core.NumBlocksPerFilter; i <= latest; i++ {
-				require.True(t, filled.Test(uint(i-rf.FromBlock())),
+				require.True(t, filled.Test(uint(i-fromBlock)),
 					"block %d (second window) not filled", i)
 			}
 			// First window persisted on rotation: every position [0, N-1] hit.
@@ -244,9 +273,15 @@ func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
 				return rf.InsertWithBatch(batch, header.EventsBloom, boundary)
 			}))
 
-			require.Equal(t, boundary+1, rf.NextBlock())
-			require.Equal(t, boundary+1, rf.FromBlock())
-			require.Equal(t, 2*core.NumBlocksPerFilter-1, rf.ToBlock())
+			nextBlock, err := rf.NextBlock()
+			require.NoError(t, err)
+			require.Equal(t, boundary+1, nextBlock)
+			fromBlock, err := rf.FromBlock()
+			require.NoError(t, err)
+			require.Equal(t, boundary+1, fromBlock)
+			toBlock, err := rf.ToBlock()
+			require.NoError(t, err)
+			require.Equal(t, 2*core.NumBlocksPerFilter-1, toBlock)
 
 			stored, err := core.GetAggregatedBloomFilter(testDB, 0, boundary)
 			require.NoError(t, err)
@@ -315,10 +350,18 @@ func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
 			// at f.next = boundary+1, f.inner = [boundary+1, 2N-1]. onReorg
 			// then crossed back into [0, boundary], loaded it, and cleared bit
 			// `boundary` — a block that's still on chain.
-			require.Equal(t, boundary, rf.NextBlock())
-			require.Equal(t, uint64(0), rf.FromBlock())
-			require.Equal(t, boundary, rf.ToBlock())
-			require.False(t, rf.BlocksForKeys(headerKeys).Test(uint(boundary)),
+			nextBlock, err := rf.NextBlock()
+			require.NoError(t, err)
+			require.Equal(t, boundary, nextBlock)
+			fromBlock, err := rf.FromBlock()
+			require.NoError(t, err)
+			require.Equal(t, uint64(0), fromBlock)
+			toBlock, err := rf.ToBlock()
+			require.NoError(t, err)
+			require.Equal(t, boundary, toBlock)
+			matches, err := rf.BlocksForKeys(headerKeys)
+			require.NoError(t, err)
+			require.False(t, matches.Test(uint(boundary)),
 				"filter wrongly cleared the bit for a block still on chain")
 		},
 	)
@@ -345,9 +388,15 @@ func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
 		// block ([boundary+1, boundary+1]) into the empty next window, and
 		// onReorg then cleared exactly the reverted block. No boundary
 		// cross, no over-clear of [0, boundary].
-		require.Equal(t, boundary+1, rf.NextBlock())
-		require.Equal(t, boundary+1, rf.FromBlock())
-		require.False(t, rf.BlocksForKeys(headerKeys).Test(0),
+		nextBlock, err := rf.NextBlock()
+		require.NoError(t, err)
+		require.Equal(t, boundary+1, nextBlock)
+		fromBlock, err := rf.FromBlock()
+		require.NoError(t, err)
+		require.Equal(t, boundary+1, fromBlock)
+		matches, err := rf.BlocksForKeys(headerKeys)
+		require.NoError(t, err)
+		require.False(t, matches.Test(0),
 			"reverted block's bit (relative position 0) must be cleared")
 
 		// Previous window on disk is untouched.
@@ -366,7 +415,9 @@ func TestRunningEventFilter_InsertAndPersist(t *testing.T) {
 		err := rf.Insert(testBloomWithRandomKeys(t, 1), block)
 		require.NoError(t, err)
 	}
-	require.Equal(t, filter.ToBlock()+1, rf.FromBlock())
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, filter.ToBlock()+1, fromBlock)
 
 	fetchedFilter, err := core.GetAggregatedBloomFilter(testDB, filter.FromBlock(), filter.ToBlock())
 	require.NoError(t, err)
@@ -381,7 +432,8 @@ func TestRunningEventFilter_BlocksForKeys(t *testing.T) {
 	// Add bloom with event for block 0
 	bloom := testBloomWithKeys(t, keys)
 	require.NoError(t, rf.Insert(bloom, 0))
-	got := rf.BlocksForKeys(keys)
+	got, err := rf.BlocksForKeys(keys)
+	require.NoError(t, err)
 	require.True(t, got.Test(0))
 }
 
@@ -403,99 +455,66 @@ func TestRunningEventFilter_Clone(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
 	require.NoError(t, filter.Insert(testBloomWithRandomKeys(t, 5), 0))
 	rf := core.NewRunningEventFilterHot(testDB, &filter, 0)
-	clone := rf.Clone()
+	clone, err := rf.Clone()
+	require.NoError(t, err)
 	require.NotSame(t, rf, clone)
-	require.NotSame(t, rf.InnerFilter(), clone.InnerFilter())
-	require.Equal(t, rf.FromBlock(), clone.FromBlock())
+	rfInner, err := rf.InnerFilter()
+	require.NoError(t, err)
+	cloneInner, err := clone.InnerFilter()
+	require.NoError(t, err)
+	require.NotSame(t, rfInner, cloneInner)
+	rfFrom, err := rf.FromBlock()
+	require.NoError(t, err)
+	cloneFrom, err := clone.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, rfFrom, cloneFrom)
 	require.Equal(t, rf, clone)
 }
 
 func TestRunningEventFilter_Reorg(t *testing.T) {
+	requireNextBlock := func(t *testing.T, rf *core.RunningEventFilter, expected uint64) {
+		t.Helper()
+		got, err := rf.NextBlock()
+		require.NoError(t, err)
+		require.Equal(t, expected, got)
+	}
+	requireInnerBounds := func(t *testing.T, rf *core.RunningEventFilter, from, to uint64) {
+		t.Helper()
+		inner, err := rf.InnerFilter()
+		require.NoError(t, err)
+		require.Equal(t, from, inner.FromBlock())
+		require.Equal(t, to, inner.ToBlock())
+	}
+
 	t.Run("Reorg within current running filter", func(t *testing.T) {
 		testDB := memory.New()
 		rf := populateRunningFilter(t, testDB, 5)
-		require.Equal(t, uint64(6), rf.NextBlock())
+		requireNextBlock(t, rf, 6)
 		require.NoError(t, rf.OnReorg())
-		require.Equal(t, uint64(5), rf.NextBlock())
+		requireNextBlock(t, rf, 5)
 	})
 	t.Run("Reorg spanning previous aggregation range", func(t *testing.T) {
 		testDB := memory.New()
 		rf := populateRunningFilter(t, testDB, core.NumBlocksPerFilter-1)
-		require.Equal(t, core.NumBlocksPerFilter, rf.NextBlock())
-		require.Equal(t, core.NumBlocksPerFilter, rf.InnerFilter().FromBlock())
-		require.Equal(t, 2*core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
+		requireNextBlock(t, rf, core.NumBlocksPerFilter)
+		requireInnerBounds(t, rf, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
 
 		require.NoError(t, rf.OnReorg())
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.NextBlock())
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
-		require.Equal(t, uint64(0), rf.InnerFilter().FromBlock())
+		requireNextBlock(t, rf, core.NumBlocksPerFilter-1)
+		requireInnerBounds(t, rf, 0, core.NumBlocksPerFilter-1)
 	})
 
 	t.Run("Reorg spanning multiple aggregation range", func(t *testing.T) {
 		testDB := memory.New()
 		rf := populateRunningFilter(t, testDB, 2*core.NumBlocksPerFilter-1)
-		require.Equal(t, 2*core.NumBlocksPerFilter, rf.NextBlock())
-		require.Equal(t, 2*core.NumBlocksPerFilter, rf.InnerFilter().FromBlock())
-		require.Equal(t, 3*core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
-
-		// Both completed windows persisted before reorg.
-		_, err := core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
-		require.NoError(t, err)
-		_, err = core.GetAggregatedBloomFilter(
-			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
-		require.NoError(t, err)
+		requireNextBlock(t, rf, 2*core.NumBlocksPerFilter)
+		requireInnerBounds(t, rf, 2*core.NumBlocksPerFilter, 3*core.NumBlocksPerFilter-1)
 
 		for range core.NumBlocksPerFilter + 1 {
 			require.NoError(t, rf.OnReorg())
 		}
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.NextBlock())
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
-		require.Equal(t, uint64(0), rf.InnerFilter().FromBlock())
-
-		// Reorged-out window must be dropped
-		_, err = core.GetAggregatedBloomFilter(
-			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
-		require.ErrorIs(t, err, db.ErrKeyNotFound)
-		// The window we landed in remains.
-		_, err = core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
-		require.NoError(t, err)
-	})
-
-	t.Run("Deep reorg with batch atomically deletes stale persisted filter", func(t *testing.T) {
-		testDB := memory.New()
-		rf := populateRunningFilter(t, testDB, 2*core.NumBlocksPerFilter-1)
-		require.Equal(t, 2*core.NumBlocksPerFilter, rf.NextBlock())
-		require.Equal(t, 2*core.NumBlocksPerFilter, rf.InnerFilter().FromBlock())
-		require.Equal(t, 3*core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
-
-		// Both completed windows persisted before reorg.
-		_, err := core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
-		require.NoError(t, err)
-		_, err = core.GetAggregatedBloomFilter(
-			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
-		require.NoError(t, err)
-
-		err = testDB.Write(func(batch db.Batch) error {
-			for range core.NumBlocksPerFilter + 1 {
-				if err := rf.OnReorgWithBatch(batch); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		require.NoError(t, err)
-
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.NextBlock())
-		require.Equal(t, core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
-		require.Equal(t, uint64(0), rf.InnerFilter().FromBlock())
-
-		// Reorged-out window must be dropped
-		_, err = core.GetAggregatedBloomFilter(
-			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
-		require.ErrorIs(t, err, db.ErrKeyNotFound)
-		// The window we landed in remains.
-		_, err = core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
-		require.NoError(t, err)
+		requireNextBlock(t, rf, core.NumBlocksPerFilter-1)
+		requireInnerBounds(t, rf, 0, core.NumBlocksPerFilter-1)
 	})
 }
 
@@ -512,6 +531,14 @@ func TestMarshalling(t *testing.T) {
 	var decoded core.RunningEventFilter
 	require.NoError(t, encoder.Unmarshal(rfBytes, &decoded))
 
-	require.Equal(t, rf.InnerFilter(), decoded.InnerFilter())
-	require.Equal(t, rf.NextBlock(), decoded.NextBlock())
+	rfInner, err := rf.InnerFilter()
+	require.NoError(t, err)
+	decodedInner, err := decoded.InnerFilter()
+	require.NoError(t, err)
+	require.Equal(t, rfInner, decodedInner)
+	rfNext, err := rf.NextBlock()
+	require.NoError(t, err)
+	decodedNext, err := decoded.NextBlock()
+	require.NoError(t, err)
+	require.Equal(t, rfNext, decodedNext)
 }

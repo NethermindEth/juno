@@ -38,19 +38,26 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*core.RunningEvent
 		return nil, fmt.Errorf("getting stored running event filter: %w", err)
 	}
 	if err == nil {
-		next := stored.NextBlock()
+		next, err := stored.NextBlock()
+		if err != nil {
+			return nil, fmt.Errorf("reading stored next block: %w", err)
+		}
+		inner, err := stored.InnerFilter()
+		if err != nil {
+			return nil, fmt.Errorf("reading stored inner filter: %w", err)
+		}
 		// Caught up — return the snapshot as-is.
 		if next == latest+1 {
-			return core.NewRunningEventFilterHot(database, stored.InnerFilter(), next), nil
+			return core.NewRunningEventFilterHot(database, inner, next), nil
 		}
 		// Same-window gap — resume the snapshot and fill in place.
-		if next <= latest && latest <= stored.InnerFilter().ToBlock() {
+		if next <= latest && latest <= inner.ToBlock() {
 			// Clamp to floor so we don't read pruned headers. Below-floor
 			// snapshot bits remain — harmless false positives, since the
 			// referenced receipts are pruned and no event query can act
 			// on a hit.
 			next = max(next, floor)
-			rf := core.NewRunningEventFilterHot(database, stored.InnerFilter(), next)
+			rf := core.NewRunningEventFilterHot(database, inner, next)
 			if fillErr := fillRunningEventFilter(snap, rf, next, latest); fillErr != nil {
 				return nil, fmt.Errorf(
 					"filling running event filter [%d, %d]: %w",

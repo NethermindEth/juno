@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/bits-and-blooms/bitset"
@@ -148,10 +149,18 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	toAligned := fromAligned + core.NumBlocksPerFilter - 1
 
 	// Falls into range of running filter
-	if fromAligned == it.runningFilter.FromBlock() {
-		err := it.matcher.getCandidateBlocksForFilterInto(it.runningFilter.InnerFilter(), it.currentBits)
+	runningFrom, err := it.runningFilter.FromBlock()
+	if err != nil {
+		return fmt.Errorf("reading running filter from-block: %w", err)
+	}
+	if fromAligned == runningFrom {
+		inner, err := it.runningFilter.InnerFilter()
 		if err != nil {
-			return err
+			return fmt.Errorf("reading running filter inner filter: %w", err)
+		}
+		err = it.matcher.getCandidateBlocksForFilterInto(inner, it.currentBits)
+		if err != nil {
+			return fmt.Errorf("getting candidate blocks for running filter: %w", err)
 		}
 		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
@@ -163,7 +172,7 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	if ok {
 		err := it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
 		if err != nil {
-			return err
+			return fmt.Errorf("getting candidate blocks for cached filter: %w", err)
 		}
 		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
@@ -176,7 +185,7 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 
 	fetched, err := it.cache.fallbackFunc(key)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetching aggregated bloom filter via fallback: %w", err)
 	}
 	filter = &fetched
 	if filter.FromBlock() != fromAligned || filter.ToBlock() != toAligned {
@@ -187,7 +196,7 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 
 	err = it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting candidate blocks for fetched filter: %w", err)
 	}
 	it.currentWindowStart = fromAligned // set current window start absolute index
 	return nil

@@ -128,15 +128,15 @@ func (f *RunningEventFilter) insert(
 
 // BlocksForKeys returns a bitset indicating which blocks within the range might contain
 // the given keys. If no keys are provided, returns a bitset with all bits set.
-func (f *RunningEventFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
+func (f *RunningEventFilter) BlocksForKeys(keys [][]byte) (*bitset.BitSet, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return f.inner.BlocksForKeys(keys)
+	return f.inner.BlocksForKeys(keys), nil
 }
 
 // BlocksForKeysInto reuses a preallocated bitset (should be NumBlocksPerFilter bits).
@@ -152,67 +152,67 @@ func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet
 }
 
 // FromBlock returns the starting block number of the current filter window.
-func (f *RunningEventFilter) FromBlock() uint64 {
+func (f *RunningEventFilter) FromBlock() (uint64, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(err)
+		return 0, err
 	}
 
-	return f.inner.fromBlock
+	return f.inner.fromBlock, nil
 }
 
 // ToBlock returns the ending block number of the current filter window.
-func (f *RunningEventFilter) ToBlock() uint64 {
+func (f *RunningEventFilter) ToBlock() (uint64, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(err)
+		return 0, err
 	}
 
-	return f.inner.toBlock
+	return f.inner.toBlock, nil
 }
 
 // NextBlock returns the next block number to be processed.
-func (f *RunningEventFilter) NextBlock() uint64 {
+func (f *RunningEventFilter) NextBlock() (uint64, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(err)
+		return 0, err
 	}
 
-	return f.next
+	return f.next, nil
 }
 
 // Clone returns a deep copy of the RunningEventFilter—including a full copy of its
 // internal AggregatedBloomFilter window.
-func (f *RunningEventFilter) Clone() *RunningEventFilter {
+func (f *RunningEventFilter) Clone() (*RunningEventFilter, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	innerCopy := f.inner.Clone()
-	return NewRunningEventFilterHot(f.database, &innerCopy, f.next)
+	return NewRunningEventFilterHot(f.database, &innerCopy, f.next), nil
 }
 
 // InnerFilter returns the current AggregatedBloomFilter window.
 // The returned pointer aliases internal state; mutations are visible to f.
 // Use [RunningEventFilter.Clone] for an independent copy.
-func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
+func (f *RunningEventFilter) InnerFilter() (*AggregatedBloomFilter, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return f.inner
+	return f.inner, nil
 }
 
 // OnReorg reverts the last processed block from the running filter. Writes
@@ -302,14 +302,21 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*RunningEventFilte
 		return nil, fmt.Errorf("getting stored running event filter: %w", err)
 	}
 	if err == nil {
-		next := stored.NextBlock()
+		next, err := stored.NextBlock()
+		if err != nil {
+			return nil, fmt.Errorf("reading stored next block: %w", err)
+		}
+		inner, err := stored.InnerFilter()
+		if err != nil {
+			return nil, fmt.Errorf("reading stored inner filter: %w", err)
+		}
 		// Caught up — return the snapshot as-is.
 		if next == latest+1 {
-			return NewRunningEventFilterHot(database, stored.InnerFilter(), next), nil
+			return NewRunningEventFilterHot(database, inner, next), nil
 		}
 		// Same-window gap — resume the snapshot and fill in place.
-		if next <= latest && latest <= stored.InnerFilter().ToBlock() {
-			rf := NewRunningEventFilterHot(database, stored.InnerFilter(), next)
+		if next <= latest && latest <= inner.ToBlock() {
+			rf := NewRunningEventFilterHot(database, inner, next)
 			if fillErr := fillRunningEventFilter(database, rf, next, latest); fillErr != nil {
 				return nil, fmt.Errorf(
 					"filling running event filter [%d, %d]: %w",
