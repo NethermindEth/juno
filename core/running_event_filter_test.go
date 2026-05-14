@@ -179,6 +179,185 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	})
 }
 
+func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
+	// Regression for the deterministic failure at block k*NumBlocksPerFilter-1.
+	// statebackend used to commit chain height in one batch and then call
+	// runningFilter.Insert separately. On the first call after restart at a
+	// boundary, ensureInit's GetChainHeight saw the just-committed boundary
+	// block, fillRunningEventFilter consumed it and rotated the inner window,
+	// and the outer Insert then tried to add the same block to the new
+	// (empty) window — "block X doesn't belong to range [X+1, Y]". The fix
+	// wires the insert into the same batch as the chain-height update, so
+	// GetChainHeight reads the pre-batch value during ensureInit.
+
+	boundary := core.NumBlocksPerFilter - 1
+	headerKeys := [][]byte{{0xAB}}
+
+	setup := func(t *testing.T) (db.KeyValueStore, *core.Header) {
+		t.Helper()
+		testDB := memory.New()
+		// Snapshot caught up through block boundary-1 (next = boundary), so
+		// when GetChainHeight catches up to the boundary the initializer
+		// takes the same-window-resume branch and fills exactly one block —
+		// the boundary block — which is what tipped the fill over the edge.
+		storedFilter := core.NewAggregatedFilter(0)
+		snap := core.NewRunningEventFilterHot(testDB, &storedFilter, boundary)
+		require.NoError(t, core.WriteRunningEventFilter(testDB, snap))
+		header := &core.Header{
+			Number:      boundary,
+			Hash:        felt.NewRandom[felt.Felt](),
+			EventsBloom: testBloomWithKeys(t, headerKeys),
+		}
+		return testDB, header
+	}
+
+	t.Run("non-batched Insert on lazy filter fails at the boundary", func(t *testing.T) {
+		// Documents why InsertWithBatch is the only safe entry point for
+		// lazy filters during block ingestion. When chain height has been
+		// committed before Insert, ensureInit's GetChainHeight sees the
+		// boundary block, fill rotates the inner window, and the outer
+		// insert then can't place the same block in the rolled-over range.
+		testDB, header := setup(t)
+		require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
+		require.NoError(t, core.WriteChainHeight(testDB, boundary))
+
+		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
+		err := rf.Insert(header.EventsBloom, boundary)
+		require.ErrorContains(t, err,
+			"inserting block 8191 into window [8192,16383]: block number is not within range")
+	})
+
+	t.Run(
+		"fix: header and chain height buffered in same batch as InsertWithBatch",
+		func(t *testing.T) {
+			testDB, header := setup(t)
+			require.NoError(t, core.WriteChainHeight(testDB, boundary-1))
+
+			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
+			require.NoError(t, testDB.Write(func(batch db.Batch) error {
+				if err := core.WriteBlockHeaderByNumber(batch, header); err != nil {
+					return err
+				}
+				if err := core.WriteChainHeight(batch, boundary); err != nil {
+					return err
+				}
+				return rf.InsertWithBatch(batch, header.EventsBloom, boundary)
+			}))
+
+			require.Equal(t, boundary+1, rf.NextBlock())
+			require.Equal(t, boundary+1, rf.FromBlock())
+			require.Equal(t, 2*core.NumBlocksPerFilter-1, rf.ToBlock())
+
+			stored, err := core.GetAggregatedBloomFilter(testDB, 0, boundary)
+			require.NoError(t, err)
+			require.True(t, stored.BlocksForKeys(headerKeys).Test(uint(boundary)),
+				"completed window persisted via the batch with boundary bit set")
+		},
+	)
+}
+
+func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
+	// Regression for OnReorg + lazy-init at a window boundary. If the
+	// chain-height revert is committed before OnReorg runs on a still-lazy
+	// filter, ensureInit reads the post-revert height and advances the
+	// filter as if caught up; OnReorg then reverts one block too many, and
+	// at a boundary that extra revert crosses into the previous window and
+	// clears a bit for a block still on chain.
+	//
+	// OnReorgWithBatch inside the revert's writeFn keeps ensureInit on the
+	// pre-revert height, so the subsequent clear targets exactly the
+	// reverted block.
+
+	boundary := core.NumBlocksPerFilter - 1
+	headerKeys := [][]byte{{0xCD}}
+
+	setup := func(t *testing.T) (db.KeyValueStore, *core.Header) {
+		t.Helper()
+		testDB := memory.New()
+
+		// Persisted previous window with bits for headerKeys at every block.
+		// This is the window the running filter has already rolled over.
+		prevWindow := core.NewAggregatedFilter(0)
+		for i := uint64(0); i <= boundary; i++ {
+			require.NoError(t, prevWindow.Insert(testBloomWithKeys(t, headerKeys), i))
+		}
+		require.NoError(t, core.WriteAggregatedBloomFilter(testDB, &prevWindow))
+
+		// Stored running filter snapshot: caught up through `boundary`,
+		// inner is the fresh empty next window. boundary+1 is the block
+		// about to be reverted.
+		nextInner := core.NewAggregatedFilter(boundary + 1)
+		snap := core.NewRunningEventFilterHot(testDB, &nextInner, boundary+1)
+		require.NoError(t, core.WriteRunningEventFilter(testDB, snap))
+
+		header := &core.Header{
+			Number:      boundary + 1,
+			Hash:        felt.NewRandom[felt.Felt](),
+			EventsBloom: testBloomWithKeys(t, headerKeys),
+		}
+		return testDB, header
+	}
+
+	t.Run(
+		"non-batched OnReorg on lazy filter silently over-clears at the boundary",
+		func(t *testing.T) {
+			testDB, header := setup(t)
+			require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
+			// Post-revert chain height already committed — pre-fix would commit
+			// this in a batch and then call OnReorg separately.
+			require.NoError(t, core.WriteChainHeight(testDB, boundary))
+
+			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
+			require.NoError(t, rf.OnReorg())
+
+			// ensureInit saw post-revert chain height = boundary, took the
+			// "caught up" branch (stored.next == latest+1), and left the filter
+			// at f.next = boundary+1, f.inner = [boundary+1, 2N-1]. onReorg
+			// then crossed back into [0, boundary], loaded it, and cleared bit
+			// `boundary` — a block that's still on chain.
+			require.Equal(t, boundary, rf.NextBlock())
+			require.Equal(t, uint64(0), rf.FromBlock())
+			require.Equal(t, boundary, rf.ToBlock())
+			require.False(t, rf.BlocksForKeys(headerKeys).Test(uint(boundary)),
+				"filter wrongly cleared the bit for a block still on chain")
+		},
+	)
+
+	t.Run("fix: OnReorgWithBatch inside writeFn preserves on-chain block bits", func(t *testing.T) {
+		testDB, header := setup(t)
+		require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
+		require.NoError(t, core.WriteChainHeight(testDB, boundary+1))
+
+		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
+		require.NoError(t, testDB.Write(func(batch db.Batch) error {
+			// Mirror statebackend.RevertHead: delete reverted block's header,
+			// revert chain height, OnReorgWithBatch — all in one batch.
+			if err := core.DeleteBlockHeaderByNumber(batch, header.Number); err != nil {
+				return err
+			}
+			if err := core.WriteChainHeight(batch, boundary); err != nil {
+				return err
+			}
+			return rf.OnReorgWithBatch(batch)
+		}))
+
+		// ensureInit saw pre-revert chain height = boundary+1, filled one
+		// block ([boundary+1, boundary+1]) into the empty next window, and
+		// onReorg then cleared exactly the reverted block. No boundary
+		// cross, no over-clear of [0, boundary].
+		require.Equal(t, boundary+1, rf.NextBlock())
+		require.Equal(t, boundary+1, rf.FromBlock())
+		require.False(t, rf.BlocksForKeys(headerKeys).Test(0),
+			"reverted block's bit (relative position 0) must be cleared")
+
+		// Previous window on disk is untouched.
+		stored, err := core.GetAggregatedBloomFilter(testDB, 0, boundary)
+		require.NoError(t, err)
+		require.True(t, stored.BlocksForKeys(headerKeys).Test(uint(boundary)),
+			"previous window's boundary block bit must remain on disk")
+	})
+}
+
 func TestRunningEventFilter_InsertAndPersist(t *testing.T) {
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(0)
@@ -259,12 +438,64 @@ func TestRunningEventFilter_Reorg(t *testing.T) {
 		require.Equal(t, 2*core.NumBlocksPerFilter, rf.InnerFilter().FromBlock())
 		require.Equal(t, 3*core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
 
+		// Both completed windows persisted before reorg.
+		_, err := core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
+		require.NoError(t, err)
+		_, err = core.GetAggregatedBloomFilter(
+			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
+		require.NoError(t, err)
+
 		for range core.NumBlocksPerFilter + 1 {
 			require.NoError(t, rf.OnReorg())
 		}
 		require.Equal(t, core.NumBlocksPerFilter-1, rf.NextBlock())
 		require.Equal(t, core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
 		require.Equal(t, uint64(0), rf.InnerFilter().FromBlock())
+
+		// Reorged-out window must be dropped
+		_, err = core.GetAggregatedBloomFilter(
+			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+		// The window we landed in remains.
+		_, err = core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
+		require.NoError(t, err)
+	})
+
+	t.Run("Deep reorg with batch atomically deletes stale persisted filter", func(t *testing.T) {
+		testDB := memory.New()
+		rf := populateRunningFilter(t, testDB, 2*core.NumBlocksPerFilter-1)
+		require.Equal(t, 2*core.NumBlocksPerFilter, rf.NextBlock())
+		require.Equal(t, 2*core.NumBlocksPerFilter, rf.InnerFilter().FromBlock())
+		require.Equal(t, 3*core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
+
+		// Both completed windows persisted before reorg.
+		_, err := core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
+		require.NoError(t, err)
+		_, err = core.GetAggregatedBloomFilter(
+			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
+		require.NoError(t, err)
+
+		err = testDB.Write(func(batch db.Batch) error {
+			for range core.NumBlocksPerFilter + 1 {
+				if err := rf.OnReorgWithBatch(batch); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.NextBlock())
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
+		require.Equal(t, uint64(0), rf.InnerFilter().FromBlock())
+
+		// Reorged-out window must be dropped
+		_, err = core.GetAggregatedBloomFilter(
+			testDB, core.NumBlocksPerFilter, 2*core.NumBlocksPerFilter-1)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+		// The window we landed in remains.
+		_, err = core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
+		require.NoError(t, err)
 	})
 }
 

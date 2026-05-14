@@ -75,7 +75,7 @@ func (b *deprecatedStateBackend) Store(
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
-	err := b.database.Update(func(txn db.IndexedBatch) error {
+	return b.database.Update(func(txn db.IndexedBatch) error {
 		if err := verifyBlockSuccession(txn, block); err != nil {
 			return err
 		}
@@ -89,28 +89,24 @@ func (b *deprecatedStateBackend) Store(
 			return err
 		}
 
-		return writeBlockContent(
+		if err := writeBlockContent(
 			b.database,
 			txn,
 			block,
 			stateUpdate,
 			blockCommitments,
 			newClasses,
-		)
-	})
-	if err != nil {
-		return err
-	}
+		); err != nil {
+			return err
+		}
 
-	return b.runningFilter.Insert(
-		block.EventsBloom,
-		block.Number,
-	)
+		return b.runningFilter.InsertWithBatch(txn, block.EventsBloom, block.Number)
+	})
 }
 
 func (b *deprecatedStateBackend) RevertHead() error {
 	//nolint:staticcheck,nolintlint // used by old state
-	err := b.database.Update(func(txn db.IndexedBatch) error {
+	return b.database.Update(func(txn db.IndexedBatch) error {
 		blockNumber, err := core.GetChainHeight(txn)
 		if err != nil {
 			return err
@@ -130,12 +126,12 @@ func (b *deprecatedStateBackend) RevertHead() error {
 			return err
 		}
 
-		return deleteBlockContent(txn, txn, stateUpdate, blockNumber)
+		if err := deleteBlockContent(txn, txn, stateUpdate, blockNumber); err != nil {
+			return err
+		}
+
+		return b.runningFilter.OnReorgWithBatch(txn)
 	})
-	if err != nil {
-		return err
-	}
-	return b.runningFilter.OnReorg()
 }
 
 func (b *deprecatedStateBackend) GetReverseStateDiff() (core.StateDiff, error) {
@@ -207,7 +203,7 @@ func (b *deprecatedStateBackend) Finalise(
 	sign core.BlockSignFunc,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
-	err := b.database.Update(func(txn db.IndexedBatch) error {
+	return b.database.Update(func(txn db.IndexedBatch) error {
 		err := updateStateRoots(deprecatedstate.New(txn), block, stateUpdate, newClasses)
 		if err != nil {
 			return err
@@ -226,20 +222,19 @@ func (b *deprecatedStateBackend) Finalise(
 			}
 		}
 
-		return writeBlockContent(
+		if err := writeBlockContent(
 			txn,
 			txn,
 			block,
 			stateUpdate,
 			commitments,
 			newClasses,
-		)
-	})
-	if err != nil {
-		return err
-	}
+		); err != nil {
+			return err
+		}
 
-	return b.runningFilter.Insert(block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(txn, block.EventsBloom, block.Number)
+	})
 }
 
 func (b *deprecatedStateBackend) VerifyBlockHash(
