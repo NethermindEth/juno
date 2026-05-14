@@ -19,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/utils/jsonx"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bytedance/sonic"
-	"github.com/bytedance/sonic/ast"
 	"github.com/bytedance/sonic/option"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
@@ -44,8 +43,7 @@ const (
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
-	bufferSize       = 128
-	contextInterface = reflect.TypeFor[context.Context]()
+	bufferSize = 128
 )
 
 type Request struct {
@@ -167,41 +165,32 @@ func (r *Request) isSane() error {
 	return nil
 }
 
-type Parameter struct {
-	Name     string
-	Optional bool
-}
+// Dispatch is the type-erased per-request handler installed by the
+// Register methods. It owns parse-validate-call: param decode targets
+// stack-allocated typed locals owned by the adapter closure, and the
+// user handler is called via a typed function value.
+type Dispatch func(
+	ctx context.Context,
+	v Validator,
+	params json.RawMessage,
+) (result any, header http.Header, rpcErr *Error)
 
 type Method struct {
-	Name    string
-	Params  []Parameter
-	Handler any
+	Name string
 
-	// The method takes a context as its first parameter.
-	// Set upon successful registration.
-	needsContext bool
+	// Dispatch is the typed closure built by Register. It owns the per-request parse, validate,
+	// and handler-call pipeline. Populated by the public constructors in register.go.
+	Dispatch Dispatch
 
-	// The number of required parameters in the method.
-	// Set upon successful registration.
-	requiredParamCount int
+	// ParamStructType is the reflect.Type of the P type parameter used
+	// when the method was registered. Surfaced for tests that need to
+	// walk param shapes (e.g. cross-version validator compatibility).
+	ParamStructType reflect.Type
 
-	// Per-method binding plan, populated once at registration so the
-	// request hot path performs no reflection on the handler signature.
-	//
-	// inTypes / inZeroes are one entry per declared param (excluding
-	// context); index matches Params[i]. inZeroes[i] is a cached zero
-	// reflect.Value used for missing-optional slots. paramByName maps a
-	// param name to its inTypes index for O(1) named-arg lookup.
-	// handlerVal is reflect.ValueOf of the handler, cached so per-request
-	// dispatch skips that conversion. needsValidation[i] is true iff the
-	// i-th param's type (or anything reachable through it) carries a
-	// `validate:` tag; tag-free types skip the validateParam recursion
-	// entirely on the hot path.
-	inTypes         []reflect.Type
-	inZeroes        []reflect.Value
-	paramByName     map[string]int
-	handlerVal      reflect.Value
-	needsValidation []bool
+	// pretouchTypes lists the param-struct + result reflect.Types
+	// the constructor wants sonic to pre-compile encode/decode paths
+	// for. Read once at registration.
+	pretouchTypes []reflect.Type
 }
 
 type Server struct {
@@ -275,13 +264,9 @@ func (s *Server) DisableBatchRequests(forbid bool) *Server {
 	return s
 }
 
-// RegisterMethods verifies and creates an endpoint that the server recognises.
-//
-// - name is the method name
-// - handler is the function to be called when a request is received for the
-// associated method. It should have (any, *jsonrpc.Error) as its return type
-// - paramNames are the names of parameters in the order that they are expected
-// by the handler
+// RegisterMethods adds each Method's Dispatch closure to the server's
+// routing table and pre-compiles the param/result types via sonic.
+// Methods are produced by Register / RegisterC / RegisterH / RegisterCH.
 func (s *Server) RegisterMethods(methods ...Method) error {
 	for idx := range methods {
 		if err := s.registerMethod(methods[idx]); err != nil {
@@ -292,132 +277,14 @@ func (s *Server) RegisterMethods(methods ...Method) error {
 }
 
 func (s *Server) registerMethod(method Method) error {
-	handlerT := reflect.TypeOf(method.Handler)
-	if handlerT.Kind() != reflect.Func {
-		return errors.New("handler must be a function")
+	if method.Dispatch == nil {
+		return errors.New("jsonrpc: method has no Dispatch; use Register/RegisterC/RegisterH/RegisterCH")
 	}
-	numArgs := handlerT.NumIn()
-	if numArgs > 0 {
-		if handlerT.In(0).Implements(contextInterface) {
-			numArgs--
-			method.needsContext = true
-		}
+	for _, t := range method.pretouchTypes {
+		s.pretouch(t)
 	}
-	if numArgs != len(method.Params) {
-		return errors.New("number of non-context function params and param names must match")
-	}
-	outSize := handlerT.NumOut()
-	if outSize < 2 || outSize > 3 {
-		return errors.New("handler must return 2 or 3 values")
-	}
-	if outSize == 2 && handlerT.Out(1) != errorType {
-		return errors.New("second return value must be a *jsonrpc.Error for 2 tuple handler")
-	} else if outSize == 3 && handlerT.Out(2) != errorType {
-		return errors.New("third return value must be a *jsonrpc.Error for 3 tuple handler")
-	}
-
-	if outSize == 3 && handlerT.Out(1) != headerType {
-		return errors.New("second return value must be a http.Header for 3 tuple handler")
-	}
-
-	requiredParamCount := 0
-	for _, param := range method.Params {
-		if !param.Optional {
-			requiredParamCount++
-		}
-	}
-	method.requiredParamCount = requiredParamCount
-
-	// Build the per-request binding plan once. inTypes[i] is the slot
-	// type for the i-th declared param (skipping context); the hot path
-	// reads it as a plain slice index, never recomputes via reflect.
-	addContext := 0
-	if method.needsContext {
-		addContext = 1
-	}
-	method.inTypes = make([]reflect.Type, len(method.Params))
-	method.inZeroes = make([]reflect.Value, len(method.Params))
-	method.needsValidation = make([]bool, len(method.Params))
-	for i := range method.Params {
-		t := handlerT.In(i + addContext)
-		method.inTypes[i] = t
-		method.inZeroes[i] = reflect.Zero(t)
-		method.needsValidation[i] = typeHasValidateTag(t, nil)
-	}
-	if len(method.Params) > 0 {
-		method.paramByName = make(map[string]int, len(method.Params))
-		for i, p := range method.Params {
-			method.paramByName[p.Name] = i
-		}
-	}
-	method.handlerVal = reflect.ValueOf(method.Handler)
-
-	// The method is valid. Mutate the appropriate fields and register on the server.
 	s.methods[method.Name] = method
-
-	s.pretouchHandlerTypes(handlerT, method.needsContext)
-
 	return nil
-}
-
-var (
-	errorType  = reflect.TypeFor[*Error]()
-	headerType = reflect.TypeFor[http.Header]()
-)
-
-// typeHasValidateTag reports whether t — or anything reachable through
-// its fields, slice/array elems, map values, or pointer indirection —
-// carries a `validate` struct tag. Used at registration to decide
-// whether the validateParam reflect walk needs to run on the hot path.
-// Cycles are guarded via the visited set.
-func typeHasValidateTag(t reflect.Type, visited map[reflect.Type]bool) bool {
-	if t == nil {
-		return false
-	}
-	if visited == nil {
-		visited = make(map[reflect.Type]bool)
-	}
-	if visited[t] {
-		return false
-	}
-	visited[t] = true
-
-	switch t.Kind() {
-	case reflect.Pointer, reflect.Slice, reflect.Array:
-		return typeHasValidateTag(t.Elem(), visited)
-	case reflect.Map:
-		return typeHasValidateTag(t.Key(), visited) || typeHasValidateTag(t.Elem(), visited)
-	case reflect.Struct:
-		for i := range t.NumField() {
-			f := t.Field(i)
-			if _, ok := f.Tag.Lookup("validate"); ok {
-				return true
-			}
-			if typeHasValidateTag(f.Type, visited) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// pretouchHandlerTypes pre-compiles sonic encode/decode paths for every
-// JSON-marshaled type the handler touches at request time: parameter
-// types (hit by parseParam) and non-envelope return types (hit by the
-// response wrapper).
-func (s *Server) pretouchHandlerTypes(handlerT reflect.Type, needsContext bool) {
-	for i := range handlerT.NumIn() {
-		if i == 0 && needsContext {
-			continue
-		}
-		s.pretouch(handlerT.In(i))
-	}
-	for out := range handlerT.Outs() {
-		if out == errorType || out == headerType {
-			continue
-		}
-		s.pretouch(out)
-	}
 }
 
 type Conn interface {
@@ -668,218 +535,32 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 
 	handlerTimer := time.Now()
 	s.listener.OnNewRequest(req.Method)
-	args, err := s.buildArguments(ctx, req.Params, &calledMethod)
-	if err != nil {
-		res.Error = Err(InvalidParams, err.Error())
-		s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
-		return res, header, nil
-	}
 	defer func() {
 		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
 	}()
 
-	tuple := calledMethod.handlerVal.Call(args)
+	result, dispatchHeader, rpcErr := calledMethod.Dispatch(ctx, s.validator, req.Params)
 	if res.ID == nil { // notification
 		s.logger.Trace("Notification received, no response expected")
 		return nil, header, nil
 	}
-
-	errorIndex := 1
-	if len(tuple) == 3 {
-		errorIndex = 2
-		header = (tuple[1].Interface()).(http.Header)
+	if dispatchHeader != nil {
+		header = dispatchHeader
 	}
-
-	if !tuple[errorIndex].IsNil() {
-		res.Error = tuple[errorIndex].Interface().(*Error)
-		if res.Error.Code == InternalError {
-			s.listener.OnRequestFailed(req.Method, res.Error)
+	if rpcErr != nil {
+		res.Error = rpcErr
+		if rpcErr.Code == InternalError {
+			s.listener.OnRequestFailed(req.Method, rpcErr)
 			reqJSON, _ := jsonx.Marshal(req)
-			errJSON, _ := jsonx.Marshal(res.Error)
-			s.logger.Debug("Failed handing RPC request",
+			errJSON, _ := jsonx.Marshal(rpcErr)
+			s.logger.Debug(
+				"Failed handing RPC request",
 				zap.String("req", log.SanitizeString(string(reqJSON))),
 				zap.String("res", log.SanitizeString(string(errJSON))),
 			)
 		}
 		return res, header, nil
 	}
-	res.Result = tuple[0].Interface()
-
+	res.Result = result
 	return res, header, nil
-}
-
-// buildArguments materializes []reflect.Value for the handler call from
-// the request's raw params. The hot path reads only cached fields on
-// Method (inTypes, paramByName, handlerVal); no reflect.TypeOf /
-// NumIn / In is called per request, and per-slot decode is a single
-// jsonx.UnmarshalString — no Marshal→Unmarshal round-trip.
-func (s *Server) buildArguments(
-	ctx context.Context,
-	params json.RawMessage,
-	method *Method,
-) ([]reflect.Value, error) {
-	numNonCtx := len(method.inTypes)
-	addContext := 0
-	if method.needsContext {
-		addContext = 1
-	}
-	args := make([]reflect.Value, 0, numNonCtx+addContext)
-	if method.needsContext {
-		args = append(args, reflect.ValueOf(ctx))
-	}
-
-	switch paramsKind(params) {
-	case paramsKindNone:
-		if method.requiredParamCount > 0 {
-			return nil, errors.New("missing non-optional param field")
-		}
-		for i := range numNonCtx {
-			args = append(args, method.inZeroes[i])
-		}
-		return args, nil
-	case paramsKindArray:
-		var node ast.Node
-		if err := node.UnmarshalJSON(params); err != nil {
-			return nil, err
-		}
-		return s.buildPositionalArgs(&node, method, args)
-	case paramsKindObject:
-		var node ast.Node
-		if err := node.UnmarshalJSON(params); err != nil {
-			return nil, err
-		}
-		return s.buildNamedArgs(&node, method, args)
-	default:
-		// Unreachable: isSane already rejects non-container params.
-		return nil, errors.New("impossible param type: check request.isSane")
-	}
-}
-
-func (s *Server) buildPositionalArgs(
-	node *ast.Node, method *Method, args []reflect.Value,
-) ([]reflect.Value, error) {
-	iter, err := node.Values()
-	if err != nil {
-		return nil, err
-	}
-	consumed := 0
-	var elem ast.Node
-	for iter.Next(&elem) {
-		if consumed >= len(method.inTypes) {
-			return nil, errors.New("missing/unexpected params in list")
-		}
-		raw, rawErr := elem.Raw()
-		if rawErr != nil {
-			return nil, rawErr
-		}
-		v, decErr := s.decodeIntoSlot(raw, method, consumed)
-		if decErr != nil {
-			return nil, decErr
-		}
-		args = append(args, v)
-		consumed++
-	}
-	if consumed < method.requiredParamCount {
-		return nil, errors.New("missing/unexpected params in list")
-	}
-	for i := consumed; i < len(method.inTypes); i++ {
-		args = append(args, method.inZeroes[i])
-	}
-	return args, nil
-}
-
-func (s *Server) buildNamedArgs(
-	node *ast.Node, method *Method, args []reflect.Value,
-) ([]reflect.Value, error) {
-	iter, err := node.Properties()
-	if err != nil {
-		return nil, err
-	}
-
-	rawByIndex := make([]string, len(method.inTypes))
-	found := make([]bool, len(method.inTypes))
-	var unknown []string
-
-	var pair ast.Pair
-	for iter.Next(&pair) {
-		idx, ok := method.paramByName[pair.Key]
-		if !ok {
-			unknown = append(unknown, pair.Key)
-			continue
-		}
-		raw, rawErr := pair.Value.Raw()
-		if rawErr != nil {
-			return nil, rawErr
-		}
-		rawByIndex[idx] = raw
-		found[idx] = true
-	}
-
-	// Preserve the original error precedence: missing-required wins over
-	// unexpected-extras when both are present.
-	for i, param := range method.Params {
-		if !found[i] && !param.Optional {
-			return nil, errors.New("missing non-optional param: " + param.Name)
-		}
-	}
-	if len(unknown) > 0 {
-		return nil, errors.New("unexpected params: " + strings.Join(unknown, ", "))
-	}
-
-	for i := range method.inTypes {
-		if found[i] {
-			v, decErr := s.decodeIntoSlot(rawByIndex[i], method, i)
-			if decErr != nil {
-				return nil, decErr
-			}
-			args = append(args, v)
-		} else {
-			args = append(args, method.inZeroes[i])
-		}
-	}
-	return args, nil
-}
-
-// decodeIntoSlot unmarshals raw JSON directly into a freshly-allocated
-// value of the i-th declared param's type (single sonic decode pass —
-// no Marshal first). validateParam is skipped for types whose registry
-// scan found no `validate:` tags transitively.
-func (s *Server) decodeIntoSlot(raw string, method *Method, i int) (reflect.Value, error) {
-	handlerParam := reflect.New(method.inTypes[i])
-	if err := jsonx.UnmarshalString(raw, handlerParam.Interface()); err != nil {
-		return reflect.Value{}, err
-	}
-	elem := handlerParam.Elem()
-	if s.validator != nil && method.needsValidation[i] {
-		if err := s.validateParam(elem); err != nil {
-			return reflect.Value{}, err
-		}
-	}
-	return elem, nil
-}
-
-func (s *Server) validateParam(param reflect.Value) error {
-	kind := param.Kind()
-	switch {
-	case kind == reflect.Struct ||
-		(kind == reflect.Pointer && param.Elem().Kind() == reflect.Struct):
-		/* struct or a struct pointer */
-		if err := s.validator.Struct(param.Interface()); err != nil {
-			return err
-		}
-	case kind == reflect.Slice || kind == reflect.Array:
-		for i := range param.Len() {
-			if err := s.validateParam(param.Index(i)); err != nil {
-				return err
-			}
-		}
-	case kind == reflect.Map:
-		for _, key := range param.MapKeys() {
-			if err := s.validateParam(param.MapIndex(key)); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
