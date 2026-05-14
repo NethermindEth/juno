@@ -1,4 +1,6 @@
-package node_test
+// Uses package node (not node_test) to test unexported helpers directly.
+// It avoids changing the API or production code just for testing
+package node
 
 import (
 	"testing"
@@ -8,42 +10,40 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	_ "github.com/NethermindEth/juno/encoder/registry"
-	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFetchL1HeadIfMissing_SkipsL1FetchWhenHeadPresent(t *testing.T) {
 	database := memory.New()
-	want := &core.L1Head{
+	expected := &core.L1Head{
 		BlockNumber: 1,
 		BlockHash:   felt.NewRandom[felt.Felt](),
 		StateRoot:   felt.NewRandom[felt.Felt](),
 	}
-	require.NoError(t, core.WriteL1Head(database, want))
+	require.NoError(t, core.WriteL1Head(database, expected))
 
-	logger := log.NewNopZapLogger()
-	cfg := &node.Config{EthNode: ""}
-	require.NoError(t, node.FetchL1HeadIfMissing(t.Context(), database, cfg, nil, logger))
+	cfg := &Config{EthNode: ""}
+	require.NoError(t, fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger()))
 
-	got, err := core.GetL1Head(database)
+	received, err := core.GetL1Head(database)
 	require.NoError(t, err)
-	require.Equal(t, *want, got)
+	require.Equal(t, *expected, received)
 }
 
 func TestFetchL1HeadIfMissing_WrapsL1ClientError(t *testing.T) {
 	database := memory.New()
-	cfg := &node.Config{EthNode: ""}
-	err := node.FetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger())
+	cfg := &Config{EthNode: ""}
+	err := fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger())
 	require.ErrorContains(t, err, "creating a new L1 client")
 }
 
 func TestMigrateIfNeeded_WrapsPruneFetchError(t *testing.T) {
-	cfg := &node.Config{
+	cfg := &Config{
 		Prune:   true,
 		EthNode: "",
 		Network: networks.Sepolia,
 	}
-	err := node.MigrateIfNeeded(t.Context(), memory.New(), cfg, nil, log.NewNopZapLogger())
+	err := migrateIfNeeded(t.Context(), memory.New(), cfg, nil, log.NewNopZapLogger())
 	require.ErrorContains(t, err, "fetch L1 head for pruning")
 }
