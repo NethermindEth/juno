@@ -2,7 +2,9 @@ package p2p2consensus
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	p2pconsensus "github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 )
 
@@ -34,6 +36,9 @@ func validateBlockInfo(b *p2pconsensus.BlockInfo) error {
 	}
 	if b.EthToStrkRate == nil {
 		return errors.New("eth_to_strk_rate must be set")
+	}
+	if _, ok := common.L1DataAvailabilityMode_name[int32(b.L1DaMode)]; !ok {
+		return fmt.Errorf("unknown l1_da_mode value: %d", b.L1DaMode)
 	}
 	return nil
 }
@@ -97,6 +102,9 @@ func validateProposalCommitment(p *p2pconsensus.ProposalCommitment) error { //no
 	}
 	if p.NextL2GasPriceFri == nil {
 		return errors.New("next_l2_gas_price_fri must be set")
+	}
+	if _, ok := common.L1DataAvailabilityMode_name[int32(p.L1DaMode)]; !ok {
+		return fmt.Errorf("unknown l1_da_mode value: %d", p.L1DaMode)
 	}
 	return nil
 }
