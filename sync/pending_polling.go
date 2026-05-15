@@ -286,11 +286,11 @@ func (s *Synchronizer) pollPreConfirmed(
 	}
 }
 
-// handleHeadInPreConfirmedPhase processes a new head during the pre_confirmed phase.
+// handleHead processes a new head.
 // It computes nextHeight = head.Number + 1, clears any staged pre_latest if the
 // head catches up to the current target, and stores an empty pre_confirmed when
 // advancing.
-func (s *Synchronizer) handleHeadInPreConfirmedPhase(
+func (s *Synchronizer) handleHead(
 	head *core.Block,
 	targetPreConfirmedNum *atomic.Uint64,
 	stagedPreLatest *pending.PreLatest,
@@ -313,7 +313,7 @@ func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 	return nil
 }
 
-// handlePreLatest processes an incoming pre_latest during the pre_confirmed phase.
+// handlePreLatest processes an incoming pre_latest.
 // If it raises the target, it stages the attachment and stores a baseline with it.
 // Returns updated staged pre-latest.
 func (s *Synchronizer) handlePreLatest(
@@ -411,7 +411,7 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 				return
 			}
 
-			stagedPreLatest = s.handleHeadInPreConfirmedPhase(
+			stagedPreLatest = s.handleHead(
 				head,
 				&preConfirmedBlockNumberToPoll,
 				stagedPreLatest,

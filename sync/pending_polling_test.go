@@ -6,6 +6,7 @@ import (
 	stdsync "sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -18,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,6 +33,13 @@ type MockDataSource struct {
 	numCallsPreConfirmed       uint
 	numCallsPending            uint
 	PendingFunc                func(ctx context.Context) (pending.PreLatest, error)
+	PreConfirmedFunc           func(
+		ctx context.Context,
+		number uint64,
+		knownBlockIdentifier string,
+		knownTransactionCount uint64,
+		numCalls uint,
+	) (pending.PreConfirmedUpdate, error)
 }
 
 // Override BlockPreLatest to simulate errors and/or injected responses
@@ -46,18 +55,40 @@ func (m *MockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest,
 	return m.DataSource.BlockPreLatest(ctx)
 }
 
-// Override PreConfirmedBlockByNumber to simulate errors and variable tx count
+// Override PreConfirmedBlockByNumber to simulate errors and variable tx count,
+// or injected responses.
+// Always returns a Full update so the existing tests continue to assert on
+// stored pre_confirmed state without having to model delta application.
 func (m *MockDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	number uint64,
-) (pending.PreConfirmed, error) {
+	knownBlockIdentifier string,
+	knownTransactionCount uint64,
+) (pending.PreConfirmedUpdate, error) {
+	// @todo revisit this code and doc
 	m.numCallsPreConfirmed += 1
 	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
-		return pending.PreConfirmed{}, errors.New("some error")
+		return pending.PreConfirmedUpdate{}, errors.New("some error")
+	}
+
+	// fallback to embedded real method if no override set
+	if m.PreConfirmedFunc != nil {
+		return m.PreConfirmedFunc(
+			ctx,
+			number,
+			knownBlockIdentifier,
+			knownTransactionCount,
+			m.numCallsPreConfirmed,
+		)
 	}
 	preConfirmed := makeTestPreConfirmed(number)
 	preConfirmed.Block.TransactionCount = number%10 + uint64(m.numCallsPreConfirmed)/2
-	return preConfirmed, nil
+	preConfirmed.BlockIdentifier = "mock"
+	return pending.PreConfirmedUpdate{
+		Mode:            pending.PreConfirmedFull,
+		BlockIdentifier: preConfirmed.BlockIdentifier,
+		FullBlock:       &preConfirmed,
+	}, nil
 }
 
 func TestPollPreLatest(t *testing.T) {
@@ -270,7 +301,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		s := New(bc, mockDS, logger, 0, 30*time.Millisecond, false, testDB)
 
 		var preConfirmedBlockNumberToPoll atomic.Uint64
-		out := make(chan *pending.PreConfirmed, 1)
+		out := make(chan *pending.PreConfirmedUpdate, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -299,9 +330,9 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		s.highestBlockHeader.Store(head0.Header)
 
 		select {
-		case pc := <-out:
-			require.NotNil(t, pc)
-			require.Equal(t, uint64(1), pc.Block.Number)
+		case update := <-out:
+			require.NotNil(t, update)
+			require.Equal(t, uint64(1), update.FullBlock.Block.Number)
 			require.GreaterOrEqual(
 				t,
 				mockDS.numCallsPreConfirmed,
@@ -323,7 +354,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		var preConfirmedBlockNumberToPoll atomic.Uint64
 		preConfirmedBlockNumberToPoll.Store(1)
 
-		out := make(chan *pending.PreConfirmed, 1)
+		out := make(chan *pending.PreConfirmedUpdate, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
@@ -349,76 +380,231 @@ func TestPollPendingData(t *testing.T) {
 	dataSource := NewFeederGatewayDataSource(bc, gw)
 	logger := log.NewNopZapLogger()
 
-	// Set up head 0
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
-	require.NoError(t, bc.Store(
-		block0,
-		&core.BlockCommitments{},
-		stateUpdate0,
-		map[felt.Felt]core.ClassDefinition{},
-	))
-
-	// Mock data source to delay pre_latest (pending) while allowing pre_confirmed to arrive
-	pendingFunc := func(context.Context) (pending.PreLatest, error) {
-		head, err := bc.HeadsHeader()
+	fetchBlock := func(number uint64) (*core.Block, *core.StateUpdate) {
+		block, err := gw.BlockByNumber(t.Context(), number)
 		require.NoError(t, err)
-		return makeEmptyPreLatestForParent(head), nil
+		stateUpdate, err := gw.StateUpdate(t.Context(), number)
+		require.NoError(t, err)
+		return block, stateUpdate
 	}
 
-	mockDataSource := &MockDataSource{
-		DataSource:            dataSource,
-		PendingFunc:           pendingFunc,
-		pendingErrorThreshold: 2, // introduce delay to receive pre_latest
-	}
-	s := New(bc, mockDataSource, logger, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
-	s.highestBlockHeader.Store(block0.Header)
+	t.Run("assert preConfirmed increment after preLatest arrival", func(t *testing.T) {
+		block0, stateUpdate0 := fetchBlock(0)
+		require.NoError(
+			t, bc.Store(
+				block0,
+				&core.BlockCommitments{},
+				stateUpdate0,
+				map[felt.Felt]core.ClassDefinition{},
+			),
+		)
 
-	// Subscribe to pre-confirmed feed to observe stored pre_confirmed
-	sub := s.preConfirmedDataFeed.SubscribeKeepLast()
-	defer sub.Unsubscribe()
+		// Mock data source to delay pre_latest (pending) while allowing pre_confirmed to arrive
+		pendingFunc := func(context.Context) (pending.PreLatest, error) {
+			head, err := bc.HeadsHeader()
+			require.NoError(t, err)
+			return makeEmptyPreLatestForParent(head), nil
+		}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
-	defer cancel()
+		mockDataSource := &MockDataSource{
+			DataSource:            dataSource,
+			PendingFunc:           pendingFunc,
+			pendingErrorThreshold: 2, // introduce delay to receive pre_latest
+		}
+		s := New(bc, mockDataSource, logger, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
+		s.highestBlockHeader.Store(block0.Header)
 
-	var wg stdsync.WaitGroup
-	wg.Go(func() {
-		s.pollPendingData(ctx)
-	})
-	defer wg.Wait()
+		// Subscribe to pre-confirmed feed to observe stored pre_confirmed
+		sub := s.preConfirmedDataFeed.SubscribeKeepLast()
+		defer sub.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-	// Send initial head 0 to kick off target=1
-	s.newHeads.Send(block0)
+		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+		defer cancel()
 
-	// Expect pre_confirmed for 1 first (baseline from head)
-	select {
-	case pd := <-sub.Recv():
-		require.NotNil(t, pd)
-		require.Equal(t, uint64(1), pd.GetBlock().Number)
-	case <-ctx.Done():
-		t.Fatal("did not broadcast pre_confirmed for number 1")
-	}
+		var wg stdsync.WaitGroup
+		wg.Go(func() {
+			s.pollPendingData(ctx)
+		})
+		defer wg.Wait()
 
-	for {
-		// After pending eventually succeeds, pre_latest should raise target to 2; expect pre_confirmed for 2
+		time.Sleep(100 * time.Millisecond)
+		// Send initial head 0 to kick off target=1
+		s.newHeads.Send(block0)
+
+		// Expect pre_confirmed for 1 first (baseline from head)
 		select {
 		case pd := <-sub.Recv():
 			require.NotNil(t, pd)
-			if pd.GetBlock().Number == uint64(2) {
-				return
-			}
-
-			if pd.GetBlock().Number > uint64(2) {
-				t.Fatal("skipped pre_confirmed for number 2 and advanced further")
-			}
-
+			require.Equal(t, uint64(1), pd.GetBlock().Number)
 		case <-ctx.Done():
-			t.Fatal("did not broadcast pre_confirmed for number 2")
+			t.Fatal("did not broadcast pre_confirmed for number 1")
 		}
-	}
+
+		for {
+			// After pending eventually succeeds, pre_latest should raise target to 2; expect pre_confirmed for 2
+			select {
+			case pd := <-sub.Recv():
+				require.NotNil(t, pd)
+				if pd.GetBlock().Number == uint64(2) {
+					return
+				}
+
+				if pd.GetBlock().Number > uint64(2) {
+					t.Fatal("skipped pre_confirmed for number 2 and advanced further")
+				}
+
+			case <-ctx.Done():
+				t.Fatal("did not broadcast pre_confirmed for number 2")
+			}
+		}
+	})
+
+	t.Run("assert delta updates are applied", func(t *testing.T) {
+		testDB = memory.New()
+		bc = blockchain.New(
+			testDB,
+			&networks.Sepolia,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
+		dataSource = NewFeederGatewayDataSource(bc, gw)
+		// blocks must be fetched outside the synctest goroutine
+		block0, stateUpdate0 := fetchBlock(0)
+		block1, stateUpdate1 := fetchBlock(1)
+
+		preLPoll := time.Second            // defaultPreLatestPollInterval
+		preCPoll := 500 * time.Millisecond // defaultPreConfirmedPollInterval
+
+		synctest.Test(t, func(t *testing.T) {
+			// makes every pre_latest call return a new pre_latest of head + 1
+			pendingFunc := func(context.Context) (pending.PreLatest, error) {
+				head, err := bc.HeadsHeader()
+				require.NoError(t, err)
+				return makeEmptyPreLatestForParent(head), nil
+			}
+			preConfirmedFunc := func(
+				ctx context.Context,
+				number uint64,
+				knownBlockIdentifier string,
+				knownTransactionCount uint64,
+				numCalls uint,
+			) (pending.PreConfirmedUpdate, error) {
+
+				var response pending.PreConfirmedUpdate
+				switch number {
+				case 1:
+					// block 1 will be polled 2 times in our test.
+					// First time, return full block. Second time, return no change.
+					switch numCalls {
+					case 1:
+						preConf := makeTestPreConfirmed(number)
+						response = pending.PreConfirmedUpdate{
+							Mode:            pending.PreConfirmedFull,
+							BlockIdentifier: knownBlockIdentifier,
+							FullBlock:       &preConf,
+						}
+						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
+					case 2:
+						response = pending.PreConfirmedUpdate{
+							Mode:            pending.PreConfirmedNoChange,
+							BlockIdentifier: knownBlockIdentifier,
+						}
+					}
+				case 2:
+					preConf := makeTestPreConfirmed(number)
+					response = pending.PreConfirmedUpdate{
+						Mode:            pending.PreConfirmedFull,
+						BlockIdentifier: knownBlockIdentifier,
+						FullBlock:       &preConf,
+					}
+					response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
+				default:
+					t.Fatal("unexpected number", number)
+				}
+
+				return response, nil
+			}
+
+			mockDataSource := &MockDataSource{
+				DataSource:       dataSource,
+				PendingFunc:      pendingFunc,
+				PreConfirmedFunc: preConfirmedFunc,
+			}
+
+			clock := time.Now()
+			s := New(
+				bc,
+				mockDataSource,
+				logger,
+				preLPoll,
+				preCPoll,
+				false,
+				testDB,
+			)
+
+			// Subscribe to pre-confirmed feed to observe stored pre_confirmed
+			sub := s.preConfirmedDataFeed.SubscribeKeepLast()
+			defer sub.Unsubscribe()
+
+			go func() {
+				s.pollPendingData(t.Context())
+			}()
+			synctest.Wait()
+
+			// store block0; sets preConfirmed target to 1
+			require.NoError(
+				t, bc.Store(
+					block0,
+					&core.BlockCommitments{},
+					stateUpdate0,
+					map[felt.Felt]core.ClassDefinition{},
+				),
+			)
+			s.highestBlockHeader.Store(block0.Header)
+			s.newHeads.Send(block0)
+			synctest.Wait()
+
+			// 1st preConfirmed tick; expected pre_confirmed = 1
+			time.Sleep(preCPoll)
+			synctest.Wait()
+
+			pc := <-sub.Recv()
+			require.NotNil(t, pc)
+			assert.Equal(t, uint64(1), pc.Block.Number)
+			require.Equal(t, preCPoll, time.Since(clock))
+			synctest.Wait()
+
+			// 2nd preConfirmed tick; no change in preConfirmed.
+			// preLatest also triggers, advancing next target preConfirmed to 2.
+			time.Sleep(preCPoll)
+			synctest.Wait()
+			require.Equal(t, preCPoll*2, time.Since(clock))
+
+			// store block1; preConfirmed target is still 2
+			require.NoError(
+				t, bc.Store(
+					block1,
+					&core.BlockCommitments{},
+					stateUpdate1,
+					map[felt.Felt]core.ClassDefinition{},
+				),
+			)
+			s.highestBlockHeader.Store(block1.Header)
+			s.newHeads.Send(block1)
+			synctest.Wait()
+
+			// 3rd preConfirmed tick; expected pre_confirmed = 2
+			time.Sleep(preCPoll)
+			synctest.Wait()
+			require.Equal(t, preCPoll*3, time.Since(clock))
+
+			pc = <-sub.Recv()
+			require.NotNil(t, pc)
+			assert.Equal(t, uint64(2), pc.Block.Number)
+			// @todo take a look at these timers checks
+			require.Equal(t, preCPoll*3, time.Since(clock))
+			synctest.Wait()
+		})
+	})
 }
 
 func TestStorePreConfirmed(t *testing.T) {
