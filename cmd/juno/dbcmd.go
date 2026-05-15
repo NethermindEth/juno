@@ -223,11 +223,6 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--%v cannot be empty", dbPathF)
 	}
 
-	newState, err := cmd.Flags().GetBool(newStateF)
-	if err != nil {
-		return err
-	}
-
 	pebbleDB, err := openDB(dbPath)
 	if err != nil {
 		return err
@@ -249,13 +244,9 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		db.DeprecatedContractStorageHistory,
 		db.DeprecatedContractNonceHistory,
 		db.DeprecatedContractClassHashHistory,
-	}
-	if newState {
-		historyBuckets = []db.Bucket{
-			db.ContractStorageHistory,
-			db.ContractNonceHistory,
-			db.ContractClassHashHistory,
-		}
+		db.ContractStorageHistory,
+		db.ContractNonceHistory,
+		db.ContractClassHashHistory,
 	}
 
 	buckets := db.BucketValues()

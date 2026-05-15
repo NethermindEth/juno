@@ -80,7 +80,7 @@ func DeprecatedContractClassHashHistoryKey(addr *felt.Felt) []byte {
 	return DeprecatedContractClassHashHistory.Key(addr.Marshal())
 }
 
-func ContractStorageHistoryKey(addr *felt.Felt, loc *felt.Felt) []byte {
+func ContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
 	return ContractStorageHistory.Key(addr.Marshal(), loc.Marshal())
 }
 
