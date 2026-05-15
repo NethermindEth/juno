@@ -45,17 +45,8 @@ func shouldPreservePreConfirmed(
 	existingB := existingPending.GetBlock()
 	incomingB := incomingPending.GetBlock()
 
-	if incomingB.Number < existingB.Number {
-		return true
-	}
-	if incomingB.Number > existingB.Number {
-		return false
-	}
-
-	if incomingPending.BlockIdentifier != existingPending.BlockIdentifier {
-		return false
-	}
-	return incomingB.TransactionCount <= existingB.TransactionCount
+	return (incomingB.Number < existingB.Number) ||
+		(incomingB.Number == existingB.Number && incomingB.TransactionCount <= existingB.TransactionCount)
 }
 
 // UpdatePreLatestAttachment updates (or clears) the PreLatest attachment of the currently stored
@@ -272,7 +263,7 @@ func (s *Synchronizer) pollPreConfirmed(
 			)
 
 			currentPreConf := s.preConfirmed.Load()
-			if currentPreConf != nil && currentPreConf.Block != nil {
+			if currentPreConf != nil {
 				knownBlockIdentifier = currentPreConf.BlockIdentifier
 				knownTransactionCount = uint64(len(currentPreConf.Block.Transactions)) + uint64(len(currentPreConf.CandidateTxs))
 			}
