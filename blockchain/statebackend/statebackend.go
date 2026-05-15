@@ -88,14 +88,15 @@ func (b *stateBackend) Store(
 			return err
 		}
 
-		if err := writeBlockContent(
+		err = writeBlockContent(
 			b.database,
 			batch,
 			block,
 			stateUpdate,
 			blockCommitments,
 			newClasses,
-		); err != nil {
+		)
+		if err != nil {
 			return err
 		}
 
@@ -224,14 +225,15 @@ func (b *stateBackend) Finalise(
 			}
 		}
 
-		if err := writeBlockContent(
+		err = writeBlockContent(
 			b.database,
 			batch,
 			block,
 			stateUpdate,
 			commitments,
 			newClasses,
-		); err != nil {
+		)
+		if err != nil {
 			return err
 		}
 

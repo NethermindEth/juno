@@ -79,6 +79,7 @@ func (b *deprecatedStateBackend) Store(
 		if err := verifyBlockSuccession(txn, block); err != nil {
 			return err
 		}
+
 		err := deprecatedstate.New(txn).Update(
 			block.Header,
 			stateUpdate,
@@ -89,14 +90,15 @@ func (b *deprecatedStateBackend) Store(
 			return err
 		}
 
-		if err := writeBlockContent(
+		err = writeBlockContent(
 			b.database,
 			txn,
 			block,
 			stateUpdate,
 			blockCommitments,
 			newClasses,
-		); err != nil {
+		)
+		if err != nil {
 			return err
 		}
 
@@ -222,14 +224,15 @@ func (b *deprecatedStateBackend) Finalise(
 			}
 		}
 
-		if err := writeBlockContent(
+		err = writeBlockContent(
 			txn,
 			txn,
 			block,
 			stateUpdate,
 			commitments,
 			newClasses,
-		); err != nil {
+		)
+		if err != nil {
 			return err
 		}
 
