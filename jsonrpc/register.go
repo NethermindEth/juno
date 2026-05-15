@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/bytedance/sonic"
@@ -48,8 +49,11 @@ func captureFieldTags[P any]() *regPlan {
 		if !ok {
 			panic(fmt.Sprintf("jsonrpc: %s.%s missing `json:` tag", pt, f.Name))
 		}
-		name, opts, _ := strings.Cut(tag, ",")
-		optional := opts == "omitempty"
+		name, optsRaw, _ := strings.Cut(tag, ",")
+		// A param is optional if its json tag carries either
+		// `omitempty` or `omitzero` as one of the comma-separated options.
+		opts := strings.Split(optsRaw, ",")
+		optional := slices.Contains(opts, "omitempty") || slices.Contains(opts, "omitzero")
 		plan.byName[name] = len(plan.tags)
 		plan.tags = append(plan.tags, name)
 		plan.optional = append(plan.optional, optional)

@@ -33,6 +33,20 @@ type fxAllOptional struct {
 	Y *int `json:"y,omitempty"`
 }
 
+// fxOmitzero uses the omitzero tag instead of omitempty. omitzero is the
+// preferred spelling for nested struct-by-value fields where omitempty
+// is a no-op at encode time; captureFieldTags treats both as "optional".
+type fxOmitzero struct {
+	A int `json:"a"`
+	B int `json:"b,omitzero"`
+}
+
+type fxCompoundTag struct {
+	A string `json:"a"`
+	B string `json:"b,string,omitempty"`
+	C string `json:"c,omitempty,string"`
+}
+
 type fxValidated struct {
 	A int `json:"a" validate:"min=1"`
 }
@@ -77,15 +91,30 @@ func TestCaptureFieldTags_AllOptional(t *testing.T) {
 	assert.Equal(t, []bool{true, true}, plan.optional)
 }
 
+func TestCaptureFieldTags_OmitzeroIsOptional(t *testing.T) {
+	plan := captureFieldTags[fxOmitzero]()
+	assert.Equal(t, []bool{false, true}, plan.optional)
+	assert.Equal(t, 1, plan.requiredN)
+}
+
+func TestCaptureFieldTags_CompoundTagsRecogniseOptional(t *testing.T) {
+	plan := captureFieldTags[fxCompoundTag]()
+	assert.Equal(t, []string{"a", "b", "c"}, plan.tags)
+	assert.Equal(t, []bool{false, true, true}, plan.optional)
+	assert.Equal(t, 1, plan.requiredN)
+}
+
 func TestCaptureFieldTags_PanicsOnNonStruct(t *testing.T) {
-	require.PanicsWithValue(t,
+	require.PanicsWithValue(
+		t,
 		"jsonrpc: param type int must be a struct",
 		func() { captureFieldTags[int]() },
 	)
 }
 
 func TestCaptureFieldTags_PanicsOnMissingJSONTag(t *testing.T) {
-	require.PanicsWithValue(t,
+	require.PanicsWithValue(
+		t,
 		"jsonrpc: jsonrpc.fxMissingTag.A missing `json:` tag",
 		func() { captureFieldTags[fxMissingTag]() },
 	)
@@ -339,7 +368,8 @@ func TestRegisterCH_ThreadsBoth(t *testing.T) {
 	type ctxKey struct{}
 	header := http.Header{"X-Trace": []string{"abc"}}
 
-	m := RegisterCH("both",
+	m := RegisterCH(
+		"both",
 		func(ctx context.Context, p *fxRequiredOnly) (string, http.Header, *Error) {
 			ctxVal, _ := ctx.Value(ctxKey{}).(string)
 			return ctxVal + ":" + p.B, header, nil
