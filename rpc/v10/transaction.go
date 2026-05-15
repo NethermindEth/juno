@@ -436,12 +436,10 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	case blockID.IsNumber():
 		blockNumber = blockID.Number()
 	case blockID.IsL1Accepted():
-		var l1Head core.L1Head
-		l1Head, err = h.bcReader.L1Head()
+		blockNumber, err = h.l1AcceptedBlockNumber()
 		if err != nil {
 			break
 		}
-		blockNumber = l1Head.BlockNumber
 	default:
 		panic("unknown block type id")
 	}
