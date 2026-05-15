@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/propeller/timecache"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"go.uber.org/zap"
 )
@@ -109,7 +109,7 @@ func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
 	// will arrive. Although, that will mean we also need to validate any of those extra messages.
 	// The question is then: Do the cost of validating missing messages reduces greatly the cost
 	// of recovering them? Cases to consider:
-	//  - Perfect network condition: a lot of bandwith and everybody is good. Does receiving all
+	//  - Perfect network condition: a lot of bandwidth and everybody is good. Does receiving all
 	//     all the missing messages and validating them is cheaper than recovering them? What's the
 	//     performance difference? <- Write benchmark
 	//  - Bad network conditions: does the time waiting but receiving no messages will
@@ -182,6 +182,7 @@ func (s *subprocessor) beforeMessageBuiltStage(ctx context.Context) (
 	return unitCount, fullMessage, nil
 }
 
+//nolint:unparam // message will be used once the receive-stage forwarding is wired up.
 func (s *subprocessor) beforeMessageReceivedStage(
 	ctx context.Context,
 	unitCount int,
@@ -286,7 +287,7 @@ type Processor struct {
 	finalized *timecache.TimeCache[messageKey]
 
 	subProcessors map[messageKey]chan<- unitWithSender
-	// channel through wich subprocessors signal they have finalized execution
+	// channel through which subprocessors signal they have finalized execution
 	subProcessorsFinalized chan finalizedSubprocessor
 	// channel through which subprocessor share units that failed validation
 	invalidUnits chan invalidUnit
@@ -301,15 +302,19 @@ type Processor struct {
 	localPeer             peer.ID
 	timeout               time.Duration
 	concurrentTasksBounds concurrentTasksBounds
-	log                   utils.StructuredLogger
+	logger                log.StructuredLogger
 }
+
+// finalizedCacheSize bounds the number of recently-finalized message keys retained
+// to avoid re-processing units belonging to messages already completed.
+const finalizedCacheSize = 2048
 
 func NewProcessor(localPeer peer.ID, config *Config) (*Processor, <-chan Event) {
 	timeout := config.StaleMessageTimeout
 	processingEvents := make(chan Event)
 
 	return &Processor{
-		finalized: timecache.New[messageKey](2048, timeout),
+		finalized: timecache.New[messageKey](finalizedCacheSize, timeout),
 
 		subProcessors:          make(map[messageKey]chan<- unitWithSender),
 		subProcessorsFinalized: make(chan finalizedSubprocessor),
@@ -338,24 +343,26 @@ func (p *Processor) Run(ctx context.Context) {
 			return
 		case finalizedSubP := <-p.subProcessorsFinalized:
 			if finalizedSubP.error != nil {
-				p.log.Error("subprocessor finalized with error",
+				p.logger.Error(
+					"subprocessor finalized with error",
 					zap.String("message key", finalizedSubP.messageKey.String()),
 					zap.Error(finalizedSubP.error),
 				)
 			} else {
-				p.log.Info("subprocessor finalized",
+				p.logger.Info(
+					"subprocessor finalized",
 					zap.String("message key", finalizedSubP.messageKey.String()),
 				)
 			}
 			p.finalize(&finalizedSubP.messageKey)
 
 		case invalidUnit := <-p.invalidUnits:
-			p.log.Error("unit validation failed",
+			p.logger.Error(
+				"unit validation failed",
 				zap.String("message key", invalidUnit.messageKey.String()),
 				zap.Error(invalidUnit.error),
 			)
 			// todo(rdr): should we mark sender to penalize?
-
 		}
 	}
 }
@@ -383,7 +390,7 @@ func (p *Processor) ProcessMessage(
 	// a single one.
 	unitChan, err := p.subprocessorChannel(ctx, &key, scheduler)
 	if err != nil {
-		fmt.Errorf("couldn't get processor channel for key: %w", err)
+		return fmt.Errorf("couldn't get processor channel for key: %w", err)
 	}
 
 	select {
@@ -423,7 +430,7 @@ func (p *Processor) createSubprocessor(
 	p.subProcessors[*key] = unitChan
 
 	// launch subprocessor
-	ctxWithTimeout, _ := context.WithTimeout(ctx, p.timeout)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, p.timeout)
 	// todo(rdr): passing to avoid closures. Does it makes sense?
 	// need to learn more how closures work in Go if it makes any difference
 	// in performance.
@@ -435,6 +442,7 @@ func (p *Processor) createSubprocessor(
 		localShardIndex ShardIndex,
 		unitChan <-chan unitWithSender,
 	) {
+		defer cancel()
 		subProcessor := newSubprocessor(
 			key.Publisher, scheduler, p.localPeer, localShardIndex, unitChan, p.invalidUnits,
 		)

@@ -6,7 +6,7 @@ import (
 	"io"
 
 	pb "github.com/NethermindEth/juno/consensus/propeller/proto"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -24,7 +24,7 @@ type propellerService struct {
 	host host.Host
 	// Internal config
 	config Config
-	log    utils.Logger
+	logger log.Logger
 	// Propeller communication
 	engine   *Engine
 	cmdCh    chan<- engineCommand
@@ -37,12 +37,12 @@ func New(
 	host host.Host,
 	privKey crypto.PrivKey,
 	config *Config,
-	log utils.Logger,
+	logger log.Logger,
 ) Service {
 	engine, cmdCh, eventsCh := NewEngine(
 		privKey,
 		config,
-		log,
+		logger,
 	)
 
 	return &propellerService{
@@ -51,7 +51,7 @@ func New(
 		cmdCh:    cmdCh,
 		eventsCh: eventsCh,
 		config:   *config,
-		log:      log,
+		logger:   logger,
 	}
 }
 
@@ -65,7 +65,8 @@ func (s *propellerService) receiveUnits(stream network.Stream) {
 	var buf bytes.Buffer
 	_, err := buf.ReadFrom(reader)
 	if err != nil {
-		s.log.Debug("error reading inbound propeller stream",
+		s.logger.Debug(
+			"error reading inbound propeller stream",
 			zap.Stringer("peer", sender),
 			zap.Error(err),
 		)
@@ -74,7 +75,8 @@ func (s *propellerService) receiveUnits(stream network.Stream) {
 	var batch pb.PropellerUnitBatch
 	err = proto.Unmarshal(buf.Bytes(), &batch)
 	if err != nil {
-		s.log.Debug("error unmarshalling propeller batch",
+		s.logger.Debug(
+			"error unmarshalling propeller batch",
 			zap.Stringer("peer", sender),
 			zap.Error(err),
 		)
@@ -83,7 +85,7 @@ func (s *propellerService) receiveUnits(stream network.Stream) {
 	for _, protoUnit := range batch.GetBatch() {
 		unit, err := UnitFromProto(protoUnit)
 		if err != nil {
-			s.log.Warn("received invalid unit", zap.Error(err))
+			s.logger.Warn("received invalid unit", zap.Error(err))
 			// todo(rdr): penalize sender?
 			// If we do it here then it means it shouldn't be handled at
 			// subP or Processor level, and all should be handled here,
@@ -131,7 +133,7 @@ func (s *propellerService) sendToPeer(ctx context.Context, p peer.ID, data []byt
 	return err
 }
 
-func (s *propellerService) broadcastMessage(ctx context.Context, msg []byte) {
+func (s *propellerService) broadcastMessage(ctx context.Context, units []Unit) {
 }
 
 func (s *propellerService) handleEvent(ctx context.Context, event Event) {
@@ -151,10 +153,10 @@ func (s *propellerService) Run(ctx context.Context) error {
 	go func() {
 		err := s.engine.Run(ctx)
 		if err != nil {
-			s.log.Error("shutting down propeller engine", zap.Error(err))
+			s.logger.Error("shutting down propeller engine", zap.Error(err))
 			return
 		}
-		s.log.Info("shutting down propeller engine")
+		s.logger.Info("shutting down propeller engine")
 	}()
 
 	// Subscribe to receiving certain topics

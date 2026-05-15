@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"go.uber.org/zap"
@@ -18,8 +18,8 @@ type broadcastResult struct {
 
 // todo(rdr): using String until I find a better type
 type StakerID struct {
-	peerID peer.ID
-	pubKey crypto.PubKey
+	peerID peer.ID       //nolint:unused // populated once committee key wiring lands.
+	pubKey crypto.PubKey //nolint:unused // populated once committee key wiring lands.
 }
 
 // Holds the state for a Committee ID:
@@ -84,7 +84,7 @@ type Engine struct {
 	localPeer peer.ID
 
 	config Config
-	log    utils.StructuredLogger
+	logger log.StructuredLogger
 
 	// processor handles validates and process all the messages received by other peers
 	processor *Processor
@@ -126,7 +126,7 @@ type Engine struct {
 func NewEngine(
 	privKey crypto.PrivKey,
 	config *Config,
-	log utils.StructuredLogger,
+	logger log.StructuredLogger,
 ) (*Engine, chan<- engineCommand, <-chan Event) {
 	localPeerID, err := peer.IDFromPrivateKey(privKey)
 	if err != nil {
@@ -142,7 +142,7 @@ func NewEngine(
 		localPeer:     localPeerID,
 		privKey:       privKey,
 		config:        *config,
-		log:           log,
+		logger:        logger,
 		processor:     processor,
 		committees:    make(map[CommitteeID]*committeeState),
 		cmdCh:         cmdCh,
@@ -153,6 +153,8 @@ func NewEngine(
 }
 
 // registerCommittee creates the schedule and encoder for a new channel.
+//
+//nolint:unparam // peersKeys is part of the public registration API; wiring is still pending.
 func (e *Engine) registerCommittee(
 	committeeID *CommitteeID,
 	peers []PeerCommittee,
@@ -161,23 +163,13 @@ func (e *Engine) registerCommittee(
 	// todo(rdr): Why re-registration should be ignored,
 	// as far as I understand, it shouldn't happen :think:
 	if _, ok := e.committees[*committeeID]; ok {
-		e.log.Warn(
+		e.logger.Warn(
 			"committee already registered, will ignore re-registration attempt",
 			// todo(rdr): give a proper string repr
 			zap.Any("committee id", committeeID),
 		)
 		return nil
 	}
-
-	// stakerIDs := make([]StakerID, len(peersKeys))
-	// for i := range peersKeys {
-	// 	if peersKeys[i] != nil {
-	// 		stakerIDs[i] = *peersKeys[i]
-	// 	} else {
-	// 		// todo(rdr): re-check this flow once implementation is complete
-	// 		panic("received nil key, they shoudln't be nil")
-	// 	}
-	// }
 
 	schedule, err := NewScheduler(e.localPeer, peers)
 	if err != nil {
@@ -190,7 +182,8 @@ func (e *Engine) registerCommittee(
 		peerKeys: nil,
 	}
 
-	e.log.Info("registered new committee",
+	e.logger.Info(
+		"registered new committee",
 		// todo(rdr): give a proper string representation
 		zap.Any("committeeID", committeeID),
 		zap.Int("peers", len(peers)),
@@ -209,7 +202,8 @@ func (e *Engine) unregisterCommittee(committeeID *CommitteeID) {
 	//            or will they shut down on their own eventually
 	//            better to pass a context with cancel?
 
-	e.log.Info("unregistered propeller committee",
+	e.logger.Info(
+		"unregistered propeller committee",
 		// todo(rdr): give a proper string representation
 		zap.Any("committee id", committeeID),
 	)
@@ -224,7 +218,7 @@ func (e *Engine) prepareUnitsForBroadcast(
 ) error {
 	cs, ok := e.committees[*committeeID]
 	if !ok {
-		return fmt.Errorf("cannot broadcast to an unregistered committee: %s", committeeID)
+		return fmt.Errorf("cannot broadcast to an unregistered committee: %v", committeeID)
 	}
 
 	// todo(rdr): unsure if this approach of passing arguments to the go routine makes sense
@@ -257,6 +251,8 @@ func (e *Engine) prepareUnitsForBroadcast(
 }
 
 // broacast receives Propeller units (built in `prepareBroadcast`) and sends them
+//
+//nolint:unparam // ctx will be used once the actual sending is wired up.
 func (e *Engine) broadcast(ctx context.Context, units []Unit) error {
 	targetCommittee := units[0].CommitteeID
 
@@ -274,7 +270,6 @@ func (e *Engine) broadcast(ctx context.Context, units []Unit) error {
 		)
 	}
 
-	broadcastMessage
 	// todo(rdr): I need to do the actual sending
 	// I need to pass to the eventCh all the units that it should receive
 
@@ -287,7 +282,8 @@ func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
 	cs, ok := e.committees[unit.CommitteeID]
 	if !ok {
 		// note(rdr): maybe debug?
-		e.log.Warn("received key for unregistered committee, dropping",
+		e.logger.Warn(
+			"received key for unregistered committee, dropping",
 			// todo(rdr): give a proper string representation
 			zap.Any("committee id", unit.CommitteeID),
 		)
@@ -296,7 +292,7 @@ func (e *Engine) processUnit(ctx context.Context, unit *Unit, sender peer.ID) {
 
 	err := e.processor.ProcessMessage(ctx, unit, sender, cs.scheduler)
 	if err != nil {
-		e.log.Error("cannot process incoming unit", zap.Error(err))
+		e.logger.Error("cannot process incoming unit", zap.Error(err))
 	}
 }
 
@@ -311,7 +307,9 @@ func (e *Engine) handleCommand(ctx context.Context, command engineCommand) {
 	case *broadcast:
 		// we might need to pass the error channel here so that the internal go-routine
 		// can forward it correctly (assuming a per command error channel)
-		e.prepareUnitsForBroadcast(&cmd.committeeID, cmd.msg, cmd.errCh)
+		if err := e.prepareUnitsForBroadcast(&cmd.committeeID, cmd.msg, cmd.errCh); err != nil {
+			cmd.errCh <- err
+		}
 	case *processUnit:
 		e.processUnit(ctx, cmd.unit, cmd.sender)
 	}

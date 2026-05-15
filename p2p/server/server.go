@@ -220,40 +220,42 @@ func (h *Server) onHeadersRequest(
 		req.Iteration,
 		finMsg,
 		func(it blockDataAccessor) (proto.Message, error) {
-		blockHeader, err := it.Header()
-		if err != nil {
-			return nil, err
-		}
-
-		h.logger.Debug("Created Header Iterator", zap.Uint64("blockNumber", blockHeader.Number))
-
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
-		if err != nil {
-			return nil, err
-		}
-
-		blockVer, err := core.ParseBlockVersion(blockHeader.ProtocolVersion)
-		if err != nil {
-			return nil, err
-		}
-
-		var commitments *core.BlockCommitments
-		if blockVer.LessThan(core.Ver0_13_2) {
-			block, err := it.Block()
+			blockHeader, err := it.Header()
 			if err != nil {
 				return nil, err
 			}
-			// TODO: switch to core.NewTrieBackend once the legacy trie and state are removed.
-			_, commitments, err = core.Post0132Hash(block, stateUpdate.StateDiff, core.DeprecatedTrieBackend)
+
+			h.logger.Debug("Created Header Iterator", zap.Uint64("blockNumber", blockHeader.Number))
+
+			stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
 			if err != nil {
 				return nil, err
 			}
-		} else {
-			commitments, err = h.bcReader.BlockCommitmentsByNumber(blockHeader.Number)
+
+			blockVer, err := core.ParseBlockVersion(blockHeader.ProtocolVersion)
 			if err != nil {
 				return nil, err
 			}
-		}
+
+			var commitments *core.BlockCommitments
+			if blockVer.LessThan(core.Ver0_13_2) {
+				block, err := it.Block()
+				if err != nil {
+					return nil, err
+				}
+				// TODO: switch to core.NewTrieBackend once the legacy trie and state are removed.
+				_, commitments, err = core.Post0132Hash(
+					block, stateUpdate.StateDiff, core.DeprecatedTrieBackend,
+				)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				commitments, err = h.bcReader.BlockCommitmentsByNumber(blockHeader.Number)
+				if err != nil {
+					return nil, err
+				}
+			}
 
 			stateDiffCommitment := stateUpdate.StateDiff.Hash()
 			return &header.BlockHeadersResponse{
@@ -262,10 +264,12 @@ func (h *Server) onHeadersRequest(
 						blockHeader,
 						commitments,
 						&stateDiffCommitment,
-						stateUpdate.StateDiff.Length()),
+						stateUpdate.StateDiff.Length(),
+					),
 				},
 			}, nil
-		})
+		},
+	)
 }
 
 func (h *Server) onEventsRequest(
@@ -444,7 +448,8 @@ func (h *Server) onStateDiffRequest(
 			}
 
 			return responses, nil
-		})
+		},
+	)
 }
 
 func (h *Server) onClassesRequest(
@@ -453,27 +458,6 @@ func (h *Server) onClassesRequest(
 	finMsg := &syncclass.ClassesResponse{
 		ClassMessage: &syncclass.ClassesResponse_Fin{},
 	}
-<<<<<<< HEAD
-	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
-		block, err := it.Block()
-		if err != nil {
-			return nil, err
-		}
-		blockNumber := block.Number
-
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
-		if err != nil {
-			return nil, err
-		}
-
-		stateReader, closer, err := h.bcReader.StateAtBlockNumber(blockNumber)
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if closeErr := closer(); closeErr != nil {
-				h.logger.Error("Failed to close state reader", zap.Error(closeErr))
-=======
 	return h.processIterationRequestMulti(
 		req.Iteration,
 		finMsg,
@@ -481,7 +465,6 @@ func (h *Server) onClassesRequest(
 			block, err := it.Block()
 			if err != nil {
 				return nil, err
->>>>>>> 7470f4d1f (refactor(p2p): apply style correctness)
 			}
 			blockNumber := block.Number
 
@@ -496,7 +479,7 @@ func (h *Server) onClassesRequest(
 			}
 			defer func() {
 				if closeErr := closer(); closeErr != nil {
-					h.log.Error("Failed to close state reader", zap.Error(closeErr))
+					h.logger.Error("Failed to close state reader", zap.Error(closeErr))
 				}
 			}()
 
@@ -529,7 +512,8 @@ func (h *Server) onClassesRequest(
 			}
 
 			return responses, nil
-		})
+		},
+	)
 }
 
 // blockDataAccessor provides access to either entire block or header

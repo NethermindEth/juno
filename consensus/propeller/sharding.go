@@ -101,7 +101,7 @@ func ConstructMessageFromUnits(
 	if messageRoot != expectedRoot {
 		// todo(rdr): probably need to write string methods for the MessageRoot type
 		return nil, nil, merkle.Proof{}, fmt.Errorf(
-			"wrong message root hash. Expected %s but got %s",
+			"wrong message root hash. Expected %v but got %v",
 			&expectedRoot,
 			&messageRoot,
 		)
