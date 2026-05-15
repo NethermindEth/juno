@@ -82,6 +82,10 @@ func decodeParams[P any](raw json.RawMessage, plan *regPlan, p *P, v Validator) 
 	}
 }
 
+// guestimatedTagLen is an average tag len used across RPC params.
+// Used to hint buffer size and reduce re-allocations.
+const guestimatedTagLen = 16
+
 // decodeArray converts a positional `[v1, v2, ...]` into the named form
 // `{tag0: v1, tag1: v2, ...}` using the cached tag list, then defers
 // the actual unmarshal to sonic.
@@ -95,7 +99,7 @@ func decodeArray[P any](raw json.RawMessage, plan *regPlan, p *P, v Validator) *
 		return Err(InvalidParams, err.Error())
 	}
 	var buf bytes.Buffer
-	buf.Grow(len(raw) + len(plan.tags)*16)
+	buf.Grow(len(raw) + len(plan.tags)*guestimatedTagLen)
 	buf.WriteByte('{')
 	i := 0
 	var elem ast.Node
