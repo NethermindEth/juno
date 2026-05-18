@@ -163,15 +163,18 @@ func StoreBlock(t *testing.T, database db.KeyValueStore, blockNum uint64) *Store
 		for slot := range slots {
 			require.NoError(
 				t,
-				core.WriteContractStorageHistory(database, &addr, &slot, oldValue, blockNum),
+				core.WriteDeprecatedContractStorageHistory(database, &addr, &slot, oldValue, blockNum),
 			)
 		}
 	}
 	for addr := range nonces {
-		require.NoError(t, core.WriteContractNonceHistory(database, &addr, oldValue, blockNum))
+		require.NoError(t, core.WriteDeprecatedContractNonceHistory(database, &addr, oldValue, blockNum))
 	}
 	for addr := range replacedClasses {
-		require.NoError(t, core.WriteContractClassHashHistory(database, &addr, oldValue, blockNum))
+		require.NoError(
+			t,
+			core.WriteDeprecatedContractClassHashHistory(database, &addr, oldValue, blockNum),
+		)
 	}
 
 	return &StoredBlock{
@@ -263,16 +266,16 @@ func AssertStateHistoryExists(
 	t.Helper()
 	for addr, slots := range su.StateDiff.StorageDiffs {
 		for slot := range slots {
-			key := db.ContractStorageHistoryAtBlockKey(&addr, &slot, blockNum)
+			key := db.DeprecatedContractStorageHistoryAtBlockKey(&addr, &slot, blockNum)
 			assert.NoError(t, r.Get(key, func([]byte) error { return nil }))
 		}
 	}
 	for addr := range su.StateDiff.Nonces {
-		key := db.ContractNonceHistoryAtBlockKey(&addr, blockNum)
+		key := db.DeprecatedContractNonceHistoryAtBlockKey(&addr, blockNum)
 		assert.NoError(t, r.Get(key, func([]byte) error { return nil }))
 	}
 	for addr := range su.StateDiff.ReplacedClasses {
-		key := db.ContractClassHashHistoryAtBlockKey(&addr, blockNum)
+		key := db.DeprecatedContractClassHashHistoryAtBlockKey(&addr, blockNum)
 		assert.NoError(t, r.Get(key, func([]byte) error { return nil }))
 	}
 }
@@ -287,16 +290,16 @@ func AssertStateHistoryPruned(
 	t.Helper()
 	for addr, slots := range su.StateDiff.StorageDiffs {
 		for slot := range slots {
-			key := db.ContractStorageHistoryAtBlockKey(&addr, &slot, blockNum)
+			key := db.DeprecatedContractStorageHistoryAtBlockKey(&addr, &slot, blockNum)
 			assert.Error(t, r.Get(key, func([]byte) error { return nil }))
 		}
 	}
 	for addr := range su.StateDiff.Nonces {
-		key := db.ContractNonceHistoryAtBlockKey(&addr, blockNum)
+		key := db.DeprecatedContractNonceHistoryAtBlockKey(&addr, blockNum)
 		assert.Error(t, r.Get(key, func([]byte) error { return nil }))
 	}
 	for addr := range su.StateDiff.ReplacedClasses {
-		key := db.ContractClassHashHistoryAtBlockKey(&addr, blockNum)
+		key := db.DeprecatedContractClassHashHistoryAtBlockKey(&addr, blockNum)
 		assert.Error(t, r.Get(key, func([]byte) error { return nil }))
 	}
 }

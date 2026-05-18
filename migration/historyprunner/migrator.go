@@ -398,16 +398,16 @@ func wipeReverseLookupBuckets(batch db.Batch) error {
 }
 
 func wipeStorageHistoryBuckets(batch db.Batch) error {
-	if err := wipeBucket(batch, byte(db.ContractStorageHistory)); err != nil {
-		return fmt.Errorf("wiping ContractStorageHistory: %w", err)
+	if err := wipeBucket(batch, byte(db.DeprecatedContractStorageHistory)); err != nil {
+		return fmt.Errorf("wiping DeprecatedContractStorageHistory: %w", err)
 	}
 
-	if err := wipeBucket(batch, byte(db.ContractClassHashHistory)); err != nil {
-		return fmt.Errorf("wiping ContractClassHashHistory: %w", err)
+	if err := wipeBucket(batch, byte(db.DeprecatedContractClassHashHistory)); err != nil {
+		return fmt.Errorf("wiping DeprecatedContractClassHashHistory: %w", err)
 	}
 
-	if err := wipeBucket(batch, byte(db.ContractNonceHistory)); err != nil {
-		return fmt.Errorf("wiping ContractNonceHistory: %w", err)
+	if err := wipeBucket(batch, byte(db.DeprecatedContractNonceHistory)); err != nil {
+		return fmt.Errorf("wiping DeprecatedContractNonceHistory: %w", err)
 	}
 	return nil
 }

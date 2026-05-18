@@ -84,12 +84,16 @@ const (
 	// For these three history buckets, the block number is when the current value was set, and
 	// the value is the old value before that.
 
-	// ContractClassHashHistory + Contract address + block number -> old class hash.
+	// DeprecatedContractClassHashHistory + Contract address + block number -> old class hash.
+	DeprecatedContractClassHashHistory = Bucket(deprecatedContractClassHashHistory)
+	// DeprecatedContractNonceHistory + Contract address + block number -> old nonce.
+	DeprecatedContractNonceHistory = Bucket(deprecatedContractNonceHistory)
+	// DeprecatedContractStorageHistory + Contract address + storage slot + block number -> old value.
+	DeprecatedContractStorageHistory = Bucket(deprecatedContractStorageHistory)
+
 	ContractClassHashHistory = Bucket(contractClassHashHistory)
-	// ContractNonceHistory + Contract address + block number -> old nonce.
-	ContractNonceHistory = Bucket(contractNonceHistory)
-	// ContractStorageHistory + Contract address + storage location + block number -> old value.
-	ContractStorageHistory = Bucket(contractStorageHistory)
+	ContractNonceHistory     = Bucket(contractNonceHistory)
+	ContractStorageHistory   = Bucket(contractStorageHistory)
 
 	/****************************************************
 			Mempool
@@ -167,9 +171,9 @@ const (
 	receiptsByBlockNumberAndIndex
 	stateUpdatesByBlockNumber
 	classesTrie
-	contractStorageHistory
-	contractNonceHistory
-	contractClassHashHistory
+	deprecatedContractStorageHistory
+	deprecatedContractNonceHistory
+	deprecatedContractClassHashHistory
 	contractDeploymentHeight
 	l1Height
 	deprecatedSchemaVersion
@@ -196,4 +200,7 @@ const (
 	blockTransactions
 	schemaMetadata
 	schemaIntermediateState
+	contractClassHashHistory
+	contractNonceHistory
+	contractStorageHistory
 )
