@@ -571,7 +571,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		database := newDB()
 		defer database.Close()
 
-		addRange(t, database, 1, 9)
+		addRange(t, database, 9)
 		require.NoError(t, database.DeleteRange([]byte("9"), []byte("1"))) // no-op
 		checkRange(t, database, 1, 9, true)
 		require.NoError(t, database.DeleteRange([]byte("5"), []byte("5"))) // no-op, exclusive end
@@ -583,7 +583,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.NoError(t, database.DeleteRange([]byte(""), []byte("a"))) // delete all
 		checkRange(t, database, 1, 9, false)
 
-		addRange(t, database, 1, 999)
+		addRange(t, database, 999)
 		require.NoError(t, database.DeleteRange([]byte("12345"), []byte("54321")))
 		checkRange(t, database, 1, 1, true)
 		checkRange(t, database, 2, 5, false)
@@ -593,7 +593,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		checkRange(t, database, 124, 543, false)
 		checkRange(t, database, 544, 999, true)
 
-		addRange(t, database, 1, 999)
+		addRange(t, database, 999)
 		require.NoError(t, database.DeleteRange([]byte("3"), []byte("7")))
 		checkRange(t, database, 1, 2, true)
 		checkRange(t, database, 3, 6, false)
@@ -620,7 +620,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			require.NoError(t, batch.Write())
 		}
 
-		addRange(t, database, 1, 9)
+		addRange(t, database, 9)
 		deleteRangeViaBatch([]byte("9"), []byte("1"))
 		checkRange(t, database, 1, 9, true)
 		deleteRangeViaBatch([]byte("5"), []byte("5"))
@@ -632,7 +632,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		deleteRangeViaBatch([]byte(""), []byte("a"))
 		checkRange(t, database, 1, 9, false)
 
-		addRange(t, database, 1, 999)
+		addRange(t, database, 999)
 		deleteRangeViaBatch([]byte("12345"), []byte("54321"))
 		checkRange(t, database, 1, 1, true)
 		checkRange(t, database, 2, 5, false)
@@ -642,7 +642,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		checkRange(t, database, 124, 543, false)
 		checkRange(t, database, 544, 999, true)
 
-		addRange(t, database, 1, 999)
+		addRange(t, database, 999)
 		deleteRangeViaBatch([]byte("3"), []byte("7"))
 		checkRange(t, database, 1, 2, true)
 		checkRange(t, database, 3, 6, false)
@@ -822,9 +822,9 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 	})
 }
 
-// Helper to add a range of keys
-func addRange(t *testing.T, database KeyValueStore, start, stop int) {
-	for i := start; i <= stop; i++ {
+// Helper to add keys 1..stop.
+func addRange(t *testing.T, database KeyValueStore, stop int) {
+	for i := 1; i <= stop; i++ {
 		key := strconv.Itoa(i)
 		value := "value-" + key
 		err := database.Put([]byte(key), []byte(value))
