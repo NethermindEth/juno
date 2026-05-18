@@ -12,7 +12,7 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/consensys/gnark-crypto v0.20.1
 	github.com/davecgh/go-spew v1.1.1
-	github.com/ethereum/go-ethereum v1.17.2
+	github.com/ethereum/go-ethereum v1.17.3
 	github.com/fxamacker/cbor/v2 v2.9.1
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/libp2p/go-libp2p v0.48.0
