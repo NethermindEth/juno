@@ -1,6 +1,8 @@
 package core
 
 import (
+	"sync"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
@@ -18,14 +20,36 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	externalEntryPointsHash := hashDeprecatedEntryPoints(definition.EntryPoints.External)
-	l1HandlerEntryPointsHash := hashDeprecatedEntryPoints(definition.EntryPoints.L1Handler)
-	constructorEntryPointsHash := hashDeprecatedEntryPoints(definition.EntryPoints.Constructor)
-	builtinsHash := hashBuiltinNames(program.Builtins)
-	dataHash := hashDeprecatedProgramData(program.Data)
-	hintedClassHash, err := computeHintedClassHash(definition.Abi, program)
-	if err != nil {
-		return felt.Felt{}, err
+	var (
+		externalEntryPointsHash    felt.Felt
+		l1HandlerEntryPointsHash   felt.Felt
+		constructorEntryPointsHash felt.Felt
+		builtinsHash               felt.Felt
+		dataHash                   felt.Felt
+		hintedClassHash            felt.Felt
+		hintedClassHashErr         error
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		dataHash = hashDeprecatedProgramData(program.Data)
+	}()
+
+	go func() {
+		defer wg.Done()
+		externalEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.External)
+		l1HandlerEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.L1Handler)
+		constructorEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.Constructor)
+		builtinsHash = hashBuiltinNames(program.Builtins)
+		hintedClassHash, hintedClassHashErr = computeHintedClassHash(definition.Abi, program)
+	}()
+
+	wg.Wait()
+	if hintedClassHashErr != nil {
+		return felt.Felt{}, hintedClassHashErr
 	}
 
 	hash := crypto.PedersenArray(
