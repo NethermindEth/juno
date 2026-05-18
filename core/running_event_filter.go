@@ -13,27 +13,31 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
+// RunningEventFilterInitializer brings a lazy RunningEventFilter to a working
+// state on first access.
+type RunningEventFilterInitializer func(db.KeyValueStore) (*RunningEventFilter, error)
+
 // RunningEventFilter provides a thread-safe wrapper around AggregatedBloomFilter
 // that automatically manages the creation of new filters when the current one
 // reaches its capacity. It maintains the current state of event filtering across
 // the blockchain.
 type RunningEventFilter struct {
-	inner *AggregatedBloomFilter // The current aggregated filter
-	next  uint64                 // The next block number to process
-	mu    sync.RWMutex
-	txn   db.KeyValueStore
+	inner    *AggregatedBloomFilter // The current aggregated filter
+	next     uint64                 // The next block number to process
+	mu       sync.RWMutex
+	database db.KeyValueStore
 
-	initErr  error
-	lazyOnce sync.Once
-	lazyInit bool
+	initialize RunningEventFilterInitializer
+	initErr    error
+	lazyOnce   sync.Once
 }
 
 func (f *RunningEventFilter) ensureInit() error {
-	if f.lazyInit {
+	if f.initialize != nil {
 		f.lazyOnce.Do(func() {
-			filter, err := loadRunningEventFilter(f.txn)
+			filter, err := f.initialize(f.database)
 			if err != nil {
-				f.initErr = err
+				f.initErr = fmt.Errorf("couldn't initialize the running event filter: %w", err)
 				return
 			}
 			f.inner = filter.inner
@@ -43,18 +47,27 @@ func (f *RunningEventFilter) ensureInit() error {
 	return f.initErr
 }
 
-// NewRunningFilter returns a RunningEventFilter that wraps the provided aggregated filter
-// with the expected next block to process.
-func NewRunningEventFilterHot(txn db.KeyValueStore, filter *AggregatedBloomFilter, nextBlock uint64) *RunningEventFilter {
+// NewRunningEventFilterHot returns a RunningEventFilter that wraps the provided
+// aggregated filter with the expected next block to process.
+func NewRunningEventFilterHot(
+	database db.KeyValueStore,
+	filter *AggregatedBloomFilter,
+	nextBlock uint64,
+) *RunningEventFilter {
 	return &RunningEventFilter{
-		txn:   txn,
-		inner: filter,
-		next:  nextBlock,
+		database: database,
+		inner:    filter,
+		next:     nextBlock,
 	}
 }
 
-func NewRunningEventFilterLazy(txn db.KeyValueStore) *RunningEventFilter {
-	return &RunningEventFilter{txn: txn, lazyInit: true}
+// NewRunningEventFilterLazy returns a RunningEventFilter whose state is
+// initialized on first access via the supplied initializer.
+func NewRunningEventFilterLazy(
+	database db.KeyValueStore,
+	initialize RunningEventFilterInitializer,
+) *RunningEventFilter {
+	return &RunningEventFilter{database: database, initialize: initialize}
 }
 
 // Insert adds a bloom filter for a single block, updating the internal
@@ -73,15 +86,19 @@ func (f *RunningEventFilter) Insert(
 		return err
 	}
 
-	err := f.inner.Insert(bloom, blockNumber)
-	if err != nil {
-		return err
+	if err := f.inner.Insert(bloom, blockNumber); err != nil {
+		return fmt.Errorf(
+			"inserting block %d into window [%d,%d]: %w",
+			blockNumber, f.inner.FromBlock(), f.inner.ToBlock(), err,
+		)
 	}
 
 	if blockNumber == f.inner.ToBlock() {
-		err := WriteAggregatedBloomFilter(f.txn, f.inner)
-		if err != nil {
-			return err
+		if err := WriteAggregatedBloomFilter(f.database, f.inner); err != nil {
+			return fmt.Errorf(
+				"persisting aggregated filter for window [%d,%d]: %w",
+				f.inner.FromBlock(), f.inner.ToBlock(), err,
+			)
 		}
 		filter := NewAggregatedFilter(blockNumber + 1)
 		f.inner = &filter
@@ -98,7 +115,7 @@ func (f *RunningEventFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner.BlocksForKeys(keys)
@@ -110,7 +127,7 @@ func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		return err
 	}
 
 	return f.inner.BlocksForKeysInto(keys, out)
@@ -122,7 +139,7 @@ func (f *RunningEventFilter) FromBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner.fromBlock
@@ -134,7 +151,7 @@ func (f *RunningEventFilter) ToBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner.toBlock
@@ -146,7 +163,7 @@ func (f *RunningEventFilter) NextBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.next
@@ -159,20 +176,22 @@ func (f *RunningEventFilter) Clone() *RunningEventFilter {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	innerCopy := f.inner.Clone()
-	return NewRunningEventFilterHot(f.txn, &innerCopy, f.next)
+	return NewRunningEventFilterHot(f.database, &innerCopy, f.next)
 }
 
-// InnerFilter returns a deep copy of the current AggregatedBloomFilter window.
+// InnerFilter returns the current AggregatedBloomFilter window.
+// The returned pointer aliases internal state; mutations are visible to f.
+// Use [RunningEventFilter.Clone] for an independent copy.
 func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		panic(err)
 	}
 
 	return f.inner
@@ -184,17 +203,21 @@ func (f *RunningEventFilter) OnReorg() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		return err
 	}
 
 	currRangeStart := f.inner.FromBlock()
 	curBlock := f.next - 1
 	// Falls into previous filters range
 	if curBlock == currRangeStart-1 {
-		rangeStartAlligned := curBlock - (curBlock % NumBlocksPerFilter)
-		rangeEndAlligned := rangeStartAlligned + NumBlocksPerFilter - 1
+		rangeStartAligned := curBlock - (curBlock % NumBlocksPerFilter)
+		rangeEndAligned := rangeStartAligned + NumBlocksPerFilter - 1
 
-		lastStoredFilter, err := GetAggregatedBloomFilter(f.txn, rangeStartAlligned, rangeEndAlligned)
+		lastStoredFilter, err := GetAggregatedBloomFilter(
+			f.database,
+			rangeStartAligned,
+			rangeEndAligned,
+		)
 		if err != nil {
 			return err
 		}
@@ -211,96 +234,115 @@ func (f *RunningEventFilter) Write() error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+		return err
 	}
 
-	return WriteRunningEventFilter(f.txn, f)
+	return WriteRunningEventFilter(f.database, f)
 }
 
-// loadRunningEventFilter attempts to load a RunningEventFilter from storage.
-// If no filter is found, a new one is created from genesis. If the stored filter
-// is not up to date with the chain's latest block, the filter is rebuilt.
-func loadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
-	latest, err := GetChainHeight(txn)
-	if err != nil {
-		// Start from genesis
-		if errors.Is(err, db.ErrKeyNotFound) {
-			filter := NewAggregatedFilter(0)
-			return NewRunningEventFilterHot(
-				txn,
-				&filter,
-				0,
-			), nil
-		}
-		return nil, err
-	}
-
-	rf, err := GetRunningEventFilter(txn)
+// InitializeRunningEventFilter is the default initializer for nodes that do
+// not prune. It assumes every block below the chain head is fully retained;
+// the rebuild walks back to genesis if needed and errors out when a header is
+// missing. For pruning nodes, use [pruner.InitializeRunningEventFilter] instead.
+func InitializeRunningEventFilter(database db.KeyValueStore) (*RunningEventFilter, error) {
+	latest, err := GetChainHeight(database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			filter := NewAggregatedFilter(0)
-			// for case where node crashed and didnt gracefully persist the filter for block range  (genesis, aggregated filter range)
-			rf = NewRunningEventFilterHot(
-				txn,
-				&filter,
-				0,
-			)
-		} else {
-			return nil, err
+			return NewRunningEventFilterHot(database, &filter, 0), nil
+		}
+		return nil, fmt.Errorf("getting chain height: %w", err)
+	}
+
+	stored, err := GetRunningEventFilter(database)
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, fmt.Errorf("getting stored running event filter: %w", err)
+	}
+	if err == nil {
+		next := stored.NextBlock()
+		// Caught up — return the snapshot as-is.
+		if next == latest+1 {
+			return NewRunningEventFilterHot(database, stored.InnerFilter(), next), nil
+		}
+		// Same-window gap — resume the snapshot and fill in place.
+		if next <= latest && latest <= stored.InnerFilter().ToBlock() {
+			rf := NewRunningEventFilterHot(database, stored.InnerFilter(), next)
+			if fillErr := fillRunningEventFilter(database, rf, next, latest); fillErr != nil {
+				return nil, fmt.Errorf(
+					"filling running event filter [%d, %d]: %w",
+					next, latest, fillErr,
+				)
+			}
+			return rf, nil
 		}
 	}
-	rf.txn = txn
 
-	if rf.next == latest+1 {
-		return rf, nil
+	// Multi-window gap, future-dated snapshot, or no snapshot — rebuild.
+	rf, err := rebuildRunningEventFilter(database, latest)
+	if err != nil {
+		return nil, fmt.Errorf("rebuilding running event filter up to %d: %w", latest, err)
 	}
-
-	return rebuildRunningEventFilter(txn, latest)
+	return rf, nil
 }
 
-// rebuildRunningEventFilter constructs a RunningEventFilter state beginning from the
-// latest stored filter window and sequentially adds missing block filters up to the
-// blockchain's current height.
-func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEventFilter, error) {
-	rangeStartAlligned := int64(latest - (latest % NumBlocksPerFilter))
-	lastStoredFilterRangeEnd := latest - (latest % NumBlocksPerFilter) + NumBlocksPerFilter - 1
+// fillRunningEventFilter walks [from, latest] and Inserts each block's
+// EventsBloom into rf. Errors if any header in the range is missing.
+func fillRunningEventFilter(
+	database db.KeyValueStore,
+	rf *RunningEventFilter,
+	from,
+	latest uint64,
+) error {
+	for blockNum := from; blockNum <= latest; blockNum++ {
+		header, err := GetBlockHeaderByNumber(database, blockNum)
+		if err != nil {
+			return fmt.Errorf("getting block header by number %d: %w", blockNum, err)
+		}
+		if err := rf.Insert(header.EventsBloom, blockNum); err != nil {
+			return fmt.Errorf("inserting block %d in events bloom: %w", blockNum, err)
+		}
+	}
+	return nil
+}
 
-	for rangeStartAlligned >= 0 {
-		_, err := GetAggregatedBloomFilter(txn, uint64(rangeStartAlligned), lastStoredFilterRangeEnd)
+// rebuildRunningEventFilter walks back from latest to find the most recent
+// persisted aggregated filter, then fills forward to latest by inserting each
+// block's bloom. Used by [InitializeRunningEventFilter] on non-pruning nodes —
+// every header in the fill range is expected to be present.
+func rebuildRunningEventFilter(
+	database db.KeyValueStore,
+	latest uint64,
+) (*RunningEventFilter, error) {
+	rangeStartAligned := latest - latest%NumBlocksPerFilter
+	lastStoredFilterRangeEnd := rangeStartAligned + NumBlocksPerFilter - 1
+
+	var continueFrom uint64
+	for {
+		_, err := GetAggregatedBloomFilter(database, rangeStartAligned, lastStoredFilterRangeEnd)
 		if err == nil {
+			continueFrom = lastStoredFilterRangeEnd + 1
 			break
 		}
-
-		/// Check previous range
-		if errors.Is(err, db.ErrKeyNotFound) {
-			rangeStartAlligned -= int64(NumBlocksPerFilter)
-			lastStoredFilterRangeEnd -= NumBlocksPerFilter
-			continue
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, fmt.Errorf(
+				"scanning for aggregated bloom filter at range [%d, %d]: %w",
+				rangeStartAligned, lastStoredFilterRangeEnd, err)
 		}
-
-		return nil, err
+		if rangeStartAligned == 0 {
+			break
+		}
+		rangeStartAligned -= NumBlocksPerFilter
+		lastStoredFilterRangeEnd -= NumBlocksPerFilter
 	}
 
-	continueFrom := lastStoredFilterRangeEnd + 1
 	filter := NewAggregatedFilter(continueFrom)
-	runningFilter := NewRunningEventFilterHot(txn, &filter, continueFrom)
-	if lastStoredFilterRangeEnd == latest {
-		return runningFilter, nil
+	runningFilter := NewRunningEventFilterHot(database, &filter, continueFrom)
+	if err := fillRunningEventFilter(database, runningFilter, continueFrom, latest); err != nil {
+		return nil, fmt.Errorf(
+			"filling running event filter [%d, %d]: %w",
+			continueFrom, latest, err,
+		)
 	}
-
-	for ; continueFrom <= latest; continueFrom++ {
-		var header *Header
-		header, err := GetBlockHeaderByNumber(txn, continueFrom)
-		if err != nil {
-			return nil, err
-		}
-
-		err = runningFilter.Insert(header.EventsBloom, continueFrom)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return runningFilter, nil
 }
 
@@ -351,7 +393,7 @@ func (f *RunningEventFilter) UnmarshalBinary(data []byte) error {
 	f.initErr = nil
 	f.mu = sync.RWMutex{}
 	f.lazyOnce = sync.Once{}
-	f.lazyInit = false // or true if you want to reconstruct as lazy
+	f.initialize = nil
 
 	return nil
 }
