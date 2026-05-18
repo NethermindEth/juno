@@ -10,6 +10,7 @@ import (
 
 // BlockProgressTracker tracks the progress of a migration by block number.
 type BlockProgressTracker struct {
+	name            string
 	logger          log.StructuredLogger
 	totalBlocks     uint64
 	completedBlocks atomic.Uint64
@@ -19,11 +20,13 @@ type BlockProgressTracker struct {
 // NewBlockProgressTracker creates a new progress tracker for block-based migrations.
 // initialCompletedBlocks allows resuming from a previous migration state.
 func NewBlockProgressTracker(
+	name string,
 	logger log.StructuredLogger,
 	totalBlocks uint64,
 	initialCompletedBlocks uint64,
 ) *BlockProgressTracker {
 	tracker := &BlockProgressTracker{
+		name:           name,
 		logger:         logger,
 		totalBlocks:    totalBlocks,
 		startTimestamp: time.Now(),
@@ -45,6 +48,7 @@ func (t *BlockProgressTracker) LogProgress() {
 	percentage := float64(t.completedBlocks.Load()) / float64(t.totalBlocks) * 100
 	t.logger.Info(
 		"Migration progress",
+		zap.String("name", t.name),
 		zap.Float64("percentage", percentage),
 		zap.Duration("elapsed", t.Elapsed()),
 	)
