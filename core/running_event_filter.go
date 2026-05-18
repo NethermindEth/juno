@@ -83,7 +83,7 @@ func (f *RunningEventFilter) Insert(
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		return err
+		return fmt.Errorf("ensureInit before block %d: %w", blockNumber, err)
 	}
 
 	if err := f.inner.Insert(bloom, blockNumber); err != nil {
