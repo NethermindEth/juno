@@ -33,6 +33,21 @@ func isL1Verified(n uint64, l1 core.L1Head) bool {
 	return false
 }
 
+// l1AcceptedBlockNumber returns the L1-accepted block number bounded by the
+// current chain height. The L1 head can be ahead of the L2 chain during sync,
+// in which case the caller should fall back to the latest local block.
+func (h *Handler) l1AcceptedBlockNumber() (uint64, error) {
+	l1Head, err := h.bcReader.L1Head()
+	if err != nil {
+		return 0, err
+	}
+	height, err := h.bcReader.Height()
+	if err != nil {
+		return 0, err
+	}
+	return min(l1Head.BlockNumber, height), nil
+}
+
 func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	var block *core.Block
 	var err error
@@ -49,12 +64,12 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	case hash:
 		block, err = h.bcReader.BlockByHash(blockID.Hash())
 	case l1Accepted:
-		var l1Head core.L1Head
-		l1Head, err = h.bcReader.L1Head()
+		var blockNumber uint64
+		blockNumber, err = h.l1AcceptedBlockNumber()
 		if err != nil {
 			break
 		}
-		block, err = h.bcReader.BlockByNumber(l1Head.BlockNumber)
+		block, err = h.bcReader.BlockByNumber(blockNumber)
 	default:
 		block, err = h.bcReader.BlockByNumber(blockID.Number())
 	}
@@ -112,12 +127,12 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	case number:
 		header, err = h.bcReader.BlockHeaderByNumber(blockID.Number())
 	case l1Accepted:
-		var l1Head core.L1Head
-		l1Head, err = h.bcReader.L1Head()
+		var blockNumber uint64
+		blockNumber, err = h.l1AcceptedBlockNumber()
 		if err != nil {
 			break
 		}
-		header, err = h.bcReader.BlockHeaderByNumber(l1Head.BlockNumber)
+		header, err = h.bcReader.BlockHeaderByNumber(blockNumber)
 	default:
 		panic("unknown block type id")
 	}
@@ -196,12 +211,12 @@ func (h *Handler) stateByBlockID(
 	case number:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(blockID.Number())
 	case l1Accepted:
-		var l1Head core.L1Head
-		l1Head, err = h.bcReader.L1Head()
+		var blockNumber uint64
+		blockNumber, err = h.l1AcceptedBlockNumber()
 		if err != nil {
 			break
 		}
-		reader, closer, err = h.bcReader.StateAtBlockNumber(l1Head.BlockNumber)
+		reader, closer, err = h.bcReader.StateAtBlockNumber(blockNumber)
 	default:
 		panic("unknown block id type")
 	}

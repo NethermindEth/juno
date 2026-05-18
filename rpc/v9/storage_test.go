@@ -214,7 +214,26 @@ func TestStorageAt(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(l1HeadBlockNumber, nil)
 		mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
+
+		blockID := blockIDL1Accepted(t)
+		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedStorage, storageValue)
+	})
+
+	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		chainHeight := uint64(10)
+		l1HeadAhead := chainHeight + 5
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{BlockNumber: l1HeadAhead, BlockHash: &felt.Zero, StateRoot: &felt.Zero},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(chainHeight, nil)
+		mockReader.EXPECT().StateAtBlockNumber(chainHeight).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
 

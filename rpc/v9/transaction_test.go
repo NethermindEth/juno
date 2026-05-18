@@ -629,6 +629,31 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
+			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			return latestBlock.Transactions[index], nil
+		})
+
+		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index])
+		blockID := blockIDL1Accepted(t)
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
+		require.Nil(t, rpcErr)
+		require.Equal(t, expectedTxn, actualTxn)
+	})
+
+	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		index := rand.Intn(int(latestBlock.TransactionCount))
+
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: latestBlockNumber + 10,
+				BlockHash:   latestBlockHash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
