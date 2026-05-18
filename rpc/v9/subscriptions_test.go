@@ -2527,8 +2527,7 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	time.Sleep(50 * time.Millisecond)
 
 	server := jsonrpc.NewServer(1, logger)
-	methods, _ := handler.methods()
-	require.NoError(t, server.RegisterMethods(methods...))
+	require.NoError(t, server.RegisterMethods(handler.RegisterMethods()...))
 
 	return handler, server
 }
@@ -2549,9 +2548,9 @@ func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte,
 	return json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams{
+			Result:         result,
+			SubscriptionID: string(id),
 		},
 	})
 }

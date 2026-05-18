@@ -103,32 +103,23 @@ func TestHandlerParamValidatorCompatibility(t *testing.T) {
 		{"v0.8", methodsV08, rpcv8.Validator()},
 	}
 
-	contextType := reflect.TypeFor[context.Context]()
-
 	for _, vt := range versionTests {
 		t.Run(vt.name, func(t *testing.T) {
 			t.Parallel()
 			for _, method := range vt.methods {
 				t.Run(method.Name, func(t *testing.T) {
 					t.Parallel()
-					require.NotNil(t, method.Handler, "registered method %q must have a handler", method.Name)
-
-					handlerType := reflect.TypeOf(method.Handler)
-					require.Equal(
-						t,
-						reflect.Func,
-						handlerType.Kind(),
-						"registered method %q handler must be a function", method.Name,
-					)
-
-					startIdx := 0
-					if handlerType.NumIn() > 0 && handlerType.In(0).Implements(contextType) {
-						startIdx = 1
-					}
-
-					for i := startIdx; i < handlerType.NumIn(); i++ {
+					require.NotNil(t, method.Dispatch,
+						"registered method %q must have Dispatch set", method.Name)
+					pt := method.ParamStructType
+					require.NotNil(t, pt,
+						"registered method %q must have ParamStructType set", method.Name)
+					require.Equal(t, reflect.Struct, pt.Kind(),
+						"registered method %q param type must be a struct", method.Name)
+					for i := range pt.NumField() {
+						f := pt.Field(i)
 						visited := make(map[reflect.Type]bool)
-						assertValidatorCompatible(t, vt.validator, handlerType.In(i), method.Name, i, visited)
+						assertValidatorCompatible(t, vt.validator, f.Type, method.Name, i, visited)
 					}
 				})
 			}

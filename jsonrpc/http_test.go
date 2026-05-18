@@ -16,14 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type echoParams struct {
+	Msg string `json:"msg"`
+}
+
 func TestHTTP(t *testing.T) {
-	method := jsonrpc.Method{
-		Name: "echo",
-		Handler: func(msg string) (string, *jsonrpc.Error) {
-			return msg, nil
-		},
-		Params: []jsonrpc.Parameter{{Name: "msg"}},
-	}
+	method := jsonrpc.Register("echo",
+		func(p *echoParams) (string, *jsonrpc.Error) { return p.Msg, nil })
 	listener := CountingEventListener{}
 	logger := log.NewNopZapLogger()
 	rpc := jsonrpc.NewServer(1, logger).WithListener(&listener)
@@ -91,13 +90,8 @@ func TestHTTP(t *testing.T) {
 }
 
 func TestGzipResponse(t *testing.T) {
-	method := jsonrpc.Method{
-		Name: "echo",
-		Handler: func(msg string) (string, *jsonrpc.Error) {
-			return msg, nil
-		},
-		Params: []jsonrpc.Parameter{{Name: "msg"}},
-	}
+	method := jsonrpc.Register("echo",
+		func(p *echoParams) (string, *jsonrpc.Error) { return p.Msg, nil })
 	logger := log.NewNopZapLogger()
 	rpc := jsonrpc.NewServer(1, logger)
 	require.NoError(t, rpc.RegisterMethods(method))
