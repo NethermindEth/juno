@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	deprecatedFixturePath = "../clients/feeder/testdata/sepolia/class/0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8.json"
+	deprecatedFixturePath = "../clients/feeder/testdata/sepolia/class/" +
+		"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8.json"
 	// This is a byte-for-byte canonical-output snapshot, not a normal JSON fixture.
 	// Keep the non-.json extension so editors do not autoformat it.
 	canonicalProgramPath  = "testdata/deprecated_cairo_program.txt"
@@ -89,7 +90,10 @@ func loadUpstreamContractHashes(t *testing.T, path string) upstreamContractHashe
 	return hashes
 }
 
-func loadDeprecatedFixtureProgram(t *testing.T, path string) (json.RawMessage, *deprecatedCairoProgram) {
+func loadDeprecatedFixtureProgram(
+	t *testing.T,
+	path string,
+) (json.RawMessage, *deprecatedCairoProgram) {
 	t.Helper()
 
 	data, err := os.ReadFile(filepath.Clean(path))

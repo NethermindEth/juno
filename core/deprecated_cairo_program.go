@@ -48,7 +48,10 @@ func unmarshalDeprecatedCairoProgram(raw json.RawMessage) (*deprecatedCairoProgr
 
 // computeHintedClassHash writes the canonical legacy {"abi": ..., "program": ...}
 // payload directly into a buffer before hashing it with StarknetKeccak.
-func computeHintedClassHash(abi json.RawMessage, program *deprecatedCairoProgram) (felt.Felt, error) {
+func computeHintedClassHash(
+	abi json.RawMessage,
+	program *deprecatedCairoProgram,
+) (felt.Felt, error) {
 	legacyABI, err := parseLegacyABI(abi)
 	if err != nil {
 		return felt.Felt{}, err
@@ -376,7 +379,11 @@ func writeDeprecatedCairoProgramCanonical(
 		return err
 	}
 	writeJSONFieldPrefix(buffer, "identifiers", &first)
-	if err := writeLegacyIdentifiers(buffer, program.Identifiers, program.CompilerVersion == nil); err != nil {
+	if err := writeLegacyIdentifiers(
+		buffer,
+		program.Identifiers,
+		program.CompilerVersion == nil,
+	); err != nil {
 		return err
 	}
 	writeJSONFieldPrefix(buffer, "main_scope", &first)

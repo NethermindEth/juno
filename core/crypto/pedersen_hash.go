@@ -173,7 +173,10 @@ func pedersen(a, b *fp.Element) fp.Element {
 	// accumulator use cheaper mixed adds.
 	acc := pedersenShiftPoint
 
-	accumulateLow := func(bytes *[fp.Bytes]byte, pointIndexed *[pedersenLowByteCount][pedersenLowWindowSelectors]starkcurve.G1Affine) {
+	accumulateLow := func(
+		bytes *[fp.Bytes]byte,
+		pointIndexed *[pedersenLowByteCount][pedersenLowWindowSelectors]starkcurve.G1Affine,
+	) {
 		for byteIndex := range pedersenLowByteCount {
 			if value := bytes[fp.Bytes-1-byteIndex]; value > 0 {
 				acc.AddMixed(&pointIndexed[byteIndex][value])
