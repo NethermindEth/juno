@@ -170,6 +170,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		return nil, err
 	}
 
+	// History pruning needs an L1-finalised cutoff to know which blocks are
+	// safe to drop. The cutoff is established by the L1 client, so disabling
+	// L1 verification makes pruning unsafe — reject the combination up front
+	// instead of crashing later when the migration cannot find an L1 head.
+	if cfg.Prune && cfg.DisableL1Verification {
+		return nil, errors.New("--prune-mode requires L1 verification; " +
+			"remove --disable-l1-verification or disable --prune-mode")
+	}
+
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.KeyValueStore
 	if dbIsRemote {
@@ -659,7 +668,7 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	err = migrateIfNeeded(ctx, n.db, n.cfg, n.logger)
+	err = migrateIfNeeded(ctx, n.db, n.cfg, n.blockchain, n.logger)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.logger.Info("DB Migration cancelled")

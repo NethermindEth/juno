@@ -2,8 +2,11 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
@@ -32,26 +35,34 @@ func registerMigrations(cfg *Config) *migration.Registry {
 // migration progress via health check endpoints.
 func migrateIfNeeded(
 	ctx context.Context,
-	db db.KeyValueStore,
+	database db.KeyValueStore,
 	config *Config,
+	chain *blockchain.Blockchain,
 	logger log.Logger,
 ) error {
 	migrateFn := func() error {
 		// Run deprecated migrations first
 		if err := deprecated.MigrateIfNeeded(
 			ctx,
-			db,
+			database,
 			&config.Network,
 			logger,
 		); err != nil {
 			return fmt.Errorf("deprecated migration failed: %w", err)
 		}
 
+		// Make sure there is an available L1 head before starting pruning migration
+		if config.Prune {
+			if err := fetchL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
+				return fmt.Errorf("fetch L1 head for pruning: %w", err)
+			}
+		}
+
 		// Run new migrations
 		registry := registerMigrations(config)
 		runner, err := migration.NewRunner(
 			registry,
-			db,
+			database,
 			&config.Network,
 			logger,
 		)
@@ -72,4 +83,39 @@ func migrateIfNeeded(
 	}
 
 	return migrateFn()
+}
+
+// fetchL1HeadIfMissing writes an L1 head to disk before the history pruning
+// migration reads it. No-op when one is already stored.
+func fetchL1HeadIfMissing(
+	ctx context.Context,
+	database db.KeyValueStore,
+	config *Config,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+) error {
+	_, err := core.GetL1Head(database)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	}
+
+	logger.Info("Fetching the L1 head before running the prune migration")
+	client, err := newL1Client(config.EthNode, config.Metrics, chain, logger)
+	if err != nil {
+		return fmt.Errorf("creating a new L1 client: %w", err)
+	}
+	if err := client.CatchUpL1Head(ctx); err != nil {
+		return err
+	}
+
+	if _, err := core.GetL1Head(database); err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return errors.New("couldn't find a finalized Starknet state update on L1")
+		}
+		return err
+	}
+	return nil
 }
