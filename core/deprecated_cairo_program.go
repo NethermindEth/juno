@@ -117,7 +117,7 @@ func writeJSONString(buffer *bytes.Buffer, value string) {
 			buffer.WriteString(`\t`)
 		default:
 			switch {
-			case r < 0x20:
+			case r < ' ':
 				writeJSONHex16(buffer, uint16(r))
 			case r < utf8.RuneSelf:
 				buffer.WriteByte(byte(r))
@@ -226,20 +226,21 @@ func writeLegacyABIEntries(buffer *bytes.Buffer, entries []legacyABIEntry) error
 		return nil
 	}
 	buffer.WriteByte('[')
-	for i, entry := range entries {
+	for i := range entries {
 		if i > 0 {
 			buffer.WriteString(", ")
 		}
+		entry := &entries[i]
 		switch entry.Type {
 		case "constructor":
-			writeLegacyConstructorABIEntry(buffer, legacyConstructorABIEntry{
+			writeLegacyConstructorABIEntry(buffer, &legacyConstructorABIEntry{
 				Inputs:  entry.Inputs,
 				Name:    entry.Name,
 				Outputs: entry.Outputs,
 				Type:    entry.Type,
 			})
 		case "function":
-			writeLegacyFunctionABIEntry(buffer, legacyFunctionABIEntry{
+			writeLegacyFunctionABIEntry(buffer, &legacyFunctionABIEntry{
 				Inputs:          entry.Inputs,
 				Name:            entry.Name,
 				Outputs:         entry.Outputs,
@@ -254,14 +255,14 @@ func writeLegacyABIEntries(buffer *bytes.Buffer, entries []legacyABIEntry) error
 				Type:    entry.Type,
 			})
 		case "l1_handler":
-			writeLegacyL1HandlerABIEntry(buffer, legacyL1HandlerABIEntry{
+			writeLegacyL1HandlerABIEntry(buffer, &legacyL1HandlerABIEntry{
 				Inputs:  entry.Inputs,
 				Name:    entry.Name,
 				Outputs: entry.Outputs,
 				Type:    entry.Type,
 			})
 		case "event":
-			writeLegacyEventABIEntry(buffer, legacyEventABIEntry{
+			writeLegacyEventABIEntry(buffer, &legacyEventABIEntry{
 				Data: entry.Data,
 				Keys: entry.Keys,
 				Name: entry.Name,
@@ -275,7 +276,7 @@ func writeLegacyABIEntries(buffer *bytes.Buffer, entries []legacyABIEntry) error
 	return nil
 }
 
-func writeLegacyConstructorABIEntry(buffer *bytes.Buffer, value legacyConstructorABIEntry) {
+func writeLegacyConstructorABIEntry(buffer *bytes.Buffer, value *legacyConstructorABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "inputs", &first)
@@ -289,7 +290,7 @@ func writeLegacyConstructorABIEntry(buffer *bytes.Buffer, value legacyConstructo
 	buffer.WriteByte('}')
 }
 
-func writeLegacyFunctionABIEntry(buffer *bytes.Buffer, value legacyFunctionABIEntry) {
+func writeLegacyFunctionABIEntry(buffer *bytes.Buffer, value *legacyFunctionABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "inputs", &first)
@@ -321,7 +322,7 @@ func writeLegacyStructABIEntry(buffer *bytes.Buffer, value legacyStructABIEntry)
 	buffer.WriteByte('}')
 }
 
-func writeLegacyL1HandlerABIEntry(buffer *bytes.Buffer, value legacyL1HandlerABIEntry) {
+func writeLegacyL1HandlerABIEntry(buffer *bytes.Buffer, value *legacyL1HandlerABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "inputs", &first)
@@ -335,7 +336,7 @@ func writeLegacyL1HandlerABIEntry(buffer *bytes.Buffer, value legacyL1HandlerABI
 	buffer.WriteByte('}')
 }
 
-func writeLegacyEventABIEntry(buffer *bytes.Buffer, value legacyEventABIEntry) {
+func writeLegacyEventABIEntry(buffer *bytes.Buffer, value *legacyEventABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "data", &first)
@@ -527,7 +528,8 @@ func writeLegacyIdentifiers(
 		}
 		writeJSONString(buffer, key)
 		buffer.WriteString(": ")
-		if err := writeLegacyIdentifier(buffer, identifiers[key], patchLegacy); err != nil {
+		value := identifiers[key]
+		if err := writeLegacyIdentifier(buffer, &value, patchLegacy); err != nil {
 			return err
 		}
 	}
@@ -535,7 +537,7 @@ func writeLegacyIdentifiers(
 	return nil
 }
 
-func writeLegacyIdentifier(buffer *bytes.Buffer, value legacyIdentifier, patchLegacy bool) error {
+func writeLegacyIdentifier(buffer *bytes.Buffer, value *legacyIdentifier, patchLegacy bool) error {
 	buffer.WriteByte('{')
 	first := true
 	if value.Decorators != nil {
