@@ -16,10 +16,15 @@ import (
 	"go.uber.org/zap"
 )
 
+type SubscriptionParams struct {
+	Result         any    `json:"result"`
+	SubscriptionID string `json:"subscription_id"`
+}
+
 type SubscriptionResponse struct {
-	Version string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  any    `json:"params"`
+	Version string             `json:"jsonrpc"`
+	Method  string             `json:"method"`
+	Params  SubscriptionParams `json:"params"`
 }
 
 // As per the spec, this is the same as BlockID, but without `pre_confirmed` and `l1_accepted`
@@ -176,10 +181,7 @@ func (h *Handler) subscribe(
 			case transaction := <-receivedTransactionRecv:
 				err := subscriber.onReceivedTransaction(subscriptionCtx, id, sub, transaction)
 				if err != nil {
-					h.logger.Warn("Error on received transaction",
-						zap.String("id", id),
-						zap.Error(err),
-					)
+					h.logger.Warn("Error on received transaction", zap.String("id", id), zap.Error(err))
 					return
 				}
 			}
@@ -347,9 +349,9 @@ func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
 	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams{
+			Result:         result,
+			SubscriptionID: id,
 		},
 	})
 	if err != nil {

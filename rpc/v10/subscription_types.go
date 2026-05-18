@@ -7,10 +7,15 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+type SubscriptionParams struct {
+	Result         any            `json:"result"`
+	SubscriptionID SubscriptionID `json:"subscription_id"`
+}
+
 type SubscriptionResponse struct {
-	Version string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  any    `json:"params"`
+	Version string             `json:"jsonrpc"`
+	Method  string             `json:"method"`
+	Params  SubscriptionParams `json:"params"`
 }
 
 // As per the spec, this is the same as BlockID, but without `pre_confirmed` and `l1_accepted`
