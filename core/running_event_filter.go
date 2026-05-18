@@ -79,6 +79,24 @@ func (f *RunningEventFilter) Insert(
 	bloom *bloom.BloomFilter,
 	blockNumber uint64,
 ) error {
+	return f.insert(f.database, bloom, blockNumber)
+}
+
+// InsertWithBatch is like [RunningEventFilter.Insert] but routes the
+// window-rollover persistence through the supplied batch.
+func (f *RunningEventFilter) InsertWithBatch(
+	batch db.Batch,
+	bloom *bloom.BloomFilter,
+	blockNumber uint64,
+) error {
+	return f.insert(batch, bloom, blockNumber)
+}
+
+func (f *RunningEventFilter) insert(
+	writer db.KeyValueWriter,
+	bloom *bloom.BloomFilter,
+	blockNumber uint64,
+) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -94,7 +112,7 @@ func (f *RunningEventFilter) Insert(
 	}
 
 	if blockNumber == f.inner.ToBlock() {
-		if err := WriteAggregatedBloomFilter(f.database, f.inner); err != nil {
+		if err := WriteAggregatedBloomFilter(writer, f.inner); err != nil {
 			return fmt.Errorf(
 				"persisting aggregated filter for window [%d,%d]: %w",
 				f.inner.FromBlock(), f.inner.ToBlock(), err,
@@ -197,8 +215,22 @@ func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
 	return f.inner
 }
 
-// Clear erases the bloom filter data for the specified block
+// OnReorg reverts the last processed block from the running filter. Writes
+// the persisted-filter deletion on backward boundary cross directly to
+// f.database; use [RunningEventFilter.OnReorgWithBatch] to commit it
+// atomically with the caller's revert batch.
 func (f *RunningEventFilter) OnReorg() error {
+	return f.onReorg(f.database)
+}
+
+// OnReorgWithBatch is like [RunningEventFilter.OnReorg] but routes the
+// stale-filter deletion through the supplied batch, so it commits or
+// rolls back atomically with the caller's chain-state revert.
+func (f *RunningEventFilter) OnReorgWithBatch(batch db.Batch) error {
+	return f.onReorg(batch)
+}
+
+func (f *RunningEventFilter) onReorg(writer db.KeyValueWriter) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -208,8 +240,19 @@ func (f *RunningEventFilter) OnReorg() error {
 
 	currRangeStart := f.inner.FromBlock()
 	curBlock := f.next - 1
-	// Falls into previous filters range
+	// Falls into previous filter's range
 	if curBlock == currRangeStart-1 {
+		// Drop the persisted filter; in-memory clears are about to be discarded
+		// on swap and a future rollover will repopulate this window.
+		if err := DeleteAggregatedBloomFilter(
+			writer, f.inner.FromBlock(), f.inner.ToBlock(),
+		); err != nil {
+			return fmt.Errorf(
+				"deleting stale persisted filter for window [%d,%d]: %w",
+				f.inner.FromBlock(), f.inner.ToBlock(), err,
+			)
+		}
+
 		rangeStartAligned := curBlock - (curBlock % NumBlocksPerFilter)
 		rangeEndAligned := rangeStartAligned + NumBlocksPerFilter - 1
 

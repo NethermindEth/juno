@@ -506,6 +506,10 @@ func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilt
 	return w.Put(db.AggregatedBloomFilterKey(filter.FromBlock(), filter.ToBlock()), enc)
 }
 
+func DeleteAggregatedBloomFilter(w db.KeyValueWriter, fromBlock, toBlock uint64) error {
+	return w.Delete(db.AggregatedBloomFilterKey(fromBlock, toBlock))
+}
+
 func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {
 	var filter RunningEventFilter
 	err := r.Get(db.RunningEventFilter.Key(), func(data []byte) error {
