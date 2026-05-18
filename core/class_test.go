@@ -17,37 +17,35 @@ import (
 )
 
 func TestClassV0Hash(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Sepolia)
+	t.Run("Sepolia", func(t *testing.T) {
+		client := feeder.NewTestClient(t, &networks.Sepolia)
+		gw := adaptfeeder.New(client)
+		tests := []struct {
+			classHash string
+		}{
+			{
+				classHash: "0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+			},
+			{
+				classHash: "0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+			},
+			{
+				classHash: "0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
+			},
+		}
 
-	gw := adaptfeeder.New(client)
-	tests := []struct {
-		classHash string
-	}{
-		{
-			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909
-			classHash: "0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
-		},
-		{
-			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3
-			classHash: "0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
-		},
-		{
-			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43
-			classHash: "0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
-		},
-	}
+		for _, tt := range tests {
+			t.Run(tt.classHash, func(t *testing.T) {
+				hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
+				class, err := gw.Class(t.Context(), &hash)
+				require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run("ClassHash", func(t *testing.T) {
-			hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
-			class, err := gw.Class(t.Context(), &hash)
-			require.NoError(t, err)
-
-			got, err := class.Hash()
-			require.NoError(t, err)
-			assert.Equal(t, hash, got)
-		})
-	}
+				got, err := class.Hash()
+				require.NoError(t, err)
+				assert.Equal(t, hash, got)
+			})
+		}
+	})
 }
 
 func TestClassV1Hash(t *testing.T) {
@@ -630,4 +628,40 @@ func TestClassCasmHashMetadata(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, v2Hash, hash)
 	})
+}
+
+func BenchmarkClassV0Hash(b *testing.B) {
+	client := feeder.NewTestClient(b, &networks.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	benchmarks := []struct {
+		name      string
+		classHash string
+	}{
+		{
+			name:      "small",
+			classHash: "0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+		},
+		{
+			name:      "large",
+			classHash: "0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+		},
+	}
+
+	for _, benchmark := range benchmarks {
+		hash := felt.UnsafeFromString[felt.Felt](benchmark.classHash)
+		class, err := gw.Class(b.Context(), &hash)
+		require.NoError(b, err)
+
+		deprecatedClass, ok := class.(*core.DeprecatedCairoClass)
+		require.True(b, ok)
+
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				_, err := deprecatedClass.Hash()
+				require.NoError(b, err)
+			}
+		})
+	}
 }

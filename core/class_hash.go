@@ -1,19 +1,7 @@
 package core
 
-//#include <stdint.h>
-//#include <stdlib.h>
-//#include <stddef.h>
-//
-// extern void Cairo0ClassHash(char* class_json_str, char* hash);
-// #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_core_rs
-// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs
-import "C"
-
 import (
-	"encoding/json"
-	"errors"
-	"unsafe"
-
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -25,22 +13,56 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	classJSON, err := json.Marshal(definition)
+	program, err := unmarshalDeprecatedCairoProgram(definition.Program)
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	classJSONCStr := cstring(classJSON)
 
-	var hash felt.Felt
-	hashBytes := hash.Bytes()
-
-	C.Cairo0ClassHash(classJSONCStr, (*C.char)(unsafe.Pointer(&hashBytes[0])))
-	hash.SetBytes(hashBytes[:])
-	C.free(unsafe.Pointer(classJSONCStr))
-	if hash.IsZero() {
-		return felt.Felt{}, errors.New("failed to calculate class hash")
+	externalEntryPointsHash := hashDeprecatedEntryPoints(definition.EntryPoints.External)
+	l1HandlerEntryPointsHash := hashDeprecatedEntryPoints(definition.EntryPoints.L1Handler)
+	constructorEntryPointsHash := hashDeprecatedEntryPoints(definition.EntryPoints.Constructor)
+	builtinsHash := hashBuiltinNames(program.Builtins)
+	dataHash := hashDeprecatedProgramData(program.Data)
+	hintedClassHash, err := computeHintedClassHash(definition.Abi, program)
+	if err != nil {
+		return felt.Felt{}, err
 	}
+
+	hash := crypto.PedersenArray(
+		&felt.Zero,
+		&externalEntryPointsHash,
+		&l1HandlerEntryPointsHash,
+		&constructorEntryPointsHash,
+		&builtinsHash,
+		&hintedClassHash,
+		&dataHash,
+	)
 	return hash, nil
+}
+
+func hashDeprecatedEntryPoints(entryPoints []starknet.EntryPoint) felt.Felt {
+	var digest crypto.PedersenDigest
+	for i := range entryPoints {
+		digest.Update(entryPoints[i].Selector, (*felt.Felt)(entryPoints[i].Offset))
+	}
+	return digest.Finish()
+}
+
+func hashBuiltinNames(builtinNames []string) felt.Felt {
+	var digest crypto.PedersenDigest
+	for i := range builtinNames {
+		builtin := felt.FromBytes[felt.Felt]([]byte(builtinNames[i]))
+		digest.Update(&builtin)
+	}
+	return digest.Finish()
+}
+
+func hashDeprecatedProgramData(data []felt.Felt) felt.Felt {
+	var digest crypto.PedersenDigest
+	for i := range data {
+		digest.Update(&data[i])
+	}
+	return digest.Finish()
 }
 
 func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.DeprecatedCairoClass, error) {
@@ -69,11 +91,4 @@ func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.DeprecatedCai
 			L1Handler:   handlers,
 		},
 	}, nil
-}
-
-// cstring creates a null-terminated C string from the given byte slice.
-// the caller is responsible for freeing the underlying memory
-func cstring(data []byte) *C.char {
-	str := unsafe.String(unsafe.SliceData(data), len(data))
-	return C.CString(str)
 }

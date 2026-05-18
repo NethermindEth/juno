@@ -47,7 +47,6 @@ jobs:
           key: rust-toolchain-${{ matrix.os }}
           workspaces: |
             vm/rust
-            core/rust
             starknet/compiler/rust
 
       - name: Set TAG env var
