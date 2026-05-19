@@ -391,9 +391,7 @@ func writeDeprecatedCairoProgramCanonical(
 	writeJSONFieldPrefix(buffer, "prime", &first)
 	writeJSONString(buffer, program.Prime)
 	writeJSONFieldPrefix(buffer, "reference_manager", &first)
-	if err := writeLegacyReferenceManager(buffer, program.ReferenceManager); err != nil {
-		return err
-	}
+	writeLegacyReferenceManager(buffer, program.ReferenceManager)
 	buffer.WriteByte('}')
 	return nil
 }
@@ -682,13 +680,12 @@ func writeLegacyReferenceIDs(buffer *bytes.Buffer, ids legacyReferenceIDs) {
 	buffer.WriteByte('}')
 }
 
-func writeLegacyReferenceManager(buffer *bytes.Buffer, manager legacyReferenceManager) error {
+func writeLegacyReferenceManager(buffer *bytes.Buffer, manager legacyReferenceManager) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "references", &first)
 	writeLegacyReferences(buffer, manager.References)
 	buffer.WriteByte('}')
-	return nil
 }
 
 type legacyAttribute struct {
