@@ -13,26 +13,46 @@ import (
 
 type NoParams = struct{}
 
-// unmarshalParams decodes b into p with json.Number semantics so numeric
-// literals don't lose precision when round-tripping through RawMessage.
-func unmarshalParams(b []byte, p any) error {
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.UseNumber()
-	return dec.Decode(p)
+// fieldInfo carries the per-field metadata captured at registration so
+// the hot path can decode each param's bytes directly into its slot in
+// *P without an intermediate reshape buffer or whole-struct unmarshal.
+type fieldInfo struct {
+	name     string
+	optional bool
+	index    int // struct field index for reflect.Value.Field
+	// useNum is true if the field's type tree reaches an interface kind,
+	// where stdlib's json would otherwise decode numeric literals as
+	// float64 instead of json.Number. False ⇒ json.Unmarshal is safe
+	// (and saves a Decoder + Reader allocation per decode).
+	useNum bool
+}
+
+// decodeInto unmarshals raw into target. Picks the allocation-free
+// json.Unmarshal path unless json.Number semantics are needed for this
+// field's type. Caller obtains target as a *T pointer at the struct
+// field's address.
+func (fi *fieldInfo) decodeInto(target any, raw json.RawMessage) error {
+	if fi.useNum {
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.UseNumber()
+		return dec.Decode(target)
+	}
+	return json.Unmarshal(raw, target)
 }
 
 // regPlan is the per-method metadata captured at registration. Hot
 // path reads it as plain slice / map lookups.
 type regPlan struct {
-	tags      []string       // json tag name in declaration order
-	optional  []bool         // matches tags[i]
-	byName    map[string]int // tag name → index
-	requiredN int
+	fields          []fieldInfo
+	byName          map[string]int // tag name → fields index
+	requiredN       int
+	needsValidation bool // any field (transitively) carries a `validate:` tag
 }
 
 // captureFieldTags walks P once at registration. P must be a struct;
 // every exported field must carry a `json:"name[,omitempty]"` tag.
-// `omitempty` flags the field as optional. Reflection only happens here
+// `omitempty`/`omitzero` flag the field as optional. Reflection only
+// happens here.
 func captureFieldTags[P any]() *regPlan {
 	pt := reflect.TypeFor[P]()
 	if pt.Kind() != reflect.Struct {
@@ -42,22 +62,25 @@ func captureFieldTags[P any]() *regPlan {
 	if pt.NumField() == 0 {
 		return plan
 	}
-	plan.tags = make([]string, 0, pt.NumField())
-	plan.optional = make([]bool, 0, pt.NumField())
+	plan.needsValidation = typeHasValidateTag(pt, nil)
+	plan.fields = make([]fieldInfo, 0, pt.NumField())
 	plan.byName = make(map[string]int, pt.NumField())
-	for f := range pt.Fields() {
+	for i := range pt.NumField() {
+		f := pt.Field(i)
 		tag, ok := f.Tag.Lookup("json")
 		if !ok {
 			panic(fmt.Sprintf("jsonrpc: %s.%s missing `json:` tag", pt, f.Name))
 		}
 		name, optsRaw, _ := strings.Cut(tag, ",")
-		// A param is optional if its json tag carries either
-		// `omitempty` or `omitzero` as one of the comma-separated options.
 		opts := strings.Split(optsRaw, ",")
 		optional := slices.Contains(opts, "omitempty") || slices.Contains(opts, "omitzero")
-		plan.byName[name] = len(plan.tags)
-		plan.tags = append(plan.tags, name)
-		plan.optional = append(plan.optional, optional)
+		plan.byName[name] = len(plan.fields)
+		plan.fields = append(plan.fields, fieldInfo{
+			name:     name,
+			optional: optional,
+			index:    i,
+			useNum:   typeNeedsUseNumber(f.Type, nil),
+		})
 		if !optional {
 			plan.requiredN++
 		}
@@ -65,8 +88,72 @@ func captureFieldTags[P any]() *regPlan {
 	return plan
 }
 
+// typeHasValidateTag reports whether t — or anything reachable through
+// its fields, slice/array elements, map values, or pointer indirection —
+// carries a `validate:` struct tag. Used at registration to decide
+// whether the validator walk runs on the hot path. Cycles are guarded
+// via the visited set.
+func typeHasValidateTag(t reflect.Type, visited map[reflect.Type]bool) bool {
+	if t == nil {
+		return false
+	}
+	if visited == nil {
+		visited = map[reflect.Type]bool{}
+	}
+	if visited[t] {
+		return false
+	}
+	visited[t] = true
+	switch t.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map:
+		return typeHasValidateTag(t.Elem(), visited)
+	case reflect.Struct:
+		for i := range t.NumField() {
+			f := t.Field(i)
+			if _, ok := f.Tag.Lookup("validate"); ok {
+				return true
+			}
+			if typeHasValidateTag(f.Type, visited) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// typeNeedsUseNumber reports whether decoding into t requires json
+// number semantics — i.e. the type tree reaches an interface kind where
+// a numeric literal would otherwise lose precision by decoding to
+// float64. Concrete numeric and pointer types do not need it.
+func typeNeedsUseNumber(t reflect.Type, visited map[reflect.Type]bool) bool {
+	if t == nil {
+		return false
+	}
+	if visited == nil {
+		visited = map[reflect.Type]bool{}
+	}
+	if visited[t] {
+		return false
+	}
+	visited[t] = true
+	switch t.Kind() {
+	case reflect.Interface:
+		return true
+	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map:
+		return typeNeedsUseNumber(t.Elem(), visited)
+	case reflect.Struct:
+		for i := range t.NumField() {
+			if typeNeedsUseNumber(t.Field(i).Type, visited) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // decodeParams routes raw JSON params into *p. Arity/missing/unknown
-// detection produces error strings that match the JSON-RPC server's error format.
+// detection produces error strings that match the JSON-RPC server's
+// error format.
 func decodeParams[P any](raw json.RawMessage, plan *regPlan, p *P, v Validator) *Error {
 	switch paramsKind(raw) {
 	case paramsKindNone:
@@ -83,38 +170,39 @@ func decodeParams[P any](raw json.RawMessage, plan *regPlan, p *P, v Validator) 
 	}
 }
 
-// guestimatedTagLen is an average tag len used across RPC params.
-// Used to hint buffer size and reduce re-allocations.
-const guestimatedTagLen = 16
-
-// decodeArray converts a positional `[v1, v2, ...]` into the named form
-// `{tag0: v1, tag1: v2, ...}` using the cached tag list, then defers
-// the actual unmarshal to the json decoder.
+// decodeArray walks the positional array and decodes each element
+// directly into the corresponding slot in *p — no reshape buffer, no
+// secondary whole-struct unmarshal.
 func decodeArray[P any](raw json.RawMessage, plan *regPlan, p *P, v Validator) *Error {
-	var arr []json.RawMessage
-	if err := json.Unmarshal(raw, &arr); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	tok, err := dec.Token()
+	if err != nil {
 		return Err(InvalidParams, err.Error())
 	}
-	if len(arr) > len(plan.tags) || len(arr) < plan.requiredN {
+	if d, ok := tok.(json.Delim); !ok || d != '[' {
+		return Err(InvalidParams, "params array expected")
+	}
+	pv := reflect.ValueOf(p).Elem()
+	i := 0
+	for dec.More() {
+		if i >= len(plan.fields) {
+			return Err(InvalidParams, "missing/unexpected params in list")
+		}
+		var elem json.RawMessage
+		if err := dec.Decode(&elem); err != nil {
+			return Err(InvalidParams, err.Error())
+		}
+		fi := &plan.fields[i]
+		target := pv.Field(fi.index).Addr().Interface()
+		if err := fi.decodeInto(target, elem); err != nil {
+			return Err(InvalidParams, err.Error())
+		}
+		i++
+	}
+	if i < plan.requiredN {
 		return Err(InvalidParams, "missing/unexpected params in list")
 	}
-	var buf bytes.Buffer
-	buf.Grow(len(raw) + len(plan.tags)*guestimatedTagLen)
-	buf.WriteByte('{')
-	for i, elem := range arr {
-		if i > 0 {
-			buf.WriteByte(',')
-		}
-		buf.WriteByte('"')
-		buf.WriteString(plan.tags[i])
-		buf.WriteString(`":`)
-		buf.Write(elem)
-	}
-	buf.WriteByte('}')
-	if err := unmarshalParams(buf.Bytes(), p); err != nil {
-		return Err(InvalidParams, err.Error())
-	}
-	if v != nil {
+	if v != nil && plan.needsValidation {
 		if err := v.Struct(p); err != nil {
 			return Err(InvalidParams, err.Error())
 		}
@@ -122,57 +210,63 @@ func decodeArray[P any](raw json.RawMessage, plan *regPlan, p *P, v Validator) *
 	return nil
 }
 
-// decodeObject validates a named-form params object then unmarshals it.
-// One token walk to check missing-required / unknown-key invariants in
-// source order, then unmarshalParams for the actual field assignment.
+// decodeObject unmarshals once into map[name]RawMessage, validates
+// missing-required and unknown-key invariants, then decodes each
+// present field directly from its map entry into the matching slot in
+// *p. No secondary whole-struct unmarshal.
 func decodeObject[P any](raw json.RawMessage, plan *regPlan, p *P, v Validator) *Error {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	tok, err := dec.Token()
-	if err != nil {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
 		return Err(InvalidParams, err.Error())
 	}
-	if d, ok := tok.(json.Delim); !ok || d != '{' {
-		return Err(InvalidParams, "params object expected")
-	}
-	found := make([]bool, len(plan.tags))
-	var unknown []string
-	for dec.More() {
-		keyTok, err := dec.Token()
-		if err != nil {
-			return Err(InvalidParams, err.Error())
-		}
-		key, ok := keyTok.(string)
-		if !ok {
-			return Err(InvalidParams, "non-string object key")
-		}
-		var elemRaw json.RawMessage
-		if err := dec.Decode(&elemRaw); err != nil {
-			return Err(InvalidParams, err.Error())
-		}
-		idx, ok := plan.byName[key]
-		if !ok {
-			unknown = append(unknown, key)
+	for i := range plan.fields {
+		fi := &plan.fields[i]
+		if fi.optional {
 			continue
 		}
-		found[idx] = true
+		if _, ok := m[fi.name]; !ok {
+			return Err(InvalidParams, "missing non-optional param: "+fi.name)
+		}
 	}
-	for i, name := range plan.tags {
-		if !found[i] && !plan.optional[i] {
-			return Err(InvalidParams, "missing non-optional param: "+name)
+	var unknown []string
+	for key := range m {
+		if _, ok := plan.byName[key]; !ok {
+			unknown = append(unknown, key)
 		}
 	}
 	if len(unknown) > 0 {
+		if len(unknown) > 1 {
+			sortBySourceOrder(unknown, raw)
+		}
 		return Err(InvalidParams, "unexpected params: "+strings.Join(unknown, ", "))
 	}
-	if err := unmarshalParams(raw, p); err != nil {
-		return Err(InvalidParams, err.Error())
+	pv := reflect.ValueOf(p).Elem()
+	for i := range plan.fields {
+		fi := &plan.fields[i]
+		elem, ok := m[fi.name]
+		if !ok {
+			continue
+		}
+		target := pv.Field(fi.index).Addr().Interface()
+		if err := fi.decodeInto(target, elem); err != nil {
+			return Err(InvalidParams, err.Error())
+		}
 	}
-	if v != nil {
+	if v != nil && plan.needsValidation {
 		if err := v.Struct(p); err != nil {
 			return Err(InvalidParams, err.Error())
 		}
 	}
 	return nil
+}
+
+// sortBySourceOrder reorders names by the position of their quoted
+// occurrence in raw. Used only on the unknown-key error path so the
+// emitted list matches the order the client sent.
+func sortBySourceOrder(names []string, raw []byte) {
+	slices.SortFunc(names, func(a, b string) int {
+		return bytes.Index(raw, []byte(`"`+a+`"`)) - bytes.Index(raw, []byte(`"`+b+`"`))
+	})
 }
 
 // Public entry points. P is the param struct (use NoParams for none).

@@ -61,46 +61,63 @@ type fxMissingTag struct {
 // captureFieldTags
 // ---------------------------------------------------------------------
 
+// planTags returns the json tag names in declaration order.
+func planTags(p *regPlan) []string {
+	out := make([]string, len(p.fields))
+	for i := range p.fields {
+		out[i] = p.fields[i].name
+	}
+	return out
+}
+
+// planOptional returns the optional flag per field in declaration order.
+func planOptional(p *regPlan) []bool {
+	out := make([]bool, len(p.fields))
+	for i := range p.fields {
+		out[i] = p.fields[i].optional
+	}
+	return out
+}
+
 func TestCaptureFieldTags_EmptyStruct(t *testing.T) {
 	plan := captureFieldTags[NoParams]()
 	require.NotNil(t, plan)
-	assert.Empty(t, plan.tags)
-	assert.Empty(t, plan.optional)
+	assert.Empty(t, plan.fields)
 	assert.Empty(t, plan.byName)
 	assert.Equal(t, 0, plan.requiredN)
 }
 
 func TestCaptureFieldTags_RequiredOnly(t *testing.T) {
 	plan := captureFieldTags[fxRequiredOnly]()
-	assert.Equal(t, []string{"a", "b"}, plan.tags)
-	assert.Equal(t, []bool{false, false}, plan.optional)
+	assert.Equal(t, []string{"a", "b"}, planTags(plan))
+	assert.Equal(t, []bool{false, false}, planOptional(plan))
 	assert.Equal(t, map[string]int{"a": 0, "b": 1}, plan.byName)
 	assert.Equal(t, 2, plan.requiredN)
 }
 
 func TestCaptureFieldTags_MixedOptional(t *testing.T) {
 	plan := captureFieldTags[fxMixed]()
-	assert.Equal(t, []string{"a", "b", "c"}, plan.tags)
-	assert.Equal(t, []bool{false, true, true}, plan.optional)
+	assert.Equal(t, []string{"a", "b", "c"}, planTags(plan))
+	assert.Equal(t, []bool{false, true, true}, planOptional(plan))
 	assert.Equal(t, 1, plan.requiredN)
 }
 
 func TestCaptureFieldTags_AllOptional(t *testing.T) {
 	plan := captureFieldTags[fxAllOptional]()
 	assert.Equal(t, 0, plan.requiredN)
-	assert.Equal(t, []bool{true, true}, plan.optional)
+	assert.Equal(t, []bool{true, true}, planOptional(plan))
 }
 
 func TestCaptureFieldTags_OmitzeroIsOptional(t *testing.T) {
 	plan := captureFieldTags[fxOmitzero]()
-	assert.Equal(t, []bool{false, true}, plan.optional)
+	assert.Equal(t, []bool{false, true}, planOptional(plan))
 	assert.Equal(t, 1, plan.requiredN)
 }
 
 func TestCaptureFieldTags_CompoundTagsRecogniseOptional(t *testing.T) {
 	plan := captureFieldTags[fxCompoundTag]()
-	assert.Equal(t, []string{"a", "b", "c"}, plan.tags)
-	assert.Equal(t, []bool{false, true, true}, plan.optional)
+	assert.Equal(t, []string{"a", "b", "c"}, planTags(plan))
+	assert.Equal(t, []bool{false, true, true}, planOptional(plan))
 	assert.Equal(t, 1, plan.requiredN)
 }
 
