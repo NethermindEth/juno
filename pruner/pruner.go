@@ -269,23 +269,23 @@ func FindOldestBlockAtOrAfter(
 		return 0, ErrNoBlockInWindow
 	}
 	cutoffUnix := uint64(cutoff.Unix())
-	lo, hi := lower, upper+1
-	for lo < hi {
-		mid := lo + (hi-lo)/2
-		hdr, err := core.GetBlockHeaderByNumber(database, mid)
+	low, high := lower, upper+1
+	for low < high {
+		mid := low + (high-low)/2
+		header, err := core.GetBlockHeaderByNumber(database, mid)
 		if err != nil {
 			return 0, err
 		}
-		if hdr.Timestamp < cutoffUnix {
-			lo = mid + 1
+		if header.Timestamp < cutoffUnix {
+			low = mid + 1
 		} else {
-			hi = mid
+			high = mid
 		}
 	}
-	if lo > upper {
+	if low > upper {
 		return 0, ErrNoBlockInWindow
 	}
-	return lo, nil
+	return low, nil
 }
 
 // sampleHeight (re)computes the wallclock floor
