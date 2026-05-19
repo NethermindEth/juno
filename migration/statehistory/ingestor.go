@@ -1,57 +1,63 @@
 package statehistory
 
 import (
-	"github.com/NethermindEth/juno/core/felt"
+	"context"
+
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 
-type FlushBatchFn func(t *task)
-
-type ingestor struct {
+type baseIngestor struct {
+	ctx            context.Context
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
 	database       db.KeyValueReader
 	tasks          []task
-	transform      func(db.KeyValueReader, *task, felt.Address, FlushBatchFn) error
 }
 
-var _ pipeline.State[felt.Address, task] = (*ingestor)(nil)
-
-func newIngestor(
+// newBaseIngestor pre-allocates one batch per ingestor slot. The semaphore is
+// created with capacity ingestorCount+1 immediately before this call, so the
+// acquires cannot block — using GetBlocking keeps the constructor signature
+// error-free.
+func newBaseIngestor(
+	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
-	transform func(db.KeyValueReader, *task, felt.Address, FlushBatchFn) error,
-) *ingestor {
+) baseIngestor {
 	tasks := make([]task, ingestorCount)
 	for i := range tasks {
 		tasks[i] = task{batch: sem.GetBlocking()}
 	}
-	return &ingestor{batchSemaphore: sem, database: database, tasks: tasks, transform: transform}
+	return baseIngestor{
+		ctx:            ctx,
+		batchSemaphore: sem,
+		database:       database,
+		tasks:          tasks,
+	}
 }
 
-func (p *ingestor) Run(index int, addr felt.Address, outputs chan<- task) error {
-	t := &p.tasks[index]
-	flush := func(t *task) {
-		if t.batch.Size() < targetBatchByteSize {
-			return
-		}
-		outputs <- *t
-		*t = task{batch: p.batchSemaphore.GetBlocking()}
+// flush emits the current task downstream when its batch hits target size and
+// acquires a fresh batch. The ctx-aware select on the channel send is the
+// snappy cancellation point. The semaphore acquire uses GetBlocking — it is
+// guaranteed to unblock within one committer iteration because the committer's
+// deferred Put always runs.
+func (b *baseIngestor) flush(t *task, outputs chan<- task) error {
+	if t.batch.Size() < targetBatchByteSize {
+		return nil
 	}
-
-	if err := p.transform(p.database, t, addr, flush); err != nil {
-		return err
+	select {
+	case <-b.ctx.Done():
+		return b.ctx.Err()
+	case outputs <- *t:
 	}
-
-	if t.batch.Size() >= targetBatchByteSize {
-		outputs <- *t
-		*t = task{batch: p.batchSemaphore.GetBlocking()}
-	}
+	*t = task{batch: b.batchSemaphore.GetBlocking()}
 	return nil
 }
 
-func (p *ingestor) Done(index int, outputs chan<- task) error {
-	outputs <- p.tasks[index]
+func (b *baseIngestor) Done(index int, outputs chan<- task) error {
+	select {
+	case <-b.ctx.Done():
+		return b.ctx.Err()
+	case outputs <- b.tasks[index]:
+	}
 	return nil
 }
