@@ -475,11 +475,9 @@ func TestPollPendingData(t *testing.T) {
 		preCPoll := 500 * time.Millisecond // defaultPreConfirmedPollInterval
 
 		synctest.Test(t, func(t *testing.T) {
-			// makes every pre_latest call return a new pre_latest of head + 1
+			// no PreLatest, so that we can focus on pre_confirmed polling.
 			pendingFunc := func(context.Context) (pending.PreLatest, error) {
-				head, err := bc.HeadsHeader()
-				require.NoError(t, err)
-				return makeEmptyPreLatestForParent(head), nil
+				return pending.PreLatest{}, errors.New("no PreLatest available")
 			}
 			preConfirmedFunc := func(
 				ctx context.Context,
@@ -488,6 +486,11 @@ func TestPollPendingData(t *testing.T) {
 				knownTransactionCount uint64,
 				numCalls uint,
 			) (pending.PreConfirmedUpdate, error) {
+				newTx := func() core.Transaction {
+					return &core.InvokeTransaction{
+						TransactionHash: felt.NewRandom[felt.Felt](),
+					}
+				}
 
 				var response pending.PreConfirmedUpdate
 				switch number {
@@ -510,13 +513,29 @@ func TestPollPendingData(t *testing.T) {
 						}
 					}
 				case 2:
-					preConf := makeTestPreConfirmed(number)
-					response = pending.PreConfirmedUpdate{
-						Mode:            pending.PreConfirmedFull,
-						BlockIdentifier: knownBlockIdentifier,
-						FullBlock:       &preConf,
+					// block 2 will be polled 3 times in our test.
+					// Full block > Delta Change > No change.
+					switch numCalls {
+					case 3:
+						preConf := makeTestPreConfirmed(number)
+						response = pending.PreConfirmedUpdate{
+							Mode:            pending.PreConfirmedFull,
+							BlockIdentifier: knownBlockIdentifier,
+							FullBlock:       &preConf,
+						}
+						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
+					case 4:
+						response = pending.PreConfirmedUpdate{
+							Mode:               pending.PreConfirmedDelta,
+							BlockIdentifier:    knownBlockIdentifier,
+							AppendCandidateTxs: []core.Transaction{newTx()},
+						}
+					case 5:
+						response = pending.PreConfirmedUpdate{
+							Mode:            pending.PreConfirmedNoChange,
+							BlockIdentifier: knownBlockIdentifier,
+						}
 					}
-					response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
 				default:
 					t.Fatal("unexpected number", number)
 				}
@@ -530,7 +549,6 @@ func TestPollPendingData(t *testing.T) {
 				PreConfirmedFunc: preConfirmedFunc,
 			}
 
-			clock := time.Now()
 			s := New(
 				bc,
 				mockDataSource,
@@ -563,23 +581,27 @@ func TestPollPendingData(t *testing.T) {
 			s.newHeads.Send(block0)
 			synctest.Wait()
 
-			// 1st preConfirmed tick; expected pre_confirmed = 1
+			// 1st preConfirmed tick; expected pre_confirmed = 1.
+			// Full block is returned
 			time.Sleep(preCPoll)
 			synctest.Wait()
 
 			pc := <-sub.Recv()
 			require.NotNil(t, pc)
 			assert.Equal(t, uint64(1), pc.Block.Number)
-			require.Equal(t, preCPoll, time.Since(clock))
 			synctest.Wait()
 
-			// 2nd preConfirmed tick; no change in preConfirmed.
-			// preLatest also triggers, advancing next target preConfirmed to 2.
+			// 2nd preConfirmed tick; preConfirmed target is still 1
+			// No change in preConfirmed
 			time.Sleep(preCPoll)
 			synctest.Wait()
-			require.Equal(t, preCPoll*2, time.Since(clock))
+			select {
+			case pc = <-sub.Recv():
+				t.Fatal("'no change' must not trigger a new PreConfirmed broadcast")
+			default:
+			}
 
-			// store block1; preConfirmed target is still 2
+			// store block1; sets preConfirmed target to 2
 			require.NoError(
 				t, bc.Store(
 					block1,
@@ -592,17 +614,36 @@ func TestPollPendingData(t *testing.T) {
 			s.newHeads.Send(block1)
 			synctest.Wait()
 
-			// 3rd preConfirmed tick; expected pre_confirmed = 2
+			// 3rd preConfirmed tick; expected pre_confirmed = 2.
+			// Full block is returned
 			time.Sleep(preCPoll)
 			synctest.Wait()
-			require.Equal(t, preCPoll*3, time.Since(clock))
 
 			pc = <-sub.Recv()
 			require.NotNil(t, pc)
 			assert.Equal(t, uint64(2), pc.Block.Number)
-			// @todo take a look at these timers checks
-			require.Equal(t, preCPoll*3, time.Since(clock))
 			synctest.Wait()
+
+			// 4th preConfirmed tick; pre_confirmed target is still 2.
+			// PreConfirmed 2 arrives with delta update.
+			time.Sleep(preCPoll)
+			synctest.Wait()
+
+			deltaPc := <-sub.Recv()
+			require.NotNil(t, deltaPc)
+			assert.Equal(t, pc.Block.Number, deltaPc.Block.Number)
+			assert.NotEqual(t, pc, deltaPc)
+			synctest.Wait()
+
+			// 5th preConfirmed tick; preConfirmed target is still 2
+			// No change in preConfirmed
+			time.Sleep(preCPoll)
+			synctest.Wait()
+			select {
+			case pc = <-sub.Recv():
+				t.Fatal("'no change' must not trigger a new PreConfirmed broadcast")
+			default:
+			}
 		})
 	})
 }
