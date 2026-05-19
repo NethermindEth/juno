@@ -29,6 +29,50 @@ func newStorageIngestor(
 	return &storageIngestor{baseIngestor: newBaseIngestor(ctx, sem, database)}
 }
 
+// Run migrates the per-slot storage history of a single contract.
+//
+// Legend: Bₙ = block at which the n-th change to a slot happened. preXₙ
+// is the value of slot X before Bₙ (= what the deprecated layout stores
+// at [X, Bₙ]); headX is the slot's current value, read from the head
+// storage trie. The deprecated layout writes nothing at deploy — the
+// pre-deploy value (0) is implicit in the first change entry. The new
+// layout stores the same number of entries per slot, just shifted to
+// post-values. For one slot:
+//
+//	block  │ deprecated[slotA] │ new[slotA]
+//	───────┼───────────────────┼───────────
+//	  B₁   │  0                │ preA₁
+//	  B₂   │  preA₁            │ preA₂
+//	  B₃   │  preA₂            │ headA
+//	───────┼───────────────────┼───────────
+//	  > B₃ │  head trie leaf   │ headA (last entry — self-contained)
+//	          for slotA          ← deprecated must reach into the head
+//	                               storage trie for any block past the
+//	                               last change
+//
+// For each deprecated entry the post-value comes from one of:
+//
+//   - the *next* deprecated entry, when it's on the same slot — its stored
+//     pre-value is exactly this block's post-value;
+//   - the head storage trie leaf for that slot, when there is no next
+//     deprecated entry on the same slot;
+//   - felt.Zero, when there is no head leaf for the slot (the slot was
+//     eventually zeroed out and dropped from the trie).
+//
+// Both the deprecated history and the head trie are sorted by raw slot
+// bytes, so the ingestor walks them in lockstep — the head-trie iterator
+// advances only when its current leaf matches the slot just resolved:
+//
+//	deprecated history       head trie         new history
+//	─────────────────────    ─────────────     ─────────────────────────
+//	[slotA, B₁..B₃]    ──→   [slotA] = headA   [slotA, B₁..B₃] last uses headA
+//	[slotB, B₁..B₂]    ──→   (no leaf)         [slotB, B₁..B₂] last uses 0
+//	                          ← slotB was set                   (slotB was zeroed
+//	                            and later zeroed                 at B₂)
+//	[slotC, B₁]        ──→   [slotC] = headC   [slotC, B₁] = headC
+//
+// Contracts with no deprecated storage history are skipped; deprecated
+// rows are deleted at the end of the run via DeleteRange.
 func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) error {
 	t := &i.tasks[index]
 

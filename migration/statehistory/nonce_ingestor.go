@@ -26,6 +26,26 @@ func newNonceIngestor(
 	return &nonceIngestor{baseIngestor: newBaseIngestor(ctx, sem, database)}
 }
 
+// Run migrates the nonce history of a single contract.
+//
+// Legend: Bₙ = block at which the n-th nonce change happened. Nₙ = the
+// nonce active *after* Bₙ; the deploy nonce is always 0 and is *not*
+// written to the deprecated history — its presence is implicit in the
+// pre-value of the first change entry. The new layout stores the same
+// number of entries, just shifted to post-values:
+//
+//	block  │ deprecated     │ new
+//	───────┼────────────────┼──────
+//	  B₁   │  0             │ N₁
+//	  B₂   │  N₁            │ N₂
+//	  B₃   │  N₂            │ N₃
+//	───────┼────────────────┼──────
+//	  > B₃ │  contract      │ N₃ (last entry — self-contained)
+//	          .Nonce          ← deprecated must reach into the Contract
+//	                            record for any block past the last change
+//
+// Contracts with no deprecated nonce history are skipped. Deprecated rows
+// are deleted at the end of the run.
 func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) error {
 	t := &i.tasks[index]
 	deprecatedPrefix := db.DeprecatedContractNonceHistoryKey(addr)
