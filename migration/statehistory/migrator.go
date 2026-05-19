@@ -36,6 +36,33 @@ var (
 
 var _ migration.Migration = (*Migrator)(nil)
 
+// Migrator rewrites the contract history layout so each entry stores the
+// post-update value at its block, instead of the pre-update value.
+//
+// Example — a contract whose class hash was 0xAA at deploy (block 100),
+// changed to 0xBB at block 200, then to 0xCC at block 500:
+//
+//	block │ old layout (pre-value) │ new layout (post-value)
+//	──────┼────────────────────────┼─────────────────────────
+//	100   │ (no entry)             │ 0xAA  ← explicit deploy
+//	200   │ 0xAA                   │ 0xBB
+//	500   │ 0xBB                   │ 0xCC
+//	head  │ 0xCC (contract record) │ (read from history)
+//
+// The same shape change applies to nonces and per-slot storage. The
+// migrator runs three phases (class-hash, nonce, storage); each phase
+// iterates the Contract bucket and rewrites one contract's deprecated
+// entries at a time, deleting them in the same batch.
+//
+// Crash / cancellation safety: pebble batches commit atomically, so the
+// writes inside any single committed batch are durable as a unit. A
+// contract whose history is large may span more than one batch — but each
+// new entry's value is a pure function of the deprecated source data, so
+// re-running over an already-partially-rewritten contract overwrites with
+// identical values and then deletes the (still-present) deprecated rows.
+// Contracts whose deprecated entries are already gone short-circuit on an
+// empty iterator. The three phases run sequentially: a later phase only
+// starts after the earlier phase completes.
 type Migrator struct{}
 
 func (Migrator) Before([]byte) error { return nil }
