@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -33,6 +34,8 @@ var (
 	shouldNotRerun []byte
 )
 
+var deprecatedTrieBuckets = []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
+
 type Migrator struct{}
 
 var _ migration.Migration = (*Migrator)(nil)
@@ -58,7 +61,7 @@ func (*Migrator) Migrate(
 }
 
 func needsMigration(r db.KeyValueReader) (bool, error) {
-	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
+	for _, bucket := range deprecatedTrieBuckets {
 		prefix := bucket.Key()
 		iter, err := r.NewIterator(prefix, true)
 		if err != nil {
@@ -85,11 +88,9 @@ func runMigration(
 	})
 
 	pool := newHashWorkerPool()
+	defer pool.close()
 
-	ing, err := newIngestor(ctx, database, batchSem, logger, pool)
-	if err != nil {
-		return shouldRerun, err
-	}
+	ing := newIngestor(ctx, database, batchSem, pool)
 
 	tries, err := enumerateTries(database)
 	if err != nil {
@@ -112,23 +113,33 @@ func runMigration(
 
 	_, wait := committed.Run(ctx)
 	res := wait()
-	if !res.IsDone {
-		pool.close()
+	if res.Err != nil {
 		return shouldRerun, res.Err
 	}
-
-	pool.close()
-
-	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
-		start := bucket.Key()
-		end := dbutils.UpperBound(start)
-		if err := database.DeleteRange(start, end); err != nil {
-			return shouldRerun, fmt.Errorf("trie migration: cleanup DeleteRange for %v: %w", bucket, err)
+	if !res.IsDone {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return shouldRerun, ctxErr
 		}
+		return shouldRerun, errors.New("trie migration: pipeline did not complete")
+	}
+
+	if err := wipeDeprecatedBuckets(database); err != nil {
+		return shouldRerun, err
 	}
 	logger.Info("trie migration: source buckets deleted")
 
 	return shouldNotRerun, nil
+}
+
+func wipeDeprecatedBuckets(database db.KeyValueRangeDeleter) error {
+	for _, bucket := range deprecatedTrieBuckets {
+		start := bucket.Key()
+		end := dbutils.UpperBound(start)
+		if err := database.DeleteRange(start, end); err != nil {
+			return fmt.Errorf("trie migration: cleanup DeleteRange for %v: %w", bucket, err)
+		}
+	}
+	return nil
 }
 
 type TrieDesc struct {
@@ -150,42 +161,74 @@ func enumerateTries(r db.KeyValueReader) ([]TrieDesc, error) {
 		{db.ClassesTrie, db.ClassTrie, crypto.Poseidon},
 		{db.StateTrie, db.ContractTrieContract, crypto.Pedersen},
 	} {
-		prefix := spec.oldBucket.Key()
-		it, err := r.NewIterator(prefix, true)
+		desc, err := enumerateGlobalTrie(r, spec.oldBucket, spec.newBucket, spec.hashFn)
 		if err != nil {
-			return nil, fmt.Errorf("opening iterator for bucket %v: %w", spec.oldBucket, err)
+			return nil, err
 		}
-		var rootPath *trie.BitArray
-		count := 0
-		for valid := it.First(); valid; valid = it.Next() {
-			key := it.Key()
-			if len(key) == len(prefix) {
-				if val, verr := it.Value(); verr == nil {
-					rootPath = parseRootPath(val)
-				}
-			} else {
-				count++
-			}
-		}
-		it.Close()
-		descs = append(descs, TrieDesc{
-			OldBucket: spec.oldBucket,
-			NewBucket: spec.newBucket,
-			HashFn:    spec.hashFn,
-			NodeCount: count,
-			RootPath:  rootPath,
-		})
+		descs = append(descs, desc)
 	}
 
+	storageDescs, err := enumerateStorageTries(r)
+	if err != nil {
+		return nil, err
+	}
+	descs = append(descs, storageDescs...)
+
+	return descs, nil
+}
+
+func enumerateGlobalTrie(
+	r db.KeyValueReader,
+	oldBucket, newBucket db.Bucket,
+	hashFn crypto.HashFn,
+) (TrieDesc, error) {
+	prefix := oldBucket.Key()
+	it, err := r.NewIterator(prefix, true)
+	if err != nil {
+		return TrieDesc{}, fmt.Errorf("opening iterator for bucket %v: %w", oldBucket, err)
+	}
+	defer it.Close()
+
+	var rootPath *trie.BitArray
+	count := 0
+	for valid := it.First(); valid; valid = it.Next() {
+		key := it.Key()
+		if len(key) == len(prefix) {
+			val, verr := it.Value()
+			if verr != nil {
+				return TrieDesc{}, fmt.Errorf("reading root path for bucket %v: %w", oldBucket, verr)
+			}
+			rp, perr := parseRootPath(val)
+			if perr != nil {
+				return TrieDesc{}, fmt.Errorf("parsing root path for bucket %v: %w", oldBucket, perr)
+			}
+			rootPath = rp
+		} else {
+			count++
+		}
+	}
+	return TrieDesc{
+		OldBucket: oldBucket,
+		NewBucket: newBucket,
+		HashFn:    hashFn,
+		NodeCount: count,
+		RootPath:  rootPath,
+	}, nil
+}
+
+func enumerateStorageTries(r db.KeyValueReader) ([]TrieDesc, error) {
 	storagePrefix := db.ContractStorage.Key()
-	storageIter, err := r.NewIterator(storagePrefix, true)
+	it, err := r.NewIterator(storagePrefix, true)
 	if err != nil {
 		return nil, fmt.Errorf("opening storage iterator: %w", err)
 	}
-	for valid := storageIter.First(); valid; valid = storageIter.Valid() {
-		key := storageIter.Key()
+	defer it.Close()
+
+	var descs []TrieDesc
+	for valid := it.First(); valid; valid = it.Valid() {
+		key := it.Key()
 		if len(key) < 1+felt.Bytes {
-			storageIter.Next()
+			it.Next()
 			continue
 		}
 		ownerFelt := felt.FromBytes[felt.Felt](key[1 : 1+felt.Bytes])
@@ -195,19 +238,25 @@ func enumerateTries(r db.KeyValueReader) ([]TrieDesc, error) {
 
 		var rootPath *trie.BitArray
 		count := 0
-		for storageIter.Valid() {
-			k := storageIter.Key()
+		for it.Valid() {
+			k := it.Key()
 			if !bytes.HasPrefix(k, ownerPrefix) {
 				break
 			}
 			if len(k) == len(ownerPrefix) {
-				if val, verr := storageIter.Value(); verr == nil {
-					rootPath = parseRootPath(val)
+				val, verr := it.Value()
+				if verr != nil {
+					return nil, fmt.Errorf("reading root path for storage owner %s: %w", &ownerFelt, verr)
 				}
+				rp, perr := parseRootPath(val)
+				if perr != nil {
+					return nil, fmt.Errorf("parsing root path for storage owner %s: %w", &ownerFelt, perr)
+				}
+				rootPath = rp
 			} else {
 				count++
 			}
-			storageIter.Next()
+			it.Next()
 		}
 		descs = append(descs, TrieDesc{
 			OldBucket: db.ContractStorage,
@@ -218,20 +267,18 @@ func enumerateTries(r db.KeyValueReader) ([]TrieDesc, error) {
 			RootPath:  rootPath,
 		})
 	}
-	storageIter.Close()
-
 	return descs, nil
 }
 
-func parseRootPath(val []byte) *trie.BitArray {
+func parseRootPath(val []byte) (*trie.BitArray, error) {
 	if len(val) == 0 {
-		return nil
+		return nil, nil
 	}
 	var ba trie.BitArray
 	if err := ba.UnmarshalBinary(val); err != nil {
-		return nil
+		return nil, err
 	}
-	return &ba
+	return &ba, nil
 }
 
 func hasDestRoot(r db.KeyValueReader, newBucket db.Bucket, owner *felt.Address) (bool, error) {

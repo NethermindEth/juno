@@ -30,7 +30,7 @@ func (c *counter) log(byteSize uint64, tries int) {
 
 	now := time.Now()
 	elapsed := now.Sub(c.start).Seconds()
-	if elapsed > float64(c.timeLogRate.Seconds()) {
+	if elapsed > c.timeLogRate.Seconds() {
 		mbs := float64(c.size) / float64(db.Megabyte)
 		c.logger.Info(
 			"write speed",

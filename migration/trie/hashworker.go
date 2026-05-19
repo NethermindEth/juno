@@ -37,14 +37,14 @@ func newHashScheduler(
 	hashFn crypto.HashFn,
 	parallel bool,
 	bucket db.Bucket,
-	owner *felt.Address,
+	owner felt.Address,
 	pool *hashWorkerPool,
 ) *hashScheduler {
 	s := &hashScheduler{
 		hashFn:   hashFn,
 		parallel: parallel,
 		bucket:   bucket,
-		owner:    *owner,
+		owner:    owner,
 		pool:     pool,
 	}
 	if parallel {
@@ -55,34 +55,13 @@ func newHashScheduler(
 	return s
 }
 
-func (s *hashScheduler) reset(
-	hashFn crypto.HashFn,
-	parallel bool,
-	bucket db.Bucket,
-	owner *felt.Address,
-) {
-	s.hashFn = hashFn
-	s.parallel = parallel
-	s.bucket = bucket
-	s.owner = *owner
-	s.hasInFlight = false
-	if parallel && s.jobs == nil {
-		s.jobs = make([]edgeHashJob, 0, parallelHashBatchSize)
-		s.altJobs = make([]edgeHashJob, 0, parallelHashBatchSize)
-		s.results = make([]felt.Felt, 2*parallelHashBatchSize)
-	} else if parallel {
-		s.jobs = s.jobs[:0]
-		s.altJobs = s.altJobs[:0]
-	}
-}
-
-func (s *hashScheduler) schedule(job edgeHashJob, batch db.Batch) error {
+func (s *hashScheduler) schedule(job *edgeHashJob, batch db.Batch) error {
 	if !s.parallel {
 		leftEdge := computeEdgeHash(&job.leftChildHash, &job.leftSeg, s.hashFn)
 		rightEdge := computeEdgeHash(&job.rightChildHash, &job.rightSeg, s.hashFn)
 		return s.writeBinaryAndEdges(job, &leftEdge, &rightEdge, batch)
 	}
-	s.jobs = append(s.jobs, job)
+	s.jobs = append(s.jobs, *job)
 	if len(s.jobs) >= parallelHashBatchSize {
 		return s.fire(batch)
 	}
@@ -109,9 +88,9 @@ func (s *hashScheduler) drainInFlight(batch db.Batch) error {
 		return nil
 	}
 	<-s.inFlightBuf.done
-	for i, job := range s.inFlightBuf.jobs {
+	for i := range s.inFlightBuf.jobs {
 		err := s.writeBinaryAndEdges(
-			job,
+			&s.inFlightBuf.jobs[i],
 			&s.inFlightBuf.results[2*i],
 			&s.inFlightBuf.results[2*i+1],
 			batch,
@@ -134,9 +113,9 @@ func (s *hashScheduler) sync(batch db.Batch) error {
 	if len(s.jobs) > 0 {
 		results := s.results[:2*len(s.jobs)]
 		<-s.pool.submit(s.hashFn, s.jobs, results)
-		for i, job := range s.jobs {
+		for i := range s.jobs {
 			if err := s.writeBinaryAndEdges(
-				job,
+				&s.jobs[i],
 				&results[2*i],
 				&results[2*i+1],
 				batch,
@@ -150,7 +129,7 @@ func (s *hashScheduler) sync(batch db.Batch) error {
 }
 
 func (s *hashScheduler) writeBinaryAndEdges(
-	job edgeHashJob,
+	job *edgeHashJob,
 	leftEdge,
 	rightEdge *felt.Felt,
 	batch db.Batch,

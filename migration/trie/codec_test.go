@@ -74,9 +74,12 @@ func TestEncodeEdgeNode(t *testing.T) {
 			var childHash felt.Felt
 			childHash.SetUint64(42)
 			seg := makeNewPath(pathLen, 0b101)
-			blob := encodeEdgeNode(&childHash, &seg)
 
-			require.Greater(t, len(blob), 0)
+			var buf [edgeNodeMaxSize]byte
+			n := encodeEdgeNodeInto(buf[:], &childHash, &seg)
+			blob := buf[:n]
+
+			require.Greater(t, n, 0)
 			assert.Equal(t, edgeNodeTag, blob[0])
 
 			var got felt.Felt
@@ -84,7 +87,7 @@ func TestEncodeEdgeNode(t *testing.T) {
 			assert.Equal(t, childHash, got)
 
 			activeBytes := (int(pathLen) + 7) / 8
-			assert.Equal(t, 1+felt.Bytes+activeBytes+1, len(blob))
+			assert.Equal(t, 1+felt.Bytes+activeBytes+1, n)
 		})
 	}
 }

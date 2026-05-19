@@ -16,10 +16,9 @@ import (
 )
 
 func TestMigrate_FreshDBIsNoOp(t *testing.T) {
-	testDB := memory.New()
-	t.Cleanup(func() { testDB.Close() })
+	memDB := memory.New()
 
-	state, err := (&Migrator{}).Migrate(context.Background(), testDB, nil, nopLogger())
+	state, err := (&Migrator{}).Migrate(context.Background(), memDB, nil, nopLogger())
 	require.NoError(t, err)
 	assert.Nil(
 		t,
@@ -30,17 +29,17 @@ func TestMigrate_FreshDBIsNoOp(t *testing.T) {
 
 func TestMigrate_RunsWhenOldDataPresent(t *testing.T) {
 	leaves := randomLeaves(100, 7)
-	testDB, _, _, _, _ := buildFullDB(t, leaves)
+	memDB := buildFullDB(t, leaves)
 
-	needed, err := needsMigration(testDB)
+	needed, err := needsMigration(memDB)
 	require.NoError(t, err)
 	require.True(t, needed, "precondition: DB has old-format data")
 
-	state, err := (&Migrator{}).Migrate(context.Background(), testDB, nil, nopLogger())
+	state, err := (&Migrator{}).Migrate(context.Background(), memDB, nil, nopLogger())
 	require.NoError(t, err)
 	assert.Nil(t, state, "completed migration must return nil intermediate state")
 
-	stillNeeded, err := needsMigration(testDB)
+	stillNeeded, err := needsMigration(memDB)
 	require.NoError(t, err)
 	assert.False(t, stillNeeded, "old-format buckets should be empty after migration")
 }
@@ -49,19 +48,20 @@ func TestMigrationIsResumable(t *testing.T) {
 	leaves := randomLeaves(1000, 42)
 
 	// Reference: full migration from scratch.
-	refDB, _, _, _, _ := buildFullDB(t, leaves)
+	refDB := buildFullDB(t, leaves)
 	_, err := runMigration(context.Background(), refDB, nopLogger())
 	require.NoError(t, err)
 
 	// Partial DB: both tries in old format initially.
-	partialDB, _, _, _, _ := buildFullDB(t, leaves)
+	partialDB := buildFullDB(t, leaves)
 
 	// Manually migrate only the class trie to simulate a mid-run interruption.
 	classPrefix := db.ClassesTrie.Key()
 	var classRootPath *trie.BitArray
 	require.NoError(t, partialDB.Get(classPrefix, func(val []byte) error {
-		classRootPath = parseRootPath(val)
-		return nil
+		var perr error
+		classRootPath, perr = parseRootPath(val)
+		return perr
 	}))
 	classDesc := TrieDesc{
 		OldBucket: db.ClassesTrie,
@@ -118,29 +118,22 @@ func TestMigrationIsResumable(t *testing.T) {
 	}
 }
 
-// buildFullDB creates an old-format DB with class, contract, and one storage trie,
-// all populated with the same leaf set. Returns the DB and the old-format root hashes.
-func buildFullDB(t *testing.T, leaves leafMap) (
-	database db.KeyValueStore,
-	classRoot felt.Felt,
-	contractRoot felt.Felt,
-	storageRoot felt.Felt,
-	owner felt.Address,
-) {
+// buildFullDB creates an old-format DB populated with a class, a contract, and
+// one storage trie, all built from the same leaf set.
+func buildFullDB(t *testing.T, leaves leafMap) db.KeyValueStore {
 	t.Helper()
-	database = memory.New()
+	database := memory.New()
 
-	classRoot = buildDeprecatedTrie(t, database, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
-	contractRoot = buildDeprecatedTrie(t, database, leaves, trie.NewTriePedersen, db.StateTrie.Key())
+	buildDeprecatedTrie(t, database, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
+	buildDeprecatedTrie(t, database, leaves, trie.NewTriePedersen, db.StateTrie.Key())
 
 	var ownerFelt felt.Felt
 	ownerFelt.SetUint64(42)
-	owner = felt.Address(ownerFelt)
 	ownerBytes := ownerFelt.Bytes()
 	storagePrefix := db.ContractStorage.Key(ownerBytes[:])
-	storageRoot = buildDeprecatedTrie(t, database, leaves, trie.NewTriePedersen, storagePrefix)
+	buildDeprecatedTrie(t, database, leaves, trie.NewTriePedersen, storagePrefix)
 
-	return database, classRoot, contractRoot, storageRoot, owner
+	return database
 }
 
 func insertFakeStorageNodes(t *testing.T, database db.KeyValueStore, owner felt.Address, n int) {
@@ -165,16 +158,16 @@ func collectTries(t *testing.T, r db.KeyValueReader) []TrieDesc {
 }
 
 func TestEnumerateTries_EmptyDBYieldsClassAndContractTries(t *testing.T) {
-	testDB := memory.New()
-	descs := collectTries(t, testDB)
+	memDB := memory.New()
+	descs := collectTries(t, memDB)
 	require.Len(t, descs, 2)
 	assert.Equal(t, db.ClassesTrie, descs[0].OldBucket)
 	assert.Equal(t, db.StateTrie, descs[1].OldBucket)
 }
 
 func TestEnumerateTries_GlobalTriesPresent(t *testing.T) {
-	testDB := memory.New()
-	descs := collectTries(t, testDB)
+	memDB := memory.New()
+	descs := collectTries(t, memDB)
 	hasClass := slices.ContainsFunc(descs, func(d TrieDesc) bool {
 		return d.OldBucket == db.ClassesTrie && d.NewBucket == db.ClassTrie
 	})
@@ -186,16 +179,16 @@ func TestEnumerateTries_GlobalTriesPresent(t *testing.T) {
 }
 
 func TestEnumerateTries_StorageTriesDiscovered(t *testing.T) {
-	testDB := memory.New()
+	memDB := memory.New()
 	var owners [3]felt.Address
 	for i := range owners {
 		var f felt.Felt
 		f.SetUint64(uint64(i + 1))
 		owners[i] = felt.Address(f)
-		insertFakeStorageNodes(t, testDB, owners[i], 5)
+		insertFakeStorageNodes(t, memDB, owners[i], 5)
 	}
 
-	descs := collectTries(t, testDB)
+	descs := collectTries(t, memDB)
 	require.Len(t, descs, 5)
 
 	storageCount := 0
@@ -209,13 +202,13 @@ func TestEnumerateTries_StorageTriesDiscovered(t *testing.T) {
 }
 
 func TestEnumerateTries_NodeCountIsCorrect(t *testing.T) {
-	testDB := memory.New()
+	memDB := memory.New()
 	var ownerFelt felt.Felt
 	ownerFelt.SetUint64(99)
 	owner := felt.Address(ownerFelt)
-	insertFakeStorageNodes(t, testDB, owner, 7)
+	insertFakeStorageNodes(t, memDB, owner, 7)
 
-	descs := collectTries(t, testDB)
+	descs := collectTries(t, memDB)
 	require.Len(t, descs, 3)
 
 	idx := slices.IndexFunc(descs, func(d TrieDesc) bool { return d.OldBucket == db.ContractStorage })
@@ -224,14 +217,14 @@ func TestEnumerateTries_NodeCountIsCorrect(t *testing.T) {
 }
 
 func TestEnumerateTries_StorageTrieCountsPresent(t *testing.T) {
-	testDB := memory.New()
+	memDB := memory.New()
 	for i, n := range []int{3, 7, 1} {
 		var f felt.Felt
 		f.SetUint64(uint64(i + 1))
-		insertFakeStorageNodes(t, testDB, felt.Address(f), n)
+		insertFakeStorageNodes(t, memDB, felt.Address(f), n)
 	}
 
-	descs := collectTries(t, testDB)
+	descs := collectTries(t, memDB)
 	var storageCounts []int
 	for _, d := range descs {
 		if d.OldBucket == db.ContractStorage {
@@ -243,13 +236,13 @@ func TestEnumerateTries_StorageTrieCountsPresent(t *testing.T) {
 }
 
 func TestEnumerateTries_StorageTrieOwnerMatchesKey(t *testing.T) {
-	testDB := memory.New()
+	memDB := memory.New()
 	var ownerFelt felt.Felt
 	ownerFelt.SetUint64(12345)
 	owner := felt.Address(ownerFelt)
-	insertFakeStorageNodes(t, testDB, owner, 3)
+	insertFakeStorageNodes(t, memDB, owner, 3)
 
-	descs := collectTries(t, testDB)
+	descs := collectTries(t, memDB)
 	require.Len(t, descs, 3)
 
 	idx := slices.IndexFunc(descs, func(d TrieDesc) bool { return d.OldBucket == db.ContractStorage })
@@ -258,16 +251,16 @@ func TestEnumerateTries_StorageTrieOwnerMatchesKey(t *testing.T) {
 }
 
 func TestEnumerateTries_MultipleOwnersOrdered(t *testing.T) {
-	testDB := memory.New()
+	memDB := memory.New()
 	owners := make([]felt.Address, 5)
 	for i := range owners {
 		var f felt.Felt
 		f.SetUint64(uint64(i + 1))
 		owners[i] = felt.Address(f)
-		insertFakeStorageNodes(t, testDB, owners[i], i+1)
+		insertFakeStorageNodes(t, memDB, owners[i], i+1)
 	}
 
-	descs := collectTries(t, testDB)
+	descs := collectTries(t, memDB)
 	require.Len(t, descs, 7)
 
 	var storageCounts []int
