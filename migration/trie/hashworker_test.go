@@ -12,23 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func makeSimpleJob(parent *trieutils.Path, leftChild, rightChild *felt.Felt) edgeHashJob {
-	return edgeHashJob{
+func makeSimpleJob(parent *trieutils.Path, leftChild, rightChild *felt.Felt) *edgeHashJob {
+	return &edgeHashJob{
 		leftChildHash:  *leftChild,
 		rightChildHash: *rightChild,
 		parentPath:     *parent,
 	}
 }
 
-func expectedEdgeHash(child *felt.Felt, seg *trieutils.Path, hashFn crypto.HashFn) felt.Felt {
-	return computeEdgeHash(child, seg, hashFn)
-}
-
 func TestHashScheduler_InlineWritesNodeToBatch(t *testing.T) {
 	memDB := memory.New()
 	batch := memDB.NewBatch()
 
-	sched := newHashScheduler(crypto.Pedersen, false, db.ClassTrie, &felt.Address{}, nil)
+	sched := newHashScheduler(crypto.Pedersen, false, db.ClassTrie, felt.Address{}, nil)
 	parent := makeNewPath(3, 0b101)
 	left := felt.NewFromUint64[felt.Felt](1)
 	right := felt.NewFromUint64[felt.Felt](2)
@@ -61,15 +57,15 @@ func testBatchedMatchesInline(t *testing.T, hashFn crypto.HashFn, n int) {
 		l := felt.NewFromUint64[felt.Felt](uint64(i*2 + 1))
 		r := felt.NewFromUint64[felt.Felt](uint64(i*2 + 2))
 		path := makeNewPath(uint8(i%250), uint64(i))
-		jobs[i] = makeSimpleJob(&path, l, r)
+		jobs[i] = *makeSimpleJob(&path, l, r)
 	}
 
 	inlineDB := memory.New()
 	{
 		batch := inlineDB.NewBatch()
-		sched := newHashScheduler(hashFn, false, db.ClassTrie, &felt.Address{}, nil)
-		for _, job := range jobs {
-			require.NoError(t, sched.schedule(job, batch))
+		sched := newHashScheduler(hashFn, false, db.ClassTrie, felt.Address{}, nil)
+		for i := range jobs {
+			require.NoError(t, sched.schedule(&jobs[i], batch))
 		}
 		require.NoError(t, batch.Write())
 	}
@@ -77,15 +73,16 @@ func testBatchedMatchesInline(t *testing.T, hashFn crypto.HashFn, n int) {
 	batchDB := memory.New()
 	{
 		batch := batchDB.NewBatch()
-		sched := newHashScheduler(hashFn, true, db.ClassTrie, &felt.Address{}, pool)
-		for _, job := range jobs {
-			require.NoError(t, sched.schedule(job, batch))
+		sched := newHashScheduler(hashFn, true, db.ClassTrie, felt.Address{}, pool)
+		for i := range jobs {
+			require.NoError(t, sched.schedule(&jobs[i], batch))
 		}
 		require.NoError(t, sched.sync(batch))
 		require.NoError(t, batch.Write())
 	}
 
-	for i, job := range jobs {
+	for i := range jobs {
+		job := &jobs[i]
 		inlineVal, err := trieutils.GetNodeByPath(
 			inlineDB,
 			db.ClassTrie,
@@ -113,7 +110,7 @@ func TestHashScheduler_AutoFlushAtBatchSize(t *testing.T) {
 	memDB := memory.New()
 	batch := memDB.NewBatch()
 
-	sched := newHashScheduler(crypto.Pedersen, true, db.ClassTrie, &felt.Address{}, pool)
+	sched := newHashScheduler(crypto.Pedersen, true, db.ClassTrie, felt.Address{}, pool)
 	for i := range parallelHashBatchSize {
 		path := makeNewPath(251, uint64(i+1))
 		leftChildHash := felt.NewFromUint64[felt.Felt](uint64(i + 1))
@@ -134,7 +131,7 @@ func TestHashScheduler_SingleJobDispatchesCorrectly(t *testing.T) {
 	memDB := memory.New()
 	batch := memDB.NewBatch()
 
-	sched := newHashScheduler(crypto.Pedersen, true, db.ClassTrie, &felt.Address{}, pool)
+	sched := newHashScheduler(crypto.Pedersen, true, db.ClassTrie, felt.Address{}, pool)
 	parent := makeNewPath(4, 0b1010)
 	l, r := felt.NewFromUint64[felt.Felt](7), felt.NewFromUint64[felt.Felt](13)
 	job := makeSimpleJob(&parent, l, r)
