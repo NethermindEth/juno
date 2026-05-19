@@ -61,9 +61,22 @@ var (
 //   - Bucket 16: ContractClassHashHistory
 func StoreBlock(t *testing.T, database db.KeyValueStore, blockNum uint64) *StoredBlock {
 	t.Helper()
+	return StoreBlockWithTimestamp(t, database, blockNum, 0)
+}
+
+// StoreBlockWithTimestamp is StoreBlock but lets the caller set the
+// block header's Timestamp.
+func StoreBlockWithTimestamp(
+	t *testing.T,
+	database db.KeyValueStore,
+	blockNum,
+	timestamp uint64,
+) *StoredBlock {
+	t.Helper()
 
 	header := &core.Header{
 		Number:           blockNum,
+		Timestamp:        timestamp,
 		Hash:             felt.NewRandom[felt.Felt](),
 		ParentHash:       felt.NewRandom[felt.Felt](),
 		GlobalStateRoot:  felt.NewRandom[felt.Felt](),

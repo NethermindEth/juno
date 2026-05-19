@@ -9,6 +9,13 @@
 // The upper bound is the L2 head simply because that is the highest block
 // the node has.
 //
+// In addition to the block-count floor, the pruner enforces an optional
+// wallclock minimum-age floor (see [WithMinAge]): blocks whose on-chain
+// timestamp is younger than minAge are protected from pruning. The
+// combined floor is min(standardFloor, minAgeFloor). The floor is
+// suppressed in the L2 path during deep catch-up sync, where incoming
+// blocks carry historical timestamps.
+//
 // The Pruner runs as a [service.Service]. It listens to two trigger feeds —
 // new L2 heads and new L1 heads — to know when to re-evaluate the floor;
 // the events themselves are only triggers, the retention bound is always
@@ -18,6 +25,7 @@ package pruner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/NethermindEth/juno/core"
@@ -42,6 +50,12 @@ const defaultTargetBatchByteSize = 96 * db.Megabyte
 // covers any leftover coalesced events.
 const defaultL2HeadsPerPrune uint64 = 128
 
+// defaultFloorTickInterval is how often the min-age floor is refreshed
+// in production. Tighter than minAge so the floor's drift between
+// refreshes is bounded by this constant rather than by the (possibly
+// large) minAge window. Overridable via [WithFloorTickInterval]
+const defaultFloorTickInterval = 15 * time.Minute
+
 // Pruner deletes block data older than a retention window in response to
 // new-head events. Construct via [New]; do not zero-value.
 type Pruner struct {
@@ -61,7 +75,16 @@ type Pruner struct {
 	// l2HeadsPerPrune is how many L2 head events the L2 path coalesces
 	// before triggering a prune. See [defaultL2HeadsPerPrune].
 	l2HeadsPerPrune uint64
-	database        db.KeyValueStore
+	// minAge is the wallclock retention window: blocks whose on-chain
+	// timestamp is younger than minAge are protected from pruning.
+	// Zero disables the wallclock floor.
+	minAge time.Duration
+	// floorTickInterval is how often latestSampledHeight is refreshed.
+	floorTickInterval time.Duration
+	// latestSampledHeight is the lowest block with Timestamp >= now-minAge,
+	// re-derived each floorTickInterval tick.
+	latestSampledHeight uint64
+	database            db.KeyValueStore
 	// newHeadSub fires on each new L2 head. During catch-up (L2 < L1) it
 	// drives the floor from this event's block number; otherwise the L1
 	// path drives the floor and this event acts only as a trigger.
@@ -77,6 +100,8 @@ type Pruner struct {
 type options struct {
 	targetBatchByteSize int
 	l2HeadsPerPrune     uint64
+	minAge              time.Duration
+	floorTickInterval   time.Duration
 	listener            EventListener
 }
 
@@ -102,6 +127,25 @@ func WithL2HeadsPerPrune(n uint64) Option {
 	}
 }
 
+// WithMinAge enables the wallclock minimum-age floor: blocks whose
+// on-chain timestamp is younger than duration are protected from pruning,
+// in addition to the standard --prune-mode block-count floor.
+// Zero disables the floor.
+func WithMinAge(duration time.Duration) Option {
+	return func(o *options) {
+		o.minAge = duration
+	}
+}
+
+// WithFloorTickInterval overrides how often the min-age floor is
+// refreshed via binary search. Smaller values tighten the
+// floor's drift bound at the cost of more frequent refreshes.
+func WithFloorTickInterval(duration time.Duration) Option {
+	return func(o *options) {
+		o.floorTickInterval = duration
+	}
+}
+
 // New constructs a Pruner. retainedBlocks is the number of blocks
 // retained below the retention pivot (= min(l1Head, l2Head); the pivot
 // itself is always retained), so the pruner keeps blocks in
@@ -120,6 +164,7 @@ func New(
 	o := options{
 		targetBatchByteSize: defaultTargetBatchByteSize,
 		l2HeadsPerPrune:     defaultL2HeadsPerPrune,
+		floorTickInterval:   defaultFloorTickInterval,
 		listener:            &SelectiveListener{},
 	}
 	for _, opt := range opts {
@@ -129,6 +174,8 @@ func New(
 		numRetainedBlocks:   retainedBlocks,
 		targetBatchByteSize: o.targetBatchByteSize,
 		l2HeadsPerPrune:     o.l2HeadsPerPrune,
+		minAge:              o.minAge,
+		floorTickInterval:   o.floorTickInterval,
 		database:            database,
 		newHeadSub:          newHeadSub,
 		l1HeadSub:           l1HeadSub,
@@ -150,6 +197,18 @@ func (p *Pruner) Run(ctx context.Context) error {
 	const periodicStalenessTick = 1 * time.Hour
 	staleTicker := time.NewTicker(defaultStalenessTick)
 	defer staleTicker.Stop()
+
+	// minAge == 0 disables the wallclock floor; a nil channel never
+	// fires in select, so the ticker case is effectively absent.
+	var sampleTickerC <-chan time.Time
+	if p.minAge > 0 {
+		if err := p.seedFloor(); err != nil {
+			return fmt.Errorf("pruner: seed minimum-age floor: %w", err)
+		}
+		sampleTicker := time.NewTicker(p.floorTickInterval)
+		defer sampleTicker.Stop()
+		sampleTickerC = sampleTicker.C
+	}
 
 	for {
 		select {
@@ -175,6 +234,14 @@ func (p *Pruner) Run(ctx context.Context) error {
 			}
 			staleTicker.Reset(defaultStalenessTick)
 
+		case <-sampleTickerC:
+			if err := p.sampleHeight(); err != nil {
+				// seedFloor above already established a usable baseline;
+				// transient tick failures leave the previous sample in
+				// place and we retry next tick.
+				p.logger.Warn("min-retention height sample failed", zap.Error(err))
+			}
+
 		case <-staleTicker.C:
 			p.listener.OnL1Stale()
 			p.logger.Warn("no L1 head received in more than 24 hours. " +
@@ -183,6 +250,92 @@ func (p *Pruner) Run(ctx context.Context) error {
 			staleTicker.Reset(periodicStalenessTick)
 		}
 	}
+}
+
+// ErrNoBlockInWindow is returned by [FindOldestBlockAtOrAfter] when no
+// block in [lower, upper] has Timestamp >= cutoff.
+var ErrNoBlockInWindow = errors.New("no block in window")
+
+// FindOldestBlockAtOrAfter binary-searches block numbers in [lower, upper]
+// for the smallest one whose Header.Timestamp is at or after cutoff.
+// The caller must pass a range of fully-retained blocks.
+func FindOldestBlockAtOrAfter(
+	database db.KeyValueStore,
+	lower,
+	upper uint64,
+	cutoff time.Time,
+) (uint64, error) {
+	if lower > upper {
+		return 0, ErrNoBlockInWindow
+	}
+	cutoffUnix := uint64(cutoff.Unix())
+	lo, hi := lower, upper+1
+	for lo < hi {
+		mid := lo + (hi-lo)/2
+		hdr, err := core.GetBlockHeaderByNumber(database, mid)
+		if err != nil {
+			return 0, err
+		}
+		if hdr.Timestamp < cutoffUnix {
+			lo = mid + 1
+		} else {
+			hi = mid
+		}
+	}
+	if lo > upper {
+		return 0, ErrNoBlockInWindow
+	}
+	return lo, nil
+}
+
+// sampleHeight (re)computes the wallclock floor
+func (p *Pruner) sampleHeight() error {
+	height, err := core.GetChainHeight(p.database)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil
+		}
+		return err
+	}
+	cutoff := time.Now().Add(-p.minAge)
+	// Reuse the previous floor as the lower bound: the cutoff only
+	// advances, so the new floor can't drop below it.
+	floor, err := FindOldestBlockAtOrAfter(p.database, p.latestSampledHeight, height, cutoff)
+	if err != nil {
+		if errors.Is(err, ErrNoBlockInWindow) {
+			// No block qualifies (deep catch-up or chain younger than minAge).
+			p.latestSampledHeight = height
+			return nil
+		}
+		return err
+	}
+	p.latestSampledHeight = floor
+	return nil
+}
+
+// seedFloor anchors the per-tick search's lower bound to the oldest
+// retained block, then runs the first sampleHeight.
+func (p *Pruner) seedFloor() error {
+	oldest, err := OldestRetainedBlock(p.database)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			// Assumes empty DB
+			return nil
+		}
+		return err
+	}
+	p.latestSampledHeight = oldest
+	return p.sampleHeight()
+}
+
+// applyTimeFloor returns the lower of standardFloor and the wallclock floor,
+// since a smaller oldestBlockToKeep retains more blocks.
+func (p *Pruner) applyTimeFloor(standardFloor uint64) uint64 {
+	if p.minAge == 0 {
+		return standardFloor
+	}
+	tf := p.latestSampledHeight
+	return min(tf, standardFloor)
 }
 
 func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
@@ -205,9 +358,21 @@ func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
 	}
 	p.pendingL2Heads = 0
 
-	oldestToKeep := block.Number - p.numRetainedBlocks
+	standardFloor := block.Number - p.numRetainedBlocks
+	// Skip the wallclock floor during deep catch-up: an ancient on-chain
+	// timestamp means our sample reflects sync-recency, not wallclock-recency.
+	oldestToKeep := standardFloor
+	if p.minAge > 0 && withinTimeWindow(block.Timestamp, p.minAge) {
+		oldestToKeep = p.applyTimeFloor(standardFloor)
+	}
 
 	return p.pruneUpto(ctx, oldestToKeep)
+}
+
+// withinTimeWindow reports whether the Unix-seconds timestamp ts is no
+// older than window when measured from wallclock now.
+func withinTimeWindow(ts uint64, window time.Duration) bool {
+	return ts >= uint64(time.Now().Add(-window).Unix())
 }
 
 func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
@@ -225,7 +390,7 @@ func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
 	}
 	p.pendingL2Heads = 0
 
-	oldestBlockToKeep := l1Head.BlockNumber - p.numRetainedBlocks
+	oldestBlockToKeep := p.applyTimeFloor(l1Head.BlockNumber - p.numRetainedBlocks)
 
 	return p.pruneUpto(ctx, oldestBlockToKeep)
 }
