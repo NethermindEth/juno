@@ -287,15 +287,23 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 				currBlockFilter.Add(keyAndIndexBytes)
 			}
 		}
-		require.NoError(t, runningFilter.Insert(currBlockFilter, runningFilter.FromBlock()))
+		runningFrom, err := runningFilter.FromBlock()
+		require.NoError(t, err)
+		require.NoError(t, runningFilter.Insert(currBlockFilter, runningFrom))
 
-		iterator, err := cache.NewMatchedBlockIterator(runningFilter.FromBlock(), runningFilter.FromBlock(), maxScannedLimit, &eventMatcher, runningFilter)
+		iterator, err := cache.NewMatchedBlockIterator(
+			runningFrom,
+			runningFrom,
+			maxScannedLimit,
+			&eventMatcher,
+			runningFilter,
+		)
 		require.NoError(t, err)
 
 		matchedBlock, ok, err := iterator.Next()
 		require.NoError(t, err)
 		require.True(t, ok)
-		require.Equal(t, runningFilter.FromBlock(), matchedBlock)
+		require.Equal(t, runningFrom, matchedBlock)
 	})
 
 	t.Run("range with cache misses", func(t *testing.T) {
