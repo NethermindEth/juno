@@ -33,7 +33,7 @@ func (m *dfsMigrator) Migrate(
 	rootPath := desc.RootPath
 	sched := newHashScheduler(desc.HashFn,
 		m.parallelDispatch,
-		desc.NewBucket, &desc.Owner, m.pool)
+		desc.NewBucket, desc.Owner, m.pool)
 
 	rootHash, batch, stack, err := traverse(r, prefix, rootPath, sched, batch, flush, stack)
 	if err != nil {
@@ -53,20 +53,26 @@ func (m *dfsMigrator) Migrate(
 type traverseStackState uint8
 
 const (
-	readNode traverseStackState = iota
-	leftSubtreeDone
-	rightSubtreeDone
+	readNodeState traverseStackState = iota
+	leftSubtreeDoneState
+	rightSubtreeDoneState
 )
 
 type dfsFrame struct {
-	oldPath     trie.BitArray
-	left        trie.BitArray
-	right       trie.BitArray
-	value       felt.Felt
-	leftHash    felt.Felt
-	isLeaf      bool
-	state       traverseStackState
-	binaryDepth uint8
+	oldPath  trie.BitArray
+	left     trie.BitArray
+	right    trie.BitArray
+	value    felt.Felt
+	leftHash felt.Felt
+	isLeaf   bool
+	state    traverseStackState
+}
+
+type parsedNode struct {
+	value  felt.Felt
+	left   trie.BitArray
+	right  trie.BitArray
+	isLeaf bool
 }
 
 func traverse(
@@ -84,12 +90,17 @@ func traverse(
 	for len(stack) > 0 {
 		top := &stack[len(stack)-1]
 		switch top.state {
-		case readNode:
-			if err := parseNodeInto(r, prefix, top); err != nil {
+		case readNodeState:
+			parsed, err := readNode(r, prefix, &top.oldPath)
+			if err != nil {
 				return felt.Felt{}, batch, stack, err
 			}
-			newPath := toNewPath(&top.oldPath)
+			top.value = parsed.value
+			top.left = parsed.left
+			top.right = parsed.right
+			top.isLeaf = parsed.isLeaf
 			if top.isLeaf {
+				newPath := toNewPath(&top.oldPath)
 				if err := processLeaf(newPath, &top.value, sched, batch); err != nil {
 					return felt.Felt{}, batch, stack, err
 				}
@@ -97,15 +108,15 @@ func traverse(
 				stack = stack[:len(stack)-1]
 			} else {
 				left := top.left
-				top.state = leftSubtreeDone
+				top.state = leftSubtreeDoneState
 				stack = pushFrame(stack, left)
 			}
-		case leftSubtreeDone:
+		case leftSubtreeDoneState:
 			top.leftHash = lastHash
 			right := top.right
-			top.state = rightSubtreeDone
+			top.state = rightSubtreeDoneState
 			stack = pushFrame(stack, right)
-		case rightSubtreeDone:
+		case rightSubtreeDoneState:
 			newPath := toNewPath(&top.oldPath)
 			if err := processBinary(
 				newPath,
@@ -121,7 +132,11 @@ func traverse(
 			lastHash = top.value
 			stack = stack[:len(stack)-1]
 		}
-		batch = flush(batch)
+		var err error
+		batch, err = flush(batch)
+		if err != nil {
+			return felt.Felt{}, batch, stack, err
+		}
 	}
 	return lastHash, batch, stack, nil
 }
@@ -144,34 +159,45 @@ func encodeOldPath(path *trie.BitArray, dst []byte) int {
 	return int(activeBytes) + 1
 }
 
-func parseNodeInto(r db.KeyValueReader, prefix []byte, frame *dfsFrame) error {
+// readNode loads the deprecated-format node at (prefix, oldPath) and returns
+// its parsed fields. The caller assigns the parsed values into its own state
+// (e.g. a DFS stack frame); this function does not mutate any input.
+func readNode(r db.KeyValueReader, prefix []byte, oldPath *trie.BitArray) (parsedNode, error) {
 	var arr [maxOldKeySize]byte
 	n := copy(arr[:], prefix)
-	n += encodeOldPath(&frame.oldPath, arr[n:])
-	return r.Get(arr[:n], func(val []byte) error {
-		return parseNodeData(val, &frame.value, &frame.left, &frame.right, &frame.isLeaf)
+	n += encodeOldPath(oldPath, arr[n:])
+	var node parsedNode
+	err := r.Get(arr[:n], func(val []byte) error {
+		var perr error
+		node, perr = parseNodeData(val)
+		return perr
 	})
+	return node, err
 }
 
-func parseNodeData(data []byte, value *felt.Felt, left, right *trie.BitArray, isLeaf *bool) error {
+// parseNodeData decodes a deprecated-format node's raw bytes:
+// felt(value) [ BitArray(left) BitArray(right) [ felt felt ] ]
+// The trailing left/right hashes are ignored — the migrator re-derives hashes
+// itself — so only the fields it actually needs are returned.
+func parseNodeData(data []byte) (parsedNode, error) {
+	var n parsedNode
 	if len(data) < felt.Bytes {
-		return fmt.Errorf("trie: node data too short (%d bytes)", len(data))
+		return n, fmt.Errorf("trie: node data too short (%d bytes)", len(data))
 	}
-	*value = felt.FromBytes[felt.Felt](data[:felt.Bytes])
+	n.value = felt.FromBytes[felt.Felt](data[:felt.Bytes])
 	data = data[felt.Bytes:]
 	if len(data) == 0 {
-		*isLeaf = true
-		return nil
+		n.isLeaf = true
+		return n, nil
 	}
-	*isLeaf = false
-	if err := left.UnmarshalBinary(data); err != nil {
-		return fmt.Errorf("trie: unmarshalling left path: %w", err)
+	if err := n.left.UnmarshalBinary(data); err != nil {
+		return n, fmt.Errorf("trie: unmarshalling left path: %w", err)
 	}
-	data = data[left.EncodedLen():]
-	if err := right.UnmarshalBinary(data); err != nil {
-		return fmt.Errorf("trie: unmarshalling right path: %w", err)
+	data = data[n.left.EncodedLen():]
+	if err := n.right.UnmarshalBinary(data); err != nil {
+		return n, fmt.Errorf("trie: unmarshalling right path: %w", err)
 	}
-	return nil
+	return n, nil
 }
 
 func processLeaf(
@@ -196,12 +222,7 @@ func processBinary(
 ) error {
 	leftSeg := compressedSegment(left, parentPath.Len())
 	rightSeg := compressedSegment(right, parentPath.Len())
-	leftFull := toNewPath(left)
-	rightFull := toNewPath(right)
-	var leftEdgePath, rightEdgePath trieutils.Path
-	leftEdgePath.MSBs(&leftFull, parentPath.Len()+1)
-	rightEdgePath.MSBs(&rightFull, parentPath.Len()+1)
-	return sched.schedule(edgeHashJob{
+	return sched.schedule(&edgeHashJob{
 		leftChildHash:  leftChildHash,
 		leftSeg:        leftSeg,
 		rightChildHash: rightChildHash,
@@ -217,8 +238,9 @@ func writeRootEdge(
 	batch db.Batch,
 ) error {
 	seg := toNewPath(rootPath)
-	blob := encodeEdgeNode(&childHash, &seg)
-	return trieutils.WriteNodeByPath(batch, sched.bucket, &sched.owner, &trieutils.Path{}, false, blob)
+	var buf [edgeNodeMaxSize]byte
+	n := encodeEdgeNodeInto(buf[:], &childHash, &seg)
+	return trieutils.WriteNodeByPath(batch, sched.bucket, &sched.owner, &trieutils.Path{}, false, buf[:n])
 }
 
 func oldTriePrefix(desc TrieDesc) []byte {
