@@ -2,6 +2,7 @@ package headstate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"time"
@@ -24,14 +25,66 @@ const (
 )
 
 type task struct {
-	batch     db.Batch
-	addrCount int
+	batch          db.Batch
+	completedAddrs int
 }
 
 var (
 	shouldRerun    = []byte{}
 	shouldNotRerun = []byte(nil)
 )
+
+var _ migration.Migration = (*Migrator)(nil)
+
+// Migrator consolidates the deprecated per-field contract layout into a
+// single Contract record per address, written via state.WriteContract:
+//
+//	ContractClassHash[addr]
+//	ContractNonce[addr]
+//	ContractDeploymentHeight[addr]
+//	          │
+//	          ▼
+//	Contract[addr] = { ClassHash, Nonce, DeployedHeight }
+//
+// StorageRoot is left zero — the running node lazily backfills it on the
+// contract's first storage write.
+//
+// Each address discovered in the ContractClassHash bucket is processed by one
+// of ingestorCount worker goroutines that read the three old fields into a
+// shared db.Batch; a single committer drains batches to disk. Once every
+// address has been migrated, the three deprecated buckets are wiped via
+// DeleteRange.
+//
+// Re-run safe: an address whose Contract record already exists is skipped
+// (via state.HasContract), and the trailing wipe re-issues DeleteRange over
+// the (possibly already empty) ranges.
+type Migrator struct{}
+
+func (Migrator) Before([]byte) error {
+	return nil
+}
+
+func (Migrator) Migrate(
+	ctx context.Context,
+	database db.KeyValueStore,
+	_ *networks.Network,
+	logger log.StructuredLogger,
+) ([]byte, error) {
+	addressesIter, sourceErr := pendingAddresses(database)
+	res := migrateAddresses(ctx, database, logger, addressesIter)
+
+	if err := errors.Join(sourceErr(), res.Err); err != nil {
+		return shouldRerun, err
+	}
+	if !res.IsDone {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return shouldRerun, ctxErr
+		}
+		return shouldRerun, errors.New("headstate migration did not complete")
+	}
+
+	return shouldNotRerun, wipeDeprecatedBuckets(database)
+}
 
 func migrateAddresses(
 	ctx context.Context,
@@ -62,51 +115,6 @@ func migrateAddresses(
 
 	_, wait := committerPipeline.Run(ctx)
 	return wait()
-}
-
-var _ migration.Migration = (*Migrator)(nil)
-
-type Migrator struct{}
-
-func (Migrator) Before([]byte) error {
-	return nil
-}
-
-func (Migrator) Migrate(
-	ctx context.Context,
-	database db.KeyValueStore,
-	_ *networks.Network,
-	logger log.StructuredLogger,
-) ([]byte, error) {
-	hasPending, err := hasPendingAddresses(database)
-	if err != nil {
-		return shouldRerun, err
-	}
-	if !hasPending {
-		return shouldNotRerun, wipeDeprecatedBuckets(database)
-	}
-
-	addressesIter, sourceErr := pendingAddresses(database)
-	res := migrateAddresses(ctx, database, logger, addressesIter)
-
-	if err := sourceErr(); err != nil {
-		return shouldRerun, err
-	}
-	if res.Err != nil || !res.IsDone {
-		return shouldRerun, res.Err
-	}
-
-	return shouldNotRerun, wipeDeprecatedBuckets(database)
-}
-
-func hasPendingAddresses(r db.KeyValueReader) (bool, error) {
-	prefix := db.ContractClassHash.Key()
-	it, err := r.NewIterator(prefix, true)
-	if err != nil {
-		return false, err
-	}
-	defer it.Close()
-	return it.First(), nil
 }
 
 func pendingAddresses(r db.KeyValueReader) (iter.Seq[felt.Address], func() error) {

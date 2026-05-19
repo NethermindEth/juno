@@ -43,12 +43,12 @@ func (c *ingestor) Run(index int, addr felt.Address, outputs chan<- task) error 
 		return err
 	}
 	if t.batch.Size() > sizeBefore {
-		t.addrCount++
+		t.completedAddrs++
 	}
 
 	if t.batch.Size() >= targetBatchByteSize {
-		outputs <- task{batch: t.batch, addrCount: t.addrCount}
-		t.addrCount = 0
+		outputs <- task{batch: t.batch, completedAddrs: t.completedAddrs}
+		t.completedAddrs = 0
 		t.batch = c.batchSemaphore.GetBlocking()
 	}
 	return nil

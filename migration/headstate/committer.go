@@ -30,7 +30,7 @@ func newCommitter(
 func (c *committer) Run(_ int, t task, _ chan<- struct{}) error {
 	c.logger.Debug(
 		"writing batch",
-		zap.Int("addrCount", t.addrCount),
+		zap.Int("completedAddrs", t.completedAddrs),
 		zap.Int("batchSize", t.batch.Size()),
 	)
 
@@ -39,7 +39,7 @@ func (c *committer) Run(_ int, t task, _ chan<- struct{}) error {
 		return err
 	}
 
-	c.counter.log(byteSize, t.addrCount)
+	c.counter.log(byteSize, t.completedAddrs)
 	c.batchSemaphore.Put()
 	return nil
 }
