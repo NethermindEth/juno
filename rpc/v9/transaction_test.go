@@ -470,7 +470,12 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(1204672)
-	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(blockNumber, 10), "", 0)
+	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(
+		t.Context(),
+		strconv.FormatUint(blockNumber, 10),
+		"",
+		0,
+	)
 	require.NoError(t, err)
 
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
