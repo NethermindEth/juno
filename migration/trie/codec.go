@@ -38,16 +38,6 @@ func encodeBinaryNode(leftEdgeHash, rightEdgeHash *felt.Felt) [binaryNodeBlobSiz
 	return blob
 }
 
-func encodeEdgeNode(childHash *felt.Felt, pathSeg *trieutils.Path) []byte {
-	encoded := pathSeg.EncodedBytes()
-	var arr [edgeNodeMaxSize]byte
-	arr[0] = edgeNodeTag
-	h := childHash.Bytes()
-	copy(arr[1:], h[:])
-	copy(arr[1+felt.Bytes:], encoded)
-	return arr[:1+felt.Bytes+len(encoded)]
-}
-
 func encodeEdgeNodeInto(dst []byte, childHash *felt.Felt, pathSeg *trieutils.Path) int {
 	encoded := pathSeg.EncodedBytes()
 	dst[0] = edgeNodeTag
