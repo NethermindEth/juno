@@ -21,8 +21,8 @@ import (
 
 type leafMap map[felt.Felt]felt.Felt
 
-func nopLogger() log.StructuredLogger   { return log.NewNopZapLogger() }
-func noFlush(current db.Batch) db.Batch { return current }
+func nopLogger() log.StructuredLogger            { return log.NewNopZapLogger() }
+func noFlush(current db.Batch) (db.Batch, error) { return current, nil }
 
 type trieCase struct {
 	name           string
@@ -34,14 +34,6 @@ type trieCase struct {
 	hashFn         crypto.HashFn
 	//nolint:staticcheck // Necessary for old state
 	buildOldFn func(db.IndexedBatch, []byte, uint8) (*trie.Trie, error)
-}
-
-var allBackends = []struct {
-	name    string
-	backend *dfsMigrator
-}{
-	{"dfsSerial", &dfsMigrator{parallelDispatch: false}},
-	{"dfsParallel", &dfsMigrator{parallelDispatch: true}},
 }
 
 var trieCases = []trieCase{
@@ -160,23 +152,19 @@ var transcoderCases = []struct {
 // counts. This catches encoding bugs that root-hash comparison cannot detect.
 func TestMigrationEndToEnd(t *testing.T) {
 	type testCase struct {
-		name    string
-		tc      trieCase
-		backend *dfsMigrator
-		leaves  leafMap
+		name   string
+		tc     trieCase
+		leaves leafMap
 	}
 
 	var cases []testCase
 	for _, tc := range trieCases {
-		for _, b := range allBackends {
-			for _, lc := range transcoderCases {
-				cases = append(cases, testCase{
-					name:    tc.name + "/" + b.name + "/" + lc.name,
-					tc:      tc,
-					backend: b.backend,
-					leaves:  lc.leaves,
-				})
-			}
+		for _, lc := range transcoderCases {
+			cases = append(cases, testCase{
+				name:   tc.name + "/" + lc.name,
+				tc:     tc,
+				leaves: lc.leaves,
+			})
 		}
 	}
 
@@ -186,7 +174,8 @@ func TestMigrationEndToEnd(t *testing.T) {
 
 			migratedDB := memory.New()
 			buildDeprecatedTrie(t, migratedDB, c.leaves, c.tc.buildOldFn, prefix)
-			runMigration(context.Background(), migratedDB, nopLogger())
+			_, err := runMigration(context.Background(), migratedDB, nopLogger())
+			require.NoError(t, err)
 
 			nativeDB := memory.New()
 			buildTrie(t, nativeDB, c.leaves,
