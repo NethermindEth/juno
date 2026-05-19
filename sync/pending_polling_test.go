@@ -57,15 +57,12 @@ func (m *MockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest,
 
 // Override PreConfirmedBlockByNumber to simulate errors and variable tx count,
 // or injected responses.
-// Always returns a Full update so the existing tests continue to assert on
-// stored pre_confirmed state without having to model delta application.
 func (m *MockDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	number uint64,
 	knownBlockIdentifier string,
 	knownTransactionCount uint64,
 ) (pending.PreConfirmedUpdate, error) {
-	// @todo revisit this code and doc
 	m.numCallsPreConfirmed += 1
 	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
 		return pending.PreConfirmedUpdate{}, errors.New("some error")
@@ -368,6 +365,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 	})
 }
 
+//nolint:gocyclo // Convering multiple complex cases
 func TestPollPendingData(t *testing.T) {
 	testDB := memory.New()
 	bc := blockchain.New(
@@ -441,7 +439,8 @@ func TestPollPendingData(t *testing.T) {
 		}
 
 		for {
-			// After pending eventually succeeds, pre_latest should raise target to 2; expect pre_confirmed for 2
+			// After pending eventually succeeds, pre_latest should raise
+			// target to 2; expect pre_confirmed for 2
 			select {
 			case pd := <-sub.Recv():
 				require.NotNil(t, pd)
@@ -596,7 +595,7 @@ func TestPollPendingData(t *testing.T) {
 			time.Sleep(preCPoll)
 			synctest.Wait()
 			select {
-			case pc = <-sub.Recv():
+			case <-sub.Recv():
 				t.Fatal("'no change' must not trigger a new PreConfirmed broadcast")
 			default:
 			}
@@ -640,7 +639,7 @@ func TestPollPendingData(t *testing.T) {
 			time.Sleep(preCPoll)
 			synctest.Wait()
 			select {
-			case pc = <-sub.Recv():
+			case <-sub.Recv():
 				t.Fatal("'no change' must not trigger a new PreConfirmed broadcast")
 			default:
 			}

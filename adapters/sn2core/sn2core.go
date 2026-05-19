@@ -674,7 +674,7 @@ func AdaptPreConfirmedDelta(
 		receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
 		preIdx++
 	}
-	return
+	return txns, receipts, txStateDiffs, candidateTxs, nil
 }
 
 func safeFeltToUint64(f *felt.Felt) uint64 {

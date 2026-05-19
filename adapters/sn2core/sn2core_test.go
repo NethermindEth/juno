@@ -679,7 +679,12 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		response, err := client.PreConfirmedBlock(t.Context(), strconv.FormatUint(test.blockNumber, 10), "", 0)
+		response, err := client.PreConfirmedBlock(
+			t.Context(),
+			strconv.FormatUint(test.blockNumber, 10),
+			"",
+			0,
+		)
 		require.NoError(t, err)
 
 		expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
