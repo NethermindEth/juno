@@ -31,7 +31,8 @@ type upstreamHashFixture struct {
 	hashes   string
 }
 
-// These fixtures and expected hashes are copied from the upstream starknet-core legacy.rs tests.
+// Fixtures and expected hashes are copied from upstream starknet-core tests:
+// https://github.com/software-mansion/starknet-rust/tree/master/starknet-rust-core/test-data/contracts/cairo0/artifacts
 var upstreamHintedHashFixtures = []upstreamHashFixture{
 	{
 		name:     "OZ account",
