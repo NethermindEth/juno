@@ -12,14 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	deprecatedFixturePath = "../clients/feeder/testdata/sepolia/class/" +
-		"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8.json"
-	// This is a byte-for-byte canonical-output snapshot, not a normal JSON fixture.
-	// Keep the non-.json extension so editors do not autoformat it.
-	canonicalProgramPath  = "testdata/deprecated_cairo_program.txt"
-	upstreamArtifactsRoot = "testdata/starknet_rust/contracts/cairo0/artifacts"
-)
+const upstreamArtifactsRoot = "testdata/starknet_rust/contracts/cairo0/artifacts"
 
 type upstreamContractHashes struct {
 	HintedClassHash string `json:"hinted_class_hash"`
@@ -70,6 +63,12 @@ func TestUpstreamHintedClassHashCorpus(t *testing.T) {
 }
 
 func TestDeprecatedCairoProgramCanonicalSerialization(t *testing.T) {
+	const deprecatedFixturePath = "../clients/feeder/testdata/sepolia/class/" +
+		"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8.json"
+	// This is a byte-for-byte canonical-output snapshot, not a normal JSON fixture.
+	// Keep the non-.json extension so editors do not autoformat it.
+	const canonicalProgramPath = "testdata/deprecated_cairo_program.txt"
+
 	_, program := loadDeprecatedFixtureProgram(t, deprecatedFixturePath)
 
 	var buffer bytes.Buffer
