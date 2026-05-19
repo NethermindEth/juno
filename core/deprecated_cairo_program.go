@@ -1,7 +1,7 @@
 package core
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -46,8 +46,8 @@ func unmarshalDeprecatedCairoProgram(raw json.RawMessage) (*deprecatedCairoProgr
 	return program, nil
 }
 
-// computeHintedClassHash writes the canonical legacy {"abi": ..., "program": ...}
-// payload directly into a buffer before hashing it with StarknetKeccak.
+// computeHintedClassHash streams the canonical legacy {"abi": ..., "program": ...}
+// payload directly into a Keccak-256 state avoiding memory allocations
 func computeHintedClassHash(
 	abi json.RawMessage,
 	program *deprecatedCairoProgram,
@@ -57,20 +57,19 @@ func computeHintedClassHash(
 		return felt.Felt{}, err
 	}
 
-	var buffer bytes.Buffer
-	if err := writeHintedClassHashInput(
-		&buffer,
-		legacyABI,
-		program,
-	); err != nil {
+	h := crypto.NewStarknetKeccakState()
+	buffer := bufio.NewWriter(h)
+	if err := writeHintedClassHashInput(buffer, legacyABI, program); err != nil {
 		return felt.Felt{}, err
 	}
-
-	return crypto.StarknetKeccak(buffer.Bytes()), nil
+	if err := buffer.Flush(); err != nil {
+		return felt.Felt{}, err
+	}
+	return crypto.StarknetKeccakSum(h), nil
 }
 
 func writeHintedClassHashInput(
-	buffer *bytes.Buffer,
+	buffer *bufio.Writer,
 	legacyABI []legacyABIEntry,
 	program *deprecatedCairoProgram,
 ) error {
@@ -88,7 +87,7 @@ func writeHintedClassHashInput(
 	return nil
 }
 
-func writeJSONFieldPrefix(buffer *bytes.Buffer, name string, first *bool) {
+func writeJSONFieldPrefix(buffer *bufio.Writer, name string, first *bool) {
 	if !*first {
 		buffer.WriteString(", ")
 	}
@@ -99,7 +98,7 @@ func writeJSONFieldPrefix(buffer *bytes.Buffer, name string, first *bool) {
 
 // writeJSONString mirrors the legacy JSON escaping used by the upstream Rust
 // serialization path, including UTF-16 escaping for non-ASCII runes.
-func writeJSONString(buffer *bytes.Buffer, value string) {
+func writeJSONString(buffer *bufio.Writer, value string) {
 	buffer.WriteByte('"')
 	for _, r := range value {
 		switch r {
@@ -132,9 +131,8 @@ func writeJSONString(buffer *bytes.Buffer, value string) {
 	buffer.WriteByte('"')
 }
 
-func writeJSONHex16(buffer *bytes.Buffer, value uint16) {
+func writeJSONHex16(buffer *bufio.Writer, value uint16) {
 	const hexChars = "0123456789abcdef"
-
 	buffer.WriteString(`\u`)
 	buffer.WriteByte(hexChars[(value>>12)&0xf])
 	buffer.WriteByte(hexChars[(value>>8)&0xf])
@@ -142,11 +140,11 @@ func writeJSONHex16(buffer *bytes.Buffer, value uint16) {
 	buffer.WriteByte(hexChars[value&0xf])
 }
 
-func writeJSONUint64(buffer *bytes.Buffer, value uint64) {
+func writeJSONUint64(buffer *bufio.Writer, value uint64) {
 	buffer.WriteString(strconv.FormatUint(value, 10))
 }
 
-func writeJSONRaw(buffer *bytes.Buffer, raw json.RawMessage) {
+func writeJSONRaw(buffer *bufio.Writer, raw json.RawMessage) {
 	if len(raw) == 0 {
 		buffer.WriteString("null")
 		return
@@ -154,11 +152,11 @@ func writeJSONRaw(buffer *bytes.Buffer, raw json.RawMessage) {
 	buffer.Write(raw)
 }
 
-func writeJSONFelt(buffer *bytes.Buffer, value *felt.Felt) {
+func writeJSONFelt(buffer *bufio.Writer, value *felt.Felt) {
 	writeJSONString(buffer, value.String())
 }
 
-func writeJSONStringArray(buffer *bytes.Buffer, values []string) {
+func writeJSONStringArray(buffer *bufio.Writer, values []string) {
 	if values == nil {
 		buffer.WriteString("null")
 		return
@@ -173,7 +171,7 @@ func writeJSONStringArray(buffer *bytes.Buffer, values []string) {
 	buffer.WriteByte(']')
 }
 
-func writeTypedParameters(buffer *bytes.Buffer, values []legacyTypedParameter) {
+func writeTypedParameters(buffer *bufio.Writer, values []legacyTypedParameter) {
 	if values == nil {
 		buffer.WriteString("null")
 		return
@@ -188,7 +186,7 @@ func writeTypedParameters(buffer *bytes.Buffer, values []legacyTypedParameter) {
 	buffer.WriteByte(']')
 }
 
-func writeTypedParameter(buffer *bytes.Buffer, value legacyTypedParameter) {
+func writeTypedParameter(buffer *bufio.Writer, value legacyTypedParameter) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "name", &first)
@@ -198,7 +196,7 @@ func writeTypedParameter(buffer *bytes.Buffer, value legacyTypedParameter) {
 	buffer.WriteByte('}')
 }
 
-func writeABIMembers(buffer *bytes.Buffer, values []legacyABIMember) {
+func writeABIMembers(buffer *bufio.Writer, values []legacyABIMember) {
 	if values == nil {
 		buffer.WriteString("null")
 		return
@@ -223,7 +221,7 @@ func writeABIMembers(buffer *bytes.Buffer, values []legacyABIMember) {
 
 // Legacy ABI entries are serialized in a fixed variant-specific shape to match
 // the upstream hinted-hash payload exactly.
-func writeLegacyABIEntries(buffer *bytes.Buffer, entries []legacyABIEntry) error {
+func writeLegacyABIEntries(buffer *bufio.Writer, entries []legacyABIEntry) error {
 	if entries == nil {
 		buffer.WriteString("null")
 		return nil
@@ -279,7 +277,7 @@ func writeLegacyABIEntries(buffer *bytes.Buffer, entries []legacyABIEntry) error
 	return nil
 }
 
-func writeLegacyConstructorABIEntry(buffer *bytes.Buffer, value *legacyConstructorABIEntry) {
+func writeLegacyConstructorABIEntry(buffer *bufio.Writer, value *legacyConstructorABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "inputs", &first)
@@ -293,7 +291,7 @@ func writeLegacyConstructorABIEntry(buffer *bytes.Buffer, value *legacyConstruct
 	buffer.WriteByte('}')
 }
 
-func writeLegacyFunctionABIEntry(buffer *bytes.Buffer, value *legacyFunctionABIEntry) {
+func writeLegacyFunctionABIEntry(buffer *bufio.Writer, value *legacyFunctionABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "inputs", &first)
@@ -311,7 +309,7 @@ func writeLegacyFunctionABIEntry(buffer *bytes.Buffer, value *legacyFunctionABIE
 	buffer.WriteByte('}')
 }
 
-func writeLegacyStructABIEntry(buffer *bytes.Buffer, value legacyStructABIEntry) {
+func writeLegacyStructABIEntry(buffer *bufio.Writer, value legacyStructABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "members", &first)
@@ -325,7 +323,7 @@ func writeLegacyStructABIEntry(buffer *bytes.Buffer, value legacyStructABIEntry)
 	buffer.WriteByte('}')
 }
 
-func writeLegacyL1HandlerABIEntry(buffer *bytes.Buffer, value *legacyL1HandlerABIEntry) {
+func writeLegacyL1HandlerABIEntry(buffer *bufio.Writer, value *legacyL1HandlerABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "inputs", &first)
@@ -339,7 +337,7 @@ func writeLegacyL1HandlerABIEntry(buffer *bytes.Buffer, value *legacyL1HandlerAB
 	buffer.WriteByte('}')
 }
 
-func writeLegacyEventABIEntry(buffer *bytes.Buffer, value *legacyEventABIEntry) {
+func writeLegacyEventABIEntry(buffer *bufio.Writer, value *legacyEventABIEntry) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "data", &first)
@@ -354,7 +352,7 @@ func writeLegacyEventABIEntry(buffer *bytes.Buffer, value *legacyEventABIEntry) 
 }
 
 func writeDeprecatedCairoProgramCanonical(
-	buffer *bytes.Buffer,
+	buffer *bufio.Writer,
 	program *deprecatedCairoProgram,
 ) error {
 	buffer.WriteByte('{')
@@ -396,7 +394,7 @@ func writeDeprecatedCairoProgramCanonical(
 	return nil
 }
 
-func writeLegacyAttributes(buffer *bytes.Buffer, values []legacyAttribute) {
+func writeLegacyAttributes(buffer *bufio.Writer, values []legacyAttribute) {
 	buffer.WriteByte('[')
 	for i, value := range values {
 		if i > 0 {
@@ -425,7 +423,7 @@ func writeLegacyAttributes(buffer *bytes.Buffer, values []legacyAttribute) {
 	buffer.WriteByte(']')
 }
 
-func writeFeltArray(buffer *bytes.Buffer, values []felt.Felt) {
+func writeFeltArray(buffer *bufio.Writer, values []felt.Felt) {
 	if values == nil {
 		buffer.WriteString("null")
 		return
@@ -442,7 +440,7 @@ func writeFeltArray(buffer *bytes.Buffer, values []felt.Felt) {
 
 // Legacy maps are sorted explicitly because Go map iteration is not stable,
 // while the upstream Rust path relies on deterministic BTreeMap ordering.
-func writeLegacyHints(buffer *bytes.Buffer, hints legacyHints) error {
+func writeLegacyHints(buffer *bufio.Writer, hints legacyHints) error {
 	if hints == nil {
 		buffer.WriteString("{}")
 		return nil
@@ -469,7 +467,7 @@ func writeLegacyHints(buffer *bytes.Buffer, hints legacyHints) error {
 	return nil
 }
 
-func writeLegacyHintArray(buffer *bytes.Buffer, values []legacyHint) {
+func writeLegacyHintArray(buffer *bufio.Writer, values []legacyHint) {
 	if values == nil {
 		buffer.WriteString("null")
 		return
@@ -492,7 +490,7 @@ func writeLegacyHintArray(buffer *bytes.Buffer, values []legacyHint) {
 	buffer.WriteByte(']')
 }
 
-func writeLegacyFlowTrackingData(buffer *bytes.Buffer, value legacyFlowTrackingData) {
+func writeLegacyFlowTrackingData(buffer *bufio.Writer, value legacyFlowTrackingData) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "ap_tracking", &first)
@@ -502,7 +500,7 @@ func writeLegacyFlowTrackingData(buffer *bytes.Buffer, value legacyFlowTrackingD
 	buffer.WriteByte('}')
 }
 
-func writeLegacyApTrackingData(buffer *bytes.Buffer, value legacyApTrackingData) {
+func writeLegacyApTrackingData(buffer *bufio.Writer, value legacyApTrackingData) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "group", &first)
@@ -513,7 +511,7 @@ func writeLegacyApTrackingData(buffer *bytes.Buffer, value legacyApTrackingData)
 }
 
 func writeLegacyIdentifiers(
-	buffer *bytes.Buffer,
+	buffer *bufio.Writer,
 	identifiers legacyIdentifiers,
 	patchLegacy bool,
 ) error {
@@ -542,7 +540,7 @@ func writeLegacyIdentifiers(
 	return nil
 }
 
-func writeLegacyIdentifier(buffer *bytes.Buffer, value *legacyIdentifier, patchLegacy bool) error {
+func writeLegacyIdentifier(buffer *bufio.Writer, value *legacyIdentifier, patchLegacy bool) error {
 	buffer.WriteByte('{')
 	first := true
 	if value.Decorators != nil {
@@ -596,7 +594,7 @@ func writeLegacyIdentifier(buffer *bytes.Buffer, value *legacyIdentifier, patchL
 }
 
 func writeLegacyIdentifierMembers(
-	buffer *bytes.Buffer,
+	buffer *bufio.Writer,
 	members legacyIdentifierMembers,
 	patchLegacy bool,
 ) error {
@@ -635,7 +633,7 @@ func writeLegacyIdentifierMembers(
 	return nil
 }
 
-func writeLegacyReferences(buffer *bytes.Buffer, values []legacyReference) {
+func writeLegacyReferences(buffer *bufio.Writer, values []legacyReference) {
 	if values == nil {
 		buffer.WriteString("null")
 		return
@@ -658,7 +656,7 @@ func writeLegacyReferences(buffer *bytes.Buffer, values []legacyReference) {
 	buffer.WriteByte(']')
 }
 
-func writeLegacyReferenceIDs(buffer *bytes.Buffer, ids legacyReferenceIDs) {
+func writeLegacyReferenceIDs(buffer *bufio.Writer, ids legacyReferenceIDs) {
 	if ids == nil {
 		buffer.WriteString("null")
 		return
@@ -680,7 +678,7 @@ func writeLegacyReferenceIDs(buffer *bytes.Buffer, ids legacyReferenceIDs) {
 	buffer.WriteByte('}')
 }
 
-func writeLegacyReferenceManager(buffer *bytes.Buffer, manager legacyReferenceManager) {
+func writeLegacyReferenceManager(buffer *bufio.Writer, manager legacyReferenceManager) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "references", &first)

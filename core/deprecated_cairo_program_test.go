@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -72,7 +73,9 @@ func TestDeprecatedCairoProgramCanonicalSerialization(t *testing.T) {
 	_, program := loadDeprecatedFixtureProgram(t, deprecatedFixturePath)
 
 	var buffer bytes.Buffer
-	require.NoError(t, writeDeprecatedCairoProgramCanonical(&buffer, program))
+	bw := bufio.NewWriter(&buffer)
+	require.NoError(t, writeDeprecatedCairoProgramCanonical(bw, program))
+	require.NoError(t, bw.Flush())
 
 	want, err := os.ReadFile(filepath.Clean(canonicalProgramPath))
 	require.NoError(t, err)
