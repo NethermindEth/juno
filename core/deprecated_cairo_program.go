@@ -97,8 +97,6 @@ func writeJSONFieldPrefix(buffer *bytes.Buffer, name string, first *bool) {
 	buffer.WriteString(": ")
 }
 
-const hexChars = "0123456789abcdef"
-
 // writeJSONString mirrors the legacy JSON escaping used by the upstream Rust
 // serialization path, including UTF-16 escaping for non-ASCII runes.
 func writeJSONString(buffer *bytes.Buffer, value string) {
@@ -135,6 +133,8 @@ func writeJSONString(buffer *bytes.Buffer, value string) {
 }
 
 func writeJSONHex16(buffer *bytes.Buffer, value uint16) {
+	const hexChars = "0123456789abcdef"
+
 	buffer.WriteString(`\u`)
 	buffer.WriteByte(hexChars[(value>>12)&0xf])
 	buffer.WriteByte(hexChars[(value>>8)&0xf])
