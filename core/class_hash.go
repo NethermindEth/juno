@@ -31,7 +31,7 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 	)
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -44,6 +44,10 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		l1HandlerEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.L1Handler)
 		constructorEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.Constructor)
 		builtinsHash = hashBuiltinNames(program.Builtins)
+	}()
+
+	go func() {
+		defer wg.Done()
 		hintedClassHash, hintedClassHashErr = computeHintedClassHash(definition.Abi, program)
 	}()
 
