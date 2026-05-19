@@ -42,10 +42,6 @@ func HasContract(r db.KeyValueReader, addr *felt.Felt) (bool, error) {
 	return r.Has(key)
 }
 
-// WriteContract writes a Contract record from raw fields. Used by the running
-// node (via writeContract on a fully-built stateContract) and by the deprecated
-// → new state migration (with StorageRoot left zero — the new state lazily
-// backfills it on the contract's first storage write).
 func WriteContract(
 	w db.KeyValueWriter,
 	addr *felt.Felt,
