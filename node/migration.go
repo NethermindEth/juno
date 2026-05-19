@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/migration/headstate"
 	"github.com/NethermindEth/juno/migration/historyprunner"
 	"github.com/NethermindEth/juno/migration/statehistory"
+	"github.com/NethermindEth/juno/migration/trie"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
@@ -29,7 +30,8 @@ func registerMigrations(cfg *Config) *migration.Registry {
 			PruneModeFlag,
 		).
 		WithOptional(&headstate.Migrator{}, cfg.NewState, "new-state").
-		WithOptional(&statehistory.Migrator{}, cfg.NewState, "new-state")
+		WithOptional(&statehistory.Migrator{}, cfg.NewState, "new-state").
+		WithOptional(&trie.Migrator{}, cfg.NewState, "new-state")
 
 	return registry
 }
