@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint // deprecated package will be removed later
 	"github.com/NethermindEth/juno/utils"
@@ -21,7 +24,9 @@ import (
 )
 
 const (
-	dbRevertToBlockF = "to-block"
+	dbRevertToBlockF       = "to-block"
+	dbDumpCairo0OutputF    = "output"
+	dbDumpCairo0OutputUsg  = "Output file path. If empty, writes to stdout."
 )
 
 type DBInfo struct {
@@ -44,8 +49,21 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
 	dbCmd.PersistentFlags().Bool(newStateF, defaultNewState, newStateUsage)
-	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd(), DBDumpCairo0Cmd())
 	return dbCmd
+}
+
+func DBDumpCairo0Cmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "dump-cairo0",
+		Short: "Dump all deprecated Cairo 0 class hashes",
+		Long: `Iterates the Class bucket and writes the hex class hash of every
+DeprecatedCairoClass (Cairo 0) entry, one per line. Useful for diffing
+starknet_getClass responses across RPC versions.`,
+		RunE: dbDumpCairo0,
+	}
+	cmd.Flags().String(dbDumpCairo0OutputF, "", dbDumpCairo0OutputUsg)
+	return cmd
 }
 
 func DBInfoCmd() *cobra.Command {
@@ -353,6 +371,79 @@ func getNetwork(
 	}
 
 	return "unknown"
+}
+
+func dbDumpCairo0(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+	outPath, err := cmd.Flags().GetString(dbDumpCairo0OutputF)
+	if err != nil {
+		return err
+	}
+
+	database, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	var out *bufio.Writer
+	if outPath == "" {
+		out = bufio.NewWriter(cmd.OutOrStdout())
+	} else {
+		f, err := os.Create(outPath)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer f.Close()
+		out = bufio.NewWriter(f)
+	}
+	defer out.Flush()
+
+	classPrefix := db.Class.Key()
+	it, err := database.NewIterator(classPrefix, false)
+	if err != nil {
+		return fmt.Errorf("failed to open iterator: %w", err)
+	}
+	defer it.Close()
+
+	var total, cairo0Count uint64
+	for it.Seek(classPrefix); it.Valid(); it.Next() {
+		k := it.Key()
+		if !bytes.HasPrefix(k, classPrefix) {
+			break
+		}
+		hashBytes := k[len(classPrefix):]
+		if len(hashBytes) != felt.Bytes {
+			continue
+		}
+		total++
+
+		v, err := it.Value()
+		if err != nil {
+			return fmt.Errorf("failed to read value: %w", err)
+		}
+
+		var dc core.DeclaredClassDefinition
+		if err := encoder.Unmarshal(v, &dc); err != nil {
+			return fmt.Errorf("failed to unmarshal class: %w", err)
+		}
+
+		if _, ok := dc.Class.(*core.DeprecatedCairoClass); !ok {
+			continue
+		}
+
+		classHash := felt.FromBytes[felt.Felt](hashBytes)
+		if _, err := fmt.Fprintln(out, classHash.String()); err != nil {
+			return fmt.Errorf("failed to write hash: %w", err)
+		}
+		cairo0Count++
+	}
+
+	fmt.Fprintf(cmd.ErrOrStderr(), "Scanned %d classes, dumped %d deprecated Cairo 0 hashes\n", total, cairo0Count)
+	return nil
 }
 
 func openDB(path string) (db.KeyValueStore, error) {
