@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/semaphore"
-	"github.com/NethermindEth/juno/utils/log"
 )
 
 type task struct {
@@ -17,43 +16,37 @@ type task struct {
 const dfsStackCap = 251
 
 type ingestor struct {
-	logger         log.StructuredLogger
+	ctx            context.Context
 	database       db.KeyValueReader
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
-	tasks          []task
 	pool           *hashWorkerPool
+	tasks          [IngestorCount]task
 	dfsStacks      [IngestorCount][]dfsFrame
 }
 
-type FlushBatchFn func(db.Batch) db.Batch
+type FlushBatchFn func(db.Batch) (db.Batch, error)
 
 func newIngestor(
 	ctx context.Context,
 	database db.KeyValueReader,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
-	logger log.StructuredLogger,
 	pool *hashWorkerPool,
-) (*ingestor, error) {
-	tasks := make([]task, IngestorCount)
-	for i := range tasks {
-		tasks[i] = task{batch: batchSemaphore.GetBlocking()}
-	}
-
+) *ingestor {
 	in := &ingestor{
+		ctx:            ctx,
 		database:       database,
 		batchSemaphore: batchSemaphore,
-		logger:         logger,
-		tasks:          tasks,
 		pool:           pool,
 	}
-	for i := range in.dfsStacks {
+	for i := range IngestorCount {
+		in.tasks[i].batch = batchSemaphore.GetBlocking()
 		in.dfsStacks[i] = make([]dfsFrame, 0, dfsStackCap)
 	}
-	return in, nil
+	return in
 }
 
-func (c *ingestor) Run(index int, desc TrieDesc, outputs chan<- task) error {
-	done, err := hasDestRoot(c.database, desc.NewBucket, &desc.Owner)
+func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- task) error {
+	done, err := hasDestRoot(i.database, desc.NewBucket, &desc.Owner)
 	if err != nil {
 		return fmt.Errorf("hasDestRoot(%v, %x): %w", desc.NewBucket, desc.Owner, err)
 	}
@@ -61,35 +54,43 @@ func (c *ingestor) Run(index int, desc TrieDesc, outputs chan<- task) error {
 		return nil
 	}
 
-	t := &c.tasks[index]
+	t := &i.tasks[index]
 
-	flush := FlushBatchFn(func(current db.Batch) db.Batch {
+	flush := FlushBatchFn(func(current db.Batch) (db.Batch, error) {
 		if current.Size() < targetBatchByteSize {
-			return current
+			return current, nil
 		}
-		outputs <- task{batch: current, tries: t.tries}
+		select {
+		case <-i.ctx.Done():
+			return current, i.ctx.Err()
+		case outputs <- task{batch: current, tries: t.tries}:
+		}
 		t.tries = 0
-		return c.batchSemaphore.GetBlocking()
+		return i.batchSemaphore.GetBlocking(), nil
 	})
 
-	migrator := newDFSMigrator(desc.NodeCount >= SmallTrieThreshold, c.pool)
-	t.batch, c.dfsStacks[index], err = migrator.Migrate(
-		c.database,
+	migrator := newDFSMigrator(desc.NodeCount >= SmallTrieThreshold, i.pool)
+	t.batch, i.dfsStacks[index], err = migrator.Migrate(
+		i.database,
 		t.batch,
 		desc,
 		flush,
-		c.dfsStacks[index],
+		i.dfsStacks[index],
 	)
 	if err != nil {
 		return err
 	}
 
 	t.tries++
-	t.batch = flush(t.batch)
-	return nil
+	t.batch, err = flush(t.batch)
+	return err
 }
 
-func (c *ingestor) Done(index int, outputs chan<- task) error {
-	outputs <- c.tasks[index]
+func (i *ingestor) Done(index int, outputs chan<- task) error {
+	select {
+	case <-i.ctx.Done():
+		return i.ctx.Err()
+	case outputs <- i.tasks[index]:
+	}
 	return nil
 }
