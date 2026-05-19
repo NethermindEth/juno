@@ -363,16 +363,16 @@ func (s *Synchronizer) handlePreConfirmed(
 
 	switch update.Mode {
 	case pending.PreConfirmedNoChange:
-		nextPreConfirmed = s.preConfirmed.Load()
+		nextPreConfirmed = s.preConfirmed.Load().Copy()
 
 	case pending.PreConfirmedFull:
 		nextPreConfirmed = update.FullBlock
 
 	case pending.PreConfirmedDelta:
-		existing := s.preConfirmed.Load()
+		existing := s.preConfirmed.Load().Copy()
 		if existing.BlockIdentifier != update.BlockIdentifier {
 			// Stored identifier drifted; drop. Next poll will return Full.
-			nextPreConfirmed = s.preConfirmed.Load()
+			nextPreConfirmed = existing
 			break
 		}
 		merged := existing.ApplyDelta(
