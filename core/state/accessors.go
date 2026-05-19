@@ -41,7 +41,25 @@ func HasContract(r db.KeyValueReader, addr *felt.Felt) (bool, error) {
 	return r.Has(key)
 }
 
-func WriteContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
+// WriteContract writes a Contract record from raw fields. Used by the running
+// node (via writeContract on a fully-built stateContract) and by the deprecated
+// → new state migration (with StorageRoot left zero — the new state lazily
+// backfills it on the contract's first storage write).
+func WriteContract(
+	w db.KeyValueWriter,
+	addr *felt.Felt,
+	nonce, classHash felt.Felt,
+	deployHeight uint64,
+) error {
+	contract := stateContract{
+		Nonce:          nonce,
+		ClassHash:      classHash,
+		DeployedHeight: deployHeight,
+	}
+	return writeContract(w, addr, &contract)
+}
+
+func writeContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
 	key := db.ContractKey(addr)
 	data, err := contract.MarshalBinary()
 	if err != nil {
