@@ -189,7 +189,7 @@ func TestMigrate_Idempotent(t *testing.T) {
 	}
 	seedDeprecated(t, memDB, seeds)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		res, err := headstate.Migrator{}.Migrate(
 			context.Background(),
 			memDB,
