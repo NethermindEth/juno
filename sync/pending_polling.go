@@ -45,8 +45,21 @@ func shouldPreservePreConfirmed(
 	existingB := existingPending.GetBlock()
 	incomingB := incomingPending.GetBlock()
 
-	return (incomingB.Number < existingB.Number) ||
-		(incomingB.Number == existingB.Number && incomingB.TransactionCount <= existingB.TransactionCount)
+	if incomingB.Number > existingB.Number {
+		return false
+	}
+
+	if incomingB.Number == existingB.Number {
+		if incomingB.TransactionCount > existingB.TransactionCount {
+			return false
+		}
+		if incomingB.TransactionCount == existingB.TransactionCount &&
+			len(incomingPending.CandidateTxs) > len(existingPending.CandidateTxs) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // UpdatePreLatestAttachment updates (or clears) the PreLatest attachment of the currently stored
