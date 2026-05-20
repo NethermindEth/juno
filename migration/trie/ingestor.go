@@ -135,8 +135,8 @@ func (i *ingestor) flush(t *task, outputs chan<- task) error {
 // fields). The new format moves compression into dedicated edge nodes
 // sitting between binary nodes and their children:
 //
-//	deprecated:   binary ──────── child-path ────────► child
-//	new:          binary ──► edge ──► child
+//	old:   binary ──────── child-path ────────► child
+//	new:   binary ──► edge ──► child
 //
 // The deprecated root marker — a single entry at the bare bucket prefix
 // recording the root's path — disappears in the new layout. Whatever the
