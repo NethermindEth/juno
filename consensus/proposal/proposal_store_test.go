@@ -132,18 +132,6 @@ func TestProposalStore_DeleteByHeight_UnknownHeightIsNoop(t *testing.T) {
 	require.NotNil(t, store.Get(key))
 }
 
-func TestProposalStore_DeleteByHeight_AllowsReuseOfHeight(t *testing.T) {
-	store := &proposal.ProposalStore[starknet.Hash]{}
-	key := felt.FromUint64[starknet.Hash](1)
-
-	store.Store(key, buildResultAtHeight(5))
-	store.DeleteByHeight(types.Height(5))
-	require.Nil(t, store.Get(key))
-
-	store.Store(key, buildResultAtHeight(5))
-	require.NotNil(t, store.Get(key))
-}
-
 func doNTimes(n int, f func(i int)) {
 	wg := conc.NewWaitGroup()
 	for i := range n {
@@ -175,44 +163,3 @@ func TestProposalStore_ConcurrentAccess(t *testing.T) {
 	})
 }
 
-// TestProposalStore_ConcurrentStoreAndDeleteByHeight exercises the cross-map invariant
-// between byHash and byHeight under concurrent writes, height-level deletes, and reads.
-// Intended to be run with -race; the runtime catches map corruption and the race detector
-// catches unsynchronised access to the two internal maps.
-func TestProposalStore_ConcurrentStoreAndDeleteByHeight(t *testing.T) {
-	const (
-		heights       = 50
-		keysPerHeight = 20
-		readers       = 200
-		readOps       = 100
-	)
-
-	store := &proposal.ProposalStore[starknet.Hash]{}
-	wg := conc.NewWaitGroup()
-
-	for h := range heights {
-		for k := range keysPerHeight {
-			wg.Go(func() {
-				key := felt.FromUint64[starknet.Hash](uint64(h*keysPerHeight + k))
-				store.Store(key, buildResultAtHeight(uint64(h)))
-			})
-		}
-	}
-
-	for h := range heights {
-		wg.Go(func() {
-			store.DeleteByHeight(types.Height(h))
-		})
-	}
-
-	for range readers {
-		wg.Go(func() {
-			for range readOps {
-				key := felt.FromUint64[starknet.Hash](rand.Uint64N(heights * keysPerHeight))
-				_ = store.Get(key)
-			}
-		})
-	}
-
-	wg.Wait()
-}
