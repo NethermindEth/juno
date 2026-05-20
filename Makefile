@@ -33,7 +33,7 @@ PKG ?= ./...
 
 MAKEFLAGS += -j$(NPROCS)
 
-rustdeps: check-rust vm core-rust compiler
+rustdeps: check-rust vm compiler
 
 juno: rustdeps ## Compile Juno
 	@mkdir -p build
@@ -52,9 +52,6 @@ check-rust: ## Ensure rust version is greater than minimum
 
 vm:
 	$(MAKE) -C vm/rust $(VM_TARGET)
-
-core-rust:
-	$(MAKE) -C core/rust $(VM_TARGET)
 
 compiler:
 	$(MAKE) -C starknet/compiler/rust $(VM_TARGET)
@@ -113,23 +110,19 @@ tidy: ## Add missing and remove unused modules
 
 rust-format-check: ## Check Rust formatting across all crates
 	$(MAKE) -C vm/rust format-check
-	$(MAKE) -C core/rust format-check
 	$(MAKE) -C starknet/compiler/rust format-check
 
 rust-lint: ## Run clippy on all Rust crates
 	$(MAKE) -C vm/rust lint
-	$(MAKE) -C core/rust lint
 	$(MAKE) -C starknet/compiler/rust lint
 
 format: ## Format Go and Rust code
 	$(MAKE) -C vm/rust format
-	$(MAKE) -C core/rust format
 	$(MAKE) -C starknet/compiler/rust format
 	gofumpt -l -w .
 
 clean: ## Clean project builds
 	$(MAKE) -C vm/rust clean
-	$(MAKE) -C core/rust clean
 	$(MAKE) -C starknet/compiler/rust clean
 	@rm -rf ./build
 

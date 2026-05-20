@@ -8,7 +8,6 @@ on:
   pull_request:
     paths:
       - vm/rust/**
-      - core/rust/**
       - starknet/compiler/rust/**
       - rust-toolchain.toml
       - .github/workflows/rust-lint.yml
@@ -31,23 +30,16 @@ jobs:
         with:
           workspaces: |
             vm/rust
-            core/rust
             starknet/compiler/rust
       - name: fmt vm/rust
         run: cargo fmt --check
         working-directory: vm/rust
-      - name: fmt core/rust
-        run: cargo fmt --check
-        working-directory: core/rust
       - name: fmt starknet/compiler/rust
         run: cargo fmt --check
         working-directory: starknet/compiler/rust
       - name: clippy vm/rust
         run: cargo clippy -- -D warnings
         working-directory: vm/rust
-      - name: clippy core/rust
-        run: cargo clippy -- -D warnings
-        working-directory: core/rust
       - name: clippy starknet/compiler/rust
         run: cargo clippy -- -D warnings
         working-directory: starknet/compiler/rust
