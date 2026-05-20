@@ -128,7 +128,12 @@ var transcoderCases = []struct {
 func TestMigrate_FreshDBIsNoOp(t *testing.T) {
 	memDB := memory.New()
 
-	state, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	state, err := (&trielib.Migrator{}).Migrate(
+		context.Background(),
+		memDB,
+		nil,
+		log.NewNopZapLogger(),
+	)
 	require.NoError(t, err)
 	assert.Nil(
 		t,
@@ -143,7 +148,12 @@ func TestMigrate_RunsWhenOldDataPresent(t *testing.T) {
 
 	require.True(t, bucketHasKeys(t, memDB, db.ClassesTrie), "precondition: DB has old-format data")
 
-	state, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	state, err := (&trielib.Migrator{}).Migrate(
+		context.Background(),
+		memDB,
+		nil,
+		log.NewNopZapLogger(),
+	)
 	require.NoError(t, err)
 	assert.Nil(t, state, "completed migration must return nil intermediate state")
 
@@ -335,7 +345,12 @@ func TestMigrationMultiStorageOwners(t *testing.T) {
 			db.ContractStorage.Key(ownerBytes[:]))
 	}
 
-	_, err := (&trielib.Migrator{}).Migrate(context.Background(), migratedDB, nil, log.NewNopZapLogger())
+	_, err := (&trielib.Migrator{}).Migrate(
+		context.Background(),
+		migratedDB,
+		nil,
+		log.NewNopZapLogger(),
+	)
 	require.NoError(t, err)
 
 	// Per-owner native build → assert every native key is present (with the
@@ -366,7 +381,12 @@ func TestMigrationIsNoopOnSecondRun(t *testing.T) {
 	leaves := randomLeaves(100, 11)
 	memDB := buildFullDB(t, leaves)
 
-	state, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	state, err := (&trielib.Migrator{}).Migrate(
+		context.Background(),
+		memDB,
+		nil,
+		log.NewNopZapLogger(),
+	)
 	require.NoError(t, err)
 	require.Nil(t, state)
 	snapshot := snapshotAllBuckets(t, memDB,
