@@ -39,37 +39,6 @@ func WriteNodeByPath(
 	return w.Put(nodeKeyByPath(bucket, owner, path, isLeaf), blob)
 }
 
-// MaxNodeKeySize is the maximum byte length of a new-format trie node key:
-// 1 (prefix) + 32 (owner, optional) + 1 (nodeType) + MaxBitArraySize (path).
-const MaxNodeKeySize = 1 + 32 + 1 + MaxBitArraySize
-
-// EncodeNodeKey writes the node key into dst and returns the number of bytes written.
-// dst must have at least MaxNodeKeySize bytes of capacity.
-func EncodeNodeKey(dst []byte, bucket db.Bucket, owner *felt.Address, path *Path, isLeaf bool) int {
-	n := 0
-	dst[n] = byte(bucket)
-	n++
-
-	if !felt.IsZero(owner) {
-		ownerBytes := owner.Bytes()
-		copy(dst[n:], ownerBytes[:])
-		n += 32
-	}
-
-	if isLeaf {
-		dst[n] = leaf.Byte()
-	} else {
-		dst[n] = nonLeaf.Byte()
-	}
-	n++
-
-	pathBytes := path.EncodedBytes()
-	copy(dst[n:], pathBytes)
-	n += len(pathBytes)
-
-	return n
-}
-
 func DeleteNodeByPath(
 	w db.KeyValueWriter,
 	bucket db.Bucket,
