@@ -46,9 +46,9 @@ func newIngestor(
 }
 
 func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- task) error {
-	done, err := hasDestRoot(i.database, desc.TrieBucket, &desc.Owner)
+	done, err := rootProcessed(i.database, desc.TrieBucket, &desc.Owner)
 	if err != nil {
-		return fmt.Errorf("hasDestRoot(%v, %x): %w", desc.TrieBucket, desc.Owner, err)
+		return fmt.Errorf("rootProcessed(%v, %x): %w", desc.TrieBucket, desc.Owner, err)
 	}
 
 	t := &i.tasks[index]
@@ -59,7 +59,7 @@ func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- task) error {
 		return i.flush(t, outputs)
 	}
 
-	if err := migrateTrie(i.database, desc, i.pool, t, i.flush, outputs); err != nil {
+	if err := i.migrateTrie(t, desc, outputs); err != nil {
 		return err
 	}
 
@@ -97,22 +97,15 @@ func (i *ingestor) flush(t *task, outputs chan<- task) error {
 // trie into t.batch. It walks the deprecated trie via DFS, emits value /
 // binary / edge nodes through the hashScheduler, and calls flush at each
 // step to rotate the batch when it hits target size.
-func migrateTrie(
-	r db.KeyValueReader,
-	desc TrieDesc,
-	pool *hashWorkerPool,
-	t *task,
-	flush func(*task, chan<- task) error,
-	outputs chan<- task,
-) error {
-	if desc.RootPath == nil {
+func (i *ingestor) migrateTrie(t *task, desc TrieDesc, outputs chan<- task) error {
+	if desc.NodeCount == 0 {
 		return nil
 	}
 	parallelDispatch := desc.NodeCount >= SmallTrieThreshold
 	prefix := deprecatedTriePrefix(desc)
-	sched := newHashScheduler(desc.HashFn, parallelDispatch, desc.TrieBucket, desc.Owner, pool)
+	sched := newHashScheduler(desc.HashFn, parallelDispatch, desc.TrieBucket, desc.Owner, i.pool)
 
-	rootHash, err := traverse(r, prefix, *desc.RootPath, sched, t, flush, outputs)
+	rootHash, err := i.traverse(t, outputs, prefix, *desc.RootPath, sched)
 	if err != nil {
 		return err
 	}
@@ -130,16 +123,14 @@ func migrateTrie(
 // traverse walks the deprecated trie rooted at oldPath in DFS order, writing
 // the new-format equivalents into t.batch via sched. Returns the hash of
 // the visited subtree — used by the caller to wire up parent binary nodes.
-func traverse(
-	r db.KeyValueReader,
+func (i *ingestor) traverse(
+	t *task,
+	outputs chan<- task,
 	prefix []byte,
 	oldPath trie.BitArray,
 	sched *hashScheduler,
-	t *task,
-	flush func(*task, chan<- task) error,
-	outputs chan<- task,
 ) (felt.Felt, error) {
-	parsed, err := readNode(r, prefix, &oldPath)
+	parsed, err := readNode(i.database, prefix, &oldPath)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -150,17 +141,17 @@ func traverse(
 		if err := processLeaf(newPath, &parsed.value, sched, t.batch); err != nil {
 			return felt.Felt{}, err
 		}
-		if err := flush(t, outputs); err != nil {
+		if err := i.flush(t, outputs); err != nil {
 			return felt.Felt{}, err
 		}
 		return parsed.value, nil
 	}
 
-	leftHash, err := traverse(r, prefix, parsed.left, sched, t, flush, outputs)
+	leftHash, err := i.traverse(t, outputs, prefix, parsed.left, sched)
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	rightHash, err := traverse(r, prefix, parsed.right, sched, t, flush, outputs)
+	rightHash, err := i.traverse(t, outputs, prefix, parsed.right, sched)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -171,10 +162,22 @@ func traverse(
 	); err != nil {
 		return felt.Felt{}, err
 	}
-	if err := flush(t, outputs); err != nil {
+	if err := i.flush(t, outputs); err != nil {
 		return felt.Felt{}, err
 	}
 	return parsed.value, nil
+}
+
+func rootProcessed(r db.KeyValueReader, newBucket db.Bucket, owner *felt.Address) (bool, error) {
+	var emptyPath trieutils.Path
+	var buf [maxNodeKeySize]byte
+
+	n := encodeNodeKey(buf[:], newBucket, owner, &emptyPath, false)
+	if exists, err := r.Has(buf[:n]); err != nil || exists {
+		return exists, err
+	}
+	n = encodeNodeKey(buf[:], newBucket, owner, &emptyPath, true)
+	return r.Has(buf[:n])
 }
 
 func encodeOldPath(path *trie.BitArray, dst []byte) int {
@@ -240,9 +243,9 @@ func processLeaf(
 	sched *hashScheduler,
 	batch db.Batch,
 ) error {
-	var buf [trieutils.MaxNodeKeySize + valueNodeBlobSize]byte
-	keyLen := trieutils.EncodeNodeKey(buf[:], sched.bucket, &sched.owner, &path, true)
-	blob := encodeValueNode(value)
+	var buf [maxNodeKeySize + valueNodeBlobSize]byte
+	keyLen := encodeNodeKey(buf[:], sched.bucket, &sched.owner, &path, true)
+	blob := value.Bytes()
 	copy(buf[keyLen:], blob[:])
 	return batch.Put(buf[:keyLen], buf[keyLen:keyLen+valueNodeBlobSize])
 }
