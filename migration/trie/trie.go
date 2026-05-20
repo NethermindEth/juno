@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration"
@@ -205,7 +204,7 @@ func enumerateGlobalTrie(
 		TrieBucket:           newBucket,
 		HashFn:               hashFn,
 		NodeCount:            count,
-		RootPath:             rootPath,
+		RootPath:             &rootPath,
 	}, nil
 }
 
@@ -238,15 +237,15 @@ func enumerateStorageTries(r db.KeyValueReader) ([]TrieDesc, error) {
 			Owner:                owner,
 			HashFn:               crypto.Pedersen,
 			NodeCount:            count,
-			RootPath:             rootPath,
+			RootPath:             &rootPath,
 		})
 		// scanTrie leaves the iterator positioned past this owner's range.
 	}
 	return descs, nil
 }
 
-func scanTrie(it db.Iterator, prefix []byte) (*trie.BitArray, int, error) {
-	var rootPath *trie.BitArray
+func scanTrie(it db.Iterator, prefix []byte) (trie.BitArray, int, error) {
+	var rootPath trie.BitArray
 	count := 0
 	for it.Valid() {
 		key := it.Key()
@@ -256,11 +255,11 @@ func scanTrie(it db.Iterator, prefix []byte) (*trie.BitArray, int, error) {
 		if len(key) == len(prefix) {
 			val, err := it.Value()
 			if err != nil {
-				return nil, 0, err
+				return trie.BitArray{}, 0, err
 			}
 			parsedRootPath, err := parseRootPath(val)
 			if err != nil {
-				return nil, 0, err
+				return trie.BitArray{}, 0, err
 			}
 			rootPath = parsedRootPath
 		} else {
@@ -271,25 +270,13 @@ func scanTrie(it db.Iterator, prefix []byte) (*trie.BitArray, int, error) {
 	return rootPath, count, nil
 }
 
-func parseRootPath(val []byte) (*trie.BitArray, error) {
+func parseRootPath(val []byte) (trie.BitArray, error) {
 	if len(val) == 0 {
-		return nil, nil
+		return trie.BitArray{}, nil
 	}
 	var ba trie.BitArray
 	if err := ba.UnmarshalBinary(val); err != nil {
-		return nil, err
+		return trie.BitArray{}, err
 	}
-	return &ba, nil
-}
-
-func hasDestRoot(r db.KeyValueReader, newBucket db.Bucket, owner *felt.Address) (bool, error) {
-	var emptyPath trieutils.Path
-	var buf [trieutils.MaxNodeKeySize]byte
-
-	n := trieutils.EncodeNodeKey(buf[:], newBucket, owner, &emptyPath, false)
-	if exists, err := r.Has(buf[:n]); err != nil || exists {
-		return exists, err
-	}
-	n = trieutils.EncodeNodeKey(buf[:], newBucket, owner, &emptyPath, true)
-	return r.Has(buf[:n])
+	return ba, nil
 }

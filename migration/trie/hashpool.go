@@ -20,9 +20,11 @@ type hashWorkerPool struct {
 }
 
 func newHashWorkerPool() *hashWorkerPool {
-	n := 4
-	p := &hashWorkerPool{work: make(chan hashWork, n*2), n: n}
-	for range n {
+	p := &hashWorkerPool{
+		work: make(chan hashWork, IngestorCount*2),
+		n:    IngestorCount,
+	}
+	for range IngestorCount {
 		go func() {
 			for w := range p.work {
 				for i := range w.jobs {
