@@ -136,9 +136,8 @@ func (s *hashScheduler) writeBinaryAndEdges(
 ) error {
 	var buf [maxNodeKeySize + binaryNodeBlobSize]byte
 	keyLen := encodeNodeKey(buf[:], s.bucket, &s.owner, &job.parentPath, false)
-	blob := encodeBinaryNode(leftEdge, rightEdge)
-	copy(buf[keyLen:], blob[:])
-	if err := batch.Put(buf[:keyLen], buf[keyLen:keyLen+binaryNodeBlobSize]); err != nil {
+	blobLen := encodeBinaryNode(buf[keyLen:], leftEdge, rightEdge)
+	if err := batch.Put(buf[:keyLen], buf[keyLen:keyLen+blobLen]); err != nil {
 		return err
 	}
 
@@ -160,8 +159,8 @@ func (s *hashScheduler) writeEdge(
 	}
 	var edgePath trieutils.Path
 	edgePath.AppendBit(parentPath, bit)
-	var ebuf [maxNodeKeySize + edgeNodeMaxSize]byte
-	kl := encodeNodeKey(ebuf[:], s.bucket, &s.owner, &edgePath, false)
-	blob := encodeEdgeNodeInto(ebuf[kl:], childHash, seg)
-	return batch.Put(ebuf[:kl], ebuf[kl:kl+blob])
+	var buf [maxNodeKeySize + edgeNodeMaxSize]byte
+	keyLen := encodeNodeKey(buf[:], s.bucket, &s.owner, &edgePath, false)
+	blobLen := encodeEdgeNode(buf[keyLen:], childHash, seg)
+	return batch.Put(buf[:keyLen], buf[keyLen:keyLen+blobLen])
 }

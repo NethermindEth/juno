@@ -2,7 +2,6 @@ package trie_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -27,8 +26,8 @@ type trieCase struct {
 	oldBucket      db.Bucket
 	newBucket      db.Bucket
 	owner          felt.Address
-	oldBuildPrefix func(owner felt.Address) []byte
-	newTrieID      func(owner felt.Address) trieutils.TrieID
+	oldBuildPrefix func(owner *felt.Address) []byte
+	newTrieID      func(owner *felt.Address) trieutils.TrieID
 	hashFn         crypto.HashFn
 	//nolint:staticcheck // Necessary for old state
 	buildOldFn func(db.IndexedBatch, []byte, uint8) (*trie.Trie, error)
@@ -39,8 +38,8 @@ var trieCases = []trieCase{
 		name:           "ClassTrie",
 		oldBucket:      db.ClassesTrie,
 		newBucket:      db.ClassTrie,
-		oldBuildPrefix: func(_ felt.Address) []byte { return []byte{byte(db.ClassesTrie)} },
-		newTrieID: func(_ felt.Address) trieutils.TrieID {
+		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.ClassesTrie)} },
+		newTrieID: func(_ *felt.Address) trieutils.TrieID {
 			return trieutils.NewClassTrieID(felt.StateRootHash(felt.One))
 		},
 		hashFn:     crypto.Poseidon,
@@ -50,8 +49,8 @@ var trieCases = []trieCase{
 		name:           "ContractTrie",
 		oldBucket:      db.StateTrie,
 		newBucket:      db.ContractTrieContract,
-		oldBuildPrefix: func(_ felt.Address) []byte { return []byte{byte(db.StateTrie)} },
-		newTrieID: func(_ felt.Address) trieutils.TrieID {
+		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.StateTrie)} },
+		newTrieID: func(_ *felt.Address) trieutils.TrieID {
 			return trieutils.NewContractTrieID(felt.StateRootHash(felt.One))
 		},
 		hashFn:     crypto.Pedersen,
@@ -62,35 +61,16 @@ var trieCases = []trieCase{
 		oldBucket: db.ContractStorage,
 		newBucket: db.ContractTrieStorage,
 		owner:     felt.FromUint64[felt.Address](42),
-		oldBuildPrefix: func(owner felt.Address) []byte {
-			ownerFelt := felt.Felt(owner)
-			ownerBytes := ownerFelt.Bytes()
+		oldBuildPrefix: func(owner *felt.Address) []byte {
+			ownerBytes := owner.Bytes()
 			return db.ContractStorage.Key(ownerBytes[:])
 		},
-		newTrieID: func(owner felt.Address) trieutils.TrieID {
-			return trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), owner)
+		newTrieID: func(owner *felt.Address) trieutils.TrieID {
+			return trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), *owner)
 		},
 		hashFn:     crypto.Pedersen,
 		buildOldFn: trie.NewTriePedersen,
 	},
-}
-
-// randomLeaves generates n distinct leaf key-value pairs using a fixed seed,
-// with keys spread across the full 251-bit felt range for structural variety.
-func randomLeaves(n int, seed int64) leafMap {
-	rng := rand.New(rand.NewSource(seed))
-	leaves := make(leafMap, n)
-	var kb, vb [32]byte
-	for len(leaves) < n {
-		rng.Read(kb[:])
-		rng.Read(vb[:])
-		// Clear the top 5 bits so all keys are safely below the StarkNet prime (~2^251+δ).
-		kb[0] &= 0x07
-		k := felt.FromBytes[felt.Felt](kb[:])
-		v := felt.FromBytes[felt.Felt](vb[:])
-		leaves[k] = v
-	}
-	return leaves
 }
 
 var transcoderCases = []struct {
@@ -122,7 +102,7 @@ var transcoderCases = []struct {
 		}
 		return leaves
 	}()},
-	{"random 1000 leaves", randomLeaves(1000, 42)},
+	{"random 1000 leaves", randomLeaves(1000)},
 }
 
 func TestMigrate_FreshDBIsNoOp(t *testing.T) {
@@ -143,7 +123,7 @@ func TestMigrate_FreshDBIsNoOp(t *testing.T) {
 }
 
 func TestMigrate_RunsWhenOldDataPresent(t *testing.T) {
-	leaves := randomLeaves(100, 7)
+	leaves := randomLeaves(100)
 	memDB := buildFullDB(t, leaves)
 
 	require.True(t, bucketHasKeys(t, memDB, db.ClassesTrie), "precondition: DB has old-format data")
@@ -187,7 +167,7 @@ func TestMigrationEndToEnd(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			prefix := c.tc.oldBuildPrefix(c.tc.owner)
+			prefix := c.tc.oldBuildPrefix(&c.tc.owner)
 
 			migratedDB := memory.New()
 			buildDeprecatedTrie(t, migratedDB, c.leaves, c.tc.buildOldFn, prefix)
@@ -198,7 +178,7 @@ func TestMigrationEndToEnd(t *testing.T) {
 
 			nativeDB := memory.New()
 			buildTrie(t, nativeDB, c.leaves,
-				c.tc.newTrieID(c.tc.owner), c.tc.hashFn, c.tc.newBucket)
+				c.tc.newTrieID(&c.tc.owner), c.tc.hashFn, c.tc.newBucket)
 
 			assert.Equal(t,
 				allKeysUnder(t, nativeDB, c.tc.newBucket),
@@ -213,7 +193,7 @@ func TestMigrationEndToEnd(t *testing.T) {
 // faked by copying the reference DB's new-format class-trie keys into the
 // partial DB before running migration.
 func TestMigrationIsResumable(t *testing.T) {
-	leaves := randomLeaves(1000, 42)
+	leaves := randomLeaves(1000)
 
 	// Reference: full migration from scratch.
 	refDB := buildFullDB(t, leaves)
@@ -245,22 +225,119 @@ func TestMigrationIsResumable(t *testing.T) {
 	}
 }
 
+// TestMigrationMultiStorageOwners exercises enumerateStorageTries across
+// multiple owners (scanTrie's prefix-leave path) and keeps all 4 ingestor
+// workers busy by giving them 7 tries to chew through (2 global + 5 storage).
+func TestMigrationMultiStorageOwners(t *testing.T) {
+	leaves := randomLeaves(50)
+
+	migratedDB := memory.New()
+	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
+	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen, db.StateTrie.Key())
+
+	owners := []felt.Address{
+		felt.FromUint64[felt.Address](1),
+		felt.FromUint64[felt.Address](2),
+		felt.FromUint64[felt.Address](3),
+		felt.FromUint64[felt.Address](42),
+		felt.FromUint64[felt.Address](999),
+	}
+	for _, owner := range owners {
+		ownerBytes := owner.Bytes()
+		buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen,
+			db.ContractStorage.Key(ownerBytes[:]))
+	}
+
+	_, err := (&trielib.Migrator{}).Migrate(
+		context.Background(),
+		migratedDB,
+		nil,
+		log.NewNopZapLogger(),
+	)
+	require.NoError(t, err)
+
+	// Per-owner native build → assert every native key is present (with the
+	migratedAll := allKeysUnder(t, migratedDB, db.ContractTrieStorage)
+	for _, owner := range owners {
+		nativeDB := memory.New()
+		id := trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), owner)
+		buildTrie(t, nativeDB, leaves, id, crypto.Pedersen, db.ContractTrieStorage)
+		for k, v := range allKeysUnder(t, nativeDB, db.ContractTrieStorage) {
+			gotV, ok := migratedAll[k]
+			require.True(t, ok, "owner %v missing key", owner)
+			assert.Equal(t, v, gotV, "owner %v value differs at key", owner)
+		}
+	}
+
+	// Old buckets fully drained.
+	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
+		assert.False(t, bucketHasKeys(t, migratedDB, bucket),
+			"old bucket %v should be drained", bucket)
+	}
+}
+
+// TestMigrationIdempotent verifies that a successful migration is a no-op on
+// a second run: needsMigration sees the wiped deprecated buckets and returns
+// early without touching the migrated state.
+func TestMigrationIsNoopOnSecondRun(t *testing.T) {
+	leaves := randomLeaves(100)
+	memDB := buildFullDB(t, leaves)
+
+	state, err := (&trielib.Migrator{}).Migrate(
+		context.Background(),
+		memDB,
+		nil,
+		log.NewNopZapLogger(),
+	)
+	require.NoError(t, err)
+	require.Nil(t, state)
+	snapshot := snapshotAllBuckets(t, memDB,
+		db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage)
+
+	state, err = (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+	require.Equal(t, snapshot,
+		snapshotAllBuckets(t, memDB,
+			db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage),
+		"second Migrate call must not change state")
+}
+
+// TestMigrationCancelledContext verifies that a pre-cancelled ctx surfaces
+// context.Canceled with the shouldRerun sentinel, and that a fresh ctx
+// completes the migration normally afterwards.
+func TestMigrationCancelledContext(t *testing.T) {
+	leaves := randomLeaves(100)
+	memDB := buildFullDB(t, leaves)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	state, err := (&trielib.Migrator{}).Migrate(ctx, memDB, nil, log.NewNopZapLogger())
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotNil(t, state, "shouldRerun sentinel must not be nil")
+	require.Empty(t, state, "shouldRerun is a non-nil empty slice")
+
+	state, err = (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+}
+
 // buildFullDB creates an old-format DB populated with a class, a contract, and
 // one storage trie, all built from the same leaf set.
 func buildFullDB(t *testing.T, leaves leafMap) db.KeyValueStore {
 	t.Helper()
-	database := memory.New()
+	memDB := memory.New()
 
-	buildDeprecatedTrie(t, database, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
-	buildDeprecatedTrie(t, database, leaves, trie.NewTriePedersen, db.StateTrie.Key())
-
-	var ownerFelt felt.Felt
-	ownerFelt.SetUint64(42)
-	ownerBytes := ownerFelt.Bytes()
+	owner := felt.FromUint64[felt.Address](42)
+	ownerBytes := owner.Bytes()
 	storagePrefix := db.ContractStorage.Key(ownerBytes[:])
-	buildDeprecatedTrie(t, database, leaves, trie.NewTriePedersen, storagePrefix)
 
-	return database
+	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
+	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, db.StateTrie.Key())
+	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, storagePrefix)
+
+	return memDB
 }
 
 func buildDeprecatedTrie(
@@ -287,9 +364,6 @@ func buildDeprecatedTrie(
 	return root
 }
 
-// buildTrie builds a trie2 natively from leaves and persists it to kvStore.
-// newBucket distinguishes class trie (db.ClassTrie) from contract/storage tries —
-// it controls which Update argument the NodeSet is passed as.
 func buildTrie(
 	t *testing.T,
 	kvStore db.KeyValueStore,
@@ -321,104 +395,15 @@ func buildTrie(
 	require.NoError(t, batch.Write())
 }
 
-// TestMigrationMultiStorageOwners exercises enumerateStorageTries across
-// multiple owners (scanTrie's prefix-leave path) and keeps all 4 ingestor
-// workers busy by giving them 7 tries to chew through (2 global + 5 storage).
-func TestMigrationMultiStorageOwners(t *testing.T) {
-	leaves := randomLeaves(50, 7)
-
-	migratedDB := memory.New()
-	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
-	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen, db.StateTrie.Key())
-
-	owners := []felt.Address{
-		felt.FromUint64[felt.Address](1),
-		felt.FromUint64[felt.Address](2),
-		felt.FromUint64[felt.Address](3),
-		felt.FromUint64[felt.Address](42),
-		felt.FromUint64[felt.Address](999),
+func randomLeaves(n int) leafMap {
+	leaves := make(leafMap, n)
+	for len(leaves) < n {
+		var k, v felt.Felt
+		k.SetRandom()
+		v.SetRandom()
+		leaves[k] = v
 	}
-	for _, owner := range owners {
-		ownerFelt := felt.Felt(owner)
-		ownerBytes := ownerFelt.Bytes()
-		buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen,
-			db.ContractStorage.Key(ownerBytes[:]))
-	}
-
-	_, err := (&trielib.Migrator{}).Migrate(
-		context.Background(),
-		migratedDB,
-		nil,
-		log.NewNopZapLogger(),
-	)
-	require.NoError(t, err)
-
-	// Per-owner native build → assert every native key is present (with the
-	// same value) under the merged migrated view.
-	migratedAll := allKeysUnder(t, migratedDB, db.ContractTrieStorage)
-	for _, owner := range owners {
-		nativeDB := memory.New()
-		id := trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), owner)
-		buildTrie(t, nativeDB, leaves, id, crypto.Pedersen, db.ContractTrieStorage)
-		for k, v := range allKeysUnder(t, nativeDB, db.ContractTrieStorage) {
-			gotV, ok := migratedAll[k]
-			require.True(t, ok, "owner %v missing key", owner)
-			assert.Equal(t, v, gotV, "owner %v value differs at key", owner)
-		}
-	}
-
-	// Old buckets fully drained.
-	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
-		assert.False(t, bucketHasKeys(t, migratedDB, bucket),
-			"old bucket %v should be drained", bucket)
-	}
-}
-
-// TestMigrationIdempotent verifies that a successful migration is a no-op on
-// a second run: needsMigration sees the wiped deprecated buckets and returns
-// early without touching the migrated state.
-func TestMigrationIsNoopOnSecondRun(t *testing.T) {
-	leaves := randomLeaves(100, 11)
-	memDB := buildFullDB(t, leaves)
-
-	state, err := (&trielib.Migrator{}).Migrate(
-		context.Background(),
-		memDB,
-		nil,
-		log.NewNopZapLogger(),
-	)
-	require.NoError(t, err)
-	require.Nil(t, state)
-	snapshot := snapshotAllBuckets(t, memDB,
-		db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage)
-
-	state, err = (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
-	require.NoError(t, err)
-	require.Nil(t, state)
-	require.Equal(t, snapshot,
-		snapshotAllBuckets(t, memDB,
-			db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage),
-		"second Migrate call must not change state")
-}
-
-// TestMigrationCancelledContext verifies that a pre-cancelled ctx surfaces
-// context.Canceled with the shouldRerun sentinel, and that a fresh ctx
-// completes the migration normally afterwards.
-func TestMigrationCancelledContext(t *testing.T) {
-	leaves := randomLeaves(100, 13)
-	memDB := buildFullDB(t, leaves)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	state, err := (&trielib.Migrator{}).Migrate(ctx, memDB, nil, log.NewNopZapLogger())
-	require.ErrorIs(t, err, context.Canceled)
-	require.NotNil(t, state, "shouldRerun sentinel must not be nil")
-	require.Empty(t, state, "shouldRerun is a non-nil empty slice")
-
-	state, err = (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
-	require.NoError(t, err)
-	require.Nil(t, state)
+	return leaves
 }
 
 func snapshotAllBuckets(t *testing.T, r db.KeyValueReader, buckets ...db.Bucket) map[string][]byte {
