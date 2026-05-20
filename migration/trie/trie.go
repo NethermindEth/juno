@@ -35,6 +35,34 @@ var (
 
 var deprecatedTrieBuckets = []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
 
+// Migrator converts every deprecated Starknet trie on disk into the
+// equivalent trie2 layout used by the new state:
+//
+//	ClassesTrie     ─→ ClassTrie             (Poseidon)
+//	StateTrie       ─→ ContractTrieContract  (Pedersen)
+//	ContractStorage ─→ ContractTrieStorage   (Pedersen, per contract owner)
+//
+// Each deprecated trie is enumerated (its bucket holds one root-path entry
+// plus N node entries), then walked in DFS order; every visited node is
+// re-encoded into the new format and written to its destination bucket in
+// the same batch. After every trie completes successfully, the three
+// deprecated buckets are wiped via DeleteRange.
+//
+// The pipeline runs IngestorCount worker goroutines, each pulling one trie
+// at a time from the enumeration source, plus a single committer that
+// flushes filled batches to disk. A semaphore caps in-flight batches at
+// IngestorCount * 2. See migrateTrie for the per-trie traversal.
+//
+// Re-run safe: every trie's first action checks for its new-format root
+// key; if present, the trie is treated as already migrated and skipped.
+// A subsequent run after a crash picks up where the previous one stopped —
+// partially migrated tries either have a root key (skipped on the next
+// pass) or don't (re-migrated from scratch; the deprecated source data is
+// still present because the trailing wipe runs only on full success).
+//
+// Cancellation: every flush and every channel send checks ctx.Done. On
+// cancel, Migrate returns the shouldRerun sentinel with ctx.Err(); the
+// migration runner re-invokes on the next process start.
 type Migrator struct{}
 
 var _ migration.Migration = (*Migrator)(nil)
@@ -257,7 +285,7 @@ func scanTrie(it db.Iterator, prefix []byte) (trie.BitArray, int, error) {
 			if err != nil {
 				return trie.BitArray{}, 0, err
 			}
-			parsedRootPath, err := parseRootPath(val)
+			parsedRootPath, err := parseDeprecatedPath(val)
 			if err != nil {
 				return trie.BitArray{}, 0, err
 			}
@@ -268,15 +296,4 @@ func scanTrie(it db.Iterator, prefix []byte) (trie.BitArray, int, error) {
 		it.Next()
 	}
 	return rootPath, count, nil
-}
-
-func parseRootPath(val []byte) (trie.BitArray, error) {
-	if len(val) == 0 {
-		return trie.BitArray{}, nil
-	}
-	var ba trie.BitArray
-	if err := ba.UnmarshalBinary(val); err != nil {
-		return trie.BitArray{}, err
-	}
-	return ba, nil
 }
