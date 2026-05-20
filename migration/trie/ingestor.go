@@ -11,8 +11,6 @@ import (
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 
-const maxOldKeySize = 1 + 32 + 1 + 32
-
 type task struct {
 	batch db.Batch
 	tries int
@@ -76,8 +74,6 @@ func (i *ingestor) Done(index int, outputs chan<- task) error {
 	return nil
 }
 
-// flush rotates t.batch if it's hit target size: sends the current batch
-// downstream and acquires a fresh one. Mutates t in place.
 func (i *ingestor) flush(t *task, outputs chan<- task) error {
 	if t.batch.Size() < targetBatchByteSize {
 		return nil
@@ -93,10 +89,90 @@ func (i *ingestor) flush(t *task, outputs chan<- task) error {
 	return nil
 }
 
-// migrateTrie writes the new-format representation of a single deprecated
-// trie into t.batch. It walks the deprecated trie via DFS, emits value /
-// binary / edge nodes through the hashScheduler, and calls flush at each
-// step to rotate the batch when it hits target size.
+// migrateTrie reads one deprecated trie and writes its equivalent into the
+// new layout. Three things differ between the formats: how nodes are keyed
+// on disk, how nodes are encoded, and how path compression is expressed.
+//
+// On-disk keying
+// --------------
+// Both layouts share a common prefix; only the suffix differs:
+//
+//	common (both)              suffix
+//	─────────────              ─────────────────────────────────────────
+//	bucket [|| owner]    →     path-length-byte || path-bytes     (deprecated)
+//	                     →     nodeType-byte || path-length-byte || path-bytes
+//	                                                              (new)
+//
+// The owner is present only for storage tries. The new layout's extra
+// nodeType byte splits leaves from internal nodes into two index slices
+// within the same bucket — the new-state lookups use this to short-circuit
+// between leaf reads and internal-node traversals.
+//
+// Node encoding
+// -------------
+// Both layouts are byte streams. The deprecated format keeps each node
+// self-contained — internal binary nodes embed the compressed paths to
+// their children inline:
+//
+//	leaf       value
+//	binary     value || left-child-path || right-child-path
+//	           [|| left-hash || right-hash, optional cache, ignored here]
+//
+// "value" is the node's own Starknet trie hash, or the stored value when
+// the node is a leaf.
+//
+// The new format gives each node an explicit type tag and moves path
+// compression into separate edge nodes:
+//
+//	value      value
+//	binary     0x01 || left-edge-hash || right-edge-hash
+//	edge       0x02 || child-hash || encoded-path-segment
+//
+// Path compression
+// ----------------
+// This is the key structural change. The deprecated format compresses
+// paths inside the parent binary node (via its embedded child-path
+// fields). The new format moves compression into dedicated edge nodes
+// sitting between binary nodes and their children:
+//
+//	deprecated:   binary ──────── child-path ────────► child
+//	new:          binary ──► edge ──► child
+//
+// The deprecated root marker — a single entry at the bare bucket prefix
+// recording the root's path — disappears in the new layout. Whatever the
+// deprecated root embedded becomes either a direct binary/leaf at the
+// empty path or, when the deprecated root path was itself non-empty, an
+// edge node at the empty path that points "down" to the real root.
+//
+// Traversal
+// ---------
+// The migrator walks the deprecated trie depth-first, decoding one node at
+// a time. A leaf becomes a value node at the same path. An internal binary
+// node, after both subtrees have been visited, becomes a binary node plus
+// up to two edge nodes (one per non-empty child segment). If the trie's
+// stored root path is itself non-empty — meaning the deprecated root
+// embeds a compression — a single edge node at the empty path is written
+// after the traversal completes, replacing the root marker.
+//
+// Hashes
+// ------
+// Starknet trie hashes:
+//
+//	leaf       value
+//	binary     hashFn(left-edge-hash, right-edge-hash)
+//	edge       hashFn(child-hash, path-segment-as-felt) + segment-length
+//
+// Zero-length edges short-circuit to the bare child-hash — the convention
+// for absent edges. Class tries hash with Poseidon; contract and storage
+// tries with Pedersen.
+//
+// For small tries every edge hash is computed inline. Above the threshold,
+// edge-hash jobs are batched and dispatched to a worker pool for parallel
+// computation; the scheduler preserves the original job order so the
+// persisted bytes are byte-identical to a natively-built trie2.
+//
+// In-flight batches flush at target size; cancellation is observed at
+// every flush and every channel send.
 func (i *ingestor) migrateTrie(t *task, desc TrieDesc, outputs chan<- task) error {
 	if desc.NodeCount == 0 {
 		return nil
@@ -113,16 +189,13 @@ func (i *ingestor) migrateTrie(t *task, desc TrieDesc, outputs chan<- task) erro
 		return err
 	}
 	if desc.RootPath.Len() > 0 {
-		if err := writeRootEdge(desc.RootPath, rootHash, sched, t.batch); err != nil {
+		if err := writeRootEdgeNode(desc.RootPath, rootHash, sched, t.batch); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// traverse walks the deprecated trie rooted at oldPath in DFS order, writing
-// the new-format equivalents into t.batch via sched. Returns the hash of
-// the visited subtree — used by the caller to wire up parent binary nodes.
 func (i *ingestor) traverse(
 	t *task,
 	outputs chan<- task,
@@ -138,7 +211,7 @@ func (i *ingestor) traverse(
 
 	if parsed.isLeaf {
 		newPath := toNewPath(&oldPath)
-		if err := processLeaf(newPath, &parsed.value, sched, t.batch); err != nil {
+		if err := writeLeafNode(newPath, &parsed.value, sched, t.batch); err != nil {
 			return felt.Felt{}, err
 		}
 		if err := i.flush(t, outputs); err != nil {
@@ -196,48 +269,36 @@ type parsedNode struct {
 	isLeaf bool
 }
 
-// readNode loads the deprecated-format node at (prefix, oldPath) and returns
-// its parsed fields. The caller owns the result; this function does not
-// mutate any input.
 func readNode(r db.KeyValueReader, prefix []byte, oldPath *trie.BitArray) (parsedNode, error) {
-	var arr [maxOldKeySize]byte
+	var arr [maxNodeKeySize]byte
 	n := copy(arr[:], prefix)
 	n += encodeOldPath(oldPath, arr[n:])
 	var node parsedNode
-	err := r.Get(arr[:n], func(val []byte) error {
-		var perr error
-		node, perr = parseNodeData(val)
-		return perr
-	})
+	err := r.Get(arr[:n], node.UnmarshalBinary)
 	return node, err
 }
 
-// parseNodeData decodes a deprecated-format node's raw bytes:
-// felt(value) [ BitArray(left) BitArray(right) [ felt felt ] ]
-// The trailing left/right hashes are ignored — the migrator re-derives hashes
-// itself — so only the fields it actually needs are returned.
-func parseNodeData(data []byte) (parsedNode, error) {
-	var n parsedNode
+func (n *parsedNode) UnmarshalBinary(data []byte) error {
 	if len(data) < felt.Bytes {
-		return n, fmt.Errorf("trie: node data too short (%d bytes)", len(data))
+		return fmt.Errorf("trie: node data too short (%d bytes)", len(data))
 	}
 	n.value = felt.FromBytes[felt.Felt](data[:felt.Bytes])
 	data = data[felt.Bytes:]
 	if len(data) == 0 {
 		n.isLeaf = true
-		return n, nil
+		return nil
 	}
 	if err := n.left.UnmarshalBinary(data); err != nil {
-		return n, fmt.Errorf("trie: unmarshalling left path: %w", err)
+		return fmt.Errorf("trie: unmarshalling left path: %w", err)
 	}
 	data = data[n.left.EncodedLen():]
 	if err := n.right.UnmarshalBinary(data); err != nil {
-		return n, fmt.Errorf("trie: unmarshalling right path: %w", err)
+		return fmt.Errorf("trie: unmarshalling right path: %w", err)
 	}
-	return n, nil
+	return nil
 }
 
-func processLeaf(
+func writeLeafNode(
 	path trieutils.Path,
 	value *felt.Felt,
 	sched *hashScheduler,
@@ -268,7 +329,7 @@ func processBinary(
 	}, batch)
 }
 
-func writeRootEdge(
+func writeRootEdgeNode(
 	rootPath *trie.BitArray,
 	childHash felt.Felt,
 	sched *hashScheduler,
@@ -276,7 +337,7 @@ func writeRootEdge(
 ) error {
 	seg := toNewPath(rootPath)
 	var buf [edgeNodeMaxSize]byte
-	n := encodeEdgeNodeInto(buf[:], &childHash, &seg)
+	n := encodeEdgeNode(buf[:], &childHash, &seg)
 	return trieutils.WriteNodeByPath(
 		batch,
 		sched.bucket,
