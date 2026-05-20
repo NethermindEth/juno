@@ -97,6 +97,12 @@ func runMigration(
 		return shouldRerun, err
 	}
 
+	var allNodes uint64
+	for _, d := range tries {
+		allNodes += uint64(d.NodeCount)
+	}
+	allTries := uint64(len(tries))
+
 	src := pipeline.Source(func(yield func(TrieDesc) bool) {
 		for _, d := range tries {
 			if !yield(d) {
@@ -108,7 +114,7 @@ func runMigration(
 	committed := pipeline.New(
 		ingested,
 		1,
-		newCommitter(logger, batchSem),
+		newCommitter(logger, batchSem, allTries, allNodes),
 	)
 
 	_, wait := committed.Run(ctx)
@@ -143,12 +149,12 @@ func wipeDeprecatedBuckets(database db.KeyValueRangeDeleter) error {
 }
 
 type TrieDesc struct {
-	OldBucket db.Bucket
-	NewBucket db.Bucket
-	Owner     felt.Address
-	HashFn    crypto.HashFn
-	NodeCount int
-	RootPath  *trie.BitArray
+	DeprecatedTrieBucket db.Bucket
+	TrieBucket           db.Bucket
+	Owner                felt.Address
+	HashFn               crypto.HashFn
+	NodeCount            int
+	RootPath             *trie.BitArray
 }
 
 func enumerateTries(r db.KeyValueReader) ([]TrieDesc, error) {
@@ -188,86 +194,81 @@ func enumerateGlobalTrie(
 		return TrieDesc{}, fmt.Errorf("opening iterator for bucket %v: %w", oldBucket, err)
 	}
 	defer it.Close()
+	it.First()
 
-	var rootPath *trie.BitArray
-	count := 0
-	for valid := it.First(); valid; valid = it.Next() {
-		key := it.Key()
-		if len(key) == len(prefix) {
-			val, verr := it.Value()
-			if verr != nil {
-				return TrieDesc{}, fmt.Errorf("reading root path for bucket %v: %w", oldBucket, verr)
-			}
-			rp, perr := parseRootPath(val)
-			if perr != nil {
-				return TrieDesc{}, fmt.Errorf("parsing root path for bucket %v: %w", oldBucket, perr)
-			}
-			rootPath = rp
-		} else {
-			count++
-		}
+	rootPath, count, err := scanTrie(it, prefix)
+	if err != nil {
+		return TrieDesc{}, fmt.Errorf("enumerating bucket %v: %w", oldBucket, err)
 	}
 	return TrieDesc{
-		OldBucket: oldBucket,
-		NewBucket: newBucket,
-		HashFn:    hashFn,
-		NodeCount: count,
-		RootPath:  rootPath,
+		DeprecatedTrieBucket: oldBucket,
+		TrieBucket:           newBucket,
+		HashFn:               hashFn,
+		NodeCount:            count,
+		RootPath:             rootPath,
 	}, nil
 }
 
 func enumerateStorageTries(r db.KeyValueReader) ([]TrieDesc, error) {
-	storagePrefix := db.ContractStorage.Key()
-	it, err := r.NewIterator(storagePrefix, true)
+	it, err := r.NewIterator(db.ContractStorage.Key(), true)
 	if err != nil {
 		return nil, fmt.Errorf("opening storage iterator: %w", err)
 	}
 	defer it.Close()
+	it.First()
 
 	var descs []TrieDesc
-	for valid := it.First(); valid; valid = it.Valid() {
+	for it.Valid() {
 		key := it.Key()
 		if len(key) < 1+felt.Bytes {
 			it.Next()
 			continue
 		}
-		ownerFelt := felt.FromBytes[felt.Felt](key[1 : 1+felt.Bytes])
-		owner := felt.Address(ownerFelt)
-		ownerBytes := ownerFelt.Bytes()
+		owner := felt.FromBytes[felt.Address](key[1 : 1+felt.Bytes])
+		ownerBytes := owner.Bytes()
 		ownerPrefix := db.ContractStorage.Key(ownerBytes[:])
 
-		var rootPath *trie.BitArray
-		count := 0
-		for it.Valid() {
-			k := it.Key()
-			if !bytes.HasPrefix(k, ownerPrefix) {
-				break
-			}
-			if len(k) == len(ownerPrefix) {
-				val, verr := it.Value()
-				if verr != nil {
-					return nil, fmt.Errorf("reading root path for storage owner %s: %w", &ownerFelt, verr)
-				}
-				rp, perr := parseRootPath(val)
-				if perr != nil {
-					return nil, fmt.Errorf("parsing root path for storage owner %s: %w", &ownerFelt, perr)
-				}
-				rootPath = rp
-			} else {
-				count++
-			}
-			it.Next()
+		rootPath, count, err := scanTrie(it, ownerPrefix)
+		if err != nil {
+			return nil, fmt.Errorf("enumerating storage owner %s: %w", &owner, err)
 		}
 		descs = append(descs, TrieDesc{
-			OldBucket: db.ContractStorage,
-			NewBucket: db.ContractTrieStorage,
-			Owner:     owner,
-			HashFn:    crypto.Pedersen,
-			NodeCount: count,
-			RootPath:  rootPath,
+			DeprecatedTrieBucket: db.ContractStorage,
+			TrieBucket:           db.ContractTrieStorage,
+			Owner:                owner,
+			HashFn:               crypto.Pedersen,
+			NodeCount:            count,
+			RootPath:             rootPath,
 		})
+		// scanTrie leaves the iterator positioned past this owner's range.
 	}
 	return descs, nil
+}
+
+func scanTrie(it db.Iterator, prefix []byte) (*trie.BitArray, int, error) {
+	var rootPath *trie.BitArray
+	count := 0
+	for it.Valid() {
+		key := it.Key()
+		if !bytes.HasPrefix(key, prefix) {
+			return rootPath, count, nil
+		}
+		if len(key) == len(prefix) {
+			val, err := it.Value()
+			if err != nil {
+				return nil, 0, err
+			}
+			parsedRootPath, err := parseRootPath(val)
+			if err != nil {
+				return nil, 0, err
+			}
+			rootPath = parsedRootPath
+		} else {
+			count++
+		}
+		it.Next()
+	}
+	return rootPath, count, nil
 }
 
 func parseRootPath(val []byte) (*trie.BitArray, error) {
