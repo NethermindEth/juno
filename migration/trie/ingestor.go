@@ -11,22 +11,12 @@ import (
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 
-const (
-	dfsStackCap   = 251
-	maxOldKeySize = 1 + 32 + 1 + 32
-)
-
-type traverseStackState uint8
-
-const (
-	readNodeState traverseStackState = iota
-	leftSubtreeDoneState
-	rightSubtreeDoneState
-)
+const maxOldKeySize = 1 + 32 + 1 + 32
 
 type task struct {
 	batch db.Batch
 	tries int
+	nodes int
 }
 
 type ingestor struct {
@@ -35,7 +25,6 @@ type ingestor struct {
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
 	pool           *hashWorkerPool
 	tasks          [IngestorCount]task
-	dfsStacks      [IngestorCount][]dfsFrame
 }
 
 func newIngestor(
@@ -52,26 +41,25 @@ func newIngestor(
 	}
 	for i := range IngestorCount {
 		in.tasks[i].batch = batchSemaphore.GetBlocking()
-		in.dfsStacks[i] = make([]dfsFrame, 0, dfsStackCap)
 	}
 	return in
 }
 
 func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- task) error {
-	done, err := hasDestRoot(i.database, desc.NewBucket, &desc.Owner)
+	done, err := hasDestRoot(i.database, desc.TrieBucket, &desc.Owner)
 	if err != nil {
-		return fmt.Errorf("hasDestRoot(%v, %x): %w", desc.NewBucket, desc.Owner, err)
-	}
-	if done {
-		return nil
+		return fmt.Errorf("hasDestRoot(%v, %x): %w", desc.TrieBucket, desc.Owner, err)
 	}
 
 	t := &i.tasks[index]
+	if done {
+		// Already migrated — credit the counts so progress display reaches 100% on resume.
+		t.tries++
+		t.nodes += desc.NodeCount
+		return i.flush(t, outputs)
+	}
 
-	i.dfsStacks[index], err = migrateTrie(
-		i.database, desc, i.pool, t, i.flush, outputs, i.dfsStacks[index],
-	)
-	if err != nil {
+	if err := migrateTrie(i.database, desc, i.pool, t, i.flush, outputs); err != nil {
 		return err
 	}
 
@@ -97,16 +85,17 @@ func (i *ingestor) flush(t *task, outputs chan<- task) error {
 	select {
 	case <-i.ctx.Done():
 		return i.ctx.Err()
-	case outputs <- task{batch: t.batch, tries: t.tries}:
+	case outputs <- task{batch: t.batch, tries: t.tries, nodes: t.nodes}:
 	}
 	t.tries = 0
+	t.nodes = 0
 	t.batch = i.batchSemaphore.GetBlocking()
 	return nil
 }
 
 // migrateTrie writes the new-format representation of a single deprecated
-// trie into t.batch. It walks the deprecated trie in DFS order, emitting
-// value/binary/edge nodes via the hashScheduler, and calls flush once per
+// trie into t.batch. It walks the deprecated trie via DFS, emits value /
+// binary / edge nodes through the hashScheduler, and calls flush at each
 // step to rotate the batch when it hits target size.
 func migrateTrie(
 	r db.KeyValueReader,
@@ -115,116 +104,77 @@ func migrateTrie(
 	t *task,
 	flush func(*task, chan<- task) error,
 	outputs chan<- task,
-	stack []dfsFrame,
-) ([]dfsFrame, error) {
-	stack = stack[:0]
+) error {
 	if desc.RootPath == nil {
-		return stack, nil
+		return nil
 	}
 	parallelDispatch := desc.NodeCount >= SmallTrieThreshold
-	prefix := oldTriePrefix(desc)
-	sched := newHashScheduler(desc.HashFn, parallelDispatch, desc.NewBucket, desc.Owner, pool)
+	prefix := deprecatedTriePrefix(desc)
+	sched := newHashScheduler(desc.HashFn, parallelDispatch, desc.TrieBucket, desc.Owner, pool)
 
-	rootHash, stack, err := traverse(r, prefix, desc.RootPath, sched, t, flush, outputs, stack)
+	rootHash, err := traverse(r, prefix, *desc.RootPath, sched, t, flush, outputs)
 	if err != nil {
-		return stack, err
+		return err
 	}
 	if err := sched.sync(t.batch); err != nil {
-		return stack, err
+		return err
 	}
 	if desc.RootPath.Len() > 0 {
 		if err := writeRootEdge(desc.RootPath, rootHash, sched, t.batch); err != nil {
-			return stack, err
+			return err
 		}
 	}
-	return stack, nil
+	return nil
 }
 
-type dfsFrame struct {
-	oldPath  trie.BitArray
-	left     trie.BitArray
-	right    trie.BitArray
-	value    felt.Felt
-	leftHash felt.Felt
-	isLeaf   bool
-	state    traverseStackState
-}
-
-type parsedNode struct {
-	value  felt.Felt
-	left   trie.BitArray
-	right  trie.BitArray
-	isLeaf bool
-}
-
+// traverse walks the deprecated trie rooted at oldPath in DFS order, writing
+// the new-format equivalents into t.batch via sched. Returns the hash of
+// the visited subtree — used by the caller to wire up parent binary nodes.
 func traverse(
 	r db.KeyValueReader,
 	prefix []byte,
-	start *trie.BitArray,
+	oldPath trie.BitArray,
 	sched *hashScheduler,
 	t *task,
 	flush func(*task, chan<- task) error,
 	outputs chan<- task,
-	stack []dfsFrame,
-) (felt.Felt, []dfsFrame, error) {
-	stack = stack[:1]
-	stack[0] = dfsFrame{oldPath: *start}
-	var lastHash felt.Felt
-	for len(stack) > 0 {
-		top := &stack[len(stack)-1]
-		switch top.state {
-		case readNodeState:
-			parsed, err := readNode(r, prefix, &top.oldPath)
-			if err != nil {
-				return felt.Felt{}, stack, err
-			}
-			top.value = parsed.value
-			top.left = parsed.left
-			top.right = parsed.right
-			top.isLeaf = parsed.isLeaf
-			if top.isLeaf {
-				newPath := toNewPath(&top.oldPath)
-				if err := processLeaf(newPath, &top.value, sched, t.batch); err != nil {
-					return felt.Felt{}, stack, err
-				}
-				lastHash = top.value
-				stack = stack[:len(stack)-1]
-			} else {
-				top.state = leftSubtreeDoneState
-				stack = pushFrame(stack, top.left)
-			}
-		case leftSubtreeDoneState:
-			top.leftHash = lastHash
-			top.state = rightSubtreeDoneState
-			stack = pushFrame(stack, top.right)
-		case rightSubtreeDoneState:
-			newPath := toNewPath(&top.oldPath)
-			if err := processBinary(
-				newPath,
-				&top.left,
-				&top.right,
-				top.leftHash,
-				lastHash,
-				sched,
-				t.batch,
-			); err != nil {
-				return felt.Felt{}, stack, err
-			}
-			lastHash = top.value
-			stack = stack[:len(stack)-1]
+) (felt.Felt, error) {
+	parsed, err := readNode(r, prefix, &oldPath)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	t.nodes++
+
+	if parsed.isLeaf {
+		newPath := toNewPath(&oldPath)
+		if err := processLeaf(newPath, &parsed.value, sched, t.batch); err != nil {
+			return felt.Felt{}, err
 		}
 		if err := flush(t, outputs); err != nil {
-			return felt.Felt{}, stack, err
+			return felt.Felt{}, err
 		}
+		return parsed.value, nil
 	}
-	return lastHash, stack, nil
-}
 
-func pushFrame(stack []dfsFrame, oldPath trie.BitArray) []dfsFrame {
-	n := len(stack)
-	stack = stack[:n+1]
-	stack[n] = dfsFrame{oldPath: oldPath}
-	return stack
+	leftHash, err := traverse(r, prefix, parsed.left, sched, t, flush, outputs)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	rightHash, err := traverse(r, prefix, parsed.right, sched, t, flush, outputs)
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	newPath := toNewPath(&oldPath)
+	if err := processBinary(
+		newPath, &parsed.left, &parsed.right, leftHash, rightHash, sched, t.batch,
+	); err != nil {
+		return felt.Felt{}, err
+	}
+	if err := flush(t, outputs); err != nil {
+		return felt.Felt{}, err
+	}
+	return parsed.value, nil
 }
 
 func encodeOldPath(path *trie.BitArray, dst []byte) int {
@@ -236,9 +186,16 @@ func encodeOldPath(path *trie.BitArray, dst []byte) int {
 	return int(activeBytes) + 1
 }
 
+type parsedNode struct {
+	value  felt.Felt
+	left   trie.BitArray
+	right  trie.BitArray
+	isLeaf bool
+}
+
 // readNode loads the deprecated-format node at (prefix, oldPath) and returns
-// its parsed fields. The caller assigns the parsed values into its own state
-// (e.g. a DFS stack frame); this function does not mutate any input.
+// its parsed fields. The caller owns the result; this function does not
+// mutate any input.
 func readNode(r db.KeyValueReader, prefix []byte, oldPath *trie.BitArray) (parsedNode, error) {
 	var arr [maxOldKeySize]byte
 	n := copy(arr[:], prefix)
@@ -327,11 +284,17 @@ func writeRootEdge(
 	)
 }
 
-func oldTriePrefix(desc TrieDesc) []byte {
-	if desc.OldBucket == db.ContractStorage {
-		ownerFelt := felt.Felt(desc.Owner)
-		ownerBytes := ownerFelt.Bytes()
-		return desc.OldBucket.Key(ownerBytes[:])
+func deprecatedTriePrefix(desc TrieDesc) []byte {
+	switch desc.DeprecatedTrieBucket {
+	case db.ClassesTrie, db.StateTrie:
+		return desc.DeprecatedTrieBucket.Key()
+	case db.ContractStorage:
+		ownerBytes := desc.Owner.Bytes()
+		return desc.DeprecatedTrieBucket.Key(ownerBytes[:])
+	default:
+		panic(fmt.Sprintf(
+			"unexpected deprecated trie bucket %v",
+			desc.DeprecatedTrieBucket,
+		))
 	}
-	return desc.OldBucket.Key()
 }
