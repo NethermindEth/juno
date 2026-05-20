@@ -104,7 +104,7 @@ func TestProposalStore_Delete(t *testing.T) {
 	require.Nil(t, store.Get(key))
 }
 
-func TestProposalStore_DeleteByHeight(t *testing.T) {
+func TestProposalStore_DeleteUpToHeight(t *testing.T) {
 	store := &proposal.ProposalStore[starknet.Hash]{}
 
 	keyA1 := felt.FromUint64[starknet.Hash](10)
@@ -115,21 +115,31 @@ func TestProposalStore_DeleteByHeight(t *testing.T) {
 	store.Store(keyA2, buildResultAtHeight(7))
 	store.Store(keyB, buildResultAtHeight(8))
 
-	store.DeleteByHeight(types.Height(7))
+	store.DeleteUpToHeight(types.Height(7))
 
 	require.Nil(t, store.Get(keyA1))
 	require.Nil(t, store.Get(keyA2))
 	require.NotNil(t, store.Get(keyB))
 }
 
-func TestProposalStore_DeleteByHeight_UnknownHeightIsNoop(t *testing.T) {
+func TestProposalStore_DeleteUpToHeight_SweepsPriorHeights(t *testing.T) {
 	store := &proposal.ProposalStore[starknet.Hash]{}
-	key := felt.FromUint64[starknet.Hash](1)
-	store.Store(key, buildResultAtHeight(5))
 
-	store.DeleteByHeight(types.Height(99))
+	currentKey := felt.FromUint64[starknet.Hash](1)
+	stragglerKey := felt.FromUint64[starknet.Hash](2)
+	futureKey := felt.FromUint64[starknet.Hash](3)
 
-	require.NotNil(t, store.Get(key))
+	store.Store(currentKey, buildResultAtHeight(7))
+	store.DeleteUpToHeight(types.Height(7))
+
+	// A late store for the just-committed height slips in after cleanup.
+	store.Store(stragglerKey, buildResultAtHeight(7))
+	store.Store(futureKey, buildResultAtHeight(9))
+
+	store.DeleteUpToHeight(types.Height(8))
+
+	require.Nil(t, store.Get(stragglerKey))
+	require.NotNil(t, store.Get(futureKey))
 }
 
 func doNTimes(n int, f func(i int)) {

@@ -36,13 +36,13 @@ func (p *ProposalStore[H]) Delete(key H) {
 	p.underlying.Delete(key)
 }
 
-func (p *ProposalStore[H]) DeleteByHeight(height types.Height) {
+func (p *ProposalStore[H]) DeleteUpToHeight(height types.Height) {
 	p.underlying.Range(func(key, value any) bool {
 		buildResult, ok := value.(*builder.BuildResult)
 		if !ok {
 			return true
 		}
-		if types.Height(buildResult.PreConfirmed.Block.Number) == height {
+		if types.Height(buildResult.PreConfirmed.Block.Number) <= height {
 			p.underlying.Delete(key)
 		}
 		return true
