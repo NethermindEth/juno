@@ -239,18 +239,17 @@ func TestMigrationIsResumable(t *testing.T) {
 		return perr
 	}))
 	classDesc := TrieDesc{
-		OldBucket: db.ClassesTrie,
-		NewBucket: db.ClassTrie,
-		HashFn:    crypto.Poseidon,
-		NodeCount: len(leaves),
-		RootPath:  classRootPath,
+		DeprecatedTrieBucket: db.ClassesTrie,
+		TrieBucket:           db.ClassTrie,
+		HashFn:               crypto.Poseidon,
+		NodeCount:            len(leaves),
+		RootPath:             classRootPath,
 	}
 
 	pool := newHashWorkerPool()
 	defer pool.close()
 	t1 := &task{batch: partialDB.NewBatch()}
-	stack := make([]dfsFrame, 0, dfsStackCap)
-	_, err = migrateTrie(partialDB, classDesc, pool, t1, nopFlush, nil, stack)
+	err = migrateTrie(partialDB, classDesc, pool, t1, nopFlush, nil)
 	require.NoError(t, err)
 	require.NoError(t, t1.batch.Write())
 
@@ -269,7 +268,7 @@ func TestMigrationIsResumable(t *testing.T) {
 	descsRemaining := collectTries(t, partialDB)
 	foundClass := false
 	for _, d := range descsRemaining {
-		if d.OldBucket == db.ClassesTrie {
+		if d.DeprecatedTrieBucket == db.ClassesTrie {
 			foundClass = true
 		}
 	}
@@ -408,18 +407,18 @@ func TestEnumerateTries_EmptyDBYieldsClassAndContractTries(t *testing.T) {
 	memDB := memory.New()
 	descs := collectTries(t, memDB)
 	require.Len(t, descs, 2)
-	assert.Equal(t, db.ClassesTrie, descs[0].OldBucket)
-	assert.Equal(t, db.StateTrie, descs[1].OldBucket)
+	assert.Equal(t, db.ClassesTrie, descs[0].DeprecatedTrieBucket)
+	assert.Equal(t, db.StateTrie, descs[1].DeprecatedTrieBucket)
 }
 
 func TestEnumerateTries_GlobalTriesPresent(t *testing.T) {
 	memDB := memory.New()
 	descs := collectTries(t, memDB)
 	hasClass := slices.ContainsFunc(descs, func(d TrieDesc) bool {
-		return d.OldBucket == db.ClassesTrie && d.NewBucket == db.ClassTrie
+		return d.DeprecatedTrieBucket == db.ClassesTrie && d.TrieBucket == db.ClassTrie
 	})
 	hasContract := slices.ContainsFunc(descs, func(d TrieDesc) bool {
-		return d.OldBucket == db.StateTrie && d.NewBucket == db.ContractTrieContract
+		return d.DeprecatedTrieBucket == db.StateTrie && d.TrieBucket == db.ContractTrieContract
 	})
 	assert.True(t, hasClass)
 	assert.True(t, hasContract)
@@ -440,8 +439,8 @@ func TestEnumerateTries_StorageTriesDiscovered(t *testing.T) {
 
 	storageCount := 0
 	for _, d := range descs {
-		if d.OldBucket == db.ContractStorage {
-			assert.Equal(t, db.ContractTrieStorage, d.NewBucket)
+		if d.DeprecatedTrieBucket == db.ContractStorage {
+			assert.Equal(t, db.ContractTrieStorage, d.TrieBucket)
 			storageCount++
 		}
 	}
@@ -458,7 +457,9 @@ func TestEnumerateTries_NodeCountIsCorrect(t *testing.T) {
 	descs := collectTries(t, memDB)
 	require.Len(t, descs, 3)
 
-	idx := slices.IndexFunc(descs, func(d TrieDesc) bool { return d.OldBucket == db.ContractStorage })
+	idx := slices.IndexFunc(descs, func(d TrieDesc) bool {
+		return d.DeprecatedTrieBucket == db.ContractStorage
+	})
 	require.NotEqual(t, -1, idx)
 	assert.Equal(t, 7, descs[idx].NodeCount)
 }
@@ -474,7 +475,7 @@ func TestEnumerateTries_StorageTrieCountsPresent(t *testing.T) {
 	descs := collectTries(t, memDB)
 	var storageCounts []int
 	for _, d := range descs {
-		if d.OldBucket == db.ContractStorage {
+		if d.DeprecatedTrieBucket == db.ContractStorage {
 			storageCounts = append(storageCounts, d.NodeCount)
 		}
 	}
@@ -492,7 +493,9 @@ func TestEnumerateTries_StorageTrieOwnerMatchesKey(t *testing.T) {
 	descs := collectTries(t, memDB)
 	require.Len(t, descs, 3)
 
-	idx := slices.IndexFunc(descs, func(d TrieDesc) bool { return d.OldBucket == db.ContractStorage })
+	idx := slices.IndexFunc(descs, func(d TrieDesc) bool {
+		return d.DeprecatedTrieBucket == db.ContractStorage
+	})
 	require.NotEqual(t, -1, idx)
 	assert.Equal(t, owner, descs[idx].Owner)
 }
@@ -512,7 +515,7 @@ func TestEnumerateTries_MultipleOwnersOrdered(t *testing.T) {
 
 	var storageCounts []int
 	for _, d := range descs {
-		if d.OldBucket == db.ContractStorage {
+		if d.DeprecatedTrieBucket == db.ContractStorage {
 			storageCounts = append(storageCounts, d.NodeCount)
 		}
 	}
