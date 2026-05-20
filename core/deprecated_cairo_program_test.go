@@ -1,13 +1,14 @@
-package core
+package core_test
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 const upstreamArtifactsRoot = "testdata/starknet_rust/contracts/cairo0/artifacts"
 
 type upstreamContractHashes struct {
-	HintedClassHash string `json:"hinted_class_hash"`
+	ClassHash string `json:"class_hash"`
 }
 
 type upstreamHashFixture struct {
@@ -27,7 +28,7 @@ type upstreamHashFixture struct {
 
 // Fixtures and expected hashes are copied from upstream starknet-core tests:
 // https://github.com/software-mansion/starknet-rust/tree/master/starknet-rust-core/test-data/contracts/cairo0/artifacts
-var upstreamHintedHashFixtures = []upstreamHashFixture{
+var upstreamCairo0HashFixtures = []upstreamHashFixture{
 	{
 		name:     "OZ account",
 		artifact: filepath.Join(upstreamArtifactsRoot, "oz_account.txt"),
@@ -50,36 +51,35 @@ var upstreamHintedHashFixtures = []upstreamHashFixture{
 	},
 }
 
-func TestUpstreamHintedClassHashCorpus(t *testing.T) {
-	for _, fixture := range upstreamHintedHashFixtures {
+func TestUpstreamCairo0ClassHashCorpus(t *testing.T) {
+	for _, fixture := range upstreamCairo0HashFixtures {
 		t.Run(fixture.name, func(t *testing.T) {
-			abi, program := loadDeprecatedFixtureProgram(t, fixture.artifact)
+			class := loadUpstreamDeprecatedClass(t, fixture.artifact)
 			want := loadUpstreamContractHashes(t, fixture.hashes)
 
-			got, err := computeHintedClassHash(abi, program)
+			got, err := class.Hash()
 			require.NoError(t, err)
-			assert.Equal(t, want.HintedClassHash, got.String())
+			assert.Equal(t, felt.UnsafeFromString[felt.Felt](want.ClassHash), got)
 		})
 	}
 }
 
-func TestDeprecatedCairoProgramCanonicalSerialization(t *testing.T) {
-	const deprecatedFixturePath = "../clients/feeder/testdata/sepolia/class/" +
-		"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8.json"
-	// This is a byte-for-byte canonical-output snapshot, not a normal JSON fixture.
-	// Keep the non-.json extension so editors do not autoformat it.
-	const canonicalProgramPath = "testdata/deprecated_cairo_program.txt"
+func loadUpstreamDeprecatedClass(t *testing.T, path string) *core.DeprecatedCairoClass {
+	t.Helper()
 
-	_, program := loadDeprecatedFixtureProgram(t, deprecatedFixturePath)
-
-	var buffer bytes.Buffer
-	bw := bufio.NewWriter(&buffer)
-	require.NoError(t, writeDeprecatedCairoProgramCanonical(bw, program))
-	require.NoError(t, bw.Flush())
-
-	want, err := os.ReadFile(filepath.Clean(canonicalProgramPath))
+	data, err := os.ReadFile(filepath.Clean(path))
 	require.NoError(t, err)
-	assert.Equal(t, want, buffer.Bytes())
+
+	var definition starknet.ClassDefinition
+	require.NoError(t, json.Unmarshal(data, &definition))
+	require.NotNil(t, definition.DeprecatedCairo)
+
+	classDef, err := sn2core.AdaptDeprecatedCairoClass(definition.DeprecatedCairo)
+	require.NoError(t, err)
+
+	class, ok := classDef.(*core.DeprecatedCairoClass)
+	require.True(t, ok)
+	return class
 }
 
 func loadUpstreamContractHashes(t *testing.T, path string) upstreamContractHashes {
@@ -91,23 +91,4 @@ func loadUpstreamContractHashes(t *testing.T, path string) upstreamContractHashe
 	var hashes upstreamContractHashes
 	require.NoError(t, json.Unmarshal(data, &hashes))
 	return hashes
-}
-
-func loadDeprecatedFixtureProgram(
-	t *testing.T,
-	path string,
-) (json.RawMessage, *deprecatedCairoProgram) {
-	t.Helper()
-
-	data, err := os.ReadFile(filepath.Clean(path))
-	require.NoError(t, err)
-
-	var definition starknet.ClassDefinition
-	require.NoError(t, json.Unmarshal(data, &definition))
-	require.NotNil(t, definition.DeprecatedCairo)
-
-	program, err := unmarshalDeprecatedCairoProgram(definition.DeprecatedCairo.Program)
-	require.NoError(t, err)
-
-	return definition.DeprecatedCairo.Abi, program
 }
