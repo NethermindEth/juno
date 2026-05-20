@@ -134,8 +134,8 @@ func (s *hashScheduler) writeBinaryAndEdges(
 	rightEdge *felt.Felt,
 	batch db.Batch,
 ) error {
-	var buf [trieutils.MaxNodeKeySize + binaryNodeBlobSize]byte
-	keyLen := trieutils.EncodeNodeKey(buf[:], s.bucket, &s.owner, &job.parentPath, false)
+	var buf [maxNodeKeySize + binaryNodeBlobSize]byte
+	keyLen := encodeNodeKey(buf[:], s.bucket, &s.owner, &job.parentPath, false)
 	blob := encodeBinaryNode(leftEdge, rightEdge)
 	copy(buf[keyLen:], blob[:])
 	if err := batch.Put(buf[:keyLen], buf[keyLen:keyLen+binaryNodeBlobSize]); err != nil {
@@ -160,8 +160,8 @@ func (s *hashScheduler) writeEdge(
 	}
 	var edgePath trieutils.Path
 	edgePath.AppendBit(parentPath, bit)
-	var ebuf [trieutils.MaxNodeKeySize + edgeNodeMaxSize]byte
-	kl := trieutils.EncodeNodeKey(ebuf[:], s.bucket, &s.owner, &edgePath, false)
+	var ebuf [maxNodeKeySize + edgeNodeMaxSize]byte
+	kl := encodeNodeKey(ebuf[:], s.bucket, &s.owner, &edgePath, false)
 	blob := encodeEdgeNodeInto(ebuf[kl:], childHash, seg)
 	return batch.Put(ebuf[:kl], ebuf[kl:kl+blob])
 }
