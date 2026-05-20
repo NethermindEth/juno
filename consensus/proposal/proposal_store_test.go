@@ -162,4 +162,3 @@ func TestProposalStore_ConcurrentAccess(t *testing.T) {
 		})
 	})
 }
-
