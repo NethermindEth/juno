@@ -142,26 +142,26 @@ func (s *hashScheduler) writeBinaryAndEdges(
 		return err
 	}
 
-	if job.leftSeg.Len() > 0 {
-		var leftEdgePath trieutils.Path
-		leftEdgePath.AppendBit(&job.parentPath, 0)
-		var ebuf [trieutils.MaxNodeKeySize + edgeNodeMaxSize]byte
-		kl := trieutils.EncodeNodeKey(ebuf[:], s.bucket, &s.owner, &leftEdgePath, false)
-		edgeBlob := encodeEdgeNodeInto(ebuf[kl:], &job.leftChildHash, &job.leftSeg)
-		if err := batch.Put(ebuf[:kl], ebuf[kl:kl+edgeBlob]); err != nil {
-			return err
-		}
+	if err := s.writeEdge(&job.parentPath, 0, &job.leftChildHash, &job.leftSeg, batch); err != nil {
+		return err
 	}
+	return s.writeEdge(&job.parentPath, 1, &job.rightChildHash, &job.rightSeg, batch)
+}
 
-	if job.rightSeg.Len() > 0 {
-		var rightEdgePath trieutils.Path
-		rightEdgePath.AppendBit(&job.parentPath, 1)
-		var ebuf [trieutils.MaxNodeKeySize + edgeNodeMaxSize]byte
-		kl := trieutils.EncodeNodeKey(ebuf[:], s.bucket, &s.owner, &rightEdgePath, false)
-		edgeBlob := encodeEdgeNodeInto(ebuf[kl:], &job.rightChildHash, &job.rightSeg)
-		if err := batch.Put(ebuf[:kl], ebuf[kl:kl+edgeBlob]); err != nil {
-			return err
-		}
+func (s *hashScheduler) writeEdge(
+	parentPath *trieutils.Path,
+	bit uint8,
+	childHash *felt.Felt,
+	seg *trieutils.Path,
+	batch db.Batch,
+) error {
+	if seg.Len() == 0 {
+		return nil
 	}
-	return nil
+	var edgePath trieutils.Path
+	edgePath.AppendBit(parentPath, bit)
+	var ebuf [trieutils.MaxNodeKeySize + edgeNodeMaxSize]byte
+	kl := trieutils.EncodeNodeKey(ebuf[:], s.bucket, &s.owner, &edgePath, false)
+	blob := encodeEdgeNodeInto(ebuf[kl:], childHash, seg)
+	return batch.Put(ebuf[:kl], ebuf[kl:kl+blob])
 }

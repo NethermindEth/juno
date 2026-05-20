@@ -136,8 +136,8 @@ func TestCompressedSegment_Length(t *testing.T) {
 }
 
 func TestOldTriePrefix_GlobalTrie(t *testing.T) {
-	desc := TrieDesc{OldBucket: db.ClassesTrie, Owner: felt.Address{}}
-	prefix := oldTriePrefix(desc)
+	desc := TrieDesc{DeprecatedTrieBucket: db.ClassesTrie, Owner: felt.Address{}}
+	prefix := deprecatedTriePrefix(desc)
 	assert.Equal(t, []byte{byte(db.ClassesTrie)}, prefix)
 }
 
@@ -145,8 +145,8 @@ func TestOldTriePrefix_StorageTrie(t *testing.T) {
 	var ownerFelt felt.Felt
 	ownerFelt.SetUint64(42)
 	owner := felt.Address(ownerFelt)
-	desc := TrieDesc{OldBucket: db.ContractStorage, Owner: owner}
-	prefix := oldTriePrefix(desc)
+	desc := TrieDesc{DeprecatedTrieBucket: db.ContractStorage, Owner: owner}
+	prefix := deprecatedTriePrefix(desc)
 	assert.Equal(t, byte(db.ContractStorage), prefix[0])
 	assert.Equal(t, 1+felt.Bytes, len(prefix))
 }
