@@ -1,10 +1,8 @@
-package trie
+package trie_test
 
 import (
-	"bytes"
 	"context"
 	"math/rand"
-	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -16,15 +14,13 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	trielib "github.com/NethermindEth/juno/migration/trie"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type leafMap map[felt.Felt]felt.Felt
-
-func nopLogger() log.StructuredLogger   { return log.NewNopZapLogger() }
-func nopFlush(*task, chan<- task) error { return nil }
 
 type trieCase struct {
 	name           string
@@ -101,40 +97,24 @@ var transcoderCases = []struct {
 	name   string
 	leaves leafMap
 }{
-	// --- trivial structural cases ---
 	{"empty trie", nil},
 	{"single leaf", leafMap{
 		felt.FromUint64[felt.Felt](1): felt.FromUint64[felt.Felt](100),
 	}},
-
-	// --- two-leaf cases probing specific split depths ---
-
-	// Keys 2 and 3 differ only in the last path bit (bit 250 of felt = path bit 250).
-	// Root edge spans 250 bits; binary node is at maximum depth.
 	{"deep split", leafMap{
 		felt.FromUint64[felt.Felt](2): felt.FromUint64[felt.Felt](10),
 		felt.FromUint64[felt.Felt](3): felt.FromUint64[felt.Felt](20),
 	}},
-
-	// One key < 2^250 (trie path bit[0]=0), one key ≥ 2^250 (trie path bit[0]=1).
-	// Root is a binary node — rootPath.Len()==0, no root edge written.
-	// This path is never hit by sequential small-integer keys.
 	{"left right split", leafMap{
 		felt.FromUint64[felt.Felt](1):           felt.FromUint64[felt.Felt](10),
 		felt.FromBytes[felt.Felt]([]byte{0x04}): felt.FromUint64[felt.Felt](20), // 2^250
 	}},
-
-	// --- four leaves covering all 2-bit path prefixes (00, 01, 10, 11) ---
-	// Root is a binary node; left and right subtrees each contain a binary node.
-	// Tests two levels of binary processing with rootPath.Len()==0.
 	{"full depth 2 tree", leafMap{
 		felt.FromUint64[felt.Felt](1):           felt.FromUint64[felt.Felt](10), // 00...
-		felt.FromBytes[felt.Felt]([]byte{0x02}): felt.FromUint64[felt.Felt](20), // 01... (2^249)
-		felt.FromBytes[felt.Felt]([]byte{0x04}): felt.FromUint64[felt.Felt](30), // 10... (2^250)
-		felt.FromBytes[felt.Felt]([]byte{0x06}): felt.FromUint64[felt.Felt](40), // 11... (2^250+2^249)
+		felt.FromBytes[felt.Felt]([]byte{0x02}): felt.FromUint64[felt.Felt](20), // 01...
+		felt.FromBytes[felt.Felt]([]byte{0x04}): felt.FromUint64[felt.Felt](30), // 10...
+		felt.FromBytes[felt.Felt]([]byte{0x06}): felt.FromUint64[felt.Felt](40), // 11...
 	}},
-
-	// --- larger sequential case for basic load ---
 	{"hundred sequential leaves", func() leafMap {
 		leaves := make(leafMap, 100)
 		for i := 1; i <= 100; i++ {
@@ -142,17 +122,13 @@ var transcoderCases = []struct {
 		}
 		return leaves
 	}()},
-
-	// --- random leaves spanning the full 251-bit space ---
-	// Keys are evenly distributed across all trie depths, exercising every code
-	// path: balanced binary nodes, varied edge lengths, and batch flush thresholds.
 	{"random 1000 leaves", randomLeaves(1000, 42)},
 }
 
 func TestMigrate_FreshDBIsNoOp(t *testing.T) {
 	memDB := memory.New()
 
-	state, err := (&Migrator{}).Migrate(context.Background(), memDB, nil, nopLogger())
+	state, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
 	require.NoError(t, err)
 	assert.Nil(
 		t,
@@ -165,17 +141,17 @@ func TestMigrate_RunsWhenOldDataPresent(t *testing.T) {
 	leaves := randomLeaves(100, 7)
 	memDB := buildFullDB(t, leaves)
 
-	needed, err := needsMigration(memDB)
-	require.NoError(t, err)
-	require.True(t, needed, "precondition: DB has old-format data")
+	require.True(t, bucketHasKeys(t, memDB, db.ClassesTrie), "precondition: DB has old-format data")
 
-	state, err := (&Migrator{}).Migrate(context.Background(), memDB, nil, nopLogger())
+	state, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
 	require.NoError(t, err)
 	assert.Nil(t, state, "completed migration must return nil intermediate state")
 
-	stillNeeded, err := needsMigration(memDB)
-	require.NoError(t, err)
-	assert.False(t, stillNeeded, "old-format buckets should be empty after migration")
+	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
+		assert.False(t,
+			bucketHasKeys(t, memDB, bucket),
+			"old-format bucket %v should be empty after migration", bucket)
+	}
 }
 
 // TestMigrationEndToEnd verifies that the migration produces byte-for-byte
@@ -205,7 +181,9 @@ func TestMigrationEndToEnd(t *testing.T) {
 
 			migratedDB := memory.New()
 			buildDeprecatedTrie(t, migratedDB, c.leaves, c.tc.buildOldFn, prefix)
-			_, err := runMigration(context.Background(), migratedDB, nopLogger())
+			_, err := (&trielib.Migrator{}).Migrate(
+				context.Background(), migratedDB, nil, log.NewNopZapLogger(),
+			)
 			require.NoError(t, err)
 
 			nativeDB := memory.New()
@@ -219,67 +197,33 @@ func TestMigrationEndToEnd(t *testing.T) {
 	}
 }
 
+// TestMigrationIsResumable verifies that re-running migration over a DB
+// whose class-trie destination root is already present skips the class
+// migration and only finishes the contract trie. The "partial state" is
+// faked by copying the reference DB's new-format class-trie keys into the
+// partial DB before running migration.
 func TestMigrationIsResumable(t *testing.T) {
 	leaves := randomLeaves(1000, 42)
 
 	// Reference: full migration from scratch.
 	refDB := buildFullDB(t, leaves)
-	_, err := runMigration(context.Background(), refDB, nopLogger())
+	_, err := (&trielib.Migrator{}).Migrate(context.Background(), refDB, nil, log.NewNopZapLogger())
 	require.NoError(t, err)
 
 	// Partial DB: both tries in old format initially.
 	partialDB := buildFullDB(t, leaves)
 
-	// Manually migrate only the class trie to simulate a mid-run interruption.
-	classPrefix := db.ClassesTrie.Key()
-	var classRootPath *trie.BitArray
-	require.NoError(t, partialDB.Get(classPrefix, func(val []byte) error {
-		var perr error
-		classRootPath, perr = parseRootPath(val)
-		return perr
-	}))
-	classDesc := TrieDesc{
-		DeprecatedTrieBucket: db.ClassesTrie,
-		TrieBucket:           db.ClassTrie,
-		HashFn:               crypto.Poseidon,
-		NodeCount:            len(leaves),
-		RootPath:             classRootPath,
+	// Fake a prior successful class-trie migration by copying refDB's
+	// new-format class-trie keys directly into partialDB.
+	refClassKeys := allKeysUnder(t, refDB, db.ClassTrie)
+	require.NotEmpty(t, refClassKeys, "reference class trie should be non-empty")
+	for k, v := range refClassKeys {
+		require.NoError(t, partialDB.Put([]byte(k), v))
 	}
 
-	pool := newHashWorkerPool()
-	defer pool.close()
-	t1 := &task{batch: partialDB.NewBatch()}
-	err = migrateTrie(partialDB, classDesc, pool, t1, nopFlush, nil)
-	require.NoError(t, err)
-	require.NoError(t, t1.batch.Write())
-
-	done, err := hasDestRoot(partialDB, db.ClassTrie, &classDesc.Owner)
-	require.NoError(t, err)
-	assert.True(t, done, "class trie destination root should be present after partial migration")
-
-	needed, err := needsMigration(partialDB)
-	require.NoError(t, err)
-	assert.True(t, needed, "migration should still be needed after partial work")
-
-	// enumerateTries yields every discovered trie unfiltered; the
-	// already-done short-circuit lives in the ingestor now. We assert that
-	// the class trie *is* yielded here, and rely on the end-to-end equality
-	// check below to confirm the ingestor's idempotency guard skips it.
-	descsRemaining := collectTries(t, partialDB)
-	foundClass := false
-	for _, d := range descsRemaining {
-		if d.DeprecatedTrieBucket == db.ClassesTrie {
-			foundClass = true
-		}
-	}
-	assert.True(
-		t,
-		foundClass,
-		"enumerateTries should yield class trie even when destination root is present",
-	)
-
-	// Resume: migration completes the remaining contract trie.
-	_, err = runMigration(context.Background(), partialDB, nopLogger())
+	// Resume: migration should skip the class trie (its dest root is present)
+	// and complete only the contract trie.
+	_, err = (&trielib.Migrator{}).Migrate(context.Background(), partialDB, nil, log.NewNopZapLogger())
 	require.NoError(t, err)
 
 	// Final state must match the reference full-run output for every new-format bucket.
@@ -367,6 +311,107 @@ func buildTrie(
 	require.NoError(t, batch.Write())
 }
 
+// TestMigrationMultiStorageOwners exercises enumerateStorageTries across
+// multiple owners (scanTrie's prefix-leave path) and keeps all 4 ingestor
+// workers busy by giving them 7 tries to chew through (2 global + 5 storage).
+func TestMigrationMultiStorageOwners(t *testing.T) {
+	leaves := randomLeaves(50, 7)
+
+	migratedDB := memory.New()
+	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
+	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen, db.StateTrie.Key())
+
+	owners := []felt.Address{
+		felt.FromUint64[felt.Address](1),
+		felt.FromUint64[felt.Address](2),
+		felt.FromUint64[felt.Address](3),
+		felt.FromUint64[felt.Address](42),
+		felt.FromUint64[felt.Address](999),
+	}
+	for _, owner := range owners {
+		ownerFelt := felt.Felt(owner)
+		ownerBytes := ownerFelt.Bytes()
+		buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen,
+			db.ContractStorage.Key(ownerBytes[:]))
+	}
+
+	_, err := (&trielib.Migrator{}).Migrate(context.Background(), migratedDB, nil, log.NewNopZapLogger())
+	require.NoError(t, err)
+
+	// Per-owner native build → assert every native key is present (with the
+	// same value) under the merged migrated view.
+	migratedAll := allKeysUnder(t, migratedDB, db.ContractTrieStorage)
+	for _, owner := range owners {
+		nativeDB := memory.New()
+		id := trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), owner)
+		buildTrie(t, nativeDB, leaves, id, crypto.Pedersen, db.ContractTrieStorage)
+		for k, v := range allKeysUnder(t, nativeDB, db.ContractTrieStorage) {
+			gotV, ok := migratedAll[k]
+			require.True(t, ok, "owner %v missing key", owner)
+			assert.Equal(t, v, gotV, "owner %v value differs at key", owner)
+		}
+	}
+
+	// Old buckets fully drained.
+	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
+		assert.False(t, bucketHasKeys(t, migratedDB, bucket),
+			"old bucket %v should be drained", bucket)
+	}
+}
+
+// TestMigrationIdempotent verifies that a successful migration is a no-op on
+// a second run: needsMigration sees the wiped deprecated buckets and returns
+// early without touching the migrated state.
+func TestMigrationIsNoopOnSecondRun(t *testing.T) {
+	leaves := randomLeaves(100, 11)
+	memDB := buildFullDB(t, leaves)
+
+	state, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+	snapshot := snapshotAllBuckets(t, memDB,
+		db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage)
+
+	state, err = (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+	require.Equal(t, snapshot,
+		snapshotAllBuckets(t, memDB,
+			db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage),
+		"second Migrate call must not change state")
+}
+
+// TestMigrationCancelledContext verifies that a pre-cancelled ctx surfaces
+// context.Canceled with the shouldRerun sentinel, and that a fresh ctx
+// completes the migration normally afterwards.
+func TestMigrationCancelledContext(t *testing.T) {
+	leaves := randomLeaves(100, 13)
+	memDB := buildFullDB(t, leaves)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	state, err := (&trielib.Migrator{}).Migrate(ctx, memDB, nil, log.NewNopZapLogger())
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotNil(t, state, "shouldRerun sentinel must not be nil")
+	require.Empty(t, state, "shouldRerun is a non-nil empty slice")
+
+	state, err = (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+}
+
+func snapshotAllBuckets(t *testing.T, r db.KeyValueReader, buckets ...db.Bucket) map[string][]byte {
+	t.Helper()
+	out := make(map[string][]byte)
+	for _, b := range buckets {
+		for k, v := range allKeysUnder(t, r, b) {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 func allKeysUnder(t *testing.T, r db.KeyValueReader, bucket db.Bucket) map[string][]byte {
 	t.Helper()
 	prefix := bucket.Key()
@@ -382,143 +427,10 @@ func allKeysUnder(t *testing.T, r db.KeyValueReader, bucket db.Bucket) map[strin
 	return out
 }
 
-func insertFakeStorageNodes(t *testing.T, database db.KeyValueStore, owner felt.Address, n int) {
+func bucketHasKeys(t *testing.T, r db.KeyValueReader, bucket db.Bucket) bool {
 	t.Helper()
-	ownerFelt := felt.Felt(owner)
-	ownerBytes := ownerFelt.Bytes()
-	ownerPrefix := db.ContractStorage.Key(ownerBytes[:])
-
-	require.NoError(t, database.Put(ownerPrefix, []byte{0}))
-
-	for i := range n {
-		key := append(bytes.Clone(ownerPrefix), 8, byte(i))
-		require.NoError(t, database.Put(key, []byte{0xFF}))
-	}
-}
-
-func collectTries(t *testing.T, r db.KeyValueReader) []TrieDesc {
-	t.Helper()
-	descs, err := enumerateTries(r)
+	it, err := r.NewIterator(bucket.Key(), true)
 	require.NoError(t, err)
-	return descs
-}
-
-func TestEnumerateTries_EmptyDBYieldsClassAndContractTries(t *testing.T) {
-	memDB := memory.New()
-	descs := collectTries(t, memDB)
-	require.Len(t, descs, 2)
-	assert.Equal(t, db.ClassesTrie, descs[0].DeprecatedTrieBucket)
-	assert.Equal(t, db.StateTrie, descs[1].DeprecatedTrieBucket)
-}
-
-func TestEnumerateTries_GlobalTriesPresent(t *testing.T) {
-	memDB := memory.New()
-	descs := collectTries(t, memDB)
-	hasClass := slices.ContainsFunc(descs, func(d TrieDesc) bool {
-		return d.DeprecatedTrieBucket == db.ClassesTrie && d.TrieBucket == db.ClassTrie
-	})
-	hasContract := slices.ContainsFunc(descs, func(d TrieDesc) bool {
-		return d.DeprecatedTrieBucket == db.StateTrie && d.TrieBucket == db.ContractTrieContract
-	})
-	assert.True(t, hasClass)
-	assert.True(t, hasContract)
-}
-
-func TestEnumerateTries_StorageTriesDiscovered(t *testing.T) {
-	memDB := memory.New()
-	var owners [3]felt.Address
-	for i := range owners {
-		var f felt.Felt
-		f.SetUint64(uint64(i + 1))
-		owners[i] = felt.Address(f)
-		insertFakeStorageNodes(t, memDB, owners[i], 5)
-	}
-
-	descs := collectTries(t, memDB)
-	require.Len(t, descs, 5)
-
-	storageCount := 0
-	for _, d := range descs {
-		if d.DeprecatedTrieBucket == db.ContractStorage {
-			assert.Equal(t, db.ContractTrieStorage, d.TrieBucket)
-			storageCount++
-		}
-	}
-	assert.Equal(t, 3, storageCount)
-}
-
-func TestEnumerateTries_NodeCountIsCorrect(t *testing.T) {
-	memDB := memory.New()
-	var ownerFelt felt.Felt
-	ownerFelt.SetUint64(99)
-	owner := felt.Address(ownerFelt)
-	insertFakeStorageNodes(t, memDB, owner, 7)
-
-	descs := collectTries(t, memDB)
-	require.Len(t, descs, 3)
-
-	idx := slices.IndexFunc(descs, func(d TrieDesc) bool {
-		return d.DeprecatedTrieBucket == db.ContractStorage
-	})
-	require.NotEqual(t, -1, idx)
-	assert.Equal(t, 7, descs[idx].NodeCount)
-}
-
-func TestEnumerateTries_StorageTrieCountsPresent(t *testing.T) {
-	memDB := memory.New()
-	for i, n := range []int{3, 7, 1} {
-		var f felt.Felt
-		f.SetUint64(uint64(i + 1))
-		insertFakeStorageNodes(t, memDB, felt.Address(f), n)
-	}
-
-	descs := collectTries(t, memDB)
-	var storageCounts []int
-	for _, d := range descs {
-		if d.DeprecatedTrieBucket == db.ContractStorage {
-			storageCounts = append(storageCounts, d.NodeCount)
-		}
-	}
-	slices.Sort(storageCounts)
-	assert.Equal(t, []int{1, 3, 7}, storageCounts)
-}
-
-func TestEnumerateTries_StorageTrieOwnerMatchesKey(t *testing.T) {
-	memDB := memory.New()
-	var ownerFelt felt.Felt
-	ownerFelt.SetUint64(12345)
-	owner := felt.Address(ownerFelt)
-	insertFakeStorageNodes(t, memDB, owner, 3)
-
-	descs := collectTries(t, memDB)
-	require.Len(t, descs, 3)
-
-	idx := slices.IndexFunc(descs, func(d TrieDesc) bool {
-		return d.DeprecatedTrieBucket == db.ContractStorage
-	})
-	require.NotEqual(t, -1, idx)
-	assert.Equal(t, owner, descs[idx].Owner)
-}
-
-func TestEnumerateTries_MultipleOwnersOrdered(t *testing.T) {
-	memDB := memory.New()
-	owners := make([]felt.Address, 5)
-	for i := range owners {
-		var f felt.Felt
-		f.SetUint64(uint64(i + 1))
-		owners[i] = felt.Address(f)
-		insertFakeStorageNodes(t, memDB, owners[i], i+1)
-	}
-
-	descs := collectTries(t, memDB)
-	require.Len(t, descs, 7)
-
-	var storageCounts []int
-	for _, d := range descs {
-		if d.DeprecatedTrieBucket == db.ContractStorage {
-			storageCounts = append(storageCounts, d.NodeCount)
-		}
-	}
-	slices.Sort(storageCounts)
-	assert.Equal(t, []int{1, 2, 3, 4, 5}, storageCounts)
+	defer it.Close()
+	return it.First()
 }
