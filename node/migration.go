@@ -103,7 +103,9 @@ func fetchL1HeadIfMissing(
 	}
 
 	logger.Info("Fetching the L1 head before running the prune migration")
-	client, err := newL1Client(config.EthNode, config.Metrics, chain, logger)
+	// Metrics are registered by the long-lived L1 client built in node.New; reusing
+	// them here would panic via prometheus.MustRegister.
+	client, err := newL1Client(config.EthNode, false, chain, logger)
 	if err != nil {
 		return fmt.Errorf("creating a new L1 client: %w", err)
 	}
