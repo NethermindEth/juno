@@ -16,10 +16,11 @@ type committer struct {
 func newCommitter(
 	logger log.StructuredLogger,
 	batchSem semaphore.ResourceSemaphore[db.Batch],
+	allTries, allNodes uint64,
 ) *committer {
 	return &committer{
 		batchSem: batchSem,
-		counter:  newCounter(logger, timeLogRate),
+		counter:  newCounter(logger, timeLogRate, allTries, allNodes),
 	}
 }
 
@@ -28,7 +29,7 @@ func (c *committer) Run(_ int, t task, _ chan<- struct{}) error {
 	if err := t.batch.Write(); err != nil {
 		return fmt.Errorf("trie migration: batch write failed: %w", err)
 	}
-	c.counter.log(byteSize, t.tries)
+	c.counter.log(byteSize, t.tries, t.nodes)
 	c.batchSem.Put()
 	return nil
 }
