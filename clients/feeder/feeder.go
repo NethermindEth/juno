@@ -230,17 +230,8 @@ func (c *Client) Transaction(
 		"transactionHash": transactionHash.String(),
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	txStatus := new(starknet.DeprecatedTransactionStatus)
-	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
-		return nil, err
-	}
-	return txStatus, nil
+	txStatus, err := doRequest[starknet.DeprecatedTransactionStatus](ctx, c, queryURL)
+	return &txStatus, err
 }
 
 // TransactionStatus calls the get_transaction_status endpoint which returns only status fields
@@ -253,17 +244,8 @@ func (c *Client) TransactionStatus(
 		"transactionHash": transactionHash.String(),
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	txStatus := new(starknet.TransactionStatus)
-	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
-		return nil, err
-	}
-	return txStatus, nil
+	txStatus, err := doRequest[starknet.TransactionStatus](ctx, c, queryURL)
+	return &txStatus, err
 }
 
 func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
@@ -271,17 +253,8 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 		blockNumberArg: blockID,
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	block := new(starknet.Block)
-	if err = json.NewDecoder(body).Decode(block); err != nil {
-		return nil, err
-	}
-	return block, nil
+	block, err := doRequest[starknet.Block](ctx, c, queryURL)
+	return &block, err
 }
 
 func (c *Client) BlockHeader(
@@ -292,17 +265,7 @@ func (c *Client) BlockHeader(
 		"headerOnly":   "true",
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return starknet.BlockHeader{}, err
-	}
-	defer body.Close()
-
-	header := starknet.BlockHeader{}
-	if err = json.NewDecoder(body).Decode(&header); err != nil {
-		return starknet.BlockHeader{}, err
-	}
-	return header, nil
+	return doRequest[starknet.BlockHeader](ctx, c, queryURL)
 }
 
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
@@ -311,17 +274,8 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 		blockNumberArg: "latest",
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	class := new(starknet.ClassDefinition)
-	if err = json.NewDecoder(body).Decode(class); err != nil {
-		return nil, err
-	}
-	return class, nil
+	class, err := doRequest[starknet.ClassDefinition](ctx, c, queryURL)
+	return &class, err
 }
 
 func (c *Client) CasmClassDefinition(
@@ -358,18 +312,12 @@ func (c *Client) CasmClassDefinition(
 func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	queryURL := c.buildQueryString("get_public_key", nil)
 
-	body, err := c.get(ctx, queryURL)
+	// public key is a hex string
+	publicKey, err := doRequest[string](ctx, c, queryURL)
 	if err != nil {
 		return nil, err
 	}
-	defer body.Close()
-
-	var publicKey string // public key hex string
-	if err = json.NewDecoder(body).Decode(&publicKey); err != nil {
-		return nil, err
-	}
-
-	return new(felt.Felt).SetString(publicKey)
+	return felt.NewFromString[felt.Felt](publicKey)
 }
 
 func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
@@ -377,18 +325,8 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 		blockNumberArg: blockID,
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	signature := new(starknet.Signature)
-	if err := json.NewDecoder(body).Decode(signature); err != nil {
-		return nil, err
-	}
-
-	return signature, nil
+	signature, err := doRequest[starknet.Signature](ctx, c, queryURL)
+	return &signature, err
 }
 
 func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
@@ -396,17 +334,8 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 		blockNumberArg: blockID,
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	update := new(starknet.StateUpdate)
-	if err = json.NewDecoder(body).Decode(update); err != nil {
-		return nil, err
-	}
-	return update, nil
+	update, err := doRequest[starknet.StateUpdate](ctx, c, queryURL)
+	return &update, err
 }
 
 func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
@@ -415,18 +344,8 @@ func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*sta
 		"includeBlock": "true",
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	stateUpdate := new(starknet.StateUpdateWithBlock)
-	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
-		return nil, err
-	}
-
-	return stateUpdate, nil
+	stateUpdate, err := doRequest[starknet.StateUpdateWithBlock](ctx, c, queryURL)
+	return &stateUpdate, err
 }
 
 func (c *Client) StateUpdateWithBlockAndSignature(
@@ -439,18 +358,8 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 		"includeSignature": "true",
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	stateUpdate := new(starknet.StateUpdateWithBlockAndSignature)
-	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
-		return nil, err
-	}
-
-	return stateUpdate, nil
+	stateUpdate, err := doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)
+	return &stateUpdate, err
 }
 
 func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error) {
@@ -458,17 +367,8 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 		"blockHash": blockHash,
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	traces := new(starknet.BlockTrace)
-	if err = json.NewDecoder(body).Decode(traces); err != nil {
-		return nil, err
-	}
-	return traces, nil
+	traces, err := doRequest[starknet.BlockTrace](ctx, c, queryURL)
+	return &traces, err
 }
 
 func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
@@ -476,30 +376,26 @@ func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*st
 		blockNumberArg: blockNumber,
 	})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	preConfirmedBlock := new(starknet.PreConfirmedBlock)
-	if err = json.NewDecoder(body).Decode(preConfirmedBlock); err != nil {
-		return nil, err
-	}
-	return preConfirmedBlock, nil
+	preConfirmedBlock, err := doRequest[starknet.PreConfirmedBlock](ctx, c, queryURL)
+	return &preConfirmedBlock, err
 }
 
 func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error) {
 	queryURL := c.buildQueryString("get_contract_addresses", nil)
-	body, err := c.get(ctx, queryURL)
+
+	return doRequest[starknet.FeeTokenAddresses](ctx, c, queryURL)
+}
+
+func doRequest[T any](ctx context.Context, client *Client, queryURL string) (T, error) {
+	var result T
+	body, err := client.get(ctx, queryURL)
 	if err != nil {
-		return starknet.FeeTokenAddresses{}, err
+		return result, err
 	}
 	defer body.Close()
 
-	contractAddresses := new(starknet.FeeTokenAddresses)
-	if err = json.NewDecoder(body).Decode(contractAddresses); err != nil {
-		return starknet.FeeTokenAddresses{}, err
+	if err = json.NewDecoder(body).Decode(&result); err != nil {
+		return result, err
 	}
-	return *contractAddresses, nil
+	return result, nil
 }
