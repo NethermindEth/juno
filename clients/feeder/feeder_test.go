@@ -1008,10 +1008,56 @@ func TestSignature(t *testing.T) {
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Integration)
+
+	t.Run("Test normal case", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0))
+		assert.NoError(t, err)
+		assert.Equal(
+			t,
+			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
+			actualStateUpdate.Block.Hash.String(),
+		)
+		assert.Equal(t, "0x0", actualStateUpdate.Block.ParentHash.String())
+		assert.Equal(
+			t,
+			"0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833",
+			actualStateUpdate.Block.StateRoot.String(),
+		)
+		assert.Equal(
+			t,
+			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
+			actualStateUpdate.StateUpdate.BlockHash.String(),
+		)
+		assert.Equal(
+			t,
+			"0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833",
+			actualStateUpdate.StateUpdate.NewRoot.String(),
+		)
+		assert.Equal(t, "0x0", actualStateUpdate.StateUpdate.OldRoot.String())
+		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.Nonces)
+		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
+	})
+	t.Run("Test on unexisting block", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlock(
+			t.Context(),
+			strconv.Itoa(10000000000),
+		)
+		assert.Error(t, err)
+		assert.Nil(t, actualStateUpdate)
+	})
+	t.Run("Test on latest block", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), "latest")
+		assert.NoError(t, err)
+		assert.NotNil(t, actualStateUpdate)
+	})
+}
+
+func TestStateUpdateWithBlockAndSignature(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0), true)
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(t.Context(), strconv.Itoa(0))
 		assert.NoError(t, err)
 		assert.Equal(
 			t,
@@ -1046,7 +1092,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
 	})
 	t.Run("Test with includeSignature", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(78541), true)
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(t.Context(), strconv.Itoa(78541))
 		assert.NoError(t, err)
 		assert.NotEmpty(t, actualStateUpdate.StateUpdate)
 		assert.NotEmpty(t, actualStateUpdate.Block)
@@ -1064,16 +1110,15 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		)
 	})
 	t.Run("Test on unexisting block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(
 			t.Context(),
 			strconv.Itoa(10000000000),
-			true,
 		)
 		assert.Error(t, err)
 		assert.Nil(t, actualStateUpdate)
 	})
 	t.Run("Test on latest block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), "latest", true)
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(t.Context(), "latest")
 		assert.NoError(t, err)
 		assert.NotNil(t, actualStateUpdate)
 	})

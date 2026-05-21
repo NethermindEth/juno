@@ -54,13 +54,16 @@ type StateDiff struct {
 	} `json:"migrated_compiled_classes"`
 }
 
+// StateUpdateWithBlock object returned by the feeder in JSON format for "get_state_update" endpoint with includingBlock arg
+type StateUpdateWithBlock struct {
+	Block       *Block       `json:"block"`
+	StateUpdate *StateUpdate `json:"state_update"`
+}
+
 // StateUpdateWithBlock represents the object response by the feeder for "get_state_update"
 // endpoint with `includeBlock` and `includeSignature` arguments
-type StateUpdateWithBlock struct {
+type StateUpdateWithBlockAndSignature struct {
 	StateUpdate *StateUpdate `json:"state_update"`
-
-	// Only present if `includeBlock` argument is set to `true`
-	Block *Block `json:"block"`
-	// Only present if `includeSignature` argument is set to `true`
-	Signature []*felt.Felt `json:"signature"`
+	Block       *Block       `json:"block"`
+	Signature   []*felt.Felt `json:"signature"`
 }

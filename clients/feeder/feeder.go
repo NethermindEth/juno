@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -222,24 +221,6 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	return nil, err
 }
 
-func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		blockNumberArg: blockID,
-	})
-
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	update := new(starknet.StateUpdate)
-	if err = json.NewDecoder(body).Decode(update); err != nil {
-		return nil, err
-	}
-	return update, nil
-}
-
 // Deprecated: Transaction calls the get_transaction endpoint which returns
 // the full transaction body. Use TransactionStatus() instead.
 func (c *Client) Transaction(
@@ -410,15 +391,28 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 	return signature, nil
 }
 
-func (c *Client) StateUpdateWithBlock(
-	ctx context.Context,
-	blockID string,
-	includeSignature bool,
-) (*starknet.StateUpdateWithBlock, error) {
+func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		blockNumberArg:     blockID,
-		"includeBlock":     "true",
-		"includeSignature": strconv.FormatBool(includeSignature),
+		blockNumberArg: blockID,
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	update := new(starknet.StateUpdate)
+	if err = json.NewDecoder(body).Decode(update); err != nil {
+		return nil, err
+	}
+	return update, nil
+}
+
+func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
+	queryURL := c.buildQueryString("get_state_update", map[string]string{
+		blockNumberArg: blockID,
+		"includeBlock": "true",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -428,6 +422,30 @@ func (c *Client) StateUpdateWithBlock(
 	defer body.Close()
 
 	stateUpdate := new(starknet.StateUpdateWithBlock)
+	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
+		return nil, err
+	}
+
+	return stateUpdate, nil
+}
+
+func (c *Client) StateUpdateWithBlockAndSignature(
+	ctx context.Context,
+	blockID string,
+) (*starknet.StateUpdateWithBlockAndSignature, error) {
+	queryURL := c.buildQueryString("get_state_update", map[string]string{
+		blockNumberArg:     blockID,
+		"includeBlock":     "true",
+		"includeSignature": "true",
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	stateUpdate := new(starknet.StateUpdateWithBlockAndSignature)
 	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}

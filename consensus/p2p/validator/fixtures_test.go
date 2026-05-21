@@ -89,11 +89,7 @@ func BuildTestFixture(
 	client := feeder.NewTestClient(t, testCase.Network)
 	gw := adaptfeeder.New(client)
 
-	rawStateUpdate, err := client.StateUpdateWithBlock(
-		t.Context(),
-		fmt.Sprintf("%d", testCase.Height),
-		false,
-	)
+	rawStateUpdate, err := client.StateUpdateWithBlock(t.Context(), fmt.Sprintf("%d", testCase.Height))
 	require.NoError(t, err)
 
 	stateUpdate, block, err := gw.StateUpdateWithBlock(t.Context(), uint64(testCase.Height))

@@ -245,7 +245,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
 		t.Run("integration block number "+numberStr, func(t *testing.T) {
-			response, err := client.StateUpdateWithBlock(ctx, numberStr, true)
+			response, err := client.StateUpdateWithBlockAndSignature(ctx, numberStr)
 			require.NoError(t, err)
 			sig, err := client.Signature(ctx, numberStr)
 			require.NoError(t, err)
@@ -266,7 +266,7 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
-	response, err := client.StateUpdateWithBlock(ctx, "pending", false)
+	response, err := client.StateUpdateWithBlock(ctx, "pending")
 	require.NoError(t, err)
 	adaptedBlock, err := sn2core.AdaptBlock(response.Block, nil)
 	require.NoError(t, err)
