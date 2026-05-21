@@ -142,6 +142,185 @@ func NewClient(clientURL string) *Client {
 	return client
 }
 
+func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
+	queryURL := c.buildQueryString("get_block", map[string]string{
+		blockNumberArg: blockID,
+	})
+
+	block, err := doRequest[starknet.Block](ctx, c, queryURL)
+	return &block, err
+}
+
+func (c *Client) BlockHeader(
+	ctx context.Context, blockID string,
+) (starknet.BlockHeader, error) {
+	queryURL := c.buildQueryString("get_block", map[string]string{
+		blockNumberArg: blockID,
+		"headerOnly":   "true",
+	})
+
+	return doRequest[starknet.BlockHeader](ctx, c, queryURL)
+}
+
+func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error) {
+	queryURL := c.buildQueryString("get_block_traces", map[string]string{
+		"blockHash": blockHash,
+	})
+
+	traces, err := doRequest[starknet.BlockTrace](ctx, c, queryURL)
+	return &traces, err
+}
+
+func (c *Client) CasmClassDefinition(
+	ctx context.Context,
+	classHash *felt.Felt,
+) (*starknet.CasmClass, error) {
+	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
+		classHashArg:   classHash.String(),
+		blockNumberArg: "latest",
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	definition, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+
+	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(definition); deprecated {
+		return nil, ErrDeprecatedCompiledClass
+	}
+
+	class := new(starknet.CasmClass)
+	if err = json.Unmarshal(definition, class); err != nil {
+		return nil, err
+	}
+	return class, nil
+}
+
+func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
+	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
+		classHashArg:   classHash.String(),
+		blockNumberArg: "latest",
+	})
+
+	class, err := doRequest[starknet.ClassDefinition](ctx, c, queryURL)
+	return &class, err
+}
+
+func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error) {
+	queryURL := c.buildQueryString("get_contract_addresses", nil)
+
+	return doRequest[starknet.FeeTokenAddresses](ctx, c, queryURL)
+}
+
+func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
+	queryURL := c.buildQueryString("get_public_key", nil)
+
+	// public key is a hex string
+	publicKey, err := doRequest[string](ctx, c, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	return felt.NewFromString[felt.Felt](publicKey)
+}
+
+func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
+	queryURL := c.buildQueryString("get_signature", map[string]string{
+		blockNumberArg: blockID,
+	})
+
+	signature, err := doRequest[starknet.Signature](ctx, c, queryURL)
+	return &signature, err
+}
+
+func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
+	queryURL := c.buildQueryString("get_state_update", map[string]string{
+		blockNumberArg: blockID,
+	})
+
+	update, err := doRequest[starknet.StateUpdate](ctx, c, queryURL)
+	return &update, err
+}
+
+func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
+	queryURL := c.buildQueryString("get_state_update", map[string]string{
+		blockNumberArg: blockID,
+		"includeBlock": "true",
+	})
+
+	stateUpdate, err := doRequest[starknet.StateUpdateWithBlock](ctx, c, queryURL)
+	return &stateUpdate, err
+}
+
+func (c *Client) StateUpdateWithBlockAndSignature(
+	ctx context.Context,
+	blockID string,
+) (*starknet.StateUpdateWithBlockAndSignature, error) {
+	queryURL := c.buildQueryString("get_state_update", map[string]string{
+		blockNumberArg:     blockID,
+		"includeBlock":     "true",
+		"includeSignature": "true",
+	})
+
+	stateUpdate, err := doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)
+	return &stateUpdate, err
+}
+
+func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
+	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
+		blockNumberArg: blockNumber,
+	})
+
+	preConfirmedBlock, err := doRequest[starknet.PreConfirmedBlock](ctx, c, queryURL)
+	return &preConfirmedBlock, err
+}
+
+// Deprecated: Transaction calls the get_transaction endpoint which returns
+// the full transaction body. Use TransactionStatus() instead.
+func (c *Client) Transaction(
+	ctx context.Context, transactionHash *felt.Felt,
+) (*starknet.DeprecatedTransactionStatus, error) {
+	queryURL := c.buildQueryString("get_transaction", map[string]string{
+		"transactionHash": transactionHash.String(),
+	})
+
+	txStatus, err := doRequest[starknet.DeprecatedTransactionStatus](ctx, c, queryURL)
+	return &txStatus, err
+}
+
+// TransactionStatus calls the get_transaction_status endpoint which returns only status fields
+// (finality, execution status, block hash) without the full transaction body.
+func (c *Client) TransactionStatus(
+	ctx context.Context,
+	transactionHash *felt.Felt,
+) (*starknet.TransactionStatus, error) {
+	queryURL := c.buildQueryString("get_transaction_status", map[string]string{
+		"transactionHash": transactionHash.String(),
+	})
+
+	txStatus, err := doRequest[starknet.TransactionStatus](ctx, c, queryURL)
+	return &txStatus, err
+}
+
+func doRequest[T any](ctx context.Context, client *Client, queryURL string) (T, error) {
+	var result T
+	body, err := client.get(ctx, queryURL)
+	if err != nil {
+		return result, err
+	}
+	defer body.Close()
+
+	if err = json.NewDecoder(body).Decode(&result); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 // get performs a "GET" http request with the given URL and returns the response body
 func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
 	var res *http.Response
@@ -219,183 +398,4 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 		}
 	}
 	return nil, err
-}
-
-// Deprecated: Transaction calls the get_transaction endpoint which returns
-// the full transaction body. Use TransactionStatus() instead.
-func (c *Client) Transaction(
-	ctx context.Context, transactionHash *felt.Felt,
-) (*starknet.DeprecatedTransactionStatus, error) {
-	queryURL := c.buildQueryString("get_transaction", map[string]string{
-		"transactionHash": transactionHash.String(),
-	})
-
-	txStatus, err := doRequest[starknet.DeprecatedTransactionStatus](ctx, c, queryURL)
-	return &txStatus, err
-}
-
-// TransactionStatus calls the get_transaction_status endpoint which returns only status fields
-// (finality, execution status, block hash) without the full transaction body.
-func (c *Client) TransactionStatus(
-	ctx context.Context,
-	transactionHash *felt.Felt,
-) (*starknet.TransactionStatus, error) {
-	queryURL := c.buildQueryString("get_transaction_status", map[string]string{
-		"transactionHash": transactionHash.String(),
-	})
-
-	txStatus, err := doRequest[starknet.TransactionStatus](ctx, c, queryURL)
-	return &txStatus, err
-}
-
-func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
-	queryURL := c.buildQueryString("get_block", map[string]string{
-		blockNumberArg: blockID,
-	})
-
-	block, err := doRequest[starknet.Block](ctx, c, queryURL)
-	return &block, err
-}
-
-func (c *Client) BlockHeader(
-	ctx context.Context, blockID string,
-) (starknet.BlockHeader, error) {
-	queryURL := c.buildQueryString("get_block", map[string]string{
-		blockNumberArg: blockID,
-		"headerOnly":   "true",
-	})
-
-	return doRequest[starknet.BlockHeader](ctx, c, queryURL)
-}
-
-func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
-	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
-		classHashArg:   classHash.String(),
-		blockNumberArg: "latest",
-	})
-
-	class, err := doRequest[starknet.ClassDefinition](ctx, c, queryURL)
-	return &class, err
-}
-
-func (c *Client) CasmClassDefinition(
-	ctx context.Context,
-	classHash *felt.Felt,
-) (*starknet.CasmClass, error) {
-	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
-		classHashArg:   classHash.String(),
-		blockNumberArg: "latest",
-	})
-
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	defer body.Close()
-
-	definition, err := io.ReadAll(body)
-	if err != nil {
-		return nil, err
-	}
-
-	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(definition); deprecated {
-		return nil, ErrDeprecatedCompiledClass
-	}
-
-	class := new(starknet.CasmClass)
-	if err = json.Unmarshal(definition, class); err != nil {
-		return nil, err
-	}
-	return class, nil
-}
-
-func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
-	queryURL := c.buildQueryString("get_public_key", nil)
-
-	// public key is a hex string
-	publicKey, err := doRequest[string](ctx, c, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	return felt.NewFromString[felt.Felt](publicKey)
-}
-
-func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
-	queryURL := c.buildQueryString("get_signature", map[string]string{
-		blockNumberArg: blockID,
-	})
-
-	signature, err := doRequest[starknet.Signature](ctx, c, queryURL)
-	return &signature, err
-}
-
-func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		blockNumberArg: blockID,
-	})
-
-	update, err := doRequest[starknet.StateUpdate](ctx, c, queryURL)
-	return &update, err
-}
-
-func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		blockNumberArg: blockID,
-		"includeBlock": "true",
-	})
-
-	stateUpdate, err := doRequest[starknet.StateUpdateWithBlock](ctx, c, queryURL)
-	return &stateUpdate, err
-}
-
-func (c *Client) StateUpdateWithBlockAndSignature(
-	ctx context.Context,
-	blockID string,
-) (*starknet.StateUpdateWithBlockAndSignature, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		blockNumberArg:     blockID,
-		"includeBlock":     "true",
-		"includeSignature": "true",
-	})
-
-	stateUpdate, err := doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)
-	return &stateUpdate, err
-}
-
-func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error) {
-	queryURL := c.buildQueryString("get_block_traces", map[string]string{
-		"blockHash": blockHash,
-	})
-
-	traces, err := doRequest[starknet.BlockTrace](ctx, c, queryURL)
-	return &traces, err
-}
-
-func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
-	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
-		blockNumberArg: blockNumber,
-	})
-
-	preConfirmedBlock, err := doRequest[starknet.PreConfirmedBlock](ctx, c, queryURL)
-	return &preConfirmedBlock, err
-}
-
-func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error) {
-	queryURL := c.buildQueryString("get_contract_addresses", nil)
-
-	return doRequest[starknet.FeeTokenAddresses](ctx, c, queryURL)
-}
-
-func doRequest[T any](ctx context.Context, client *Client, queryURL string) (T, error) {
-	var result T
-	body, err := client.get(ctx, queryURL)
-	if err != nil {
-		return result, err
-	}
-	defer body.Close()
-
-	if err = json.NewDecoder(body).Decode(&result); err != nil {
-		return result, err
-	}
-	return result, nil
 }
