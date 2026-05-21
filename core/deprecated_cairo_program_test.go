@@ -14,8 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const upstreamArtifactsRoot = "testdata/starknet_rust/contracts/cairo0/artifacts"
-const regressionArtifactsRoot = "testdata/cairo0_hash_regressions"
+const (
+	upstreamArtifactsRoot   = "testdata/starknet_rust/contracts/cairo0/artifacts"
+	regressionArtifactsRoot = "testdata/cairo0_hash_regressions"
+)
 
 type upstreamContractHashes struct {
 	ClassHash string `json:"class_hash"`
