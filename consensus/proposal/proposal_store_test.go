@@ -1,4 +1,4 @@
-package proposal
+package proposal_test
 
 import (
 	"math/rand/v2"
@@ -6,7 +6,9 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
+	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -19,9 +21,7 @@ const (
 	opCount  = 100
 )
 
-// createTestBuildResult creates a test BuildResult for testing purposes
-func createTestBuildResult() *builder.BuildResult {
-	blockNumber := rand.Uint64()
+func buildResultAtHeight(blockNumber uint64) *builder.BuildResult {
 	return &builder.BuildResult{
 		PreConfirmed: &pending.PreConfirmed{
 			Block: &core.Block{
@@ -42,14 +42,17 @@ func createTestBuildResult() *builder.BuildResult {
 	}
 }
 
+func createTestBuildResult() *builder.BuildResult {
+	return buildResultAtHeight(rand.Uint64())
+}
+
 func TestProposalStore_StoreAndGet(t *testing.T) {
-	store := &ProposalStore[starknet.Hash]{}
+	store := &proposal.ProposalStore[starknet.Hash]{}
 
 	tests := []struct {
-		name     string
-		key      starknet.Hash
-		value    *builder.BuildResult
-		expected *builder.BuildResult
+		name  string
+		key   starknet.Hash
+		value *builder.BuildResult
 	}{
 		{
 			name:  "store and get single value",
@@ -72,10 +75,8 @@ func TestProposalStore_StoreAndGet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Nil(t, store.Get(tt.key))
 
-			// Store the value
 			store.Store(tt.key, tt.value)
 
-			// Get the value
 			result := store.Get(tt.key)
 			require.NotNil(t, result)
 			require.Equal(t, result, tt.value)
@@ -84,30 +85,61 @@ func TestProposalStore_StoreAndGet(t *testing.T) {
 }
 
 func TestProposalStore_StoreNilValue(t *testing.T) {
-	store := &ProposalStore[starknet.Hash]{}
+	store := &proposal.ProposalStore[starknet.Hash]{}
 	key := felt.FromUint64[starknet.Hash](1)
 
-	// Store nil value
 	store.Store(key, nil)
 
-	// Get the value
 	require.Nil(t, store.Get(key))
 }
 
-func TestProposalStore_EmptyBuildResult(t *testing.T) {
-	store := &ProposalStore[starknet.Hash]{}
+func TestProposalStore_Delete(t *testing.T) {
+	store := &proposal.ProposalStore[starknet.Hash]{}
 	key := felt.FromUint64[starknet.Hash](1)
 
-	// Create an empty BuildResult
-	emptyResult := &builder.BuildResult{}
+	store.Store(key, buildResultAtHeight(42))
+	require.NotNil(t, store.Get(key))
 
-	// Store the empty result
-	store.Store(key, emptyResult)
+	store.Delete(key)
+	require.Nil(t, store.Get(key))
+}
 
-	// Get the result
-	result := store.Get(key)
-	require.NotNil(t, result)
-	require.Equal(t, result, emptyResult)
+func TestProposalStore_DeleteUpToHeight(t *testing.T) {
+	store := &proposal.ProposalStore[starknet.Hash]{}
+
+	keyA1 := felt.FromUint64[starknet.Hash](10)
+	keyA2 := felt.FromUint64[starknet.Hash](11)
+	keyB := felt.FromUint64[starknet.Hash](20)
+
+	store.Store(keyA1, buildResultAtHeight(7))
+	store.Store(keyA2, buildResultAtHeight(7))
+	store.Store(keyB, buildResultAtHeight(8))
+
+	store.DeleteUpToHeight(types.Height(7))
+
+	require.Nil(t, store.Get(keyA1))
+	require.Nil(t, store.Get(keyA2))
+	require.NotNil(t, store.Get(keyB))
+}
+
+func TestProposalStore_DeleteUpToHeight_SweepsPriorHeights(t *testing.T) {
+	store := &proposal.ProposalStore[starknet.Hash]{}
+
+	currentKey := felt.FromUint64[starknet.Hash](1)
+	stragglerKey := felt.FromUint64[starknet.Hash](2)
+	futureKey := felt.FromUint64[starknet.Hash](3)
+
+	store.Store(currentKey, buildResultAtHeight(7))
+	store.DeleteUpToHeight(types.Height(7))
+
+	// A late store for the just-committed height slips in after cleanup.
+	store.Store(stragglerKey, buildResultAtHeight(7))
+	store.Store(futureKey, buildResultAtHeight(9))
+
+	store.DeleteUpToHeight(types.Height(8))
+
+	require.Nil(t, store.Get(stragglerKey))
+	require.NotNil(t, store.Get(futureKey))
 }
 
 func doNTimes(n int, f func(i int)) {
@@ -121,7 +153,7 @@ func doNTimes(n int, f func(i int)) {
 }
 
 func TestProposalStore_ConcurrentAccess(t *testing.T) {
-	store := &ProposalStore[starknet.Hash]{}
+	store := &proposal.ProposalStore[starknet.Hash]{}
 
 	doNTimes(keyCount, func(i int) {
 		key := felt.FromUint64[starknet.Hash](uint64(i))

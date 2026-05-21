@@ -78,6 +78,8 @@ func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height
 		})
 	}
 	wg.Wait()
+
+	b.proposalStore.DeleteUpToHeight(height)
 }
 
 func (b *commitListener[V, H]) Listen() <-chan sync.CommittedBlock {
