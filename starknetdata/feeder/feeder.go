@@ -200,7 +200,7 @@ func (f *Feeder) StateUpdateWithBlock(
 }
 
 // PreConfirmedBlockByNumber fetches the pre_confirmed block at the given
-// height and returns a delta-aware update. knownBlockIdentifier and
+// height and returns a delta-aware update. blockIdentifier and
 // knownTransactionCount tell the server what the caller already has so the
 // server can return a no-change marker, only the transactions appended since
 // knownTransactionCount, or the full block when the round identifier no
@@ -208,13 +208,13 @@ func (f *Feeder) StateUpdateWithBlock(
 func (f *Feeder) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-	knownBlockIdentifier string,
+	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (pending.PreConfirmedUpdate, error) {
 	response, err := f.client.PreConfirmedBlock(
 		ctx,
 		strconv.FormatUint(blockNumber, 10),
-		knownBlockIdentifier,
+		blockIdentifier,
 		knownTransactionCount,
 	)
 	if err != nil {
@@ -224,7 +224,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 	if !response.Changed {
 		return pending.PreConfirmedUpdate{
 			Mode:            pending.PreConfirmedNoChange,
-			BlockIdentifier: knownBlockIdentifier,
+			BlockIdentifier: blockIdentifier,
 		}, nil
 	}
 
@@ -236,7 +236,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 		}
 		return pending.PreConfirmedUpdate{
 			Mode:            pending.PreConfirmedFull,
-			BlockIdentifier: response.KnownBlockIdentifier,
+			BlockIdentifier: response.BlockIdentifier,
 			FullBlock:       &full,
 		}, nil
 	}
@@ -248,7 +248,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 	}
 	return pending.PreConfirmedUpdate{
 		Mode:               pending.PreConfirmedDelta,
-		BlockIdentifier:    response.KnownBlockIdentifier,
+		BlockIdentifier:    response.BlockIdentifier,
 		AppendTransactions: txs,
 		AppendReceipts:     receipts,
 		AppendStateDiffs:   stateDiffs,

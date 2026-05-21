@@ -26,7 +26,7 @@ type DataSource interface {
 	PreConfirmedBlockByNumber(
 		ctx context.Context,
 		blockNumber uint64,
-		knownBlockIdentifier string,
+		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (pending.PreConfirmedUpdate, error)
 }
@@ -146,13 +146,13 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-	knownBlockIdentifier string,
+	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (pending.PreConfirmedUpdate, error) {
 	return f.starknetData.PreConfirmedBlockByNumber(
 		ctx,
 		blockNumber,
-		knownBlockIdentifier,
+		blockIdentifier,
 		knownTransactionCount,
 	)
 }

@@ -36,7 +36,7 @@ type MockDataSource struct {
 	PreConfirmedFunc           func(
 		ctx context.Context,
 		number uint64,
-		knownBlockIdentifier string,
+		blockIdentifier string,
 		knownTransactionCount uint64,
 		numCalls uint,
 	) (pending.PreConfirmedUpdate, error)
@@ -60,7 +60,7 @@ func (m *MockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest,
 func (m *MockDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	number uint64,
-	knownBlockIdentifier string,
+	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (pending.PreConfirmedUpdate, error) {
 	m.numCallsPreConfirmed += 1
@@ -73,7 +73,7 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 		return m.PreConfirmedFunc(
 			ctx,
 			number,
-			knownBlockIdentifier,
+			blockIdentifier,
 			knownTransactionCount,
 			m.numCallsPreConfirmed,
 		)
@@ -481,7 +481,7 @@ func TestPollPendingData(t *testing.T) {
 			preConfirmedFunc := func(
 				ctx context.Context,
 				number uint64,
-				knownBlockIdentifier string,
+				blockIdentifier string,
 				knownTransactionCount uint64,
 				numCalls uint,
 			) (pending.PreConfirmedUpdate, error) {
@@ -501,14 +501,14 @@ func TestPollPendingData(t *testing.T) {
 						preConf := makeTestPreConfirmed(number)
 						response = pending.PreConfirmedUpdate{
 							Mode:            pending.PreConfirmedFull,
-							BlockIdentifier: knownBlockIdentifier,
+							BlockIdentifier: blockIdentifier,
 							FullBlock:       &preConf,
 						}
 						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
 					case 2:
 						response = pending.PreConfirmedUpdate{
 							Mode:            pending.PreConfirmedNoChange,
-							BlockIdentifier: knownBlockIdentifier,
+							BlockIdentifier: blockIdentifier,
 						}
 					}
 				case 2:
@@ -519,20 +519,20 @@ func TestPollPendingData(t *testing.T) {
 						preConf := makeTestPreConfirmed(number)
 						response = pending.PreConfirmedUpdate{
 							Mode:            pending.PreConfirmedFull,
-							BlockIdentifier: knownBlockIdentifier,
+							BlockIdentifier: blockIdentifier,
 							FullBlock:       &preConf,
 						}
 						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
 					case 4:
 						response = pending.PreConfirmedUpdate{
 							Mode:               pending.PreConfirmedDelta,
-							BlockIdentifier:    knownBlockIdentifier,
+							BlockIdentifier:    blockIdentifier,
 							AppendCandidateTxs: []core.Transaction{newTx()},
 						}
 					case 5:
 						response = pending.PreConfirmedUpdate{
 							Mode:            pending.PreConfirmedNoChange,
-							BlockIdentifier: knownBlockIdentifier,
+							BlockIdentifier: blockIdentifier,
 						}
 					}
 				default:

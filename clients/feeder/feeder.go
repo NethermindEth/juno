@@ -360,22 +360,22 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 
 // PreConfirmedBlock fetches the pre_confirmed block at the given height.
 //
-// knownBlockIdentifier and knownTransactionCount enable delta sync: the server
+// blockIdentifier and knownTransactionCount enable delta sync: the server
 // uses them to decide whether to return a no-change marker, only the
 // transactions appended since knownTransactionCount, or the full block when
 // the round identifier no longer matches. Set both to zero values to get a full block.
 func (c *Client) PreConfirmedBlock(
 	ctx context.Context,
 	blockNumber string,
-	knownBlockIdentifier string,
+	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (*starknet.PreConfirmedBlock, error) {
-	if knownBlockIdentifier == "" {
-		knownBlockIdentifier = "0x0"
+	if blockIdentifier == "" {
+		blockIdentifier = "0x0"
 	}
 	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
 		blockNumberArg:          blockNumber,
-		"knownBlockIdentifier":  knownBlockIdentifier,
+		"blockIdentifier":       blockIdentifier,
 		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
 	})
 

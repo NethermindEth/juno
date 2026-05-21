@@ -1,6 +1,6 @@
 {
   "changed": true,
-  "known_block_identifier": "0xdeadbeef",
+  "block_identifier": "0xdeadbeef",
   "status": "PRE_CONFIRMED",
   "starknet_version": "0.14.0",
   "l1_da_mode": "BLOB",

@@ -610,7 +610,7 @@ func AdaptPreConfirmedBlock(
 		Receipts:     receipts,
 	}
 	preConfirmed := pending.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs)
-	preConfirmed.BlockIdentifier = response.KnownBlockIdentifier
+	preConfirmed.BlockIdentifier = response.BlockIdentifier
 	return preConfirmed, nil
 }
 

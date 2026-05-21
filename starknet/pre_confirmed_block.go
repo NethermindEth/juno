@@ -4,14 +4,14 @@ import "github.com/NethermindEth/juno/core/felt"
 
 // PreConfirmedBlock is the response object returned by the feeder for
 // "get_preconfirmed_block". It supports three response modes negotiated via the
-// knownBlockIdentifier and knownTransactionCount query parameters: no-change,
+// blockIdentifier and knownTransactionCount query parameters: no-change,
 // delta and full. Use Mode to discriminate.
 type PreConfirmedBlock struct {
 	// Present on all responses.
 	Changed bool `json:"changed"`
 
 	// Present on full and delta responses.
-	KnownBlockIdentifier  string                `json:"known_block_identifier,omitempty"`
+	BlockIdentifier       string                `json:"block_identifier,omitempty"`
 	Transactions          []Transaction         `json:"transactions,omitempty"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts,omitempty"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs,omitempty"`

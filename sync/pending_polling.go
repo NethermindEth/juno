@@ -271,20 +271,20 @@ func (s *Synchronizer) pollPreConfirmed(
 			}
 
 			var (
-				knownBlockIdentifier         = "0x0"
+				blockIdentifier              = "0x0"
 				knownTransactionCount uint64 = 0
 			)
 
 			currentPreConf := s.preConfirmed.Load()
 			if currentPreConf != nil {
-				knownBlockIdentifier = currentPreConf.BlockIdentifier
+				blockIdentifier = currentPreConf.BlockIdentifier
 				knownTransactionCount = uint64(
 					len(currentPreConf.Block.Transactions) + len(currentPreConf.CandidateTxs),
 				)
 			}
 
 			update, err := s.dataSource.PreConfirmedBlockByNumber(
-				ctx, targetBlockNum, knownBlockIdentifier, knownTransactionCount,
+				ctx, targetBlockNum, blockIdentifier, knownTransactionCount,
 			)
 			if err != nil {
 				s.logger.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
