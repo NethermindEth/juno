@@ -69,7 +69,7 @@ func TestUpstreamCairo0ClassHashCorpus(t *testing.T) {
 
 var cairo0HashRegressionFixtures = []upstreamHashFixture{
 	{
-		name: "Real-world legacy cairo_type spacing",
+		name: "Real-world pre-0.10 cairo_type spacing quirk",
 		artifact: filepath.Join(
 			regressionArtifactsRoot,
 			"0xa0cb53aaa37a4d377736e7e98c1a96b5168d75e3705f30fb09e6d2cbd7d5e3.txt",
@@ -91,7 +91,7 @@ var cairo0HashRegressionFixtures = []upstreamHashFixture{
 		),
 	},
 	{
-		name: "Legacy reference cairo type spacing",
+		name: "Pre-0.10 reference cairo_type spacing quirk",
 		artifact: filepath.Join(
 			regressionArtifactsRoot,
 			"0x6dc10e7703c1b63e0b5a4e8e7842293d3255fd4e53d4e730adf435c3dffabb.txt",
