@@ -716,7 +716,7 @@ func TestAdaptPreConfirmed(t *testing.T) {
 			// a simulated delta response based on the full response
 			deltaResponse := &starknet.PreConfirmedBlock{
 				Changed:               true,
-				KnownBlockIdentifier:  response.KnownBlockIdentifier,
+				BlockIdentifier:       response.BlockIdentifier,
 				Transactions:          response.Transactions,
 				Receipts:              response.Receipts,
 				TransactionStateDiffs: response.TransactionStateDiffs,
@@ -769,7 +769,7 @@ func assertPreConfirmedBlockBasics(
 	assert.Equal(t, response.Version, preConfirmed.Block.ProtocolVersion)
 	assert.Equal(t, response.L1GasPrice.PriceInFri, preConfirmed.Block.L1GasPriceSTRK)
 	assert.Equal(t, response.L1GasPrice.PriceInWei, preConfirmed.Block.L1GasPriceETH)
-	assert.Equal(t, response.KnownBlockIdentifier, preConfirmed.BlockIdentifier)
+	assert.Equal(t, response.BlockIdentifier, preConfirmed.BlockIdentifier)
 }
 
 func assertCandidateTxs(

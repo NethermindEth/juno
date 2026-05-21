@@ -119,18 +119,18 @@ func (mr *MockStarknetDataMockRecorder) Class(ctx, classHash any) *gomock.Call {
 }
 
 // PreConfirmedBlockByNumber mocks base method.
-func (m *MockStarknetData) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64, knownBlockIdentifier string, knownTransactionCount uint64) (pending.PreConfirmedUpdate, error) {
+func (m *MockStarknetData) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64, blockIdentifier string, knownTransactionCount uint64) (pending.PreConfirmedUpdate, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PreConfirmedBlockByNumber", ctx, blockNumber, knownBlockIdentifier, knownTransactionCount)
+	ret := m.ctrl.Call(m, "PreConfirmedBlockByNumber", ctx, blockNumber, blockIdentifier, knownTransactionCount)
 	ret0, _ := ret[0].(pending.PreConfirmedUpdate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PreConfirmedBlockByNumber indicates an expected call of PreConfirmedBlockByNumber.
-func (mr *MockStarknetDataMockRecorder) PreConfirmedBlockByNumber(ctx, blockNumber, knownBlockIdentifier, knownTransactionCount any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) PreConfirmedBlockByNumber(ctx, blockNumber, blockIdentifier, knownTransactionCount any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlockByNumber", reflect.TypeOf((*MockStarknetData)(nil).PreConfirmedBlockByNumber), ctx, blockNumber, knownBlockIdentifier, knownTransactionCount)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlockByNumber", reflect.TypeOf((*MockStarknetData)(nil).PreConfirmedBlockByNumber), ctx, blockNumber, blockIdentifier, knownTransactionCount)
 }
 
 // StateUpdate mocks base method.

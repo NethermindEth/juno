@@ -26,7 +26,7 @@ type StarknetData interface {
 	PreConfirmedBlockByNumber(
 		ctx context.Context,
 		blockNumber uint64,
-		knownBlockIdentifier string,
+		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (pending.PreConfirmedUpdate, error)
 }
