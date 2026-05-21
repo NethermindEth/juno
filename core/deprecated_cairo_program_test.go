@@ -15,6 +15,7 @@ import (
 )
 
 const upstreamArtifactsRoot = "testdata/starknet_rust/contracts/cairo0/artifacts"
+const regressionArtifactsRoot = "testdata/cairo0_hash_regressions"
 
 type upstreamContractHashes struct {
 	ClassHash string `json:"class_hash"`
@@ -53,6 +54,55 @@ var upstreamCairo0HashFixtures = []upstreamHashFixture{
 
 func TestUpstreamCairo0ClassHashCorpus(t *testing.T) {
 	for _, fixture := range upstreamCairo0HashFixtures {
+		t.Run(fixture.name, func(t *testing.T) {
+			class := loadUpstreamDeprecatedClass(t, fixture.artifact)
+			want := loadUpstreamContractHashes(t, fixture.hashes)
+
+			got, err := class.Hash()
+			require.NoError(t, err)
+			assert.Equal(t, felt.UnsafeFromString[felt.Felt](want.ClassHash), got)
+		})
+	}
+}
+
+var cairo0HashRegressionFixtures = []upstreamHashFixture{
+	{
+		name: "Real-world legacy cairo_type spacing",
+		artifact: filepath.Join(
+			regressionArtifactsRoot,
+			"0xa0cb53aaa37a4d377736e7e98c1a96b5168d75e3705f30fb09e6d2cbd7d5e3.txt",
+		),
+		hashes: filepath.Join(
+			regressionArtifactsRoot,
+			"0xa0cb53aaa37a4d377736e7e98c1a96b5168d75e3705f30fb09e6d2cbd7d5e3.hashes.json",
+		),
+	},
+	{
+		name: "Null ABI legacy class",
+		artifact: filepath.Join(
+			regressionArtifactsRoot,
+			"0x371b5f7c5517d84205365a87f02dcef230efa7b4dd91a9e4ba7e04c5b69d69b.txt",
+		),
+		hashes: filepath.Join(
+			regressionArtifactsRoot,
+			"0x371b5f7c5517d84205365a87f02dcef230efa7b4dd91a9e4ba7e04c5b69d69b.hashes.json",
+		),
+	},
+	{
+		name: "Legacy reference cairo type spacing",
+		artifact: filepath.Join(
+			regressionArtifactsRoot,
+			"0x6dc10e7703c1b63e0b5a4e8e7842293d3255fd4e53d4e730adf435c3dffabb.txt",
+		),
+		hashes: filepath.Join(
+			regressionArtifactsRoot,
+			"0x6dc10e7703c1b63e0b5a4e8e7842293d3255fd4e53d4e730adf435c3dffabb.hashes.json",
+		),
+	},
+}
+
+func TestCairo0ClassHashRegressions(t *testing.T) {
+	for _, fixture := range cairo0HashRegressionFixtures {
 		t.Run(fixture.name, func(t *testing.T) {
 			class := loadUpstreamDeprecatedClass(t, fixture.artifact)
 			want := loadUpstreamContractHashes(t, fixture.hashes)
