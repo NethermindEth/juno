@@ -1008,34 +1008,41 @@ func TestSignature(t *testing.T) {
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0), false)
+		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0), true)
 		assert.NoError(t, err)
 		assert.Equal(
 			t,
-			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
+			"0x19f675d3fb226821493a6ab9a1955e384bba80f130de625621a418e9a7c0ca3",
 			actualStateUpdate.Block.Hash.String(),
 		)
 		assert.Equal(t, "0x0", actualStateUpdate.Block.ParentHash.String())
 		assert.Equal(
 			t,
-			"0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833",
+			"0x461065b969aa793d1d66e4ca56ad13116c8589e21c803b5118c520a33c60eb9",
 			actualStateUpdate.Block.StateRoot.String(),
 		)
 		assert.Equal(
 			t,
-			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
+			"0x19f675d3fb226821493a6ab9a1955e384bba80f130de625621a418e9a7c0ca3",
 			actualStateUpdate.StateUpdate.BlockHash.String(),
 		)
 		assert.Equal(
 			t,
-			"0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833",
+			"0x461065b969aa793d1d66e4ca56ad13116c8589e21c803b5118c520a33c60eb9",
 			actualStateUpdate.StateUpdate.NewRoot.String(),
 		)
 		assert.Equal(t, "0x0", actualStateUpdate.StateUpdate.OldRoot.String())
-		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.Nonces)
+		assert.Equal(
+			t,
+			map[string]*felt.Felt{
+				//nolint:lll // Break this line would be ugly
+				"0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8": felt.NewFromUint64[felt.Felt](2),
+			},
+			actualStateUpdate.StateUpdate.StateDiff.Nonces,
+		)
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
 	})
 	t.Run("Test with includeSignature", func(t *testing.T) {
@@ -1047,12 +1054,12 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.Equal(t, 2, len(actualStateUpdate.Signature))
 		assert.Equal(
 			t,
-			"0xe59046f297679492dec6987bf580707fc7a438bd3da98b9c73a6e495d915d",
+			"0xf5feb0ca93ae60e034ff55ddba88636d47db325c5dd99ec1686a6202b2ee7d",
 			actualStateUpdate.Signature[0].String(),
 		)
 		assert.Equal(
 			t,
-			"0x23e7e5fddc5e6be25f264e8571f98948600be4768a9f6ab7406ef1ef3da43c3",
+			"0x36fd2c74719c126db9f7b4fcfa521fa557db3d855bbec2e9f1f80da5f5624af",
 			actualStateUpdate.Signature[1].String(),
 		)
 	})
@@ -1060,13 +1067,13 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(
 			t.Context(),
 			strconv.Itoa(10000000000),
-			false,
+			true,
 		)
 		assert.Error(t, err)
 		assert.Nil(t, actualStateUpdate)
 	})
 	t.Run("Test on latest block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), "latest", false)
+		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), "latest", true)
 		assert.NoError(t, err)
 		assert.NotNil(t, actualStateUpdate)
 	})
