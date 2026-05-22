@@ -355,6 +355,8 @@ func writeDeprecatedCairoProgramCanonical(
 	buffer *bufio.Writer,
 	program *deprecatedCairoProgram,
 ) error {
+	isPre010LegacyFormat := program.CompilerVersion == nil
+
 	buffer.WriteByte('{')
 	first := true
 	if len(program.Attributes) > 0 {
@@ -380,7 +382,7 @@ func writeDeprecatedCairoProgramCanonical(
 	if err := writeLegacyIdentifiers(
 		buffer,
 		program.Identifiers,
-		program.CompilerVersion == nil,
+		isPre010LegacyFormat,
 	); err != nil {
 		return err
 	}
@@ -389,7 +391,7 @@ func writeDeprecatedCairoProgramCanonical(
 	writeJSONFieldPrefix(buffer, "prime", &first)
 	writeJSONString(buffer, program.Prime)
 	writeJSONFieldPrefix(buffer, "reference_manager", &first)
-	writeLegacyReferenceManager(buffer, program.ReferenceManager)
+	writeLegacyReferenceManager(buffer, program.ReferenceManager, isPre010LegacyFormat)
 	buffer.WriteByte('}')
 	return nil
 }
@@ -513,7 +515,7 @@ func writeLegacyApTrackingData(buffer *bufio.Writer, value legacyApTrackingData)
 func writeLegacyIdentifiers(
 	buffer *bufio.Writer,
 	identifiers legacyIdentifiers,
-	patchLegacy bool,
+	isPre010LegacyFormat bool,
 ) error {
 	if identifiers == nil {
 		buffer.WriteString("null")
@@ -532,7 +534,7 @@ func writeLegacyIdentifiers(
 		writeJSONString(buffer, key)
 		buffer.WriteString(": ")
 		value := identifiers[key]
-		if err := writeLegacyIdentifier(buffer, &value, patchLegacy); err != nil {
+		if err := writeLegacyIdentifier(buffer, &value, isPre010LegacyFormat); err != nil {
 			return err
 		}
 	}
@@ -540,7 +542,11 @@ func writeLegacyIdentifiers(
 	return nil
 }
 
-func writeLegacyIdentifier(buffer *bufio.Writer, value *legacyIdentifier, patchLegacy bool) error {
+func writeLegacyIdentifier(
+	buffer *bufio.Writer,
+	value *legacyIdentifier,
+	isPre010LegacyFormat bool,
+) error {
 	buffer.WriteByte('{')
 	first := true
 	if value.Decorators != nil {
@@ -550,8 +556,8 @@ func writeLegacyIdentifier(buffer *bufio.Writer, value *legacyIdentifier, patchL
 	if value.CairoType != nil {
 		writeJSONFieldPrefix(buffer, "cairo_type", &first)
 		cairoType := *value.CairoType
-		if patchLegacy {
-			if patched, changed := patchLegacyCairoType(cairoType); changed {
+		if isPre010LegacyFormat {
+			if patched, changed := patchPre010CairoTypeSpacing(cairoType); changed {
 				cairoType = patched
 			}
 		}
@@ -563,13 +569,13 @@ func writeLegacyIdentifier(buffer *bufio.Writer, value *legacyIdentifier, patchL
 	}
 	if value.Members != nil {
 		writeJSONFieldPrefix(buffer, "members", &first)
-		if err := writeLegacyIdentifierMembers(buffer, *value.Members, patchLegacy); err != nil {
+		if err := writeLegacyIdentifierMembers(buffer, *value.Members, isPre010LegacyFormat); err != nil {
 			return err
 		}
 	}
 	if value.References != nil {
 		writeJSONFieldPrefix(buffer, "references", &first)
-		writeLegacyReferences(buffer, *value.References)
+		writeLegacyReferences(buffer, *value.References, isPre010LegacyFormat)
 	}
 	if value.Size != nil {
 		writeJSONFieldPrefix(buffer, "size", &first)
@@ -596,7 +602,7 @@ func writeLegacyIdentifier(buffer *bufio.Writer, value *legacyIdentifier, patchL
 func writeLegacyIdentifierMembers(
 	buffer *bufio.Writer,
 	members legacyIdentifierMembers,
-	patchLegacy bool,
+	isPre010LegacyFormat bool,
 ) error {
 	if members == nil {
 		buffer.WriteString("null")
@@ -619,8 +625,8 @@ func writeLegacyIdentifierMembers(
 		first := true
 		writeJSONFieldPrefix(buffer, "cairo_type", &first)
 		cairoType := member.CairoType
-		if patchLegacy {
-			if patched, changed := patchLegacyCairoType(cairoType); changed {
+		if isPre010LegacyFormat {
+			if patched, changed := patchPre010CairoTypeSpacing(cairoType); changed {
 				cairoType = patched
 			}
 		}
@@ -633,7 +639,11 @@ func writeLegacyIdentifierMembers(
 	return nil
 }
 
-func writeLegacyReferences(buffer *bufio.Writer, values []legacyReference) {
+func writeLegacyReferences(
+	buffer *bufio.Writer,
+	values []legacyReference,
+	isPre010LegacyFormat bool,
+) {
 	if values == nil {
 		buffer.WriteString("null")
 		return
@@ -650,7 +660,13 @@ func writeLegacyReferences(buffer *bufio.Writer, values []legacyReference) {
 		writeJSONFieldPrefix(buffer, "pc", &first)
 		writeJSONUint64(buffer, value.PC)
 		writeJSONFieldPrefix(buffer, "value", &first)
-		writeJSONString(buffer, value.Value)
+		referenceValue := value.Value
+		if isPre010LegacyFormat {
+			if patched, changed := patchPre010CairoTypeSpacing(referenceValue); changed {
+				referenceValue = patched
+			}
+		}
+		writeJSONString(buffer, referenceValue)
 		buffer.WriteByte('}')
 	}
 	buffer.WriteByte(']')
@@ -678,11 +694,15 @@ func writeLegacyReferenceIDs(buffer *bufio.Writer, ids legacyReferenceIDs) {
 	buffer.WriteByte('}')
 }
 
-func writeLegacyReferenceManager(buffer *bufio.Writer, manager legacyReferenceManager) {
+func writeLegacyReferenceManager(
+	buffer *bufio.Writer,
+	manager legacyReferenceManager,
+	isPre010LegacyFormat bool,
+) {
 	buffer.WriteByte('{')
 	first := true
 	writeJSONFieldPrefix(buffer, "references", &first)
-	writeLegacyReferences(buffer, manager.References)
+	writeLegacyReferences(buffer, manager.References, isPre010LegacyFormat)
 	buffer.WriteByte('}')
 }
 
@@ -747,14 +767,37 @@ type legacyReference struct {
 	Value          string               `json:"value"`
 }
 
-// Pre-0.10 legacy artifacts sometimes encoded cairo_type with spaces around
-// ":" in the hinted-hash payload. Preserve that quirk for compatibility.
-func patchLegacyCairoType(cairoType string) (string, bool) {
-	if !strings.Contains(cairoType, ": ") {
+// Preserve the pre-0.10 legacy " : " spacing quirk without double-patching
+// strings that are already in that form.
+func patchPre010CairoTypeSpacing(cairoType string) (string, bool) {
+	firstPatchIndex := -1
+	for index := 0; index+1 < len(cairoType); index++ {
+		if cairoType[index] == ':' && cairoType[index+1] == ' ' &&
+			(index == 0 || cairoType[index-1] != ' ') {
+			firstPatchIndex = index
+			break
+		}
+	}
+	if firstPatchIndex == -1 {
 		return "", false
 	}
 
-	return strings.ReplaceAll(cairoType, ": ", " : "), true
+	var builder strings.Builder
+	builder.Grow(len(cairoType) + 4)
+	builder.WriteString(cairoType[:firstPatchIndex])
+
+	for index := firstPatchIndex; index < len(cairoType); index++ {
+		if cairoType[index] == ':' && index+1 < len(cairoType) && cairoType[index+1] == ' ' &&
+			(index == 0 || cairoType[index-1] != ' ') {
+			builder.WriteString(" : ")
+			index++
+			continue
+		}
+
+		builder.WriteByte(cairoType[index])
+	}
+
+	return builder.String(), true
 }
 
 // parseLegacyABI keeps only the legacy ABI entry variants that participate in
@@ -763,6 +806,9 @@ func parseLegacyABI(raw json.RawMessage) ([]legacyABIEntry, error) {
 	var rawEntries []json.RawMessage
 	if err := json.Unmarshal(raw, &rawEntries); err != nil {
 		return nil, err
+	}
+	if rawEntries == nil {
+		return nil, nil
 	}
 
 	entries := make([]legacyABIEntry, 0, len(rawEntries))
