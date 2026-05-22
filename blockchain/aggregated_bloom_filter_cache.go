@@ -33,10 +33,12 @@ type AggregatedBloomFilterCache struct {
 }
 
 // NewAggregatedBloomCache creates a new LRU cache for aggregated bloom filters
-// with the specified maximum size (number of ranges to cache).
 func NewAggregatedBloomCache() AggregatedBloomFilterCache {
 	return AggregatedBloomFilterCache{
-		cache: utils.NewLRU[EventFiltersCacheKey, *core.AggregatedBloomFilter](AggregatedBloomFilterCacheSize),
+		cache: utils.NewLRU[
+			EventFiltersCacheKey,
+			*core.AggregatedBloomFilter,
+		](AggregatedBloomFilterCacheSize),
 	}
 }
 

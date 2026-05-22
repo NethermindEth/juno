@@ -95,7 +95,10 @@ func New(
 		l1Heads:          feed.New[*core.L1Head](),
 		preLatestFeed:    feed.New[*pending.PreLatest](),
 
-		blockTraceCache: utils.NewLRU[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
+		blockTraceCache: utils.NewLRU[
+			rpccore.TraceCacheKey,
+			[]TracedBlockTransaction,
+		](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
