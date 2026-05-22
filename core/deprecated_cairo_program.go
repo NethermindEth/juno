@@ -770,31 +770,33 @@ type legacyReference struct {
 // Preserve the pre-0.10 legacy " : " spacing quirk without double-patching
 // strings that are already in that form.
 func patchPre010CairoTypeSpacing(cairoType string) (string, bool) {
-	if !strings.Contains(cairoType, ": ") {
+	firstPatchIndex := -1
+	for index := 0; index+1 < len(cairoType); index++ {
+		if cairoType[index] == ':' && cairoType[index+1] == ' ' &&
+			(index == 0 || cairoType[index-1] != ' ') {
+			firstPatchIndex = index
+			break
+		}
+	}
+	if firstPatchIndex == -1 {
 		return "", false
 	}
 
 	var builder strings.Builder
 	builder.Grow(len(cairoType) + 4)
-	changed := false
-	for index := 0; index < len(cairoType); index++ {
-		if cairoType[index] != ':' || index+1 >= len(cairoType) || cairoType[index+1] != ' ' {
-			builder.WriteByte(cairoType[index])
+	builder.WriteString(cairoType[:firstPatchIndex])
+
+	for index := firstPatchIndex; index < len(cairoType); index++ {
+		if cairoType[index] == ':' && index+1 < len(cairoType) && cairoType[index+1] == ' ' &&
+			(index == 0 || cairoType[index-1] != ' ') {
+			builder.WriteString(" : ")
+			index++
 			continue
 		}
 
-		if index > 0 && cairoType[index-1] == ' ' {
-			builder.WriteByte(cairoType[index])
-			continue
-		}
+		builder.WriteByte(cairoType[index])
+	}
 
-		builder.WriteString(" : ")
-		index++
-		changed = true
-	}
-	if !changed {
-		return "", false
-	}
 	return builder.String(), true
 }
 
