@@ -371,7 +371,13 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 		nodeVM = vm.New(&chainInfo, false, logger)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+
+		adFeeder := adaptfeeder.New(client)
+		// TODO: remove this and use adaptfeeder directly once the new feeder improvements
+		// are implemented on mainnet
+		migrationFeeder := adaptfeeder.NewMigrationFeeder(adFeeder)
+		services = append(services, migrationFeeder)
+		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, migrationFeeder)
 		synchronizer = sync.New(
 			chain,
 			feederGatewayDataSource,
