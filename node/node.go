@@ -58,6 +58,7 @@ const (
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
 	sequencerAddress = 1337
 	PruneModeFlag    = "prune-mode"
+	PruneMinAgeFlag  = "prune-min-age"
 )
 
 // Config is the top-level juno configuration.
@@ -139,7 +140,8 @@ type Config struct {
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
 	Prune          bool
-	RetainedBlocks uint64 `mapstructure:"prune-mode"`
+	RetainedBlocks uint64        `mapstructure:"prune-mode"`
+	PruneMinAge    time.Duration `mapstructure:"prune-min-age"`
 }
 
 type Node struct {
@@ -322,10 +324,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
 		if cfg.Prune {
-			prunerOpts := make([]pruner.Option, 0, 1)
+			prunerOpts := make([]pruner.Option, 0, 2)
 			if cfg.Metrics {
 				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 			}
+
+			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 			p := pruner.New(
 				database,
 				cfg.RetainedBlocks,
@@ -439,10 +443,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if synchronizer != nil {
 			services = append(services, synchronizer)
 			if cfg.Prune {
-				prunerOpts := make([]pruner.Option, 0, 1)
+				prunerOpts := make([]pruner.Option, 0, 2)
 				if cfg.Metrics {
 					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 				}
+
+				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 				p := pruner.New(
 					database,
 					cfg.RetainedBlocks,

@@ -99,9 +99,24 @@ func (sp *servicePruner) sendL1AndAwait(t *testing.T, blockNum uint64) pruneEven
 // resulting prune dispatch. Use only when the configured
 // WithL2HeadsPerPrune is 1 (every L2 head triggers OnPrune); higher
 // thresholds coalesce events silently and provide no listener barrier.
+// The block header carries a fresh (wallclock-now) timestamp so the
+// min-age floor's catch-up gate doesn't suppress it; tests exercising
+// the suppression branch should use sendL2WithTimestampAndAwait.
 func (sp *servicePruner) sendL2AndAwait(t *testing.T, blockNum uint64) pruneEvent {
 	t.Helper()
-	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum}})
+	return sp.sendL2WithTimestampAndAwait(t, blockNum, uint64(time.Now().Unix()))
+}
+
+// sendL2WithTimestampAndAwait is sendL2AndAwait with an explicit on-chain
+// timestamp on the synthetic block header. Pass an ancient timestamp to
+// simulate a deep-catch-up L2 head event (suppresses the wallclock floor).
+func (sp *servicePruner) sendL2WithTimestampAndAwait(
+	t *testing.T,
+	blockNum,
+	timestamp uint64,
+) pruneEvent {
+	t.Helper()
+	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum, Timestamp: timestamp}})
 	select {
 	case ev := <-sp.pruned:
 		return ev

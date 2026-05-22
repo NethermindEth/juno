@@ -109,6 +109,7 @@ const (
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 	newStateF                           = "new-state"
 	pruneModeF                          = node.PruneModeFlag
+	pruneMinAgeF                        = node.PruneMinAgeFlag
 
 	defaultConfig                             = ""
 	defaultLogJSON                            = false
@@ -169,6 +170,7 @@ const (
 	defaultMaxConcurrentCompilations          = 8
 	defaultDisableReceivedTxnStream           = false
 	defaultPruneMode                          = uint64(0)
+	defaultPruneMinAge                        = 1 * time.Hour
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -266,6 +268,11 @@ const (
 		"across restarts is safe: the window grows or shrinks accordingly. " +
 		"Growth is gradual — pruning pauses until the pivot advances enough to " +
 		"reach the new floor."
+	pruneMinAgeUsage = "Protect blocks whose on-chain timestamp is " +
+		"younger than this duration from being pruned. Acts as an " +
+		"additional floor on top of --prune-mode: a block is retained " +
+		"if either the block-count window or this minimum-age window " +
+		"covers it. Set 0 to disable. Default 1h. Requires --prune-mode."
 	disableReceivedTxnStreamUsage = "The starknet_subscribeNewTransactions WebSocket API " +
 		"allows users to subscribe to new transactions. By default, it streams " +
 		"transactions that have been accepted on L2. Users can optionally provide " +
@@ -382,6 +389,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		// its numeric value — --prune-mode=0 is still "on, retain 0".
 		config.Prune = v.IsSet(pruneModeF)
 
+		// --prune-min-age layers on top of --prune-mode; without pruning
+		// enabled there is no floor for it to constrain.
+		if v.IsSet(pruneMinAgeF) && !config.Prune {
+			return fmt.Errorf("--%s requires --%s to be set", pruneMinAgeF, pruneModeF)
+		}
+
 		// Set custom network
 		if v.IsSet(cnNameF) {
 			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
@@ -484,7 +497,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint64(pruneModeF, defaultPruneMode, pruneModeUsage)
 	// NoOptDefVal lets users pass --prune-mode without a value (treated as 0).
 	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "0"
-	setCategory(junoCmd, catPruning, pruneModeF)
+	junoCmd.Flags().Duration(pruneMinAgeF, defaultPruneMinAge, pruneMinAgeUsage)
+	setCategory(junoCmd, catPruning, pruneModeF, pruneMinAgeF)
 
 	// --- Logging ---
 	junoCmd.Flags().String(logLevelF, log.INFO.String(), logLevelFlagUsage)
