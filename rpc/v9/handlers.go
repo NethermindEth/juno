@@ -20,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -77,10 +78,6 @@ func New(
 	if err != nil {
 		logger.Fatalf("Failed to parse ABI: %v", err)
 	}
-	cache, err := lru.New[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize)
-	if err != nil {
-		logger.Fatalf("Failed to initilize LRU cache: %v", err)
-	}
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
@@ -98,7 +95,7 @@ func New(
 		l1Heads:          feed.New[*core.L1Head](),
 		preLatestFeed:    feed.New[*pending.PreLatest](),
 
-		blockTraceCache: cache,
+		blockTraceCache: utils.NewLRU[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}

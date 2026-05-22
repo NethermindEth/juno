@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"go.uber.org/zap"
 )
@@ -168,7 +169,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 
 	// Cache of pre-latest blocks keyed by the hash of their parent.
 	// When we receive the head with this parent hash, we emit the cached pre-latest.
-	seenByParent, _ := simplelru.NewLRU[felt.Felt, *pending.PreLatest](preLatestCacheSize, nil)
+	seenByParent := utils.NewSimpleLRU[felt.Felt, *pending.PreLatest](preLatestCacheSize)
 
 	ticker := time.NewTicker(s.preLatestPollInterval)
 	defer ticker.Stop()

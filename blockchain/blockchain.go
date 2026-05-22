@@ -129,7 +129,7 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 		opt(&o)
 	}
 
-	cachedFilters := NewAggregatedBloomCache(AggregatedBloomFilterCacheSize)
+	cachedFilters := NewAggregatedBloomCache()
 	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilter, error) {
 		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
 	}
