@@ -18,6 +18,7 @@ import (
 const (
 	blockNumberArg = "blockNumber"
 	classHashArg   = "classHash"
+	trueStr        = "true"
 )
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
@@ -234,7 +235,7 @@ func (c *Client) BlockHeader(
 ) (starknet.BlockHeader, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
 		blockNumberArg: blockID,
-		"headerOnly":   "true",
+		"headerOnly":   trueStr,
 	})
 
 	header, err := doRequest[starknet.BlockHeader](ctx, c, queryURL)
@@ -283,7 +284,9 @@ func (c *Client) CasmClassDefinition(
 	return class, nil
 }
 
-func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
+func (c *Client) ClassDefinition(
+	ctx context.Context, classHash *felt.Felt,
+) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
 		classHashArg:   classHash.String(),
 		blockNumberArg: "latest",
@@ -332,7 +335,7 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		blockNumberArg: blockID,
-		"includeBlock": "true",
+		"includeBlock": trueStr,
 	})
 
 	return doRequest[starknet.StateUpdateWithBlock](ctx, c, queryURL)
@@ -344,8 +347,8 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 ) (*starknet.StateUpdateWithBlockAndSignature, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		blockNumberArg:     blockID,
-		"includeBlock":     "true",
-		"includeSignature": "true",
+		"includeBlock":     trueStr,
+		"includeSignature": trueStr,
 	})
 
 	return doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)

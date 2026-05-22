@@ -1092,7 +1092,9 @@ func TestStateUpdateWithBlockAndSignature(t *testing.T) {
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
 	})
 	t.Run("Test with includeSignature", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(t.Context(), strconv.Itoa(78541))
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(
+			t.Context(), strconv.Itoa(78541),
+		)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, actualStateUpdate.StateUpdate)
 		assert.NotEmpty(t, actualStateUpdate.Block)
