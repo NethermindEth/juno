@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/ethereum/go-ethereum/common/lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 // NOTE(Ege): consider making it configurable
@@ -27,15 +27,19 @@ type EventFiltersCacheKey struct {
 // for block ranges, supporting fallback loading and bulk insertion.
 // It is safe for concurrent use.
 type AggregatedBloomFilterCache struct {
-	cache        lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
+	cache        *lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
 	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
 }
 
 // NewAggregatedBloomCache creates a new LRU cache for aggregated bloom filters
 // with the specified maximum size (number of ranges to cache).
 func NewAggregatedBloomCache(size int) AggregatedBloomFilterCache {
+	// TODO: error below is raised only when size is <= 0.
+	// Modifying the return signature with cascade in bunch of code changes.
+	// Do it, but rather as the an optional/last step to reduce noise
+	cache, _ := lru.New[EventFiltersCacheKey, *core.AggregatedBloomFilter](size)
 	return AggregatedBloomFilterCache{
-		cache: *lru.NewCache[EventFiltersCacheKey, *core.AggregatedBloomFilter](size),
+		cache: cache,
 	}
 }
 
