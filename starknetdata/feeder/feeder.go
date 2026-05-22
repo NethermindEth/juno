@@ -73,15 +73,16 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		return nil, errors.New("no pending block")
 	}
 
-	var sig *starknet.Signature
+	var signature []*felt.Felt
 	if blockID != pendingID {
-		sig, err = f.client.Signature(ctx, blockID)
-		if err != nil {
-			return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)
+		sig, sErr := f.client.Signature(ctx, blockID)
+		if sErr != nil {
+			return nil, fmt.Errorf("get signature for block %q: %v", blockID, sErr)
 		}
+		signature = sig.Signature
 	}
 
-	return sn2core.AdaptBlock(response, sig.Signature)
+	return sn2core.AdaptBlock(response, signature)
 }
 
 // Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,

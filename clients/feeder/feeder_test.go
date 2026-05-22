@@ -1265,3 +1265,24 @@ func TestPreConfirmedBlock(t *testing.T) {
 	assert.NotNil(t, snPreConfirmedBlock.SequencerAddress)
 	assert.NotNil(t, snPreConfirmedBlock.Timestamp)
 }
+
+func TestBlockHeader(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+
+	t.Run("normal case", func(t *testing.T) {
+		header, err := client.BlockHeader(t.Context(), strconv.Itoa(11817))
+		require.NoError(t, err)
+		assert.Equal(
+			t,
+			"0x24c692acaed3b486990bd9d2b2fbbee802b37b3bd79c59f295bad3277200a83",
+			header.Hash.String(),
+		)
+		assert.Equal(t, uint64(11817), header.Number)
+	})
+
+	t.Run("block not found", func(t *testing.T) {
+		header, err := client.BlockHeader(t.Context(), strconv.Itoa(1000000))
+		assert.Error(t, err)
+		assert.Zero(t, header)
+	})
+}
