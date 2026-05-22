@@ -334,8 +334,7 @@ func (p *Pruner) applyTimeFloor(standardFloor uint64) uint64 {
 	if p.minAge == 0 {
 		return standardFloor
 	}
-	tf := p.latestSampledHeight
-	return min(tf, standardFloor)
+	return min(p.latestSampledHeight, standardFloor)
 }
 
 func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
@@ -367,12 +366,6 @@ func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
 	}
 
 	return p.pruneUpto(ctx, oldestToKeep)
-}
-
-// withinTimeWindow reports whether the Unix-seconds timestamp ts is no
-// older than window when measured from wallclock now.
-func withinTimeWindow(ts uint64, window time.Duration) bool {
-	return ts >= uint64(time.Now().Add(-window).Unix())
 }
 
 func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
@@ -416,4 +409,10 @@ func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error 
 		zap.Duration("elapsed", elapsed),
 	)
 	return nil
+}
+
+// withinTimeWindow reports whether the Unix-seconds timestamp ts is no
+// older than window when measured from wallclock now.
+func withinTimeWindow(ts uint64, window time.Duration) bool {
+	return ts >= uint64(time.Now().Add(-window).Unix())
 }
