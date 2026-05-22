@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-const _innerBucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieContractStorageHistoryContractNonceHistoryContractClassHashHistoryContractDeploymentHeightL1HeightDeprecatedSchemaVersionUnusedBlockCommitmentsTemporaryDeprecatedSchemaIntermediateStateL1HandlerTxnHashByMsgHashMempoolHeadMempoolTailMempoolLengthMempoolNodeClassTrieContractTrieContractContractTrieStorageContractStateHashToTrieRootsStateIDPersistedStateIDTrieJournalAggregatedBloomFiltersRunningEventFilterClassCasmHashMetadataBlockTransactionsSchemaMetadataSchemaIntermediateState"
+const _innerBucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieDeprecatedContractStorageHistoryDeprecatedContractNonceHistoryDeprecatedContractClassHashHistoryContractDeploymentHeightL1HeightDeprecatedSchemaVersionUnusedBlockCommitmentsTemporaryDeprecatedSchemaIntermediateStateL1HandlerTxnHashByMsgHashMempoolHeadMempoolTailMempoolLengthMempoolNodeClassTrieContractTrieContractContractTrieStorageContractStateHashToTrieRootsStateIDPersistedStateIDTrieJournalAggregatedBloomFiltersRunningEventFilterClassCasmHashMetadataBlockTransactionsSchemaMetadataSchemaIntermediateStateContractClassHashHistoryContractNonceHistoryContractStorageHistory"
 
-var _innerBucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 277, 297, 321, 345, 353, 376, 382, 398, 407, 440, 465, 476, 487, 500, 511, 520, 540, 559, 567, 587, 594, 610, 621, 643, 661, 682, 699, 713, 736}
+var _innerBucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 287, 317, 351, 375, 383, 406, 412, 428, 437, 470, 495, 506, 517, 530, 541, 550, 570, 589, 597, 617, 624, 640, 651, 673, 691, 712, 729, 743, 766, 790, 810, 832}
 
-const _innerBucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriecontractstoragehistorycontractnoncehistorycontractclasshashhistorycontractdeploymentheightl1heightdeprecatedschemaversionunusedblockcommitmentstemporarydeprecatedschemaintermediatestatel1handlertxnhashbymsghashmempoolheadmempooltailmempoollengthmempoolnodeclasstriecontracttriecontractcontracttriestoragecontractstatehashtotrierootsstateidpersistedstateidtriejournalaggregatedbloomfiltersrunningeventfilterclasscasmhashmetadatablocktransactionsschemametadataschemaintermediatestate"
+const _innerBucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriedeprecatedcontractstoragehistorydeprecatedcontractnoncehistorydeprecatedcontractclasshashhistorycontractdeploymentheightl1heightdeprecatedschemaversionunusedblockcommitmentstemporarydeprecatedschemaintermediatestatel1handlertxnhashbymsghashmempoolheadmempooltailmempoollengthmempoolnodeclasstriecontracttriecontractcontracttriestoragecontractstatehashtotrierootsstateidpersistedstateidtriejournalaggregatedbloomfiltersrunningeventfilterclasscasmhashmetadatablocktransactionsschemametadataschemaintermediatestatecontractclasshashhistorycontractnoncehistorycontractstoragehistory"
 
 func (i innerBucket) String() string {
 	if i >= innerBucket(len(_innerBucketIndex)-1) {
@@ -38,9 +38,9 @@ func _innerBucketNoOp() {
 	_ = x[receiptsByBlockNumberAndIndex-(11)]
 	_ = x[stateUpdatesByBlockNumber-(12)]
 	_ = x[classesTrie-(13)]
-	_ = x[contractStorageHistory-(14)]
-	_ = x[contractNonceHistory-(15)]
-	_ = x[contractClassHashHistory-(16)]
+	_ = x[deprecatedContractStorageHistory-(14)]
+	_ = x[deprecatedContractNonceHistory-(15)]
+	_ = x[deprecatedContractClassHashHistory-(16)]
 	_ = x[contractDeploymentHeight-(17)]
 	_ = x[l1Height-(18)]
 	_ = x[deprecatedSchemaVersion-(19)]
@@ -67,9 +67,12 @@ func _innerBucketNoOp() {
 	_ = x[blockTransactions-(40)]
 	_ = x[schemaMetadata-(41)]
 	_ = x[schemaIntermediateState-(42)]
+	_ = x[contractClassHashHistory-(43)]
+	_ = x[contractNonceHistory-(44)]
+	_ = x[contractStorageHistory-(45)]
 }
 
-var _innerBucketValues = []innerBucket{stateTrie, peer, contractClassHash, contractStorage, class, contractNonce, chainHeight, blockHeaderNumbersByHash, blockHeadersByNumber, transactionBlockNumbersAndIndicesByHash, transactionsByBlockNumberAndIndex, receiptsByBlockNumberAndIndex, stateUpdatesByBlockNumber, classesTrie, contractStorageHistory, contractNonceHistory, contractClassHashHistory, contractDeploymentHeight, l1Height, deprecatedSchemaVersion, unused, blockCommitments, temporary, deprecatedSchemaIntermediateState, l1HandlerTxnHashByMsgHash, mempoolHead, mempoolTail, mempoolLength, mempoolNode, classTrie, contractTrieContract, contractTrieStorage, contract, stateHashToTrieRoots, stateID, persistedStateID, trieJournal, aggregatedBloomFilters, runningEventFilter, classCasmHashMetadata, blockTransactions, schemaMetadata, schemaIntermediateState}
+var _innerBucketValues = []innerBucket{stateTrie, peer, contractClassHash, contractStorage, class, contractNonce, chainHeight, blockHeaderNumbersByHash, blockHeadersByNumber, transactionBlockNumbersAndIndicesByHash, transactionsByBlockNumberAndIndex, receiptsByBlockNumberAndIndex, stateUpdatesByBlockNumber, classesTrie, deprecatedContractStorageHistory, deprecatedContractNonceHistory, deprecatedContractClassHashHistory, contractDeploymentHeight, l1Height, deprecatedSchemaVersion, unused, blockCommitments, temporary, deprecatedSchemaIntermediateState, l1HandlerTxnHashByMsgHash, mempoolHead, mempoolTail, mempoolLength, mempoolNode, classTrie, contractTrieContract, contractTrieStorage, contract, stateHashToTrieRoots, stateID, persistedStateID, trieJournal, aggregatedBloomFilters, runningEventFilter, classCasmHashMetadata, blockTransactions, schemaMetadata, schemaIntermediateState, contractClassHashHistory, contractNonceHistory, contractStorageHistory}
 
 var _innerBucketNameToValueMap = map[string]innerBucket{
 	_innerBucketName[0:9]:          stateTrie,
@@ -100,64 +103,70 @@ var _innerBucketNameToValueMap = map[string]innerBucket{
 	_innerBucketLowerName[219:244]: stateUpdatesByBlockNumber,
 	_innerBucketName[244:255]:      classesTrie,
 	_innerBucketLowerName[244:255]: classesTrie,
-	_innerBucketName[255:277]:      contractStorageHistory,
-	_innerBucketLowerName[255:277]: contractStorageHistory,
-	_innerBucketName[277:297]:      contractNonceHistory,
-	_innerBucketLowerName[277:297]: contractNonceHistory,
-	_innerBucketName[297:321]:      contractClassHashHistory,
-	_innerBucketLowerName[297:321]: contractClassHashHistory,
-	_innerBucketName[321:345]:      contractDeploymentHeight,
-	_innerBucketLowerName[321:345]: contractDeploymentHeight,
-	_innerBucketName[345:353]:      l1Height,
-	_innerBucketLowerName[345:353]: l1Height,
-	_innerBucketName[353:376]:      deprecatedSchemaVersion,
-	_innerBucketLowerName[353:376]: deprecatedSchemaVersion,
-	_innerBucketName[376:382]:      unused,
-	_innerBucketLowerName[376:382]: unused,
-	_innerBucketName[382:398]:      blockCommitments,
-	_innerBucketLowerName[382:398]: blockCommitments,
-	_innerBucketName[398:407]:      temporary,
-	_innerBucketLowerName[398:407]: temporary,
-	_innerBucketName[407:440]:      deprecatedSchemaIntermediateState,
-	_innerBucketLowerName[407:440]: deprecatedSchemaIntermediateState,
-	_innerBucketName[440:465]:      l1HandlerTxnHashByMsgHash,
-	_innerBucketLowerName[440:465]: l1HandlerTxnHashByMsgHash,
-	_innerBucketName[465:476]:      mempoolHead,
-	_innerBucketLowerName[465:476]: mempoolHead,
-	_innerBucketName[476:487]:      mempoolTail,
-	_innerBucketLowerName[476:487]: mempoolTail,
-	_innerBucketName[487:500]:      mempoolLength,
-	_innerBucketLowerName[487:500]: mempoolLength,
-	_innerBucketName[500:511]:      mempoolNode,
-	_innerBucketLowerName[500:511]: mempoolNode,
-	_innerBucketName[511:520]:      classTrie,
-	_innerBucketLowerName[511:520]: classTrie,
-	_innerBucketName[520:540]:      contractTrieContract,
-	_innerBucketLowerName[520:540]: contractTrieContract,
-	_innerBucketName[540:559]:      contractTrieStorage,
-	_innerBucketLowerName[540:559]: contractTrieStorage,
-	_innerBucketName[559:567]:      contract,
-	_innerBucketLowerName[559:567]: contract,
-	_innerBucketName[567:587]:      stateHashToTrieRoots,
-	_innerBucketLowerName[567:587]: stateHashToTrieRoots,
-	_innerBucketName[587:594]:      stateID,
-	_innerBucketLowerName[587:594]: stateID,
-	_innerBucketName[594:610]:      persistedStateID,
-	_innerBucketLowerName[594:610]: persistedStateID,
-	_innerBucketName[610:621]:      trieJournal,
-	_innerBucketLowerName[610:621]: trieJournal,
-	_innerBucketName[621:643]:      aggregatedBloomFilters,
-	_innerBucketLowerName[621:643]: aggregatedBloomFilters,
-	_innerBucketName[643:661]:      runningEventFilter,
-	_innerBucketLowerName[643:661]: runningEventFilter,
-	_innerBucketName[661:682]:      classCasmHashMetadata,
-	_innerBucketLowerName[661:682]: classCasmHashMetadata,
-	_innerBucketName[682:699]:      blockTransactions,
-	_innerBucketLowerName[682:699]: blockTransactions,
-	_innerBucketName[699:713]:      schemaMetadata,
-	_innerBucketLowerName[699:713]: schemaMetadata,
-	_innerBucketName[713:736]:      schemaIntermediateState,
-	_innerBucketLowerName[713:736]: schemaIntermediateState,
+	_innerBucketName[255:287]:      deprecatedContractStorageHistory,
+	_innerBucketLowerName[255:287]: deprecatedContractStorageHistory,
+	_innerBucketName[287:317]:      deprecatedContractNonceHistory,
+	_innerBucketLowerName[287:317]: deprecatedContractNonceHistory,
+	_innerBucketName[317:351]:      deprecatedContractClassHashHistory,
+	_innerBucketLowerName[317:351]: deprecatedContractClassHashHistory,
+	_innerBucketName[351:375]:      contractDeploymentHeight,
+	_innerBucketLowerName[351:375]: contractDeploymentHeight,
+	_innerBucketName[375:383]:      l1Height,
+	_innerBucketLowerName[375:383]: l1Height,
+	_innerBucketName[383:406]:      deprecatedSchemaVersion,
+	_innerBucketLowerName[383:406]: deprecatedSchemaVersion,
+	_innerBucketName[406:412]:      unused,
+	_innerBucketLowerName[406:412]: unused,
+	_innerBucketName[412:428]:      blockCommitments,
+	_innerBucketLowerName[412:428]: blockCommitments,
+	_innerBucketName[428:437]:      temporary,
+	_innerBucketLowerName[428:437]: temporary,
+	_innerBucketName[437:470]:      deprecatedSchemaIntermediateState,
+	_innerBucketLowerName[437:470]: deprecatedSchemaIntermediateState,
+	_innerBucketName[470:495]:      l1HandlerTxnHashByMsgHash,
+	_innerBucketLowerName[470:495]: l1HandlerTxnHashByMsgHash,
+	_innerBucketName[495:506]:      mempoolHead,
+	_innerBucketLowerName[495:506]: mempoolHead,
+	_innerBucketName[506:517]:      mempoolTail,
+	_innerBucketLowerName[506:517]: mempoolTail,
+	_innerBucketName[517:530]:      mempoolLength,
+	_innerBucketLowerName[517:530]: mempoolLength,
+	_innerBucketName[530:541]:      mempoolNode,
+	_innerBucketLowerName[530:541]: mempoolNode,
+	_innerBucketName[541:550]:      classTrie,
+	_innerBucketLowerName[541:550]: classTrie,
+	_innerBucketName[550:570]:      contractTrieContract,
+	_innerBucketLowerName[550:570]: contractTrieContract,
+	_innerBucketName[570:589]:      contractTrieStorage,
+	_innerBucketLowerName[570:589]: contractTrieStorage,
+	_innerBucketName[589:597]:      contract,
+	_innerBucketLowerName[589:597]: contract,
+	_innerBucketName[597:617]:      stateHashToTrieRoots,
+	_innerBucketLowerName[597:617]: stateHashToTrieRoots,
+	_innerBucketName[617:624]:      stateID,
+	_innerBucketLowerName[617:624]: stateID,
+	_innerBucketName[624:640]:      persistedStateID,
+	_innerBucketLowerName[624:640]: persistedStateID,
+	_innerBucketName[640:651]:      trieJournal,
+	_innerBucketLowerName[640:651]: trieJournal,
+	_innerBucketName[651:673]:      aggregatedBloomFilters,
+	_innerBucketLowerName[651:673]: aggregatedBloomFilters,
+	_innerBucketName[673:691]:      runningEventFilter,
+	_innerBucketLowerName[673:691]: runningEventFilter,
+	_innerBucketName[691:712]:      classCasmHashMetadata,
+	_innerBucketLowerName[691:712]: classCasmHashMetadata,
+	_innerBucketName[712:729]:      blockTransactions,
+	_innerBucketLowerName[712:729]: blockTransactions,
+	_innerBucketName[729:743]:      schemaMetadata,
+	_innerBucketLowerName[729:743]: schemaMetadata,
+	_innerBucketName[743:766]:      schemaIntermediateState,
+	_innerBucketLowerName[743:766]: schemaIntermediateState,
+	_innerBucketName[766:790]:      contractClassHashHistory,
+	_innerBucketLowerName[766:790]: contractClassHashHistory,
+	_innerBucketName[790:810]:      contractNonceHistory,
+	_innerBucketLowerName[790:810]: contractNonceHistory,
+	_innerBucketName[810:832]:      contractStorageHistory,
+	_innerBucketLowerName[810:832]: contractStorageHistory,
 }
 
 var _innerBucketNames = []string{
@@ -175,35 +184,38 @@ var _innerBucketNames = []string{
 	_innerBucketName[190:219],
 	_innerBucketName[219:244],
 	_innerBucketName[244:255],
-	_innerBucketName[255:277],
-	_innerBucketName[277:297],
-	_innerBucketName[297:321],
-	_innerBucketName[321:345],
-	_innerBucketName[345:353],
-	_innerBucketName[353:376],
-	_innerBucketName[376:382],
-	_innerBucketName[382:398],
-	_innerBucketName[398:407],
-	_innerBucketName[407:440],
-	_innerBucketName[440:465],
-	_innerBucketName[465:476],
-	_innerBucketName[476:487],
-	_innerBucketName[487:500],
-	_innerBucketName[500:511],
-	_innerBucketName[511:520],
-	_innerBucketName[520:540],
-	_innerBucketName[540:559],
-	_innerBucketName[559:567],
-	_innerBucketName[567:587],
-	_innerBucketName[587:594],
-	_innerBucketName[594:610],
-	_innerBucketName[610:621],
-	_innerBucketName[621:643],
-	_innerBucketName[643:661],
-	_innerBucketName[661:682],
-	_innerBucketName[682:699],
-	_innerBucketName[699:713],
-	_innerBucketName[713:736],
+	_innerBucketName[255:287],
+	_innerBucketName[287:317],
+	_innerBucketName[317:351],
+	_innerBucketName[351:375],
+	_innerBucketName[375:383],
+	_innerBucketName[383:406],
+	_innerBucketName[406:412],
+	_innerBucketName[412:428],
+	_innerBucketName[428:437],
+	_innerBucketName[437:470],
+	_innerBucketName[470:495],
+	_innerBucketName[495:506],
+	_innerBucketName[506:517],
+	_innerBucketName[517:530],
+	_innerBucketName[530:541],
+	_innerBucketName[541:550],
+	_innerBucketName[550:570],
+	_innerBucketName[570:589],
+	_innerBucketName[589:597],
+	_innerBucketName[597:617],
+	_innerBucketName[617:624],
+	_innerBucketName[624:640],
+	_innerBucketName[640:651],
+	_innerBucketName[651:673],
+	_innerBucketName[673:691],
+	_innerBucketName[691:712],
+	_innerBucketName[712:729],
+	_innerBucketName[729:743],
+	_innerBucketName[743:766],
+	_innerBucketName[766:790],
+	_innerBucketName[790:810],
+	_innerBucketName[810:832],
 }
 
 // innerBucketString retrieves an enum value from the enum constants string name.

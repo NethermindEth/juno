@@ -132,12 +132,18 @@ func (b *batch) DeleteRange(start, end []byte) error {
 		return errBatchClosed
 	}
 
-	it, err := b.NewIterator(start, false)
+	// Range-based, matching pebble's DeleteRange semantics: delete every
+	// key in [start, end). We iterate with a nil prefix (all keys), Seek
+	// to start, and stop at end. Prefix-bounded iteration would miss keys
+	// whose first bytes only partially share `start` — e.g. a chunk
+	// spanning multiple per-block entries under one address prefix.
+	it, err := b.NewIterator(nil, false)
 	if err != nil {
 		return err
 	}
+	defer it.Close()
 
-	for it.Next() {
+	for ok := it.Seek(start); ok; ok = it.Next() {
 		if bytes.Compare(it.Key(), end) >= 0 {
 			break
 		}

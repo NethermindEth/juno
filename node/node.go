@@ -58,6 +58,7 @@ const (
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
 	sequencerAddress = 1337
 	PruneModeFlag    = "prune-mode"
+	PruneMinAgeFlag  = "prune-min-age"
 )
 
 // Config is the top-level juno configuration.
@@ -139,7 +140,8 @@ type Config struct {
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
 	Prune          bool
-	RetainedBlocks uint64 `mapstructure:"prune-mode"`
+	RetainedBlocks uint64        `mapstructure:"prune-mode"`
+	PruneMinAge    time.Duration `mapstructure:"prune-min-age"`
 }
 
 type Node struct {
@@ -168,6 +170,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	// History pruning needs an L1-finalised cutoff to know which blocks are
+	// safe to drop. The cutoff is established by the L1 client, so disabling
+	// L1 verification makes pruning unsafe — reject the combination up front
+	// instead of crashing later when the migration cannot find an L1 head.
+	if cfg.Prune && cfg.DisableL1Verification {
+		return nil, errors.New("--prune-mode requires L1 verification; " +
+			"remove --disable-l1-verification or disable --prune-mode")
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""
@@ -211,13 +222,19 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	opts := make([]blockchain.Option, 0, 2)
+	opts := make([]blockchain.Option, 0, 3)
 	if cfg.Metrics {
 		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
 	}
 	opts = append(opts, blockchain.WithNewState(
 		cfg.NewState,
 	))
+	if cfg.Prune {
+		opts = append(
+			opts,
+			blockchain.WithRunningEventFilterInitializer(pruner.InitializeRunningEventFilter),
+		)
+	}
 	chain := blockchain.New(database, &cfg.Network, opts...)
 
 	// Verify that cfg.Network is compatible with the database.
@@ -307,10 +324,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
 		if cfg.Prune {
-			prunerOpts := make([]pruner.Option, 0, 1)
+			prunerOpts := make([]pruner.Option, 0, 2)
 			if cfg.Metrics {
 				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 			}
+
+			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 			p := pruner.New(
 				database,
 				cfg.RetainedBlocks,
@@ -424,10 +443,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if synchronizer != nil {
 			services = append(services, synchronizer)
 			if cfg.Prune {
-				prunerOpts := make([]pruner.Option, 0, 1)
+				prunerOpts := make([]pruner.Option, 0, 2)
 				if cfg.Metrics {
 					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 				}
+
+				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 				p := pruner.New(
 					database,
 					cfg.RetainedBlocks,
@@ -653,7 +674,7 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	err = migrateIfNeeded(ctx, n.db, n.cfg, n.logger)
+	err = migrateIfNeeded(ctx, n.db, n.cfg, n.blockchain, n.logger)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.logger.Info("DB Migration cancelled")

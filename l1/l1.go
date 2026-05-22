@@ -167,6 +167,17 @@ func (c *Client) Run(ctx context.Context) error {
 	return c.watchL1StateUpdates(ctx)
 }
 
+// CatchUpL1Head verifies the chain ID then writes the L1 head to the
+// database, without entering the live subscription loop. Closes the
+// underlying Subscriber on return; the Client must not be reused.
+func (c *Client) CatchUpL1Head(ctx context.Context) error {
+	defer c.l1.Close()
+	if err := c.checkChainID(ctx); err != nil {
+		return err
+	}
+	return c.catchUpL1HeadUpdates(ctx)
+}
+
 func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 	buffer := 128
 

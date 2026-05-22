@@ -129,6 +129,24 @@ func TestStateUpdate(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
+		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
+		l1AcceptedID := rpcv10.BlockIDL1Accepted()
+		update, rpcErr := handler.StateUpdate(&l1AcceptedID, nil)
+		require.Nil(t, rpcErr)
+		assertStateUpdateEq(t, update3077642, &update)
+	})
+
+	t.Run("l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: targetBlockNumber + 10,
+				BlockHash:   update3077642.BlockHash,
+				StateRoot:   update3077642.NewRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
 		l1AcceptedID := rpcv10.BlockIDL1Accepted()
 		update, rpcErr := handler.StateUpdate(&l1AcceptedID, nil)

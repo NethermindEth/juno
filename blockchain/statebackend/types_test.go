@@ -13,7 +13,7 @@ import (
 func TestNew(t *testing.T) {
 	t.Run("new state backend", func(t *testing.T) {
 		memDB := memory.New()
-		filter := core.NewRunningEventFilterLazy(memDB)
+		filter := core.NewRunningEventFilterLazy(memDB, core.InitializeRunningEventFilter)
 		network := &networks.Mainnet
 
 		backend := New(memDB, filter, network, true)
@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("deprecated state backend", func(t *testing.T) {
 		memDB := memory.New()
-		filter := core.NewRunningEventFilterLazy(memDB)
+		filter := core.NewRunningEventFilterLazy(memDB, core.InitializeRunningEventFilter)
 		network := &networks.Mainnet
 
 		backend := New(memDB, filter, network, false)

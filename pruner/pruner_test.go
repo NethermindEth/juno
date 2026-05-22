@@ -99,9 +99,24 @@ func (sp *servicePruner) sendL1AndAwait(t *testing.T, blockNum uint64) pruneEven
 // resulting prune dispatch. Use only when the configured
 // WithL2HeadsPerPrune is 1 (every L2 head triggers OnPrune); higher
 // thresholds coalesce events silently and provide no listener barrier.
+// The block header carries a fresh (wallclock-now) timestamp so the
+// min-age floor's catch-up gate doesn't suppress it; tests exercising
+// the suppression branch should use sendL2WithTimestampAndAwait.
 func (sp *servicePruner) sendL2AndAwait(t *testing.T, blockNum uint64) pruneEvent {
 	t.Helper()
-	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum}})
+	return sp.sendL2WithTimestampAndAwait(t, blockNum, uint64(time.Now().Unix()))
+}
+
+// sendL2WithTimestampAndAwait is sendL2AndAwait with an explicit on-chain
+// timestamp on the synthetic block header. Pass an ancient timestamp to
+// simulate a deep-catch-up L2 head event (suppresses the wallclock floor).
+func (sp *servicePruner) sendL2WithTimestampAndAwait(
+	t *testing.T,
+	blockNum,
+	timestamp uint64,
+) pruneEvent {
+	t.Helper()
+	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum, Timestamp: timestamp}})
 	select {
 	case ev := <-sp.pruned:
 		return ev
@@ -157,13 +172,13 @@ func TestPruner_L1Path(t *testing.T) {
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
-		// retention=10, L1=95 → floor = 95-10+1 = 86. Prunes [0, 86).
+		// retention=10, L1=95 → floor = 95-10 = 85. Prunes [0, 85).
 		sp := startPrunerService(t, database, 10)
 		ev := sp.sendL1AndAwait(t, 95)
-		assert.Equal(t, uint64(86), ev.oldest)
-		assert.Equal(t, uint64(86), ev.count)
+		assert.Equal(t, uint64(85), ev.oldest)
+		assert.Equal(t, uint64(85), ev.count)
 
-		for i := range uint64(86) - core.BlockHashLag {
+		for i := range uint64(85) - core.BlockHashLag {
 			testutils.AssertBlockPruned(t, database, blocks[i])
 		}
 	})
@@ -225,11 +240,11 @@ func TestPruner_L2Path(t *testing.T) {
 		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 95}))
 
 		// retention=10, l1Head=95 → L2 path uses the L2 block as the floor
-		// pivot. Sending L2 head 90 → floor = 90-10+1 = 81. Prunes [0, 81).
+		// pivot. Sending L2 head 90 → floor = 90-10 = 80. Prunes [0, 80).
 		sp := startPrunerService(t, database, 10, pruner.WithL2HeadsPerPrune(1))
 		ev := sp.sendL2AndAwait(t, 90)
-		assert.Equal(t, uint64(81), ev.oldest)
-		assert.Equal(t, uint64(81), ev.count)
+		assert.Equal(t, uint64(80), ev.oldest)
+		assert.Equal(t, uint64(80), ev.count)
 	})
 
 	t.Run("coalesces N L2 heads before triggering one prune", func(t *testing.T) {
@@ -242,20 +257,20 @@ func TestPruner_L2Path(t *testing.T) {
 
 		// retention=10, l1Head=95, threshold=3. With L2 heads 88, 89, 90:
 		// the first two coalesce silently; the third tips the counter and
-		// triggers a prune at floor 90-10+1 = 81.
+		// triggers a prune at floor 90-10 = 80.
 		sp := startPrunerService(t, database, 10, pruner.WithL2HeadsPerPrune(3))
 		sp.sendL2AndExpectNoOp(t, 88)
 		sp.sendL2AndExpectNoOp(t, 89)
 		ev1 := sp.sendL2AndAwait(t, 90)
-		assert.Equal(t, uint64(81), ev1.oldest)
-		assert.Equal(t, uint64(81), ev1.count)
+		assert.Equal(t, uint64(80), ev1.oldest)
+		assert.Equal(t, uint64(80), ev1.count)
 
 		// Counter resets after the prune; next two coalesce, the third
-		// triggers a second prune at floor 93-10+1 = 84, deleting [81, 84).
+		// triggers a second prune at floor 93-10 = 83, deleting [80, 83).
 		sp.sendL2AndExpectNoOp(t, 91)
 		sp.sendL2AndExpectNoOp(t, 92)
 		ev2 := sp.sendL2AndAwait(t, 93)
-		assert.Equal(t, uint64(84), ev2.oldest)
+		assert.Equal(t, uint64(83), ev2.oldest)
 		assert.Equal(t, uint64(3), ev2.count, "counter resets after each prune")
 	})
 
@@ -324,25 +339,25 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
-		// Phase 1: retention=80, L1=99 → floor=20. Sweep prunes [0, 20).
+		// Phase 1: retention=80, L1=99 → floor=19. Sweep prunes [0, 19).
 		sp1 := startPrunerService(t, database, 80)
 		ev1 := sp1.sendL1AndAwait(t, 99)
-		assert.Equal(t, uint64(20), ev1.oldest)
-		assert.Equal(t, uint64(20), ev1.count)
+		assert.Equal(t, uint64(19), ev1.oldest)
+		assert.Equal(t, uint64(19), ev1.count)
 
-		// Phase 2: "restart" with retention=10, L1=99 → floor=90. Sweep
-		// prunes [20, 90) — 70 blocks in one dispatch.
+		// Phase 2: "restart" with retention=10, L1=99 → floor=89. Sweep
+		// prunes [19, 89) — 70 blocks in one dispatch.
 		sp2 := startPrunerService(t, database, 10)
 		ev2 := sp2.sendL1AndAwait(t, 99)
-		assert.Equal(t, uint64(90), ev2.oldest)
+		assert.Equal(t, uint64(89), ev2.oldest)
 		assert.Equal(t, uint64(70), ev2.count)
 
 		// End-state: everything below the new lag floor is fully gone,
-		// blocks ≥ 90 untouched.
-		for i := range uint64(90) - lag {
+		// blocks ≥ 89 untouched.
+		for i := range uint64(89) - lag {
 			testutils.AssertBlockPruned(t, database, blocks[i])
 		}
-		for i := uint64(90); i < totalBlocks; i++ {
+		for i := uint64(89); i < totalBlocks; i++ {
 			testutils.AssertBlockExists(t, database, blocks[i])
 		}
 	})
@@ -354,25 +369,25 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		}
 		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
 
-		// Phase 1: retention=10, L1=50 → floor=41. Sweep prunes [0, 41).
+		// Phase 1: retention=10, L1=50 → floor=40. Sweep prunes [0, 40).
 		sp1 := startPrunerService(t, database, 10)
 		ev1 := sp1.sendL1AndAwait(t, 50)
-		assert.Equal(t, uint64(41), ev1.oldest)
-		assert.Equal(t, uint64(41), ev1.count)
+		assert.Equal(t, uint64(40), ev1.oldest)
+		assert.Equal(t, uint64(40), ev1.count)
 
-		// Phase 2: "restart" with retention=40, L1 still at 50 → new floor=11,
-		// below the existing oldestKept (41). PruneUpto early-returns; OnPrune
-		// fires with count=0 and oldest unchanged at 41.
+		// Phase 2: "restart" with retention=40, L1 still at 50 → new floor=10,
+		// below the existing oldestKept (40). PruneUpto early-returns; OnPrune
+		// fires with count=0 and oldest unchanged at 40.
 		sp2 := startPrunerService(t, database, 40)
 		ev2 := sp2.sendL1AndAwait(t, 50)
-		assert.Equal(t, uint64(41), ev2.oldest,
+		assert.Equal(t, uint64(40), ev2.oldest,
 			"growing retention must not resurrect or move oldestKept")
 		assert.Zero(t, ev2.count, "growing retention must not prune any block")
 
-		// Phase 3: L1 advances to 81 → floor=42 > 41. The window finally moves
+		// Phase 3: L1 advances to 81 → floor=41 > 40. The window finally moves
 		// by exactly one block: gradual growth, not a leap.
 		ev3 := sp2.sendL1AndAwait(t, 81)
-		assert.Equal(t, uint64(42), ev3.oldest)
+		assert.Equal(t, uint64(41), ev3.oldest)
 		assert.Equal(t, uint64(1), ev3.count)
 	})
 }

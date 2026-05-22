@@ -571,64 +571,89 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		database := newDB()
 		defer database.Close()
 
-		// Helper to add a range of keys
-		addRange := func(start, stop int) {
-			for i := start; i <= stop; i++ {
-				key := strconv.Itoa(i)
-				value := "value-" + key
-				err := database.Put([]byte(key), []byte(value))
-				require.NoError(t, err, "Put operation failed for key %s", key)
-			}
-		}
-
-		// Helper to check if a range of keys exists
-		checkRange := func(start, stop int, expected bool) {
-			for i := start; i <= stop; i++ {
-				key := []byte(strconv.Itoa(i))
-				has, err := database.Has(key)
-				require.NoError(t, err, "Has operation failed for key %s", key)
-				if expected {
-					require.True(t, has, "key %s should exist", key)
-				} else {
-					require.False(t, has, "key %s should not exist", key)
-				}
-			}
-		}
-
-		addRange(1, 9)
+		addRange(t, database, 9)
 		require.NoError(t, database.DeleteRange([]byte("9"), []byte("1"))) // no-op
-		checkRange(1, 9, true)
+		checkRange(t, database, 1, 9, true)
 		require.NoError(t, database.DeleteRange([]byte("5"), []byte("5"))) // no-op, exclusive end
-		checkRange(1, 9, true)
+		checkRange(t, database, 1, 9, true)
 		require.NoError(t, database.DeleteRange([]byte("5"), []byte("50"))) // delete only key 5
-		checkRange(1, 4, true)
-		checkRange(5, 5, false)
-		checkRange(6, 9, true)
+		checkRange(t, database, 1, 4, true)
+		checkRange(t, database, 5, 5, false)
+		checkRange(t, database, 6, 9, true)
 		require.NoError(t, database.DeleteRange([]byte(""), []byte("a"))) // delete all
-		checkRange(1, 9, false)
+		checkRange(t, database, 1, 9, false)
 
-		addRange(1, 999)
+		addRange(t, database, 999)
 		require.NoError(t, database.DeleteRange([]byte("12345"), []byte("54321")))
-		checkRange(1, 1, true)
-		checkRange(2, 5, false)
-		checkRange(6, 12, true)
-		checkRange(13, 54, false)
-		checkRange(55, 123, true)
-		checkRange(124, 543, false)
-		checkRange(544, 999, true)
+		checkRange(t, database, 1, 1, true)
+		checkRange(t, database, 2, 5, false)
+		checkRange(t, database, 6, 12, true)
+		checkRange(t, database, 13, 54, false)
+		checkRange(t, database, 55, 123, true)
+		checkRange(t, database, 124, 543, false)
+		checkRange(t, database, 544, 999, true)
 
-		addRange(1, 999)
+		addRange(t, database, 999)
 		require.NoError(t, database.DeleteRange([]byte("3"), []byte("7")))
-		checkRange(1, 2, true)
-		checkRange(3, 6, false)
-		checkRange(7, 29, true)
-		checkRange(30, 69, false)
-		checkRange(70, 299, true)
-		checkRange(300, 699, false)
-		checkRange(700, 999, true)
+		checkRange(t, database, 1, 2, true)
+		checkRange(t, database, 3, 6, false)
+		checkRange(t, database, 7, 29, true)
+		checkRange(t, database, 30, 69, false)
+		checkRange(t, database, 70, 299, true)
+		checkRange(t, database, 300, 699, false)
+		checkRange(t, database, 700, 999, true)
 
 		require.NoError(t, database.DeleteRange([]byte(""), []byte("a")))
-		checkRange(1, 999, false)
+		checkRange(t, database, 1, 999, false)
+	})
+
+	// Mirrors the DeleteRange subtest above but routes every DeleteRange
+	// through a Batch + Write, pinning batch and direct paths to the same
+	// behavior across backends.
+	t.Run("BatchDeleteRange", func(t *testing.T) {
+		database := newDB()
+		defer database.Close()
+
+		deleteRangeViaBatch := func(start, end []byte) {
+			batch := database.NewBatch()
+			require.NoError(t, batch.DeleteRange(start, end))
+			require.NoError(t, batch.Write())
+		}
+
+		addRange(t, database, 9)
+		deleteRangeViaBatch([]byte("9"), []byte("1"))
+		checkRange(t, database, 1, 9, true)
+		deleteRangeViaBatch([]byte("5"), []byte("5"))
+		checkRange(t, database, 1, 9, true)
+		deleteRangeViaBatch([]byte("5"), []byte("50"))
+		checkRange(t, database, 1, 4, true)
+		checkRange(t, database, 5, 5, false)
+		checkRange(t, database, 6, 9, true)
+		deleteRangeViaBatch([]byte(""), []byte("a"))
+		checkRange(t, database, 1, 9, false)
+
+		addRange(t, database, 999)
+		deleteRangeViaBatch([]byte("12345"), []byte("54321"))
+		checkRange(t, database, 1, 1, true)
+		checkRange(t, database, 2, 5, false)
+		checkRange(t, database, 6, 12, true)
+		checkRange(t, database, 13, 54, false)
+		checkRange(t, database, 55, 123, true)
+		checkRange(t, database, 124, 543, false)
+		checkRange(t, database, 544, 999, true)
+
+		addRange(t, database, 999)
+		deleteRangeViaBatch([]byte("3"), []byte("7"))
+		checkRange(t, database, 1, 2, true)
+		checkRange(t, database, 3, 6, false)
+		checkRange(t, database, 7, 29, true)
+		checkRange(t, database, 30, 69, false)
+		checkRange(t, database, 70, 299, true)
+		checkRange(t, database, 300, 699, false)
+		checkRange(t, database, 700, 999, true)
+
+		deleteRangeViaBatch([]byte(""), []byte("a"))
+		checkRange(t, database, 1, 999, false)
 	})
 
 	t.Run("Snapshot", func(t *testing.T) {
@@ -795,6 +820,30 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			database.NewSnapshot()
 		})
 	})
+}
+
+// Helper to add keys 1..stop.
+func addRange(t *testing.T, database KeyValueStore, stop int) {
+	for i := 1; i <= stop; i++ {
+		key := strconv.Itoa(i)
+		value := "value-" + key
+		err := database.Put([]byte(key), []byte(value))
+		require.NoError(t, err, "Put operation failed for key %s", key)
+	}
+}
+
+// Helper to check if a range of keys exists
+func checkRange(t *testing.T, database KeyValueStore, start, stop int, expected bool) {
+	for i := start; i <= stop; i++ {
+		key := []byte(strconv.Itoa(i))
+		has, err := database.Has(key)
+		require.NoError(t, err, "Has operation failed for key %s", key)
+		if expected {
+			require.True(t, has, "key %s should exist", key)
+		} else {
+			require.False(t, has, "key %s should not exist", key)
+		}
+	}
 }
 
 func assertIteratorErrorsAfterClose(t *testing.T, it Iterator) {

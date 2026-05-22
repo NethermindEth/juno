@@ -74,7 +74,7 @@ func NewRunner(
 ) (*MigrationRunner, error) {
 	metadata, err := GetSchemaMetadata(database)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, err
+		return nil, fmt.Errorf("getting schema metadata: %w", err)
 	}
 
 	if errors.Is(err, db.ErrKeyNotFound) {
@@ -85,11 +85,6 @@ func NewRunner(
 	}
 
 	targetVersion := registry.TargetVersion()
-	// Validate: check if database was migrated with a newer version of Juno (version downgrade)
-	err = validateNoVersionDowngrade(metadata.CurrentVersion, targetVersion)
-	if err != nil {
-		return nil, err
-	}
 
 	// Validate: check if any previously opted-in migrations are now missing (opt-out attempt)
 	err = validateNoOptOut(
@@ -97,6 +92,12 @@ func NewRunner(
 		metadata.LastTargetVersion,
 		registry.OptionalMigrationFlags(),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate: check if database was migrated with a newer version of Juno (version downgrade)
+	err = validateNoVersionDowngrade(metadata.CurrentVersion, targetVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +118,7 @@ func (mr *MigrationRunner) Run(ctx context.Context) error {
 	// This ensures future runs can prevent opt-out of currently enabled migrations
 	mr.metadata.LastTargetVersion = mr.targetVersion
 	if err := WriteSchemaMetadata(mr.database, mr.metadata); err != nil {
-		return err
+		return fmt.Errorf("writing schema metadata: %w", err)
 	}
 
 	// Derive pending from target and current: migrations in target but not yet applied
@@ -139,7 +140,7 @@ func (mr *MigrationRunner) Run(ctx context.Context) error {
 
 		err := mr.runMigration(ctx, migrationIndex)
 		if err != nil {
-			return err
+			return fmt.Errorf("running migration at index %d: %w", migrationIndex, err)
 		}
 
 		mr.logger.Info("Migration applied",
@@ -154,7 +155,7 @@ func (mr *MigrationRunner) runMigration(ctx context.Context, migrationIndex uint
 	migration := mr.entries[migrationIndex]
 	intermediateState, err := GetIntermediateState(mr.database, migrationIndex)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return err
+		return fmt.Errorf("getting intermediate state: %w", err)
 	}
 
 	if errors.Is(err, db.ErrKeyNotFound) {
@@ -162,19 +163,19 @@ func (mr *MigrationRunner) runMigration(ctx context.Context, migrationIndex uint
 	}
 
 	if err := migration.Before(intermediateState); err != nil {
-		return err
+		return fmt.Errorf("restoring migration state: %w", err)
 	}
 
 	intermediateState, err = migration.Migrate(ctx, mr.database, mr.network, mr.logger)
 
 	if err != nil && !errors.Is(err, ctx.Err()) {
-		return err
+		return fmt.Errorf("executing migration: %w", err)
 	}
 
 	if intermediateState != nil {
 		// Migration produced intermediate state - save it for resumption
 		if err := WriteIntermediateState(mr.database, migrationIndex, intermediateState); err != nil {
-			return err
+			return fmt.Errorf("writing intermediate state: %w", err)
 		}
 		return ctx.Err()
 	}
@@ -182,14 +183,17 @@ func (mr *MigrationRunner) runMigration(ctx context.Context, migrationIndex uint
 	mr.metadata.CurrentVersion.Set(migrationIndex)
 	txn := mr.database.NewBatch()
 	if err := WriteSchemaMetadata(txn, mr.metadata); err != nil {
-		return err
+		return fmt.Errorf("writing schema metadata: %w", err)
 	}
 
 	if err := DeleteIntermediateState(txn, migrationIndex); err != nil {
-		return err
+		return fmt.Errorf("deleting intermediate state: %w", err)
 	}
 
-	return txn.Write()
+	if err := txn.Write(); err != nil {
+		return fmt.Errorf("writing migration commit batch: %w", err)
+	}
+	return nil
 }
 
 // validateNoVersionDowngrade checks if the database was migrated with a newer version of Juno
@@ -218,16 +222,23 @@ func validateNoOptOut(
 		return nil
 	}
 	// Build a list of migration flags that cannot be opted out of
-	flagList := make([]string, optOutAttempts.Len())
-	i := 0
+	flagList := make([]string, 0, optOutAttempts.Len())
 	for idx := range optOutAttempts.Iter() {
+		if int(idx) >= len(optionalMigrationFlags) {
+			// Bits beyond the current registry are unknown migrations from a newer
+			// Juno; let validateNoVersionDowngrade surface that. Iter yields in
+			// ascending order, so every remaining bit is also out of range.
+			break
+		}
 		if flag := optionalMigrationFlags[idx]; flag != "" {
-			flagList[i] = fmt.Sprintf("--%s", flag)
+			flagList = append(flagList, fmt.Sprintf("--%s", flag))
 		} else {
 			// Fallback to index if flag is not available
-			flagList[i] = fmt.Sprintf("--migration-%d", idx)
+			flagList = append(flagList, fmt.Sprintf("--migration-%d", idx))
 		}
-		i++
+	}
+	if len(flagList) == 0 {
+		return nil
 	}
 
 	return fmt.Errorf(
