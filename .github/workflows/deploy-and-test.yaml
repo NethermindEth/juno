@@ -202,6 +202,11 @@ jobs:
   golden-tests:
     needs: [deploy]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rpc_version: [v0_9, v0_10]
+    name: golden-tests-${{ matrix.rpc_version }}
     steps:
       - name: Checkout golden tests
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -210,5 +215,5 @@ jobs:
 
       - name: Run golden tests
         env:
-          STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
+          STARKNET_RPC: ${{ secrets.RPC_URL }}/${{ matrix.rpc_version }}?apikey=${{ secrets.AUTH_TOKEN }}
         run: ./golden.sh test
