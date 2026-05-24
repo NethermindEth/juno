@@ -1,49 +1,76 @@
 package proposal
 
 import (
-	syncmap "sync"
+	"sync"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/types"
 )
 
 type ProposalStore[H types.Hash] struct {
-	underlying syncmap.Map
+	byHeight  sync.Map // map[types.Height]*sync.Map[H]*builder.BuildResult
+	finalized atomic.Uint64
 }
 
 func (p *ProposalStore[H]) Get(key H) *builder.BuildResult {
-	value, ok := p.underlying.Load(key)
-	if !ok {
-		return nil
-	}
-
-	buildResult, ok := value.(*builder.BuildResult)
-	if !ok {
-		return nil
-	}
-
-	return buildResult
+	var found *builder.BuildResult
+	p.byHeight.Range(func(h, bucket any) bool {
+		v, ok := bucket.(*sync.Map).Load(key)
+		if !ok {
+			return true
+		}
+		if uint64(h.(types.Height)) <= p.finalized.Load() {
+			return false
+		}
+		found = v.(*builder.BuildResult)
+		return false
+	})
+	return found
 }
 
 func (p *ProposalStore[H]) Store(key H, value *builder.BuildResult) {
 	if value == nil {
 		return
 	}
-	_, _ = p.underlying.LoadOrStore(key, value)
+	height := types.Height(value.PreConfirmed.Block.Number)
+	if uint64(height) <= p.finalized.Load() {
+		return
+	}
+	bucket := p.bucketFor(height)
+	bucket.LoadOrStore(key, value)
+
+	if uint64(height) <= p.finalized.Load() {
+		bucket.CompareAndDelete(key, value)
+		p.byHeight.CompareAndDelete(height, bucket)
+	}
 }
 
-func (p *ProposalStore[H]) Delete(key H) {
-	p.underlying.Delete(key)
+func (p *ProposalStore[H]) bucketFor(height types.Height) *sync.Map {
+	if existing, ok := p.byHeight.Load(height); ok {
+		return existing.(*sync.Map)
+	}
+	actual, _ := p.byHeight.LoadOrStore(height, &sync.Map{})
+	return actual.(*sync.Map)
+}
+
+func (p *ProposalStore[H]) IsFinalized(height types.Height) bool {
+	return uint64(height) <= p.finalized.Load()
 }
 
 func (p *ProposalStore[H]) DeleteUpToHeight(height types.Height) {
-	p.underlying.Range(func(key, value any) bool {
-		buildResult, ok := value.(*builder.BuildResult)
-		if !ok {
-			return true
+	for {
+		cur := p.finalized.Load()
+		if uint64(height) <= cur {
+			return
 		}
-		if types.Height(buildResult.PreConfirmed.Block.Number) <= height {
-			p.underlying.Delete(key)
+		if p.finalized.CompareAndSwap(cur, uint64(height)) {
+			break
+		}
+	}
+	p.byHeight.Range(func(h, _ any) bool {
+		if h.(types.Height) <= height {
+			p.byHeight.Delete(h)
 		}
 		return true
 	})
