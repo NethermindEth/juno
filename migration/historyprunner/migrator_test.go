@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
@@ -66,7 +67,7 @@ func TestMigrate_FullRun(t *testing.T) {
 
 			database, blocks := setupChain(t, totalBlocks)
 
-			m := historyprunner.New(tc.retainedBlocks)
+			m := historyprunner.New(tc.retainedBlocks, 0)
 			state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 			require.NoError(t, err)
 			require.Nil(t, state, "fully completed migration must not return intermediate state")
@@ -74,6 +75,85 @@ func TestMigrate_FullRun(t *testing.T) {
 			testutils.AssertPostPruneState(t, database, blocks, tc.oldestBlockKept, lag)
 		})
 	}
+}
+
+// TestMigrate_MinAgeFloorTightensCutoff verifies the wallclock floor
+// shrinks the pruned set when it's tighter than the block-count floor:
+// blocks whose Timestamp is within minAge of now must be retained even
+// if standardFloor would discard them.
+func TestMigrate_MinAgeFloorTightensCutoff(t *testing.T) {
+	const totalBlocks uint64 = 60
+	const retainedBlocks uint64 = 5
+	const minAge = 1 * time.Hour
+	lag := core.BlockHashLag
+
+	// Blocks 0..39 are 2h old (outside minAge); 40..59 are 30min old (inside).
+	// minAgeFloor = 40; standardFloor = 60-1-5 = 54; combined = 40.
+	const youngFrom uint64 = 40
+	const oldestBlockKept = youngFrom
+	now := time.Now()
+	oldTS := uint64(now.Add(-2 * time.Hour).Unix())      //nolint:gosec // test fixture
+	youngTS := uint64(now.Add(-30 * time.Minute).Unix()) //nolint:gosec // test fixture
+
+	database := testutils.NewPebbleTestDB(t)
+	blocks := make([]*testutils.StoredBlock, totalBlocks)
+	for i := range totalBlocks {
+		ts := oldTS
+		if i >= youngFrom {
+			ts = youngTS
+		}
+		blocks[i] = testutils.StoreBlockWithTimestamp(t, database, i, ts)
+	}
+	tip := totalBlocks - 1
+	require.NoError(t, core.WriteChainHeight(database, tip))
+	require.NoError(t, core.WriteL1Head(database, &core.L1Head{
+		BlockNumber: tip,
+		BlockHash:   blocks[tip].Header.Hash,
+		StateRoot:   felt.NewRandom[felt.Felt](),
+	}))
+
+	m := historyprunner.New(retainedBlocks, minAge)
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+
+	testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, lag)
+}
+
+// TestMigrate_MinAgeFloorIgnoredInDeepCatchUp verifies that when every
+// stored block is older than minAge (deep catch-up: chain tip's timestamp
+// reflects historical sync, not wallclock), the wallclock floor is
+// suppressed and the standard block-count floor wins. Mirrors the
+// withinTimeWindow check in the running pruner.
+func TestMigrate_MinAgeFloorIgnoredInDeepCatchUp(t *testing.T) {
+	const totalBlocks uint64 = 30
+	const retainedBlocks uint64 = 10
+	const oldestBlockKept = totalBlocks - retainedBlocks - 1 // 19
+	const minAge = 1 * time.Hour
+	lag := core.BlockHashLag
+
+	// All blocks 2h old → no block clears the wallclock cutoff
+	staleTS := uint64(time.Now().Add(-2 * time.Hour).Unix()) //nolint:gosec // test fixture
+
+	database := testutils.NewPebbleTestDB(t)
+	blocks := make([]*testutils.StoredBlock, totalBlocks)
+	for i := range totalBlocks {
+		blocks[i] = testutils.StoreBlockWithTimestamp(t, database, i, staleTS)
+	}
+	tip := totalBlocks - 1
+	require.NoError(t, core.WriteChainHeight(database, tip))
+	require.NoError(t, core.WriteL1Head(database, &core.L1Head{
+		BlockNumber: tip,
+		BlockHash:   blocks[tip].Header.Hash,
+		StateRoot:   felt.NewRandom[felt.Felt](),
+	}))
+
+	m := historyprunner.New(retainedBlocks, minAge)
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+
+	testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, lag)
 }
 
 // TestMigrate_NoOpWhenChainShorterThanRetention covers the early exit when
@@ -85,7 +165,7 @@ func TestMigrate_NoOpWhenChainShorterThanRetention(t *testing.T) {
 
 	database, blocks := setupChain(t, totalBlocks)
 
-	m := historyprunner.New(retainedBlocks)
+	m := historyprunner.New(retainedBlocks, 0)
 	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 	require.Nil(t, state)
@@ -100,7 +180,7 @@ func TestMigrate_NoOpWhenChainShorterThanRetention(t *testing.T) {
 // pointer is missing. This is the cold-start path on a fresh node.
 func TestMigrate_NoOpOnEmptyDB(t *testing.T) {
 	database := testutils.NewPebbleTestDB(t)
-	m := historyprunner.New(10)
+	m := historyprunner.New(10, 0)
 	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 	require.Nil(t, state)
@@ -150,7 +230,7 @@ func runCancellable(
 	defer cancel()
 	wrapped := &cancelAfterBlocks{KeyValueStore: database, cancel: cancel, after: int64(cancelAfter)}
 
-	m := historyprunner.New(retainedBlocks)
+	m := historyprunner.New(retainedBlocks, 0)
 	require.NoError(t, m.Before(prevState))
 	state, err := m.Migrate(ctx, wrapped, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)

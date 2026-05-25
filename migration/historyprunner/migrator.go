@@ -36,36 +36,40 @@ var _ migration.Migration = (*Migrator)(nil)
 
 // intermediateStateSize is the on-disk encoding length:
 //
-//	[0:8]   stagerProgress    (uint64 BE)
-//	[8:16]  restorerProgress  (uint64 BE)
-//	[16:24] numRetainedBlocks (uint64 BE) — pinned from the first run so that
-//	                                       a config change between runs does
-//	                                       not retarget the cutoff mid-flight.
+//	[0:8]   stagerProgress   (uint64 BE)
+//	[8:16]  restorerProgress (uint64 BE)
+//	[16:24] oldestBlockKept  (uint64 BE) — pinned from the first run so that
+//	                                      a config change (or wall-clock drift
+//	                                      of the minAge floor) between runs
+//	                                      does not retarget the cutoff mid-flight.
 const intermediateStateSize = 24
 
 type Migrator struct {
-	numRetainedBlocks uint64 // active value; overridden by Before from persisted state on resume
-	configured        uint64 // value passed to New (what the running process is configured for)
-	stagerProgress    uint64
-	restorerProgress  uint64
+	retainedBlocks   uint64        // block-count floor input; only consulted on first run
+	minAge           time.Duration // wallclock floor input; only consulted on first run
+	oldestBlockKept  uint64        // pinned cutoff once computed; persisted across resumes
+	floorPinned      bool          // true once oldestBlockKept reflects a committed cutoff
+	stagerProgress   uint64
+	restorerProgress uint64
 }
 
 // New constructs a history pruner migrator. retainedBlocks is the number
 // of blocks retained below the L1-confirmed head; the head itself is
 // always retained on top. retainedBlocks == 0 keeps only the L1 head plus
-// the reorg-safe window above it.
-func New(retainedBlocks uint64) *Migrator {
+// the reorg-safe window above it. minAge layers a wallclock floor on top:
+// blocks whose on-chain timestamp is younger than minAge are also retained,
+// mirroring the running pruner's --prune-min-age. Zero disables it.
+func New(retainedBlocks uint64, minAge time.Duration) *Migrator {
 	return &Migrator{
-		numRetainedBlocks: retainedBlocks,
-		configured:        retainedBlocks,
+		retainedBlocks: retainedBlocks,
+		minAge:         minAge,
 	}
 }
 
-// Before restores stager/restorer progress and the originally-configured retention
-// window from the persisted intermediate state. A nil/empty state means a
-// fresh run — the constructor defaults stand. If retainedBlocks was changed
-// between runs, the persisted (original) value wins; Migrate logs the
-// divergence so the operator can see why the new value is being ignored.
+// Before restores stager/restorer progress and the pinned cutoff from
+// persisted intermediate state. A nil/empty state means a fresh run — the
+// cutoff is computed on the first Migrate call. Once pinned, retainedBlocks
+// and minAge config changes between runs are ignored until completion.
 func (m *Migrator) Before(state []byte) error {
 	if len(state) == 0 {
 		return nil
@@ -78,7 +82,8 @@ func (m *Migrator) Before(state []byte) error {
 	}
 	m.stagerProgress = binary.BigEndian.Uint64(state[0:8])
 	m.restorerProgress = binary.BigEndian.Uint64(state[8:16])
-	m.numRetainedBlocks = binary.BigEndian.Uint64(state[16:24])
+	m.oldestBlockKept = binary.BigEndian.Uint64(state[16:24])
+	m.floorPinned = true
 	return nil
 }
 
@@ -88,13 +93,6 @@ func (m *Migrator) Migrate(
 	network *networks.Network,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	if m.configured != m.numRetainedBlocks {
-		logger.Info("Resuming pruning migration; new retention ignored until completion",
-			zap.Uint64("active_retained_blocks", m.numRetainedBlocks),
-			zap.Uint64("requested_retained_blocks", m.configured),
-		)
-	}
-
 	chainHeight, err := core.GetChainHeight(database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -107,12 +105,23 @@ func (m *Migrator) Migrate(
 	if err != nil {
 		return nil, fmt.Errorf("getting L1 head: %w", err)
 	}
-	minHead := min(l1Head.BlockNumber, chainHeight)
-	if minHead < m.numRetainedBlocks {
-		// Chain shorter than the retention window — nothing to prune yet.
-		return nil, nil
+	// pivot is the highest block eligible to be considered kept;
+	// the retention floor is computed relative to it.
+	pivot := min(l1Head.BlockNumber, chainHeight)
+
+	if !m.floorPinned {
+		if pivot < m.retainedBlocks {
+			// Chain shorter than the retention window — nothing to prune yet.
+			return nil, nil
+		}
+		floor, err := m.retentionFloorWithMinAge(database, pivot)
+		if err != nil {
+			return nil, fmt.Errorf("computing oldest block kept: %w", err)
+		}
+		m.oldestBlockKept = floor
+		m.floorPinned = true
 	}
-	oldestBlockKept := minHead - m.numRetainedBlocks
+	oldestBlockKept := m.oldestBlockKept
 
 	start := time.Now()
 	logger.Info("Starting history pruning migration",
@@ -276,7 +285,7 @@ func (m *Migrator) runStager(
 		logger.Info("Stager interrupted",
 			zap.Uint64("resume_from", resumeFrom),
 		)
-		return encodeIntermediateState(resumeFrom, 0, m.numRetainedBlocks), false, nil
+		return encodeIntermediateState(resumeFrom, 0, m.oldestBlockKept), false, nil
 	}
 	return nil, true, nil
 }
@@ -323,7 +332,7 @@ func (m *Migrator) runRestorer(
 		logger.Info("Restorer interrupted",
 			zap.Uint64("resume_from", resumeFrom),
 		)
-		return encodeIntermediateState(chainHeight+1, resumeFrom, m.numRetainedBlocks), false, nil
+		return encodeIntermediateState(chainHeight+1, resumeFrom, m.oldestBlockKept), false, nil
 	}
 
 	// Restorer completed: wipe the scratch namespace.
@@ -370,12 +379,33 @@ func migrateRange(
 	return nextBlockNumber, nil
 }
 
-func encodeIntermediateState(stagerCompletion, restorerCompletion, retainedBlocks uint64) []byte {
+func encodeIntermediateState(stagerCompletion, restorerCompletion, oldestBlockKept uint64) []byte {
 	buf := make([]byte, intermediateStateSize)
 	binary.BigEndian.PutUint64(buf[0:8], stagerCompletion)
 	binary.BigEndian.PutUint64(buf[8:16], restorerCompletion)
-	binary.BigEndian.PutUint64(buf[16:24], retainedBlocks)
+	binary.BigEndian.PutUint64(buf[16:24], oldestBlockKept)
 	return buf
+}
+
+// retentionFloorWithMinAge returns min(standardFloor, minAgeFloor).
+// Precondition: pivot >= retainedBlocks.
+func (m *Migrator) retentionFloorWithMinAge(
+	database db.KeyValueStore,
+	pivot uint64,
+) (uint64, error) {
+	standardFloor := pivot - m.retainedBlocks
+	if m.minAge == 0 {
+		return standardFloor, nil
+	}
+	minAgeFloor, err := pruner.FindOldestBlockAtOrAfter(database, 0, pivot, time.Now().Add(-m.minAge))
+	if errors.Is(err, pruner.ErrNoBlockInWindow) {
+		// Deep catch-up: no block young enough; wallclock layer disabled.
+		return standardFloor, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return min(standardFloor, minAgeFloor), nil
 }
 
 func wipeScratchSpace(batch db.Batch) error {
