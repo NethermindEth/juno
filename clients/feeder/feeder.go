@@ -53,6 +53,10 @@ type Reader interface {
 	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)
 	StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error)
+	StateUpdateWithBlockAndSignature(
+		ctx context.Context,
+		blockID string,
+	) (*starknet.StateUpdateWithBlockAndSignature, error)
 	// Deprecated: Use TransactionStatus() instead.
 	Transaction(
 		ctx context.Context,
