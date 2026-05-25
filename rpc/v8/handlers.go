@@ -24,7 +24,6 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sourcegraph/conc"
 )
 
@@ -47,7 +46,7 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache            *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	blockTraceCache            *utils.LRU[rpccore.TraceCacheKey, []TracedBlockTransaction]
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint

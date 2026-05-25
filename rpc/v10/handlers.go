@@ -24,7 +24,6 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sourcegraph/conc"
 )
 
@@ -49,7 +48,7 @@ type Handler struct {
 
 	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
 	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
-	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, TraceBlockTransactionsResponse]
+	blockTraceCache *utils.LRU[rpccore.TraceCacheKey, TraceBlockTransactionsResponse]
 	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 

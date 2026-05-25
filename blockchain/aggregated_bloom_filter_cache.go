@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
-	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 // NOTE(Ege): consider making it configurable
@@ -28,7 +27,7 @@ type EventFiltersCacheKey struct {
 // for block ranges, supporting fallback loading and bulk insertion.
 // It is safe for concurrent use.
 type AggregatedBloomFilterCache struct {
-	cache        *lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
+	cache        *utils.LRU[EventFiltersCacheKey, *core.AggregatedBloomFilter]
 	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
 }
 

@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"go.uber.org/zap"
 )
 
@@ -131,7 +130,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 func (s *Synchronizer) handleTickerPreLatest(
 	ctx context.Context,
 	currentHead *core.Block,
-	seenByParent *simplelru.LRU[felt.Felt, *pending.PreLatest],
+	seenByParent *utils.SimpleLRU[felt.Felt, *pending.PreLatest],
 	out chan<- *pending.PreLatest,
 ) bool {
 	preLatest, err := s.dataSource.BlockPreLatest(ctx)
