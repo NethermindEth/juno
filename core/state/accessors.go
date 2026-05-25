@@ -41,7 +41,21 @@ func HasContract(r db.KeyValueReader, addr *felt.Felt) (bool, error) {
 	return r.Has(key)
 }
 
-func WriteContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
+func WriteContract(
+	w db.KeyValueWriter,
+	addr *felt.Felt,
+	nonce, classHash felt.Felt,
+	deployHeight uint64,
+) error {
+	contract := stateContract{
+		Nonce:          nonce,
+		ClassHash:      classHash,
+		DeployedHeight: deployHeight,
+	}
+	return writeContract(w, addr, &contract)
+}
+
+func writeContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
 	key := db.ContractKey(addr)
 	data, err := contract.MarshalBinary()
 	if err != nil {

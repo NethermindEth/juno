@@ -11,7 +11,10 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
+	"github.com/NethermindEth/juno/migration/headstate"
 	"github.com/NethermindEth/juno/migration/historyprunner"
+	"github.com/NethermindEth/juno/migration/statehistory"
+	"github.com/NethermindEth/juno/migration/trie"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
@@ -25,7 +28,10 @@ func registerMigrations(cfg *Config) *migration.Registry {
 			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge),
 			cfg.Prune,
 			PruneModeFlag,
-		)
+		).
+		WithOptional(&headstate.Migrator{}, cfg.NewState, "new-state").
+		WithOptional(&statehistory.Migrator{}, cfg.NewState, "new-state").
+		WithOptional(&trie.Migrator{}, cfg.NewState, "new-state")
 
 	return registry
 }

@@ -376,7 +376,7 @@ func (s *State) flush(
 				return err
 			}
 		} else { // updated
-			if err := WriteContract(s.batch, &addr, obj.contract); err != nil {
+			if err := writeContract(s.batch, &addr, obj.contract); err != nil {
 				return err
 			}
 		}
