@@ -23,10 +23,10 @@ const (
 )
 
 type Feeder struct {
-	client *feeder.Client
+	client feeder.Reader
 }
 
-func New(client *feeder.Client) *Feeder {
+func New(client feeder.Reader) *Feeder {
 	return &Feeder{
 		client: client,
 	}

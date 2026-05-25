@@ -3252,7 +3252,7 @@ func createTestWebsocket(
 
 func GetTestBlockWithCommitments(
 	t *testing.T,
-	client *feeder.Client,
+	client feeder.Reader,
 	blockNumber uint64,
 ) (*core.Block, *core.BlockCommitments, *core.StateUpdate) {
 	t.Helper()

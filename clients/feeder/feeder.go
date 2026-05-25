@@ -38,6 +38,32 @@ type Client struct {
 	timeouts   atomic.Pointer[Timeouts]
 }
 
+//go:generate mockgen -destination=../mocks/mock_feeder.go -package=mocks github.com/NethermindEth/juno/clients/feeder Reader
+//nolint:staticcheck // We need to mention the deprecated type in the interface
+type Reader interface {
+	Block(ctx context.Context, blockID string) (*starknet.Block, error)
+	BlockHeader(ctx context.Context, blockID string) (starknet.BlockHeader, error)
+	BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error)
+	CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error)
+	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error)
+	FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error)
+	PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error)
+	PublicKey(ctx context.Context) (*felt.Felt, error)
+	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
+	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)
+	StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error)
+	Transaction(
+		ctx context.Context,
+		transactionHash *felt.Felt,
+	) (*starknet.DeprecatedTransactionStatus, error)
+	TransactionStatus(
+		ctx context.Context,
+		transactionHash *felt.Felt,
+	) (*starknet.TransactionStatus, error)
+}
+
+var _ Reader = (*Client)(nil)
+
 func (c *Client) WithListener(l EventListener) *Client {
 	c.listener = l
 	return c
