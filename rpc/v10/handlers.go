@@ -31,7 +31,7 @@ type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
 	gatewayClient rpccore.Gateway
-	feederClient  *feeder.Client
+	feederClient  feeder.Reader
 	vm            vm.VM
 	logger        log.Logger
 	memPool       mempool.Pool
@@ -140,7 +140,7 @@ func (h *Handler) WithIDGen(idgen func() string) *Handler {
 	return h
 }
 
-func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
+func (h *Handler) WithFeeder(feederClient feeder.Reader) *Handler {
 	h.feederClient = feederClient
 	return h
 }
