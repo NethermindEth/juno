@@ -38,7 +38,7 @@ type Client struct {
 	timeouts   atomic.Pointer[Timeouts]
 }
 
-//go:generate mockgen -destination=../mocks/mock_feeder.go -package=mocks github.com/NethermindEth/juno/clients/feeder Reader
+//go:generate mockgen -destination=../../mocks/mock_feeder.go -mock_names Reader=MockFeederReader -package=mocks github.com/NethermindEth/juno/clients/feeder Reader
 //nolint:staticcheck // We need to mention the deprecated type in the interface
 type Reader interface {
 	Block(ctx context.Context, blockID string) (*starknet.Block, error)
@@ -52,6 +52,7 @@ type Reader interface {
 	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)
 	StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error)
+	// Deprecated: Use TransactionStatus() instead.
 	Transaction(
 		ctx context.Context,
 		transactionHash *felt.Felt,
