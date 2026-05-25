@@ -88,7 +88,7 @@ func TestProposalStore_StoreNilValue(t *testing.T) {
 	require.Nil(t, store.Get(key))
 }
 
-func TestProposalStore_DeleteUpToHeight(t *testing.T) {
+func TestProposalStore_FinalizeHeight(t *testing.T) {
 	store := &proposal.ProposalStore[starknet.Hash]{}
 
 	keyA1 := felt.FromUint64[starknet.Hash](10)
@@ -99,7 +99,7 @@ func TestProposalStore_DeleteUpToHeight(t *testing.T) {
 	store.Store(keyA2, buildResultAtHeight(7))
 	store.Store(keyB, buildResultAtHeight(8))
 
-	store.DeleteUpToHeight(types.Height(7))
+	store.FinalizeHeight(types.Height(7))
 
 	require.Nil(t, store.Get(keyA1))
 	require.Nil(t, store.Get(keyA2))
@@ -115,7 +115,7 @@ func TestProposalStore_FinalizedGuard(t *testing.T) {
 	futureKey := felt.FromUint64[starknet.Hash](4)
 
 	store.Store(currentKey, buildResultAtHeight(7))
-	store.DeleteUpToHeight(types.Height(7))
+	store.FinalizeHeight(types.Height(7))
 
 	store.Store(stragglerKey, buildResultAtHeight(7))
 	store.Store(belowKey, buildResultAtHeight(5))
@@ -134,17 +134,17 @@ func TestProposalStore_IsFinalized(t *testing.T) {
 	require.False(t, store.IsFinalized(types.Height(1)))
 	require.False(t, store.IsFinalized(types.Height(10)))
 
-	store.DeleteUpToHeight(types.Height(5))
+	store.FinalizeHeight(types.Height(5))
 
 	require.True(t, store.IsFinalized(types.Height(5)))
 	require.False(t, store.IsFinalized(types.Height(6)))
 }
 
-func TestProposalStore_DeleteUpToHeight_CursorMonotonic(t *testing.T) {
+func TestProposalStore_FinalizeHeight_CursorMonotonic(t *testing.T) {
 	store := &proposal.ProposalStore[starknet.Hash]{}
 
-	store.DeleteUpToHeight(types.Height(10))
-	store.DeleteUpToHeight(types.Height(5))
+	store.FinalizeHeight(types.Height(10))
+	store.FinalizeHeight(types.Height(5))
 
 	stragglerAt8 := felt.FromUint64[starknet.Hash](1)
 	store.Store(stragglerAt8, buildResultAtHeight(8))
@@ -182,7 +182,7 @@ func TestProposalStore_ConcurrentAccess(t *testing.T) {
 	})
 }
 
-func TestProposalStore_ConcurrentStoreAndDeleteUpToHeight(t *testing.T) {
+func TestProposalStore_ConcurrentStoreAndFinalizeHeight(t *testing.T) {
 	store := &proposal.ProposalStore[starknet.Hash]{}
 
 	const (
@@ -203,12 +203,12 @@ func TestProposalStore_ConcurrentStoreAndDeleteUpToHeight(t *testing.T) {
 	}
 	wg.Go(func() {
 		for i := range writesEach {
-			store.DeleteUpToHeight(types.Height(uint64(i % heightWindow)))
+			store.FinalizeHeight(types.Height(uint64(i % heightWindow)))
 		}
 	})
 	wg.Wait()
 
-	store.DeleteUpToHeight(types.Height(heightWindow))
+	store.FinalizeHeight(types.Height(heightWindow))
 	for w := range writers {
 		for i := range writesEach {
 			k := felt.FromUint64[starknet.Hash](uint64(w*writesEach + i))
