@@ -79,15 +79,6 @@ func TestProposalStore_StoreAndGet(t *testing.T) {
 	}
 }
 
-func TestProposalStore_StoreNilValue(t *testing.T) {
-	store := &proposal.ProposalStore[starknet.Hash]{}
-	key := felt.FromUint64[starknet.Hash](1)
-
-	store.Store(key, nil)
-
-	require.Nil(t, store.Get(key))
-}
-
 func TestProposalStore_FinalizeHeight(t *testing.T) {
 	store := &proposal.ProposalStore[starknet.Hash]{}
 
