@@ -45,7 +45,9 @@ func NewFeederAdaper(feeder *Feeder) *FeederAdapter {
 
 // Complies with the Service interface
 func (f *FeederAdapter) Run(ctx context.Context) error {
-	f.runVerificationLoop(ctx)
+	if isFeederUpdated := f.runVerificationLoop(ctx); isFeederUpdated {
+		f.isFeederUpdated.Store(true)
+	}
 
 	// [service.Service] requires Run to block until ctx is cancelled; otherwise
 	// [node.Node.StartService] would treat the early return as a crash and shut
@@ -56,10 +58,10 @@ func (f *FeederAdapter) Run(ctx context.Context) error {
 
 // runVerificationLoop runs verifyFeederUpdate immediately and then every
 // [verificationInterval] until the new endpoint is confirmed or ctx is done.
-func (f *FeederAdapter) runVerificationLoop(ctx context.Context) {
-	f.verifyFeederUpdate(ctx)
-	if f.isFeederUpdated.Load() {
-		return
+// It only returns if the feeder has been updated (true) or ctx is done (false).
+func (f *FeederAdapter) runVerificationLoop(ctx context.Context) bool {
+	if isFeederUpdated := f.verifyFeederUpdate(ctx); isFeederUpdated {
+		return true
 	}
 
 	ticker := time.NewTicker(verificationInterval)
@@ -68,24 +70,24 @@ func (f *FeederAdapter) runVerificationLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return false
 		case <-ticker.C:
-			f.verifyFeederUpdate(ctx)
-			if f.isFeederUpdated.Load() {
-				return
+			if isFeederUpdated := f.verifyFeederUpdate(ctx); isFeederUpdated {
+				return true
 			}
 		}
 	}
 }
 
-func (f *FeederAdapter) verifyFeederUpdate(ctx context.Context) {
+func (f *FeederAdapter) verifyFeederUpdate(ctx context.Context) bool {
 	timeoutCtx, cancel := context.WithTimeout(ctx, verificationTimeout)
 	defer cancel()
 
 	_, err := f.Feeder.client.StateUpdateWithBlockAndSignature(timeoutCtx, latestID)
 	if err == nil {
-		f.isFeederUpdated.Store(true)
+		return true
 	}
+	return false
 }
 
 // StateUpdateWithBlock returns the state update and block for the given block number.
