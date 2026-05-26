@@ -8,8 +8,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/NethermindEth/juno/clients/mocks"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ import (
 func TestMigrationFeeder(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockClient := mocks.NewMockReader(ctrl)
+		mockClient := mocks.NewMockFeederReader(ctrl)
 		blockNumber := uint64(1234)
 		blockNumberStr := strconv.FormatUint(blockNumber, 10)
 
