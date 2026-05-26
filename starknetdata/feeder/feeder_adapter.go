@@ -84,10 +84,7 @@ func (f *FeederAdapter) verifyFeederUpdate(ctx context.Context) bool {
 	defer cancel()
 
 	_, err := f.Feeder.client.StateUpdateWithBlockAndSignature(timeoutCtx, latestID)
-	if err == nil {
-		return true
-	}
-	return false
+	return err == nil
 }
 
 // StateUpdateWithBlock returns the state update and block for the given block number.
