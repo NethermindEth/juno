@@ -22,149 +22,182 @@ const (
 )
 
 func TestMigrationFeeder(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		mockClient := mocks.NewMockFeederReader(ctrl)
-		blockNumber := uint64(1234)
-		blockNumberStr := strconv.FormatUint(blockNumber, 10)
+	blockNumber := uint64(1234)
+	blockNumberStr := strconv.FormatUint(blockNumber, 10)
 
-		mf := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
+	t.Run(
+		"full cycle - start with an outdated feeder and it gets updated afterwards",
+		func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				mockClient := mocks.NewMockFeederReader(ctrl)
 
-		// ************************************************/
-		// ***** uses legacy two-call path by default *****/
-		// ************************************************/
-		mockClient.EXPECT().
-			StateUpdateWithBlock(gomock.Any(), blockNumberStr).
-			Return(emptyStateUpdate(), nil)
-		mockClient.EXPECT().
-			Signature(gomock.Any(), blockNumberStr).
-			Return(emptySignature(), nil)
+				mf := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
 
-		su, blk, err := mf.StateUpdateWithBlock(t.Context(), blockNumber)
-		require.NoError(t, err)
-		require.NotNil(t, su)
-		require.NotNil(t, blk)
+				// ************************************************/
+				// ***** uses legacy two-call path by default *****/
+				// ************************************************/
+				mockClient.EXPECT().
+					StateUpdateWithBlock(gomock.Any(), blockNumberStr).
+					Return(emptyStateUpdate(), nil)
+				mockClient.EXPECT().
+					Signature(gomock.Any(), blockNumberStr).
+					Return(emptySignature(), nil)
 
-		// ************************************************/
-		// ****** starting verification loop service. *****/
-		// ************************************************/
+				su, blk, err := mf.StateUpdateWithBlock(t.Context(), blockNumber)
+				require.NoError(t, err)
+				require.NotNil(t, su)
+				require.NotNil(t, blk)
 
-		// The first feeder call for the new endpoint starts immediately.
-		// Here, we simulate a failure, meaning the feeder is not updated yet.
-		mockClient.EXPECT().
-			StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
-			Return(nil, errors.New("mock error"))
+				// ************************************************/
+				// ****** starting verification loop service. *****/
+				// ************************************************/
 
-		ctx, cancel := context.WithCancel(t.Context())
-		done := make(chan error, 1) // it will be used later in the test
-		go func() { done <- mf.Run(ctx) }()
-		synctest.Wait()
+				// The first feeder call for the new endpoint starts immediately.
+				// Here, we simulate a failure, meaning the feeder is not updated yet.
+				mockClient.EXPECT().
+					StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
+					Return(nil, errors.New("mock error"))
 
-		// Since the feeder is not updated, the code will fall back to the legacy two-call path.
-		mockClient.EXPECT().
-			StateUpdateWithBlock(gomock.Any(), blockNumberStr).
-			Return(emptyStateUpdate(), nil)
-		mockClient.EXPECT().
-			Signature(gomock.Any(), blockNumberStr).
-			Return(emptySignature(), nil)
+				ctx, cancel := context.WithCancel(t.Context())
+				done := make(chan error, 1) // it will be used later in the test
+				go func() { done <- mf.Run(ctx) }()
+				synctest.Wait()
 
-		su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
-		require.NoError(t, err)
-		require.NotNil(t, su)
-		require.NotNil(t, blk)
+				// Since the feeder is not updated, the code will fall back to the legacy two-call path.
+				mockClient.EXPECT().
+					StateUpdateWithBlock(gomock.Any(), blockNumberStr).
+					Return(emptyStateUpdate(), nil)
+				mockClient.EXPECT().
+					Signature(gomock.Any(), blockNumberStr).
+					Return(emptySignature(), nil)
 
-		// ************************************************************************/
-		// ****** time has passed, 1 second before next verification interval *****/
-		// ************************************************************************/
-		timePassed := verificationInterval - time.Second
-		time.Sleep(timePassed)
-		synctest.Wait()
+				su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
+				require.NoError(t, err)
+				require.NotNil(t, su)
+				require.NotNil(t, blk)
 
-		// The legacy two-call path is still being used.
-		mockClient.EXPECT().
-			StateUpdateWithBlock(gomock.Any(), blockNumberStr).
-			Return(emptyStateUpdate(), nil)
-		mockClient.EXPECT().
-			Signature(gomock.Any(), blockNumberStr).
-			Return(emptySignature(), nil)
+				// ************************************************************************/
+				// ****** time has passed, 1 second before next verification interval *****/
+				// ************************************************************************/
+				timePassed := verificationInterval - time.Second
+				time.Sleep(timePassed)
+				synctest.Wait()
 
-		su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
-		require.NoError(t, err)
-		require.NotNil(t, su)
-		require.NotNil(t, blk)
+				// The legacy two-call path is still being used.
+				mockClient.EXPECT().
+					StateUpdateWithBlock(gomock.Any(), blockNumberStr).
+					Return(emptyStateUpdate(), nil)
+				mockClient.EXPECT().
+					Signature(gomock.Any(), blockNumberStr).
+					Return(emptySignature(), nil)
 
-		// **************************************************************/
-		// ******* 1st verification tick, feeder is not updated yet *****/
-		// **************************************************************/
-		mockClient.EXPECT().
-			StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
-			Return(nil, errors.New("mock error"))
-		time.Sleep(time.Second)
-		synctest.Wait()
+				su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
+				require.NoError(t, err)
+				require.NotNil(t, su)
+				require.NotNil(t, blk)
 
-		// The legacy two-call path is still being used.
-		mockClient.EXPECT().
-			StateUpdateWithBlock(gomock.Any(), blockNumberStr).
-			Return(emptyStateUpdate(), nil)
-		mockClient.EXPECT().
-			Signature(gomock.Any(), blockNumberStr).
-			Return(emptySignature(), nil)
+				// **************************************************************/
+				// ******* 1st verification tick, feeder is not updated yet *****/
+				// **************************************************************/
+				mockClient.EXPECT().
+					StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
+					Return(nil, errors.New("mock error"))
+				time.Sleep(time.Second)
+				synctest.Wait()
 
-		su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
-		require.NoError(t, err)
-		require.NotNil(t, su)
-		require.NotNil(t, blk)
+				// The legacy two-call path is still being used.
+				mockClient.EXPECT().
+					StateUpdateWithBlock(gomock.Any(), blockNumberStr).
+					Return(emptyStateUpdate(), nil)
+				mockClient.EXPECT().
+					Signature(gomock.Any(), blockNumberStr).
+					Return(emptySignature(), nil)
 
-		// ******************************************************/
-		// ******* 2nd verification tick, feeder is updated *****/
-		// ******************************************************/
-		mockClient.EXPECT().
-			StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
-			Return(emptyStateUpdateWithSig(), nil)
+				su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
+				require.NoError(t, err)
+				require.NotNil(t, su)
+				require.NotNil(t, blk)
 
-		time.Sleep(verificationInterval)
-		synctest.Wait()
+				// ******************************************************/
+				// ******* 2nd verification tick, feeder is updated *****/
+				// ******************************************************/
+				mockClient.EXPECT().
+					StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
+					Return(emptyStateUpdateWithSig(), nil)
 
-		// The new endpoint is being used.
-		mockClient.EXPECT().
-			StateUpdateWithBlockAndSignature(gomock.Any(), blockNumberStr).
-			Return(emptyStateUpdateWithSig(), nil)
+				time.Sleep(verificationInterval)
+				synctest.Wait()
 
-		su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
-		require.NoError(t, err)
-		require.NotNil(t, su)
-		require.NotNil(t, blk)
+				// The new endpoint is being used.
+				mockClient.EXPECT().
+					StateUpdateWithBlockAndSignature(gomock.Any(), blockNumberStr).
+					Return(emptyStateUpdateWithSig(), nil)
 
-		// *******************************************************************/
-		// ******* verification loop should stop after feeder is updated *****/
-		// *******************************************************************/
+				su, blk, err = mf.StateUpdateWithBlock(t.Context(), blockNumber)
+				require.NoError(t, err)
+				require.NotNil(t, su)
+				require.NotNil(t, blk)
 
-		// We wait for 5 verification intervals. If the verification loop is running,
-		// it will trigger 5 calls to the new endpoint, and since we haven't
-		// configured any expected calls for the feeder mock, the test will fail.
-		time.Sleep(verificationInterval * 5)
-		synctest.Wait()
+				// *******************************************************************/
+				// ******* verification loop should stop after feeder is updated *****/
+				// *******************************************************************/
 
-		// ***************************************************/
-		// ******* Run must block until ctx is cancelled *****/
-		// ***************************************************/
+				// We wait for 5 verification intervals. If the verification loop is running,
+				// it will trigger 5 calls to the new endpoint, and since we haven't
+				// configured any expected calls for the feeder mock, the test will fail.
+				time.Sleep(verificationInterval * 5)
+				synctest.Wait()
 
-		// Even though the verification loop is stopped, the Run method must
-		// block until ctx is cancelled.
-		select {
-		case <-done:
-			t.Fatal("Run returned before ctx cancellation")
-		default:
-		}
+				// ***************************************************/
+				// ******* Run must block until ctx is cancelled *****/
+				// ***************************************************/
 
-		cancel()
-		synctest.Wait()
+				// Even though the verification loop is stopped, the Run method must
+				// block until ctx is cancelled.
+				select {
+				case <-done:
+					t.Fatal("Run returned before ctx cancellation")
+				default:
+				}
 
-		select {
-		case <-done:
-		default:
-			t.Fatal("Run did not return after ctx cancellation")
-		}
+				cancel()
+				synctest.Wait()
+
+				select {
+				case <-done:
+				default:
+					t.Fatal("Run did not return after ctx cancellation")
+				}
+			})
+		})
+
+	t.Run("feeder is already updated when the verification loop starts", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockClient := mocks.NewMockFeederReader(ctrl)
+
+			mf := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
+
+			// The first feeder call for the new endpoint starts immediately.
+			// By returning a valid response, we simulate that the feeder is already updated.
+			mockClient.EXPECT().
+				StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
+				Return(emptyStateUpdateWithSig(), nil)
+
+			go func() { _ = mf.Run(t.Context()) }()
+			synctest.Wait()
+
+			// The new endpoint is used.
+			mockClient.EXPECT().
+				StateUpdateWithBlockAndSignature(gomock.Any(), blockNumberStr).
+				Return(emptyStateUpdateWithSig(), nil)
+
+			su, blk, err := mf.StateUpdateWithBlock(t.Context(), blockNumber)
+			require.NoError(t, err)
+			require.NotNil(t, su)
+			require.NotNil(t, blk)
+		})
 	})
 }
 
