@@ -111,7 +111,7 @@ func fetchL1HeadIfMissing(
 	}
 
 	if err := client.CatchUpL1Head(ctx); err != nil {
-		return fmt.Errorf("catching up to the latest l1 head: %w", err)
+		return fmt.Errorf("catching up to the latest L1 head: %w", err)
 	}
 
 	if _, err := core.GetL1Head(database); err != nil {

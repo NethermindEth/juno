@@ -141,7 +141,7 @@ func TestMismatchedChainID(t *testing.T) {
 // TestChainIDCheckTimeout asserts that the startup eth_chainId probe gives up
 // after chainIDCheckTimeout (30s in production) with a user-actionable error
 // when the L1 endpoint accepts the dial but never responds to eth_chainId
-// (e.g. --eth-node pointing at a Starknet RPC URL). The test runs inside a
+// (e.g. --eth-node pointing at an incorrect RPC URL). The test runs inside a
 // synctest bubble so the 30s wait advances in virtual time and the test
 // completes in microseconds of wallclock.
 func TestChainIDCheckTimeout(t *testing.T) {
