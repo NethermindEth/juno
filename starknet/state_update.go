@@ -59,3 +59,11 @@ type StateUpdateWithBlock struct {
 	Block       *Block       `json:"block"`
 	StateUpdate *StateUpdate `json:"state_update"`
 }
+
+// StateUpdateWithBlock represents the object response by the feeder for "get_state_update"
+// endpoint with `includeBlock` and `includeSignature` arguments
+type StateUpdateWithBlockAndSignature struct {
+	StateUpdate *StateUpdate `json:"state_update"`
+	Block       *Block       `json:"block"`
+	Signature   []*felt.Felt `json:"signature"`
+}
