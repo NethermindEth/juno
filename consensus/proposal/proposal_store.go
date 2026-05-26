@@ -30,9 +30,6 @@ func (p *ProposalStore[H]) Get(key H) *builder.BuildResult {
 }
 
 func (p *ProposalStore[H]) Store(key H, builtResult *builder.BuildResult) {
-	if builtResult == nil {
-		return
-	}
 	height := types.Height(builtResult.PreConfirmed.Block.Number)
 	if p.IsFinalized(height) {
 		return
@@ -40,6 +37,8 @@ func (p *ProposalStore[H]) Store(key H, builtResult *builder.BuildResult) {
 	bucket := p.proposalFor(height)
 	bucket.LoadOrStore(key, builtResult)
 
+	// FinalizeHeight may have raced between the initial guard and LoadOrStore;
+	// if so, roll back so we never leave a proposal at a finalized height.
 	if p.IsFinalized(height) {
 		bucket.CompareAndDelete(key, builtResult)
 		p.proposalsByHeight.CompareAndDelete(height, bucket)
@@ -47,6 +46,8 @@ func (p *ProposalStore[H]) Store(key H, builtResult *builder.BuildResult) {
 }
 
 func (p *ProposalStore[H]) proposalFor(height types.Height) *sync.Map {
+	// Fast path avoids allocating a sync.Map on every call: LoadOrStore would
+	// construct one even when the bucket already exists, only to discard it.
 	if existing, ok := p.proposalsByHeight.Load(height); ok {
 		return existing.(*sync.Map)
 	}
