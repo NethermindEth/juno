@@ -82,8 +82,8 @@ func (f *MigrationFeeder) verifyFeederUpdate(ctx context.Context) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, verificationTimeout)
 	defer cancel()
 
-	resp, err := f.Feeder.client.StateUpdateWithBlockAndSignature(timeoutCtx, latestID)
-	if err == nil && resp != nil && len(resp.Signature) > 0 {
+	_, err := f.Feeder.client.StateUpdateWithBlockAndSignature(timeoutCtx, latestID)
+	if err == nil {
 		f.isFeederUpdated.Store(true)
 	}
 }

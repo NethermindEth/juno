@@ -1,4 +1,4 @@
-package feeder
+package feeder_test
 
 import (
 	"context"
@@ -11,8 +11,14 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+)
+
+const (
+	latestID             = "latest"
+	verificationInterval = 30 * time.Minute // same as production code
 )
 
 func TestMigrationFeeder(t *testing.T) {
@@ -22,7 +28,7 @@ func TestMigrationFeeder(t *testing.T) {
 		blockNumber := uint64(1234)
 		blockNumberStr := strconv.FormatUint(blockNumber, 10)
 
-		mf := NewMigrationFeeder(New(mockClient))
+		mf := adaptfeeder.NewMigrationFeeder(adaptfeeder.New(mockClient))
 
 		// ************************************************/
 		// ***** uses legacy two-call path by default *****/
