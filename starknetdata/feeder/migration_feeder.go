@@ -8,8 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
@@ -30,7 +28,7 @@ const (
 // delegates directly to the wrapped [Feeder]. Until then, it falls back to
 // the old approach with two separate requests.
 type MigrationFeeder struct {
-	feeder *Feeder
+	*Feeder
 
 	// isFeederUpdated is set to true once the upstream feeder is confirmed
 	// to support StateUpdateWithBlockAndSignature.
@@ -41,13 +39,13 @@ var _ starknetdata.StarknetData = (*MigrationFeeder)(nil)
 
 func NewMigrationFeeder(feeder *Feeder) *MigrationFeeder {
 	return &MigrationFeeder{
-		feeder: feeder,
+		Feeder: feeder,
 	}
 }
 
 // Complies with the Service interface
 func (f *MigrationFeeder) Run(ctx context.Context) error {
-	f.startVerificationLoop(ctx)
+	f.runVerificationLoop(ctx)
 
 	// [service.Service] requires Run to block until ctx is cancelled; otherwise
 	// [node.Node.StartService] would treat the early return as a crash and shut
@@ -56,9 +54,9 @@ func (f *MigrationFeeder) Run(ctx context.Context) error {
 	return nil
 }
 
-// startVerificationLoop runs verifyFeederUpdate immediately and then every
+// runVerificationLoop runs verifyFeederUpdate immediately and then every
 // [verificationInterval] until the new endpoint is confirmed or ctx is done.
-func (f *MigrationFeeder) startVerificationLoop(ctx context.Context) {
+func (f *MigrationFeeder) runVerificationLoop(ctx context.Context) {
 	f.verifyFeederUpdate(ctx)
 	if f.isFeederUpdated.Load() {
 		return
@@ -84,7 +82,7 @@ func (f *MigrationFeeder) verifyFeederUpdate(ctx context.Context) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, verificationTimeout)
 	defer cancel()
 
-	resp, err := f.feeder.client.StateUpdateWithBlockAndSignature(timeoutCtx, "0")
+	resp, err := f.Feeder.client.StateUpdateWithBlockAndSignature(timeoutCtx, latestID)
 	if err == nil && resp != nil && len(resp.Signature) > 0 {
 		f.isFeederUpdated.Store(true)
 	}
@@ -99,14 +97,14 @@ func (f *MigrationFeeder) StateUpdateWithBlock(
 	ctx context.Context, blockNumber uint64,
 ) (*core.StateUpdate, *core.Block, error) {
 	if f.isFeederUpdated.Load() {
-		return f.feeder.StateUpdateWithBlock(ctx, blockNumber)
+		return f.Feeder.StateUpdateWithBlock(ctx, blockNumber)
 	}
 
-	response, err := f.feeder.client.StateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
+	response, err := f.Feeder.client.StateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 	if err != nil {
 		return nil, nil, err
 	}
-	sig, err := f.feeder.client.Signature(ctx, strconv.FormatUint(blockNumber, 10))
+	sig, err := f.Feeder.client.Signature(ctx, strconv.FormatUint(blockNumber, 10))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -122,58 +120,4 @@ func (f *MigrationFeeder) StateUpdateWithBlock(
 	}
 
 	return adaptedState, adaptedBlock, nil
-}
-
-//////////////// Only mirroring the other feeder methods ////////////////
-
-func (f *MigrationFeeder) BlockByNumber(
-	ctx context.Context, blockNumber uint64,
-) (*core.Block, error) {
-	return f.feeder.BlockByNumber(ctx, blockNumber)
-}
-
-func (f *MigrationFeeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
-	return f.feeder.BlockHeaderLatest(ctx)
-}
-
-func (f *MigrationFeeder) BlockLatest(ctx context.Context) (*core.Block, error) {
-	return f.feeder.BlockLatest(ctx)
-}
-
-func (f *MigrationFeeder) BlockPreLatest(ctx context.Context) (*core.Block, error) {
-	return f.feeder.BlockPreLatest(ctx)
-}
-
-func (f *MigrationFeeder) Class(
-	ctx context.Context, classHash *felt.Felt,
-) (core.ClassDefinition, error) {
-	return f.feeder.Class(ctx, classHash)
-}
-
-func (f *MigrationFeeder) PreConfirmedBlockByNumber(
-	ctx context.Context, blockNumber uint64,
-) (pending.PreConfirmed, error) {
-	return f.feeder.PreConfirmedBlockByNumber(ctx, blockNumber)
-}
-
-func (f *MigrationFeeder) StateUpdate(
-	ctx context.Context, blockNumber uint64,
-) (*core.StateUpdate, error) {
-	return f.feeder.StateUpdate(ctx, blockNumber)
-}
-
-func (f *MigrationFeeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
-	return f.feeder.StateUpdatePending(ctx)
-}
-
-func (f *MigrationFeeder) StateUpdatePendingWithBlock(
-	ctx context.Context,
-) (*core.StateUpdate, *core.Block, error) {
-	return f.feeder.StateUpdatePendingWithBlock(ctx)
-}
-
-func (f *MigrationFeeder) Transaction(
-	ctx context.Context, transactionHash *felt.Felt,
-) (core.Transaction, error) {
-	return f.feeder.Transaction(ctx, transactionHash)
 }

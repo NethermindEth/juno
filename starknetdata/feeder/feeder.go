@@ -156,8 +156,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		if err != nil {
 			return nil, nil, err
 		}
-		stateUpBlock.Block = resp.Block
-		stateUpBlock.StateUpdate = resp.StateUpdate
+		stateUpBlock = *resp
 	} else {
 		resp, err := f.client.StateUpdateWithBlockAndSignature(ctx, blockID)
 		if err != nil {

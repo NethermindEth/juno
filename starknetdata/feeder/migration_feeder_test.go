@@ -46,7 +46,7 @@ func TestMigrationFeeder(t *testing.T) {
 		// The first feeder call for the new endpoint starts immediately.
 		// Here, we simulate a failure, meaning the feeder is not updated yet.
 		mockClient.EXPECT().
-			StateUpdateWithBlockAndSignature(gomock.Any(), "0").
+			StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
 			Return(nil, errors.New("mock error"))
 
 		ctx, cancel := context.WithCancel(t.Context())
@@ -91,7 +91,7 @@ func TestMigrationFeeder(t *testing.T) {
 		// ******* 1st verification tick, feeder is not updated yet *****/
 		// **************************************************************/
 		mockClient.EXPECT().
-			StateUpdateWithBlockAndSignature(gomock.Any(), "0").
+			StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
 			Return(nil, errors.New("mock error"))
 		time.Sleep(time.Second)
 		synctest.Wait()
@@ -113,7 +113,7 @@ func TestMigrationFeeder(t *testing.T) {
 		// ******* 2nd verification tick, feeder is updated *****/
 		// ******************************************************/
 		mockClient.EXPECT().
-			StateUpdateWithBlockAndSignature(gomock.Any(), "0").
+			StateUpdateWithBlockAndSignature(gomock.Any(), latestID).
 			Return(emptyStateUpdateWithSig(), nil)
 
 		time.Sleep(verificationInterval)
