@@ -16,7 +16,7 @@ const (
 	verificationTimeout  = 2 * time.Second
 )
 
-// MigrationFeeder wraps a [Feeder] and provides a transitional implementation of
+// FeederAdapter wraps a [Feeder] and provides a transitional implementation of
 // [starknetdata.StarknetData] for networks that have not yet upgraded to support
 // the new "includeSignature=true" argument for the "get_state_update" endpoint.
 //
@@ -24,10 +24,10 @@ const (
 // and atomically flips an internal flag once it becomes available, so the
 // transition is automatic and requires no restart.
 //
-// When the upstream feeder gateway does support the new argument, [MigrationFeeder]
+// When the upstream feeder gateway does support the new argument, [FeederAdapter]
 // delegates directly to the wrapped [Feeder]. Until then, it falls back to
 // the old approach with two separate requests.
-type MigrationFeeder struct {
+type FeederAdapter struct {
 	*Feeder
 
 	// isFeederUpdated is set to true once the upstream feeder is confirmed
@@ -35,16 +35,16 @@ type MigrationFeeder struct {
 	isFeederUpdated atomic.Bool
 }
 
-var _ starknetdata.StarknetData = (*MigrationFeeder)(nil)
+var _ starknetdata.StarknetData = (*FeederAdapter)(nil)
 
-func NewMigrationFeeder(feeder *Feeder) *MigrationFeeder {
-	return &MigrationFeeder{
+func NewFeederAdaper(feeder *Feeder) *FeederAdapter {
+	return &FeederAdapter{
 		Feeder: feeder,
 	}
 }
 
 // Complies with the Service interface
-func (f *MigrationFeeder) Run(ctx context.Context) error {
+func (f *FeederAdapter) Run(ctx context.Context) error {
 	f.runVerificationLoop(ctx)
 
 	// [service.Service] requires Run to block until ctx is cancelled; otherwise
@@ -56,7 +56,7 @@ func (f *MigrationFeeder) Run(ctx context.Context) error {
 
 // runVerificationLoop runs verifyFeederUpdate immediately and then every
 // [verificationInterval] until the new endpoint is confirmed or ctx is done.
-func (f *MigrationFeeder) runVerificationLoop(ctx context.Context) {
+func (f *FeederAdapter) runVerificationLoop(ctx context.Context) {
 	f.verifyFeederUpdate(ctx)
 	if f.isFeederUpdated.Load() {
 		return
@@ -78,7 +78,7 @@ func (f *MigrationFeeder) runVerificationLoop(ctx context.Context) {
 	}
 }
 
-func (f *MigrationFeeder) verifyFeederUpdate(ctx context.Context) {
+func (f *FeederAdapter) verifyFeederUpdate(ctx context.Context) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, verificationTimeout)
 	defer cancel()
 
@@ -93,7 +93,7 @@ func (f *MigrationFeeder) verifyFeederUpdate(ctx context.Context) {
 // the new "includeSignature=true" argument), it delegates to [Feeder.StateUpdateWithBlock].
 // Otherwise, it falls back to two separate requests (the "old" way): one for the state
 // update with block and another for the block signature.
-func (f *MigrationFeeder) StateUpdateWithBlock(
+func (f *FeederAdapter) StateUpdateWithBlock(
 	ctx context.Context, blockNumber uint64,
 ) (*core.StateUpdate, *core.Block, error) {
 	if f.isFeederUpdated.Load() {

@@ -28,7 +28,7 @@ func TestMigrationFeeder(t *testing.T) {
 		blockNumber := uint64(1234)
 		blockNumberStr := strconv.FormatUint(blockNumber, 10)
 
-		mf := adaptfeeder.NewMigrationFeeder(adaptfeeder.New(mockClient))
+		mf := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
 
 		// ************************************************/
 		// ***** uses legacy two-call path by default *****/
