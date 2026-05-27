@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -48,7 +49,12 @@ type Reader interface {
 	CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error)
 	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error)
 	FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error)
-	PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error)
+	PreConfirmedBlock(
+		ctx context.Context,
+		blockNumber string,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (*starknet.PreConfirmedBlock, error)
 	PublicKey(ctx context.Context) (*felt.Felt, error)
 	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)

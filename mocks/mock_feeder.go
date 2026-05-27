@@ -133,18 +133,18 @@ func (mr *MockFeederReaderMockRecorder) FeeTokenAddresses(ctx any) *gomock.Call 
 }
 
 // PreConfirmedBlock mocks base method.
-func (m *MockFeederReader) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
+func (m *MockFeederReader) PreConfirmedBlock(ctx context.Context, blockNumber, blockIdentifier string, knownTransactionCount uint64) (*starknet.PreConfirmedBlock, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PreConfirmedBlock", ctx, blockNumber)
+	ret := m.ctrl.Call(m, "PreConfirmedBlock", ctx, blockNumber, blockIdentifier, knownTransactionCount)
 	ret0, _ := ret[0].(*starknet.PreConfirmedBlock)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PreConfirmedBlock indicates an expected call of PreConfirmedBlock.
-func (mr *MockFeederReaderMockRecorder) PreConfirmedBlock(ctx, blockNumber any) *gomock.Call {
+func (mr *MockFeederReaderMockRecorder) PreConfirmedBlock(ctx, blockNumber, blockIdentifier, knownTransactionCount any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlock", reflect.TypeOf((*MockFeederReader)(nil).PreConfirmedBlock), ctx, blockNumber)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlock", reflect.TypeOf((*MockFeederReader)(nil).PreConfirmedBlock), ctx, blockNumber, blockIdentifier, knownTransactionCount)
 }
 
 // PublicKey mocks base method.

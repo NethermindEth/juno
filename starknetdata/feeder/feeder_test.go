@@ -333,7 +333,7 @@ func TestAdapterErrorPaths(t *testing.T) {
 	})
 
 	t.Run("PreConfirmedBlockByNumber error", func(t *testing.T) {
-		preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, missing)
+		preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, missing, "", 0)
 		assert.Zero(t, preConfirmed)
 		assert.Error(t, err)
 	})
