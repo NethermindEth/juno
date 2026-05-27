@@ -24,11 +24,6 @@ const (
 	timeLogRate         = 5 * time.Second
 )
 
-type task struct {
-	batch          db.Batch
-	completedAddrs int
-}
-
 var (
 	shouldRerun    = []byte{}
 	shouldNotRerun = []byte(nil)
@@ -78,9 +73,9 @@ func (Migrator) Migrate(
 	}
 	if !res.IsDone {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return shouldRerun, ctxErr
+			return shouldRerun, fmt.Errorf("migrating head state addresses: %w", ctxErr)
 		}
-		return shouldRerun, errors.New("headstate migration did not complete")
+		return shouldRerun, errors.New("migrating head state addresses: pipeline reported incomplete")
 	}
 
 	return shouldNotRerun, wipeDeprecatedBuckets(database)
@@ -138,8 +133,8 @@ func pendingAddresses(r db.KeyValueReader) (iter.Seq[felt.Address], func() error
 				)
 				return
 			}
-			f := felt.FromBytes[felt.Felt](key[len(prefix):])
-			if !yield(felt.Address(f)) {
+			addr := felt.FromBytes[felt.Address](key[len(prefix):])
+			if !yield(addr) {
 				return
 			}
 		}

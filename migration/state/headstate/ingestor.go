@@ -12,6 +12,11 @@ import (
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 
+type task struct {
+	batch          db.Batch
+	completedAddrs int
+}
+
 type ingestor struct {
 	database       db.KeyValueReader
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
@@ -36,20 +41,20 @@ func newIngestor(
 var _ pipeline.State[felt.Address, task] = (*ingestor)(nil)
 
 func (c *ingestor) Run(index int, addr felt.Address, outputs chan<- task) error {
-	t := &c.tasks[index]
+	curTask := &c.tasks[index]
 
-	sizeBefore := t.batch.Size()
-	if err := c.ingestAddress(t.batch, addr); err != nil {
+	sizeBefore := curTask.batch.Size()
+	if err := c.ingestAddress(curTask.batch, &addr); err != nil {
 		return err
 	}
-	if t.batch.Size() > sizeBefore {
-		t.completedAddrs++
+	if curTask.batch.Size() > sizeBefore {
+		curTask.completedAddrs++
 	}
 
-	if t.batch.Size() >= targetBatchByteSize {
-		outputs <- task{batch: t.batch, completedAddrs: t.completedAddrs}
-		t.completedAddrs = 0
-		t.batch = c.batchSemaphore.GetBlocking()
+	if curTask.batch.Size() >= targetBatchByteSize {
+		outputs <- task{batch: curTask.batch, completedAddrs: curTask.completedAddrs}
+		curTask.completedAddrs = 0
+		curTask.batch = c.batchSemaphore.GetBlocking()
 	}
 	return nil
 }
@@ -59,37 +64,37 @@ func (c *ingestor) Done(index int, outputs chan<- task) error {
 	return nil
 }
 
-func (c *ingestor) ingestAddress(batch db.Batch, addr felt.Address) error {
-	addrFelt := felt.Felt(addr)
+func (c *ingestor) ingestAddress(batch db.Batch, addr *felt.Address) error {
+	addrFelt := (*felt.Felt)(addr)
 
-	already, err := state.HasContract(c.database, &addrFelt)
+	already, err := state.HasContract(c.database, addrFelt)
 	if err != nil {
-		return fmt.Errorf("HasContract(%s): %w", &addrFelt, err)
+		return fmt.Errorf("HasContract(%s): %w", addr, err)
 	}
 	if already {
 		return nil
 	}
 
-	classHash, err := core.GetContractClassHash(c.database, &addrFelt)
+	classHash, err := core.GetContractClassHash(c.database, addrFelt)
 	if err != nil {
-		return fmt.Errorf("GetContractClassHash(%s): %w", &addrFelt, err)
+		return fmt.Errorf("GetContractClassHash(%s): %w", addr, err)
 	}
 
-	nonce, err := core.GetContractNonce(c.database, &addrFelt)
+	nonce, err := core.GetContractNonce(c.database, addrFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return fmt.Errorf("GetContractNonce(%s): %w", &addrFelt, err)
+			return fmt.Errorf("GetContractNonce(%s): %w", addr, err)
 		}
 		nonce = felt.Zero
 	}
 
-	height, err := core.GetContractDeploymentHeight(c.database, &addrFelt)
+	height, err := core.GetContractDeploymentHeight(c.database, addrFelt)
 	if err != nil {
-		return fmt.Errorf("GetContractDeploymentHeight(%s): %w", &addrFelt, err)
+		return fmt.Errorf("GetContractDeploymentHeight(%s): %w", addr, err)
 	}
 
-	if err := state.WriteContract(batch, &addrFelt, nonce, classHash, height); err != nil {
-		return fmt.Errorf("WriteContract(%s): %w", &addrFelt, err)
+	if err := state.WriteContract(batch, addrFelt, nonce, classHash, height); err != nil {
+		return fmt.Errorf("WriteContract(%s): %w", addr, err)
 	}
 	return nil
 }

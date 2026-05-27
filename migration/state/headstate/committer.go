@@ -27,19 +27,19 @@ func newCommitter(
 	}
 }
 
-func (c *committer) Run(_ int, t task, _ chan<- struct{}) error {
+func (c *committer) Run(_ int, task task, _ chan<- struct{}) error {
 	c.logger.Debug(
 		"writing batch",
-		zap.Int("completedAddrs", t.completedAddrs),
-		zap.Int("batchSize", t.batch.Size()),
+		zap.Int("completed addresses", task.completedAddrs),
+		zap.Int("batch size", task.batch.Size()),
 	)
 
-	byteSize := uint64(t.batch.Size())
-	if err := t.batch.Write(); err != nil {
+	byteSize := uint64(task.batch.Size())
+	if err := task.batch.Write(); err != nil {
 		return err
 	}
 
-	c.counter.log(byteSize, t.completedAddrs)
+	c.counter.log(byteSize, task.completedAddrs)
 	c.batchSemaphore.Put()
 	return nil
 }
