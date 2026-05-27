@@ -1250,7 +1250,7 @@ func TestClientRetryBehavior(t *testing.T) {
 func TestPreConfirmedBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 
-	snPreConfirmedBlock, err := client.PreConfirmedBlock(t.Context(), strconv.Itoa(1204672), "", 0)
+	snPreConfirmedBlock, err := client.PreConfirmedBlock(t.Context(), strconv.Itoa(1204672))
 	assert.NoError(t, err)
 
 	assert.Equal(t, "0.14.0", snPreConfirmedBlock.Version)
