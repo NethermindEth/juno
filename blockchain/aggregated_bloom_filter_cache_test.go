@@ -147,7 +147,7 @@ func populateAggregatedBloomDeterministic(
 
 func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	numEvents := 64
-	var numAggregatedBloomFilters uint64 = blockchain.AggregatedBloomFilterCacheSize
+	numAggregatedBloomFilters := uint64(16)
 	blocksPerFilter := core.NumBlocksPerFilter
 	chainHeight := numAggregatedBloomFilters*blocksPerFilter - 1
 
@@ -159,7 +159,7 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 
 	testDB := memory.New()
 	// Create cache and insert filters
-	cache := blockchain.NewAggregatedBloomCache()
+	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
 	runningFilterStart := numAggregatedBloomFilters * blocksPerFilter
 	innerFilter := core.NewAggregatedFilter(runningFilterStart)
@@ -188,7 +188,7 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 }
 
 func TestMatchedBlockIterator_BasicCases(t *testing.T) {
-	var numAggregatedBloomFilters uint64 = blockchain.AggregatedBloomFilterCacheSize
+	var numAggregatedBloomFilters uint64 = 16
 	chainHeight := numAggregatedBloomFilters*core.NumBlocksPerFilter - 1
 
 	events := generateRandomEvents(t, 1, 3, 1)
@@ -196,7 +196,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	emmitedEvery := 4
 	filters := populateAggregatedBloomDeterministic(t, numAggregatedBloomFilters, test, core.NumBlocksPerFilter, uint64(emmitedEvery))
 
-	cache := blockchain.NewAggregatedBloomCache()
+	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
 
 	testDB := memory.New()
