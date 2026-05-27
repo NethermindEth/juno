@@ -682,8 +682,6 @@ func TestAdaptPreConfirmed(t *testing.T) {
 		response, err := client.PreConfirmedBlock(
 			t.Context(),
 			strconv.FormatUint(test.blockNumber, 10),
-			"",
-			0,
 		)
 		require.NoError(t, err)
 

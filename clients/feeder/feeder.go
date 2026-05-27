@@ -49,7 +49,8 @@ type Reader interface {
 	CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error)
 	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error)
 	FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error)
-	PreConfirmedBlock(
+	PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error)
+	PreConfirmedBlockWithIdentifier(
 		ctx context.Context,
 		blockNumber string,
 		blockIdentifier string,
@@ -365,12 +366,26 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 }
 
 // PreConfirmedBlock fetches the pre_confirmed block at the given height.
+func (c *Client) PreConfirmedBlock(
+	ctx context.Context,
+	blockNumber string,
+) (*starknet.PreConfirmedBlock, error) {
+	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
+		blockNumberArg: blockNumber,
+	})
+
+	return doRequest[starknet.PreConfirmedBlock](ctx, c, queryURL)
+}
+
+// PreConfirmedBlockWithIdentifier fetches the pre_confirmed block at the given height,
+// using the given block identifier and known transaction count to tell the server what
+// the caller already has.
 //
 // blockIdentifier and knownTransactionCount enable delta sync: the server
 // uses them to decide whether to return a no-change marker, only the
 // transactions appended since knownTransactionCount, or the full block when
 // the round identifier no longer matches. Set both to zero values to get a full block.
-func (c *Client) PreConfirmedBlock(
+func (c *Client) PreConfirmedBlockWithIdentifier(
 	ctx context.Context,
 	blockNumber string,
 	blockIdentifier string,

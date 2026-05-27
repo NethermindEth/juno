@@ -211,7 +211,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (pending.PreConfirmedUpdate, error) {
-	response, err := f.client.PreConfirmedBlock(
+	response, err := f.client.PreConfirmedBlockWithIdentifier(
 		ctx,
 		strconv.FormatUint(blockNumber, 10),
 		blockIdentifier,
