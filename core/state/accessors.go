@@ -36,6 +36,7 @@ func GetContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
 	return contract, nil
 }
 
+// todo(rdr): `addr` should be a felt.Addr
 func HasContract(r db.KeyValueReader, addr *felt.Felt) (bool, error) {
 	key := db.ContractKey(addr)
 	return r.Has(key)
