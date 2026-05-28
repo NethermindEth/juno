@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/felt"
@@ -14,14 +13,8 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/common"
 	"github.com/NethermindEth/juno/utils/log"
-)
-
-const (
-	batchByteSize       = 128 * db.Megabyte
-	targetBatchByteSize = 96 * db.Megabyte
-	ingestorCount       = 4
-	timeLogRate         = 5 * time.Second
 )
 
 var (
@@ -45,9 +38,9 @@ var _ migration.Migration = (*Migrator)(nil)
 // contract's first storage write.
 //
 // Each address discovered in the ContractClassHash bucket is processed by one
-// of ingestorCount worker goroutines that read the three old fields into a
-// shared db.Batch; a single committer drains batches to disk. Once every
-// address has been migrated, the three deprecated buckets are wiped via
+// of common.IngestorCount worker goroutines that read the three old fields
+// into a shared db.Batch; a single committer drains batches to disk. Once
+// every address has been migrated, the three deprecated buckets are wiped via
 // DeleteRange.
 //
 // Re-run safe: an address whose Contract record already exists is skipped
@@ -88,9 +81,9 @@ func migrateAddresses(
 	addresses iter.Seq[felt.Address],
 ) pipeline.Result {
 	batchSemaphore := semaphore.New(
-		ingestorCount+1,
+		common.IngestorCount+1,
 		func() db.Batch {
-			return database.NewBatchWithSize(batchByteSize)
+			return database.NewBatchWithSize(common.BatchByteSize)
 		},
 	)
 
@@ -98,14 +91,14 @@ func migrateAddresses(
 
 	ingestorPipeline := pipeline.New(
 		source,
-		ingestorCount,
-		newIngestor(database, batchSemaphore),
+		common.IngestorCount,
+		newIngestor(ctx, batchSemaphore, database),
 	)
 
 	committerPipeline := pipeline.New(
 		ingestorPipeline,
 		1,
-		newCommitter(logger, batchSemaphore),
+		common.NewCommitter(logger, batchSemaphore, ""),
 	)
 
 	_, wait := committerPipeline.Run(ctx)
