@@ -1,4 +1,4 @@
-package statehistory_test
+package history_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/migration/statehistory"
+	"github.com/NethermindEth/juno/migration/state/history"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,7 +101,7 @@ func TestMigrate_EmptyDB(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -119,7 +119,7 @@ func TestMigrate_ClassHash_DeployOnly(t *testing.T) {
 	classHash := felt.FromUint64[felt.Felt](170)
 	seedContract(t, memDB, addr, felt.Zero, classHash)
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -155,7 +155,7 @@ func TestMigrate_ClassHash_Reclassed(t *testing.T) {
 	seedContract(t, memDB, addr, felt.Zero, replacedClass)
 	seedDeprecatedClassHashHistory(t, memDB, addr, replaceBlock, deployClass)
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -195,7 +195,7 @@ func TestMigrate_Nonce_Updated(t *testing.T) {
 	seedDeprecatedNonceHistory(t, memDB, addr, 200, felt.Zero)
 	seedDeprecatedNonceHistory(t, memDB, addr, 300, felt.FromUint64[felt.Felt](1))
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -235,7 +235,7 @@ func TestMigrate_Nonce_DeployOnly(t *testing.T) {
 	addr := felt.FromUint64[felt.Felt](1)
 	seedContract(t, memDB, addr, felt.Zero, felt.FromUint64[felt.Felt](170))
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -270,7 +270,7 @@ func TestMigrate_Storage_MultiWrite(t *testing.T) {
 
 	seedDeprecatedStorageTrie(t, memDB, addr, map[felt.Felt]felt.Felt{slot: headVal})
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -314,7 +314,7 @@ func TestMigrate_Storage_SingleWrite(t *testing.T) {
 	seedDeprecatedStorageHistory(t, memDB, addr, slot, 100, felt.Zero)
 	seedDeprecatedStorageTrie(t, memDB, addr, map[felt.Felt]felt.Felt{slot: v})
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -346,7 +346,7 @@ func TestMigrate_Idempotent(t *testing.T) {
 	seedDeprecatedNonceHistory(t, memDB, addr, 200, felt.Zero)
 
 	for range 3 {
-		res, err := statehistory.Migrator{}.Migrate(
+		res, err := history.Migrator{}.Migrate(
 			context.Background(),
 			memDB,
 			&networks.Sepolia,
@@ -387,7 +387,7 @@ func TestMigrate_ClassHash_ResumeFromPartial(t *testing.T) {
 
 	require.NoError(t, state.WriteClassHashHistory(memDB, &addr, deployHeight, &deployClass))
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -432,7 +432,7 @@ func TestMigrate_Storage_ZeroedSlotHasNoLeaf(t *testing.T) {
 
 	seedDeprecatedStorageTrie(t, memDB, addr, map[felt.Felt]felt.Felt{keptSlot: keptHead})
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -495,7 +495,7 @@ func TestMigrate_Storage_ManyEntries(t *testing.T) {
 	}
 	seedDeprecatedStorageTrie(t, memDB, addr, headValues)
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -551,7 +551,7 @@ func TestMigrate_Storage_MultiAddress(t *testing.T) {
 		})
 	}
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -604,13 +604,13 @@ func TestMigrate_CancelledContext_ResumesCleanly(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	res, err := statehistory.Migrator{}.Migrate(ctx, memDB, &networks.Sepolia, log.NewNopZapLogger())
+	res, err := history.Migrator{}.Migrate(ctx, memDB, &networks.Sepolia, log.NewNopZapLogger())
 	require.Error(t, err)
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotNil(t, res, "shouldRerun sentinel must not be nil")
 	require.Empty(t, res, "shouldRerun is a non-nil empty slice")
 
-	res, err = statehistory.Migrator{}.Migrate(
+	res, err = history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -643,7 +643,7 @@ func TestMigrate_Storage_ResumeFromPartial(t *testing.T) {
 
 	require.NoError(t, state.WriteStorageHistory(memDB, &addr, &slot, 100, &firstVal))
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -681,7 +681,7 @@ func TestMigrate_AddressWithEmptyHistoryForOnePhase(t *testing.T) {
 	seedContract(t, memDB, addr, felt.Zero, classHash)
 	seedDeprecatedClassHashHistory(t, memDB, addr, 300, deployClass)
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
@@ -734,7 +734,7 @@ func TestMigrate_Storage_InterleavedZeroedSlots(t *testing.T) {
 		slot4: head4,
 	})
 
-	res, err := statehistory.Migrator{}.Migrate(
+	res, err := history.Migrator{}.Migrate(
 		context.Background(),
 		memDB,
 		&networks.Sepolia,
