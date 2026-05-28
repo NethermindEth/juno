@@ -15,6 +15,7 @@ require (
 	github.com/ethereum/go-ethereum v1.17.3
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/go-playground/validator/v10 v10.30.2
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/libp2p/go-libp2p v0.48.0
 	github.com/libp2p/go-libp2p-kad-dht v0.39.1
 	github.com/libp2p/go-libp2p-pubsub v0.16.0
@@ -84,7 +85,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

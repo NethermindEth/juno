@@ -21,9 +21,9 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/sourcegraph/conc"
 )
 
@@ -94,7 +94,7 @@ func New(
 		l1Heads:          feed.New[*core.L1Head](),
 		preLatestFeed:    feed.New[*pending.PreLatest](),
 
-		blockTraceCache: lru.NewCache[
+		blockTraceCache: lru.New[
 			rpccore.TraceCacheKey,
 			[]TracedBlockTransaction,
 		](rpccore.TraceCacheSize),
