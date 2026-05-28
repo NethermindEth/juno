@@ -1,6 +1,7 @@
 package headstate
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -10,64 +11,41 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/common"
 )
 
-type task struct {
-	batch          db.Batch
-	completedAddrs int
+type ingestor struct {
+	common.BaseIngestor
 }
 
-type ingestor struct {
-	database       db.KeyValueReader
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
-	tasks          []task
-}
+var _ pipeline.State[felt.Address, common.Task] = (*ingestor)(nil)
 
 func newIngestor(
+	ctx context.Context,
+	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 ) *ingestor {
-	tasks := make([]task, ingestorCount)
-	for i := range tasks {
-		tasks[i] = task{batch: batchSemaphore.GetBlocking()}
-	}
-	return &ingestor{
-		database:       database,
-		batchSemaphore: batchSemaphore,
-		tasks:          tasks,
-	}
+	return &ingestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
 }
 
-var _ pipeline.State[felt.Address, task] = (*ingestor)(nil)
+func (c *ingestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
+	curTask := &c.Tasks[index]
 
-func (c *ingestor) Run(index int, addr felt.Address, outputs chan<- task) error {
-	curTask := &c.tasks[index]
-
-	sizeBefore := curTask.batch.Size()
-	if err := c.ingestAddress(curTask.batch, &addr); err != nil {
+	sizeBefore := curTask.Batch.Size()
+	if err := c.ingestAddress(curTask.Batch, &addr); err != nil {
 		return err
 	}
-	if curTask.batch.Size() > sizeBefore {
-		curTask.completedAddrs++
+	if curTask.Batch.Size() > sizeBefore {
+		curTask.CompletedAddrs++
 	}
 
-	if curTask.batch.Size() >= targetBatchByteSize {
-		outputs <- task{batch: curTask.batch, completedAddrs: curTask.completedAddrs}
-		curTask.completedAddrs = 0
-		curTask.batch = c.batchSemaphore.GetBlocking()
-	}
-	return nil
-}
-
-func (c *ingestor) Done(index int, outputs chan<- task) error {
-	outputs <- c.tasks[index]
-	return nil
+	return c.Flush(curTask, outputs)
 }
 
 func (c *ingestor) ingestAddress(batch db.Batch, addr *felt.Address) error {
 	addrFelt := (*felt.Felt)(addr)
 
-	already, err := state.HasContract(c.database, addrFelt)
+	already, err := state.HasContract(c.Database, addrFelt)
 	if err != nil {
 		return fmt.Errorf("HasContract(%s): %w", addr, err)
 	}
@@ -75,12 +53,12 @@ func (c *ingestor) ingestAddress(batch db.Batch, addr *felt.Address) error {
 		return nil
 	}
 
-	classHash, err := core.GetContractClassHash(c.database, addrFelt)
+	classHash, err := core.GetContractClassHash(c.Database, addrFelt)
 	if err != nil {
 		return fmt.Errorf("GetContractClassHash(%s): %w", addr, err)
 	}
 
-	nonce, err := core.GetContractNonce(c.database, addrFelt)
+	nonce, err := core.GetContractNonce(c.Database, addrFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return fmt.Errorf("GetContractNonce(%s): %w", addr, err)
@@ -88,7 +66,7 @@ func (c *ingestor) ingestAddress(batch db.Batch, addr *felt.Address) error {
 		nonce = felt.Zero
 	}
 
-	height, err := core.GetContractDeploymentHeight(c.database, addrFelt)
+	height, err := core.GetContractDeploymentHeight(c.Database, addrFelt)
 	if err != nil {
 		return fmt.Errorf("GetContractDeploymentHeight(%s): %w", addr, err)
 	}

@@ -10,20 +10,21 @@ import (
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/common"
 )
 
 type classHashIngestor struct {
-	baseIngestor
+	common.BaseIngestor
 }
 
-var _ pipeline.State[*felt.Felt, task] = (*classHashIngestor)(nil)
+var _ pipeline.State[*felt.Felt, common.Task] = (*classHashIngestor)(nil)
 
 func newClassHashIngestor(
 	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *classHashIngestor {
-	return &classHashIngestor{baseIngestor: newBaseIngestor(ctx, sem, database)}
+	return &classHashIngestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
 }
 
 // Run migrates the class-hash history of a single contract.
@@ -51,16 +52,16 @@ func newClassHashIngestor(
 // entry is written with contract.ClassHash directly. Deprecated rows are
 // deleted at the end of the run. Resume-safe: empty-deprecated + existing
 // deploy entry → no-op.
-func (i *classHashIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) error {
-	t := &i.tasks[index]
+func (i *classHashIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.Task) error {
+	t := &i.Tasks[index]
 
 	deprecatedPrefix := db.DeprecatedContractClassHashHistoryKey(addr)
-	contract, err := state.GetContract(i.database, addr)
+	contract, err := state.GetContract(i.Database, addr)
 	if err != nil {
 		return fmt.Errorf("class-hash: GetContract(%s): %w", addr, err)
 	}
 
-	depIt, err := i.database.NewIterator(deprecatedPrefix, true)
+	depIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
 		return fmt.Errorf("class-hash: open deprecated iter(%s): %w", addr, err)
 	}
@@ -79,26 +80,26 @@ func (i *classHashIngestor) Run(index int, addr *felt.Felt, outputs chan<- task)
 // deploy-time entry from contract.ClassHash, unless a previous run already
 // wrote it.
 func (i *classHashIngestor) writeDeployOnly(
-	t *task,
-	outputs chan<- task,
+	t *common.Task,
+	outputs chan<- common.Task,
 	addr *felt.Felt,
 	deployHeight uint64,
 	classHash *felt.Felt,
 ) error {
 	deployKey := db.ContractClassHashHistoryAtBlockKey(addr, deployHeight)
-	deployEntryExists, err := i.database.Has(deployKey)
+	deployEntryExists, err := i.Database.Has(deployKey)
 	if err != nil {
 		return fmt.Errorf("class-hash: Has(deploy entry): %w", err)
 	}
 	if deployEntryExists {
 		return nil
 	}
-	if err := state.WriteClassHashHistory(t.batch, addr, deployHeight, classHash); err != nil {
+	if err := state.WriteClassHashHistory(t.Batch, addr, deployHeight, classHash); err != nil {
 		return err
 	}
-	t.completedAddrs++
-	t.entryCount++
-	return i.flush(t, outputs)
+	t.CompletedAddrs++
+	t.EntryCount++
+	return i.Flush(t, outputs)
 }
 
 // writeShiftedHistory handles the "non-empty deprecated history" branch:
@@ -107,8 +108,8 @@ func (i *classHashIngestor) writeDeployOnly(
 // (or contract.ClassHash for the last), and deletes the deprecated rows.
 // depIt must be positioned at the first deprecated entry.
 func (i *classHashIngestor) writeShiftedHistory(
-	t *task,
-	outputs chan<- task,
+	t *common.Task,
+	outputs chan<- common.Task,
 	depIt db.Iterator,
 	prefix []byte,
 	addr *felt.Felt,
@@ -120,11 +121,11 @@ func (i *classHashIngestor) writeShiftedHistory(
 		return fmt.Errorf("class-hash: read first value(%s): %w", addr, err)
 	}
 	deployClassHash := felt.FromBytes[felt.Felt](rawValue)
-	if err := state.WriteClassHashHistory(t.batch, addr, deployHeight, &deployClassHash); err != nil {
+	if err := state.WriteClassHashHistory(t.Batch, addr, deployHeight, &deployClassHash); err != nil {
 		return err
 	}
-	t.entryCount++
-	if err := i.flush(t, outputs); err != nil {
+	t.EntryCount++
+	if err := i.Flush(t, outputs); err != nil {
 		return err
 	}
 
@@ -142,11 +143,11 @@ func (i *classHashIngestor) writeShiftedHistory(
 			}
 			historyValue = felt.FromBytes[felt.Felt](rawValue)
 		}
-		if err := state.WriteClassHashHistory(t.batch, addr, block, &historyValue); err != nil {
+		if err := state.WriteClassHashHistory(t.Batch, addr, block, &historyValue); err != nil {
 			return err
 		}
-		t.entryCount++
-		if err := i.flush(t, outputs); err != nil {
+		t.EntryCount++
+		if err := i.Flush(t, outputs); err != nil {
 			return err
 		}
 		if !hasNext {
@@ -154,9 +155,9 @@ func (i *classHashIngestor) writeShiftedHistory(
 		}
 	}
 
-	if err := t.batch.DeleteRange(prefix, dbutils.UpperBound(prefix)); err != nil {
+	if err := t.Batch.DeleteRange(prefix, dbutils.UpperBound(prefix)); err != nil {
 		return fmt.Errorf("class-hash: DeleteRange deprecated(%s): %w", addr, err)
 	}
-	t.completedAddrs++
+	t.CompletedAddrs++
 	return nil
 }

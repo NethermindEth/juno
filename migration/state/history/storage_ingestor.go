@@ -13,20 +13,21 @@ import (
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/common"
 )
 
 type storageIngestor struct {
-	baseIngestor
+	common.BaseIngestor
 }
 
-var _ pipeline.State[*felt.Felt, task] = (*storageIngestor)(nil)
+var _ pipeline.State[*felt.Felt, common.Task] = (*storageIngestor)(nil)
 
 func newStorageIngestor(
 	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *storageIngestor {
-	return &storageIngestor{baseIngestor: newBaseIngestor(ctx, sem, database)}
+	return &storageIngestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
 }
 
 // Run migrates the per-slot storage history of a single contract.
@@ -73,13 +74,13 @@ func newStorageIngestor(
 //
 // Contracts with no deprecated storage history are skipped; deprecated
 // rows are deleted at the end of the run via DeleteRange.
-func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) error {
-	t := &i.tasks[index]
+func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.Task) error {
+	t := &i.Tasks[index]
 
 	addrBytes := addr.Marshal()
 	deprecatedPrefix := db.DeprecatedContractStorageHistory.Key(addrBytes)
 
-	deprecatedHistoryIt, err := i.database.NewIterator(deprecatedPrefix, true)
+	deprecatedHistoryIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
 		return fmt.Errorf("storage: open deprecated iter(%s): %w", addr, err)
 	}
@@ -91,7 +92,7 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) e
 	leafPrefix := db.ContractStorage.Key(addrBytes)
 	leafPrefix = append(leafPrefix, deprecatedstate.ContractStorageTrieHeight)
 
-	headStorageTrieIt, err := i.database.NewIterator(leafPrefix, true)
+	headStorageTrieIt, err := i.Database.NewIterator(leafPrefix, true)
 	if err != nil {
 		return fmt.Errorf("storage: open leaf iter(%s): %w", addr, err)
 	}
@@ -131,7 +132,7 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) e
 		}
 
 		err = state.WriteStorageHistory(
-			t.batch,
+			t.Batch,
 			addr,
 			&slot,
 			block,
@@ -140,8 +141,8 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) e
 		if err != nil {
 			return err
 		}
-		t.entryCount++
-		if err := i.flush(t, outputs); err != nil {
+		t.EntryCount++
+		if err := i.Flush(t, outputs); err != nil {
 			return err
 		}
 
@@ -150,10 +151,10 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) e
 		}
 	}
 
-	if err := t.batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix)); err != nil {
+	if err := t.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix)); err != nil {
 		return fmt.Errorf("storage: DeleteRange deprecated(%s): %w", addr, err)
 	}
-	t.completedAddrs++
+	t.CompletedAddrs++
 	return nil
 }
 
