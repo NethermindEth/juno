@@ -355,7 +355,7 @@ func TestPreConfirmedBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
-	blockNumber := uint64(1204672)
+	blockNumber := uint64(11252240)
 	blockNumberStr := strconv.FormatUint(blockNumber, 10)
 	response, err := client.PreConfirmedBlockWithIdentifier(ctx, blockNumberStr, "", 0)
 	require.NoError(t, err)

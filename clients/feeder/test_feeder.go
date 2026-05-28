@@ -150,6 +150,10 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 		queryArg = "blockHash"
 
 	case strings.HasSuffix(path, "get_preconfirmed_block"):
+		if _, ok := queryMap["blockIdentifier"]; ok {
+			return "pre_confirmed_delta", blockNumberArg, nil
+		}
+
 		dir = "pre_confirmed"
 		queryArg = blockNumberArg
 

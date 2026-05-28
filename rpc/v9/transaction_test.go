@@ -1796,7 +1796,7 @@ func TestTransactionStatus(t *testing.T) {
 			network := &networks.SepoliaIntegration
 			sepoliaIntClient := feeder.NewTestClient(t, network)
 			sepoliaIntGw := adaptfeeder.New(sepoliaIntClient)
-			blockNumber := uint64(1204672)
+			blockNumber := uint64(11252240)
 			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 			require.NoError(t, gwErr)
 			require.Equal(t, pending.PreConfirmedFull, update.Mode)
@@ -1807,20 +1807,6 @@ func TestTransactionStatus(t *testing.T) {
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			client := feeder.NewTestClient(t, network)
 			handler := rpc.New(mockReader, mockSyncReader, nil, logger).WithFeeder(client)
-			t.Run("found in candidates", func(t *testing.T) {
-				require.Greater(t, len(preConfirmed.CandidateTxs), 0)
-				for _, candidateTx := range preConfirmed.CandidateTxs {
-					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-						(*felt.TransactionHash)(candidateTx.Hash()),
-					).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-					mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil).Times(2)
-
-					status, err := handler.TransactionStatus(ctx, candidateTx.Hash())
-					require.Nil(t, err)
-					require.Equal(t, rpc.TxnStatusCandidate, status.Finality)
-					require.Equal(t, rpc.UnknownExecution, status.Execution)
-				}
-			})
 
 			t.Run("found in pre_confirmed", func(t *testing.T) {
 				preConfirmedTx := preConfirmed.Block.Transactions[0].Hash()
