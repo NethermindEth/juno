@@ -20,8 +20,8 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/sourcegraph/conc"
@@ -46,7 +46,7 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache            *utils.LRU[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	blockTraceCache            *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
@@ -89,7 +89,7 @@ func New(
 		preConfirmedFeed: feed.New[*pendingpkg.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
-		blockTraceCache: utils.NewLRU[
+		blockTraceCache: lru.New[
 			rpccore.TraceCacheKey,
 			[]TracedBlockTransaction,
 		](rpccore.TraceCacheSize),

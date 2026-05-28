@@ -1,4 +1,4 @@
-package utils
+package lru
 
 import (
 	"testing"
@@ -8,9 +8,9 @@ import (
 )
 
 //nolint:dupl // duplicate tests as there's identical APIs
-func TestNewLRU(t *testing.T) {
+func TestNew(t *testing.T) {
 	t.Run("returns usable cache for positive size", func(t *testing.T) {
-		c := NewLRU[string, int](2)
+		c := New[string, int](2)
 		require.NotNil(t, c)
 		assert.Equal(t, 0, c.Len())
 
@@ -25,20 +25,20 @@ func TestNewLRU(t *testing.T) {
 
 	t.Run("panics on zero size", func(t *testing.T) {
 		assert.PanicsWithError(t, "lru: must provide a positive size (size=0)", func() {
-			NewLRU[string, int](0)
+			New[string, int](0)
 		})
 	})
 
 	t.Run("panics on negative size", func(t *testing.T) {
 		assert.PanicsWithError(t, "lru: must provide a positive size (size=-1)", func() {
-			NewLRU[string, int](-1)
+			New[string, int](-1)
 		})
 	})
 }
 
-func TestLRU_Remove(t *testing.T) {
+func TestCache_Remove(t *testing.T) {
 	t.Run("removes present key", func(t *testing.T) {
-		c := NewLRU[string, int](2)
+		c := New[string, int](2)
 		c.Add("a", 1)
 		c.Add("b", 2)
 
@@ -50,7 +50,7 @@ func TestLRU_Remove(t *testing.T) {
 	})
 
 	t.Run("returns false for missing key", func(t *testing.T) {
-		c := NewLRU[string, int](2)
+		c := New[string, int](2)
 		c.Add("a", 1)
 
 		assert.False(t, c.Remove("missing"))
@@ -58,8 +58,8 @@ func TestLRU_Remove(t *testing.T) {
 	})
 }
 
-func TestLRU_Purge(t *testing.T) {
-	c := NewLRU[string, int](3)
+func TestCache_Purge(t *testing.T) {
+	c := New[string, int](3)
 	c.Add("a", 1)
 	c.Add("b", 2)
 	c.Add("c", 3)
@@ -75,9 +75,9 @@ func TestLRU_Purge(t *testing.T) {
 }
 
 //nolint:dupl // duplicate tests as there's identical APIs
-func TestNewSimpleLRU(t *testing.T) {
+func TestNewSimple(t *testing.T) {
 	t.Run("returns usable cache for positive size", func(t *testing.T) {
-		c := NewSimpleLRU[string, int](2)
+		c := NewSimple[string, int](2)
 		require.NotNil(t, c)
 		assert.Equal(t, 0, c.Len())
 
@@ -92,19 +92,19 @@ func TestNewSimpleLRU(t *testing.T) {
 
 	t.Run("panics on zero size", func(t *testing.T) {
 		assert.PanicsWithError(t, "simplelru: must provide a positive size (size=0)", func() {
-			NewSimpleLRU[string, int](0)
+			NewSimple[string, int](0)
 		})
 	})
 
 	t.Run("panics on negative size", func(t *testing.T) {
 		assert.PanicsWithError(t, "simplelru: must provide a positive size (size=-1)", func() {
-			NewSimpleLRU[string, int](-1)
+			NewSimple[string, int](-1)
 		})
 	})
 }
 
-func TestSimpleLRU_Purge(t *testing.T) {
-	c := NewSimpleLRU[string, int](3)
+func TestSimpleCache_Purge(t *testing.T) {
+	c := NewSimple[string, int](3)
 	c.Add("a", 1)
 	c.Add("b", 2)
 	c.Add("c", 3)

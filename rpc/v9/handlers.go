@@ -20,8 +20,8 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/sourcegraph/conc"
@@ -49,7 +49,7 @@ type Handler struct {
 
 	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
 	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
-	blockTraceCache *utils.LRU[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
 	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 
@@ -94,7 +94,7 @@ func New(
 		l1Heads:          feed.New[*core.L1Head](),
 		preLatestFeed:    feed.New[*pending.PreLatest](),
 
-		blockTraceCache: utils.NewLRU[
+		blockTraceCache: lru.New[
 			rpccore.TraceCacheKey,
 			[]TracedBlockTransaction,
 		](rpccore.TraceCacheSize),

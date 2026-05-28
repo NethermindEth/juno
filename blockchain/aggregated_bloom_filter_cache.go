@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/bits-and-blooms/bitset"
 )
 
@@ -27,7 +27,7 @@ type EventFiltersCacheKey struct {
 // for block ranges, supporting fallback loading and bulk insertion.
 // It is safe for concurrent use.
 type AggregatedBloomFilterCache struct {
-	cache        *utils.LRU[EventFiltersCacheKey, *core.AggregatedBloomFilter]
+	cache        *lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
 	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
 }
 
@@ -35,7 +35,7 @@ type AggregatedBloomFilterCache struct {
 // with the specified maximum size (number of ranges to cache).
 func NewAggregatedBloomCache(size int) AggregatedBloomFilterCache {
 	return AggregatedBloomFilterCache{
-		cache: utils.NewLRU[
+		cache: lru.New[
 			EventFiltersCacheKey,
 			*core.AggregatedBloomFilter,
 		](size),
