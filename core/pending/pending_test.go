@@ -437,11 +437,6 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 	n := &networks.SepoliaIntegration
 	client := feeder.NewTestClient(t, n)
 	adapter := adaptfeeder.New(client)
-	emptyPreConfirmedBlock := uint64(1201960)
-	blockWithCandidates := uint64(1204672)
-	blockWithNoCandidates := uint64(1204673)
-	blockFullOfCandidates := uint64(1204674)
-	blocksWithRandomCandidateOrder := uint64(1204675)
 
 	type preConfirmedCase struct {
 		description string
@@ -450,24 +445,12 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 
 	pcCases := []preConfirmedCase{
 		{
-			description: "PreConfirmedBlock with no candidates",
-			blockNumber: blockWithNoCandidates,
+			description: "PreConfirmedBlock with no txs",
+			blockNumber: 11251800,
 		},
 		{
-			description: "PreConfirmedBlock with candidates",
-			blockNumber: blockWithCandidates,
-		},
-		{
-			description: "PreConfirmedBlock full of candidates",
-			blockNumber: blockFullOfCandidates,
-		},
-		{
-			description: "PreConfirmedBlock empty",
-			blockNumber: emptyPreConfirmedBlock,
-		},
-		{
-			description: "PreConfirmedBlock with candidate in between preconfirmed txns",
-			blockNumber: blocksWithRandomCandidateOrder,
+			description: "PreConfirmedBlock full",
+			blockNumber: 11252240,
 		},
 	}
 

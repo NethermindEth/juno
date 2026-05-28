@@ -651,8 +651,9 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	blocksWithRandomCandidateOrder := uint64(1204675)
 
 	type preConfirmedTest struct {
-		description string
-		blockNumber uint64
+		description        string
+		blockNumber        uint64
+		useNewFeederParams bool
 	}
 
 	tests := []preConfirmedTest{
@@ -676,56 +677,75 @@ func TestAdaptPreConfirmed(t *testing.T) {
 			description: "PreConfirmedBlock with candidate in between preconfirmed txns",
 			blockNumber: blocksWithRandomCandidateOrder,
 		},
+		// cases for new feeder params endpoint
+		{
+			description:        "PreConfirmedBlock with no txs",
+			blockNumber:        11251800,
+			useNewFeederParams: true,
+		},
+		{
+			description:        "PreConfirmedBlock full",
+			blockNumber:        11252240,
+			useNewFeederParams: true,
+		},
 	}
 
 	for _, test := range tests {
-		response, err := client.PreConfirmedBlock(
-			t.Context(),
-			strconv.FormatUint(test.blockNumber, 10),
-		)
+		var response *starknet.PreConfirmedBlock
+		var err error
+		blockNumberStr := strconv.FormatUint(test.blockNumber, 10)
+
+		if test.useNewFeederParams {
+			response, err = client.PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, "", 0)
+			test.description = "new feeder params: " + test.description
+		} else {
+			response, err = client.PreConfirmedBlock(t.Context(), blockNumberStr)
+		}
 		require.NoError(t, err)
 
-		expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
-		expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
-		expectedReceipts := getPreconfirmedReceipts(response.Receipts)
+		t.Run(test.description, func(t *testing.T) {
+			expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
+			expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
+			expectedReceipts := getPreconfirmedReceipts(response.Receipts)
 
-		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
-		require.NoError(t, err)
-
-		assertPreConfirmedBlockBasics(t,
-			&adapted,
-			test.blockNumber,
-			response,
-			expectedPreConfirmedTxCount,
-			expectedCandidateCount,
-			expectedEventCount,
-		)
-		assertPreConfirmedBlockReceipts(
-			t,
-			expectedReceipts,
-			adapted.Block.Receipts,
-			expectedPreConfirmedTxCount,
-		)
-		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
-		assertCandidateTxs(t, response, adapted.CandidateTxs)
-		assertStateDiffs(t, response, adapted.TransactionStateDiffs)
-
-		t.Run("Test AdaptPreConfirmedDelta", func(t *testing.T) {
-			// a simulated delta response based on the full response
-			deltaResponse := &starknet.PreConfirmedBlock{
-				Changed:               true,
-				BlockIdentifier:       response.BlockIdentifier,
-				Transactions:          response.Transactions,
-				Receipts:              response.Receipts,
-				TransactionStateDiffs: response.TransactionStateDiffs,
-			}
-
-			txs, receipts, stateDiffs, candidates, err := sn2core.AdaptPreConfirmedDelta(deltaResponse)
+			adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
 			require.NoError(t, err)
-			assert.Equal(t, adapted.Block.Transactions, txs)
-			assert.Equal(t, adapted.Block.Receipts, receipts)
-			assert.Equal(t, adapted.TransactionStateDiffs, stateDiffs)
-			assert.Equal(t, adapted.CandidateTxs, candidates)
+
+			assertPreConfirmedBlockBasics(t,
+				&adapted,
+				test.blockNumber,
+				response,
+				expectedPreConfirmedTxCount,
+				expectedCandidateCount,
+				expectedEventCount,
+			)
+			assertPreConfirmedBlockReceipts(
+				t,
+				expectedReceipts,
+				adapted.Block.Receipts,
+				expectedPreConfirmedTxCount,
+			)
+			assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
+			assertCandidateTxs(t, response, adapted.CandidateTxs)
+			assertStateDiffs(t, response, adapted.TransactionStateDiffs)
+
+			t.Run("Test AdaptPreConfirmedDelta", func(t *testing.T) {
+				// a simulated delta response based on the full response
+				deltaResponse := &starknet.PreConfirmedBlock{
+					Changed:               true,
+					BlockIdentifier:       response.BlockIdentifier,
+					Transactions:          response.Transactions,
+					Receipts:              response.Receipts,
+					TransactionStateDiffs: response.TransactionStateDiffs,
+				}
+
+				txs, receipts, stateDiffs, candidates, err := sn2core.AdaptPreConfirmedDelta(deltaResponse)
+				require.NoError(t, err)
+				assert.Equal(t, adapted.Block.Transactions, txs)
+				assert.Equal(t, adapted.Block.Receipts, receipts)
+				assert.Equal(t, adapted.TransactionStateDiffs, stateDiffs)
+				assert.Equal(t, adapted.CandidateTxs, candidates)
+			})
 		})
 	}
 }
