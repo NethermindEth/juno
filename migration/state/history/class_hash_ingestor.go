@@ -17,7 +17,7 @@ type classHashIngestor struct {
 	common.BaseIngestor
 }
 
-var _ pipeline.State[*felt.Felt, common.Task] = (*classHashIngestor)(nil)
+var _ pipeline.State[felt.Address, common.Task] = (*classHashIngestor)(nil)
 
 func newClassHashIngestor(
 	ctx context.Context,
@@ -52,26 +52,27 @@ func newClassHashIngestor(
 // entry is written with contract.ClassHash directly. Deprecated rows are
 // deleted at the end of the run. Resume-safe: empty-deprecated + existing
 // deploy entry → no-op.
-func (i *classHashIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.Task) error {
+func (i *classHashIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
+	addrFelt := (*felt.Felt)(&addr)
 	t := &i.Tasks[index]
 
-	deprecatedPrefix := db.DeprecatedContractClassHashHistoryKey(addr)
-	contract, err := state.GetContract(i.Database, addr)
+	deprecatedPrefix := db.DeprecatedContractClassHashHistoryKey(addrFelt)
+	contract, err := state.GetContract(i.Database, addrFelt)
 	if err != nil {
-		return fmt.Errorf("class-hash: GetContract(%s): %w", addr, err)
+		return fmt.Errorf("class-hash: GetContract(%s): %w", addrFelt, err)
 	}
 
 	depIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
-		return fmt.Errorf("class-hash: open deprecated iter(%s): %w", addr, err)
+		return fmt.Errorf("class-hash: open deprecated iter(%s): %w", addrFelt, err)
 	}
 	defer depIt.Close()
 
 	if !depIt.First() {
-		return i.writeDeployOnly(t, outputs, addr, contract.DeployedHeight, &contract.ClassHash)
+		return i.writeDeployOnly(t, outputs, addrFelt, contract.DeployedHeight, &contract.ClassHash)
 	}
 	return i.writeShiftedHistory(
-		t, outputs, depIt, deprecatedPrefix, addr,
+		t, outputs, depIt, deprecatedPrefix, addrFelt,
 		contract.DeployedHeight, &contract.ClassHash,
 	)
 }

@@ -105,7 +105,7 @@ func runStoragePhase(
 
 func setupBeforePhase(
 	database db.KeyValueStore,
-) (semaphore.ResourceSemaphore[db.Batch], pipeline.Pipeline[*felt.Felt], func() error) {
+) (semaphore.ResourceSemaphore[db.Batch], pipeline.Pipeline[felt.Address], func() error) {
 	sem := semaphore.New(common.IngestorCount+1, func() db.Batch {
 		return database.NewBatchWithSize(common.BatchByteSize)
 	})
@@ -116,8 +116,8 @@ func setupBeforePhase(
 func runPipeline(
 	ctx context.Context,
 	name string,
-	src pipeline.Pipeline[*felt.Felt],
-	ing pipeline.State[*felt.Felt, common.Task],
+	src pipeline.Pipeline[felt.Address],
+	ing pipeline.State[felt.Address, common.Task],
 	logger log.StructuredLogger,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	sourceErr func() error,
@@ -140,9 +140,9 @@ func runPipeline(
 	return nil
 }
 
-func addressSeq(r db.KeyValueReader) (iter.Seq[*felt.Felt], func() error) {
+func addressSeq(r db.KeyValueReader) (iter.Seq[felt.Address], func() error) {
 	var iterErr error
-	seq := func(yield func(*felt.Felt) bool) {
+	seq := func(yield func(felt.Address) bool) {
 		prefix := db.Contract.Key()
 		it, err := r.NewIterator(prefix, true)
 		if err != nil {
@@ -160,8 +160,8 @@ func addressSeq(r db.KeyValueReader) (iter.Seq[*felt.Felt], func() error) {
 				)
 				return
 			}
-			f := felt.FromBytes[felt.Felt](key[len(prefix):])
-			if !yield(&f) {
+			addr := felt.FromBytes[felt.Address](key[len(prefix):])
+			if !yield(addr) {
 				return
 			}
 		}
