@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/felt"
@@ -13,21 +12,9 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/common"
 	"github.com/NethermindEth/juno/utils/log"
 )
-
-const (
-	batchByteSize       = 128 * db.Megabyte
-	targetBatchByteSize = 96 * db.Megabyte
-	ingestorCount       = 4
-	timeLogRate         = 5 * time.Second
-)
-
-type task struct {
-	batch          db.Batch
-	completedAddrs int
-	entryCount     int
-}
 
 var (
 	shouldRerun    = []byte{}
@@ -119,8 +106,8 @@ func runStoragePhase(
 func setupBeforePhase(
 	database db.KeyValueStore,
 ) (semaphore.ResourceSemaphore[db.Batch], pipeline.Pipeline[*felt.Felt], func() error) {
-	sem := semaphore.New(ingestorCount+1, func() db.Batch {
-		return database.NewBatchWithSize(batchByteSize)
+	sem := semaphore.New(common.IngestorCount+1, func() db.Batch {
+		return database.NewBatchWithSize(common.BatchByteSize)
 	})
 	seq, sourceErr := addressSeq(database)
 	return sem, pipeline.Source(seq), sourceErr
@@ -130,13 +117,13 @@ func runPipeline(
 	ctx context.Context,
 	name string,
 	src pipeline.Pipeline[*felt.Felt],
-	ing pipeline.State[*felt.Felt, task],
+	ing pipeline.State[*felt.Felt, common.Task],
 	logger log.StructuredLogger,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	sourceErr func() error,
 ) error {
-	ingestors := pipeline.New(src, ingestorCount, ing)
-	committers := pipeline.New(ingestors, 1, newCommitter(logger, sem, name))
+	ingestors := pipeline.New(src, common.IngestorCount, ing)
+	committers := pipeline.New(ingestors, 1, common.NewCommitter(logger, sem, name))
 
 	_, wait := committers.Run(ctx)
 	res := wait()
