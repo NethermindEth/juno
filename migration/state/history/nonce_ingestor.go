@@ -10,20 +10,21 @@ import (
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/common"
 )
 
 type nonceIngestor struct {
-	baseIngestor
+	common.BaseIngestor
 }
 
-var _ pipeline.State[*felt.Felt, task] = (*nonceIngestor)(nil)
+var _ pipeline.State[*felt.Felt, common.Task] = (*nonceIngestor)(nil)
 
 func newNonceIngestor(
 	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *nonceIngestor {
-	return &nonceIngestor{baseIngestor: newBaseIngestor(ctx, sem, database)}
+	return &nonceIngestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
 }
 
 // Run migrates the nonce history of a single contract.
@@ -46,11 +47,11 @@ func newNonceIngestor(
 //
 // Contracts with no deprecated nonce history are skipped. Deprecated rows
 // are deleted at the end of the run.
-func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) error {
-	t := &i.tasks[index]
+func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.Task) error {
+	t := &i.Tasks[index]
 	deprecatedPrefix := db.DeprecatedContractNonceHistoryKey(addr)
 
-	depIt, err := i.database.NewIterator(deprecatedPrefix, true)
+	depIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
 		return fmt.Errorf("nonce: open deprecated iter(%s): %w", addr, err)
 	}
@@ -59,7 +60,7 @@ func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) err
 		return nil
 	}
 
-	contract, err := state.GetContract(i.database, addr)
+	contract, err := state.GetContract(i.Database, addr)
 	if err != nil {
 		return fmt.Errorf("nonce: GetContract(%s): %w", addr, err)
 	}
@@ -78,12 +79,12 @@ func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) err
 			}
 			historyValue = felt.FromBytes[felt.Felt](rawValue)
 		}
-		err = state.WriteNonceHistory(t.batch, addr, block, &historyValue)
+		err = state.WriteNonceHistory(t.Batch, addr, block, &historyValue)
 		if err != nil {
 			return err
 		}
-		t.entryCount++
-		if err := i.flush(t, outputs); err != nil {
+		t.EntryCount++
+		if err := i.Flush(t, outputs); err != nil {
 			return err
 		}
 		if !hasNext {
@@ -91,9 +92,9 @@ func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- task) err
 		}
 	}
 
-	if err := t.batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix)); err != nil {
+	if err := t.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix)); err != nil {
 		return fmt.Errorf("nonce: DeleteRange deprecated(%s): %w", addr, err)
 	}
-	t.completedAddrs++
+	t.CompletedAddrs++
 	return nil
 }
