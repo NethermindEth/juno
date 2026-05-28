@@ -1,10 +1,11 @@
-package state
+package state_test
 
 import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
@@ -17,32 +18,32 @@ func TestContractAccessors(t *testing.T) {
 	nonce := felt.UnsafeFromString[felt.Felt]("0x1")
 	classHash := felt.UnsafeFromString[felt.Felt]("0xabc")
 
-	exists, err := HasContract(database, addr)
+	exists, err := state.HasContract(database, addr)
 	require.NoError(t, err)
 	assert.False(t, exists)
 
-	_, err = GetContract(database, addr)
+	_, err = state.GetContract(database, addr)
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
 
-	require.NoError(t, WriteContract(database, addr, nonce, classHash, 42))
+	require.NoError(t, state.WriteContract(database, addr, nonce, classHash, 42))
 
-	exists, err = HasContract(database, addr)
+	exists, err = state.HasContract(database, addr)
 	require.NoError(t, err)
 	assert.True(t, exists)
 
-	contract, err := GetContract(database, addr)
+	contract, err := state.GetContract(database, addr)
 	require.NoError(t, err)
 	assert.Equal(t, nonce, contract.Nonce)
 	assert.Equal(t, classHash, contract.ClassHash)
 	assert.Equal(t, uint64(42), contract.DeployedHeight)
 
-	require.NoError(t, DeleteContract(database, addr))
+	require.NoError(t, state.DeleteContract(database, addr))
 
-	exists, err = HasContract(database, addr)
+	exists, err = state.HasContract(database, addr)
 	require.NoError(t, err)
 	assert.False(t, exists)
 
-	_, err = GetContract(database, addr)
+	_, err = state.GetContract(database, addr)
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
 }
 
@@ -55,9 +56,9 @@ func TestHistoryAccessors(t *testing.T) {
 	classHash := felt.NewUnsafeFromString[felt.Felt]("0xabc")
 	storageValue := felt.NewUnsafeFromString[felt.Felt]("0xdef")
 
-	require.NoError(t, WriteNonceHistory(database, addr, blockNum, nonce))
-	require.NoError(t, WriteClassHashHistory(database, addr, blockNum, classHash))
-	require.NoError(t, WriteStorageHistory(database, addr, storageKey, blockNum, storageValue))
+	require.NoError(t, state.WriteNonceHistory(database, addr, blockNum, nonce))
+	require.NoError(t, state.WriteClassHashHistory(database, addr, blockNum, classHash))
+	require.NoError(t, state.WriteStorageHistory(database, addr, storageKey, blockNum, storageValue))
 
 	require.NoError(t, database.Get(db.ContractNonceHistoryAtBlockKey(addr, blockNum), func(value []byte) error {
 		assert.Equal(t, *nonce, felt.FromBytes[felt.Felt](value))
@@ -72,9 +73,9 @@ func TestHistoryAccessors(t *testing.T) {
 		return nil
 	}))
 
-	require.NoError(t, DeleteNonceHistory(database, addr, blockNum))
-	require.NoError(t, DeleteClassHashHistory(database, addr, blockNum))
-	require.NoError(t, DeleteStorageHistory(database, addr, storageKey, blockNum))
+	require.NoError(t, state.DeleteNonceHistory(database, addr, blockNum))
+	require.NoError(t, state.DeleteClassHashHistory(database, addr, blockNum))
+	require.NoError(t, state.DeleteStorageHistory(database, addr, storageKey, blockNum))
 
 	assertKeyNotFound(t, database, db.ContractNonceHistoryAtBlockKey(addr, blockNum))
 	assertKeyNotFound(t, database, db.ContractClassHashHistoryAtBlockKey(addr, blockNum))
@@ -92,20 +93,20 @@ func TestClassAccessors(t *testing.T) {
 		},
 	}
 
-	exists, err := HasClass(database, classHash)
+	exists, err := state.HasClass(database, classHash)
 	require.NoError(t, err)
 	assert.False(t, exists)
 
-	_, err = GetClass(database, classHash)
+	_, err = state.GetClass(database, classHash)
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
 
-	require.NoError(t, WriteClass(database, classHash, class))
+	require.NoError(t, state.WriteClass(database, classHash, class))
 
-	exists, err = HasClass(database, classHash)
+	exists, err = state.HasClass(database, classHash)
 	require.NoError(t, err)
 	assert.True(t, exists)
 
-	actual, err := GetClass(database, classHash)
+	actual, err := state.GetClass(database, classHash)
 	require.NoError(t, err)
 	assert.Equal(t, class.At, actual.At)
 	require.IsType(t, &core.SierraClass{}, actual.Class)
@@ -113,13 +114,13 @@ func TestClassAccessors(t *testing.T) {
 	assert.Equal(t, "0.1.0", actualClass.SemanticVersion)
 	assert.Equal(t, []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x1")}, actualClass.Program)
 
-	require.NoError(t, DeleteClass(database, classHash))
+	require.NoError(t, state.DeleteClass(database, classHash))
 
-	exists, err = HasClass(database, classHash)
+	exists, err = state.HasClass(database, classHash)
 	require.NoError(t, err)
 	assert.False(t, exists)
 
-	_, err = GetClass(database, classHash)
+	_, err = state.GetClass(database, classHash)
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
 }
 
