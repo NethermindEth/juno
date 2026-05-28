@@ -17,7 +17,7 @@ type nonceIngestor struct {
 	common.BaseIngestor
 }
 
-var _ pipeline.State[*felt.Felt, common.Task] = (*nonceIngestor)(nil)
+var _ pipeline.State[felt.Address, common.Task] = (*nonceIngestor)(nil)
 
 func newNonceIngestor(
 	ctx context.Context,
@@ -47,44 +47,46 @@ func newNonceIngestor(
 //
 // Contracts with no deprecated nonce history are skipped. Deprecated rows
 // are deleted at the end of the run.
-func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.Task) error {
-	t := &i.Tasks[index]
-	deprecatedPrefix := db.DeprecatedContractNonceHistoryKey(addr)
+func (i *nonceIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
+	addrFelt := (*felt.Felt)(&addr)
+
+	curTask := &i.Tasks[index]
+	deprecatedPrefix := db.DeprecatedContractNonceHistoryKey(addrFelt)
 
 	depIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
-		return fmt.Errorf("nonce: open deprecated iter(%s): %w", addr, err)
+		return fmt.Errorf("nonce: open deprecated iter(%s): %w", addrFelt, err)
 	}
 	defer depIt.Close()
 	if !depIt.First() {
 		return nil
 	}
 
-	contract, err := state.GetContract(i.Database, addr)
+	contract, err := state.GetContract(i.Database, addrFelt)
 	if err != nil {
-		return fmt.Errorf("nonce: GetContract(%s): %w", addr, err)
+		return fmt.Errorf("nonce: GetContract(%s): %w", addrFelt, err)
 	}
 
 	for {
 		block, err := parseBlockKey(depIt.Key(), deprecatedPrefix)
 		if err != nil {
-			return fmt.Errorf("nonce(%s): %w", addr, err)
+			return fmt.Errorf("nonce(%s): %w", addrFelt, err)
 		}
 		hasNext := depIt.Next()
 		historyValue := contract.Nonce
 		if hasNext {
 			rawValue, err := depIt.Value()
 			if err != nil {
-				return fmt.Errorf("nonce(%s): %w", addr, err)
+				return fmt.Errorf("nonce(%s): %w", addrFelt, err)
 			}
 			historyValue = felt.FromBytes[felt.Felt](rawValue)
 		}
-		err = state.WriteNonceHistory(t.Batch, addr, block, &historyValue)
+		err = state.WriteNonceHistory(curTask.Batch, addrFelt, block, &historyValue)
 		if err != nil {
 			return err
 		}
-		t.EntryCount++
-		if err := i.Flush(t, outputs); err != nil {
+		curTask.EntryCount++
+		if err := i.Flush(curTask, outputs); err != nil {
 			return err
 		}
 		if !hasNext {
@@ -92,9 +94,11 @@ func (i *nonceIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.Ta
 		}
 	}
 
-	if err := t.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix)); err != nil {
-		return fmt.Errorf("nonce: DeleteRange deprecated(%s): %w", addr, err)
+	err = curTask.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix))
+	if err != nil {
+		return fmt.Errorf("nonce: DeleteRange deprecated(%s): %w", addrFelt, err)
 	}
-	t.CompletedAddrs++
+
+	curTask.CompletedAddrs++
 	return nil
 }
