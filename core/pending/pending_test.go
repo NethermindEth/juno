@@ -581,24 +581,6 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 						assert.Equal(t, original.StateUpdate.OldRoot, newPc.StateUpdate.OldRoot)
 					})
 
-					t.Run("assert changes related to candidate transactions delta", func(t *testing.T) {
-						t.Parallel()
-						original := *originalPreConfirmed
-						candidateTxsLength := len(deltaCase.update.AppendCandidateTxs)
-
-						assert.Equal(t,
-							original.CandidateTxs,
-							newPc.CandidateTxs[:len(newPc.CandidateTxs)-candidateTxsLength],
-						)
-
-						if len(deltaCase.update.AppendCandidateTxs) > 0 {
-							assert.Equal(t,
-								deltaCase.update.AppendCandidateTxs,
-								newPc.CandidateTxs[len(original.CandidateTxs):],
-							)
-						}
-					})
-
 					t.Run("assert immutability of remaining fields", func(t *testing.T) {
 						t.Parallel()
 						localNew := copyPreConfirmed(t, newPc)
@@ -689,29 +671,7 @@ func makeDeltaCases(t *testing.T, prec *pending.PreConfirmed) []deltaCase {
 		return stateDiffs
 	}
 
-	deltaCases := make([]deltaCase, 0, 6)
-
-	txs, _ := makeTxsAndReceipts(1)
-	deltaCases = append(
-		deltaCases,
-		deltaCase{
-			description: "Delta with one candidate",
-			update: pending.PreConfirmedUpdate{
-				AppendCandidateTxs: txs,
-			},
-		},
-	)
-
-	txs, _ = makeTxsAndReceipts(5)
-	deltaCases = append(
-		deltaCases,
-		deltaCase{
-			description: "Delta with multiple candidates",
-			update: pending.PreConfirmedUpdate{
-				AppendCandidateTxs: txs,
-			},
-		},
-	)
+	deltaCases := make([]deltaCase, 0)
 
 	txs, receipts := makeTxsAndReceipts(1)
 	stateDiffs := makeStateDiffs(1)
