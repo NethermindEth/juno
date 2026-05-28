@@ -361,15 +361,21 @@ func (s *Synchronizer) handlePreConfirmed(
 ) {
 	var nextPreConfirmed *pending.PreConfirmed
 
+	currentPreConfirmed := s.preConfirmed.Load()
+	if currentPreConfirmed == nil {
+		s.logger.Debug("No pre_confirmed stored")
+		return
+	}
+
 	switch update.Mode {
 	case pending.PreConfirmedNoChange:
-		nextPreConfirmed = s.preConfirmed.Load().Copy()
+		nextPreConfirmed = currentPreConfirmed.Copy()
 
 	case pending.PreConfirmedFull:
 		nextPreConfirmed = update.FullBlock
 
 	case pending.PreConfirmedDelta:
-		existing := s.preConfirmed.Load().Copy()
+		existing := currentPreConfirmed.Copy()
 		if existing.BlockIdentifier != update.BlockIdentifier {
 			// Stored identifier drifted; drop. Next poll will return Full.
 			nextPreConfirmed = existing
