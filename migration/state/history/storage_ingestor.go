@@ -20,7 +20,7 @@ type storageIngestor struct {
 	common.BaseIngestor
 }
 
-var _ pipeline.State[*felt.Felt, common.Task] = (*storageIngestor)(nil)
+var _ pipeline.State[felt.Address, common.Task] = (*storageIngestor)(nil)
 
 func newStorageIngestor(
 	ctx context.Context,
@@ -74,15 +74,16 @@ func newStorageIngestor(
 //
 // Contracts with no deprecated storage history are skipped; deprecated
 // rows are deleted at the end of the run via DeleteRange.
-func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.Task) error {
+func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
+	addrFelt := (*felt.Felt)(&addr)
 	t := &i.Tasks[index]
 
-	addrBytes := addr.Marshal()
+	addrBytes := addrFelt.Marshal()
 	deprecatedPrefix := db.DeprecatedContractStorageHistory.Key(addrBytes)
 
 	deprecatedHistoryIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
-		return fmt.Errorf("storage: open deprecated iter(%s): %w", addr, err)
+		return fmt.Errorf("storage: open deprecated iter(%s): %w", addrFelt, err)
 	}
 	defer deprecatedHistoryIt.Close()
 	if !deprecatedHistoryIt.First() {
@@ -94,7 +95,7 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.
 
 	headStorageTrieIt, err := i.Database.NewIterator(leafPrefix, true)
 	if err != nil {
-		return fmt.Errorf("storage: open leaf iter(%s): %w", addr, err)
+		return fmt.Errorf("storage: open leaf iter(%s): %w", addrFelt, err)
 	}
 	defer headStorageTrieIt.Close()
 	leafValid := headStorageTrieIt.First()
@@ -102,13 +103,13 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.
 	for {
 		slot, block, err := parseStorageKey(deprecatedHistoryIt.Key(), deprecatedPrefix)
 		if err != nil {
-			return fmt.Errorf("storage: parse key(%s): %w", addr, err)
+			return fmt.Errorf("storage: parse key(%s): %w", addrFelt, err)
 		}
 
 		successorSlot, successorValue, hasNext, err := peekSuccessor(
 			deprecatedHistoryIt,
 			deprecatedPrefix,
-			addr,
+			addrFelt,
 		)
 		if err != nil {
 			return err
@@ -117,7 +118,7 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.
 		historyValue, advanced, err := resolveHistoryValue(
 			headStorageTrieIt,
 			leafPrefix,
-			addr,
+			addrFelt,
 			&slot,
 			hasNext,
 			successorSlot,
@@ -133,7 +134,7 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.
 
 		err = state.WriteStorageHistory(
 			t.Batch,
-			addr,
+			addrFelt,
 			&slot,
 			block,
 			&historyValue,
@@ -152,7 +153,7 @@ func (i *storageIngestor) Run(index int, addr *felt.Felt, outputs chan<- common.
 	}
 
 	if err := t.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix)); err != nil {
-		return fmt.Errorf("storage: DeleteRange deprecated(%s): %w", addr, err)
+		return fmt.Errorf("storage: DeleteRange deprecated(%s): %w", addrFelt, err)
 	}
 	t.CompletedAddrs++
 	return nil
