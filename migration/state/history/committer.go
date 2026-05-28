@@ -1,4 +1,4 @@
-package statehistory
+package history
 
 import (
 	"github.com/NethermindEth/juno/db"
