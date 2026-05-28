@@ -2,10 +2,10 @@ package pending
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var (
@@ -165,8 +165,8 @@ func (p *PreConfirmed) ApplyDelta(
 
 	nextHeader.TransactionCount += uint64(len(txs))
 	nextBlock.Header = &nextHeader
-	nextBlock.Transactions = utils.Concat(p.Block.Transactions, txs)
-	nextBlock.Receipts = utils.Concat(p.Block.Receipts, receipts)
+	nextBlock.Transactions = slices.Concat(p.Block.Transactions, txs)
+	nextBlock.Receipts = slices.Concat(p.Block.Receipts, receipts)
 
 	next.Block = &nextBlock
 
@@ -181,10 +181,10 @@ func (p *PreConfirmed) ApplyDelta(
 		OldRoot:   p.StateUpdate.OldRoot,
 		StateDiff: &newStateDiff,
 	}
-	next.TransactionStateDiffs = utils.Concat(p.TransactionStateDiffs, txStateDiffs)
+	next.TransactionStateDiffs = slices.Concat(p.TransactionStateDiffs, txStateDiffs)
 	next.StateUpdate = &nextStateUpdate
 
-	next.CandidateTxs = utils.Concat(p.CandidateTxs, candidateTxs)
+	next.CandidateTxs = slices.Concat(p.CandidateTxs, candidateTxs)
 
 	return &next
 }
