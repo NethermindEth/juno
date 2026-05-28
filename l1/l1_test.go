@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -50,56 +51,73 @@ func (s *fakeSubscription) Unsubscribe() {
 }
 
 func TestFailToCreateSubscription(t *testing.T) {
-	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		err := errors.New("test error")
 
-	err := errors.New("test error")
+		network := networks.Mainnet
+		ctrl := gomock.NewController(t)
+		nopLog := log.NewNopZapLogger()
+		chain := blockchain.New(
+			memory.New(),
+			&network,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
 
-	network := networks.Mainnet
-	ctrl := gomock.NewController(t)
-	nopLog := log.NewNopZapLogger()
-	chain := blockchain.New(
-		memory.New(),
-		&network,
-		blockchain.WithNewState(statetestutils.UseNewState()),
-	)
+		subscriber := mocks.NewMockSubscriber(ctrl)
+		firstAttempt := make(chan struct{}, 1)
 
-	subscriber := mocks.NewMockSubscriber(ctrl)
+		subscriber.
+			EXPECT().
+			WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(context.Context, chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {
+				select {
+				case firstAttempt <- struct{}{}:
+				default:
+				}
+				return newFakeSubscription(), err
+			}).
+			AnyTimes()
 
-	subscriber.
-		EXPECT().
-		WatchLogStateUpdate(gomock.Any(), gomock.Any()).
-		Return(newFakeSubscription(), err).
-		AnyTimes()
+		subscriber.
+			EXPECT().
+			ChainID(gomock.Any()).
+			Return(network.L1ChainID, nil).
+			Times(1)
 
-	subscriber.
-		EXPECT().
-		ChainID(gomock.Any()).
-		Return(network.L1ChainID, nil).
-		Times(1)
+		// catchUp runs before subscribe; let it complete cleanly so the test
+		// reaches the subscription failure path it actually exercises.
+		subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+		subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+		subscriber.
+			EXPECT().
+			FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, nil).
+			AnyTimes()
 
-	// catchUp runs before subscribe; let it complete cleanly so the test
-	// reaches the subscription failure path it actually exercises.
-	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	subscriber.
-		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, nil).
-		AnyTimes()
+		subscriber.EXPECT().Close().Times(1)
 
-	subscriber.EXPECT().Close().Times(1)
+		client := l1.NewClient(
+			subscriber,
+			chain,
+			nopLog,
+			l1.WithResubscribeDelay(time.Hour),
+			l1.WithPollFinalisedInterval(time.Nanosecond),
+		)
 
-	client := l1.NewClient(
-		subscriber,
-		chain,
-		nopLog,
-		l1.WithResubscribeDelay(0),
-		l1.WithPollFinalisedInterval(time.Nanosecond),
-	)
+		ctx, cancel := context.WithCancel(t.Context())
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- client.Run(ctx)
+		}()
 
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
-	cancel()
+		<-firstAttempt
+		cancel()
+		synctest.Wait()
+
+		err = <-errCh
+		require.ErrorContains(t, err, "context canceled before resubscribe was successful")
+		require.ErrorIs(t, err, context.Canceled)
+	})
 }
 
 func TestMismatchedChainID(t *testing.T) {
@@ -386,6 +404,72 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 			BlockHash:   new(felt.Felt).SetUint64(7),
 			StateRoot:   new(felt.Felt).SetUint64(7),
 		}, got)
+	})
+}
+
+func TestCatchUpL1HeadReturnsPromptlyOnFinalisedHeightContextCancellation(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		network := networks.Mainnet
+		ctrl := gomock.NewController(t)
+		nopLog := log.NewNopZapLogger()
+		chain := blockchain.New(
+			memory.New(),
+			&network,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
+
+		subscriber := mocks.NewMockSubscriber(ctrl)
+		finalisedRetryStarted := make(chan struct{}, 1)
+		subscriber.EXPECT().Close().Times(1)
+		subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+		subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
+
+		catchupCall := subscriber.
+			EXPECT().
+			FinalisedHeight(gomock.Any()).
+			Return(uint64(5), nil).
+			Times(1)
+		subscriber.
+			EXPECT().
+			FinalisedHeight(gomock.Any()).
+			DoAndReturn(func(ctx context.Context) (uint64, error) {
+				select {
+				case finalisedRetryStarted <- struct{}{}:
+				default:
+				}
+				<-ctx.Done()
+				return 0, ctx.Err()
+			}).
+			Times(1).
+			After(catchupCall)
+
+		event := &contract.StarknetLogStateUpdate{
+			BlockNumber: big.NewInt(7),
+			BlockHash:   big.NewInt(7),
+			GlobalRoot:  big.NewInt(7),
+			Raw:         types.Log{BlockNumber: 3},
+		}
+		subscriber.
+			EXPECT().
+			FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return([]*contract.StarknetLogStateUpdate{event}, nil).
+			Times(1)
+
+		client := l1.NewClient(subscriber, chain, nopLog, l1.WithResubscribeDelay(time.Hour))
+
+		ctx, cancel := context.WithCancel(t.Context())
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- client.CatchUpL1Head(ctx)
+		}()
+
+		<-finalisedRetryStarted
+		cancel()
+		synctest.Wait()
+
+		require.NoError(t, <-errCh)
+		_, err := chain.L1Head()
+		require.Error(t, err)
 	})
 }
 

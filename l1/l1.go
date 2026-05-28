@@ -127,22 +127,16 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 				zap.Duration("tryAgainIn", c.resubscribeDelay),
 				zap.Error(err),
 			)
-			if !waitForResubscribeOrCancel(ctx, c.resubscribeDelay) {
+			timer := time.NewTimer(c.resubscribeDelay)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
 				return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
+			case <-timer.C:
 			}
 		}
-	}
-}
-
-func waitForResubscribeOrCancel(ctx context.Context, d time.Duration) bool {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return false
-	case <-timer.C:
-		return true
 	}
 }
 
@@ -389,8 +383,14 @@ func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 				return finalisedHeight
 			}
 			c.logger.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
-			if !waitForResubscribeOrCancel(ctx, c.resubscribeDelay) {
+			timer := time.NewTimer(c.resubscribeDelay)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
 				return 0
+			case <-timer.C:
 			}
 		}
 	}
