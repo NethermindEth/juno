@@ -228,8 +228,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 		}, nil
 	}
 
-	// only present on full responses
-	if response.SequencerAddress != nil {
+	if response.BlockIdentifier != blockIdentifier {
 		full, adaptErr := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
 		if adaptErr != nil {
 			return pending.PreConfirmedUpdate{}, adaptErr
@@ -241,7 +240,6 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 		}, nil
 	}
 
-	// otherwise it's a delta response
 	txs, receipts, stateDiffs, candidateTxs, adaptErr := sn2core.AdaptPreConfirmedDelta(response)
 	if adaptErr != nil {
 		return pending.PreConfirmedUpdate{}, adaptErr
