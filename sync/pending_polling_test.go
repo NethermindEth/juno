@@ -506,6 +506,7 @@ func TestPollPendingData(t *testing.T) {
 							FullBlock:       &preConf,
 						}
 						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
+						response.FullBlock.BlockIdentifier = blockIdentifier
 					case 2:
 						response = pending.PreConfirmedUpdate{
 							Mode:            pending.PreConfirmedNoChange,
@@ -513,8 +514,8 @@ func TestPollPendingData(t *testing.T) {
 						}
 					}
 				case 2:
-					// block 2 will be polled 3 times in our test.
-					// Full block > Delta Change > No change.
+					// block 2 will be polled 4 times in our test.
+					// Full block > Delta Change > New Identifier > No change.
 					switch numCalls {
 					case 3:
 						preConf := makeTestPreConfirmed(number)
@@ -524,13 +525,25 @@ func TestPollPendingData(t *testing.T) {
 							FullBlock:       &preConf,
 						}
 						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
+						response.FullBlock.BlockIdentifier = blockIdentifier
 					case 4:
 						response = pending.PreConfirmedUpdate{
 							Mode:               pending.PreConfirmedDelta,
 							BlockIdentifier:    blockIdentifier,
-							AppendCandidateTxs: []core.Transaction{newTx()},
+							AppendTransactions: []core.Transaction{newTx()},
+							AppendReceipts:     []*core.TransactionReceipt{{}},
+							AppendStateDiffs:   []*core.StateDiff{{}},
 						}
 					case 5:
+						preConf := makeTestPreConfirmed(number)
+						response = pending.PreConfirmedUpdate{
+							Mode:            pending.PreConfirmedFull,
+							BlockIdentifier: "0xdeadbeef",
+							FullBlock:       &preConf,
+						}
+						response.FullBlock.Block.TransactionCount = knownTransactionCount
+						response.FullBlock.BlockIdentifier = "0xdeadbeef"
+					case 6:
 						response = pending.PreConfirmedUpdate{
 							Mode:            pending.PreConfirmedNoChange,
 							BlockIdentifier: blockIdentifier,
@@ -635,7 +648,19 @@ func TestPollPendingData(t *testing.T) {
 			assert.NotEqual(t, pc, deltaPc)
 			synctest.Wait()
 
-			// 5th preConfirmed tick; preConfirmed target is still 2
+			// 5th preConfirmed tick; pre_confirmed target is still 2.
+			// PreConfirmed 2 arrives with new identifier. Node must discard current
+			// preConfirmed and store the new one.
+			time.Sleep(preCPoll)
+			synctest.Wait()
+
+			pc = <-sub.Recv()
+			require.NotNil(t, pc)
+			assert.Equal(t, deltaPc.Block.Number, pc.Block.Number)
+			assert.NotEqual(t, deltaPc.BlockIdentifier, pc.BlockIdentifier)
+			synctest.Wait()
+
+			// 6th preConfirmed tick; preConfirmed target is still 2
 			// No change in preConfirmed
 			time.Sleep(preCPoll)
 			synctest.Wait()
