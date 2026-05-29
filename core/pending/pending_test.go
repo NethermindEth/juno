@@ -671,7 +671,7 @@ func makeDeltaCases(t *testing.T, prec *pending.PreConfirmed) []deltaCase {
 		return stateDiffs
 	}
 
-	deltaCases := make([]deltaCase, 0)
+	deltaCases := make([]deltaCase, 0, 4)
 
 	txs, receipts := makeTxsAndReceipts(1)
 	stateDiffs := makeStateDiffs(1)
