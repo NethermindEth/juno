@@ -110,7 +110,7 @@ func (s *Synchronizer) StorePreConfirmed(p *pending.PreConfirmed) (bool, error) 
 
 	existingPtr := s.preConfirmed.Load()
 
-	if shouldPreservePreConfirmed(existingPtr, p, head) {
+	if existingPtr != nil && shouldPreservePreConfirmed(existingPtr, p, head) {
 		_ = s.UpdatePreLatestAttachment(p.GetBlock().Number, p.PreLatest)
 		return false, nil
 	}
