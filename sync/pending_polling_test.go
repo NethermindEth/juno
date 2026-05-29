@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	stdsync "sync"
 	"sync/atomic"
 	"testing"
@@ -536,7 +537,7 @@ func TestPollPendingData(t *testing.T) {
 						}
 					}
 				default:
-					t.Fatal("unexpected number", number)
+					return pending.PreConfirmedUpdate{}, fmt.Errorf("unexpected number: %d", number)
 				}
 
 				return response, nil
