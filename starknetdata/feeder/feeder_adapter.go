@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
@@ -119,4 +120,38 @@ func (f *FeederAdapter) StateUpdateWithBlock(
 	}
 
 	return adaptedState, adaptedBlock, nil
+}
+
+// PreConfirmedBlockByNumber returns the pre_confirmed block for the given block number.
+// If the upstream feeder supports the new combined endpoint ("get_pre_confirmed" with
+// the new "blockIdentifier" and "knownTransactionCount" arguments), it delegates
+// to [Feeder.PreConfirmedBlockByNumber]. Otherwise, it falls back to the old approach:
+// calling the client.PreConfirmedBlock endpoint with only the given block number.
+func (f *FeederAdapter) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (pending.PreConfirmedUpdate, error) {
+	if f.isFeederUpdated.Load() {
+		return f.Feeder.PreConfirmedBlockByNumber(
+			ctx, blockNumber, blockIdentifier, knownTransactionCount,
+		)
+	}
+	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
+	if err != nil {
+		return pending.PreConfirmedUpdate{}, err
+	}
+
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
+	if err != nil {
+		return pending.PreConfirmedUpdate{}, err
+	}
+	adaptedPreConfirmed.BlockIdentifier = blockIdentifier
+
+	return pending.PreConfirmedUpdate{
+		Mode:            pending.PreConfirmedFull,
+		BlockIdentifier: blockIdentifier,
+		FullBlock:       &adaptedPreConfirmed,
+	}, nil
 }
