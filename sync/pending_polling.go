@@ -50,11 +50,10 @@ func shouldPreservePreConfirmed(
 	}
 
 	if incomingB.Number == existingB.Number {
-		if incomingB.TransactionCount > existingB.TransactionCount {
+		if incomingPending.BlockIdentifier != existingPending.BlockIdentifier {
 			return false
 		}
-		if incomingB.TransactionCount == existingB.TransactionCount &&
-			len(incomingPending.CandidateTxs) > len(existingPending.CandidateTxs) {
+		if incomingB.TransactionCount > existingB.TransactionCount {
 			return false
 		}
 	}
@@ -278,9 +277,7 @@ func (s *Synchronizer) pollPreConfirmed(
 			currentPreConf := s.preConfirmed.Load()
 			if currentPreConf != nil {
 				blockIdentifier = currentPreConf.BlockIdentifier
-				knownTransactionCount = uint64(
-					len(currentPreConf.Block.Transactions) + len(currentPreConf.CandidateTxs),
-				)
+				knownTransactionCount = uint64(len(currentPreConf.Block.Transactions))
 			}
 
 			update, err := s.dataSource.PreConfirmedBlockByNumber(
