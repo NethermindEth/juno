@@ -60,18 +60,27 @@ func TestHistoryAccessors(t *testing.T) {
 	require.NoError(t, state.WriteClassHashHistory(database, addr, blockNum, classHash))
 	require.NoError(t, state.WriteStorageHistory(database, addr, storageKey, blockNum, storageValue))
 
-	require.NoError(t, database.Get(db.ContractNonceHistoryAtBlockKey(addr, blockNum), func(value []byte) error {
-		assert.Equal(t, *nonce, felt.FromBytes[felt.Felt](value))
-		return nil
-	}))
-	require.NoError(t, database.Get(db.ContractClassHashHistoryAtBlockKey(addr, blockNum), func(value []byte) error {
-		assert.Equal(t, *classHash, felt.FromBytes[felt.Felt](value))
-		return nil
-	}))
-	require.NoError(t, database.Get(db.ContractStorageHistoryAtBlockKey(addr, storageKey, blockNum), func(value []byte) error {
-		assert.Equal(t, *storageValue, felt.FromBytes[felt.Felt](value))
-		return nil
-	}))
+	require.NoError(t, database.Get(
+		db.ContractNonceHistoryAtBlockKey(addr, blockNum),
+		func(value []byte) error {
+			assert.Equal(t, *nonce, felt.FromBytes[felt.Felt](value))
+			return nil
+		},
+	))
+	require.NoError(t, database.Get(
+		db.ContractClassHashHistoryAtBlockKey(addr, blockNum),
+		func(value []byte) error {
+			assert.Equal(t, *classHash, felt.FromBytes[felt.Felt](value))
+			return nil
+		},
+	))
+	require.NoError(t, database.Get(
+		db.ContractStorageHistoryAtBlockKey(addr, storageKey, blockNum),
+		func(value []byte) error {
+			assert.Equal(t, *storageValue, felt.FromBytes[felt.Felt](value))
+			return nil
+		},
+	))
 
 	require.NoError(t, state.DeleteNonceHistory(database, addr, blockNum))
 	require.NoError(t, state.DeleteClassHashHistory(database, addr, blockNum))
