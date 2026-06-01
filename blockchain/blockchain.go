@@ -142,7 +142,7 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 		network:       network,
 		listener:      o.listener,
 		l1HeadFeed:    feed.New[*core.L1Head](),
-		cachedFilters: &cachedFilters,
+		cachedFilters: cachedFilters,
 		runningFilter: runningFilter,
 		stateBackend: statebackend.New(
 			database,

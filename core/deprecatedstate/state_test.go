@@ -337,24 +337,30 @@ func TestHistory(t *testing.T) {
 	}{
 		"contract storage": {
 			logger: func(txn db.KeyValueWriter, location, oldValue *felt.Felt, height uint64) error {
-				return core.WriteContractStorageHistory(txn, contractAddress, location, oldValue, height)
+				return core.WriteDeprecatedContractStorageHistory(
+					txn,
+					contractAddress,
+					location,
+					oldValue,
+					height,
+				)
 			},
 			getter: func(location *felt.Felt, height uint64) (felt.Felt, error) {
 				return state.ContractStorageAt(contractAddress, location, height)
 			},
 			deleter: func(txn db.KeyValueWriter, location *felt.Felt, height uint64) error {
-				return core.DeleteContractStorageHistory(txn, contractAddress, location, height)
+				return core.DeleteDeprecatedContractStorageHistory(txn, contractAddress, location, height)
 			},
 		},
 		"contract nonce": {
-			logger:  core.WriteContractNonceHistory,
+			logger:  core.WriteDeprecatedContractNonceHistory,
 			getter:  state.ContractNonceAt,
-			deleter: core.DeleteContractNonceHistory,
+			deleter: core.DeleteDeprecatedContractNonceHistory,
 		},
 		"contract class hash": {
-			logger:  core.WriteContractClassHashHistory,
+			logger:  core.WriteDeprecatedContractClassHashHistory,
 			getter:  state.ContractClassHashAt,
-			deleter: core.DeleteContractClassHashHistory,
+			deleter: core.DeleteDeprecatedContractClassHashHistory,
 		},
 	} {
 		location := felt.NewFromUint64[felt.Felt](456)

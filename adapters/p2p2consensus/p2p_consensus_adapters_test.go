@@ -10,6 +10,7 @@ import (
 	transactiontestutils "github.com/NethermindEth/juno/adapters/testutils"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
 )
@@ -92,4 +93,20 @@ func TestAdaptProposalTransaction(t *testing.T) {
 
 func TestAdaptProposalFin(t *testing.T) {
 	testP2PToConsensusToP2P(t, testutils.GetTestProposalFin, p2p2consensus.AdaptProposalFin, consensus2p2p.AdaptProposalFin)
+}
+
+func TestAdaptBlockInfo_UnknownL1DaMode(t *testing.T) {
+	_, p2pBlockInfo := testutils.GetTestBlockInfo(t)
+	p2pBlockInfo.L1DaMode = common.L1DataAvailabilityMode(99)
+
+	_, err := p2p2consensus.AdaptBlockInfo(p2pBlockInfo)
+	require.ErrorContains(t, err, "unknown l1_da_mode value: 99")
+}
+
+func TestAdaptProposalCommitment_UnknownL1DaMode(t *testing.T) {
+	_, p2pProposalCommitment := testutils.GetTestProposalCommitment(t)
+	p2pProposalCommitment.L1DaMode = common.L1DataAvailabilityMode(99)
+
+	_, err := p2p2consensus.AdaptProposalCommitment(p2pProposalCommitment)
+	require.ErrorContains(t, err, "unknown l1_da_mode value: 99")
 }

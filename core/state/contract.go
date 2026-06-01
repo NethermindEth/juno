@@ -13,11 +13,15 @@ const (
 	contractEmptyRootEncSize = 2*felt.Bytes + 8 // nonce + class hash + deploy height
 )
 
+// stateContract is the on-disk record of a contract's state.
 type stateContract struct {
-	Nonce          felt.Felt // Contract's nonce
-	ClassHash      felt.Felt // Hash of the contract's class
-	DeployedHeight uint64    // Block height at which the contract is deployed
-	StorageRoot    felt.Felt // Root hash of the contract's storage
+	// todo(rdr): should be felt.Nonce
+	Nonce felt.Felt // Nonce indicates many transiction this contract has done
+	// todo(rdr): update to use felt.SierraHash here
+	ClassHash      felt.Felt // ClassHash points to where the contract implementation lives
+	DeployedHeight uint64    // Block number at which the contract was deployed
+	// todo(rdr): This has to be a new type, probably a felt.TrieRoot or felt.TrieHash
+	StorageRoot felt.Felt // StorageRoot points which trie holds this contract storage
 }
 
 func newContractDeployed(classHash felt.Felt, deployHeight uint64) stateContract {

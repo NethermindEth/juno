@@ -8,7 +8,7 @@ import (
 // migrationScratchTag is the leading byte of every history-pruner scratch
 // key. We reuse db.Temporary, the canonical scratch bucket also used by
 // deprecated migrations. Production iterators scoped to a single-byte bucket
-// prefix (e.g. NewIterator([]byte{14}, ...) for ContractStorageHistory)
+// prefix (e.g. NewIterator([]byte{14}, ...) for DeprecatedContractStorageHistory)
 // cannot observe scratch keys.
 var migrationScratchTag = byte(db.Temporary)
 
@@ -65,7 +65,7 @@ func fillStorageScratchKey(
 ) []byte {
 	buf = buf[:storageScratchKeyLen]
 	buf[0] = migrationScratchTag
-	buf[1] = byte(db.ContractStorageHistory)
+	buf[1] = byte(db.DeprecatedContractStorageHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[scratchPrefixLen:], addrBytes[:])
 	slotBytes := slot.Bytes()
@@ -82,7 +82,7 @@ func fillNonceScratchKey(
 ) []byte {
 	buf = buf[:nonceScratchKeyLen]
 	buf[0] = migrationScratchTag
-	buf[1] = byte(db.ContractNonceHistory)
+	buf[1] = byte(db.DeprecatedContractNonceHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[scratchPrefixLen:], addrBytes[:])
 	copy(buf[scratchPrefixLen+felt.Bytes:], blockBE[:])
@@ -97,7 +97,7 @@ func fillClassHashScratchKey(
 ) []byte {
 	buf = buf[:classHashScratchKeyLen]
 	buf[0] = migrationScratchTag
-	buf[1] = byte(db.ContractClassHashHistory)
+	buf[1] = byte(db.DeprecatedContractClassHashHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[scratchPrefixLen:], addrBytes[:])
 	copy(buf[scratchPrefixLen+felt.Bytes:], blockBE[:])
@@ -111,7 +111,7 @@ func fillStorageHistoryKey(
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
 	buf = buf[:storageHistoryKeyLen]
-	buf[0] = byte(db.ContractStorageHistory)
+	buf[0] = byte(db.DeprecatedContractStorageHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[1:], addrBytes[:])
 	slotBytes := slot.Bytes()
@@ -127,7 +127,7 @@ func fillNonceHistoryKey(
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
 	buf = buf[:nonceHistoryKeyLen]
-	buf[0] = byte(db.ContractNonceHistory)
+	buf[0] = byte(db.DeprecatedContractNonceHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[1:], addrBytes[:])
 	copy(buf[1+felt.Bytes:], blockBE[:])
@@ -141,7 +141,7 @@ func fillClassHashHistoryKey(
 	blockBE [blockNumberSuffixLen]byte,
 ) []byte {
 	buf = buf[:classHashHistoryKeyLen]
-	buf[0] = byte(db.ContractClassHashHistory)
+	buf[0] = byte(db.DeprecatedContractClassHashHistory)
 	addrBytes := addr.Bytes()
 	copy(buf[1:], addrBytes[:])
 	copy(buf[1+felt.Bytes:], blockBE[:])

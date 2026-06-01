@@ -1,33 +1,78 @@
 package proposal
 
 import (
-	syncmap "sync"
+	"sync"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/types"
 )
 
 type ProposalStore[H types.Hash] struct {
-	underlying syncmap.Map
+	proposalsByHeight sync.Map // height -> hash -> BuildResult
+	finalizedHeight   atomic.Uint64
 }
 
 func (p *ProposalStore[H]) Get(key H) *builder.BuildResult {
-	value, ok := p.underlying.Load(key)
-	if !ok {
-		return nil
-	}
-
-	buildResult, ok := value.(*builder.BuildResult)
-	if !ok {
-		return nil
-	}
-
-	return buildResult
+	var found *builder.BuildResult
+	p.proposalsByHeight.Range(func(height, proposals any) bool {
+		buildResult, ok := proposals.(*sync.Map).Load(key)
+		if !ok {
+			return true
+		}
+		if p.IsFinalized(height.(types.Height)) {
+			return false
+		}
+		found = buildResult.(*builder.BuildResult)
+		return false
+	})
+	return found
 }
 
-func (p *ProposalStore[H]) Store(key H, value *builder.BuildResult) {
-	if value == nil {
+func (p *ProposalStore[H]) Store(key H, builtResult *builder.BuildResult) {
+	height := types.Height(builtResult.PreConfirmed.Block.Number)
+	if p.IsFinalized(height) {
 		return
 	}
-	_, _ = p.underlying.LoadOrStore(key, value)
+	bucket := p.proposalFor(height)
+	bucket.LoadOrStore(key, builtResult)
+
+	// FinalizeHeight may have raced between the initial guard and LoadOrStore;
+	// if so, roll back so we never leave a proposal at a finalized height.
+	if p.IsFinalized(height) {
+		bucket.CompareAndDelete(key, builtResult)
+		p.proposalsByHeight.CompareAndDelete(height, bucket)
+	}
+}
+
+func (p *ProposalStore[H]) proposalFor(height types.Height) *sync.Map {
+	// Fast path avoids allocating a sync.Map on every call: LoadOrStore would
+	// construct one even when the bucket already exists, only to discard it.
+	if existing, ok := p.proposalsByHeight.Load(height); ok {
+		return existing.(*sync.Map)
+	}
+	actual, _ := p.proposalsByHeight.LoadOrStore(height, &sync.Map{})
+	return actual.(*sync.Map)
+}
+
+func (p *ProposalStore[H]) IsFinalized(height types.Height) bool {
+	return uint64(height) <= p.finalizedHeight.Load()
+}
+
+func (p *ProposalStore[H]) FinalizeHeight(height types.Height) {
+	for {
+		cur := p.finalizedHeight.Load()
+		if uint64(height) <= cur {
+			return
+		}
+		if p.finalizedHeight.CompareAndSwap(cur, uint64(height)) {
+			break
+		}
+	}
+	p.proposalsByHeight.Range(func(h, _ any) bool {
+		if h.(types.Height) <= height {
+			p.proposalsByHeight.Delete(h)
+		}
+		return true
+	})
 }

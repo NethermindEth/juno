@@ -48,8 +48,12 @@ func storeBlockWithBloom(
 func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 	testDB := memory.New()
 	rf := core.NewRunningEventFilterLazy(testDB, pruner.InitializeRunningEventFilter)
-	require.Equal(t, uint64(0), rf.FromBlock())
-	require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), fromBlock)
+	toBlock, err := rf.ToBlock()
+	require.NoError(t, err)
+	require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
 	require.NoError(t, rf.Insert(testBloomWithRandomKey(t), 0))
 }
 
@@ -74,9 +78,15 @@ func TestRunningEventFilter_LazyInitialization_CaughtUp(t *testing.T) {
 	require.NoError(t, core.WriteRunningEventFilter(database, snap))
 
 	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
-	require.Equal(t, uint64(0), rf.FromBlock())
-	require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
-	require.Equal(t, latest+1, rf.NextBlock())
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), fromBlock)
+	toBlock, err := rf.ToBlock()
+	require.NoError(t, err)
+	require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
+	nextBlock, err := rf.NextBlock()
+	require.NoError(t, err)
+	require.Equal(t, latest+1, nextBlock)
 }
 
 // TestRunningEventFilter_LazyInitialization_RebuildAnchorless_FillFromFloor
@@ -105,12 +115,19 @@ func TestRunningEventFilter_LazyInitialization_RebuildAnchorless_FillFromFloor(t
 	require.NoError(t, err)
 
 	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
-	require.Equal(t, uint64(0), rf.FromBlock(),
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), fromBlock,
 		"window rooted at floorAligned (= 0 since floor < NumBlocksPerFilter)")
-	require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
-	require.Equal(t, latest+1, rf.NextBlock())
+	toBlock, err := rf.ToBlock()
+	require.NoError(t, err)
+	require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
+	nextBlock, err := rf.NextBlock()
+	require.NoError(t, err)
+	require.Equal(t, latest+1, nextBlock)
 
-	matches := rf.BlocksForKeys(retainedKeys)
+	matches, err := rf.BlocksForKeys(retainedKeys)
+	require.NoError(t, err)
 	for i := pruneTo; i <= latest; i++ {
 		require.True(t, matches.Test(uint(i)),
 			"retained block %d must be hit by the rebuilt filter", i)
@@ -181,16 +198,24 @@ func TestRunningEventFilter_LazyInitialization_SameWindowResume(t *testing.T) {
 	)
 	rf, headerKeys, snapshotKeys := setupSameWindowResume(t, latest, pruneTo, snapshotNext)
 
-	require.Equal(t, latest+1, rf.NextBlock())
-	require.Equal(t, uint64(0), rf.FromBlock())
-	require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
+	nextBlock, err := rf.NextBlock()
+	require.NoError(t, err)
+	require.Equal(t, latest+1, nextBlock)
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), fromBlock)
+	toBlock, err := rf.ToBlock()
+	require.NoError(t, err)
+	require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
 
-	preserved := rf.BlocksForKeys(snapshotKeys)
+	preserved, err := rf.BlocksForKeys(snapshotKeys)
+	require.NoError(t, err)
 	for i := range snapshotNext {
 		require.True(t, preserved.Test(uint(i)),
 			"snapshot bit at block %d not preserved", i)
 	}
-	filled := rf.BlocksForKeys(headerKeys)
+	filled, err := rf.BlocksForKeys(headerKeys)
+	require.NoError(t, err)
 	for i := snapshotNext; i <= latest; i++ {
 		require.True(t, filled.Test(uint(i)),
 			"retained block %d must be filled from header bloom", i)
@@ -210,15 +235,21 @@ func TestRunningEventFilter_LazyInitialization_SameWindowResumeClamped(t *testin
 	)
 	rf, headerKeys, snapshotKeys := setupSameWindowResume(t, latest, pruneTo, snapshotNext)
 
-	require.Equal(t, latest+1, rf.NextBlock())
-	require.Equal(t, uint64(0), rf.FromBlock())
+	nextBlock, err := rf.NextBlock()
+	require.NoError(t, err)
+	require.Equal(t, latest+1, nextBlock)
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), fromBlock)
 
-	preserved := rf.BlocksForKeys(snapshotKeys)
+	preserved, err := rf.BlocksForKeys(snapshotKeys)
+	require.NoError(t, err)
 	for i := range snapshotNext {
 		require.True(t, preserved.Test(uint(i)),
 			"snapshot bit at block %d not preserved across clamp", i)
 	}
-	filled := rf.BlocksForKeys(headerKeys)
+	filled, err := rf.BlocksForKeys(headerKeys)
+	require.NoError(t, err)
 	for i := pruneTo; i <= latest; i++ {
 		require.True(t, filled.Test(uint(i)),
 			"retained block %d must be filled from header bloom", i)
@@ -272,15 +303,22 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 	require.NoError(t, err)
 
 	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
-	require.Equal(t, core.NumBlocksPerFilter, rf.FromBlock(),
+	fromBlock, err := rf.FromBlock()
+	require.NoError(t, err)
+	require.Equal(t, core.NumBlocksPerFilter, fromBlock,
 		"window rotated to second window after fill crossed N-1")
-	require.Equal(t, 2*core.NumBlocksPerFilter-1, rf.ToBlock())
-	require.Equal(t, latest+1, rf.NextBlock())
+	toBlock, err := rf.ToBlock()
+	require.NoError(t, err)
+	require.Equal(t, 2*core.NumBlocksPerFilter-1, toBlock)
+	nextBlock, err := rf.NextBlock()
+	require.NoError(t, err)
+	require.Equal(t, latest+1, nextBlock)
 
 	// Second (current) window: positions [N, latest] hit.
-	filled := rf.BlocksForKeys(headerKeys)
+	filled, err := rf.BlocksForKeys(headerKeys)
+	require.NoError(t, err)
 	for i := core.NumBlocksPerFilter; i <= latest; i++ {
-		require.True(t, filled.Test(uint(i-rf.FromBlock())),
+		require.True(t, filled.Test(uint(i-fromBlock)),
 			"block %d (second window) not filled", i)
 	}
 	// First window persisted on rotation: positions [pruneTo, N-1] hit

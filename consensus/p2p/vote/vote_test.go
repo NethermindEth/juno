@@ -302,4 +302,18 @@ func TestStarknetVoteAdapter_ErrorCases(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("ToVote rejects unknown VoteType", func(t *testing.T) {
+		voterBytes := createTestHashBytes(42)
+		result, err := StarknetVoteAdapter.ToVote(&consensus.Vote{
+			VoteType:    consensus.Vote_VoteType(99),
+			BlockNumber: 100,
+			Round:       5,
+			Voter:       &common.Address{Elements: voterBytes},
+		})
+
+		assert.Error(t, err, "ToVote should return error for unknown VoteType")
+		assert.Contains(t, err.Error(), "unknown vote_type value: 99")
+		assert.Equal(t, starknet.Vote{}, result)
+	})
 }

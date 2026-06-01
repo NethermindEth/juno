@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
-	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/NethermindEth/juno/utils/lru"
 	"go.uber.org/zap"
 )
 
@@ -130,7 +130,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(
 func (s *Synchronizer) handleTickerPreLatest(
 	ctx context.Context,
 	currentHead *core.Block,
-	seenByParent *lru.BasicLRU[felt.Felt, *pending.PreLatest],
+	seenByParent *lru.SimpleCache[felt.Felt, *pending.PreLatest],
 	out chan<- *pending.PreLatest,
 ) bool {
 	preLatest, err := s.dataSource.BlockPreLatest(ctx)
@@ -168,7 +168,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 
 	// Cache of pre-latest blocks keyed by the hash of their parent.
 	// When we receive the head with this parent hash, we emit the cached pre-latest.
-	seenByParent := lru.NewBasicLRU[felt.Felt, *pending.PreLatest](preLatestCacheSize)
+	seenByParent := lru.NewSimple[felt.Felt, *pending.PreLatest](preLatestCacheSize)
 
 	ticker := time.NewTicker(s.preLatestPollInterval)
 	defer ticker.Stop()
@@ -219,7 +219,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 			deliveredForHead = s.handleTickerPreLatest(
 				ctx,
 				currentHead,
-				&seenByParent,
+				seenByParent,
 				out,
 			)
 		}

@@ -125,68 +125,68 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, e
 	return GetStateUpdateByBlockNum(r, blockNum)
 }
 
-// WriteContractStorageHistory writes the old value of a storage location
+// WriteDeprecatedContractStorageHistory writes the old value of a storage location
 // for the given contract which changed on height `height`.
-func WriteContractStorageHistory(
+func WriteDeprecatedContractStorageHistory(
 	w db.KeyValueWriter,
 	contractAddress,
 	storageLocation,
 	oldValue *felt.Felt,
 	height uint64,
 ) error {
-	key := db.ContractStorageHistoryAtBlockKey(contractAddress, storageLocation, height)
+	key := db.DeprecatedContractStorageHistoryAtBlockKey(contractAddress, storageLocation, height)
 	return w.Put(key, oldValue.Marshal())
 }
 
-// DeleteContractStorageHistory deletes the history at the given height
-func DeleteContractStorageHistory(
+// DeleteDeprecatedContractStorageHistory deletes the history at the given height
+func DeleteDeprecatedContractStorageHistory(
 	w db.KeyValueWriter,
 	contractAddress,
 	storageLocation *felt.Felt,
 	height uint64,
 ) error {
-	key := db.ContractStorageHistoryAtBlockKey(contractAddress, storageLocation, height)
+	key := db.DeprecatedContractStorageHistoryAtBlockKey(contractAddress, storageLocation, height)
 	return w.Delete(key)
 }
 
-// WriteContractNonceHistory writes the old value of a nonce
+// WriteDeprecatedContractNonceHistory writes the old value of a nonce
 // for the given contract which changed on height `height`
-func WriteContractNonceHistory(
+func WriteDeprecatedContractNonceHistory(
 	w db.KeyValueWriter,
 	contractAddress,
 	oldValue *felt.Felt,
 	height uint64,
 ) error {
-	key := db.ContractNonceHistoryAtBlockKey(contractAddress, height)
+	key := db.DeprecatedContractNonceHistoryAtBlockKey(contractAddress, height)
 	return w.Put(key, oldValue.Marshal())
 }
 
-// DeleteContractNonceHistory deletes the history at the given height
-func DeleteContractNonceHistory(
+// DeleteDeprecatedContractNonceHistory deletes the history at the given height
+func DeleteDeprecatedContractNonceHistory(
 	w db.KeyValueWriter,
 	contractAddress *felt.Felt,
 	height uint64,
 ) error {
-	key := db.ContractNonceHistoryAtBlockKey(contractAddress, height)
+	key := db.DeprecatedContractNonceHistoryAtBlockKey(contractAddress, height)
 	return w.Delete(key)
 }
 
-func WriteContractClassHashHistory(
+func WriteDeprecatedContractClassHashHistory(
 	w db.KeyValueWriter,
 	contractAddress,
 	oldValue *felt.Felt,
 	height uint64,
 ) error {
-	key := db.ContractClassHashHistoryAtBlockKey(contractAddress, height)
+	key := db.DeprecatedContractClassHashHistoryAtBlockKey(contractAddress, height)
 	return w.Put(key, oldValue.Marshal())
 }
 
-func DeleteContractClassHashHistory(
+func DeleteDeprecatedContractClassHashHistory(
 	w db.KeyValueWriter,
 	contractAddress *felt.Felt,
 	height uint64,
 ) error {
-	key := db.ContractClassHashHistoryAtBlockKey(contractAddress, height)
+	key := db.DeprecatedContractClassHashHistoryAtBlockKey(contractAddress, height)
 	return w.Delete(key)
 }
 
@@ -504,6 +504,10 @@ func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilt
 		return err
 	}
 	return w.Put(db.AggregatedBloomFilterKey(filter.FromBlock(), filter.ToBlock()), enc)
+}
+
+func DeleteAggregatedBloomFilter(w db.KeyValueWriter, fromBlock, toBlock uint64) error {
+	return w.Delete(db.AggregatedBloomFilterKey(fromBlock, toBlock))
 }
 
 func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {

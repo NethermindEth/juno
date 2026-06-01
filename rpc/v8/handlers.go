@@ -21,9 +21,9 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/sourcegraph/conc"
 )
 
@@ -31,7 +31,7 @@ type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
 	gatewayClient rpccore.Gateway
-	feederClient  *feeder.Client
+	feederClient  feeder.Reader
 	vm            vm.VM
 	compiler      compiler.Compiler
 	logger        log.Logger
@@ -89,7 +89,10 @@ func New(
 		preConfirmedFeed: feed.New[*pendingpkg.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
-		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
+		blockTraceCache: lru.New[
+			rpccore.TraceCacheKey,
+			[]TracedBlockTransaction,
+		](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
@@ -131,7 +134,7 @@ func (h *Handler) WithIDGen(idgen func() string) *Handler {
 	return h
 }
 
-func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
+func (h *Handler) WithFeeder(feederClient feeder.Reader) *Handler {
 	h.feederClient = feederClient
 	return h
 }
