@@ -20,6 +20,8 @@ const (
 	blockNumberArg = "blockNumber"
 	classHashArg   = "classHash"
 	trueStr        = "true"
+
+	PreConfirmedBlankIdentifier = "0x0"
 )
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
@@ -392,7 +394,7 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 	knownTransactionCount uint64,
 ) (*starknet.PreConfirmedBlock, error) {
 	if blockIdentifier == "" {
-		blockIdentifier = "0x0"
+		blockIdentifier = PreConfirmedBlankIdentifier
 	}
 	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
 		blockNumberArg:          blockNumber,
