@@ -622,59 +622,41 @@ func AdaptPreConfirmedDelta(
 	txns []core.Transaction,
 	receipts []*core.TransactionReceipt,
 	txStateDiffs []*core.StateDiff,
-	candidateTxs []core.Transaction,
 	err error,
 ) {
 	if response == nil {
-		return nil, nil, nil, nil, errors.New("nil preconfirmed block")
+		return nil, nil, nil, errors.New("nil preconfirmed block")
 	}
 
 	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
 		len(response.Transactions) != len(response.Receipts)
 	if isInvalidPayloadSizes {
-		return nil, nil, nil, nil, errors.New(
+		return nil, nil, nil, errors.New(
 			"invalid sizes of transactions, state diffs and receipts",
 		)
 	}
-	candidateCount := 0
-	for i := range len(response.Transactions) {
-		if IsCandidateTx(response, i) {
-			candidateCount++
-		}
-	}
-	preConfirmedTxCount := len(response.Transactions) - candidateCount
+	preConfirmedTxCount := len(response.Transactions)
 
 	txns = make([]core.Transaction, preConfirmedTxCount)
 	receipts = make([]*core.TransactionReceipt, preConfirmedTxCount)
 	txStateDiffs = make([]*core.StateDiff, preConfirmedTxCount)
-	candidateTxs = make([]core.Transaction, candidateCount)
 
 	preIdx := 0
-	candIdx := 0
 	for i := range len(response.Transactions) {
-		if IsCandidateTx(response, i) {
-			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
-			if err != nil {
-				return nil, nil, nil, nil, err
-			}
-			candIdx++
-			continue
-		}
-
 		txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, err
 		}
 		var stateDiff core.StateDiff
 		stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, err
 		}
 		txStateDiffs[preIdx] = &stateDiff
 		receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
 		preIdx++
 	}
-	return txns, receipts, txStateDiffs, candidateTxs, nil
+	return txns, receipts, txStateDiffs, nil
 }
 
 func safeFeltToUint64(f *felt.Felt) uint64 {

@@ -103,7 +103,6 @@ type PreConfirmedUpdate struct {
 	AppendTransactions []core.Transaction
 	AppendReceipts     []*core.TransactionReceipt
 	AppendStateDiffs   []*core.StateDiff
-	AppendCandidateTxs []core.Transaction
 }
 
 func NewPreConfirmed(
@@ -136,13 +135,12 @@ func (p *PreConfirmed) Copy() *PreConfirmed {
 }
 
 // ApplyDelta returns a new PreConfirmed by appending the given transactions,
-// receipts, and candidate transactions, and merging the state diffs onto the
+// receipts, and merging the state diffs onto the
 // existing PreConfirmed. It does not modify the receiver.
 func (p *PreConfirmed) ApplyDelta(
 	txs []core.Transaction,
 	receipts []*core.TransactionReceipt,
 	txStateDiffs []*core.StateDiff,
-	candidateTxs []core.Transaction,
 	blockIdentifier string,
 ) *PreConfirmed {
 	next := *p
@@ -183,8 +181,6 @@ func (p *PreConfirmed) ApplyDelta(
 	}
 	next.TransactionStateDiffs = slices.Concat(p.TransactionStateDiffs, txStateDiffs)
 	next.StateUpdate = &nextStateUpdate
-
-	next.CandidateTxs = slices.Concat(p.CandidateTxs, candidateTxs)
 
 	return &next
 }

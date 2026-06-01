@@ -474,7 +474,6 @@ func TestPreConfirmedApplyDelta(t *testing.T) {
 						deltaCase.update.AppendTransactions,
 						deltaCase.update.AppendReceipts,
 						deltaCase.update.AppendStateDiffs,
-						deltaCase.update.AppendCandidateTxs,
 						response.BlockIdentifier,
 					)
 
@@ -678,7 +677,7 @@ func makeDeltaCases(t *testing.T, prec *pending.PreConfirmed) []deltaCase {
 	deltaCases = append(
 		deltaCases,
 		deltaCase{
-			description: "Delta with one tx, receipt and state diff",
+			description: "Delta with one tx, receipt, and state diff",
 			update: pending.PreConfirmedUpdate{
 				AppendTransactions: txs,
 				AppendReceipts:     receipts,
@@ -688,27 +687,11 @@ func makeDeltaCases(t *testing.T, prec *pending.PreConfirmed) []deltaCase {
 	)
 
 	txs, receipts = makeTxsAndReceipts(1)
-	candidateTxs, _ := makeTxsAndReceipts(1)
 	stateDiffs = makeStateDiffs(1)
 	deltaCases = append(
 		deltaCases,
 		deltaCase{
-			description: "Delta with one tx, receipt, state diff and candidate tx",
-			update: pending.PreConfirmedUpdate{
-				AppendTransactions: txs,
-				AppendReceipts:     receipts,
-				AppendStateDiffs:   stateDiffs,
-				AppendCandidateTxs: candidateTxs,
-			},
-		},
-	)
-
-	txs, receipts = makeTxsAndReceipts(10)
-	stateDiffs = makeStateDiffs(10)
-	deltaCases = append(
-		deltaCases,
-		deltaCase{
-			description: "Delta with multiple txs, receipts and state diffs",
+			description: "Delta with one tx, receipt, and state diff",
 			update: pending.PreConfirmedUpdate{
 				AppendTransactions: txs,
 				AppendReceipts:     receipts,
@@ -718,17 +701,29 @@ func makeDeltaCases(t *testing.T, prec *pending.PreConfirmed) []deltaCase {
 	)
 
 	txs, receipts = makeTxsAndReceipts(10)
-	candidateTxs, _ = makeTxsAndReceipts(10)
 	stateDiffs = makeStateDiffs(10)
 	deltaCases = append(
 		deltaCases,
 		deltaCase{
-			description: "Delta with multiple txs, receipts, state diffs and candidate txs",
+			description: "Delta with multiple txs, receipts, and state diffs",
 			update: pending.PreConfirmedUpdate{
 				AppendTransactions: txs,
 				AppendReceipts:     receipts,
 				AppendStateDiffs:   stateDiffs,
-				AppendCandidateTxs: candidateTxs,
+			},
+		},
+	)
+
+	txs, receipts = makeTxsAndReceipts(10)
+	stateDiffs = makeStateDiffs(10)
+	deltaCases = append(
+		deltaCases,
+		deltaCase{
+			description: "Delta with multiple txs, receipts, and state diffs",
+			update: pending.PreConfirmedUpdate{
+				AppendTransactions: txs,
+				AppendReceipts:     receipts,
+				AppendStateDiffs:   stateDiffs,
 			},
 		},
 	)
