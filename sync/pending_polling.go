@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -270,7 +271,7 @@ func (s *Synchronizer) pollPreConfirmed(
 			}
 
 			var (
-				blockIdentifier              = "0x0"
+				blockIdentifier              = feeder.PreConfirmedBlankIdentifier
 				knownTransactionCount uint64 = 0
 			)
 
