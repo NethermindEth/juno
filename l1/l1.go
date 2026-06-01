@@ -2,6 +2,7 @@ package l1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -131,20 +132,35 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 	}
 }
 
+// checkChainID checks that the client is connected to the right L1 client
 func (c *Client) checkChainID(ctx context.Context) error {
-	gotChainID, err := c.l1.ChainID(ctx)
+	const chainIDCheckTimeout = 30 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, chainIDCheckTimeout)
+	defer cancel()
+
+	l1ChainID, err := c.l1.ChainID(ctx)
 	if err != nil {
-		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf(
+				"eth_chainId did not respond within %s; is --eth-node a valid Ethereum L1 RPC URL?",
+				chainIDCheckTimeout,
+			)
+		}
+		return fmt.Errorf("retrieving Ethereum chain ID: %w", err)
 	}
 
-	wantChainID := c.network.L1ChainID
-	if gotChainID.Cmp(wantChainID) == 0 {
+	expectedL1ChainID := c.network.L1ChainID
+	if l1ChainID.Cmp(expectedL1ChainID) == 0 {
 		return nil
 	}
 
 	// NOTE: for now we return an error. If we want to support users who fork
 	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
-	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network.String())
+	return fmt.Errorf(
+		"mismatched network id between L1 and L2. L2 network is %s; "+
+			"is --eth-node pointing to the right network?",
+		c.network.String(),
+	)
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -261,13 +277,36 @@ func (c *Client) applyLogStateUpdate(u *contract.StarknetLogStateUpdate) {
 // caller (Run) treats the error as best-effort and proceeds to the live
 // subscription, so the partial state is an additive head-start, not a leak.
 func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
-	latest, err := c.l1.LatestHeight(ctx)
+	const (
+		heightCallTimeout = 30 * time.Second
+		filterCallTimeout = 60 * time.Second
+	)
+
+	latestCtx, cancelLatest := context.WithTimeout(ctx, heightCallTimeout)
+	latest, err := c.l1.LatestHeight(latestCtx)
+	cancelLatest()
 	if err != nil {
-		return fmt.Errorf("L1 catch-up: failed to get latest height: %w", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf(
+				"eth_blockNumber did not respond within %s; is --eth-node responsive?",
+				heightCallTimeout,
+			)
+		}
+		return fmt.Errorf("failed to get latest height: %w", err)
 	}
-	finalised, err := c.l1.FinalisedHeight(ctx)
+
+	finalisedCtx, cancelFinalised := context.WithTimeout(ctx, heightCallTimeout)
+	finalised, err := c.l1.FinalisedHeight(finalisedCtx)
+	cancelFinalised()
 	if err != nil {
-		return fmt.Errorf("L1 catch-up: failed to get finalised height: %w", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf(
+				`eth_getBlockByNumber("finalized") did not respond within %s; `+
+					`does --eth-node support the finalized block tag?`,
+				heightCallTimeout,
+			)
+		}
+		return fmt.Errorf("failed to get finalised height: %w", err)
 	}
 
 	c.logger.Info("L1 catch-up starting",
@@ -287,8 +326,16 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 		if to+1 > c.catchUpChunkSize {
 			from = to + 1 - c.catchUpChunkSize
 		}
-		events, err := c.l1.FilterLogStateUpdate(ctx, from, to)
+		filterCtx, cancelFilter := context.WithTimeout(ctx, filterCallTimeout)
+		events, err := c.l1.FilterLogStateUpdate(filterCtx, from, to)
+		cancelFilter()
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return fmt.Errorf(
+					"eth_getLogs did not respond within %s; is --eth-node responsive?",
+					filterCallTimeout,
+				)
+			}
 			return err
 		}
 		chunks++
@@ -315,12 +362,15 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 }
 
 func (c *Client) finalisedHeight(ctx context.Context) uint64 {
+	const finalisedHeightTimeout = 30 * time.Second
 	for {
 		select {
 		case <-ctx.Done():
 			return 0
 		default:
-			finalisedHeight, err := c.l1.FinalisedHeight(ctx)
+			callCtx, cancel := context.WithTimeout(ctx, finalisedHeightTimeout)
+			finalisedHeight, err := c.l1.FinalisedHeight(callCtx)
+			cancel()
 			if err == nil {
 				return finalisedHeight
 			}

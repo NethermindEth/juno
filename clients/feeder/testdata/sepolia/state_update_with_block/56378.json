@@ -9418,5 +9418,9 @@
             "migrated_compiled_classes": [],
             "replaced_classes": []
         }
-    }
+    },
+    "signature": [
+      "0x1847649e0ee0e556f130034d32fdcdff7aa0131a77c9f644f5fda7bc17365d7",
+      "0x2e9dd9a40897a40038c7f34328c4d1eb9aadd0c8c861b88d2bc840e092444e4"
+    ]
 }

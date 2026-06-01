@@ -3252,7 +3252,7 @@ func createTestWebsocket(
 
 func GetTestBlockWithCommitments(
 	t *testing.T,
-	client *feeder.Client,
+	client feeder.Reader,
 	blockNumber uint64,
 ) (*core.Block, *core.BlockCommitments, *core.StateUpdate) {
 	t.Helper()
@@ -3266,7 +3266,7 @@ func GetTestBlockWithCommitments(
 
 	adaptedState, err := sn2core.AdaptStateUpdate(blockWithStateUpdate.StateUpdate)
 	require.NoError(t, err)
-	adaptedBlock, err := sn2core.AdaptBlock(blockWithStateUpdate.Block, sig)
+	adaptedBlock, err := sn2core.AdaptBlock(blockWithStateUpdate.Block, sig.Signature)
 	require.NoError(t, err)
 
 	commitments := &core.BlockCommitments{

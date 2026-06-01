@@ -92,7 +92,7 @@ func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
 	return h
 }
 
-func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
+func (h *Handler) WithFeeder(feederClient feeder.Reader) *Handler {
 	h.rpcv8Handler.WithFeeder(feederClient)
 	h.rpcv9Handler.WithFeeder(feederClient)
 	h.rpcv10Handler.WithFeeder(feederClient)

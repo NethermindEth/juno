@@ -1,6 +1,8 @@
 package feeder_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 
@@ -30,7 +32,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
-			adaptedResponse, err := sn2core.AdaptBlock(response, sig)
+			adaptedResponse, err := sn2core.AdaptBlock(response, sig.Signature)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, block)
 		})
@@ -48,7 +50,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
-	adaptedResponse, err := sn2core.AdaptBlock(response, sig)
+	adaptedResponse, err := sn2core.AdaptBlock(response, sig.Signature)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, block)
 }
@@ -238,20 +240,20 @@ func TestClassV1(t *testing.T) {
 func TestStateUpdateWithBlock(t *testing.T) {
 	numbers := []uint64{0, 78541}
 
-	client := feeder.NewTestClient(t, &networks.Integration)
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
 		t.Run("integration block number "+numberStr, func(t *testing.T) {
-			response, err := client.StateUpdateWithBlock(ctx, numberStr)
+			response, err := client.StateUpdateWithBlockAndSignature(ctx, numberStr)
 			require.NoError(t, err)
 			sig, err := client.Signature(ctx, numberStr)
 			require.NoError(t, err)
 			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
 			require.NoError(t, err)
-			adaptedBlock, err := sn2core.AdaptBlock(response.Block, sig)
+			adaptedBlock, err := sn2core.AdaptBlock(response.Block, sig.Signature)
 			require.NoError(t, err)
 			adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
 			require.NoError(t, err)
@@ -276,6 +278,77 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, block, adaptedBlock)
 	assert.Equal(t, stateUpdate, adaptedStateUpdate)
+}
+
+func TestBlockPreLatest(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	adapter := adaptfeeder.New(client)
+	ctx := t.Context()
+
+	block, err := adapter.BlockPreLatest(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, block)
+}
+
+func TestStateUpdatePending(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	adapter := adaptfeeder.New(client)
+	ctx := t.Context()
+
+	stateUpdate, err := adapter.StateUpdatePending(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, stateUpdate)
+}
+
+func TestAdapterErrorPaths(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	adapter := adaptfeeder.New(client)
+	ctx := t.Context()
+	missing := uint64(99999999)
+	missingHash := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
+
+	t.Run("BlockByNumber error", func(t *testing.T) {
+		block, err := adapter.BlockByNumber(ctx, missing)
+		assert.Error(t, err)
+		assert.Nil(t, block)
+	})
+
+	t.Run("StateUpdate error", func(t *testing.T) {
+		su, err := adapter.StateUpdate(ctx, missing)
+		assert.Error(t, err)
+		assert.Nil(t, su)
+	})
+
+	t.Run("StateUpdateWithBlock error", func(t *testing.T) {
+		su, blk, err := adapter.StateUpdateWithBlock(ctx, missing)
+		assert.Error(t, err)
+		assert.Nil(t, su)
+		assert.Nil(t, blk)
+	})
+
+	t.Run("Class error", func(t *testing.T) {
+		cls, err := adapter.Class(ctx, missingHash)
+		assert.Error(t, err)
+		assert.Nil(t, cls)
+	})
+
+	t.Run("PreConfirmedBlockByNumber error", func(t *testing.T) {
+		preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, missing)
+		assert.Zero(t, preConfirmed)
+		assert.Error(t, err)
+	})
+
+	t.Run("BlockHeaderLatest error", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		t.Cleanup(srv.Close)
+		errClient := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+		errAdapter := adaptfeeder.New(errClient)
+		hdr, err := errAdapter.BlockHeaderLatest(ctx)
+		assert.Error(t, err)
+		assert.Zero(t, hdr)
+	})
 }
 
 func TestPreConfirmedBlock(t *testing.T) {

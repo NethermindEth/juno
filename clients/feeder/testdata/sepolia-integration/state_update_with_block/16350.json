@@ -11481,5 +11481,9 @@
             "migrated_compiled_classes": [],
             "replaced_classes": []
         }
-    }
+    },
+    "signature": [
+      "0x7ee8a86cd921053e037181b4b57b813db63b88ad5a5975ecada151d079322ae",
+      "0x6f97aefb8f14351f8a60f66c936ab8175744217522d7b335deadae8a4f15c68"
+    ]
 }

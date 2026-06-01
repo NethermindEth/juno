@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
 	"github.com/NethermindEth/juno/migration/historyprunner"
+	"github.com/NethermindEth/juno/migration/state/headstate"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
@@ -25,7 +26,8 @@ func registerMigrations(cfg *Config) *migration.Registry {
 			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge),
 			cfg.Prune,
 			PruneModeFlag,
-		)
+		).
+		WithOptional(&headstate.Migrator{}, cfg.NewState, "new-state")
 
 	return registry
 }
@@ -109,8 +111,9 @@ func fetchL1HeadIfMissing(
 	if err != nil {
 		return fmt.Errorf("creating a new L1 client: %w", err)
 	}
+
 	if err := client.CatchUpL1Head(ctx); err != nil {
-		return err
+		return fmt.Errorf("catching up to the latest L1 head: %w", err)
 	}
 
 	if _, err := core.GetL1Head(database); err != nil {
