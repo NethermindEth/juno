@@ -240,7 +240,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 		}, nil
 	}
 
-	txs, receipts, stateDiffs, candidateTxs, adaptErr := sn2core.AdaptPreConfirmedDelta(response)
+	txs, receipts, stateDiffs, adaptErr := sn2core.AdaptPreConfirmedDelta(response)
 	if adaptErr != nil {
 		return pending.PreConfirmedUpdate{}, adaptErr
 	}
@@ -250,6 +250,5 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 		AppendTransactions: txs,
 		AppendReceipts:     receipts,
 		AppendStateDiffs:   stateDiffs,
-		AppendCandidateTxs: candidateTxs,
 	}, nil
 }

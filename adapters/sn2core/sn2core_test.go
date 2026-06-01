@@ -729,23 +729,24 @@ func TestAdaptPreConfirmed(t *testing.T) {
 			assertCandidateTxs(t, response, adapted.CandidateTxs)
 			assertStateDiffs(t, response, adapted.TransactionStateDiffs)
 
-			t.Run("Test AdaptPreConfirmedDelta", func(t *testing.T) {
-				// a simulated delta response based on the full response
-				deltaResponse := &starknet.PreConfirmedBlock{
-					Changed:               true,
-					BlockIdentifier:       response.BlockIdentifier,
-					Transactions:          response.Transactions,
-					Receipts:              response.Receipts,
-					TransactionStateDiffs: response.TransactionStateDiffs,
-				}
+			if test.useNewFeederParams {
+				t.Run("Test AdaptPreConfirmedDelta", func(t *testing.T) {
+					// a simulated delta response based on the full response
+					deltaResponse := &starknet.PreConfirmedBlock{
+						Changed:               true,
+						BlockIdentifier:       response.BlockIdentifier,
+						Transactions:          response.Transactions,
+						Receipts:              response.Receipts,
+						TransactionStateDiffs: response.TransactionStateDiffs,
+					}
 
-				txs, receipts, stateDiffs, candidates, err := sn2core.AdaptPreConfirmedDelta(deltaResponse)
-				require.NoError(t, err)
-				assert.Equal(t, adapted.Block.Transactions, txs)
-				assert.Equal(t, adapted.Block.Receipts, receipts)
-				assert.Equal(t, adapted.TransactionStateDiffs, stateDiffs)
-				assert.Equal(t, adapted.CandidateTxs, candidates)
-			})
+					txs, receipts, stateDiffs, err := sn2core.AdaptPreConfirmedDelta(deltaResponse)
+					require.NoError(t, err)
+					assert.Equal(t, adapted.Block.Transactions, txs)
+					assert.Equal(t, adapted.Block.Receipts, receipts)
+					assert.Equal(t, adapted.TransactionStateDiffs, stateDiffs)
+				})
+			}
 		})
 	}
 }

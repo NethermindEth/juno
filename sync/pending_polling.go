@@ -382,7 +382,6 @@ func (s *Synchronizer) handlePreConfirmed(
 			update.AppendTransactions,
 			update.AppendReceipts,
 			update.AppendStateDiffs,
-			update.AppendCandidateTxs,
 			update.BlockIdentifier,
 		)
 		nextPreConfirmed = merged
