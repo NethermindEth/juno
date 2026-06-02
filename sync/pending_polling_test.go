@@ -1112,14 +1112,12 @@ func makeEmptyPreLatestForParent(parent *core.Header) pending.PreLatest {
 	return pending
 }
 
-// TestPreConfirmedUpdateFrequency prints metrics comparing the ticker-only
-// baseline (pre-PR behaviour) with the request-driven path. The baseline
-// subtest never fires triggers; the request-driven subtest fires them at a
-// fixed rate. Run: go test -v -run TestPreConfirmedUpdateFrequency ./sync/
 // BenchmarkPreConfirmedUpdateFrequency is a diagnostic that measures fetch /
 // update rates under a synthetic RPC trigger load and a ticker-only baseline.
-// Each subtest runs for runDuration in real time and reports rates/intervals
-// via b.Logf; b.N is ignored. Run with: go test -bench=PreConfirmedUpdateFrequency.
+// The baseline subtest never fires triggers; the request-driven subtest fires
+// them at a fixed rate. Each subtest runs for runDuration in real time and
+// reports rates/intervals via b.Logf; b.N is ignored.
+// Run with: go test -bench=PreConfirmedUpdateFrequency ./sync/
 func BenchmarkPreConfirmedUpdateFrequency(b *testing.B) {
 	testDB := memory.New()
 	bc := blockchain.New(testDB, &networks.Sepolia,
