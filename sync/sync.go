@@ -608,9 +608,8 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 }
 
 func (s *Synchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
-	// Every read is a vote that the cached pre_confirmed should be refreshed.
-	// The polling goroutine picks this up on its next iteration and any subscribers
-	// of preConfirmedDataFeed (e.g. WebSocket clients) benefit from the same fetch.
+	// Fire-and-forget: triggers an async refresh whose result is seen by the
+	// next caller and by preConfirmedDataFeed subscribers, not by this call.
 	s.requestPreConfirmedRefresh()
 
 	head, err := s.blockchain.HeadsHeader()

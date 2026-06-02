@@ -17,10 +17,15 @@ import (
 
 const (
 	preLatestCacheSize = 10
-	// Per-fetch cap so a hung feeder can't hold the running guard for the
-	// feeder client's full retry budget (~20s). TODO: consider exposing as flag.
-	preConfirmedFetchTimeout = 2 * time.Second
+	// Per-fetch cap scales with poll interval so slower configs get
+	// proportionally longer budgets. Floor avoids pathologically short caps.
+	preConfirmedFetchTimeoutMultiplier = 4
+	preConfirmedFetchTimeoutFloor      = 500 * time.Millisecond
 )
+
+func (s *Synchronizer) preConfirmedFetchTimeout() time.Duration {
+	return max(s.preConfirmedPollInterval*preConfirmedFetchTimeoutMultiplier, preConfirmedFetchTimeoutFloor)
+}
 
 // isGreaterThanTip reports whether the given number is at or beyond the highest known header.
 func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
@@ -242,9 +247,12 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 	}
 }
 
-// requestPreConfirmedRefresh wakes the polling goroutine. Drops the request
-// if a fetch is already running: that fetch already serves it.
+// requestPreConfirmedRefresh wakes the polling goroutine; no-op if polling
+// is disabled or a fetch is already running (that fetch will serve it).
 func (s *Synchronizer) requestPreConfirmedRefresh() {
+	if s.preConfirmedPollInterval == 0 {
+		return
+	}
 	if s.preConfirmedFetching.Load() {
 		return
 	}
@@ -254,10 +262,9 @@ func (s *Synchronizer) requestPreConfirmedRefresh() {
 	}
 }
 
-// pollPreConfirmed is request-driven: each trigger from requestPreConfirmedRefresh
-// runs one fetch against blockNumberToPoll and forwards the update to out. The
-// ticker is a fallback so passive subscribers still get updates when no RPC
-// traffic drives refreshes.
+// pollPreConfirmed runs one fetch per trigger from requestPreConfirmedRefresh.
+// The ticker is a fallback so passive subscribers still get updates when no
+// RPC traffic drives refreshes.
 func (s *Synchronizer) pollPreConfirmed(
 	ctx context.Context,
 	blockNumberToPoll *atomic.Uint64,
@@ -306,9 +313,10 @@ func (s *Synchronizer) pollPreConfirmed(
 	}
 }
 
-// fetchPreConfirmed runs one fetch under the running guard and the per-fetch
-// timeout. Drains a buffered trigger before releasing the guard so a refresh
-// arriving during this call doesn't fire a back-to-back fetch.
+// fetchPreConfirmed runs one fetch under the running guard. The defer drains
+// a trigger that may have been queued in the window before fetching=true was
+// set; that request is silently swallowed, but the next RPC call or tick
+// re-triggers if needed.
 func (s *Synchronizer) fetchPreConfirmed(
 	ctx context.Context,
 	blockNum uint64,
@@ -324,7 +332,7 @@ func (s *Synchronizer) fetchPreConfirmed(
 		s.preConfirmedFetching.Store(false)
 	}()
 
-	fetchCtx, cancel := context.WithTimeout(ctx, preConfirmedFetchTimeout)
+	fetchCtx, cancel := context.WithTimeout(ctx, s.preConfirmedFetchTimeout())
 	defer cancel()
 
 	return s.dataSource.PreConfirmedBlockByNumber(
