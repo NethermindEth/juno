@@ -31,8 +31,8 @@ type MockDataSource struct {
 	DataSource
 	pendingErrorThreshold      uint
 	preConfirmedErrorThreshold uint
-	numCallsPreConfirmed       uint
-	numCallsPending            uint
+	numCallsPreConfirmed       atomic.Uint32
+	numCallsPending            atomic.Uint32
 	PendingFunc                func(ctx context.Context) (pending.PreLatest, error)
 	PreConfirmedFunc           func(
 		ctx context.Context,
@@ -45,8 +45,8 @@ type MockDataSource struct {
 
 // Override BlockPreLatest to simulate errors and/or injected responses
 func (m *MockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
-	m.numCallsPending += 1
-	if m.numCallsPending <= m.pendingErrorThreshold {
+	n := m.numCallsPending.Add(1)
+	if uint(n) <= m.pendingErrorThreshold {
 		return pending.PreLatest{}, errors.New("some error")
 	}
 	// fallback to embedded real method if no override set
@@ -64,8 +64,8 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (pending.PreConfirmedUpdate, error) {
-	m.numCallsPreConfirmed += 1
-	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
+	n := m.numCallsPreConfirmed.Add(1)
+	if uint(n) <= m.preConfirmedErrorThreshold {
 		return pending.PreConfirmedUpdate{}, errors.New("some error")
 	}
 
@@ -76,11 +76,11 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 			number,
 			blockIdentifier,
 			knownTransactionCount,
-			m.numCallsPreConfirmed,
+			uint(n),
 		)
 	}
 	preConfirmed := makeTestPreConfirmed(number)
-	preConfirmed.Block.TransactionCount = number%10 + uint64(m.numCallsPreConfirmed)/2
+	preConfirmed.Block.TransactionCount = number%10 + uint64(n)/2
 	preConfirmed.BlockIdentifier = "mock"
 	return pending.PreConfirmedUpdate{
 		Mode:            pending.PreConfirmedFull,
@@ -222,7 +222,8 @@ func TestPollPreLatest(t *testing.T) {
 		select {
 		case got := <-preLatestCh:
 			require.NotNil(t, got)
-			require.GreaterOrEqual(t, mockDS.numCallsPending, uint(3), "expected at least 3 attempts (2 errors + 1 success)")
+			require.GreaterOrEqual(t, mockDS.numCallsPending.Load(), uint32(3),
+				"expected at least 3 attempts (2 errors + 1 success)")
 			require.Equal(t, head.Number+1, got.Block.Number)
 		case <-ctx.Done():
 			t.Fatal("expected pre-latest after retries")
@@ -333,8 +334,8 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 			require.Equal(t, uint64(1), update.FullBlock.Block.Number)
 			require.GreaterOrEqual(
 				t,
-				mockDS.numCallsPreConfirmed,
-				uint(3),
+				mockDS.numCallsPreConfirmed.Load(),
+				uint32(3),
 				"expected at least 3 attempts (2 errors + 1 success)",
 			)
 		case <-ctx.Done():
@@ -362,7 +363,119 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		})
 		wg.Wait()
 
-		require.GreaterOrEqual(t, mockDS.numCallsPreConfirmed, uint(1), "Should have retried at least once before context cancelled")
+		require.GreaterOrEqual(t, mockDS.numCallsPreConfirmed.Load(), uint32(1),
+			"Should have retried at least once before context cancelled")
+	})
+
+	t.Run("External trigger fires a fetch before the ticker would", func(t *testing.T) {
+		// Ticker interval is set very high so any fetch we observe must have been
+		// driven by the trigger channel rather than by the periodic ticker.
+		mockDS := &MockDataSource{DataSource: dataSource}
+		s := New(bc, mockDS, logger, 0, time.Hour, false, testDB)
+		s.highestBlockHeader.Store(head0.Header)
+
+		var preConfirmedBlockNumberToPoll atomic.Uint64
+		preConfirmedBlockNumberToPoll.Store(1)
+		out := make(chan *pending.PreConfirmedUpdate, 1)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+
+		var wg stdsync.WaitGroup
+		wg.Go(func() {
+			s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
+		})
+		// LIFO: cancel before wg.Wait.
+		defer wg.Wait()
+		defer cancel()
+
+		// Triggering a refresh should produce a fetch well within the ticker window.
+		s.requestPreConfirmedRefresh()
+		select {
+		case update := <-out:
+			require.NotNil(t, update)
+			require.NotNil(t, update.FullBlock)
+			require.Equal(t, uint64(1), update.FullBlock.Block.Number)
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("trigger did not produce a fetch before the ticker")
+		}
+	})
+
+	t.Run("Trigger storm collapses to one fetch while a fetch is running", func(t *testing.T) {
+		// Block the data source until released so the first fetch stays running
+		// while we dispatch the trigger storm. Any extra fetches would mean the
+		// running guard failed to drop the storm requests.
+		release := make(chan struct{})
+		mockDS := &MockDataSource{
+			DataSource: dataSource,
+			PreConfirmedFunc: func(
+				ctx context.Context,
+				number uint64,
+				_ string,
+				_ uint64,
+				_ uint,
+			) (pending.PreConfirmedUpdate, error) {
+				select {
+				case <-release:
+				case <-ctx.Done():
+					return pending.PreConfirmedUpdate{}, ctx.Err()
+				}
+				preConf := makeTestPreConfirmed(number)
+				preConf.BlockIdentifier = "mock"
+				return pending.PreConfirmedUpdate{
+					Mode:            pending.PreConfirmedFull,
+					BlockIdentifier: preConf.BlockIdentifier,
+					FullBlock:       &preConf,
+				}, nil
+			},
+		}
+		// Ticker interval set very high so the only thing that can drive a fetch
+		// is our explicit trigger calls.
+		s := New(bc, mockDS, logger, 0, time.Hour, false, testDB)
+		s.highestBlockHeader.Store(head0.Header)
+
+		var preConfirmedBlockNumberToPoll atomic.Uint64
+		preConfirmedBlockNumberToPoll.Store(1)
+		out := make(chan *pending.PreConfirmedUpdate, 32)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+
+		var wg stdsync.WaitGroup
+		wg.Go(func() {
+			s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
+		})
+		// LIFO: cancel before wg.Wait so the polling goroutine exits cleanly.
+		defer wg.Wait()
+		defer cancel()
+
+		// Kick off the first fetch and wait until the polling goroutine has
+		// actually entered the data source call. numCallsPreConfirmed is
+		// incremented at the very top of the mock, after the goroutine has
+		// already set preConfirmedFetching=true, so observing the counter is
+		// sufficient to know we're inside the running window.
+		s.requestPreConfirmedRefresh()
+		require.Eventually(t, func() bool {
+			return mockDS.numCallsPreConfirmed.Load() == 1
+		}, time.Second, 5*time.Millisecond, "expected the first fetch to be running")
+
+		// Storm of requests while the fetch is running: all must be dropped
+		// by the running guard.
+		for range 100 {
+			s.requestPreConfirmedRefresh()
+		}
+
+		// Release the first fetch and consume its result.
+		close(release)
+		select {
+		case <-out:
+		case <-time.After(time.Second):
+			t.Fatal("expected the first fetch to deliver a result")
+		}
+
+		// No further fetch should happen: every trigger during the running
+		// window was dropped, and the buffered slot was drained on exit.
+		time.Sleep(50 * time.Millisecond)
+		require.Equal(t, uint32(1), mockDS.numCallsPreConfirmed.Load(),
+			"trigger storm during fetch should not produce additional fetches")
 	})
 }
 

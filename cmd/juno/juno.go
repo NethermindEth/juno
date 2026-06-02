@@ -199,8 +199,8 @@ const (
 	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
 	preLatestPollIntervalUsage = "Sets polling interval for pre-latest block updates. " +
 		"(0s will disable polling)."
-	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
-		"(0s will disable fetching of pre_confirmed block)."
+	preConfirmedPollIntervalUsage = "Fallback ticker interval for pre_confirmed polling when no " +
+		"RPC traffic is driving refreshes. (0s disables polling.)"
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
 	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"

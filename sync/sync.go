@@ -129,6 +129,13 @@ type Synchronizer struct {
 	preLatestPollInterval    time.Duration
 	preConfirmedPollInterval time.Duration
 
+	// preConfirmedTrigger wakes the polling goroutine. Buffered to one; the
+	// preConfirmedFetching guard drops most requests before they ever hit it.
+	preConfirmedTrigger chan struct{}
+	// preConfirmedFetching is true while a pre_confirmed fetch is running.
+	// See requestPreConfirmedRefresh and fetchPreConfirmed.
+	preConfirmedFetching atomic.Bool
+
 	catchUpMode bool
 	plugin      junoplugin.JunoPlugin
 
@@ -155,6 +162,7 @@ func New(
 		preLatestDataFeed:        feed.New[*pending.PreLatest](),
 		preLatestPollInterval:    preLatestPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
+		preConfirmedTrigger:      make(chan struct{}, 1),
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,
 	}
@@ -600,6 +608,11 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 }
 
 func (s *Synchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
+	// Every read is a vote that the cached pre_confirmed should be refreshed.
+	// The polling goroutine picks this up on its next iteration and any subscribers
+	// of preConfirmedDataFeed (e.g. WebSocket clients) benefit from the same fetch.
+	s.requestPreConfirmedRefresh()
+
 	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {

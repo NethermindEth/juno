@@ -17,6 +17,9 @@ import (
 
 const (
 	preLatestCacheSize = 10
+	// Per-fetch cap so a hung feeder can't hold the running guard for the
+	// feeder client's full retry budget (~20s). TODO: consider exposing as flag.
+	preConfirmedFetchTimeout = 2 * time.Second
 )
 
 // isGreaterThanTip reports whether the given number is at or beyond the highest known header.
@@ -239,12 +242,22 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 	}
 }
 
-// pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
-// The target is read from blockNumberToPoll and only polled while at tip.
-// Each poll echoes the currently stored pre_confirmed's identifier and
-// transaction count so the server can return a no-change marker, a delta of
-// appended transactions, or a fresh full block when the round identifier no
-// longer matches. On success, the resulting update is forwarded to out.
+// requestPreConfirmedRefresh wakes the polling goroutine. Drops the request
+// if a fetch is already running: that fetch already serves it.
+func (s *Synchronizer) requestPreConfirmedRefresh() {
+	if s.preConfirmedFetching.Load() {
+		return
+	}
+	select {
+	case s.preConfirmedTrigger <- struct{}{}:
+	default:
+	}
+}
+
+// pollPreConfirmed is request-driven: each trigger from requestPreConfirmedRefresh
+// runs one fetch against blockNumberToPoll and forwards the update to out. The
+// ticker is a fallback so passive subscribers still get updates when no RPC
+// traffic drives refreshes.
 func (s *Synchronizer) pollPreConfirmed(
 	ctx context.Context,
 	blockNumberToPoll *atomic.Uint64,
@@ -262,41 +275,61 @@ func (s *Synchronizer) pollPreConfirmed(
 		select {
 		case <-ctx.Done():
 			return
-
+		case <-s.preConfirmedTrigger:
 		case <-ticker.C:
-			targetBlockNum := blockNumberToPoll.Load()
-			shouldPoll := targetBlockNum > 0 && s.isGreaterThanTip(targetBlockNum)
-			if !shouldPoll {
-				continue
-			}
+		}
 
-			var (
-				blockIdentifier              = feeder.PreConfirmedBlankIdentifier
-				knownTransactionCount uint64 = 0
-			)
+		// 0 means "no target set yet".
+		targetBlockNum := blockNumberToPoll.Load()
+		if targetBlockNum == 0 || !s.isGreaterThanTip(targetBlockNum) {
+			continue
+		}
 
-			currentPreConf := s.preConfirmed.Load()
-			if currentPreConf != nil {
-				blockIdentifier = currentPreConf.BlockIdentifier
-				knownTransactionCount = uint64(len(currentPreConf.Block.Transactions))
-			}
+		blockIdentifier := feeder.PreConfirmedBlankIdentifier
+		var knownTransactionCount uint64
+		if currentPreConf := s.preConfirmed.Load(); currentPreConf != nil {
+			blockIdentifier = currentPreConf.BlockIdentifier
+			knownTransactionCount = uint64(len(currentPreConf.Block.Transactions))
+		}
 
-			update, err := s.dataSource.PreConfirmedBlockByNumber(
-				ctx, targetBlockNum, blockIdentifier, knownTransactionCount,
-			)
-			if err != nil {
-				s.logger.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
-				continue
-			}
+		update, err := s.fetchPreConfirmed(ctx, targetBlockNum, blockIdentifier, knownTransactionCount)
+		if err != nil {
+			s.logger.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
+			continue
+		}
 
-			select {
-			case out <- &update:
-				continue
-			case <-ctx.Done():
-				return
-			}
+		select {
+		case out <- &update:
+		case <-ctx.Done():
+			return
 		}
 	}
+}
+
+// fetchPreConfirmed runs one fetch under the running guard and the per-fetch
+// timeout. Drains a buffered trigger before releasing the guard so a refresh
+// arriving during this call doesn't fire a back-to-back fetch.
+func (s *Synchronizer) fetchPreConfirmed(
+	ctx context.Context,
+	blockNum uint64,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (pending.PreConfirmedUpdate, error) {
+	s.preConfirmedFetching.Store(true)
+	defer func() {
+		select {
+		case <-s.preConfirmedTrigger:
+		default:
+		}
+		s.preConfirmedFetching.Store(false)
+	}()
+
+	fetchCtx, cancel := context.WithTimeout(ctx, preConfirmedFetchTimeout)
+	defer cancel()
+
+	return s.dataSource.PreConfirmedBlockByNumber(
+		fetchCtx, blockNum, blockIdentifier, knownTransactionCount,
+	)
 }
 
 // handleHead processes a new head.
