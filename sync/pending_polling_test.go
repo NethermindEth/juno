@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	stdsync "sync"
 	"sync/atomic"
 	"testing"
@@ -1109,4 +1110,172 @@ func makeEmptyPreLatestForParent(parent *core.Header) pending.PreLatest {
 		NewClasses: make(map[felt.Felt]core.ClassDefinition, 0),
 	}
 	return pending
+}
+
+// TestPreConfirmedUpdateFrequency prints metrics comparing the ticker-only
+// baseline (pre-PR behaviour) with the request-driven path. The baseline
+// subtest never fires triggers; the request-driven subtest fires them at a
+// fixed rate. Run: go test -v -run TestPreConfirmedUpdateFrequency ./sync/
+func TestPreConfirmedUpdateFrequency(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(testDB, &networks.Sepolia,
+		blockchain.WithNewState(statetestutils.UseNewState()))
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	gw := adaptfeeder.New(client)
+	dataSource := NewFeederGatewayDataSource(bc, gw)
+
+	head0, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
+	su0, err := gw.StateUpdate(t.Context(), 0)
+	require.NoError(t, err)
+	require.NoError(t, bc.Store(head0, &core.BlockCommitments{}, su0,
+		map[felt.Felt]core.ClassDefinition{}))
+
+	const (
+		tickerInterval = 500 * time.Millisecond // default --preconfirmed-poll-interval
+		runDuration    = 5 * time.Second
+		triggerRate    = 50 * time.Millisecond // simulated RPC traffic at 20 Hz
+	)
+
+	type scenario struct {
+		name            string
+		triggerInterval time.Duration // 0 means no triggers (ticker-only baseline)
+	}
+	scenarios := []scenario{
+		{"baseline_ticker_only", 0},
+		{"request_driven_20Hz", triggerRate},
+	}
+
+	// Run each scenario across a few realistic feeder latencies.
+	latencies := []time.Duration{
+		50 * time.Millisecond,
+		100 * time.Millisecond,
+		200 * time.Millisecond,
+	}
+
+	for _, fetchLatency := range latencies {
+		for _, sc := range scenarios {
+			name := fmt.Sprintf("%s/fetch=%s", sc.name, fetchLatency)
+			t.Run(name, func(t *testing.T) {
+				synctest.Test(t, func(t *testing.T) {
+					mockDS := &MockDataSource{
+						DataSource: dataSource,
+						PreConfirmedFunc: func(
+							ctx context.Context,
+							number uint64,
+							_ string, _ uint64, _ uint,
+						) (pending.PreConfirmedUpdate, error) {
+							select {
+							case <-time.After(fetchLatency):
+							case <-ctx.Done():
+								return pending.PreConfirmedUpdate{}, ctx.Err()
+							}
+							preConf := makeTestPreConfirmed(number)
+							preConf.BlockIdentifier = "mock"
+							return pending.PreConfirmedUpdate{
+								Mode:            pending.PreConfirmedFull,
+								BlockIdentifier: preConf.BlockIdentifier,
+								FullBlock:       &preConf,
+							}, nil
+						},
+					}
+					syn := New(bc, mockDS, log.NewNopZapLogger(), 0, tickerInterval, false, testDB)
+					syn.highestBlockHeader.Store(head0.Header)
+
+					var target atomic.Uint64
+					target.Store(1)
+					out := make(chan *pending.PreConfirmedUpdate, 1024)
+
+					ctx, cancel := context.WithCancel(t.Context())
+
+					go syn.pollPreConfirmed(ctx, &target, out)
+
+					var emitted atomic.Uint32
+					if sc.triggerInterval > 0 {
+						go func() {
+							ticker := time.NewTicker(sc.triggerInterval)
+							defer ticker.Stop()
+							for {
+								select {
+								case <-ctx.Done():
+									return
+								case <-ticker.C:
+									emitted.Add(1)
+									syn.requestPreConfirmedRefresh()
+								}
+							}
+						}()
+					}
+
+					var intervals []time.Duration
+					var lastUpdate time.Time
+					recorderDone := make(chan struct{})
+					go func() {
+						defer close(recorderDone)
+						for {
+							select {
+							case <-ctx.Done():
+								return
+							case <-out:
+								now := time.Now()
+								if !lastUpdate.IsZero() {
+									intervals = append(intervals, now.Sub(lastUpdate))
+								}
+								lastUpdate = now
+							}
+						}
+					}()
+
+					time.Sleep(runDuration)
+					cancel()
+					<-recorderDone
+
+					fetches := mockDS.numCallsPreConfirmed.Load()
+					trigs := emitted.Load()
+					var dropped uint32
+					if trigs >= fetches {
+						dropped = trigs - fetches
+					}
+					updates := uint32(len(intervals) + 1)
+					if lastUpdate.IsZero() {
+						updates = 0
+					}
+					t.Logf(
+						"%s fetch=%s: updates=%d (%.1f/s) fetches=%d "+
+							"triggers_emitted=%d triggers_dropped=%d "+
+							"mean_interval=%v p99_interval=%v",
+						sc.name, fetchLatency,
+						updates, float64(updates)/runDuration.Seconds(),
+						fetches, trigs, dropped,
+						meanDuration(intervals), p99Duration(intervals),
+					)
+				})
+			})
+		}
+	}
+}
+
+func meanDuration(ds []time.Duration) time.Duration {
+	if len(ds) == 0 {
+		return 0
+	}
+	var sum time.Duration
+	for _, d := range ds {
+		sum += d
+	}
+	return sum / time.Duration(len(ds))
+}
+
+func p99Duration(ds []time.Duration) time.Duration {
+	if len(ds) == 0 {
+		return 0
+	}
+	sorted := make([]time.Duration, len(ds))
+	copy(sorted, ds)
+	slices.Sort(sorted)
+	idx := int(float64(len(sorted)) * 0.99)
+	if idx >= len(sorted) {
+		idx = len(sorted) - 1
+	}
+	return sorted[idx]
 }
