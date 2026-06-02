@@ -402,81 +402,81 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 	})
 
 	t.Run("Trigger storm collapses to one fetch while a fetch is running", func(t *testing.T) {
-		// Block the data source until released so the first fetch stays running
-		// while we dispatch the trigger storm. Any extra fetches would mean the
-		// running guard failed to drop the storm requests.
-		release := make(chan struct{})
-		mockDS := &MockDataSource{
-			DataSource: dataSource,
-			PreConfirmedFunc: func(
-				ctx context.Context,
-				number uint64,
-				_ string,
-				_ uint64,
-				_ uint,
-			) (pending.PreConfirmedUpdate, error) {
-				select {
-				case <-release:
-				case <-ctx.Done():
-					return pending.PreConfirmedUpdate{}, ctx.Err()
-				}
-				preConf := makeTestPreConfirmed(number)
-				preConf.BlockIdentifier = "mock"
-				return pending.PreConfirmedUpdate{
-					Mode:            pending.PreConfirmedFull,
-					BlockIdentifier: preConf.BlockIdentifier,
-					FullBlock:       &preConf,
-				}, nil
-			},
-		}
-		// Ticker interval set very high so the only thing that can drive a fetch
-		// is our explicit trigger calls.
-		s := New(bc, mockDS, logger, 0, time.Hour, false, testDB)
-		s.highestBlockHeader.Store(head0.Header)
+		synctest.Test(t, func(t *testing.T) {
+			// Block the data source until released so the first fetch stays running
+			// while we dispatch the trigger storm. Any extra fetches would mean the
+			// running guard failed to drop the storm requests.
+			release := make(chan struct{})
+			mockDS := &MockDataSource{
+				DataSource: dataSource,
+				PreConfirmedFunc: func(
+					ctx context.Context,
+					number uint64,
+					_ string,
+					_ uint64,
+					_ uint,
+				) (pending.PreConfirmedUpdate, error) {
+					select {
+					case <-release:
+					case <-ctx.Done():
+						return pending.PreConfirmedUpdate{}, ctx.Err()
+					}
+					preConf := makeTestPreConfirmed(number)
+					preConf.BlockIdentifier = "mock"
+					return pending.PreConfirmedUpdate{
+						Mode:            pending.PreConfirmedFull,
+						BlockIdentifier: preConf.BlockIdentifier,
+						FullBlock:       &preConf,
+					}, nil
+				},
+			}
+			// Ticker interval set very high so the only thing that can drive a
+			// fetch is our explicit trigger calls (synctest can advance virtual
+			// time during Wait, so a small ticker would race with us).
+			s := New(bc, mockDS, logger, 0, time.Hour, false, testDB)
+			s.highestBlockHeader.Store(head0.Header)
 
-		var preConfirmedBlockNumberToPoll atomic.Uint64
-		preConfirmedBlockNumberToPoll.Store(1)
-		out := make(chan *pending.PreConfirmedUpdate, 32)
+			var preConfirmedBlockNumberToPoll atomic.Uint64
+			preConfirmedBlockNumberToPoll.Store(1)
+			out := make(chan *pending.PreConfirmedUpdate, 32)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			ctx, cancel := context.WithCancel(t.Context())
+			var wg stdsync.WaitGroup
+			wg.Go(func() {
+				s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
+			})
+			defer wg.Wait()
+			defer cancel()
 
-		var wg stdsync.WaitGroup
-		wg.Go(func() {
-			s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
-		})
-		// LIFO: cancel before wg.Wait so the polling goroutine exits cleanly.
-		defer wg.Wait()
-		defer cancel()
-
-		// Kick off the first fetch and wait until the polling goroutine has
-		// actually entered the data source call. numCallsPreConfirmed is
-		// incremented at the very top of the mock, after the goroutine has
-		// already set preConfirmedFetching=true, so observing the counter is
-		// sufficient to know we're inside the running window.
-		s.requestPreConfirmedRefresh()
-		require.Eventually(t, func() bool {
-			return mockDS.numCallsPreConfirmed.Load() == 1
-		}, time.Second, 5*time.Millisecond, "expected the first fetch to be running")
-
-		// Storm of requests while the fetch is running: all must be dropped
-		// by the running guard.
-		for range 100 {
+			// Kick off the first fetch. synctest.Wait blocks until every other
+			// goroutine in the bubble is durably blocked, which here means the
+			// polling goroutine is parked inside the mock waiting on release.
 			s.requestPreConfirmedRefresh()
-		}
+			synctest.Wait()
+			require.Equal(t, uint32(1), mockDS.numCallsPreConfirmed.Load(),
+				"expected the first fetch to be running")
 
-		// Release the first fetch and consume its result.
-		close(release)
-		select {
-		case <-out:
-		case <-time.After(time.Second):
-			t.Fatal("expected the first fetch to deliver a result")
-		}
+			// Storm of requests while the fetch is running: the running guard
+			// must drop every one of them.
+			for range 100 {
+				s.requestPreConfirmedRefresh()
+			}
+			synctest.Wait()
+			require.Equal(t, uint32(1), mockDS.numCallsPreConfirmed.Load(),
+				"storm requests must be dropped by the running guard")
 
-		// No further fetch should happen: every trigger during the running
-		// window was dropped, and the buffered slot was drained on exit.
-		time.Sleep(50 * time.Millisecond)
-		require.Equal(t, uint32(1), mockDS.numCallsPreConfirmed.Load(),
-			"trigger storm during fetch should not produce additional fetches")
+			// Release the fetch, let the goroutine deliver the update and go
+			// back to waiting, then assert no extra fetch was issued.
+			close(release)
+			synctest.Wait()
+			select {
+			case <-out:
+			default:
+				t.Fatal("expected the first fetch to deliver a result")
+			}
+			require.Equal(t, uint32(1), mockDS.numCallsPreConfirmed.Load(),
+				"trigger storm during fetch should not produce additional fetches")
+		})
 	})
 }
 
