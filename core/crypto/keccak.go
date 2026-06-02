@@ -24,7 +24,7 @@ func StarknetKeccakSum(h hash.Hash) felt.Felt {
 
 // StarknetKeccak implements [Starknet keccak]
 //
-// [Starknet keccak]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#starknet_keccak
+// [Starknet keccak]: https://docs.starknet.io/learn/protocol/cryptography#starknet-keccak
 func StarknetKeccak(b []byte) felt.Felt {
 	h := NewStarknetKeccakState()
 	if _, err := h.Write(b); err != nil {
