@@ -27,7 +27,7 @@ const (
 // hash of block header sent to L1
 type SignedBlockHeader struct {
 	state               protoimpl.MessageState       `protogen:"open.v1"`
-	BlockHash           *common.Hash                 `protobuf:"bytes,1,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"` //  For the structure of the block hash, see https://docs.starknet.io/documentation/architecture_and_concepts/Network_Architecture/header/#block_hash
+	BlockHash           *common.Hash                 `protobuf:"bytes,1,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"` //  For the structure of the block hash, see https://docs.starknet.io/learn/protocol/blocks#block-hash
 	ParentHash          *common.Hash                 `protobuf:"bytes,2,opt,name=parent_hash,json=parentHash,proto3" json:"parent_hash,omitempty"`
 	Number              uint64                       `protobuf:"varint,3,opt,name=number,proto3" json:"number,omitempty"` // This can be deduced from context. We can consider removing this field.
 	Time                uint64                       `protobuf:"varint,4,opt,name=time,proto3" json:"time,omitempty"`     // Encoded in Unix time.

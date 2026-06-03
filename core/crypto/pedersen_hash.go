@@ -131,7 +131,7 @@ func mulBy256(point *starkcurve.G1Jac) {
 
 // PedersenArray implements [Pedersen array hashing].
 //
-// [Pedersen array hashing]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#array_hashing
+// [Pedersen array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
 func PedersenArray(elems ...*felt.Felt) felt.Felt {
 	var digest PedersenDigest
 	return digest.Update(elems...).Finish()
@@ -139,7 +139,7 @@ func PedersenArray(elems ...*felt.Felt) felt.Felt {
 
 // Pedersen implements the [Pedersen hash].
 //
-// [Pedersen hash]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#pedersen_hash
+// [Pedersen hash]: https://docs.starknet.io/learn/protocol/cryptography#pedersen-hash
 func Pedersen(a, b *felt.Felt) felt.Felt {
 	return felt.Felt(pedersen(a.Impl(), b.Impl()))
 }

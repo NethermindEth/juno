@@ -10,7 +10,7 @@ import (
 )
 
 // A Node represents a node in the [Trie]
-// https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#trie_construction
+// https://docs.starknet.io/learn/protocol/state#trie-construction
 type Node struct {
 	Value     *felt.Felt
 	Left      *BitArray
