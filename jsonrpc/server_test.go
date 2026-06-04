@@ -209,19 +209,55 @@ func TestHandle(t *testing.T) {
 	}{
 		"invalid json": {
 			req: `{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string at line 1 column 2"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{]\n ^\n |_ unexpected ']', expected a string key or '}' at line 1 column 2"},"id":null}`,
 		},
 		"invalid json batch path": {
 			req: `[{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string at line 1 column 3"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[{]\n  ^\n  |_ unexpected ']', expected a string key or '}' at line 1 column 3"},"id":null}`,
 		},
 		"missing closing brace": {
 			req: `{"jsonrpc": "2.0", "method": "method", "id": 1`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"unexpected end of input (missing closing '}' or ']'?) at line 1 column 47"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": \"2.0\", \"method\": \"method\", \"id\": 1\n                                              ^\n                                              |_ unexpected end of input at line 1 column 47"},"id":null}`,
 		},
 		"leading blank line keeps line number": {
 			req: "\n{]",
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string at line 2 column 2"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{]\n ^\n |_ unexpected ']', expected a string key or '}' at line 2 column 2"},"id":null}`,
+		},
+		"trailing comma in object": {
+			req: `{"a":1,}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"a\":1,}\n       ^\n       |_ unexpected trailing comma before '}' at line 1 column 8"},"id":null}`,
+		},
+		"trailing comma with whitespace": {
+			req: `{"a":1, }`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"a\":1, }\n        ^\n        |_ unexpected trailing comma before '}' at line 1 column 9"},"id":null}`,
+		},
+		"empty input": {
+			req: ``,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\n^\n|_ unexpected end of input at line 1 column 1"},"id":null}`,
+		},
+		"trailing comma in array": {
+			req: `[1,2,]`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[1,2,]\n     ^\n     |_ unexpected trailing comma before ']' at line 1 column 6"},"id":null}`,
+		},
+		"unexpected token expecting value": {
+			req: `{"id":@}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"id\":@}\n      ^\n      |_ unexpected '@', expected a value at line 1 column 7"},"id":null}`,
+		},
+		"missing comma between array elements": {
+			req: `[1 2]`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[1 2]\n   ^\n   |_ unexpected '2', expected ',' or ']' at line 1 column 4"},"id":null}`,
+		},
+		"param type mismatch": {
+			req: `{"jsonrpc": 5, "method": "x", "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": 5, \"method\": \"x\", \"id\": 1}\n            ^\n            |_ json: cannot unmarshal number into Go struct field Request.jsonrpc of type string at line 1 column 13"},"id":null}`,
+		},
+		"long line is windowed": {
+			req: `{"jsonrpc":"2.0","method":"` + strings.Repeat("x", 200) + `" z}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\" z}\n                                                                           ^\n                                                                           |_ unexpected 'z', expected ',' or '}' at line 1 column 230"},"id":null}`,
+		},
+		"error at start of long line": {
+			req: `{@` + strings.Repeat("x", 300) + `}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{@xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...\n ^\n |_ unexpected '@', expected a string key or '}' at line 1 column 2"},"id":null}`,
 		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
@@ -472,14 +508,14 @@ func TestHandle(t *testing.T) {
 		},
 		"rpc call with invalid JSON": {
 			req: `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character 'p' after object key:value pair at line 1 column 40"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": \"2.0\", \"method\": \"foobar, \"params\": \"bar\", \"baz]\n                                       ^\n                                       |_ unexpected 'p', expected ',' or '}' at line 1 column 40"},"id":null}`,
 		},
 		"rpc call Batch, invalid JSON:": {
 			req: `[
   {"jsonrpc": "2.0", "method": "sum", "params": [1,2,4], "id": "1"},
   {"jsonrpc": "2.0", "method"
 ]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' after object key at line 4 column 1"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"]\n^\n|_ unexpected ']', expected ':' at line 4 column 1"},"id":null}`,
 		},
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
