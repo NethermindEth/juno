@@ -6,9 +6,9 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func AdaptOrderedEvent(event vm.OrderedEvent) *core.Event {
@@ -29,7 +29,7 @@ func AdaptOrderedMessageToL1(message *vm.OrderedL2toL1Message) core.L2ToL1Messag
 		// todo(rdr): this is not correct because it implies the L1 is always Ethereum
 		// 			  and from Starknet 0.14.1 that is no longer a strong assumption.
 		//            we should have a `felt.L1Address` (or similar)
-		To: common.HexToAddress(message.To.String()),
+		To: eth.AddressFromString(message.To.String()),
 	}
 }
 

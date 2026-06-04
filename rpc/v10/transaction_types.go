@@ -9,9 +9,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type TransactionType uint8
@@ -264,9 +264,9 @@ type FeePayment struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt     `json:"from_address,omitempty"`
-	To      common.Address `json:"to_address"`
-	Payload []*felt.Felt   `json:"payload"`
+	From    *felt.Felt   `json:"from_address,omitempty"`
+	To      eth.Address  `json:"to_address"`
+	Payload []*felt.Felt `json:"payload"`
 }
 
 type ComputationResources struct {

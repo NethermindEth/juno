@@ -6,8 +6,8 @@ import (
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +42,7 @@ func TestAdaptOrderedEvents(t *testing.T) {
 func TestAdaptOrderedMessageToL1(t *testing.T) {
 	require.Equal(t, core.L2ToL1Message{
 		From:    felt.NewFromUint64[felt.Felt](2),
-		To:      common.HexToAddress("0x3"),
+		To:      eth.AddressFromString("0x3"),
 		Payload: []*felt.Felt{new(felt.Felt).SetUint64(4)},
 	}, vm2core.AdaptOrderedMessageToL1(&vm.OrderedL2toL1Message{
 		Order:   1,

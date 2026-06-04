@@ -9,9 +9,9 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // ErrPreConfirmedIdentifierMismatch is returned by AdaptPreConfirmedWithDelta
@@ -154,7 +154,7 @@ func AdaptL1ToL2Message(response *starknet.L1ToL2Message) *core.L1ToL2Message {
 	}
 
 	return &core.L1ToL2Message{
-		From:     common.HexToAddress(response.From),
+		From:     eth.AddressFromString(response.From),
 		Nonce:    response.Nonce,
 		Payload:  response.Payload,
 		Selector: response.Selector,
@@ -170,7 +170,7 @@ func AdaptL2ToL1Message(response *starknet.L2ToL1Message) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
 		From:    response.From,
 		Payload: response.Payload,
-		To:      common.HexToAddress(response.To),
+		To:      eth.AddressFromString(response.To),
 	}
 }
 
