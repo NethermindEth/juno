@@ -19,6 +19,11 @@ func (h *HexU64) UnmarshalJSON(input []byte) error {
 	if len(raw) == 0 {
 		return fmt.Errorf("eth: hex uint64 has no digits")
 	}
+	// JSON-RPC "quantity" values must be minimally encoded: "0x0" for zero,
+	// otherwise no leading zeros. Mirrors go-ethereum's hexutil behavior.
+	if len(raw) > 1 && raw[0] == '0' {
+		return fmt.Errorf("eth: hex uint64 has leading zero")
+	}
 	if len(raw) > 16 {
 		return fmt.Errorf("eth: hex uint64 overflow (%d nibbles)", len(raw))
 	}

@@ -175,6 +175,9 @@ func TestHexCodecs_ErrorPaths(t *testing.T) {
 			`{"topics":[],"data":"0x","blockNumber":"0x10000000000000000","removed":false}`,
 		},
 		{"bad blockNumber hex", `{"topics":[],"data":"0x","blockNumber":"0xZZ","removed":false}`},
+		// JSON-RPC "quantity" must be minimally encoded — leading zeros are invalid.
+		{"bad blockNumber leading zero", `{"topics":[],"data":"0x","blockNumber":"0x01","removed":false}`},
+		{"bad blockNumber leading zeros", `{"topics":[],"data":"0x","blockNumber":"0x00","removed":false}`},
 		{"bad data prefix", `{"topics":[],"data":"00","blockNumber":"0x0","removed":false}`},
 		{"bad data odd length", `{"topics":[],"data":"0x0","blockNumber":"0x0","removed":false}`},
 		{"bad data hex", `{"topics":[],"data":"0xZZ","blockNumber":"0x0","removed":false}`},

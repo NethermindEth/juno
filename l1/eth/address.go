@@ -16,7 +16,7 @@ const (
 type Address [AddressLength]byte
 
 // BytesToAddress returns Address with value b.
-// If b is larger than len(h), b will be cropped from the left.
+// If b is larger than AddressLength, b will be cropped from the left.
 func BytesToAddress(b []byte) Address {
 	var a Address
 	a.SetBytes(b)
@@ -24,7 +24,7 @@ func BytesToAddress(b []byte) Address {
 }
 
 // HexToAddress returns Address with byte values of s.
-// If s is larger than len(h), s will be cropped from the left.
+// If s is larger than 2*AddressLength hex chars, it will be cropped from the left.
 func HexToAddress(s string) Address { return BytesToAddress(fromHex(s)) }
 
 // SetBytes sets the address to the value of b.
@@ -36,19 +36,24 @@ func (a *Address) SetBytes(b []byte) {
 	copy(a[AddressLength-len(b):], b)
 }
 
-// Bytes gets the string representation of the underlying address.
+// Bytes gets the byte representation of the underlying address.
 func (a Address) Bytes() []byte { return a[:] }
 
-// MarshalJSON returns the address as a JSON string (0x-prefixed lowercase hex),
-// byte-for-byte identical to go-ethereum's common.Address.MarshalJSON.
-func (a Address) MarshalJSON() ([]byte, error) {
-	out := make([]byte, addressHexLen+2)
-	out[0] = '"'
-	out[1] = '0'
-	out[2] = 'x'
-	hex.Encode(out[3:], a[:])
-	out[addressHexLen+1] = '"'
+// MarshalText returns the hex representation of a (0x-prefixed lowercase).
+// Mirrors go-ethereum's common.Address.MarshalText.
+func (a Address) MarshalText() ([]byte, error) {
+	out := make([]byte, addressHexLen)
+	out[0] = '0'
+	out[1] = 'x'
+	hex.Encode(out[2:], a[:])
 	return out, nil
+}
+
+// UnmarshalText parses an address from its hex representation. Matches
+// go-ethereum's common.Address.UnmarshalText: requires "0x"-prefixed hex of
+// exactly AddressLength bytes; case-insensitive.
+func (a *Address) UnmarshalText(input []byte) error {
+	return a.decodeHex(input)
 }
 
 // UnmarshalJSON parses an address from a JSON string. Matches go-ethereum's
@@ -58,7 +63,10 @@ func (a *Address) UnmarshalJSON(input []byte) error {
 	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
 		return fmt.Errorf("eth: address must be a JSON string")
 	}
-	s := input[1 : len(input)-1]
+	return a.decodeHex(input[1 : len(input)-1])
+}
+
+func (a *Address) decodeHex(s []byte) error {
 	if len(s) < 2 || s[0] != '0' || (s[1] != 'x' && s[1] != 'X') {
 		return fmt.Errorf("eth: address missing 0x prefix")
 	}
