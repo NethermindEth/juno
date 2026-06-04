@@ -331,13 +331,14 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 
 	header := http.Header{}
 
-	dec := json.NewDecoder(bufferedReader)
+	var captured bytes.Buffer
+	dec := json.NewDecoder(io.TeeReader(bufferedReader, &captured))
 	dec.UseNumber()
 
 	if !requestIsBatch {
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			resp.Error = Err(InvalidJSON, jsonErr.Error())
+			resp.Error = Err(InvalidJSON, prettyParseError(captured.Bytes(), jsonErr))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
 				resp.ID = req.ID
@@ -352,7 +353,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			resp.Error = Err(InvalidJSON, batchJSONErr.Error())
+			resp.Error = Err(InvalidJSON, prettyParseError(captured.Bytes(), batchJSONErr))
 		} else if len(batchReq) == 0 {
 			resp.Error = Err(InvalidRequest, "empty batch")
 		} else {
@@ -565,12 +566,12 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 	}
 
 	if isNilOrEmpty {
-		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
-			return p.Optional
-		})
-
-		if len(method.Params) > 0 && !allParamsAreOptional {
-			return nil, errors.New("missing non-optional param field")
+		required := utils.Map(
+			utils.Filter(method.Params, func(p Parameter) bool { return !p.Optional }),
+			func(p Parameter) string { return p.Name },
+		)
+		if len(required) > 0 {
+			return nil, fmt.Errorf("missing required params: %s", strings.Join(required, ", "))
 		}
 
 		for i := addContext; i < numArgs; i++ {
@@ -587,7 +588,8 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 
 		// Ensure that the number of provided parameters is between required and total parameters
 		if len(paramsList) < method.requiredParamCount || len(paramsList) > len(method.Params) {
-			return nil, errors.New("missing/unexpected params in list")
+			return nil, fmt.Errorf("expected between %d and %d params, got %d",
+				method.requiredParamCount, len(method.Params), len(paramsList))
 		}
 
 		for i, param := range paramsList {

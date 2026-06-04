@@ -209,11 +209,15 @@ func TestHandle(t *testing.T) {
 	}{
 		"invalid json": {
 			req: `{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string at line 1 column 2"},"id":null}`,
 		},
 		"invalid json batch path": {
 			req: `[{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string at line 1 column 3"},"id":null}`,
+		},
+		"missing closing brace": {
+			req: `{"jsonrpc": "2.0", "method": "method", "id": 1`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"unexpected end of input (missing closing '}' or ']'?) at line 1 column 47"},"id":null}`,
 		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
@@ -229,11 +233,11 @@ func TestHandle(t *testing.T) {
 		},
 		"no params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "id" : 5}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param field"},"id":5}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing required params: num"},"id":5}`,
 		},
 		"too many params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"expected between 1 and 3 params, got 4"},"id":3}`,
 		},
 		"list params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message"] , "id" : 3}`,
@@ -464,14 +468,14 @@ func TestHandle(t *testing.T) {
 		},
 		"rpc call with invalid JSON": {
 			req: `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character 'p' after object key:value pair"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character 'p' after object key:value pair at line 1 column 40"},"id":null}`,
 		},
 		"rpc call Batch, invalid JSON:": {
 			req: `[
   {"jsonrpc": "2.0", "method": "sum", "params": [1,2,4], "id": "1"},
   {"jsonrpc": "2.0", "method"
 ]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' after object key"},"id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' after object key at line 4 column 1"},"id":null}`,
 		},
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
