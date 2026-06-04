@@ -452,9 +452,6 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	return result, finalHeaders, err // todo: fix batch request aggregate header
 }
 
-// isBatch reports whether the first non-whitespace byte is '['. It only peeks
-// and never consumes, so the decoder still sees the input from byte 0 and its
-// error offsets stay aligned with the bytes captured in HandleReader.
 func isBatch(reader *bufio.Reader) bool {
 	for n := 1; ; n++ {
 		buf, err := reader.Peek(n)
