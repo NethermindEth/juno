@@ -1,5 +1,5 @@
 use blockifier::execution::errors::{
-    ConstructorEntryPointExecutionError, EntryPointExecutionError,
+    AnnotatedEntryPointExecutionError, ConstructorEntryPointExecutionError,
 };
 use blockifier::execution::stack_trace::gen_tx_execution_error_trace;
 use blockifier::state::errors::StateError;
@@ -18,7 +18,7 @@ pub enum CallError {
 
 impl CallError {
     pub fn from_entry_point_execution_error(
-        error: EntryPointExecutionError,
+        error: AnnotatedEntryPointExecutionError,
         contract_address: ContractAddress,
         class_hash: ClassHash,
         entry_point: EntryPointSelector,
