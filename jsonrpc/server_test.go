@@ -219,6 +219,10 @@ func TestHandle(t *testing.T) {
 			req: `{"jsonrpc": "2.0", "method": "method", "id": 1`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"unexpected end of input (missing closing '}' or ']'?) at line 1 column 47"},"id":null}`,
 		},
+		"leading blank line keeps line number": {
+			req: "\n{]",
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character ']' looking for beginning of object key string at line 2 column 2"},"id":null}`,
+		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":1}`,
@@ -626,6 +630,33 @@ func BenchmarkHandle(b *testing.B) {
 		require.NotNil(b, header)
 	}
 	benchHandleR = header
+}
+
+// BenchmarkHandleBatch covers the hot path on a multi-call batch, where the
+// TeeReader in HandleReader copies the whole body on the success path.
+func BenchmarkHandleBatch(b *testing.B) {
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger()).WithValidator(validator.New())
+	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
+		Name:    "bench",
+		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
+	}))
+
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i := range 20 {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(`{"jsonrpc":"2.0","id":1,"method":"bench"}`)
+	}
+	sb.WriteByte(']')
+	request := sb.String()
+
+	var err error
+	for b.Loop() {
+		_, _, err = server.HandleReader(b.Context(), strings.NewReader(request))
+		require.NoError(b, err)
+	}
 }
 
 func TestCannotWriteToConnInHandler(t *testing.T) {

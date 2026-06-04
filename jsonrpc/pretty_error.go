@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
+	"unicode/utf8"
 )
 
 const unexpectedEOFMsg = "unexpected end of input (missing closing '}' or ']'?)"
@@ -31,20 +31,14 @@ func parseErrorOffset(input []byte, err error) (offset int, ok bool) {
 func lineAndColumn(input []byte, offset int) (line, col int) {
 	before := input[:offset]
 	line = bytes.Count(before, []byte{'\n'}) + 1
-	col = offset - (bytes.LastIndexByte(before, '\n') + 1) + 1
+	lineStart := bytes.LastIndexByte(before, '\n') + 1
+	col = utf8.RuneCount(before[lineStart:]) + 1
 	return line, col
 }
 
 func errorMessage(err error) string {
 	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 		return unexpectedEOFMsg
-	}
-	var syntaxErr *json.SyntaxError
-	if errors.As(err, &syntaxErr) {
-		if strings.Contains(syntaxErr.Error(), "unexpected end of JSON input") {
-			return unexpectedEOFMsg
-		}
-		return syntaxErr.Error()
 	}
 	return err.Error()
 }

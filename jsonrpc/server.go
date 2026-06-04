@@ -323,7 +323,11 @@ func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
 func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, http.Header, error) {
-	bufferedReader := bufio.NewReaderSize(reader, bufferSize)
+	// Tee the decoder's input into captured so a parse error can show its
+	// position. Every body is copied, not just bad ones, but the copy is small,
+	// capped by the upstream body-size limit, and only read on error.
+	var captured bytes.Buffer
+	bufferedReader := bufio.NewReaderSize(io.TeeReader(reader, &captured), bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
 	resp := &response{
 		Version: "2.0",
@@ -331,8 +335,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 
 	header := http.Header{}
 
-	var captured bytes.Buffer
-	dec := json.NewDecoder(io.TeeReader(bufferedReader, &captured))
+	dec := json.NewDecoder(bufferedReader)
 	dec.UseNumber()
 
 	if !requestIsBatch {
@@ -449,21 +452,22 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	return result, finalHeaders, err // todo: fix batch request aggregate header
 }
 
+// isBatch reports whether the first non-whitespace byte is '['. It only peeks
+// and never consumes, so the decoder still sees the input from byte 0 and its
+// error offsets stay aligned with the bytes captured in HandleReader.
 func isBatch(reader *bufio.Reader) bool {
-	for {
-		char, err := reader.Peek(1)
+	for n := 1; ; n++ {
+		buf, err := reader.Peek(n)
 		if err != nil {
-			break
+			return false
 		}
-		if char[0] == ' ' || char[0] == '\t' || char[0] == '\r' || char[0] == '\n' {
-			if discarded, err := reader.Discard(1); discarded != 1 || err != nil {
-				break
-			}
+		switch buf[n-1] {
+		case ' ', '\t', '\r', '\n':
 			continue
+		default:
+			return buf[n-1] == '['
 		}
-		return char[0] == '['
 	}
-	return false
 }
 
 func isNilOrEmpty(i any) (bool, error) {
