@@ -64,7 +64,7 @@ func describeTypeError(e *json.UnmarshalTypeError) string {
 	if e.Field != "" {
 		return fmt.Sprintf("field %q should be %s, got %s", e.Field, e.Type, e.Value)
 	}
-	return fmt.Sprintf("expected %s, got %s", e.Type, e.Value)
+	return fmt.Sprintf("expected a JSON object, got %s", e.Value)
 }
 
 func describeSyntaxError(input []byte, offset int, err error) string {
