@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	stdsync "sync"
 	"sync/atomic"
 	"testing"
@@ -18,6 +17,8 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +41,7 @@ type MockDataSource struct {
 		blockIdentifier string,
 		knownTransactionCount uint64,
 		numCalls uint,
-	) (pending.PreConfirmedUpdate, error)
+	) (starknet.PreConfirmedUpdate, error)
 }
 
 // Override BlockPreLatest to simulate errors and/or injected responses
@@ -63,10 +64,10 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 	number uint64,
 	blockIdentifier string,
 	knownTransactionCount uint64,
-) (pending.PreConfirmedUpdate, error) {
+) (starknet.PreConfirmedUpdate, error) {
 	m.numCallsPreConfirmed += 1
 	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
-		return pending.PreConfirmedUpdate{}, errors.New("some error")
+		return nil, errors.New("some error")
 	}
 
 	// fallback to embedded real method if no override set
@@ -79,14 +80,65 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 			m.numCallsPreConfirmed,
 		)
 	}
-	preConfirmed := makeTestPreConfirmed(number)
-	preConfirmed.Block.TransactionCount = number%10 + uint64(m.numCallsPreConfirmed)/2
-	preConfirmed.BlockIdentifier = "mock"
-	return pending.PreConfirmedUpdate{
-		Mode:            pending.PreConfirmedFull,
-		BlockIdentifier: preConfirmed.BlockIdentifier,
-		FullBlock:       &preConfirmed,
-	}, nil
+	// Mirrors the old fallback's behaviour: each poll returns a richer block
+	// than the last (count grows with numCalls) so the storage's
+	// preserve-if-richer rotation actually rotates.
+	txCount := int(number%10 + uint64(m.numCallsPreConfirmed)/2)
+	return makeTestPreConfirmedFull("mock", txCount), nil
+}
+
+// makeTestPreConfirmedFull returns a starknet.PreConfirmedFull carrying
+// `txCount` synthesised invoke transactions with matching receipts and per-tx
+// state diffs. Metadata (status, timestamp, sequencer, prices, DA mode) mirrors
+// the realistic-looking fixture the old `makeTestPreConfirmed` helper produced.
+//
+// The block number is NOT carried by PreConfirmedFull — it is provided
+// separately to AdaptPreConfirmedBlock by the caller.
+func makeTestPreConfirmedFull(identifier string, txCount int) starknet.PreConfirmedFull {
+	txs := make([]starknet.Transaction, txCount)
+	receipts := make([]*starknet.TransactionReceipt, txCount)
+	stateDiffs := make([]*starknet.StateDiff, txCount)
+	for i := range txCount {
+		// Distinct, deterministic hash per tx so adaption is unambiguous.
+		hash := new(felt.Felt).SetUint64(uint64(i + 1))
+		emptySlice := []*felt.Felt{}
+		txs[i] = starknet.Transaction{
+			Hash:      hash,
+			Type:      starknet.TxnInvoke,
+			Version:   new(felt.Felt).SetUint64(1),
+			CallData:  &emptySlice,
+			Signature: &emptySlice,
+		}
+		receipts[i] = &starknet.TransactionReceipt{TransactionHash: hash}
+		// One storage write per tx, keyed by the tx hash so state diffs aggregate
+		// to N distinct entries when squashed — exercises the merge path
+		// non-trivially in storage tests rather than coming out as a no-op.
+		stateDiffs[i] = &starknet.StateDiff{
+			StorageDiffs: map[string][]struct {
+				Key   *felt.Felt `json:"key"`
+				Value *felt.Felt `json:"value"`
+			}{
+				hash.String(): {{
+					Key:   felt.NewFromUint64[felt.Felt](uint64(i + 1)),
+					Value: felt.NewFromUint64[felt.Felt](uint64(i + 1)),
+				}},
+			},
+		}
+	}
+	return starknet.PreConfirmedFull{
+		BlockIdentifier:       identifier,
+		Transactions:          txs,
+		Receipts:              receipts,
+		TransactionStateDiffs: stateDiffs,
+		Status:                "PRE_CONFIRMED",
+		Timestamp:             uint64(time.Now().Unix()),
+		Version:               core.Ver0_14_0.String(),
+		SequencerAddress:      feltOne,
+		L1GasPrice:            &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
+		L2GasPrice:            &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
+		L1DAMode:              starknet.Blob,
+		L1DataGasPrice:        &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
+	}
 }
 
 func TestPollPreLatest(t *testing.T) {
@@ -299,7 +351,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		s := New(bc, mockDS, logger, 0, 30*time.Millisecond, false, testDB)
 
 		var preConfirmedBlockNumberToPoll atomic.Uint64
-		out := make(chan *pending.PreConfirmedUpdate, 1)
+		out := make(chan preConfirmedPoll, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -328,9 +380,10 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		s.highestBlockHeader.Store(head0.Header)
 
 		select {
-		case update := <-out:
-			require.NotNil(t, update)
-			require.Equal(t, uint64(1), update.FullBlock.Block.Number)
+		case poll := <-out:
+			require.Equal(t, uint64(1), poll.blockNumber)
+			_, ok := poll.update.(starknet.PreConfirmedFull)
+			require.True(t, ok, "expected PreConfirmedFull, got %T", poll.update)
 			require.GreaterOrEqual(
 				t,
 				mockDS.numCallsPreConfirmed,
@@ -352,7 +405,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		var preConfirmedBlockNumberToPoll atomic.Uint64
 		preConfirmedBlockNumberToPoll.Store(1)
 
-		out := make(chan *pending.PreConfirmedUpdate, 1)
+		out := make(chan preConfirmedPoll, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
@@ -366,17 +419,9 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 	})
 }
 
-//nolint:gocyclo // Convering multiple complex cases
 func TestPollPendingData(t *testing.T) {
-	testDB := memory.New()
-	bc := blockchain.New(
-		testDB,
-		&networks.Sepolia,
-		blockchain.WithNewState(statetestutils.UseNewState()),
-	)
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
-	dataSource := NewFeederGatewayDataSource(bc, gw)
 	logger := log.NewNopZapLogger()
 
 	fetchBlock := func(number uint64) (*core.Block, *core.StateUpdate) {
@@ -387,33 +432,33 @@ func TestPollPendingData(t *testing.T) {
 		return block, stateUpdate
 	}
 
-	t.Run("assert preConfirmed increment after preLatest arrival", func(t *testing.T) {
-		block0, stateUpdate0 := fetchBlock(0)
-		require.NoError(
-			t, bc.Store(
-				block0,
-				&core.BlockCommitments{},
-				stateUpdate0,
-				map[felt.Felt]core.ClassDefinition{},
-			),
+	newBC := func() *blockchain.Blockchain {
+		return blockchain.New(
+			memory.New(),
+			&networks.Sepolia,
+			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
+	}
 
-		// Mock data source to delay pre_latest (pending) while allowing pre_confirmed to arrive
-		pendingFunc := func(context.Context) (pending.PreLatest, error) {
-			head, err := bc.HeadsHeader()
-			require.NoError(t, err)
-			return makeEmptyPreLatestForParent(head), nil
-		}
+	t.Run("preConfirmed target advances when preLatest arrives", func(t *testing.T) {
+		bc := newBC()
+		testDB := memory.New()
+		dataSource := NewFeederGatewayDataSource(bc, gw)
+		block0, stateUpdate0 := fetchBlock(0)
+		storeBlock(t, bc, block0, stateUpdate0)
 
 		mockDataSource := &MockDataSource{
 			DataSource:            dataSource,
-			PendingFunc:           pendingFunc,
-			pendingErrorThreshold: 2, // introduce delay to receive pre_latest
+			pendingErrorThreshold: 2, // delay before pre_latest succeeds
+			PendingFunc: func(context.Context) (pending.PreLatest, error) {
+				head, err := bc.HeadsHeader()
+				require.NoError(t, err)
+				return makeEmptyPreLatestForParent(head), nil
+			},
 		}
 		s := New(bc, mockDataSource, logger, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(block0.Header)
 
-		// Subscribe to pre-confirmed feed to observe stored pre_confirmed
 		sub := s.preConfirmedDataFeed.SubscribeKeepLast()
 		defer sub.Unsubscribe()
 
@@ -421,550 +466,191 @@ func TestPollPendingData(t *testing.T) {
 		defer cancel()
 
 		var wg stdsync.WaitGroup
-		wg.Go(func() {
-			s.pollPendingData(ctx)
-		})
+		wg.Go(func() { s.pollPendingData(ctx) })
 		defer wg.Wait()
 
 		time.Sleep(100 * time.Millisecond)
-		// Send initial head 0 to kick off target=1
 		s.newHeads.Send(block0)
 
-		// Expect pre_confirmed for 1 first (baseline from head)
-		select {
-		case pd := <-sub.Recv():
-			require.NotNil(t, pd)
-			require.Equal(t, uint64(1), pd.GetBlock().Number)
-		case <-ctx.Done():
-			t.Fatal("did not broadcast pre_confirmed for number 1")
-		}
+		// First broadcast must be the baseline pre_confirmed for head+1 = 1.
+		first := waitForBroadcast(t, sub, ctx)
+		require.Equal(t, uint64(1), first.GetBlock().Number)
 
-		for {
-			// After pending eventually succeeds, pre_latest should raise
-			// target to 2; expect pre_confirmed for 2
-			select {
-			case pd := <-sub.Recv():
-				require.NotNil(t, pd)
-				if pd.GetBlock().Number == uint64(2) {
-					return
-				}
-
-				if pd.GetBlock().Number > uint64(2) {
-					t.Fatal("skipped pre_confirmed for number 2 and advanced further")
-				}
-
-			case <-ctx.Done():
-				t.Fatal("did not broadcast pre_confirmed for number 2")
-			}
-		}
+		// Once pre_latest stops erroring, target should bump to 2.
+		waitForBlockNumber(t, sub, ctx, 2)
 	})
 
-	t.Run("assert delta updates are applied", func(t *testing.T) {
-		testDB = memory.New()
-		bc = blockchain.New(
-			testDB,
-			&networks.Sepolia,
-			blockchain.WithNewState(statetestutils.UseNewState()),
-		)
-		dataSource = NewFeederGatewayDataSource(bc, gw)
-		// blocks must be fetched outside the synctest goroutine
+	t.Run("scripted poll sequence: Full / NoChange / Delta / new-identifier", func(t *testing.T) {
+		// Blocks must be fetched outside the synctest goroutine.
 		block0, stateUpdate0 := fetchBlock(0)
 		block1, stateUpdate1 := fetchBlock(1)
+		bc := newBC()
+		testDB := memory.New()
+		dataSource := NewFeederGatewayDataSource(bc, gw)
 
-		preLPoll := time.Second            // defaultPreLatestPollInterval
-		preCPoll := 500 * time.Millisecond // defaultPreConfirmedPollInterval
+		const preCPoll = 500 * time.Millisecond
+		const preLPoll = time.Second
+
+		// Each entry is the response for poll N (1-indexed). The scenario is:
+		// height 1 — Full → NoChange.
+		// (head advances to 1)
+		// height 2 — Full → Delta(+1 tx) → Full(new identifier) → NoChange.
+		emptyFelts := []*felt.Felt{}
+		script := []starknet.PreConfirmedUpdate{
+			makeTestPreConfirmedFull("block1-id", 1),
+			starknet.PreConfirmedNoChange{},
+			makeTestPreConfirmedFull("block2-id", 0),
+			starknet.PreConfirmedDelta{
+				BlockIdentifier: "block2-id",
+				Transactions: []starknet.Transaction{
+					{Type: starknet.TxnInvoke, CallData: &emptyFelts, Signature: &emptyFelts},
+				},
+				Receipts:              []*starknet.TransactionReceipt{{}},
+				TransactionStateDiffs: []*starknet.StateDiff{{}},
+			},
+			makeTestPreConfirmedFull("0xdeadbeef", 0),
+			starknet.PreConfirmedNoChange{},
+		}
 
 		synctest.Test(t, func(t *testing.T) {
-			// no PreLatest, so that we can focus on pre_confirmed polling.
-			pendingFunc := func(context.Context) (pending.PreLatest, error) {
-				return pending.PreLatest{}, errors.New("no PreLatest available")
-			}
-			preConfirmedFunc := func(
-				ctx context.Context,
-				number uint64,
-				blockIdentifier string,
-				knownTransactionCount uint64,
-				numCalls uint,
-			) (pending.PreConfirmedUpdate, error) {
-				newTx := func() core.Transaction {
-					return &core.InvokeTransaction{
-						TransactionHash: felt.NewRandom[felt.Felt](),
+			mockDS := &MockDataSource{
+				DataSource: dataSource,
+				PendingFunc: func(context.Context) (pending.PreLatest, error) {
+					return pending.PreLatest{}, errors.New("no PreLatest available")
+				},
+				PreConfirmedFunc: func(
+					_ context.Context, _ uint64, _ string, _ uint64, numCalls uint,
+				) (starknet.PreConfirmedUpdate, error) {
+					if int(numCalls) > len(script) {
+						return starknet.PreConfirmedNoChange{}, nil
 					}
-				}
-
-				var response pending.PreConfirmedUpdate
-				switch number {
-				case 1:
-					// block 1 will be polled 2 times in our test.
-					// First time, return full block. Second time, return no change.
-					switch numCalls {
-					case 1:
-						preConf := makeTestPreConfirmed(number)
-						response = pending.PreConfirmedUpdate{
-							Mode:            pending.PreConfirmedFull,
-							BlockIdentifier: blockIdentifier,
-							FullBlock:       &preConf,
-						}
-						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
-						response.FullBlock.BlockIdentifier = blockIdentifier
-					case 2:
-						response = pending.PreConfirmedUpdate{
-							Mode:            pending.PreConfirmedNoChange,
-							BlockIdentifier: blockIdentifier,
-						}
-					}
-				case 2:
-					// block 2 will be polled 4 times in our test.
-					// Full block > Delta Change > New Identifier > No change.
-					switch numCalls {
-					case 3:
-						preConf := makeTestPreConfirmed(number)
-						response = pending.PreConfirmedUpdate{
-							Mode:            pending.PreConfirmedFull,
-							BlockIdentifier: blockIdentifier,
-							FullBlock:       &preConf,
-						}
-						response.FullBlock.Block.TransactionCount = number%10 + uint64(numCalls)/2
-						response.FullBlock.BlockIdentifier = blockIdentifier
-					case 4:
-						response = pending.PreConfirmedUpdate{
-							Mode:               pending.PreConfirmedDelta,
-							BlockIdentifier:    blockIdentifier,
-							AppendTransactions: []core.Transaction{newTx()},
-							AppendReceipts:     []*core.TransactionReceipt{{}},
-							AppendStateDiffs:   []*core.StateDiff{{}},
-						}
-					case 5:
-						preConf := makeTestPreConfirmed(number)
-						response = pending.PreConfirmedUpdate{
-							Mode:            pending.PreConfirmedFull,
-							BlockIdentifier: "0xdeadbeef",
-							FullBlock:       &preConf,
-						}
-						response.FullBlock.Block.TransactionCount = knownTransactionCount
-						response.FullBlock.BlockIdentifier = "0xdeadbeef"
-					case 6:
-						response = pending.PreConfirmedUpdate{
-							Mode:            pending.PreConfirmedNoChange,
-							BlockIdentifier: blockIdentifier,
-						}
-					}
-				default:
-					return pending.PreConfirmedUpdate{}, fmt.Errorf("unexpected number: %d", number)
-				}
-
-				return response, nil
+					return script[numCalls-1], nil
+				},
 			}
 
-			mockDataSource := &MockDataSource{
-				DataSource:       dataSource,
-				PendingFunc:      pendingFunc,
-				PreConfirmedFunc: preConfirmedFunc,
-			}
-
-			s := New(
-				bc,
-				mockDataSource,
-				logger,
-				preLPoll,
-				preCPoll,
-				false,
-				testDB,
-			)
-
-			// Subscribe to pre-confirmed feed to observe stored pre_confirmed
+			s := New(bc, mockDS, logger, preLPoll, preCPoll, false, testDB)
 			sub := s.preConfirmedDataFeed.SubscribeKeepLast()
 			defer sub.Unsubscribe()
 
-			go func() {
-				s.pollPendingData(t.Context())
-			}()
+			go func() { s.pollPendingData(t.Context()) }()
 			synctest.Wait()
 
-			// store block0; sets preConfirmed target to 1
-			require.NoError(
-				t, bc.Store(
-					block0,
-					&core.BlockCommitments{},
-					stateUpdate0,
-					map[felt.Felt]core.ClassDefinition{},
-				),
-			)
-			s.highestBlockHeader.Store(block0.Header)
-			s.newHeads.Send(block0)
-			synctest.Wait()
-
-			// 1st preConfirmed tick; expected pre_confirmed = 1.
-			// Full block is returned
-			time.Sleep(preCPoll)
-			synctest.Wait()
-
-			pc := <-sub.Recv()
-			require.NotNil(t, pc)
-			assert.Equal(t, uint64(1), pc.Block.Number)
-			synctest.Wait()
-
-			// 2nd preConfirmed tick; preConfirmed target is still 1
-			// No change in preConfirmed
-			time.Sleep(preCPoll)
-			synctest.Wait()
-			select {
-			case <-sub.Recv():
-				t.Fatal("'no change' must not trigger a new PreConfirmed broadcast")
-			default:
+			advance := func(b *core.Block, su *core.StateUpdate) {
+				storeBlock(t, bc, b, su)
+				s.highestBlockHeader.Store(b.Header)
+				s.newHeads.Send(b)
+				synctest.Wait()
+			}
+			tick := func() {
+				time.Sleep(preCPoll)
+				synctest.Wait()
 			}
 
-			// store block1; sets preConfirmed target to 2
-			require.NoError(
-				t, bc.Store(
-					block1,
-					&core.BlockCommitments{},
-					stateUpdate1,
-					map[felt.Felt]core.ClassDefinition{},
-				),
-			)
-			s.highestBlockHeader.Store(block1.Header)
-			s.newHeads.Send(block1)
-			synctest.Wait()
+			advance(block0, stateUpdate0) // target := 1
 
-			// 3rd preConfirmed tick; expected pre_confirmed = 2.
-			// Full block is returned
-			time.Sleep(preCPoll)
-			synctest.Wait()
+			// poll 1: Full → broadcast at height 1.
+			tick()
+			pc1 := expectBroadcast(t, sub)
+			assert.Equal(t, uint64(1), pc1.Block.Number)
 
-			pc = <-sub.Recv()
-			require.NotNil(t, pc)
-			assert.Equal(t, uint64(2), pc.Block.Number)
-			synctest.Wait()
+			// poll 2: NoChange → no broadcast.
+			tick()
+			expectNoBroadcast(t, sub)
 
-			// 4th preConfirmed tick; pre_confirmed target is still 2.
-			// PreConfirmed 2 arrives with delta update.
-			time.Sleep(preCPoll)
-			synctest.Wait()
+			advance(block1, stateUpdate1) // target := 2
 
-			deltaPc := <-sub.Recv()
-			require.NotNil(t, deltaPc)
-			assert.Equal(t, pc.Block.Number, deltaPc.Block.Number)
-			assert.NotEqual(t, pc, deltaPc)
-			synctest.Wait()
+			// poll 3: Full → broadcast at height 2.
+			tick()
+			pc2 := expectBroadcast(t, sub)
+			assert.Equal(t, uint64(2), pc2.Block.Number)
 
-			// 5th preConfirmed tick; pre_confirmed target is still 2.
-			// PreConfirmed 2 arrives with new identifier. Node must discard current
-			// preConfirmed and store the new one.
-			time.Sleep(preCPoll)
-			synctest.Wait()
+			// poll 4: Delta enriches existing block → broadcast.
+			tick()
+			deltaPc := expectBroadcast(t, sub)
+			assert.Equal(t, pc2.Block.Number, deltaPc.Block.Number)
+			assert.NotEqual(t, pc2, deltaPc)
 
-			pc = <-sub.Recv()
-			require.NotNil(t, pc)
-			assert.Equal(t, deltaPc.Block.Number, pc.Block.Number)
-			assert.NotEqual(t, deltaPc.BlockIdentifier, pc.BlockIdentifier)
-			synctest.Wait()
+			// poll 5: Full with new identifier replaces existing → broadcast.
+			tick()
+			replaced := expectBroadcast(t, sub)
+			assert.Equal(t, deltaPc.Block.Number, replaced.Block.Number)
+			assert.NotEqual(t, deltaPc.BlockIdentifier, replaced.BlockIdentifier)
 
-			// 6th preConfirmed tick; preConfirmed target is still 2
-			// No change in preConfirmed
-			time.Sleep(preCPoll)
-			synctest.Wait()
-			select {
-			case <-sub.Recv():
-				t.Fatal("'no change' must not trigger a new PreConfirmed broadcast")
-			default:
-			}
+			// poll 6: NoChange → no broadcast.
+			tick()
+			expectNoBroadcast(t, sub)
 		})
 	})
 }
 
-func TestStorePreConfirmed(t *testing.T) {
-	testDB := memory.New()
-	bc := blockchain.New(
-		testDB,
-		&networks.Mainnet,
-		blockchain.WithNewState(statetestutils.UseNewState()),
-	)
-	logger := log.NewNopZapLogger()
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
-
-	s := New(bc, NewFeederGatewayDataSource(bc, nil), logger, 0, 0, false, testDB)
-
-	t.Run("stores pre_confirmed when there is none (first entry)", func(t *testing.T) {
-		preConfirmed := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{Number: 0},
-			},
-			StateUpdate: &core.StateUpdate{},
-		}
-		t.Run("head is nil", func(t *testing.T) {
-			written, err := s.StorePreConfirmed(&preConfirmed)
-			require.NoError(t, err)
-			require.True(t, written)
-			ptr := s.preConfirmed.Load()
-			require.NotNil(t, ptr)
-			require.Equal(t, preConfirmed, *ptr)
-		})
-		head, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
-		require.NoError(t, bc.Store(
-			head,
-			&core.BlockCommitments{},
-			stateUpdate0,
-			map[felt.Felt]core.ClassDefinition{},
-		))
-		t.Run("not valid for head", func(t *testing.T) {
-			s.preConfirmed.Store(nil)
-			written, err := s.StorePreConfirmed(&preConfirmed)
-			require.Error(t, err)
-			require.False(t, written)
-		})
-	})
-
-	t.Run("returns error if ProtocolVersion unsupported", func(t *testing.T) {
-		pc := &pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:          1,
-					ProtocolVersion: core.LatestVer.IncMajor().String(),
-				},
-			},
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err := s.StorePreConfirmed(pc)
-		require.Error(t, err)
-		require.False(t, written)
-	})
-
-	t.Run("overwrites if existing pending is invalid", func(t *testing.T) {
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-		invalidPreConfirmed := pending.PreConfirmed{
-			Block:       &core.Block{Header: &core.Header{Number: 0}},
-			StateUpdate: &core.StateUpdate{},
-		}
-		// Insert invalid pending (simulate old data)
-		s.preConfirmed.Store(&invalidPreConfirmed)
-		pc := &pending.PreConfirmed{
-			Block:       &core.Block{Header: &core.Header{Number: head.Number + 1}},
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err := s.StorePreConfirmed(pc)
-		require.NoError(t, err)
-		require.True(t, written)
-	})
-
-	t.Run("ignores pre_confirmed with fewer or equal txs for the same block number (but updates attachment)", func(t *testing.T) {
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-
-		// Store "better" with higher tx count
-		better := &pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					TransactionCount: 2,
-				},
-			},
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err := s.StorePreConfirmed(better)
-		require.NoError(t, err)
-		require.True(t, written)
-
-		// Attempt to store "worse" but with a pre_latest attachment;
-		// should keep existing but update attachment
-		pl := makeEmptyPreLatestForParent(head)
-
-		worse := &pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					TransactionCount: 1,
-				},
-			},
-			PreLatest:   &pl,
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err = s.StorePreConfirmed(worse)
-		require.NoError(t, err)
-		require.False(t, written)
-
-		ptr := s.preConfirmed.Load()
-		require.NotNil(t, ptr)
-		stored := *ptr
-		require.NotNil(t, stored.PreLatest, "attachment should be updated even if not swapping blocks")
-		require.Equal(t, &pl, stored.PreLatest, "attachment should match incoming")
-	})
-
-	t.Run("accepts pre_confirmed with more txs for same block number", func(t *testing.T) {
-		s.preConfirmed.Store(nil)
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-
-		worse := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					TransactionCount: 1,
-				},
-			},
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err := s.StorePreConfirmed(&worse)
-		require.NoError(t, err)
-		require.True(t, written)
-		ptr := s.preConfirmed.Load()
-		require.Equal(t, worse, *ptr)
-
-		better := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					TransactionCount: 2,
-				},
-			},
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err = s.StorePreConfirmed(&better)
-		require.NoError(t, err)
-		require.True(t, written)
-		ptr = s.preConfirmed.Load()
-		require.Equal(t, better, *ptr)
-	})
-
-	t.Run("accepts more recent pre_confirmed regardless tx count", func(t *testing.T) {
-		s.preConfirmed.Store(nil)
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-
-		old := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					TransactionCount: 5,
-				},
-			},
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err := s.StorePreConfirmed(&old)
-		require.NoError(t, err)
-		require.True(t, written)
-		ptr := s.preConfirmed.Load()
-		require.Equal(t, old, *ptr)
-
-		// Attach prelatest to make validate pass for pre_confirmed number == head + 2.
-		// Similar as storing head + 1
-		preLatest := &pending.PreLatest{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: head.Hash,
-					Number:     head.Number + 1,
-				},
-			},
-		}
-		newer := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 2,
-					TransactionCount: 2,
-				},
-			},
-			PreLatest:   preLatest,
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err = s.StorePreConfirmed(&newer)
-		require.NoError(t, err)
-		require.True(t, written)
-		ptr = s.preConfirmed.Load()
-		require.Equal(t, newer, *ptr)
-	})
-
-	t.Run("ignores valid older pre_confirmed", func(t *testing.T) {
-		// A valid older pre_confirmed value occurs when the head is at N;
-		// - pre_confirmed at N + 1
-		// - pre_confirmed is at N + 2 (with pre-latest).
-		// However N+1 must not overwrite N+2.
-		s.preConfirmed.Store(nil)
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-		// Attach prelatest to make validate pass for pre_confirmed number == head + 2.
-		// Similar as storing head + 1
-		preLatest := &pending.PreLatest{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: head.Hash,
-					Number:     head.Number + 1,
-				},
-			},
-		}
-		newer := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 2,
-					TransactionCount: 2,
-				},
-			},
-			PreLatest:   preLatest,
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err := s.StorePreConfirmed(&newer)
-		require.NoError(t, err)
-		require.True(t, written)
-		ptr := s.preConfirmed.Load()
-		require.Equal(t, newer, *ptr)
-		// Valid older pre_confirmed
-		old := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           head.Number + 1,
-					TransactionCount: 5,
-				},
-			},
-			StateUpdate: &core.StateUpdate{},
-		}
-		written, err = s.StorePreConfirmed(&old)
-		require.NoError(t, err)
-		require.False(t, written)
-		ptr = s.preConfirmed.Load()
-		require.Equal(t, newer, *ptr)
-	})
+// storeBlock writes a block + state update with empty commitments and class map.
+func storeBlock(t *testing.T, bc *blockchain.Blockchain, b *core.Block, su *core.StateUpdate) {
+	t.Helper()
+	require.NoError(t, bc.Store(b, &core.BlockCommitments{}, su, map[felt.Felt]core.ClassDefinition{}))
 }
 
-func makeTestPreConfirmed(num uint64) pending.PreConfirmed {
-	receipts := make([]*core.TransactionReceipt, 0)
-	preConfirmedBlock := &core.Block{
-		// pre_confirmed block does not have parent hash
-		Header: &core.Header{
-			SequencerAddress: feltOne,
-			Number:           num,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  core.Ver0_14_0.String(),
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    feltOne,
-			L1GasPriceSTRK:   feltOne,
-			L2GasPrice: &core.GasPrice{
-				PriceInWei: feltOne,
-				PriceInFri: feltOne,
-			},
-			L1DataGasPrice: &core.GasPrice{
-				PriceInWei: feltOne,
-				PriceInFri: feltOne,
-			},
-			L1DAMode: core.Blob,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
+// waitForBroadcast reads the next pre_confirmed broadcast or fails on ctx done.
+func waitForBroadcast(
+	t *testing.T,
+	sub *feed.Subscription[*pending.PreConfirmed],
+	ctx context.Context,
+) *pending.PreConfirmed {
+	t.Helper()
+	select {
+	case pc := <-sub.Recv():
+		require.NotNil(t, pc)
+		return pc
+	case <-ctx.Done():
+		t.Fatal("expected a pre_confirmed broadcast but context expired")
+		return nil
 	}
-	stateDiff := core.EmptyStateDiff()
-	preConfirmed := pending.PreConfirmed{
-		Block: preConfirmedBlock,
-		StateUpdate: &core.StateUpdate{
-			StateDiff: &stateDiff,
-		},
-		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
-		TransactionStateDiffs: make([]*core.StateDiff, 0),
-		CandidateTxs:          make([]core.Transaction, 0),
+}
+
+// waitForBlockNumber drains broadcasts until one with the target block number
+// arrives. Fails if a later block number is observed first (skip) or ctx ends.
+func waitForBlockNumber(
+	t *testing.T,
+	sub *feed.Subscription[*pending.PreConfirmed],
+	ctx context.Context,
+	target uint64,
+) {
+	t.Helper()
+	for {
+		pc := waitForBroadcast(t, sub, ctx)
+		switch {
+		case pc.GetBlock().Number == target:
+			return
+		case pc.GetBlock().Number > target:
+			t.Fatalf("skipped pre_confirmed for number %d (saw %d)", target, pc.GetBlock().Number)
+		}
 	}
-	return preConfirmed
+}
+
+// expectBroadcast non-blockingly reads one broadcast under synctest virtual
+// time; the caller must have advanced time and called synctest.Wait first.
+func expectBroadcast(
+	t *testing.T, sub *feed.Subscription[*pending.PreConfirmed],
+) *pending.PreConfirmed {
+	t.Helper()
+	select {
+	case pc := <-sub.Recv():
+		require.NotNil(t, pc)
+		return pc
+	default:
+		t.Fatal("expected a pre_confirmed broadcast")
+		return nil
+	}
+}
+
+// expectNoBroadcast asserts that no broadcast is pending; the caller must have
+// advanced time and called synctest.Wait first.
+func expectNoBroadcast(t *testing.T, sub *feed.Subscription[*pending.PreConfirmed]) {
+	t.Helper()
+	select {
+	case <-sub.Recv():
+		t.Fatal("did not expect a pre_confirmed broadcast")
+	default:
+	}
 }
 
 func makeEmptyPreLatestForParent(parent *core.Header) pending.PreLatest {

@@ -180,7 +180,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.Equal(t, better, *ptr)
 	})
 
-	t.Run("replaces pre_confirmed with different identifier for same block number", func(t *testing.T) {
+	t.Run("replaces pre_confirmed with different identifier for same number", func(t *testing.T) {
 		s.preConfirmed.inner.Store(nil)
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
