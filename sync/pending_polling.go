@@ -164,10 +164,16 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 	}
 }
 
-// preConfirmedPoll bundles a wire update with the block number it was fetched.
+// preConfirmedPoll bundles a wire update with the block number it was fetched
+// and the transaction count the poll was based on. baseTxCount echoes the
+// knownTransactionCount sent to the server so the consumer can assert the
+// stored pre_confirmed still has that many transactions before merging a
+// Delta — guarding against duplicate appends when two polls race and observe
+// the same base before either has been applied.
 type preConfirmedPoll struct {
 	update      starknet.PreConfirmedUpdate
 	blockNumber uint64
+	baseTxCount uint64
 }
 
 // pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
@@ -221,7 +227,11 @@ func (s *Synchronizer) pollPreConfirmed(
 			}
 
 			select {
-			case out <- preConfirmedPoll{update: update, blockNumber: targetBlockNum}:
+			case out <- preConfirmedPoll{
+				update:      update,
+				blockNumber: targetBlockNum,
+				baseTxCount: knownTransactionCount,
+			}:
 				continue
 			case <-ctx.Done():
 				return
@@ -295,7 +305,13 @@ func (s *Synchronizer) handlePreConfirmed(
 		head = nil
 	}
 
-	applied, err := s.preConfirmed.ApplyUpdate(poll.update, poll.blockNumber, head, stagedPreLatest)
+	applied, err := s.preConfirmed.ApplyUpdate(
+		poll.update,
+		poll.blockNumber,
+		poll.baseTxCount,
+		head,
+		stagedPreLatest,
+	)
 	if err != nil {
 		s.logger.Debug("Error while applying pre_confirmed update", zap.Error(err))
 		return

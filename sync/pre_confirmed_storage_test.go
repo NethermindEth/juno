@@ -360,7 +360,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 	t.Run("nothing stored: NoChange and Delta are no-ops; Full bootstraps", func(t *testing.T) {
 		s.preConfirmed.inner.Store(nil)
 		applied, err := s.preConfirmed.ApplyUpdate(
-			starknet.PreConfirmedNoChange{}, head.Number+1, head, nil,
+			starknet.PreConfirmedNoChange{}, head.Number+1, 0, head, nil,
 		)
 		require.NoError(t, err)
 		require.Nil(t, applied)
@@ -368,7 +368,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 
 		s.preConfirmed.inner.Store(nil)
 		applied, err = s.preConfirmed.ApplyUpdate(
-			starknet.PreConfirmedDelta{BlockIdentifier: "round-a"}, head.Number+1, head, nil,
+			starknet.PreConfirmedDelta{BlockIdentifier: "round-a"}, head.Number+1, 0, head, nil,
 		)
 		require.NoError(t, err)
 		require.Nil(t, applied)
@@ -376,7 +376,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 
 		s.preConfirmed.inner.Store(nil)
 		full := makeTestPreConfirmedFull("round-a", 0)
-		applied, err = s.preConfirmed.ApplyUpdate(full, head.Number+1, head, nil)
+		applied, err = s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
 		require.NotNil(t, applied, "Full carries a complete block and must bootstrap from empty")
 		require.Equal(t, "round-a", applied.BlockIdentifier)
@@ -386,7 +386,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 	t.Run("NoChange returns (nil, nil) and preserves store", func(t *testing.T) {
 		seed := seedFull(t, "round-a", 3)
 		applied, err := s.preConfirmed.ApplyUpdate(
-			starknet.PreConfirmedNoChange{}, head.Number+1, head, nil,
+			starknet.PreConfirmedNoChange{}, head.Number+1, 0, head, nil,
 		)
 		require.NoError(t, err)
 		require.Nil(t, applied)
@@ -397,7 +397,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		seedFull(t, "round-a", 0)
 		full := makeTestPreConfirmedFull("round-b", 0)
 
-		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, head, nil)
+		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
 		require.NotNil(t, applied)
 		require.Equal(t, "round-b", applied.BlockIdentifier)
@@ -424,7 +424,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 			Receipts:              []*starknet.TransactionReceipt{{TransactionHash: hash}},
 			TransactionStateDiffs: []*starknet.StateDiff{{}},
 		}
-		applied, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, head, nil)
+		applied, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
 		require.NotNil(t, applied)
 		require.Equal(t, "round-c", applied.BlockIdentifier)
@@ -437,9 +437,55 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		delta := starknet.PreConfirmedDelta{
 			BlockIdentifier: "different-round",
 		}
-		_, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, head, nil)
+		_, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, 0, head, nil)
 		require.ErrorIs(t, err, sn2core.ErrPreConfirmedIdentifierMismatch)
 		require.Same(t, seed, s.preConfirmed.inner.Load(), "store must not change on Delta error")
+	})
+
+	// Regression: two polls race, both observe baseTxCount=N and request a
+	// delta-since-N. The first delta is applied, advancing the store to N+k.
+	// The second delta, still computed against base N, must not be merged
+	// positionally onto N+k or it would duplicate transactions [N..N+k-1].
+	t.Run("Delta with stale baseTxCount returns error and preserves store", func(t *testing.T) {
+		// Seed with 1 tx so the stored state has drifted away from baseTxCount=0.
+		hash := felt.FromUint64[felt.Felt](0xbeef)
+		seed := pending.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           head.Number + 1,
+					TransactionCount: 1,
+					ProtocolVersion:  core.Ver0_14_0.String(),
+					EventsBloom:      core.EventsBloom(nil),
+				},
+				Transactions: []core.Transaction{&core.InvokeTransaction{TransactionHash: &hash}},
+				Receipts:     []*core.TransactionReceipt{{TransactionHash: &hash}},
+			},
+			StateUpdate:           &core.StateUpdate{StateDiff: &core.StateDiff{}},
+			TransactionStateDiffs: []*core.StateDiff{{}},
+			BlockIdentifier:       "round-g",
+		}
+		s.preConfirmed.inner.Store(&seed)
+
+		// Delta carries the same identifier (so the identifier guard would let
+		// it through) but was computed against an older base of 0 transactions.
+		emptySlice := []*felt.Felt{}
+		delta := starknet.PreConfirmedDelta{
+			BlockIdentifier: "round-g",
+			Transactions: []starknet.Transaction{{
+				Hash:      &hash,
+				Type:      starknet.TxnInvoke,
+				Version:   new(felt.Felt).SetUint64(1),
+				CallData:  &emptySlice,
+				Signature: &emptySlice,
+			}},
+			Receipts:              []*starknet.TransactionReceipt{{TransactionHash: &hash}},
+			TransactionStateDiffs: []*starknet.StateDiff{{}},
+		}
+
+		_, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, 0, head, nil)
+		require.ErrorIs(t, err, ErrPreConfirmedBaseTxCountMismatch)
+		require.Same(t, &seed, s.preConfirmed.inner.Load(),
+			"store must not change when delta's base no longer matches the stored count")
 	})
 
 	t.Run("attaches PreLatest to the applied block", func(t *testing.T) {
@@ -447,7 +493,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		pl := makeEmptyPreLatestForParent(head)
 
 		full := makeTestPreConfirmedFull("round-f", 0)
-		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, head, &pl)
+		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, &pl)
 		require.NoError(t, err)
 		require.NotNil(t, applied)
 		require.Same(t, &pl, applied.PreLatest)

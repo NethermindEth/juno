@@ -48,6 +48,15 @@ func (s *PreConfirmedStorage) ReadPreConfirmedForHead(head *core.Header) *pendin
 	return p
 }
 
+// ErrPreConfirmedBaseTxCountMismatch is returned by ApplyUpdate when a Delta
+// arrives whose base transaction count no longer matches the stored
+// pre_confirmed. This happens when two polls race: both observe the same
+// pre_confirmed, the first delta is applied, and the second delta — still
+// computed against the pre-merge base — would duplicate transactions if
+// appended positionally. Callers should drop the delta; the next poll will
+// re-read the now-updated base and request a fresh delta.
+var ErrPreConfirmedBaseTxCountMismatch = errors.New("pre_confirmed base transaction count mismatch")
+
 // ApplyUpdate atomically evolves the stored pre_confirmed from a wire-side
 // update, attaching the given pre_latest, under the preserve-if-richer rule.
 // A [starknet.PreConfirmedFull] update bootstraps the store when nothing is
@@ -55,12 +64,18 @@ func (s *PreConfirmedStorage) ReadPreConfirmedForHead(head *core.Header) *pendin
 // are no-ops in that case (Delta needs a baseline to merge into).
 // Returns the resulting pre_confirmed if the store was replaced; nil otherwise.
 //
+// baseTxCount is the transaction count the wire-side caller sent to the server
+// as knownTransactionCount and is consulted only for the Delta case: if the
+// stored pre_confirmed has drifted away from that count between poll dispatch
+// and apply, the delta is rejected with [ErrPreConfirmedBaseTxCountMismatch].
+//
 // head MUST be the canonical chain head from blockchain.HeadsHeader(), or
 // nil at genesis. It is forwarded to StorePreConfirmedForHead for the
 // validation gate — see that method for the contract.
 func (s *PreConfirmedStorage) ApplyUpdate(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
+	baseTxCount uint64,
 	head *core.Header,
 	preLatest *pending.PreLatest,
 ) (*pending.PreConfirmed, error) {
@@ -81,6 +96,9 @@ func (s *PreConfirmedStorage) ApplyUpdate(
 	case starknet.PreConfirmedDelta:
 		if current == nil {
 			return nil, nil
+		}
+		if uint64(len(current.Block.Transactions)) != baseTxCount {
+			return nil, ErrPreConfirmedBaseTxCountMismatch
 		}
 		next, err = sn2core.AdaptPreConfirmedWithDelta(current, &u)
 		if err != nil {
