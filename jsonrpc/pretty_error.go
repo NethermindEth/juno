@@ -60,22 +60,40 @@ func precededByComma(input []byte, offset int) bool {
 	return len(trimmed) > 0 && trimmed[len(trimmed)-1] == ','
 }
 
+func describeTypeError(e *json.UnmarshalTypeError) string {
+	if e.Field != "" {
+		return fmt.Sprintf("field %q should be %s, got %s", e.Field, e.Type, e.Value)
+	}
+	return fmt.Sprintf("expected %s, got %s", e.Type, e.Value)
+}
+
+func describeSyntaxError(input []byte, offset int, err error) string {
+	expected, ok := expectedToken(err.Error())
+	if !ok || offset >= len(input) {
+		return err.Error()
+	}
+	symbol, _ := utf8.DecodeRune(input[offset:])
+	if (symbol == '}' || symbol == ']') && precededByComma(input, offset) {
+		return fmt.Sprintf("unexpected trailing comma before %q", symbol)
+	}
+	return fmt.Sprintf("unexpected %q, expected %s", symbol, expected)
+}
+
 func describeError(input []byte, offset int, err error) string {
-	if offset < len(input) {
-		if expected, ok := expectedToken(err.Error()); ok {
-			symbol, _ := utf8.DecodeRune(input[offset:])
-			if (symbol == '}' || symbol == ']') && precededByComma(input, offset) {
-				return fmt.Sprintf("unexpected trailing comma before %q", symbol)
-			}
-			return fmt.Sprintf("unexpected %q, expected %s", symbol, expected)
-		}
-	}
-
-	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+	var (
+		typeErr   *json.UnmarshalTypeError
+		syntaxErr *json.SyntaxError
+	)
+	switch {
+	case errors.As(err, &typeErr):
+		return describeTypeError(typeErr)
+	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return "unexpected end of input"
+	case errors.As(err, &syntaxErr):
+		return describeSyntaxError(input, offset, err)
+	default:
+		return err.Error()
 	}
-
-	return err.Error()
 }
 
 func offendingLine(input []byte, offset int) string {
@@ -111,11 +129,11 @@ func truncateAround(line string, pivot int, maxLineWidth int) (string, int) {
 }
 
 func drawMarker(input []byte, offset, col int, msg string) string {
-	const mazSizeOfMessage = 80
+	const maxLineWidth = 80
 
-	line, markerCol := truncateAround(offendingLine(input, offset), col, mazSizeOfMessage)
+	line, markerCol := truncateAround(offendingLine(input, offset), col, maxLineWidth)
 	gap := strings.Repeat(" ", markerCol-1)
-	return fmt.Sprintf("%s\n%s^\n%s|_ %s", line, gap, gap, msg)
+	return fmt.Sprintf("%s\n%s^\n%s", line, gap, msg)
 }
 
 func prettyParseError(input []byte, err error) string {
@@ -125,6 +143,6 @@ func prettyParseError(input []byte, err error) string {
 	}
 
 	line, col := lineAndColumn(input, offset)
-	msg := fmt.Sprintf("%s at line %d column %d", describeError(input, offset, err), line, col)
+	msg := fmt.Sprintf("%s [line %d, column %d]", describeError(input, offset, err), line, col)
 	return drawMarker(input, offset, col, msg)
 }
