@@ -323,10 +323,7 @@ func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
 func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, http.Header, error) {
-	// We cannot avoid a copy right now. We don't know where a json error could be
-	// Once we hit one, we would need to rewind the reader, which streams do not allow
-	// TODO(granza): SONIC already returns the error position, so it doesn't need a copy.
-	var errorRecoverBuffer bytes.Buffer
+	var errorRecoverBuffer windowBuffer
 	bufferedReader := bufio.NewReaderSize(io.TeeReader(reader, &errorRecoverBuffer), bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
 	resp := &response{
@@ -341,7 +338,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	if !requestIsBatch {
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			resp.Error = Err(InvalidJSON, prettyParseError(errorRecoverBuffer.Bytes(), jsonErr))
+			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
 				resp.ID = req.ID
@@ -356,7 +353,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			resp.Error = Err(InvalidJSON, prettyParseError(errorRecoverBuffer.Bytes(), batchJSONErr))
+			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr))
 		} else if len(batchReq) == 0 {
 			resp.Error = Err(InvalidRequest, "empty batch")
 		} else {

@@ -6,33 +6,64 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
 
-func parseErrorOffset(input []byte, err error) (offset int, ok bool) {
+const (
+	maxWindowSize  = 512
+	maxLineWidth   = 80
+	maxContextRows = 3
+)
+
+// windowBuffer keeps the last maxWindowSize bytes read
+type windowBuffer struct {
+	window        []byte
+	consumedBytes int
+	newlinesSeen  int
+}
+
+func (c *windowBuffer) Write(p []byte) (int, error) {
+	c.consumedBytes += len(p)
+	c.newlinesSeen += bytes.Count(p, []byte{'\n'})
+
+	if len(p) >= maxWindowSize {
+		c.window = append(c.window[:0], p[len(p)-maxWindowSize:]...)
+		return len(p), nil
+	}
+
+	// temporarily increases in size
+	c.window = append(c.window, p...)
+	if len(c.window) > maxWindowSize {
+		c.window = c.window[:copy(c.window, c.window[len(c.window)-maxWindowSize:])]
+	}
+
+	return len(p), nil
+}
+
+func errorOffset(inputLength int, err error) (offset int, ok bool) {
 	var (
 		syntaxErr *json.SyntaxError
 		typeErr   *json.UnmarshalTypeError
 	)
 	switch {
 	case errors.As(err, &syntaxErr):
-		return min(int(syntaxErr.Offset)-1, len(input)), true
+		return min(int(syntaxErr.Offset)-1, inputLength), true
 	case errors.As(err, &typeErr):
-		return min(int(typeErr.Offset)-1, len(input)), true
+		return min(int(typeErr.Offset)-1, inputLength), true
 	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
-		return len(input), true
+		return inputLength, true
 	default:
 		// TODO(granza): when we add SONIC, the errors will be already pretty.
 		return 0, false
 	}
 }
 
-func lineAndColumn(input []byte, offset int) (line, col int) {
-	before := input[:offset]
-	line = bytes.Count(before, []byte{'\n'}) + 1
-	lineStart := bytes.LastIndexByte(before, '\n') + 1
-	col = utf8.RuneCount(before[lineStart:]) + 1
+func lineAndColumn(c *windowBuffer, markerPos int) (line, col int) {
+	line = c.newlinesSeen - bytes.Count(c.window[markerPos:], []byte{'\n'}) + 1
+	lineStart := bytes.LastIndexByte(c.window[:markerPos], '\n') + 1
+	col = utf8.RuneCount(c.window[lineStart:markerPos]) + 1
 	return line, col
 }
 
@@ -112,11 +143,11 @@ func truncateAround(line string, pivot, maxLineWidth int) (string, int) {
 	}
 
 	const ellipsis = "..."
-	maxSize := maxLineWidth - 2*len(ellipsis)
-	idx := min(pivot-1, len(runes))
-	start := max(0, idx-maxSize/2)
-	end := min(start+maxSize, len(runes))
-	start = max(0, end-maxSize)
+	maxContextSize := maxLineWidth - 2*len(ellipsis)
+	pivotIdx := min(pivot-1, len(runes))
+	start := max(0, pivotIdx-maxContextSize/2)
+	end := min(start+maxContextSize, len(runes))
+	start = max(0, end-maxContextSize)
 
 	left, right := "", ""
 	if start > 0 {
@@ -125,24 +156,53 @@ func truncateAround(line string, pivot, maxLineWidth int) (string, int) {
 	if end < len(runes) {
 		right = ellipsis
 	}
-	return left + string(runes[start:end]) + right, idx - start + len(left) + 1
+	return left + string(runes[start:end]) + right, pivotIdx - start + len(left) + 1
 }
 
-func drawMarker(input []byte, offset, col int, msg string) string {
-	const maxLineWidth = 80
+func precedingLines(window []byte, windowStart, markerPos int) []string {
+	lineStart := bytes.LastIndexByte(window[:markerPos], '\n') + 1
 
-	line, markerCol := truncateAround(offendingLine(input, offset), col, maxLineWidth)
+	var rows []string
+	for len(rows) < maxContextRows && lineStart > 0 {
+		prevEnd := lineStart - 1
+		prevStart := bytes.LastIndexByte(window[:prevEnd], '\n') + 1
+		if prevStart == 0 && windowStart > 0 {
+			break // the topmost line was cut off by the window
+		}
+
+		row, _ := truncateAround(string(window[prevStart:prevEnd]), 1, maxLineWidth)
+		rows = append(rows, row)
+		lineStart = prevStart
+	}
+
+	slices.Reverse(rows)
+	return rows
+}
+
+func drawMarker(window []byte, windowStart, markerPos, col int, msg string) string {
+	var fullMsg strings.Builder
+	for _, row := range precedingLines(window, windowStart, markerPos) {
+		fullMsg.WriteString(row)
+		fullMsg.WriteByte('\n')
+	}
+
+	line, markerCol := truncateAround(offendingLine(window, markerPos), col, maxLineWidth)
 	gap := strings.Repeat(" ", markerCol-1)
-	return fmt.Sprintf("%s\n%s^\n%s", line, gap, msg)
+
+	fmt.Fprintf(&fullMsg, "%s\n%s^\n%s", line, gap, msg)
+	return fullMsg.String()
 }
 
-func prettyParseError(input []byte, err error) string {
-	offset, ok := parseErrorOffset(input, err)
+func prettyParseError(c *windowBuffer, err error) string {
+	absOffset, ok := errorOffset(c.consumedBytes, err)
 	if !ok {
 		return err.Error()
 	}
 
-	line, col := lineAndColumn(input, offset)
-	msg := fmt.Sprintf("%s [line %d, column %d]", describeError(input, offset, err), line, col)
-	return drawMarker(input, offset, col, msg)
+	windowStart := c.consumedBytes - len(c.window)
+	markerPos := max(0, absOffset-windowStart)
+	line, col := lineAndColumn(c, markerPos)
+	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, col)
+
+	return drawMarker(c.window, windowStart, markerPos, col, msg)
 }
