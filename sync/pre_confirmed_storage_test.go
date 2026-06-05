@@ -452,12 +452,6 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		require.NotNil(t, applied)
 		require.Same(t, &pl, applied.PreLatest)
 	})
-
-	// Note: the default branch of ApplyUpdate's type-switch ("unknown variant")
-	// is unreachable from outside the starknet package because PreConfirmedUpdate
-	// is sealed via the unexported isPreConfirmedUpdate method. The sealing
-	// guarantee itself is enforced at compile-time by the assertions in
-	// starknet/pre_confirmed_update.go.
 }
 
 func TestPreConfirmedStorage_ReadPreConfirmedForHead(t *testing.T) {

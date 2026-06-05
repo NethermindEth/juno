@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -64,7 +65,6 @@ var (
 
 // PreConfirmedUpdateEnvelope is the JSON-decodable carrier for a [PreConfirmedUpdate].
 // Discrimination is structural:
-//   - "changed" absent                → legacy upstream: full pre_confirmed
 //   - "changed": false                → NoChange
 //   - "changed": true + "timestamp"   → Full (new round)
 //   - "changed": true, no "timestamp" → Delta
@@ -80,14 +80,11 @@ func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &peek); err != nil {
 		return err
 	}
+	if peek.Changed == nil {
+		return errors.New("pre_confirmed update: missing required \"changed\" field")
+	}
 
 	switch {
-	case peek.Changed == nil:
-		var full PreConfirmedFull
-		if err := json.Unmarshal(data, &full); err != nil {
-			return err
-		}
-		e.Update = full
 	case !*peek.Changed:
 		e.Update = PreConfirmedNoChange{}
 	case peek.Timestamp != nil:

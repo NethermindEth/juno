@@ -22,23 +22,9 @@ func loadFeederTestdata(t *testing.T, relPath string) []byte {
 }
 
 func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
-	t.Run("changed absent decodes as Full (legacy upstream)", func(t *testing.T) {
-		// Real legacy-endpoint response: no "changed" field, full block payload.
-		raw := loadFeederTestdata(t, "sepolia-integration/pre_confirmed/1204672.json")
-
+	t.Run("changed absent returns error", func(t *testing.T) {
 		var env starknet.PreConfirmedUpdateEnvelope
-		require.NoError(t, json.Unmarshal(raw, &env))
-
-		full, ok := env.Update.(starknet.PreConfirmedFull)
-		require.True(t, ok, "expected PreConfirmedFull, got %T", env.Update)
-		require.Equal(t, "PRE_CONFIRMED", full.Status)
-		require.NotZero(t, full.Timestamp)
-		require.NotEmpty(t, full.Version)
-		require.Equal(t, starknet.Blob, full.L1DAMode)
-		require.NotNil(t, full.SequencerAddress)
-		require.NotNil(t, full.L1GasPrice)
-		require.NotNil(t, full.L2GasPrice)
-		require.NotNil(t, full.L1DataGasPrice)
+		require.Error(t, json.Unmarshal([]byte(`{}`), &env))
 	})
 
 	t.Run("changed=true with timestamp decodes as Full (new round)", func(t *testing.T) {
