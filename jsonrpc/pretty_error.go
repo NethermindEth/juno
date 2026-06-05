@@ -105,7 +105,7 @@ func offendingLine(input []byte, offset int) string {
 }
 
 // Returns the truncated string around a pivot and the new index of it
-func truncateAround(line string, pivot int, maxLineWidth int) (string, int) {
+func truncateAround(line string, pivot, maxLineWidth int) (string, int) {
 	runes := []rune(line)
 	if len(runes) <= maxLineWidth {
 		return line, pivot
