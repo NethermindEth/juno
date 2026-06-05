@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -32,7 +33,7 @@ func TestFeederAdapter_FullCycle_StateUpdateWithBlock(t *testing.T) {
 				ctrl := gomock.NewController(t)
 				mockClient := mocks.NewMockFeederReader(ctrl)
 
-				fa := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
+				fa := adaptfeeder.NewFeederAdapter(adaptfeeder.New(mockClient), log.NewNopZapLogger())
 
 				// ************************************************/
 				// ***** uses legacy two-call path by default *****/
@@ -177,7 +178,7 @@ func TestFeederAdapter_FullCycle_StateUpdateWithBlock(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockClient := mocks.NewMockFeederReader(ctrl)
 
-			af := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
+			af := adaptfeeder.NewFeederAdapter(adaptfeeder.New(mockClient), log.NewNopZapLogger())
 
 			// The first feeder call for the new endpoint starts immediately.
 			// By returning a valid response, we simulate that the feeder is already updated.
@@ -236,13 +237,13 @@ func TestFeederAdapter_PreConfirmedBlockByNumber(t *testing.T) {
 				ctrl := gomock.NewController(t)
 				mockClient := mocks.NewMockFeederReader(ctrl)
 
-				fa := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
+				fa := adaptfeeder.NewFeederAdapter(adaptfeeder.New(mockClient), log.NewNopZapLogger())
 
 				// ************************************************/
 				// ***** uses legacy path by default *****/
 				// ************************************************/
 				mockClient.EXPECT().
-					PreConfirmedBlock(gomock.Any(), blockNumberStr).
+					DeprecatedPreConfirmedBlock(gomock.Any(), blockNumberStr).
 					Return(emptyPreConfirmed(), nil)
 
 				pblock, err := fa.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
@@ -264,7 +265,7 @@ func TestFeederAdapter_PreConfirmedBlockByNumber(t *testing.T) {
 
 				// Since the feeder is not updated, the code will fall back to the legacy path.
 				mockClient.EXPECT().
-					PreConfirmedBlock(gomock.Any(), blockNumberStr).
+					DeprecatedPreConfirmedBlock(gomock.Any(), blockNumberStr).
 					Return(emptyPreConfirmed(), nil)
 
 				pblock, err = fa.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
@@ -282,7 +283,7 @@ func TestFeederAdapter_PreConfirmedBlockByNumber(t *testing.T) {
 
 				// The legacy two-call path is still being used.
 				mockClient.EXPECT().
-					PreConfirmedBlock(gomock.Any(), blockNumberStr).
+					DeprecatedPreConfirmedBlock(gomock.Any(), blockNumberStr).
 					Return(emptyPreConfirmed(), nil)
 
 				pblock, err = fa.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
@@ -302,7 +303,7 @@ func TestFeederAdapter_PreConfirmedBlockByNumber(t *testing.T) {
 				// The new endpoint is being used.
 				mockClient.EXPECT().
 					PreConfirmedBlockWithIdentifier(gomock.Any(), blockNumberStr, "", uint64(0)).
-					Return(emptyPreConfirmed(), nil)
+					Return(emptyPreConfirmed().AsUpdate(), nil)
 
 				pblock, err = fa.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 				require.NoError(t, err)
@@ -315,7 +316,7 @@ func TestFeederAdapter_PreConfirmedBlockByNumber(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockClient := mocks.NewMockFeederReader(ctrl)
 
-			fa := adaptfeeder.NewFeederAdaper(adaptfeeder.New(mockClient))
+			fa := adaptfeeder.NewFeederAdapter(adaptfeeder.New(mockClient), log.NewNopZapLogger())
 
 			// The first feeder call for the new endpoint starts immediately.
 			// By returning a valid response, we simulate that the feeder is already updated.
@@ -329,7 +330,7 @@ func TestFeederAdapter_PreConfirmedBlockByNumber(t *testing.T) {
 			// The new endpoint is used.
 			mockClient.EXPECT().
 				PreConfirmedBlockWithIdentifier(gomock.Any(), blockNumberStr, "", uint64(0)).
-				Return(emptyPreConfirmed(), nil)
+				Return(emptyPreConfirmed().AsUpdate(), nil)
 
 			pblock, err := fa.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 			require.NoError(t, err)
@@ -338,10 +339,9 @@ func TestFeederAdapter_PreConfirmedBlockByNumber(t *testing.T) {
 	})
 }
 
-func emptyPreConfirmed() *starknet.PreConfirmedBlock {
-	return &starknet.PreConfirmedBlock{
-		Changed:               true,
-		BlockIdentifier:       "0xdeadbeef",
+//nolint:staticcheck // legacy fixture intentionally uses the deprecated type
+func emptyPreConfirmed() *starknet.DeprecatedPreConfirmedBlock {
+	return &starknet.DeprecatedPreConfirmedBlock{
 		Transactions:          []starknet.Transaction{},
 		Receipts:              []*starknet.TransactionReceipt{},
 		TransactionStateDiffs: []*starknet.StateDiff{},

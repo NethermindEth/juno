@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
@@ -28,7 +29,7 @@ type DataSource interface {
 		blockNumber uint64,
 		blockIdentifier string,
 		knownTransactionCount uint64,
-	) (pending.PreConfirmedUpdate, error)
+	) (starknet.PreConfirmedUpdate, error)
 }
 
 type feederGatewayDataSource struct {
@@ -148,7 +149,7 @@ func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
 	blockNumber uint64,
 	blockIdentifier string,
 	knownTransactionCount uint64,
-) (pending.PreConfirmedUpdate, error) {
+) (starknet.PreConfirmedUpdate, error) {
 	return f.starknetData.PreConfirmedBlockByNumber(
 		ctx,
 		blockNumber,

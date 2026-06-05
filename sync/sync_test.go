@@ -339,34 +339,9 @@ func TestPreConfirmed(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	t.Run("Returns pre_confirmed data when available", func(t *testing.T) {
-		t.Parallel()
-		testDB := memory.New()
-		bc := blockchain.New(
-			testDB,
-			&networks.Mainnet,
-			blockchain.WithNewState(statetestutils.UseNewState()),
-		)
-		b0, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-		s0, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
-		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
-
-		synchronizer := sync.New(bc, nil, logger, 0, 0, false, testDB)
-		head, err := bc.HeadsHeader()
-		require.NoError(t, err)
-
-		expectedPC, err := sync.MakeEmptyPreConfirmedForParent(bc, head)
-		require.NoError(t, err)
-		stored, err := synchronizer.StorePreConfirmed(&expectedPC)
-		require.NoError(t, err)
-		require.True(t, stored)
-
-		result, err := synchronizer.PreConfirmed()
-		require.NoError(t, err)
-		require.Equal(t, &expectedPC, result)
-	})
+	// Store→Read round-trip coverage lives in TestPreConfirmedStorage_RoundTrip
+	// (sync/pending_polling_test.go), where it can exercise the public storage
+	// methods directly without a Synchronizer shim.
 
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()
@@ -374,7 +349,6 @@ func TestPreConfirmed(t *testing.T) {
 		bc := blockchain.New(
 			testDB,
 			&networks.Mainnet,
-
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 		b0, err := gw.BlockByNumber(t.Context(), 0)

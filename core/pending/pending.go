@@ -2,7 +2,6 @@ package pending
 
 import (
 	"errors"
-	"slices"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -72,50 +71,19 @@ type PreConfirmed struct {
 	BlockIdentifier string
 }
 
-// PreConfirmedUpdateMode classifies a delta-aware pre_confirmed fetch result.
-type PreConfirmedUpdateMode int
-
-const (
-	// PreConfirmedNoChange means the server's pre_confirmed matches what the
-	// caller already has and no further action is required.
-	PreConfirmedNoChange PreConfirmedUpdateMode = iota
-	// PreConfirmedDelta means new transactions/receipts/state diffs have been
-	// appended since the caller's known transaction count and should be merged
-	// onto the existing stored pre_confirmed.
-	PreConfirmedDelta
-	// PreConfirmedFull means the server's pre_confirmed is for a different
-	// round and the caller should discard existing data and replace it with
-	// Full.
-	PreConfirmedFull
-)
-
-// PreConfirmedUpdate is the result of a delta-aware pre_confirmed fetch. It
-// is the boundary type between data sources and the sync layer reconciler.
-// Only the fields appropriate for Mode are populated.
-type PreConfirmedUpdate struct {
-	Mode            PreConfirmedUpdateMode
-	BlockIdentifier string
-
-	// FullBlock is set when Mode == PreConfirmedFull.
-	FullBlock *PreConfirmed
-
-	// Append* are set when Mode == PreConfirmedDelta.
-	AppendTransactions []core.Transaction
-	AppendReceipts     []*core.TransactionReceipt
-	AppendStateDiffs   []*core.StateDiff
-}
-
 func NewPreConfirmed(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	transactionStateDiffs []*core.StateDiff,
 	candidateTxs []core.Transaction,
+	blockIdentifier string,
 ) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,
 		TransactionStateDiffs: transactionStateDiffs,
 		CandidateTxs:          candidateTxs,
+		BlockIdentifier:       blockIdentifier,
 	}
 }
 
@@ -132,57 +100,6 @@ func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
 func (p *PreConfirmed) Copy() *PreConfirmed {
 	cp := *p // shallow copy of the struct
 	return &cp
-}
-
-// ApplyDelta returns a new PreConfirmed by appending the given transactions,
-// receipts, and merging the state diffs onto the
-// existing PreConfirmed. It does not modify the receiver.
-func (p *PreConfirmed) ApplyDelta(
-	txs []core.Transaction,
-	receipts []*core.TransactionReceipt,
-	txStateDiffs []*core.StateDiff,
-	blockIdentifier string,
-) *PreConfirmed {
-	next := *p
-	next.BlockIdentifier = blockIdentifier
-
-	nextBlock := *p.Block
-	nextHeader := *p.Block.Header
-
-	newBloomFilter := core.EventsBloom(receipts)
-	if err := newBloomFilter.Merge(p.Block.Header.EventsBloom); err != nil {
-		panic(err) // should never happen since both filters are from the same type
-	}
-	nextHeader.EventsBloom = newBloomFilter
-
-	var eventCount uint64
-	for _, r := range receipts {
-		eventCount += uint64(len(r.Events))
-	}
-	nextHeader.EventCount += eventCount
-
-	nextHeader.TransactionCount += uint64(len(txs))
-	nextBlock.Header = &nextHeader
-	nextBlock.Transactions = slices.Concat(p.Block.Transactions, txs)
-	nextBlock.Receipts = slices.Concat(p.Block.Receipts, receipts)
-
-	next.Block = &nextBlock
-
-	newStateDiff := core.EmptyStateDiff()
-	newStateDiff.Merge(p.StateUpdate.StateDiff)
-	for _, sd := range txStateDiffs {
-		newStateDiff.Merge(sd)
-	}
-	nextStateUpdate := core.StateUpdate{
-		BlockHash: p.StateUpdate.BlockHash,
-		NewRoot:   p.StateUpdate.NewRoot,
-		OldRoot:   p.StateUpdate.OldRoot,
-		StateDiff: &newStateDiff,
-	}
-	next.TransactionStateDiffs = slices.Concat(p.TransactionStateDiffs, txStateDiffs)
-	next.StateUpdate = &nextStateUpdate
-
-	return &next
 }
 
 func (p *PreConfirmed) GetBlock() *core.Block {

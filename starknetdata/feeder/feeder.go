@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 )
@@ -210,45 +209,11 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 	blockNumber uint64,
 	blockIdentifier string,
 	knownTransactionCount uint64,
-) (pending.PreConfirmedUpdate, error) {
-	response, err := f.client.PreConfirmedBlockWithIdentifier(
+) (starknet.PreConfirmedUpdate, error) {
+	return f.client.PreConfirmedBlockWithIdentifier(
 		ctx,
 		strconv.FormatUint(blockNumber, 10),
 		blockIdentifier,
 		knownTransactionCount,
 	)
-	if err != nil {
-		return pending.PreConfirmedUpdate{}, err
-	}
-
-	if !response.Changed {
-		return pending.PreConfirmedUpdate{
-			Mode:            pending.PreConfirmedNoChange,
-			BlockIdentifier: blockIdentifier,
-		}, nil
-	}
-
-	if response.BlockIdentifier != blockIdentifier {
-		full, adaptErr := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
-		if adaptErr != nil {
-			return pending.PreConfirmedUpdate{}, adaptErr
-		}
-		return pending.PreConfirmedUpdate{
-			Mode:            pending.PreConfirmedFull,
-			BlockIdentifier: response.BlockIdentifier,
-			FullBlock:       &full,
-		}, nil
-	}
-
-	txs, receipts, stateDiffs, adaptErr := sn2core.AdaptPreConfirmedDelta(response)
-	if adaptErr != nil {
-		return pending.PreConfirmedUpdate{}, adaptErr
-	}
-	return pending.PreConfirmedUpdate{
-		Mode:               pending.PreConfirmedDelta,
-		BlockIdentifier:    response.BlockIdentifier,
-		AppendTransactions: txs,
-		AppendReceipts:     receipts,
-		AppendStateDiffs:   stateDiffs,
-	}, nil
 }

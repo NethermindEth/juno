@@ -1,0 +1,107 @@
+package starknet
+
+import (
+	"encoding/json"
+
+	"github.com/NethermindEth/juno/core/felt"
+)
+
+// PreConfirmedUpdate is a sealed sum type for "get_preconfirmed_block" responses.
+// One of [PreConfirmedNoChange], [PreConfirmedDelta], or [PreConfirmedFull].
+type PreConfirmedUpdate interface {
+	isPreConfirmedUpdate()
+}
+
+// PreConfirmedNoChange means the server's pre_confirmed matches what the caller already has.
+//
+// Note: the wire JSON also carries a top-level `"changed"` boolean which is not
+// modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
+// variant discrimination and discards it before decoding into this struct.
+type PreConfirmedNoChange struct{}
+
+// PreConfirmedDelta carries transactions/receipts/state diffs appended since the
+// caller's known transaction count for the same block_identifier.
+//
+// Note: the wire JSON also carries a top-level `"changed"` boolean which is not
+// modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
+// variant discrimination and discards it before decoding into this struct.
+type PreConfirmedDelta struct {
+	BlockIdentifier       string                `json:"block_identifier"`
+	Transactions          []Transaction         `json:"transactions"`
+	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
+	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
+}
+
+// PreConfirmedFull carries a full pre_confirmed block for a new round.
+//
+// Note: the wire JSON also carries a top-level `"changed"` boolean which is not
+// modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
+// variant discrimination and discards it before decoding into this struct.
+type PreConfirmedFull struct {
+	BlockIdentifier       string                `json:"block_identifier"`
+	Transactions          []Transaction         `json:"transactions"`
+	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
+	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
+	Status                string                `json:"status"`
+	Timestamp             uint64                `json:"timestamp"`
+	Version               string                `json:"starknet_version"`
+	SequencerAddress      *felt.Felt            `json:"sequencer_address"`
+	L1GasPrice            *GasPrice             `json:"l1_gas_price"`
+	L2GasPrice            *GasPrice             `json:"l2_gas_price"`
+	L1DAMode              L1DAMode              `json:"l1_da_mode"`
+	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
+}
+
+func (PreConfirmedNoChange) isPreConfirmedUpdate() {}
+func (PreConfirmedDelta) isPreConfirmedUpdate()    {}
+func (PreConfirmedFull) isPreConfirmedUpdate()     {}
+
+var (
+	_ PreConfirmedUpdate = PreConfirmedNoChange{}
+	_ PreConfirmedUpdate = PreConfirmedDelta{}
+	_ PreConfirmedUpdate = PreConfirmedFull{}
+)
+
+// PreConfirmedUpdateEnvelope is the JSON-decodable carrier for a [PreConfirmedUpdate].
+// Discrimination is structural:
+//   - "changed" absent                → legacy upstream: full pre_confirmed
+//   - "changed": false                → NoChange
+//   - "changed": true + "timestamp"   → Full (new round)
+//   - "changed": true, no "timestamp" → Delta
+type PreConfirmedUpdateEnvelope struct {
+	Update PreConfirmedUpdate
+}
+
+func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
+	var peek struct {
+		Changed   *bool   `json:"changed"`
+		Timestamp *uint64 `json:"timestamp"`
+	}
+	if err := json.Unmarshal(data, &peek); err != nil {
+		return err
+	}
+
+	switch {
+	case peek.Changed == nil:
+		var full PreConfirmedFull
+		if err := json.Unmarshal(data, &full); err != nil {
+			return err
+		}
+		e.Update = full
+	case !*peek.Changed:
+		e.Update = PreConfirmedNoChange{}
+	case peek.Timestamp != nil:
+		var full PreConfirmedFull
+		if err := json.Unmarshal(data, &full); err != nil {
+			return err
+		}
+		e.Update = full
+	default:
+		var delta PreConfirmedDelta
+		if err := json.Unmarshal(data, &delta); err != nil {
+			return err
+		}
+		e.Update = delta
+	}
+	return nil
+}

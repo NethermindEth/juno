@@ -596,16 +596,14 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(1204672)
-	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(
+	preConfirmedBlockWithCandidates, err := gw.DeprecatedPreConfirmedBlock(
 		t.Context(),
 		strconv.FormatUint(blockNumber, 10),
 	)
 	require.NoError(t, err)
 
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(
-		preConfirmedBlockWithCandidates,
-		blockNumber,
-	)
+	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedFull)
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
 	handler := rpcv10.New(nil, mockSyncReader, nil, nil)
 
@@ -807,7 +805,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,

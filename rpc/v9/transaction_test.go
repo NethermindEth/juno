@@ -470,10 +470,13 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(1204672)
-	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(blockNumber, 10))
+	preConfirmedBlockWithCandidates, err := gw.DeprecatedPreConfirmedBlock(
+		t.Context(), strconv.FormatUint(blockNumber, 10),
+	)
 	require.NoError(t, err)
 
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
+	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedFull)
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
 	handler := rpc.New(nil, mockSyncReader, nil, nil)
 
@@ -669,7 +672,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -1799,9 +1802,11 @@ func TestTransactionStatus(t *testing.T) {
 			blockNumber := uint64(11252240)
 			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 			require.NoError(t, gwErr)
-			require.Equal(t, pending.PreConfirmedFull, update.Mode)
-			require.NotNil(t, update.FullBlock)
-			preConfirmed := *update.FullBlock
+			full, ok := update.(starknet.PreConfirmedFull)
+			require.True(t, ok, "expected PreConfirmedFull, got %T", update)
+			adapted, err := sn2core.AdaptPreConfirmedBlock(&full, blockNumber)
+			require.NoError(t, err)
+			preConfirmed := adapted
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)

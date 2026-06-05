@@ -11,13 +11,10 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 func TestBlockByNumber(t *testing.T) {
@@ -360,111 +357,10 @@ func TestPreConfirmedBlock(t *testing.T) {
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 	blockNumber := uint64(11252240)
-	blockNumberStr := strconv.FormatUint(blockNumber, 10)
-	response, err := client.PreConfirmedBlockWithIdentifier(ctx, blockNumberStr, "", 0)
-	require.NoError(t, err)
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
-	require.NoError(t, err)
 
 	update, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber, "", 0)
 	require.NoError(t, err)
-	require.NotNil(t, update.FullBlock)
-	assert.Equal(t, adaptedPreConfirmed, *update.FullBlock)
-}
-
-func TestPreConfirmedBlock_Mock(t *testing.T) {
-	client := mocks.NewMockFeederReader(gomock.NewController(t))
-	adapter := adaptfeeder.New(client)
-	blockNumber := uint64(11252240)
-	blockNumberStr := strconv.FormatUint(blockNumber, 10)
-
-	blockIdentifier := "0xbeef"
-
-	t.Run("return no change", func(t *testing.T) {
-		client.
-			EXPECT().
-			PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, blockIdentifier, uint64(0)).
-			Return(&starknet.PreConfirmedBlock{Changed: false}, nil)
-
-		update, err := adapter.PreConfirmedBlockByNumber(t.Context(), blockNumber, blockIdentifier, 0)
-		require.NoError(t, err)
-		assert.Equal(t, pending.PreConfirmedNoChange, update.Mode)
-		assert.Equal(t, blockIdentifier, update.BlockIdentifier)
-		assert.Nil(t, update.FullBlock)
-	})
-
-	t.Run("return full block", func(t *testing.T) {
-		client.
-			EXPECT().
-			PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, blockIdentifier, uint64(0)).
-			Return(emptyPreConfirmed(), nil)
-
-		update, err := adapter.PreConfirmedBlockByNumber(t.Context(), blockNumber, blockIdentifier, 0)
-		require.NoError(t, err)
-		require.NotNil(t, update.FullBlock)
-		assert.Equal(t, pending.PreConfirmedFull, update.Mode)
-		assert.NotEqual(t, blockIdentifier, update.BlockIdentifier)
-
-		t.Run("error while adapting preconfirmed block", func(t *testing.T) {
-			pBlockWithWrongStatus := emptyPreConfirmed()
-			pBlockWithWrongStatus.Status = "WRONG_STATUS"
-			client.
-				EXPECT().
-				PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, blockIdentifier, uint64(0)).
-				Return(pBlockWithWrongStatus, nil)
-
-			update, err := adapter.PreConfirmedBlockByNumber(t.Context(), blockNumber, blockIdentifier, 0)
-			assert.Error(t, err)
-			assert.Zero(t, update)
-		})
-	})
-
-	t.Run("return delta", func(t *testing.T) {
-		delta := &starknet.PreConfirmedBlock{
-			Changed:         true,
-			BlockIdentifier: blockIdentifier,
-			Transactions: []starknet.Transaction{
-				{
-					Type:      starknet.TxnInvoke,
-					CallData:  &[]*felt.Felt{},
-					Signature: &[]*felt.Felt{},
-				},
-			},
-			Receipts:              []*starknet.TransactionReceipt{{}},
-			TransactionStateDiffs: []*starknet.StateDiff{{}},
-		}
-		client.
-			EXPECT().
-			PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, blockIdentifier, uint64(0)).
-			Return(delta, nil)
-
-		update, err := adapter.PreConfirmedBlockByNumber(t.Context(), blockNumber, blockIdentifier, 0)
-		require.NoError(t, err)
-		assert.Nil(t, update.FullBlock)
-		assert.Equal(t, pending.PreConfirmedDelta, update.Mode)
-		assert.Equal(t, blockIdentifier, update.BlockIdentifier)
-
-		expectedTxs, expectedReceipts, expectedStateDiffs, err := sn2core.AdaptPreConfirmedDelta(delta)
-		require.NoError(t, err)
-		assert.Equal(t, expectedTxs, update.AppendTransactions)
-		assert.Equal(t, expectedReceipts, update.AppendReceipts)
-		assert.Equal(t, expectedStateDiffs, update.AppendStateDiffs)
-
-		t.Run("error while adapting preconfirmed block", func(t *testing.T) {
-			// invalid delta: with one tx, but no state diff or receipt for it
-			invalidDelta := &starknet.PreConfirmedBlock{
-				Changed:         true,
-				BlockIdentifier: blockIdentifier,
-				Transactions:    []starknet.Transaction{{}},
-			}
-			client.
-				EXPECT().
-				PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, blockIdentifier, uint64(0)).
-				Return(invalidDelta, nil)
-
-			update, err := adapter.PreConfirmedBlockByNumber(t.Context(), blockNumber, blockIdentifier, 0)
-			assert.Error(t, err)
-			assert.Zero(t, update)
-		})
-	})
+	full, ok := update.(starknet.PreConfirmedFull)
+	require.True(t, ok, "expected PreConfirmedFull, got %T", update)
+	assert.NotEmpty(t, full.BlockIdentifier)
 }

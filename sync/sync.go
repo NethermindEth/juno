@@ -125,7 +125,7 @@ type Synchronizer struct {
 	logger   log.StructuredLogger
 	listener EventListener
 
-	preConfirmed             atomic.Pointer[pending.PreConfirmed]
+	preConfirmed             *PreConfirmedStorage
 	preLatestPollInterval    time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -157,6 +157,7 @@ func New(
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,
+		preConfirmed:             NewPreConfirmedStorage(),
 	}
 	return s
 }
@@ -608,13 +609,8 @@ func (s *Synchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
 		head = nil
 	}
 
-	preConfirmed := s.preConfirmed.Load()
-	if preConfirmed != nil && preConfirmed.Validate(head) {
-		// Special handling: if the pre-confirmed contains a 'pre-latest' block attachment
-		// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
-		if head != nil && preConfirmed.Block.Number == head.Number+1 && preConfirmed.PreLatest != nil {
-			return preConfirmed.Copy().WithPreLatest(nil), nil
-		}
+	preConfirmed := s.preConfirmed.ReadPreConfirmedForHead(head)
+	if preConfirmed != nil {
 		return preConfirmed, nil
 	}
 

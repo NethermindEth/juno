@@ -375,7 +375,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		adFeeder := adaptfeeder.New(client)
 		// TODO: remove this and use adaptfeeder directly once the new feeder improvements
 		// are implemented on mainnet
-		migrationFeeder := adaptfeeder.NewFeederAdaper(adFeeder)
+		migrationFeeder := adaptfeeder.NewFeederAdapter(adFeeder, logger)
 		services = append(services, migrationFeeder)
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, migrationFeeder)
 		synchronizer = sync.New(

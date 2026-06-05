@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/lru"
 	"go.uber.org/zap"
 )
@@ -28,109 +29,33 @@ func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 	return highest.Number < blockNumber
 }
 
-// Returns true if existing preConfirmed is valid for head and incoming is not richer than existing.
-// Otherwise returns false.
-func shouldPreservePreConfirmed(
-	existingPending *pending.PreConfirmed,
-	incomingPending *pending.PreConfirmed,
-	head *core.Header,
-) bool {
-	if existingPending == nil {
-		return false
-	}
-
-	if !existingPending.Validate(head) {
-		return false
-	}
-
-	existingB := existingPending.GetBlock()
-	incomingB := incomingPending.GetBlock()
-
-	if incomingB.Number > existingB.Number {
-		return false
-	}
-
-	if incomingB.Number == existingB.Number {
-		if incomingPending.BlockIdentifier != existingPending.BlockIdentifier {
-			return false
-		}
-		if incomingB.TransactionCount > existingB.TransactionCount {
-			return false
-		}
-	}
-
-	return true
-}
-
-// UpdatePreLatestAttachment updates (or clears) the PreLatest attachment of the currently stored
-// pre_confirmed at the given blockNumber by atomically swapping the stored pointer.
-// Returns true if the store was updated, false if no matching pre_confirmed is stored
-// or the attachment was already equal.
-func (s *Synchronizer) UpdatePreLatestAttachment(
-	blockNumber uint64,
-	preLatest *pending.PreLatest,
-) bool {
-	pc := s.preConfirmed.Load()
-
-	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {
-		// nil or different height stored; do not touch.
-		return false
-	}
-
-	if pc.PreLatest == preLatest {
-		// No change.
-		return false
-	}
-
-	// Copy and update attachment on the copy.
-	next := pc.Copy()
-	next.WithPreLatest(preLatest)
-
-	return s.preConfirmed.CompareAndSwap(pc, next)
-}
-
-// StorePreConfirmed stores a pre_confirmed block given that it is for the next height.
-// If an equal-number block with >= txCount already exists, we do not overwrite it,
-// but we allow updating the PreLatest attachment in-place via a CAS swap.
-func (s *Synchronizer) StorePreConfirmed(p *pending.PreConfirmed) (bool, error) {
-	if err := core.CheckBlockVersion(p.GetBlock().ProtocolVersion); err != nil {
-		return false, err
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return false, err
-		}
-		head = nil
-	}
-
-	if !p.Validate(head) {
-		return false, errors.New("store pre_confirmed not valid for parent")
-	}
-
-	existingPtr := s.preConfirmed.Load()
-
-	if existingPtr != nil && shouldPreservePreConfirmed(existingPtr, p, head) {
-		_ = s.UpdatePreLatestAttachment(p.GetBlock().Number, p.PreLatest)
-		return false, nil
-	}
-
-	return s.preConfirmed.CompareAndSwap(existingPtr, p), nil
-}
-
-// storeEmptyPreConfirmed creates a baseline pre_confirmed for head+1 and stores it.
-// Pass preLatest to attach it to the baseline; pass nil to clear any attachment.
+// storeEmptyPreConfirmed creates a baseline pre_confirmed at parent.Number+1
+// and stores it under the real chain head.
+//
+// parent is the header the empty pre_confirmed sits directly above and is
+// only used to populate the block (sequencer, gas prices, number). It is
+// either the chain head (when preLatest is nil) or the pre-latest block
+// header (when preLatest is non-nil and the pre_confirmed lives at
+// real_head+2).
 func (s *Synchronizer) storeEmptyPreConfirmed(
-	latestHeader *core.Header,
+	parent *core.Header,
 	preLatest *pending.PreLatest,
 ) error {
-	preConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, latestHeader)
+	preConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, parent)
 	if err != nil {
 		return err
 	}
 	preConfirmed.WithPreLatest(preLatest)
-	_, err = s.StorePreConfirmed(&preConfirmed)
+
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return err
+		}
+		head = nil
+	}
+
+	_, err = s.preConfirmed.StorePreConfirmedForHead(&preConfirmed, head)
 	return err
 }
 
@@ -239,6 +164,12 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 	}
 }
 
+// preConfirmedPoll bundles a wire update with the block number it was fetched.
+type preConfirmedPoll struct {
+	update      starknet.PreConfirmedUpdate
+	blockNumber uint64
+}
+
 // pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
 // The target is read from blockNumberToPoll and only polled while at tip.
 // Each poll echoes the currently stored pre_confirmed's identifier and
@@ -248,7 +179,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *pending.Pr
 func (s *Synchronizer) pollPreConfirmed(
 	ctx context.Context,
 	blockNumberToPoll *atomic.Uint64,
-	out chan<- *pending.PreConfirmedUpdate,
+	out chan<- preConfirmedPoll,
 ) {
 	if s.preConfirmedPollInterval == 0 {
 		s.logger.Info("Pre-confirmed block polling is disabled")
@@ -275,7 +206,7 @@ func (s *Synchronizer) pollPreConfirmed(
 				knownTransactionCount uint64 = 0
 			)
 
-			currentPreConf := s.preConfirmed.Load()
+			currentPreConf := s.preConfirmed.ReadUnsafe()
 			if currentPreConf != nil {
 				blockIdentifier = currentPreConf.BlockIdentifier
 				knownTransactionCount = uint64(len(currentPreConf.Block.Transactions))
@@ -290,7 +221,7 @@ func (s *Synchronizer) pollPreConfirmed(
 			}
 
 			select {
-			case out <- &update:
+			case out <- preConfirmedPoll{update: update, blockNumber: targetBlockNum}:
 				continue
 			case <-ctx.Done():
 				return
@@ -315,7 +246,7 @@ func (s *Synchronizer) handleHead(
 	}
 
 	if next == targetNum {
-		s.UpdatePreLatestAttachment(targetNum, nil)
+		s.preConfirmed.UpdatePreLatestAttachment(targetNum, nil)
 		return nil
 	}
 
@@ -349,54 +280,29 @@ func (s *Synchronizer) handlePreLatest(
 }
 
 // handlePreConfirmed reconciles a polled pre_confirmed update with the stored
-// pre_confirmed. No-change updates are dropped silently. Full updates replace
-// the stored block. Delta updates are applied as an append onto the stored
-// block; if the stored identifier has drifted from the update's identifier the
-// delta is dropped and the next poll will return Full.
+// pre_confirmed.
 func (s *Synchronizer) handlePreConfirmed(
-	update *pending.PreConfirmedUpdate,
+	poll preConfirmedPoll,
 	stagedPreLatest *pending.PreLatest,
 ) {
-	var nextPreConfirmed *pending.PreConfirmed
-
-	currentPreConfirmed := s.preConfirmed.Load()
-	if currentPreConfirmed == nil {
-		s.logger.Debug("No pre_confirmed stored")
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		s.logger.Debug("Error while loading head for pre_confirmed apply", zap.Error(err))
 		return
 	}
 
-	switch update.Mode {
-	case pending.PreConfirmedNoChange:
-		nextPreConfirmed = currentPreConfirmed.Copy()
-
-	case pending.PreConfirmedFull:
-		nextPreConfirmed = update.FullBlock
-
-	case pending.PreConfirmedDelta:
-		existing := currentPreConfirmed.Copy()
-		if existing.BlockIdentifier != update.BlockIdentifier {
-			// Stored identifier drifted; drop. Next poll will return Full.
-			nextPreConfirmed = existing
-			break
-		}
-		merged := existing.ApplyDelta(
-			update.AppendTransactions,
-			update.AppendReceipts,
-			update.AppendStateDiffs,
-			update.BlockIdentifier,
-		)
-		nextPreConfirmed = merged
-	}
-
-	nextPreConfirmed.WithPreLatest(stagedPreLatest)
-	changed, err := s.StorePreConfirmed(nextPreConfirmed)
 	if err != nil {
-		s.logger.Debug("Error while trying to store pre_confirmed block", zap.Error(err))
+		head = nil
+	}
+
+	applied, err := s.preConfirmed.ApplyUpdate(poll.update, poll.blockNumber, head, stagedPreLatest)
+	if err != nil {
+		s.logger.Debug("Error while applying pre_confirmed update", zap.Error(err))
 		return
 	}
 
-	if changed {
-		s.preConfirmedDataFeed.Send(nextPreConfirmed)
+	if applied != nil {
+		s.preConfirmedDataFeed.Send(applied)
 	}
 }
 
@@ -411,7 +317,7 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	defer headsSub.Unsubscribe()
 
 	preLatestCh := make(chan *pending.PreLatest, 1)
-	preConfirmedCh := make(chan *pending.PreConfirmedUpdate, 1)
+	preConfirmedCh := make(chan preConfirmedPoll, 1)
 	var preConfirmedBlockNumberToPoll atomic.Uint64
 
 	go s.pollPreLatest(ctx, preLatestCh)

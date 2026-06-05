@@ -19,6 +19,7 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
@@ -71,8 +72,8 @@ func (t *testBlockDataSource) PreConfirmedBlockByNumber(
 	blockNumber uint64,
 	blockIdentifier string,
 	knownTransactionCount uint64,
-) (pending.PreConfirmedUpdate, error) {
-	return pending.PreConfirmedUpdate{}, errors.New("not implemented")
+) (starknet.PreConfirmedUpdate, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (t *testBlockDataSource) setBlocks(blocks []sync.CommittedBlock) {
