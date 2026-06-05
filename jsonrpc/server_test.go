@@ -259,6 +259,18 @@ func TestHandle(t *testing.T) {
 			req: `{@` + strings.Repeat("x", 300) + `}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{@xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...\n ^\nunexpected '@', expected a string key or '}' [line 1, column 2]"},"id":null}`,
 		},
+		"top-level type mismatch": {
+			req: `5`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"5\n^\nexpected jsonrpc.Request, got number [line 1, column 1]"},"id":null}`,
+		},
+		"untranslatable syntax error": {
+			req: `{"a":truX}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"a\":truX}\n        ^\ninvalid character 'X' in literal true (expecting 'e') [line 1, column 9]"},"id":null}`,
+		},
+		"error on a middle line": {
+			req: "{\n\"a\" 1\n}",
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"a\" 1\n    ^\nunexpected '1', expected ':' [line 2, column 5]"},"id":null}`,
+		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":1}`,
