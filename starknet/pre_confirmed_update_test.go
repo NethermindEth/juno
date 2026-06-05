@@ -34,8 +34,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		var env starknet.PreConfirmedUpdateEnvelope
 		require.NoError(t, json.Unmarshal(raw, &env))
 
-		full, ok := env.Update.(starknet.PreConfirmedFull)
-		require.True(t, ok, "expected PreConfirmedFull, got %T", env.Update)
+		full, ok := env.Update.(starknet.PreConfirmedBlock)
+		require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
 		require.NotEmpty(t, full.BlockIdentifier, "new-round Full must carry an identifier")
 		require.Equal(t, "PRE_CONFIRMED", full.Status)
 		require.NotZero(t, full.Timestamp)
@@ -87,8 +87,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		var env starknet.PreConfirmedUpdateEnvelope
 		require.NoError(t, json.Unmarshal(raw, &env))
 
-		delta, ok := env.Update.(starknet.PreConfirmedDelta)
-		require.True(t, ok, "expected PreConfirmedDelta, got %T", env.Update)
+		delta, ok := env.Update.(starknet.PreConfirmedDeltaUpdate)
+		require.True(t, ok, "expected PreConfirmedDeltaUpdate, got %T", env.Update)
 		require.Equal(t, "abc123", delta.BlockIdentifier)
 		require.Empty(t, delta.Transactions)
 	})
@@ -132,8 +132,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		var env starknet.PreConfirmedUpdateEnvelope
 		require.NoError(t, json.Unmarshal(deltaJSON, &env))
 
-		delta, ok := env.Update.(starknet.PreConfirmedDelta)
-		require.True(t, ok, "expected PreConfirmedDelta, got %T", env.Update)
+		delta, ok := env.Update.(starknet.PreConfirmedDeltaUpdate)
+		require.True(t, ok, "expected PreConfirmedDeltaUpdate, got %T", env.Update)
 		require.Equal(t, blockIdentifier, delta.BlockIdentifier)
 		require.Len(t, delta.Transactions, 2)
 		require.Len(t, delta.Receipts, 2)
@@ -165,7 +165,7 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 	})
 }
 
-// AsUpdate produces a PreConfirmedFull that shares the legacy block's data
+// AsUpdate produces a PreConfirmedBlock that shares the legacy block's data
 // and carries the synthetic "LegacyAPI" identifier downstream code uses to
 // detect a legacy source.
 func TestPreConfirmedBlock_AsUpdate(t *testing.T) {
@@ -183,8 +183,8 @@ func TestPreConfirmedBlock_AsUpdate(t *testing.T) {
 		L1DataGasPrice:        &starknet.GasPrice{},
 	}
 
-	full, ok := b.AsUpdate().(starknet.PreConfirmedFull)
-	require.True(t, ok, "AsUpdate must return PreConfirmedFull, got %T", b.AsUpdate())
+	full, ok := b.AsUpdate().(starknet.PreConfirmedBlock)
+	require.True(t, ok, "AsUpdate must return PreConfirmedBlock, got %T", b.AsUpdate())
 	require.Equal(t, "LegacyAPI", full.BlockIdentifier)
 	require.Equal(t, b.Status, full.Status)
 	require.Equal(t, b.Timestamp, full.Timestamp)

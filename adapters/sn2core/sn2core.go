@@ -509,12 +509,12 @@ func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
 // IsCandidateTx reports whether the transaction at index id is a candidate
 // (no receipt / no state diff yet). `||` covers possible discrepancies.
 // https://community.starknet.io/t/sn-0-14-0-pre-release-notes
-func IsCandidateTx(response *starknet.PreConfirmedFull, id int) bool {
+func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
 	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
 }
 
 func AdaptPreConfirmedBlock(
-	response *starknet.PreConfirmedFull,
+	response *starknet.PreConfirmedBlock,
 	number uint64,
 ) (pending.PreConfirmed, error) {
 	if response.Status != "PRE_CONFIRMED" {
@@ -628,7 +628,7 @@ func AdaptPreConfirmedBlock(
 // differs from delta.BlockIdentifier.
 func AdaptPreConfirmedWithDelta(
 	current *pending.PreConfirmed,
-	delta *starknet.PreConfirmedDelta,
+	delta *starknet.PreConfirmedDeltaUpdate,
 ) (pending.PreConfirmed, error) {
 	if current.BlockIdentifier != delta.BlockIdentifier {
 		return pending.PreConfirmed{}, ErrPreConfirmedIdentifierMismatch

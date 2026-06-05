@@ -360,7 +360,7 @@ func TestPreConfirmedBlock(t *testing.T) {
 
 	update, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber, "", 0)
 	require.NoError(t, err)
-	full, ok := update.(starknet.PreConfirmedFull)
-	require.True(t, ok, "expected PreConfirmedFull, got %T", update)
+	full, ok := update.(starknet.PreConfirmedBlock)
+	require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
 	assert.NotEmpty(t, full.BlockIdentifier)
 }

@@ -8,7 +8,7 @@ import (
 )
 
 // PreConfirmedUpdate is a sealed sum type for "get_preconfirmed_block" responses.
-// One of [PreConfirmedNoChange], [PreConfirmedDelta], or [PreConfirmedFull].
+// One of [PreConfirmedNoChange], [PreConfirmedDeltaUpdate], or [PreConfirmedBlock].
 type PreConfirmedUpdate interface {
 	isPreConfirmedUpdate()
 }
@@ -20,25 +20,25 @@ type PreConfirmedUpdate interface {
 // variant discrimination and discards it before decoding into this struct.
 type PreConfirmedNoChange struct{}
 
-// PreConfirmedDelta carries transactions/receipts/state diffs appended since the
+// PreConfirmedDeltaUpdate carries transactions/receipts/state diffs appended since the
 // caller's known transaction count for the same block_identifier.
 //
 // Note: the wire JSON also carries a top-level `"changed"` boolean which is not
 // modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
 // variant discrimination and discards it before decoding into this struct.
-type PreConfirmedDelta struct {
+type PreConfirmedDeltaUpdate struct {
 	BlockIdentifier       string                `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
 }
 
-// PreConfirmedFull carries a full pre_confirmed block for a new round.
+// PreConfirmedBlock carries a full pre_confirmed block for a new round.
 //
 // Note: the wire JSON also carries a top-level `"changed"` boolean which is not
 // modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
 // variant discrimination and discards it before decoding into this struct.
-type PreConfirmedFull struct {
+type PreConfirmedBlock struct {
 	BlockIdentifier       string                `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
@@ -53,14 +53,14 @@ type PreConfirmedFull struct {
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
 }
 
-func (PreConfirmedNoChange) isPreConfirmedUpdate() {}
-func (PreConfirmedDelta) isPreConfirmedUpdate()    {}
-func (PreConfirmedFull) isPreConfirmedUpdate()     {}
+func (PreConfirmedNoChange) isPreConfirmedUpdate()    {}
+func (PreConfirmedDeltaUpdate) isPreConfirmedUpdate() {}
+func (PreConfirmedBlock) isPreConfirmedUpdate()       {}
 
 var (
 	_ PreConfirmedUpdate = PreConfirmedNoChange{}
-	_ PreConfirmedUpdate = PreConfirmedDelta{}
-	_ PreConfirmedUpdate = PreConfirmedFull{}
+	_ PreConfirmedUpdate = PreConfirmedDeltaUpdate{}
+	_ PreConfirmedUpdate = PreConfirmedBlock{}
 )
 
 // PreConfirmedUpdateEnvelope is the JSON-decodable carrier for a [PreConfirmedUpdate].
@@ -88,13 +88,13 @@ func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 	case !*peek.Changed:
 		e.Update = PreConfirmedNoChange{}
 	case peek.Timestamp != nil:
-		var full PreConfirmedFull
+		var full PreConfirmedBlock
 		if err := json.Unmarshal(data, &full); err != nil {
 			return err
 		}
 		e.Update = full
 	default:
-		var delta PreConfirmedDelta
+		var delta PreConfirmedDeltaUpdate
 		if err := json.Unmarshal(data, &delta); err != nil {
 			return err
 		}

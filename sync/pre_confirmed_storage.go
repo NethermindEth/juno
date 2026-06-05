@@ -59,8 +59,8 @@ var ErrPreConfirmedBaseTxCountMismatch = errors.New("pre_confirmed base transact
 
 // ApplyUpdate atomically evolves the stored pre_confirmed from a wire-side
 // update, attaching the given pre_latest, under the preserve-if-richer rule.
-// A [starknet.PreConfirmedFull] update bootstraps the store when nothing is
-// yet stored; [starknet.PreConfirmedDelta] and [starknet.PreConfirmedNoChange]
+// A [starknet.PreConfirmedBlock] update bootstraps the store when nothing is
+// yet stored; [starknet.PreConfirmedDeltaUpdate] and [starknet.PreConfirmedNoChange]
 // are no-ops in that case (Delta needs a baseline to merge into).
 // Returns the resulting pre_confirmed if the store was replaced; nil otherwise.
 //
@@ -87,13 +87,13 @@ func (s *PreConfirmedStorage) ApplyUpdate(
 	case starknet.PreConfirmedNoChange:
 		return nil, nil
 
-	case starknet.PreConfirmedFull:
+	case starknet.PreConfirmedBlock:
 		next, err = sn2core.AdaptPreConfirmedBlock(&u, blockNumber)
 		if err != nil {
 			return nil, err
 		}
 
-	case starknet.PreConfirmedDelta:
+	case starknet.PreConfirmedDeltaUpdate:
 		if current == nil {
 			return nil, nil
 		}

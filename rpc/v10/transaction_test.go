@@ -602,7 +602,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedFull)
+	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedBlock)
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
 	handler := rpcv10.New(nil, mockSyncReader, nil, nil)

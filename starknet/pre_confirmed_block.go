@@ -25,10 +25,10 @@ type DeprecatedPreConfirmedBlock struct {
 }
 
 // AsUpdate adapts a legacy DeprecatedPreConfirmedBlock to the new
-// [PreConfirmedFull] variant for the unified ApplyUpdate path. Slice headers
+// [PreConfirmedBlock] variant for the unified ApplyUpdate path. Slice headers
 // are shared (no copy).
 func (b *DeprecatedPreConfirmedBlock) AsUpdate() PreConfirmedUpdate {
-	return PreConfirmedFull{
+	return PreConfirmedBlock{
 		BlockIdentifier:       "LegacyAPI",
 		Transactions:          b.Transactions,
 		Receipts:              b.Receipts,

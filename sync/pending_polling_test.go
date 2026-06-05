@@ -84,17 +84,17 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 	// than the last (count grows with numCalls) so the storage's
 	// preserve-if-richer rotation actually rotates.
 	txCount := int(number%10 + uint64(m.numCallsPreConfirmed)/2)
-	return makeTestPreConfirmedFull("mock", txCount), nil
+	return makeTestPreConfirmedBlock("mock", txCount), nil
 }
 
-// makeTestPreConfirmedFull returns a starknet.PreConfirmedFull carrying
+// makeTestPreConfirmedBlock returns a starknet.PreConfirmedBlock carrying
 // `txCount` synthesised invoke transactions with matching receipts and per-tx
 // state diffs. Metadata (status, timestamp, sequencer, prices, DA mode) mirrors
 // the realistic-looking fixture the old `makeTestPreConfirmed` helper produced.
 //
-// The block number is NOT carried by PreConfirmedFull — it is provided
+// The block number is NOT carried by PreConfirmedBlock — it is provided
 // separately to AdaptPreConfirmedBlock by the caller.
-func makeTestPreConfirmedFull(identifier string, txCount int) starknet.PreConfirmedFull {
+func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfirmedBlock {
 	txs := make([]starknet.Transaction, txCount)
 	receipts := make([]*starknet.TransactionReceipt, txCount)
 	stateDiffs := make([]*starknet.StateDiff, txCount)
@@ -125,7 +125,7 @@ func makeTestPreConfirmedFull(identifier string, txCount int) starknet.PreConfir
 			},
 		}
 	}
-	return starknet.PreConfirmedFull{
+	return starknet.PreConfirmedBlock{
 		BlockIdentifier:       identifier,
 		Transactions:          txs,
 		Receipts:              receipts,
@@ -382,8 +382,8 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		select {
 		case poll := <-out:
 			require.Equal(t, uint64(1), poll.blockNumber)
-			_, ok := poll.update.(starknet.PreConfirmedFull)
-			require.True(t, ok, "expected PreConfirmedFull, got %T", poll.update)
+			_, ok := poll.update.(starknet.PreConfirmedBlock)
+			require.True(t, ok, "expected PreConfirmedBlock, got %T", poll.update)
 			require.GreaterOrEqual(
 				t,
 				mockDS.numCallsPreConfirmed,
@@ -497,10 +497,10 @@ func TestPollPendingData(t *testing.T) {
 		// height 2 — Full → Delta(+1 tx) → Full(new identifier) → NoChange.
 		emptyFelts := []*felt.Felt{}
 		script := []starknet.PreConfirmedUpdate{
-			makeTestPreConfirmedFull("block1-id", 1),
+			makeTestPreConfirmedBlock("block1-id", 1),
 			starknet.PreConfirmedNoChange{},
-			makeTestPreConfirmedFull("block2-id", 0),
-			starknet.PreConfirmedDelta{
+			makeTestPreConfirmedBlock("block2-id", 0),
+			starknet.PreConfirmedDeltaUpdate{
 				BlockIdentifier: "block2-id",
 				Transactions: []starknet.Transaction{
 					{Type: starknet.TxnInvoke, CallData: &emptyFelts, Signature: &emptyFelts},
@@ -508,7 +508,7 @@ func TestPollPendingData(t *testing.T) {
 				Receipts:              []*starknet.TransactionReceipt{{}},
 				TransactionStateDiffs: []*starknet.StateDiff{{}},
 			},
-			makeTestPreConfirmedFull("0xdeadbeef", 0),
+			makeTestPreConfirmedBlock("0xdeadbeef", 0),
 			starknet.PreConfirmedNoChange{},
 		}
 

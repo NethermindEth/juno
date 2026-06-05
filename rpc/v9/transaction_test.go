@@ -475,7 +475,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedFull)
+	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedBlock)
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
 	handler := rpc.New(nil, mockSyncReader, nil, nil)
@@ -1802,8 +1802,8 @@ func TestTransactionStatus(t *testing.T) {
 			blockNumber := uint64(11252240)
 			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 			require.NoError(t, gwErr)
-			full, ok := update.(starknet.PreConfirmedFull)
-			require.True(t, ok, "expected PreConfirmedFull, got %T", update)
+			full, ok := update.(starknet.PreConfirmedBlock)
+			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
 			adapted, err := sn2core.AdaptPreConfirmedBlock(&full, blockNumber)
 			require.NoError(t, err)
 			preConfirmed := adapted

@@ -368,14 +368,18 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 
 		s.preConfirmed.inner.Store(nil)
 		applied, err = s.preConfirmed.ApplyUpdate(
-			starknet.PreConfirmedDelta{BlockIdentifier: "round-a"}, head.Number+1, 0, head, nil,
+			starknet.PreConfirmedDeltaUpdate{BlockIdentifier: "round-a"},
+			head.Number+1,
+			0,
+			head,
+			nil,
 		)
 		require.NoError(t, err)
 		require.Nil(t, applied)
 		require.Nil(t, s.preConfirmed.inner.Load())
 
 		s.preConfirmed.inner.Store(nil)
-		full := makeTestPreConfirmedFull("round-a", 0)
+		full := makeTestPreConfirmedBlock("round-a", 0)
 		applied, err = s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
 		require.NotNil(t, applied, "Full carries a complete block and must bootstrap from empty")
@@ -395,7 +399,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 
 	t.Run("Full adapts, validates and stores", func(t *testing.T) {
 		seedFull(t, "round-a", 0)
-		full := makeTestPreConfirmedFull("round-b", 0)
+		full := makeTestPreConfirmedBlock("round-b", 0)
 
 		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
@@ -412,7 +416,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		// preserved as not richer — covered elsewhere).
 		hash := new(felt.Felt).SetUint64(0xdead)
 		emptySlice := []*felt.Felt{}
-		delta := starknet.PreConfirmedDelta{
+		delta := starknet.PreConfirmedDeltaUpdate{
 			BlockIdentifier: "round-c",
 			Transactions: []starknet.Transaction{{
 				Hash:      hash,
@@ -434,7 +438,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 
 	t.Run("Delta with mismatched identifier returns error and preserves store", func(t *testing.T) {
 		seed := seedFull(t, "round-d", 0)
-		delta := starknet.PreConfirmedDelta{
+		delta := starknet.PreConfirmedDeltaUpdate{
 			BlockIdentifier: "different-round",
 		}
 		_, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, 0, head, nil)
@@ -469,7 +473,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		// Delta carries the same identifier (so the identifier guard would let
 		// it through) but was computed against an older base of 0 transactions.
 		emptySlice := []*felt.Felt{}
-		delta := starknet.PreConfirmedDelta{
+		delta := starknet.PreConfirmedDeltaUpdate{
 			BlockIdentifier: "round-g",
 			Transactions: []starknet.Transaction{{
 				Hash:      &hash,
@@ -492,7 +496,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		seedFull(t, "round-e", 0)
 		pl := makeEmptyPreLatestForParent(head)
 
-		full := makeTestPreConfirmedFull("round-f", 0)
+		full := makeTestPreConfirmedBlock("round-f", 0)
 		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, &pl)
 		require.NoError(t, err)
 		require.NotNil(t, applied)

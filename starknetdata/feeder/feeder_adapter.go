@@ -65,7 +65,7 @@ func (f *FeederAdapter) Run(ctx context.Context) error {
 // It only returns if the feeder has been updated (true) or ctx is done (false).
 func (f *FeederAdapter) runVerificationLoop(ctx context.Context) bool {
 	if isFeederUpdated := f.verifyFeederUpdate(ctx); isFeederUpdated {
-		f.logger.Info("Upstream feeder supports the new state-update endpoint; switching over")
+		f.logger.Debug("Upstream feeder supports the new state-update endpoint; switching over")
 		return true
 	}
 
@@ -78,7 +78,7 @@ func (f *FeederAdapter) runVerificationLoop(ctx context.Context) bool {
 			return false
 		case <-ticker.C:
 			if isFeederUpdated := f.verifyFeederUpdate(ctx); isFeederUpdated {
-				f.logger.Info("Upstream feeder supports the new state-update endpoint; switching over")
+				f.logger.Debug("Upstream feeder supports the new state-update endpoint; switching over")
 				return true
 			}
 		}
