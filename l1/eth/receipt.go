@@ -8,7 +8,7 @@ import (
 
 // DataBytes is a []byte that JSON-decodes from a 0x-prefixed hex string,
 // matching the Ethereum JSON-RPC "data" wire format. An empty payload ("0x") is allowed.
-// By protocol design, data field is not bounded, and only limited by block gas
+// Unbounded — log/call data is capped by the L1 block gas limit (~3.75Mb at 30M max block gas)
 type DataBytes []byte
 
 func (h *DataBytes) UnmarshalJSON(input []byte) error {
