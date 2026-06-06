@@ -35,7 +35,7 @@ func TestAddress_ImplementsTextCodec(t *testing.T) {
 
 func TestHash_MarshalText_GethParity(t *testing.T) {
 	for _, raw := range hashCorpus(t) {
-		ours := eth.BytesToHash(raw[:])
+		ours := eth.HashFromBytes(raw[:])
 		geth := gethcommon.BytesToHash(raw[:])
 
 		oTxt, err := ours.MarshalText()
@@ -49,7 +49,7 @@ func TestHash_MarshalText_GethParity(t *testing.T) {
 
 func TestAddress_MarshalText_GethParity(t *testing.T) {
 	for _, raw := range addressCorpus(t) {
-		ours := eth.BytesToAddress(raw[:])
+		ours := eth.AddressFromBytes(raw[:])
 		geth := gethcommon.BytesToAddress(raw[:])
 
 		oTxt, err := ours.MarshalText()
@@ -92,7 +92,7 @@ func TestAddress_UnmarshalText_RoundTrip(t *testing.T) {
 // keyed by Address/Hash fails outright. Geth supports it.
 func TestHash_MapKey_JSONMarshal(t *testing.T) {
 	m := map[eth.Hash]int{
-		eth.BytesToHash([]byte{0xab, 0xcd}): 1,
+		eth.HashFromBytes([]byte{0xab, 0xcd}): 1,
 	}
 	out, err := json.Marshal(m)
 	require.NoError(t, err, "json.Marshal of map keyed by eth.Hash must work")
@@ -108,7 +108,7 @@ func TestHash_MapKey_JSONMarshal(t *testing.T) {
 
 func TestAddress_MapKey_JSONMarshal(t *testing.T) {
 	m := map[eth.Address]int{
-		eth.BytesToAddress([]byte{0xab, 0xcd}): 1,
+		eth.AddressFromBytes([]byte{0xab, 0xcd}): 1,
 	}
 	out, err := json.Marshal(m)
 	require.NoError(t, err, "json.Marshal of map keyed by eth.Address must work")

@@ -3,7 +3,6 @@ package eth_test
 import (
 	"bytes"
 	"encoding/json"
-	"math/rand/v2"
 	"strings"
 	"testing"
 
@@ -13,35 +12,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// addressCorpus returns a deterministic, broad sample of 20-byte values for
-// parity tests against go-ethereum's common.Address. The geth package is still
-// in go.mod through PR1-PR4; these imports are removed in PR5.
-func addressCorpus(t *testing.T) [][20]byte {
+// addressCorpus returns a deterministic, broad sample of addresses for
+// parity tests against go-ethereum's common.Address. The geth imports in
+// this file are removed in PR5.
+func addressCorpus(t *testing.T) []eth.Address {
 	t.Helper()
-	var zero, allFF, allAA, ascending [20]byte
-	for i := range allFF {
-		allFF[i] = 0xff
-		allAA[i] = 0xaa
-		ascending[i] = byte(i)
-	}
-	out := [][20]byte{zero, allFF, allAA, ascending}
-
 	// real mainnet Starknet core contract address.
-	starknetCore := gethcommon.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
-	out = append(out, starknetCore)
-
-	rng := rand.New(rand.NewPCG(1, 2))
-	for range 32 {
-		var a [20]byte
-		for j := range a {
-			a[j] = byte(rng.Uint32())
-		}
-		out = append(out, a)
+	starknetCore := eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
+	raws := bytePatterns(eth.AddressLength, 1, 2, starknetCore.Bytes())
+	out := make([]eth.Address, len(raws))
+	for i, b := range raws {
+		out[i] = eth.AddressFromBytes(b)
 	}
 	return out
 }
 
-func TestAddress_HexToAddress_GethParity(t *testing.T) {
+func TestAddress_AddressFromString_GethParity(t *testing.T) {
 	cases := []string{
 		"0x0000000000000000000000000000000000000000",
 		"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
@@ -54,14 +40,14 @@ func TestAddress_HexToAddress_GethParity(t *testing.T) {
 	}
 	for _, in := range cases {
 		t.Run(in, func(t *testing.T) {
-			ours := eth.HexToAddress(in)
+			ours := eth.AddressFromString(in)
 			geth := gethcommon.HexToAddress(in)
 			assert.Equal(t, geth.Bytes(), ours.Bytes())
 		})
 	}
 }
 
-func TestAddress_BytesToAddress_GethParity(t *testing.T) {
+func TestAddress_AddressFromBytes_GethParity(t *testing.T) {
 	cases := [][]byte{
 		nil,
 		{},
@@ -71,7 +57,7 @@ func TestAddress_BytesToAddress_GethParity(t *testing.T) {
 		bytes.Repeat([]byte{0xcd}, 25), // too long, left cropped
 	}
 	for _, in := range cases {
-		ours := eth.BytesToAddress(in)
+		ours := eth.AddressFromBytes(in)
 		geth := gethcommon.BytesToAddress(in)
 		assert.Equal(t, geth.Bytes(), ours.Bytes())
 	}
@@ -79,7 +65,7 @@ func TestAddress_BytesToAddress_GethParity(t *testing.T) {
 
 func TestAddress_Bytes_GethParity(t *testing.T) {
 	for _, raw := range addressCorpus(t) {
-		ours := eth.BytesToAddress(raw[:])
+		ours := eth.AddressFromBytes(raw[:])
 		geth := gethcommon.BytesToAddress(raw[:])
 		assert.Equal(t, geth.Bytes(), ours.Bytes())
 		assert.Len(t, ours.Bytes(), eth.AddressLength)
@@ -88,7 +74,7 @@ func TestAddress_Bytes_GethParity(t *testing.T) {
 
 func TestAddress_MarshalJSON_GethParity(t *testing.T) {
 	for _, raw := range addressCorpus(t) {
-		ours := eth.BytesToAddress(raw[:])
+		ours := eth.AddressFromBytes(raw[:])
 		geth := gethcommon.BytesToAddress(raw[:])
 
 		oJSON, err := json.Marshal(ours)
@@ -104,7 +90,7 @@ func TestAddress_MarshalJSON_GethParity(t *testing.T) {
 
 func TestAddress_UnmarshalJSON_RoundTrip(t *testing.T) {
 	for _, raw := range addressCorpus(t) {
-		ours := eth.BytesToAddress(raw[:])
+		ours := eth.AddressFromBytes(raw[:])
 		geth := gethcommon.BytesToAddress(raw[:])
 
 		gJSON, err := json.Marshal(geth)

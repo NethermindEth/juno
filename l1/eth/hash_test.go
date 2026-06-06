@@ -3,7 +3,6 @@ package eth_test
 import (
 	"bytes"
 	"encoding/json"
-	"math/rand/v2"
 	"strings"
 	"testing"
 
@@ -13,35 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// hashCorpus returns a deterministic sample of 32-byte values for parity
-// tests against go-ethereum's common.Hash. The geth import in this file
-// is removed in PR5.
-func hashCorpus(t *testing.T) [][32]byte {
+// hashCorpus returns a deterministic sample of hashes for parity tests
+// against go-ethereum's common.Hash. The geth imports in this file are
+// removed in PR5.
+func hashCorpus(t *testing.T) []eth.Hash {
 	t.Helper()
-	var zero, allFF, allAA, ascending [32]byte
-	for i := range allFF {
-		allFF[i] = 0xff
-		allAA[i] = 0xaa
-		ascending[i] = byte(i)
-	}
-	out := [][32]byte{zero, allFF, allAA, ascending}
-
 	// LogMessageToL2 event signature hash — used by rpc/v*/l1.go.
-	logMsgSig := "0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b"
-	out = append(out, gethcommon.HexToHash(logMsgSig))
-
-	rng := rand.New(rand.NewPCG(3, 4))
-	for range 32 {
-		var h [32]byte
-		for j := range h {
-			h[j] = byte(rng.Uint32())
-		}
-		out = append(out, h)
+	const logMsgSigHex = "0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b"
+	logMsgSig := eth.HashFromString(logMsgSigHex)
+	raws := bytePatterns(eth.HashLength, 3, 4, logMsgSig.Bytes())
+	out := make([]eth.Hash, len(raws))
+	for i, b := range raws {
+		out[i] = eth.HashFromBytes(b)
 	}
 	return out
 }
 
-func TestHash_HexToHash_GethParity(t *testing.T) {
+func TestHash_HashFromString_GethParity(t *testing.T) {
 	cases := []string{
 		"0x0000000000000000000000000000000000000000000000000000000000000000",
 		"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
@@ -54,14 +41,14 @@ func TestHash_HexToHash_GethParity(t *testing.T) {
 	}
 	for _, in := range cases {
 		t.Run(in, func(t *testing.T) {
-			ours := eth.HexToHash(in)
+			ours := eth.HashFromString(in)
 			geth := gethcommon.HexToHash(in)
 			assert.Equal(t, geth.Bytes(), ours.Bytes())
 		})
 	}
 }
 
-func TestHash_BytesToHash_GethParity(t *testing.T) {
+func TestHash_HashFromBytes_GethParity(t *testing.T) {
 	cases := [][]byte{
 		nil,
 		{},
@@ -70,7 +57,7 @@ func TestHash_BytesToHash_GethParity(t *testing.T) {
 		bytes.Repeat([]byte{0xcd}, 40), // too long, left-cropped
 	}
 	for _, in := range cases {
-		ours := eth.BytesToHash(in)
+		ours := eth.HashFromBytes(in)
 		geth := gethcommon.BytesToHash(in)
 		assert.Equal(t, geth.Bytes(), ours.Bytes())
 	}
@@ -78,7 +65,7 @@ func TestHash_BytesToHash_GethParity(t *testing.T) {
 
 func TestHash_Bytes_GethParity(t *testing.T) {
 	for _, raw := range hashCorpus(t) {
-		ours := eth.BytesToHash(raw[:])
+		ours := eth.HashFromBytes(raw[:])
 		geth := gethcommon.BytesToHash(raw[:])
 		assert.Equal(t, geth.Bytes(), ours.Bytes())
 		assert.Len(t, ours.Bytes(), eth.HashLength)
@@ -87,7 +74,7 @@ func TestHash_Bytes_GethParity(t *testing.T) {
 
 func TestHash_Hex_GethParity(t *testing.T) {
 	for _, raw := range hashCorpus(t) {
-		ours := eth.BytesToHash(raw[:])
+		ours := eth.HashFromBytes(raw[:])
 		geth := gethcommon.BytesToHash(raw[:])
 		// geth's Hash.Hex() is lowercase 0x-hex (unlike Address.Hex which is EIP-55).
 		assert.Equal(t, geth.Hex(), ours.Hex())
@@ -96,7 +83,7 @@ func TestHash_Hex_GethParity(t *testing.T) {
 
 func TestHash_MarshalJSON_GethParity(t *testing.T) {
 	for _, raw := range hashCorpus(t) {
-		ours := eth.BytesToHash(raw[:])
+		ours := eth.HashFromBytes(raw[:])
 		geth := gethcommon.BytesToHash(raw[:])
 
 		oJSON, err := json.Marshal(ours)
@@ -111,7 +98,7 @@ func TestHash_MarshalJSON_GethParity(t *testing.T) {
 
 func TestHash_UnmarshalJSON_RoundTrip(t *testing.T) {
 	for _, raw := range hashCorpus(t) {
-		ours := eth.BytesToHash(raw[:])
+		ours := eth.HashFromBytes(raw[:])
 		geth := gethcommon.BytesToHash(raw[:])
 
 		gJSON, err := json.Marshal(geth)
@@ -166,7 +153,7 @@ func TestHash_Cmp_GethParity(t *testing.T) {
 	corpus := hashCorpus(t)
 	for i := range corpus {
 		for j := range corpus {
-			ours := eth.BytesToHash(corpus[i][:]).Cmp(eth.BytesToHash(corpus[j][:]))
+			ours := eth.HashFromBytes(corpus[i][:]).Cmp(eth.HashFromBytes(corpus[j][:]))
 			geth := gethcommon.BytesToHash(corpus[i][:]).Cmp(gethcommon.BytesToHash(corpus[j][:]))
 			assert.Equal(t, geth, ours, "Cmp(%d, %d)", i, j)
 		}
