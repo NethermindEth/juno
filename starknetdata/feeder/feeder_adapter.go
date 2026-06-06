@@ -8,7 +8,9 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 const (
@@ -33,13 +35,15 @@ type FeederAdapter struct {
 	// isFeederUpdated is set to true once the upstream feeder is confirmed
 	// to support StateUpdateWithBlockAndSignature.
 	isFeederUpdated atomic.Bool
+	logger          log.StructuredLogger
 }
 
 var _ starknetdata.StarknetData = (*FeederAdapter)(nil)
 
-func NewFeederAdaper(feeder *Feeder) *FeederAdapter {
+func NewFeederAdapter(feeder *Feeder, logger log.StructuredLogger) *FeederAdapter {
 	return &FeederAdapter{
 		Feeder: feeder,
+		logger: logger,
 	}
 }
 
@@ -61,6 +65,7 @@ func (f *FeederAdapter) Run(ctx context.Context) error {
 // It only returns if the feeder has been updated (true) or ctx is done (false).
 func (f *FeederAdapter) runVerificationLoop(ctx context.Context) bool {
 	if isFeederUpdated := f.verifyFeederUpdate(ctx); isFeederUpdated {
+		f.logger.Debug("Upstream feeder supports the new state-update endpoint; switching over")
 		return true
 	}
 
@@ -73,6 +78,7 @@ func (f *FeederAdapter) runVerificationLoop(ctx context.Context) bool {
 			return false
 		case <-ticker.C:
 			if isFeederUpdated := f.verifyFeederUpdate(ctx); isFeederUpdated {
+				f.logger.Debug("Upstream feeder supports the new state-update endpoint; switching over")
 				return true
 			}
 		}
@@ -119,4 +125,27 @@ func (f *FeederAdapter) StateUpdateWithBlock(
 	}
 
 	return adaptedState, adaptedBlock, nil
+}
+
+// PreConfirmedBlockByNumber returns the pre_confirmed block for the given block number.
+// If the upstream feeder supports the new combined endpoint ("get_pre_confirmed" with
+// the new "blockIdentifier" and "knownTransactionCount" arguments), it delegates
+// to [Feeder.PreConfirmedBlockByNumber]. Otherwise, it falls back to the old approach:
+// calling the client.DeprecatedPreConfirmedBlock endpoint with only the given block number.
+func (f *FeederAdapter) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, error) {
+	if f.isFeederUpdated.Load() {
+		return f.Feeder.PreConfirmedBlockByNumber(
+			ctx, blockNumber, blockIdentifier, knownTransactionCount,
+		)
+	}
+	response, err := f.client.DeprecatedPreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
+	if err != nil {
+		return nil, err
+	}
+	return response.AsUpdate(), nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -333,7 +334,7 @@ func TestAdapterErrorPaths(t *testing.T) {
 	})
 
 	t.Run("PreConfirmedBlockByNumber error", func(t *testing.T) {
-		preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, missing)
+		preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, missing, "", 0)
 		assert.Zero(t, preConfirmed)
 		assert.Error(t, err)
 	})
@@ -355,14 +356,11 @@ func TestPreConfirmedBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
-	blockNumber := uint64(1204672)
-	blockNumberStr := strconv.FormatUint(blockNumber, 10)
-	response, err := client.PreConfirmedBlock(ctx, blockNumberStr)
-	require.NoError(t, err)
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
-	require.NoError(t, err)
+	blockNumber := uint64(11252240)
 
-	preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber)
+	update, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber, "", 0)
 	require.NoError(t, err)
-	assert.Equal(t, preConfirmed, adaptedPreConfirmed)
+	full, ok := update.(starknet.PreConfirmedBlock)
+	require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
+	assert.NotEmpty(t, full.BlockIdentifier)
 }

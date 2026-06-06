@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 )
@@ -199,21 +198,22 @@ func (f *Feeder) StateUpdateWithBlock(
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
 
-// PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,
-// then adapts them to the pending.PreConfirmed and list of transaction hashes types respectively
+// PreConfirmedBlockByNumber fetches the pre_confirmed block at the given
+// height and returns a delta-aware update. blockIdentifier and
+// knownTransactionCount tell the server what the caller already has so the
+// server can return a no-change marker, only the transactions appended since
+// knownTransactionCount, or the full block when the round identifier no
+// longer matches. Set both to zero values to get a full block.
 func (f *Feeder) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-) (pending.PreConfirmed, error) {
-	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
-	if err != nil {
-		return pending.PreConfirmed{}, err
-	}
-
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
-	if err != nil {
-		return pending.PreConfirmed{}, err
-	}
-
-	return adaptedPreConfirmed, nil
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, error) {
+	return f.client.PreConfirmedBlockWithIdentifier(
+		ctx,
+		strconv.FormatUint(blockNumber, 10),
+		blockIdentifier,
+		knownTransactionCount,
+	)
 }

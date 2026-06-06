@@ -65,6 +65,10 @@ type PreConfirmed struct {
 	CandidateTxs          []core.Transaction
 	// Optional field, exists if pre_confirmed is N+2 when latest is N
 	PreLatest *PreLatest
+	// BlockIdentifier is an identifier returned by the feeder gateway
+	// that uniquely identifies the current round of the pre_confirmed block.
+	// It is used to negotiate delta-sync responses on subsequent polls.
+	BlockIdentifier string
 }
 
 func NewPreConfirmed(
@@ -72,12 +76,14 @@ func NewPreConfirmed(
 	stateUpdate *core.StateUpdate,
 	transactionStateDiffs []*core.StateDiff,
 	candidateTxs []core.Transaction,
+	blockIdentifier string,
 ) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,
 		TransactionStateDiffs: transactionStateDiffs,
 		CandidateTxs:          candidateTxs,
+		BlockIdentifier:       blockIdentifier,
 	}
 }
 

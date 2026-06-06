@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
@@ -23,7 +24,12 @@ type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockHeaderLatest(ctx context.Context) (*core.Header, error)
 	BlockPreLatest(ctx context.Context) (pending.PreLatest, error)
-	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error)
+	PreConfirmedBlockByNumber(
+		ctx context.Context,
+		blockNumber uint64,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (starknet.PreConfirmedUpdate, error)
 }
 
 type feederGatewayDataSource struct {
@@ -141,11 +147,13 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-) (pending.PreConfirmed, error) {
-	preConfirmed, err := f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
-	if err != nil {
-		return pending.PreConfirmed{}, err
-	}
-
-	return preConfirmed, nil
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, error) {
+	return f.starknetData.PreConfirmedBlockByNumber(
+		ctx,
+		blockNumber,
+		blockIdentifier,
+		knownTransactionCount,
+	)
 }

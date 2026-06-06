@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -19,6 +20,8 @@ const (
 	blockNumberArg = "blockNumber"
 	classHashArg   = "classHash"
 	trueStr        = "true"
+
+	PreConfirmedBlankIdentifier = "0x0"
 )
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
@@ -48,7 +51,16 @@ type Reader interface {
 	CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error)
 	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error)
 	FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error)
-	PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error)
+	DeprecatedPreConfirmedBlock(
+		ctx context.Context,
+		blockNumber string,
+	) (*starknet.DeprecatedPreConfirmedBlock, error)
+	PreConfirmedBlockWithIdentifier(
+		ctx context.Context,
+		blockNumber string,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (starknet.PreConfirmedUpdate, error)
 	PublicKey(ctx context.Context) (*felt.Felt, error)
 	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)
@@ -358,12 +370,50 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 	return doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)
 }
 
-func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
+// DeprecatedPreConfirmedBlock fetches the pre_confirmed block at the given
+// height from the legacy "get_preconfirmed_block" endpoint. Prefer
+// [Client.PreConfirmedBlockWithIdentifier].
+//
+//nolint:staticcheck // wraps the deprecated DeprecatedPreConfirmedBlock type.
+func (c *Client) DeprecatedPreConfirmedBlock(
+	ctx context.Context,
+	blockNumber string,
+) (*starknet.DeprecatedPreConfirmedBlock, error) {
 	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
 		blockNumberArg: blockNumber,
 	})
 
-	return doRequest[starknet.PreConfirmedBlock](ctx, c, queryURL)
+	return doRequest[starknet.DeprecatedPreConfirmedBlock](ctx, c, queryURL)
+}
+
+// PreConfirmedBlockWithIdentifier fetches the pre_confirmed block at the given height,
+// using the given block identifier and known transaction count to tell the server what
+// the caller already has.
+//
+// blockIdentifier and knownTransactionCount enable delta sync: the server
+// uses them to decide whether to return a no-change marker, only the
+// transactions appended since knownTransactionCount, or the full block when
+// the round identifier no longer matches. Set both to zero values to get a full block.
+func (c *Client) PreConfirmedBlockWithIdentifier(
+	ctx context.Context,
+	blockNumber string,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, error) {
+	if blockIdentifier == "" {
+		blockIdentifier = PreConfirmedBlankIdentifier
+	}
+	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
+		blockNumberArg:          blockNumber,
+		"blockIdentifier":       blockIdentifier,
+		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
+	})
+
+	env, err := doRequest[starknet.PreConfirmedUpdateEnvelope](ctx, c, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	return env.Update, nil
 }
 
 // Deprecated: Transaction calls the get_transaction endpoint which returns

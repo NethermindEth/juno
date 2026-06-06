@@ -651,8 +651,9 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	blocksWithRandomCandidateOrder := uint64(1204675)
 
 	type preConfirmedTest struct {
-		description string
-		blockNumber uint64
+		description        string
+		blockNumber        uint64
+		useNewFeederParams bool
 	}
 
 	tests := []preConfirmedTest{
@@ -676,36 +677,69 @@ func TestAdaptPreConfirmed(t *testing.T) {
 			description: "PreConfirmedBlock with candidate in between preconfirmed txns",
 			blockNumber: blocksWithRandomCandidateOrder,
 		},
+		// cases for new feeder params endpoint
+		{
+			description:        "PreConfirmedBlock with no txs",
+			blockNumber:        11251800,
+			useNewFeederParams: true,
+		},
+		{
+			description:        "PreConfirmedBlock full",
+			blockNumber:        11252240,
+			useNewFeederParams: true,
+		},
 	}
 
 	for _, test := range tests {
-		response, err := client.PreConfirmedBlock(t.Context(), strconv.FormatUint(test.blockNumber, 10))
-		require.NoError(t, err)
+		var response *starknet.PreConfirmedBlock
+		var err error
+		blockNumberStr := strconv.FormatUint(test.blockNumber, 10)
 
-		expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
-		expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
-		expectedReceipts := getPreconfirmedReceipts(response.Receipts)
+		if test.useNewFeederParams {
+			var update starknet.PreConfirmedUpdate
+			update, err = client.PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, "", 0)
+			require.NoError(t, err)
+			full, ok := update.(starknet.PreConfirmedBlock)
+			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
+			response = &full
+			test.description = "new feeder params: " + test.description
+		} else {
+			//nolint:staticcheck // legacy endpoint test path intentionally uses the deprecated type
+			var legacy *starknet.DeprecatedPreConfirmedBlock
+			legacy, err = client.DeprecatedPreConfirmedBlock(t.Context(), blockNumberStr)
+			require.NoError(t, err)
+			update := legacy.AsUpdate()
+			full, ok := update.(starknet.PreConfirmedBlock)
+			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
+			response = &full
+		}
 
-		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
-		require.NoError(t, err)
+		t.Run(test.description, func(t *testing.T) {
+			expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
+			expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
+			expectedReceipts := getPreconfirmedReceipts(response.Receipts)
 
-		assertPreConfirmedBlockBasics(t,
-			&adapted,
-			test.blockNumber,
-			response,
-			expectedPreConfirmedTxCount,
-			expectedCandidateCount,
-			expectedEventCount,
-		)
-		assertPreConfirmedBlockReceipts(
-			t,
-			expectedReceipts,
-			adapted.Block.Receipts,
-			expectedPreConfirmedTxCount,
-		)
-		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
-		assertCandidateTxs(t, response, adapted.CandidateTxs)
-		assertStateDiffs(t, response, adapted.TransactionStateDiffs)
+			adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
+			require.NoError(t, err)
+
+			assertPreConfirmedBlockBasics(t,
+				&adapted,
+				test.blockNumber,
+				response,
+				expectedPreConfirmedTxCount,
+				expectedCandidateCount,
+				expectedEventCount,
+			)
+			assertPreConfirmedBlockReceipts(
+				t,
+				expectedReceipts,
+				adapted.Block.Receipts,
+				expectedPreConfirmedTxCount,
+			)
+			assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
+			assertCandidateTxs(t, response, adapted.CandidateTxs)
+			assertStateDiffs(t, response, adapted.TransactionStateDiffs)
+		})
 	}
 }
 
@@ -746,6 +780,7 @@ func assertPreConfirmedBlockBasics(
 	assert.Equal(t, response.Version, preConfirmed.Block.ProtocolVersion)
 	assert.Equal(t, response.L1GasPrice.PriceInFri, preConfirmed.Block.L1GasPriceSTRK)
 	assert.Equal(t, response.L1GasPrice.PriceInWei, preConfirmed.Block.L1GasPriceETH)
+	assert.Equal(t, response.BlockIdentifier, preConfirmed.BlockIdentifier)
 }
 
 func assertCandidateTxs(
@@ -786,7 +821,11 @@ func assertStateDiffs(
 	assert.Equal(t, len(stateDiffs), preID)
 }
 
-func assertPreConfirmedBlockGasPrices(t *testing.T, response *starknet.PreConfirmedBlock, block *core.Block) {
+func assertPreConfirmedBlockGasPrices(
+	t *testing.T,
+	response *starknet.PreConfirmedBlock,
+	block *core.Block,
+) {
 	t.Helper()
 	assert.Equal(t, response.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInFri)
 	assert.Equal(t, response.L1DataGasPrice.PriceInWei, block.L1DataGasPrice.PriceInWei)
@@ -805,6 +844,182 @@ func countEventsAndTxs(receipts []*starknet.TransactionReceipt) (uint64, int) {
 		txCount++
 	}
 	return evCount, txCount
+}
+
+// TestAdaptPreConfirmedWithDelta simulates the real feeder poll flow against
+// a real PreConfirmedBlock from the testdata: take the initial portion of the
+// block as a Full payload (what the first poll observes), split the remainder
+// into a sequence of Delta payloads (what subsequent polls deliver), apply
+// them in order, and assert the accumulated state equals adapting the
+// original Full in one shot.
+//
+// All inputs are real wire payloads — no synthetic transactions.
+func TestAdaptPreConfirmedWithDelta(t *testing.T) {
+	n := &networks.SepoliaIntegration
+	client := feeder.NewTestClient(t, n)
+	blockNumber := uint64(11252240)
+
+	clean := mustFetchPreConfirmedBlock(t, client, blockNumber)
+	// The new feeder API contract guarantees no candidate transactions in a
+	// PreConfirmedBlock. Verify the fixture honours that so the splits below
+	// can index Receipts and TransactionStateDiffs by the same offsets as
+	// Transactions.
+	for i := range clean.Receipts {
+		require.NotNilf(t, clean.Receipts[i],
+			"PreConfirmedBlock must not contain candidate-tx slots (receipt %d was nil)", i)
+	}
+	N := len(clean.Transactions)
+	require.GreaterOrEqual(t, N, 2,
+		"test fixture must have at least 2 pre_confirmed txs to exercise sequential deltas")
+
+	// Adapt the full block once; every test case must reproduce this exact
+	// observable state via its (Full + sequence of Deltas) stream.
+	expected, err := sn2core.AdaptPreConfirmedBlock(clean, blockNumber)
+	require.NoError(t, err)
+
+	cases := []struct {
+		name           string
+		initialTxCount int // size of the first Full payload
+		chunkSize      int // size of each subsequent Delta (last one may be smaller)
+	}{
+		{name: "empty Full, deltas of 1 tx", initialTxCount: 0, chunkSize: 1},
+		{name: "Full with 1 tx, deltas of 1 tx", initialTxCount: 1, chunkSize: 1},
+		{name: "Full with half, deltas of 1 tx", initialTxCount: N / 2, chunkSize: 1},
+		{name: "empty Full, single big delta", initialTxCount: 0, chunkSize: N},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			initialFull, deltas := splitIntoFullAndDeltas(clean, tc.initialTxCount, tc.chunkSize)
+
+			// First poll: server returns the Full payload.
+			state, err := sn2core.AdaptPreConfirmedBlock(initialFull, blockNumber)
+			require.NoError(t, err)
+
+			// Subsequent polls: each Delta carries the next chunk of txs.
+			applied := tc.initialTxCount
+			for i, delta := range deltas {
+				require.NotEmptyf(t, delta.Transactions,
+					"delta %d must carry >=1 tx per API contract", i)
+
+				next, err := sn2core.AdaptPreConfirmedWithDelta(&state, &delta)
+				require.NoErrorf(t, err, "delta %d/%d failed", i+1, len(deltas))
+
+				// Non-mutation: pre-merge state's slice lengths unchanged.
+				assert.Len(t, state.Block.Transactions, applied,
+					"AdaptPreConfirmedWithDelta must not mutate input transactions slice")
+				assert.Len(t, state.Block.Receipts, applied)
+				assert.Len(t, state.TransactionStateDiffs, applied)
+
+				state = next
+				applied += len(delta.Transactions)
+			}
+
+			// After the whole stream, state must equal the one-shot adapt of
+			// the full block on every observable field — this pins down tx
+			// count, event count, event bloom, txs, receipts, per-tx state
+			// diffs, and the squashed state diff hash all at once. If the
+			// final state matches, all intermediates were on-path.
+			assert.Equal(t, expected.Block.TransactionCount, state.Block.TransactionCount, "tx count")
+			assert.Equal(t, expected.Block.EventCount, state.Block.EventCount, "event count")
+			assert.True(t, expected.Block.EventsBloom.Equal(state.Block.EventsBloom), "event bloom")
+			assert.Equal(t, expected.Block.Transactions, state.Block.Transactions, "transactions")
+			assert.Equal(t, expected.Block.Receipts, state.Block.Receipts, "receipts")
+			assert.Equal(t, expected.TransactionStateDiffs, state.TransactionStateDiffs, "tx diffs")
+			assert.Equal(t, expected.StateUpdate.StateDiff.Hash(), state.StateUpdate.StateDiff.Hash(),
+				"squashed state diff hash")
+		})
+	}
+
+	t.Run("returns ErrPreConfirmedIdentifierMismatch on identifier drift", func(t *testing.T) {
+		current := &pending.PreConfirmed{
+			BlockIdentifier: "round-a",
+			Block:           &core.Block{Header: &core.Header{}},
+			StateUpdate:     &core.StateUpdate{StateDiff: &core.StateDiff{}},
+		}
+		delta := &starknet.PreConfirmedDeltaUpdate{BlockIdentifier: "round-b"}
+		_, err := sn2core.AdaptPreConfirmedWithDelta(current, delta)
+		require.ErrorIs(t, err, sn2core.ErrPreConfirmedIdentifierMismatch)
+	})
+
+	t.Run("returns error on mismatched delta lengths", func(t *testing.T) {
+		current := &pending.PreConfirmed{
+			BlockIdentifier: "round-a",
+			Block:           &core.Block{Header: &core.Header{}},
+			StateUpdate:     &core.StateUpdate{StateDiff: &core.StateDiff{}},
+		}
+		delta := &starknet.PreConfirmedDeltaUpdate{
+			BlockIdentifier:       "round-a",
+			Transactions:          []starknet.Transaction{{}},
+			Receipts:              []*starknet.TransactionReceipt{{}, {}},
+			TransactionStateDiffs: []*starknet.StateDiff{{}},
+		}
+		_, err := sn2core.AdaptPreConfirmedWithDelta(current, delta)
+		require.Error(t, err)
+	})
+}
+
+// mustFetchPreConfirmedBlock fetches a real pre_confirmed Full from the test client.
+func mustFetchPreConfirmedBlock(
+	t *testing.T,
+	client *feeder.Client,
+	number uint64,
+) *starknet.PreConfirmedBlock {
+	t.Helper()
+	update, err := client.PreConfirmedBlockWithIdentifier(
+		t.Context(), strconv.FormatUint(number, 10), "", 0,
+	)
+	require.NoError(t, err)
+	full, ok := update.(starknet.PreConfirmedBlock)
+	require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
+	return &full
+}
+
+// truncatePreConfirmedBlock returns a shallow copy of full with Transactions,
+// Receipts, and TransactionStateDiffs truncated to the first k entries.
+func truncatePreConfirmedBlock(
+	full *starknet.PreConfirmedBlock,
+	k int,
+) *starknet.PreConfirmedBlock {
+	out := *full
+	out.Transactions = full.Transactions[:k:k]
+	out.Receipts = full.Receipts[:k:k]
+	out.TransactionStateDiffs = full.TransactionStateDiffs[:k:k]
+	return &out
+}
+
+// splitIntoFullAndDeltas turns a real PreConfirmedBlock into the payload stream
+// a poller would observe: an initial Full carrying the first `initialTxCount`
+// pre_confirmed txs, then a sequence of PreConfirmedDeltaUpdate payloads each
+// carrying `chunkSize` txs (the last may be smaller). All deltas share the
+// source block's identifier. The concatenation of the initial Full plus every
+// delta exactly reconstructs `clean`.
+//
+// Per the feeder API contract a Delta always carries >=1 tx, so chunkSize
+// must be >= 1.
+func splitIntoFullAndDeltas(
+	clean *starknet.PreConfirmedBlock,
+	initialTxCount int,
+	chunkSize int,
+) (*starknet.PreConfirmedBlock, []starknet.PreConfirmedDeltaUpdate) {
+	if chunkSize < 1 {
+		panic("splitIntoFullAndDeltas: chunkSize must be >= 1")
+	}
+	initial := truncatePreConfirmedBlock(clean, initialTxCount)
+
+	total := len(clean.Transactions)
+	numDeltas := (total - initialTxCount + chunkSize - 1) / chunkSize
+	deltas := make([]starknet.PreConfirmedDeltaUpdate, 0, numDeltas)
+	for lo := initialTxCount; lo < total; lo += chunkSize {
+		hi := min(lo+chunkSize, total)
+		deltas = append(deltas, starknet.PreConfirmedDeltaUpdate{
+			BlockIdentifier:       clean.BlockIdentifier,
+			Transactions:          clean.Transactions[lo:hi:hi],
+			Receipts:              clean.Receipts[lo:hi:hi],
+			TransactionStateDiffs: clean.TransactionStateDiffs[lo:hi:hi],
+		})
+	}
+	return initial, deltas
 }
 
 func assertPreConfirmedBlockReceipts(

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -114,6 +115,7 @@ func MakeEmptyPreConfirmedForParent(
 		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
 		TransactionStateDiffs: make([]*core.StateDiff, 0),
 		CandidateTxs:          make([]core.Transaction, 0),
+		BlockIdentifier:       feeder.PreConfirmedBlankIdentifier,
 	}
 
 	return preConfirmed, nil
