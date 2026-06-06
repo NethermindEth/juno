@@ -284,6 +284,14 @@ func TestHandle(t *testing.T) {
 			req: "[\n" + strings.Repeat("1,\n", 200) + "2 3\n]",
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"1,\n1,\n1,\n2 3\n  ^\nunexpected '3', expected ',' or ']' [line 202, position 3]"},"id":null}`,
 		},
+		"context is capped at three lines within the window": {
+			req: "[\n1,\n2,\n3,\n4,\n5,\n6 7\n]",
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"3,\n4,\n5,\n6 7\n  ^\nunexpected '7', expected ',' or ']' [line 7, position 3]"},"id":null}`,
+		},
+		"column counts runes not bytes": {
+			req: `{"é":@}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"é\":@}\n     ^\nunexpected '@', expected a value [line 1, position 6]"},"id":null}`,
+		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":1}`,
