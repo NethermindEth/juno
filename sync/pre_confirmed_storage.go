@@ -14,6 +14,13 @@ import (
 
 // PreConfirmedStorage owns the atomically-stored pre_confirmed block and the
 // rules for evolving it under a wire-side update.
+//
+// The stored block is also the single source of truth for the poll target:
+// pollPreConfirmed reads `inner` once per tick and derives all three poll
+// parameters (number, identifier, txCount) from that single snapshot, so
+// they are necessarily coherent. This means the poll loop only moves to the
+// next height after an empty pre_confirmed is stored for it. If that write
+// is skipped, the poller has no target and stays idle.
 type PreConfirmedStorage struct {
 	inner atomic.Pointer[pending.PreConfirmed]
 }
@@ -126,7 +133,9 @@ func (s *PreConfirmedStorage) ApplyUpdate(
 // Replacement happens when:
 //   - the incoming block is at a higher number than the existing one, or
 //   - same number but a different BlockIdentifier (new round) — replaces even
-//     if the new block has fewer txs, or
+//     if the new block has fewer txs, EXCEPT when the incoming carries the
+//     blank PreConfirmedBlankIdentifier (an internal placeholder), in which
+//     case the existing real round is preserved, or
 //   - same number and identifier but the incoming block is strictly richer
 //     (more transactions).
 //

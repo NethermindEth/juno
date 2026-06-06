@@ -3,10 +3,8 @@ package sync
 import (
 	"context"
 	"errors"
-	"sync/atomic"
 	"time"
 
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -176,15 +174,14 @@ type preConfirmedPoll struct {
 	baseTxCount uint64
 }
 
-// pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
-// The target is read from blockNumberToPoll and only polled while at tip.
-// Each poll echoes the currently stored pre_confirmed's identifier and
-// transaction count so the server can return a no-change marker, a delta of
-// appended transactions, or a fresh full block when the round identifier no
-// longer matches. On success, the resulting update is forwarded to out.
+// pollPreConfirmed polls the feeder for the current pre_confirmed at a fixed
+// interval. The poll target and the (identifier, txCount) hints are all read
+// from a single atomic load of the stored pre_confirmed, so the three values
+// are necessarily coherent. Polling fires only while at tip (stored number
+// is strictly greater than the highest known header). On success, the
+// resulting update is forwarded to out.
 func (s *Synchronizer) pollPreConfirmed(
 	ctx context.Context,
-	blockNumberToPoll *atomic.Uint64,
 	out chan<- preConfirmedPoll,
 ) {
 	if s.preConfirmedPollInterval == 0 {
@@ -201,25 +198,14 @@ func (s *Synchronizer) pollPreConfirmed(
 			return
 
 		case <-ticker.C:
-			targetBlockNum := blockNumberToPoll.Load()
-			shouldPoll := targetBlockNum > 0 && s.isGreaterThanTip(targetBlockNum)
-			if !shouldPoll {
+			current := s.preConfirmed.ReadUnsafe()
+			if current == nil || !s.isGreaterThanTip(current.Block.Number) {
 				continue
 			}
-
-			var (
-				blockIdentifier              = feeder.PreConfirmedBlankIdentifier
-				knownTransactionCount uint64 = 0
-			)
-
-			currentPreConf := s.preConfirmed.ReadUnsafe()
-			if currentPreConf != nil {
-				blockIdentifier = currentPreConf.BlockIdentifier
-				knownTransactionCount = uint64(len(currentPreConf.Block.Transactions))
-			}
+			txCount := uint64(len(current.Block.Transactions))
 
 			update, err := s.dataSource.PreConfirmedBlockByNumber(
-				ctx, targetBlockNum, blockIdentifier, knownTransactionCount,
+				ctx, current.Block.Number, current.BlockIdentifier, txCount,
 			)
 			if err != nil {
 				s.logger.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
@@ -229,8 +215,8 @@ func (s *Synchronizer) pollPreConfirmed(
 			select {
 			case out <- preConfirmedPoll{
 				update:      update,
-				blockNumber: targetBlockNum,
-				baseTxCount: knownTransactionCount,
+				blockNumber: current.Block.Number,
+				baseTxCount: txCount,
 			}:
 				continue
 			case <-ctx.Done():
@@ -243,14 +229,18 @@ func (s *Synchronizer) pollPreConfirmed(
 // handleHead processes a new head.
 // It computes nextHeight = head.Number + 1, clears any staged pre_latest if the
 // head catches up to the current target, and stores an empty pre_confirmed when
-// advancing.
+// advancing. The "current target" is implicit in the stored pre_confirmed's
+// block number — the baseline write itself publishes the new target.
 func (s *Synchronizer) handleHead(
 	head *core.Block,
-	targetPreConfirmedNum *atomic.Uint64,
 	stagedPreLatest *pending.PreLatest,
 ) *pending.PreLatest {
 	next := head.Number + 1
-	targetNum := targetPreConfirmedNum.Load()
+	var targetNum uint64
+	if current := s.preConfirmed.ReadUnsafe(); current != nil {
+		targetNum = current.Block.Number
+	}
+
 	if next < targetNum {
 		return stagedPreLatest
 	}
@@ -260,7 +250,6 @@ func (s *Synchronizer) handleHead(
 		return nil
 	}
 
-	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
 		s.logger.Debug("Error storing empty pre_confirmed (from head)", zap.Error(err))
 	}
@@ -272,15 +261,17 @@ func (s *Synchronizer) handleHead(
 // Returns updated staged pre-latest.
 func (s *Synchronizer) handlePreLatest(
 	pl *pending.PreLatest,
-	targetPreConfirmedNum *atomic.Uint64,
 	stagedPreLatest *pending.PreLatest,
 ) *pending.PreLatest {
 	next := pl.Block.Number + 1
-	if next <= targetPreConfirmedNum.Load() {
+	var targetNum uint64
+	if current := s.preConfirmed.ReadUnsafe(); current != nil {
+		targetNum = current.Block.Number
+	}
+	if next <= targetNum {
 		return stagedPreLatest
 	}
 
-	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
 		s.logger.Debug("Error storing empty pre_confirmed (with pre_latest)", zap.Error(err))
 	}
@@ -334,10 +325,9 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 
 	preLatestCh := make(chan *pending.PreLatest, 1)
 	preConfirmedCh := make(chan preConfirmedPoll, 1)
-	var preConfirmedBlockNumberToPoll atomic.Uint64
 
 	go s.pollPreLatest(ctx, preLatestCh)
-	go s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, preConfirmedCh)
+	go s.pollPreConfirmed(ctx, preConfirmedCh)
 
 	var stagedPreLatest *pending.PreLatest
 
@@ -351,17 +341,9 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 				return
 			}
 
-			stagedPreLatest = s.handleHead(
-				head,
-				&preConfirmedBlockNumberToPoll,
-				stagedPreLatest,
-			)
+			stagedPreLatest = s.handleHead(head, stagedPreLatest)
 		case pl := <-preLatestCh:
-			stagedPreLatest = s.handlePreLatest(
-				pl,
-				&preConfirmedBlockNumberToPoll,
-				stagedPreLatest,
-			)
+			stagedPreLatest = s.handlePreLatest(pl, stagedPreLatest)
 		case pc := <-preConfirmedCh:
 			s.handlePreConfirmed(pc, stagedPreLatest)
 		}

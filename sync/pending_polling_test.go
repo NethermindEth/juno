@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	stdsync "sync"
-	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -350,26 +349,26 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		}
 		s := New(bc, mockDS, logger, 0, 30*time.Millisecond, false, testDB)
 
-		var preConfirmedBlockNumberToPoll atomic.Uint64
 		out := make(chan preConfirmedPoll, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		var wg stdsync.WaitGroup
 		wg.Go(func() {
-			s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
+			s.pollPreConfirmed(ctx, out)
 		})
 		defer wg.Wait()
 
-		// Initially, no target -> should not emit
+		// Initially, no hints published -> should not emit
 		select {
 		case <-out:
 			t.Fatal("unexpected pre_confirmed with no target set")
 		case <-time.After(100 * time.Millisecond):
 		}
 
-		// Set target but not at tip (highest nil) -> still skip
-		preConfirmedBlockNumberToPoll.Store(uint64(1))
+		// Seed the stored pre_confirmed but stay not-at-tip (highest nil) -> still skip.
+		// The poller derives its target from stored.Block.Number.
+		seedPreConfirmedAtNumber(t, s, 1)
 		select {
 		case <-out:
 			t.Fatal("unexpected pre_confirmed when not at tip")
@@ -402,8 +401,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		}
 		s := New(bc, mockDS, logger, 0, 30*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head0.Header)
-		var preConfirmedBlockNumberToPoll atomic.Uint64
-		preConfirmedBlockNumberToPoll.Store(1)
+		seedPreConfirmedAtNumber(t, s, 1)
 
 		out := make(chan preConfirmedPoll, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -411,7 +409,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 
 		var wg stdsync.WaitGroup
 		wg.Go(func() {
-			s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
+			s.pollPreConfirmed(ctx, out)
 		})
 		wg.Wait()
 
@@ -682,4 +680,17 @@ func makeEmptyPreLatestForParent(parent *core.Header) pending.PreLatest {
 		NewClasses: make(map[felt.Felt]core.ClassDefinition, 0),
 	}
 	return pending
+}
+
+// seedPreConfirmedAtNumber installs a minimal blank-identifier pre_confirmed
+// at the given number so the poller derives `number` as its target on the
+// next tick. Mirrors what storeEmptyPreConfirmed would produce.
+func seedPreConfirmedAtNumber(t *testing.T, s *Synchronizer, number uint64) {
+	t.Helper()
+	s.preConfirmed.inner.Store(&pending.PreConfirmed{
+		Block: &core.Block{
+			Header: &core.Header{Number: number},
+		},
+		BlockIdentifier: feeder.PreConfirmedBlankIdentifier,
+	})
 }
