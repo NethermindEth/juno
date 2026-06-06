@@ -10,18 +10,18 @@ import "github.com/NethermindEth/juno/core/felt"
 // Deprecated: prefer [PreConfirmedUpdate]; this type only exists to support
 // the legacy "get_preconfirmed_block" endpoint until it can be removed.
 type DeprecatedPreConfirmedBlock struct {
-	Transactions          []Transaction         `json:"transactions,omitempty"`
-	Receipts              []*TransactionReceipt `json:"transaction_receipts,omitempty"`
-	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs,omitempty"`
+	Transactions          []Transaction         `json:"transactions"`
+	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
+	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
 
-	Status           string     `json:"status,omitempty"`
-	Timestamp        uint64     `json:"timestamp,omitempty"`
-	Version          string     `json:"starknet_version,omitempty"`
-	SequencerAddress *felt.Felt `json:"sequencer_address,omitempty"`
-	L1GasPrice       *GasPrice  `json:"l1_gas_price,omitempty"`
-	L2GasPrice       *GasPrice  `json:"l2_gas_price,omitempty"`
-	L1DAMode         L1DAMode   `json:"l1_da_mode,omitempty"`
-	L1DataGasPrice   *GasPrice  `json:"l1_data_gas_price,omitempty"`
+	Status           string     `json:"status"`
+	Timestamp        uint64     `json:"timestamp"`
+	Version          string     `json:"starknet_version"`
+	SequencerAddress *felt.Felt `json:"sequencer_address"`
+	L1GasPrice       *GasPrice  `json:"l1_gas_price"`
+	L2GasPrice       *GasPrice  `json:"l2_gas_price"`
+	L1DAMode         L1DAMode   `json:"l1_da_mode"`
+	L1DataGasPrice   *GasPrice  `json:"l1_data_gas_price"`
 }
 
 // AsUpdate adapts a legacy DeprecatedPreConfirmedBlock to the new
