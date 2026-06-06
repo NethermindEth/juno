@@ -177,9 +177,12 @@ type preConfirmedPoll struct {
 // pollPreConfirmed polls the feeder for the current pre_confirmed at a fixed
 // interval. The poll target and the (identifier, txCount) hints are all read
 // from a single atomic load of the stored pre_confirmed, so the three values
-// are necessarily coherent. Polling fires only while at tip (stored number
-// is strictly greater than the highest known header). On success, the
-// resulting update is forwarded to out.
+// are necessarily coherent. Each poll echoes the stored pre_confirmed's
+// identifier and transaction count so the server can return a no-change
+// marker, a delta of appended transactions, or a fresh full block when the
+// round identifier no longer matches. Polling fires only while at tip
+// (stored number is strictly greater than the highest known header). On
+// success, the resulting update is forwarded to out.
 func (s *Synchronizer) pollPreConfirmed(
 	ctx context.Context,
 	out chan<- preConfirmedPoll,
