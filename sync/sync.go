@@ -369,10 +369,6 @@ func (s *Synchronizer) storeTask(
 		return
 	}
 
-	if err := s.storeEmptyPreConfirmed(block.Header, nil); err != nil {
-		s.logger.Error("Failed to store empty pre-confirmed data", zap.Error(err))
-	}
-
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
@@ -406,8 +402,6 @@ func (s *Synchronizer) storeTask(
 
 func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight uint64, resetStreams context.CancelFunc) {
 	defer resetStreams()
-	var lastHead *core.Header
-
 	shouldContinue := true
 	for shouldContinue {
 		localHeader, err := s.blockchain.HeadsHeader()
@@ -415,7 +409,6 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 			s.logger.Error("Failed to retrieve the local head header", zap.Error(err))
 			break
 		}
-		lastHead = localHeader
 
 		// Always reorg head newer than lastPossiblyValidHeight. Otherwise, check the hash
 		if localHeader.Number <= lastPossiblyValidHeight {
@@ -440,12 +433,6 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 			s.handlePluginRevertBlock()
 		}
 		s.revertHead(localHeader)
-	}
-
-	if lastHead != nil {
-		if err := s.storeEmptyPreConfirmed(lastHead, nil); err != nil {
-			s.logger.Error("Failed to store empty pre-confirmed data", zap.Error(err))
-		}
 	}
 }
 
