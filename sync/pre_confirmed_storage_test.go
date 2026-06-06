@@ -217,6 +217,45 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.Equal(t, newRound, *ptr)
 	})
 
+	t.Run("blank-identifier baseline does not override a real round", func(t *testing.T) {
+		s.preConfirmed.inner.Store(nil)
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+
+		existing := pending.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           head.Number + 1,
+					TransactionCount: 5,
+				},
+			},
+			StateUpdate:     &core.StateUpdate{},
+			BlockIdentifier: "round-a",
+		}
+		written, err := s.preConfirmed.StorePreConfirmedForHead(&existing, head)
+		require.NoError(t, err)
+		require.True(t, written)
+
+		// Internal blank-identifier placeholder at the same height must NOT
+		// wipe a real round, regardless of tx count.
+		blank := pending.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           head.Number + 1,
+					TransactionCount: 0,
+				},
+			},
+			StateUpdate:     &core.StateUpdate{},
+			BlockIdentifier: feeder.PreConfirmedBlankIdentifier,
+		}
+		written, err = s.preConfirmed.StorePreConfirmedForHead(&blank, head)
+		require.NoError(t, err)
+		require.False(t, written, "blank-identifier baseline must not replace a real round")
+		ptr := s.preConfirmed.ReadUnsafe()
+		require.Equal(t, "round-a", ptr.BlockIdentifier)
+		require.Equal(t, uint64(5), ptr.Block.TransactionCount)
+	})
+
 	t.Run("accepts more recent pre_confirmed regardless tx count", func(t *testing.T) {
 		s.preConfirmed.inner.Store(nil)
 		head, err := bc.HeadsHeader()

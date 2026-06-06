@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
@@ -202,7 +203,12 @@ func shouldPreservePreConfirmed(
 	}
 
 	if incomingB.Number == existingB.Number {
-		if incoming.BlockIdentifier != existing.BlockIdentifier {
+		// A different identifier means a new round; replace — except when the
+		// incoming carries PreConfirmedBlankIdentifier, which is an internal
+		// placeholder (the wire never sends it) and must not override a real
+		// round at the same height.
+		if incoming.BlockIdentifier != existing.BlockIdentifier &&
+			incoming.BlockIdentifier != feeder.PreConfirmedBlankIdentifier {
 			return false
 		}
 		if incomingB.TransactionCount > existingB.TransactionCount {
