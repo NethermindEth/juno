@@ -10,12 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// These tests pin the JSON-RPC wire shape of MsgToL1 and MsgFromL1 after
-// migrating their address fields from go-ethereum's common.Address to
-// l1/eth.Address. The expected byte sequences match exactly what geth's
-// common.Address.MarshalJSON would have produced (lowercase 0x-prefixed
-// 40-char hex, no EIP-55 checksum) — proven byte-for-byte in
-// l1/eth/address_test.go.
+// See rpc/v10/wire_parity_test.go for rationale. Same JSON shape as v10/v9.
 
 func TestMsgToL1_JSONShape_Stable_v8(t *testing.T) {
 	in := MsgToL1{

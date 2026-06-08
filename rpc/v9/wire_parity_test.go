@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// See rpc/v8/wire_parity_test.go for rationale. Same JSON shape as v8.
+// See rpc/v10/wire_parity_test.go for rationale. Same JSON shape as v10/v9.
 
 func TestMsgToL1_JSONShape_Stable_v9(t *testing.T) {
 	in := MsgToL1{
