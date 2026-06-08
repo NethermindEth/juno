@@ -21,6 +21,6 @@ linters:
         source: '^//go:generate |https?://'
       - linters:
           - lll
-        path: jsonrpc/server_test\.go
+        path: jsonrpc/(server|pretty_error)_test\.go
 run:
   timeout: 10m
