@@ -203,7 +203,7 @@ func (p *Pruner) Run(ctx context.Context) error {
 	var sampleTickerC <-chan time.Time
 	if p.minAge > 0 {
 		if err := p.seedFloor(); err != nil {
-			return fmt.Errorf("pruner: seed minimum-age floor: %w", err)
+			return fmt.Errorf("seed minimum-age floor: %w", err)
 		}
 		sampleTicker := time.NewTicker(p.floorTickInterval)
 		defer sampleTicker.Stop()
@@ -245,7 +245,8 @@ func (p *Pruner) Run(ctx context.Context) error {
 		case <-staleTicker.C:
 			p.listener.OnL1Stale()
 			p.logger.Warn("no L1 head received in more than 24 hours. " +
-				"Pruning is paused and disk usage will slowly grow until L1 head delivery resumes",
+				"Pruning is paused and disk usage will slowly grow until L1 head delivery resumes" +
+				". Verify that the L1 client connected is live and synced.",
 			)
 			staleTicker.Reset(periodicStalenessTick)
 		}
@@ -274,7 +275,7 @@ func FindOldestBlockAtOrAfter(
 		mid := low + (high-low)/2
 		header, err := core.GetBlockHeaderByNumber(database, mid)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("getting block head for block %d", mid)
 		}
 		if header.Timestamp < cutoffUnix {
 			low = mid + 1
@@ -295,7 +296,7 @@ func (p *Pruner) sampleHeight() error {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("getting chain height: %w", err)
 	}
 	cutoff := time.Now().Add(-p.minAge)
 	// Reuse the previous floor as the lower bound: the cutoff only
@@ -307,7 +308,10 @@ func (p *Pruner) sampleHeight() error {
 			p.latestSampledHeight = height
 			return nil
 		}
-		return err
+		return fmt.Errorf(
+			"finding oldest block between %d and %d: %w",
+			p.latestSampledHeight, height, err,
+		)
 	}
 	p.latestSampledHeight = floor
 	return nil
@@ -403,10 +407,10 @@ func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error 
 
 	elapsed := time.Since(start)
 	p.listener.OnPrune(oldestKept, blocksPruned, elapsed)
-	p.logger.Info("Pruner",
-		zap.Uint64("oldest_kept", oldestKept),
-		zap.Uint64("block_pruned", blocksPruned),
-		zap.Duration("elapsed", elapsed),
+	p.logger.Info("Pruned Blocks",
+		zap.Uint64("prunedBelow", oldestKept),
+		zap.Uint64("blocksPruned", blocksPruned),
+		zap.Duration("duration", elapsed),
 	)
 	return nil
 }
