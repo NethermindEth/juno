@@ -224,48 +224,74 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\n{]\n ^\nunexpected ']', expected a string key or '}' [line 2, position 2]"},"id":null}`,
 		},
 		"trailing comma in object": {
-			req: `{"a":1,}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"a\":1,}\n       ^\nunexpected trailing comma before '}' [line 1, position 8]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_blockNumber",
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_blockNumber\",\n}\n^\nunexpected trailing comma before '}' [line 4, position 1]"},"id":null}`,
 		},
 		"trailing comma with whitespace": {
-			req: `{"a":1, }`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"a\":1, }\n        ^\nunexpected trailing comma before '}' [line 1, position 9]"},"id":null}`,
+			req: `{"jsonrpc": "2.0", "method": "starknet_blockNumber", }`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": \"2.0\", \"method\": \"starknet_blockNumber\", }\n                                                     ^\nunexpected trailing comma before '}' [line 1, position 54]"},"id":null}`,
 		},
 		"empty input": {
 			req: ``,
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\n^\nunexpected end of input [line 1, position 1]"},"id":null}`,
 		},
 		"trailing comma in array": {
-			req: `[1,2,]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[1,2,]\n     ^\nunexpected trailing comma before ']' [line 1, position 6]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_call",
+  "params": ["0x1", "0x2",],
+  "id": 1
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"params\": [\"0x1\", \"0x2\",],\n                          ^\nunexpected trailing comma before ']' [line 4, position 27]"},"id":null}`,
 		},
 		"unexpected token expecting value": {
-			req: `{"id":@}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"id\":@}\n      ^\nunexpected '@', expected a value [line 1, position 7]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_chainId",
+  "id": @
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_chainId\",\n  \"id\": @\n        ^\nunexpected '@', expected a value [line 4, position 9]"},"id":null}`,
 		},
 		"missing comma between array elements": {
-			req: `[1 2]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[1 2]\n   ^\nunexpected '2', expected ',' or ']' [line 1, position 4]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_call",
+  "params": ["0x1" "0x2"],
+  "id": 1
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"params\": [\"0x1\" \"0x2\"],\n                   ^\nunexpected '\"', expected ',' or ']' [line 4, position 20]"},"id":null}`,
 		},
 		"param type mismatch": {
 			req: `{"jsonrpc": 5, "method": "x", "id": 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": 5, \"method\": \"x\", \"id\": 1}\n            ^\nfield \"jsonrpc\" should be string, got number [line 1, position 13]"},"id":null}`,
 		},
 		"long line is windowed": {
-			req: `{"jsonrpc":"2.0","method":"` + strings.Repeat("x", 200) + `" z}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\" z}\n                                                                           ^\nunexpected 'z', expected ',' or '}' [line 1, position 230]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_call",
+  "params": {"calldata": [` + strings.Repeat(`"0x1", `, 20) + `"0x2"] z},
+  "id": 1
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n... \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x2\"] z},\n                                                                          ^\nunexpected 'z', expected ',' or '}' [line 4, position 174]"},"id":null}`,
 		},
 		"error at start of long line": {
-			req: `{@` + strings.Repeat("x", 300) + `}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{@xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...\n ^\nunexpected '@', expected a string key or '}' [line 1, position 2]"},"id":null}`,
+			req: `{@"jsonrpc": "2.0", "method": "starknet_estimateFee", "params": [` + strings.Repeat(`"0xdeadbeef", `, 20) + `"0x0"]}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{@\"jsonrpc\": \"2.0\", \"method\": \"starknet_estimateFee\", \"params\": [\"0xdeadbe...\n ^\nunexpected '@', expected a string key or '}' [line 1, position 2]"},"id":null}`,
 		},
 		"top-level type mismatch": {
 			req: `5`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"5\n^\nexpected a JSON object, got number [line 1, position 1]"},"id":null}`,
 		},
 		"untranslatable syntax error": {
-			req: `{"a":truX}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"a\":truX}\n        ^\ninvalid character 'X' in literal true (expecting 'e') [line 1, position 9]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_syncing",
+  "params": truX
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_syncing\",\n  \"params\": truX\n               ^\ninvalid character 'X' in literal true (expecting 'e') [line 4, position 16]"},"id":null}`,
 		},
 		"error on a middle line": {
 			req: "{\n\"a\" 1\n}",
@@ -281,16 +307,51 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_getStorageAt\",\n  \"params\": [\"0x4c5772d\", \"0x206f38f\" \"latest\"],\n                                      ^\nunexpected '\"', expected ',' or ']' [line 4, position 39]"},"id":null}`,
 		},
 		"error past the captured window": {
-			req: "[\n" + strings.Repeat("1,\n", 200) + "2 3\n]",
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"1,\n1,\n1,\n2 3\n  ^\nunexpected '3', expected ',' or ']' [line 202, position 3]"},"id":null}`,
+			req: "[\n" + strings.Repeat("\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n", 40) + "\"0xbad\" \"0x1\"\n]",
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0xbad\" \"0x1\"\n        ^\nunexpected '\"', expected ',' or ']' [line 42, position 9]"},"id":null}`,
 		},
 		"context is capped at three lines within the window": {
-			req: "[\n1,\n2,\n3,\n4,\n5,\n6 7\n]",
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"3,\n4,\n5,\n6 7\n  ^\nunexpected '7', expected ',' or ']' [line 7, position 3]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_call",
+  "params": {
+    "contract_address": "0x04c5772d",
+    "entry_point_selector": "0x0206f38f"
+    "calldata": []
+  },
+  "id": 1
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"  \"params\": {\n    \"contract_address\": \"0x04c5772d\",\n    \"entry_point_selector\": \"0x0206f38f\"\n    \"calldata\": []\n    ^\nunexpected '\"', expected ',' or '}' [line 7, position 5]"},"id":null}`,
+		},
+		"long line is windowed on both sides": {
+			req: `{"jsonrpc": "2.0", "method": "starknet_getStorageAt", "params": {"contract_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" @ "key": "0x02f0b3c5710379609eb5495f1ecd348cb28167711b73609fe565a72734550354"}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...84644ddd6b96f7c741b1562b82f9e004dc7\" @ \"key\": \"0x02f0b3c5710379609eb5495f1...\n                                        ^\nunexpected '@', expected ',' or '}' [line 1, position 155]"},"id":null}`,
+		},
+		"long preceding context line is windowed": {
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_call",
+  "params": ["0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "0x02f0b3c5710379609eb5495f1ecd348cb28167711b73609fe565a72734550354", "latest"]
+  "id": 1
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"params\": [\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e...\n  \"id\": 1\n  ^\nunexpected '\"', expected ',' or '}' [line 5, position 3]"},"id":null}`,
+		},
+		"oversized line drops all preceding context": {
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_estimateFee",
+  "params": {"request": [{"calldata": [` + strings.Repeat(`"0xdeadbeef", `, 40) + `"0x0"]}]}
+  "id": 1
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"  \"id\": 1\n  ^\nunexpected '\"', expected ',' or '}' [line 5, position 3]"},"id":null}`,
 		},
 		"column counts runes not bytes": {
-			req: `{"é":@}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"é\":@}\n     ^\nunexpected '@', expected a value [line 1, position 6]"},"id":null}`,
+			req: `{
+  "jsonrpc": "2.0",
+  "method": "starknet_call",
+  "👍": @
+}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"👍\": @\n       ^\nunexpected '@', expected a value [line 4, position 8]"},"id":null}`,
 		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
