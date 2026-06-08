@@ -33,11 +33,10 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 		return len(p), nil
 	}
 
-	// temporarily increases in size
-	c.window = append(c.window, p...)
-	if len(c.window) > maxWindowSize {
-		c.window = c.window[:copy(c.window, c.window[len(c.window)-maxWindowSize:])]
+	if overflow := len(c.window) + len(p) - maxWindowSize; overflow > 0 {
+		c.window = c.window[:copy(c.window, c.window[overflow:])]
 	}
+	c.window = append(c.window, p...)
 
 	return len(p), nil
 }
@@ -112,16 +111,16 @@ func describeSyntaxError(input []byte, offset int, err error) string {
 
 func describeError(input []byte, offset int, err error) string {
 	var (
-		typeErr   *json.UnmarshalTypeError
 		syntaxErr *json.SyntaxError
+		typeErr   *json.UnmarshalTypeError
 	)
 	switch {
+	case errors.As(err, &syntaxErr):
+		return describeSyntaxError(input, offset, err)
 	case errors.As(err, &typeErr):
 		return describeTypeError(typeErr)
 	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return "unexpected end of input"
-	case errors.As(err, &syntaxErr):
-		return describeSyntaxError(input, offset, err)
 	default:
 		return err.Error()
 	}
