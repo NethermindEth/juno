@@ -257,7 +257,7 @@ const (
 		"it on. The value is the size of the retention window in blocks, counted " +
 		"back from the retention pivot (the lower of the L1-verified head and " +
 		"the local L2 head):\n" +
-		"  --prune-mode      same as --prune-mode=0; prune up to the pivot\n" +
+		"  --prune-mode      same as --prune-mode=128; keep 128 blocks below the pivot\n" +
 		"  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\n" +
 		"Blocks at or above the L2 head are always kept. The pivot is at or " +
 		"below the L1-verified head, so pruned blocks are reorg-safe. RPC " +
