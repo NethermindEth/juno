@@ -499,6 +499,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "0"
 	junoCmd.Flags().Duration(pruneMinAgeF, defaultPruneMinAge, pruneMinAgeUsage)
 	setCategory(junoCmd, catPruning, pruneModeF, pruneMinAgeF)
+	_ = junoCmd.Flags().MarkHidden(pruneModeF)
+	_ = junoCmd.Flags().MarkHidden(pruneMinAgeF)
 
 	// --- Logging ---
 	junoCmd.Flags().String(logLevelF, log.INFO.String(), logLevelFlagUsage)
