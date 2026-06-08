@@ -41,6 +41,7 @@ type StarknetFilterer struct {
 
 // StarknetLogStateUpdate represents a LogStateUpdate event raised by the Starknet contract.
 type StarknetLogStateUpdate struct {
+	// I am pretty sure this shouldn't be `big.Int` and more closesly
 	GlobalRoot  *big.Int
 	BlockNumber *big.Int
 	BlockHash   *big.Int
@@ -57,7 +58,12 @@ func NewStarknetFilterer(address common.Address, filterer bind.ContractFilterer)
 }
 
 // bindStarknet binds a generic wrapper to an already deployed contract.
-func bindStarknet(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+func bindStarknet(
+	address common.Address,
+	caller bind.ContractCaller,
+	transactor bind.ContractTransactor,
+	filterer bind.ContractFilterer,
+) (*bind.BoundContract, error) {
 	parsed, err := StarknetMetaData.GetAbi()
 	if err != nil {
 		return nil, err
