@@ -41,7 +41,7 @@ type StarknetFilterer struct {
 
 // StarknetLogStateUpdate represents a LogStateUpdate event raised by the Starknet contract.
 type StarknetLogStateUpdate struct {
-	// I am pretty sure this shouldn't be `big.Int` and more closesly
+	// todo(rdr): I am pretty sure this shouldn't be `big.Int`
 	GlobalRoot  *big.Int
 	BlockNumber *big.Int
 	BlockHash   *big.Int

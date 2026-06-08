@@ -113,7 +113,7 @@ func NewClient(
 	}
 }
 
-// subscribeToUpdates blocks until a subscription is stablished. If context is cancelled,
+// subscribeToUpdates blocks until a subscription is established. If context is cancelled,
 // returns nil
 func (c *Client) subscribeToUpdates(
 	ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate,
