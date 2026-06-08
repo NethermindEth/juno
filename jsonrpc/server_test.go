@@ -310,6 +310,10 @@ func TestHandle(t *testing.T) {
 			req: "[\n" + strings.Repeat("\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n", 40) + "\"0xbad\" \"0x1\"\n]",
 			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0xbad\" \"0x1\"\n        ^\nunexpected '\"', expected ',' or ']' [line 42, position 9]"},"id":null}`,
 		},
+		"oversized single-line input keeps only the trailing window": {
+			req: `{"jsonrpc": "2.0", "method": "starknet_call", "params": [` + strings.Repeat(`"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", `, 10) + `"0xbad" @]}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\", \"0xbad\" @]}\n                                                                          ^\nunexpected '@', expected ',' or ']' [line 1, position 510]"},"id":null}`,
+		},
 		"context is capped at three lines within the window": {
 			req: `{
   "jsonrpc": "2.0",
