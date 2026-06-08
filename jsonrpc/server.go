@@ -323,7 +323,8 @@ func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
 func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, http.Header, error) {
-	bufferedReader := bufio.NewReaderSize(reader, bufferSize)
+	var errorRecoverBuffer windowBuffer
+	bufferedReader := bufio.NewReaderSize(io.TeeReader(reader, &errorRecoverBuffer), bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
 	resp := &response{
 		Version: "2.0",
@@ -337,7 +338,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	if !requestIsBatch {
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			resp.Error = Err(InvalidJSON, jsonErr.Error())
+			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
 				resp.ID = req.ID
@@ -352,7 +353,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			resp.Error = Err(InvalidJSON, batchJSONErr.Error())
+			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr))
 		} else if len(batchReq) == 0 {
 			resp.Error = Err(InvalidRequest, "empty batch")
 		} else {
@@ -449,20 +450,18 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 }
 
 func isBatch(reader *bufio.Reader) bool {
-	for {
-		char, err := reader.Peek(1)
+	for n := 1; ; n++ {
+		buf, err := reader.Peek(n)
 		if err != nil {
-			break
+			return false
 		}
-		if char[0] == ' ' || char[0] == '\t' || char[0] == '\r' || char[0] == '\n' {
-			if discarded, err := reader.Discard(1); discarded != 1 || err != nil {
-				break
-			}
+		switch buf[n-1] {
+		case ' ', '\t', '\r', '\n':
 			continue
+		default:
+			return buf[n-1] == '['
 		}
-		return char[0] == '['
 	}
-	return false
 }
 
 func isNilOrEmpty(i any) (bool, error) {
@@ -565,12 +564,12 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 	}
 
 	if isNilOrEmpty {
-		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
-			return p.Optional
-		})
-
-		if len(method.Params) > 0 && !allParamsAreOptional {
-			return nil, errors.New("missing non-optional param field")
+		required := utils.Map(
+			utils.Filter(method.Params, func(p Parameter) bool { return !p.Optional }),
+			func(p Parameter) string { return p.Name },
+		)
+		if len(required) > 0 {
+			return nil, fmt.Errorf("missing required params: %s", strings.Join(required, ", "))
 		}
 
 		for i := addContext; i < numArgs; i++ {
@@ -587,7 +586,8 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 
 		// Ensure that the number of provided parameters is between required and total parameters
 		if len(paramsList) < method.requiredParamCount || len(paramsList) > len(method.Params) {
-			return nil, errors.New("missing/unexpected params in list")
+			return nil, fmt.Errorf("expected between %d and %d params, got %d",
+				method.requiredParamCount, len(method.Params), len(paramsList))
 		}
 
 		for i, param := range paramsList {
