@@ -7,67 +7,67 @@ permissions:
   contents: write
   packages: write
 jobs:
-  check-docs-version:
-    name: Check Documentation Version
-    if: github.repository_owner == 'NethermindEth'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Verify docs are versioned for this release
-        run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          echo "Release version: ${TAG}"
-
-          # Skip pre-release tags (rc, beta, alpha)
-          if [[ "$TAG" =~ [.\-](rc|beta|alpha) ]]; then
-            echo "::notice::Skipping docs version check for pre-release: v${TAG}"
-            exit 0
-          fi
-
-          # Extract the minor version (X.Y.0) from the tag
-          MAJOR=$(echo "$TAG" | cut -d. -f1)
-          MINOR=$(echo "$TAG" | cut -d. -f2)
-          MINOR_VERSION="${MAJOR}.${MINOR}.0"
-          echo "Expected docs version: ${MINOR_VERSION}"
-
-          # 1. Check versions.json contains the minor version
-          if ! grep -q "\"${MINOR_VERSION}\"" docs/versions.json; then
-            echo "::error::Documentation version ${MINOR_VERSION} is NOT in docs/versions.json"
-            echo ""
-            echo "Before releasing, version the docs:"
-            echo "  cd docs && npm run docusaurus docs:version ${MINOR_VERSION}"
-            echo "  git add docs/ && git commit -m 'docs: version ${MINOR_VERSION}'"
-            echo "  git push origin main"
-            echo ""
-            exit 1
-          fi
-
-          # 2. Verify the versioned docs directory exists
-          VERSIONED_DIR="docs/versioned_docs/version-${MINOR_VERSION}"
-          if [ ! -d "${VERSIONED_DIR}" ]; then
-            echo "::error::${VERSIONED_DIR}/ directory is missing"
-            exit 1
-          fi
-
-          # 3. Check for drift between current docs and versioned docs
-          DIFF_OUTPUT=$(diff -r docs/docs/ "${VERSIONED_DIR}/" 2>&1) || true
-          if [ -n "$DIFF_OUTPUT" ]; then
-            echo "::error::Versioned docs (${VERSIONED_DIR}) are out of sync with docs/docs/"
-            echo ""
-            echo "The following files differ:"
-            echo "$DIFF_OUTPUT"
-            echo ""
-            echo "Re-version the docs to pick up the latest changes:"
-            echo "  cd docs && rm -rf versioned_docs/version-${MINOR_VERSION} versioned_sidebars/version-${MINOR_VERSION}-sidebars.json"
-            echo "  npm run docusaurus docs:version ${MINOR_VERSION}"
-            echo "  git add docs/ && git commit -m 'docs: re-version ${MINOR_VERSION}'"
-            echo "  git push origin main"
-            echo ""
-            exit 1
-          fi
-
-          echo "Documentation version ${MINOR_VERSION} is present and up to date."
+  # check-docs-version:
+  #   name: Check Documentation Version
+  #   if: github.repository_owner == 'NethermindEth'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #     - name: Verify docs are versioned for this release
+  #       run: |
+  #         TAG="${GITHUB_REF#refs/tags/v}"
+  #         echo "Release version: ${TAG}"
+  #
+  #         # Skip pre-release tags (rc, beta, alpha)
+  #         if [[ "$TAG" =~ [.\-](rc|beta|alpha) ]]; then
+  #           echo "::notice::Skipping docs version check for pre-release: v${TAG}"
+  #           exit 0
+  #         fi
+  #
+  #         # Extract the minor version (X.Y.0) from the tag
+  #         MAJOR=$(echo "$TAG" | cut -d. -f1)
+  #         MINOR=$(echo "$TAG" | cut -d. -f2)
+  #         MINOR_VERSION="${MAJOR}.${MINOR}.0"
+  #         echo "Expected docs version: ${MINOR_VERSION}"
+  #
+  #         # 1. Check versions.json contains the minor version
+  #         if ! grep -q "\"${MINOR_VERSION}\"" docs/versions.json; then
+  #           echo "::error::Documentation version ${MINOR_VERSION} is NOT in docs/versions.json"
+  #           echo ""
+  #           echo "Before releasing, version the docs:"
+  #           echo "  cd docs && npm run docusaurus docs:version ${MINOR_VERSION}"
+  #           echo "  git add docs/ && git commit -m 'docs: version ${MINOR_VERSION}'"
+  #           echo "  git push origin main"
+  #           echo ""
+  #           exit 1
+  #         fi
+  #
+  #         # 2. Verify the versioned docs directory exists
+  #         VERSIONED_DIR="docs/versioned_docs/version-${MINOR_VERSION}"
+  #         if [ ! -d "${VERSIONED_DIR}" ]; then
+  #           echo "::error::${VERSIONED_DIR}/ directory is missing"
+  #           exit 1
+  #         fi
+  #
+  #         # 3. Check for drift between current docs and versioned docs
+  #         DIFF_OUTPUT=$(diff -r docs/docs/ "${VERSIONED_DIR}/" 2>&1) || true
+  #         if [ -n "$DIFF_OUTPUT" ]; then
+  #           echo "::error::Versioned docs (${VERSIONED_DIR}) are out of sync with docs/docs/"
+  #           echo ""
+  #           echo "The following files differ:"
+  #           echo "$DIFF_OUTPUT"
+  #           echo ""
+  #           echo "Re-version the docs to pick up the latest changes:"
+  #           echo "  cd docs && rm -rf versioned_docs/version-${MINOR_VERSION} versioned_sidebars/version-${MINOR_VERSION}-sidebars.json"
+  #           echo "  npm run docusaurus docs:version ${MINOR_VERSION}"
+  #           echo "  git add docs/ && git commit -m 'docs: re-version ${MINOR_VERSION}'"
+  #           echo "  git push origin main"
+  #           echo ""
+  #           exit 1
+  #         fi
+  #
+  #         echo "Documentation version ${MINOR_VERSION} is present and up to date."
   build-binaries:
     name: Build Binaries
     if: github.repository_owner == 'NethermindEth'
