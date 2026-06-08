@@ -495,8 +495,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	// --- Pruning ---
 	junoCmd.Flags().Uint64(pruneModeF, defaultPruneMode, pruneModeUsage)
-	// NoOptDefVal lets users pass --prune-mode without a value (treated as 0).
-	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "0"
+	// NoOptDefVal lets users pass --prune-mode without a value (treated as 128).
+	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "128"
 	junoCmd.Flags().Duration(pruneMinAgeF, defaultPruneMinAge, pruneMinAgeUsage)
 	setCategory(junoCmd, catPruning, pruneModeF, pruneMinAgeF)
 
