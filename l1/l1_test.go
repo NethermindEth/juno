@@ -98,7 +98,9 @@ func TestFailToCreateSubscription(t *testing.T) {
 	)
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
+	// Resubscribe loop keeps failing; ctx timeout is treated as a clean
+	// shutdown, so Run returns nil rather than surfacing the cancellation.
+	require.NoError(t, client.Run(ctx))
 	cancel()
 }
 

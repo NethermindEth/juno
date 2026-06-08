@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -17,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -782,4 +784,94 @@ func TestCatchUpPartialProgressPreserved(t *testing.T) {
 	// Above finalised, so setL1Head wouldn't have committed it anyway.
 	_, err := chain.L1Head()
 	require.Error(t, err)
+}
+
+// TestFinalisedHeightReturnsPromptlyOnCancel asserts that when the retry
+// loop is waiting between attempts, a ctx cancellation wakes it up
+// immediately instead of stalling for resubscribeDelay. Runs inside a
+// synctest bubble with a 1h delay: with the fix, virtual time stays at 0;
+// without it, the loop would burn the full hour of virtual time before
+// noticing ctx.Done.
+func TestFinalisedHeightReturnsPromptlyOnCancel(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		nopLog := log.NewNopZapLogger()
+		network := networks.Mainnet
+		chain := blockchain.New(
+			memory.New(),
+			&network,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
+
+		subscriber := mocks.NewMockSubscriber(ctrl)
+		subscriber.
+			EXPECT().
+			FinalisedHeight(gomock.Any()).
+			Return(uint64(0), errors.New("boom")).
+			MinTimes(1)
+
+		client := NewClient(subscriber, chain, nopLog, WithResubscribeDelay(time.Hour))
+
+		ctx, cancel := context.WithCancel(t.Context())
+		type result struct {
+			height uint64
+			found  bool
+		}
+		done := make(chan result, 1)
+		start := time.Now()
+		go func() {
+			height, found := client.finalisedHeight(ctx)
+			done <- result{height: height, found: found}
+		}()
+
+		// Wait for the retry loop to durably block in the inter-attempt wait.
+		synctest.Wait()
+		cancel()
+
+		got := <-done
+		require.False(t, got.found)
+		require.Equal(t, uint64(0), got.height)
+		require.Less(t, time.Since(start), time.Minute,
+			"finalisedHeight stalled in time.Sleep after ctx cancel")
+	})
+}
+
+// TestSubscribeToUpdatesReturnsPromptlyOnCancel is the same check for the
+// other retry loop: WatchLogStateUpdate fails repeatedly, the loop enters
+// its inter-attempt wait, ctx is cancelled, and the function must return
+// without consuming resubscribeDelay.
+func TestSubscribeToUpdatesReturnsPromptlyOnCancel(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		nopLog := log.NewNopZapLogger()
+		network := networks.Mainnet
+		chain := blockchain.New(
+			memory.New(),
+			&network,
+			blockchain.WithNewState(statetestutils.UseNewState()),
+		)
+
+		subscriber := mocks.NewMockSubscriber(ctrl)
+		subscriber.
+			EXPECT().
+			WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("boom")).
+			MinTimes(1)
+
+		client := NewClient(subscriber, chain, nopLog, WithResubscribeDelay(time.Hour))
+
+		ctx, cancel := context.WithCancel(t.Context())
+		done := make(chan event.Subscription, 1)
+		start := time.Now()
+		go func() {
+			done <- client.subscribeToUpdates(ctx, make(chan *contract.StarknetLogStateUpdate, 1))
+		}()
+
+		synctest.Wait()
+		cancel()
+
+		require.Nil(t, <-done)
+		require.Less(t, time.Since(start), time.Minute,
+			"subscribeToUpdates stalled in time.Sleep after ctx cancel")
+	})
 }
