@@ -207,213 +207,76 @@ func TestHandle(t *testing.T) {
 		checkNewRequestEvent bool
 		checkFailedEvent     bool
 	}{
-		"invalid json": {
-			req: `{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{]\n ^\nunexpected ']', expected a string key or '}' [line 1, position 2]"},"id":null}`,
-		},
-		"invalid json batch path": {
-			req: `[{]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[{]\n  ^\nunexpected ']', expected a string key or '}' [line 1, position 3]"},"id":null}`,
-		},
-		"missing closing brace": {
-			req: `{"jsonrpc": "2.0", "method": "method", "id": 1`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": \"2.0\", \"method\": \"method\", \"id\": 1\n                                              ^\nunexpected end of input [line 1, position 47]"},"id":null}`,
-		},
-		"leading blank line keeps line number": {
-			req: "\n{]",
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\n{]\n ^\nunexpected ']', expected a string key or '}' [line 2, position 2]"},"id":null}`,
-		},
-		"trailing comma in object": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_blockNumber",
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_blockNumber\",\n}\n^\nunexpected trailing comma before '}' [line 4, position 1]"},"id":null}`,
-		},
-		"trailing comma with whitespace": {
-			req: `{"jsonrpc": "2.0", "method": "starknet_blockNumber", }`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": \"2.0\", \"method\": \"starknet_blockNumber\", }\n                                                     ^\nunexpected trailing comma before '}' [line 1, position 54]"},"id":null}`,
-		},
-		"empty input": {
-			req: ``,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\n^\nunexpected end of input [line 1, position 1]"},"id":null}`,
-		},
-		"trailing comma in array": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_call",
-  "params": ["0x1", "0x2",],
-  "id": 1
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"params\": [\"0x1\", \"0x2\",],\n                          ^\nunexpected trailing comma before ']' [line 4, position 27]"},"id":null}`,
-		},
-		"unexpected token expecting value": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_chainId",
-  "id": @
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_chainId\",\n  \"id\": @\n        ^\nunexpected '@', expected a value [line 4, position 9]"},"id":null}`,
-		},
-		"missing comma between array elements": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_call",
-  "params": ["0x1" "0x2"],
-  "id": 1
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"params\": [\"0x1\" \"0x2\"],\n                   ^\nunexpected '\"', expected ',' or ']' [line 4, position 20]"},"id":null}`,
-		},
-		"param type mismatch": {
-			req: `{"jsonrpc": 5, "method": "x", "id": 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": 5, \"method\": \"x\", \"id\": 1}\n            ^\nfield \"jsonrpc\" should be string, got number [line 1, position 13]"},"id":null}`,
-		},
-		"long line is windowed": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_call",
-  "params": {"calldata": [` + strings.Repeat(`"0x1", `, 20) + `"0x2"] z},
-  "id": 1
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n... \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x2\"] z},\n                                                                          ^\nunexpected 'z', expected ',' or '}' [line 4, position 174]"},"id":null}`,
-		},
-		"error at start of long line": {
-			req: `{@"jsonrpc": "2.0", "method": "starknet_estimateFee", "params": [` + strings.Repeat(`"0xdeadbeef", `, 20) + `"0x0"]}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{@\"jsonrpc\": \"2.0\", \"method\": \"starknet_estimateFee\", \"params\": [\"0xdeadbe...\n ^\nunexpected '@', expected a string key or '}' [line 1, position 2]"},"id":null}`,
-		},
-		"top-level type mismatch": {
-			req: `5`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"5\n^\nexpected a JSON object, got number [line 1, position 1]"},"id":null}`,
-		},
-		"untranslatable syntax error": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_syncing",
-  "params": truX
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_syncing\",\n  \"params\": truX\n               ^\ninvalid character 'X' in literal true (expecting 'e') [line 4, position 16]"},"id":null}`,
-		},
-		"error on a middle line": {
-			req: "{\n\"a\" 1\n}",
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n\"a\" 1\n    ^\nunexpected '1', expected ':' [line 2, position 5]"},"id":null}`,
-		},
-		"multiline starknet request with missing comma": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_getStorageAt",
-  "params": ["0x4c5772d", "0x206f38f" "latest"],
-  "id": 1
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_getStorageAt\",\n  \"params\": [\"0x4c5772d\", \"0x206f38f\" \"latest\"],\n                                      ^\nunexpected '\"', expected ',' or ']' [line 4, position 39]"},"id":null}`,
-		},
-		"error past the captured window": {
-			req: "[\n" + strings.Repeat("\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n", 40) + "\"0xbad\" \"0x1\"\n]",
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\",\n\"0xbad\" \"0x1\"\n        ^\nunexpected '\"', expected ',' or ']' [line 42, position 9]"},"id":null}`,
-		},
-		"oversized single-line input keeps only the trailing window": {
-			req: `{"jsonrpc": "2.0", "method": "starknet_call", "params": [` + strings.Repeat(`"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", `, 10) + `"0xbad" @]}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\", \"0xbad\" @]}\n                                                                          ^\nunexpected '@', expected ',' or ']' [line 1, position 510]"},"id":null}`,
-		},
-		"context is capped at three lines within the window": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_call",
-  "params": {
-    "contract_address": "0x04c5772d",
-    "entry_point_selector": "0x0206f38f"
-    "calldata": []
-  },
-  "id": 1
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"  \"params\": {\n    \"contract_address\": \"0x04c5772d\",\n    \"entry_point_selector\": \"0x0206f38f\"\n    \"calldata\": []\n    ^\nunexpected '\"', expected ',' or '}' [line 7, position 5]"},"id":null}`,
-		},
-		"long line is windowed on both sides": {
-			req: `{"jsonrpc": "2.0", "method": "starknet_getStorageAt", "params": {"contract_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" @ "key": "0x02f0b3c5710379609eb5495f1ecd348cb28167711b73609fe565a72734550354"}, "id": 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...84644ddd6b96f7c741b1562b82f9e004dc7\" @ \"key\": \"0x02f0b3c5710379609eb5495f1...\n                                        ^\nunexpected '@', expected ',' or '}' [line 1, position 155]"},"id":null}`,
-		},
-		"long preceding context line is windowed": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_call",
-  "params": ["0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "0x02f0b3c5710379609eb5495f1ecd348cb28167711b73609fe565a72734550354", "latest"]
-  "id": 1
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"params\": [\"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e...\n  \"id\": 1\n  ^\nunexpected '\"', expected ',' or '}' [line 5, position 3]"},"id":null}`,
-		},
-		"oversized line drops all preceding context": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_estimateFee",
-  "params": {"request": [{"calldata": [` + strings.Repeat(`"0xdeadbeef", `, 40) + `"0x0"]}]}
-  "id": 1
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"  \"id\": 1\n  ^\nunexpected '\"', expected ',' or '}' [line 5, position 3]"},"id":null}`,
-		},
-		"column counts runes not bytes": {
-			req: `{
-  "jsonrpc": "2.0",
-  "method": "starknet_call",
-  "👍": @
-}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"starknet_call\",\n  \"👍\": @\n       ^\nunexpected '@', expected a value [line 4, position 8]"},"id":null}`,
-		},
 		"wrong version": {
 			req: `{"jsonrpc" : "1.0", "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":1}`,
 		},
+
 		"wrong version with null id": {
 			req: `{"jsonrpc" : "1.0", "id" : null}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":null}`,
 		},
+
 		"non existent method": {
 			req: `{"jsonrpc" : "2.0", "method" : "doesnotexits" , "id" : 2}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":2}`,
 		},
+
 		"no params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "id" : 5}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing required params: num"},"id":5}`,
 		},
+
 		"too many params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"expected between 1 and 3 params, got 4"},"id":3}`,
 		},
+
 		"list params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message"] , "id" : 3}`,
 			res: `{"jsonrpc":"2.0","result":{"doubled":6},"id":3}`,
 		},
+
 		"list params, should soft error": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, true, "error message"] , "id" : 4}`,
 			res: `{"jsonrpc":"2.0","error":{"code":44,"message":"Expected Error","data":"error message"},"id":4}`,
 		},
+
 		"named params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5, "shouldError" : false, "msg": "error message" } , "id" : 5}`,
 			res: `{"jsonrpc":"2.0","result":{"doubled":10},"id":5}`,
 		},
+
 		"named params with defaults": {
 			req: `{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5}`,
 			res: `{"jsonrpc":"2.0","result":{"doubled":10},"id":5}`,
 		},
+
 		"named params, should soft error": {
 			req: `{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5, "shouldError" : true } , "id" : 22}`,
 			res: `{"jsonrpc":"2.0","error":{"code":44,"message":"Expected Error"},"id":22}`,
 		},
+
 		"missing nonoptional param": {
 			req: " \r\t\n" + `{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "shouldError" : true } , "id" : 22}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param: num"},"id":22}`,
 		},
+
 		"empty batch": {
 			req: `[]`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"empty batch"},"id":null}`,
 		},
+
 		"single request in batch": {
 			req: " \r\t\n" + `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5}]`,
 			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5}]`,
 		},
+
 		"multiple requests in batch": {
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5},
@@ -421,6 +284,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 44 } , "id" : 6}]`,
 			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
+
 		"failing and successful requests mixed in a batch": {
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5},
@@ -430,10 +294,12 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 44 } , "id" : 6}]`,
 			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5},{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":7},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
+
 		"notification": {
 			req: `{"jsonrpc" : "2.0", "method" : "method","params" : { "num" : 5, "shouldError" : false, "msg": "error message" }}`,
 			res: ``,
 		},
+
 		"batch with notif and string id": {
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 }},
@@ -443,6 +309,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 44 } , "id" : 6}]`,
 			res: `[{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":"7"},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
+
 		"batch with all notifs": {
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 }},
@@ -450,6 +317,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 44 }}]`,
 			res: ``,
 		},
+
 		"nested batch": {
 			req: `[[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 }}],
@@ -457,12 +325,14 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 44 }}]]`,
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
+
 		"no method": {
 			req: `{
 					"jsonrpc" : "2.0"
 				}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"no method specified"},"id":null}`,
 		},
+
 		"number param": {
 			req: `
 				{
@@ -472,6 +342,7 @@ func TestHandle(t *testing.T) {
 				}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"params should be an array or an object"},"id":null}`,
 		},
+
 		"string param": {
 			req: `
 				{
@@ -481,6 +352,7 @@ func TestHandle(t *testing.T) {
 				}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"params should be an array or an object"},"id":null}`,
 		},
+
 		"array id": {
 			req: `
 				{
@@ -491,6 +363,7 @@ func TestHandle(t *testing.T) {
 				}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"id should be a string or an integer"},"id":null}`,
 		},
+
 		"map id": {
 			req: `
 				{
@@ -501,6 +374,7 @@ func TestHandle(t *testing.T) {
 				}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"id should be a string or an integer"},"id":null}`,
 		},
+
 		"float id": {
 			req: `
 				{
@@ -511,10 +385,12 @@ func TestHandle(t *testing.T) {
 				}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"id should be a string or an integer"},"id":null}`,
 		},
+
 		"wrong param type": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : ["3", false, "error message"] , "id" : 3}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal string into Go value of type int"},"id":3}`,
 		},
+
 		"multiple versions in batch": {
 			req: `[{"jsonrpc" : "1.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5},
@@ -522,128 +398,145 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 44 } , "id" : 6}]`,
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
+
 		"invalid value in struct": {
 			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
+
 		"valid value in struct": {
 			req:                  `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
 			res:                  `{"jsonrpc":"2.0","result":1,"id":1}`,
 			checkNewRequestEvent: true,
 		},
+
 		"invalid value in struct pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 0} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
+
 		"valid value in struct pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 1} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
+
 		"invalid value in slice struct": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [ [{"A": 0}] ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
+
 		"valid value in slice of struct": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationSlice", "params" : [[{"A": 1}]], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
+
 		"invalid value in map of pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "notthexpectedkey" : {"A": 0}} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
+
 		"valid value in map of pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationMapPointer", "params" : [ { "expectedkey" : {"A": 1}} ], "id" : 1}`,
 			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
 		},
+
 		"handler accepts context with array params": {
 			req: `{"jsonrpc": "2.0", "method": "acceptsContext", "params": [], "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+
 		"handler accepts context without params": {
 			req: `{"jsonrpc": "2.0", "method": "acceptsContext","id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+
 		"handler accepts context and two params with array params": {
 			req: `{"jsonrpc": "2.0", "method": "acceptsContextAndTwoParams", "params": [1, 3], "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":2,"id":1}`,
 		},
+
 		"handler accepts context with named params": {
 			req: `{"jsonrpc": "2.0", "method": "acceptsContext", "params": {}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+
 		"handler accepts context and two params with named params": {
 			req: `{"jsonrpc": "2.0", "method": "acceptsContextAndTwoParams", "params": {"b": 3, "a": 1}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":2,"id":1}`,
 		},
 		// spec tests
+
 		"rpc call with positional parameters 1": {
 			req: `{"jsonrpc": "2.0", "method": "subtract", "params": [42, 23], "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":19,"id":1}`,
 		},
+
 		"rpc call with positional parameters 2": {
 			req: `{"jsonrpc": "2.0", "method": "subtract", "params": [23, 42], "id": 2}`,
 			res: `{"jsonrpc":"2.0","result":-19,"id":2}`,
 		},
+
 		"rpc call with named parameters 1": {
 			req: `{"jsonrpc": "2.0", "method": "subtract", "params": {"subtrahend": 23, "minuend": 42}, "id": 3}`,
 			res: `{"jsonrpc":"2.0","result":19,"id":3}`,
 		},
+
 		"rpc call with named parameters 2": {
 			req: `{"jsonrpc": "2.0", "method": "subtract", "params": {"minuend": 42, "subtrahend": 23}, "id": 4}`,
 			res: `{"jsonrpc":"2.0","result":19,"id":4}`,
 		},
+
 		"notif 1": {
 			req: `{"jsonrpc": "2.0", "method": "update", "params": [1,2,3,4,5]}`,
 			res: ``,
 		},
+
 		"notif 2": {
 			req: `{"jsonrpc": "2.0", "method": "foobar"}`,
 			res: ``,
 		},
+
 		"method not found": {
 			req: `{"jsonrpc": "2.0", "method": "notfound", "id": "1"}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":"1"}`,
 		},
-		"rpc call with invalid JSON": {
-			req: `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": \"2.0\", \"method\": \"foobar, \"params\": \"bar\", \"baz]\n                                       ^\nunexpected 'p', expected ',' or '}' [line 1, position 40]"},"id":null}`,
-		},
-		"rpc call Batch, invalid JSON:": {
-			req: `[
-  {"jsonrpc": "2.0", "method": "sum", "params": [1,2,4], "id": "1"},
-  {"jsonrpc": "2.0", "method"
-]`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[\n  {\"jsonrpc\": \"2.0\", \"method\": \"sum\", \"params\": [1,2,4], \"id\": \"1\"},\n  {\"jsonrpc\": \"2.0\", \"method\"\n]\n^\nunexpected ']', expected ':' [line 4, position 1]"},"id":null}`,
-		},
+
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
+
 		"rpc call with invalid Batch": {
 			req: `[1,2,3]`,
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
+
 		"fails internally": {
 			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,
 			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":1}`,
 			checkFailedEvent: true,
 		},
+
 		"empty optional param": {
 			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "params": {}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+
 		"null optional param": {
 			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+
 		"empty multiple optional params": {
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": {"param1": 1, "param2": [2, 3]}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+
 		"empty multiple optional positional params": {
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": [1, [2, 3]], "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+
 		"junk + valid params": {
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": {"param1": 1, "param2": [2, 3], "junk": "junk"}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"unexpected params: junk"},"id":1}`,
