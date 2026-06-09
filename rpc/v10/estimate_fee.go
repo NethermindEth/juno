@@ -44,7 +44,7 @@ func (h *Handler) EstimateFee(
 		simulationFlags = append(simulationFlags, simulationFlag)
 	}
 
-	txnResults, httpHeader, err := h.simulateTransactions(
+	txnResults, httpHeader, err := h.simulateBroadcastedTransactions(
 		ctx,
 		id,
 		broadcastedTxns.Data,
@@ -63,11 +63,6 @@ func (h *Handler) EstimateFee(
 	}
 
 	return feeEstimates, httpHeader, nil
-}
-
-type MessageFeePayload struct {
-	L1Handler   core.L1HandlerTransaction
-	PaidFeeOnL1 felt.Felt
 }
 
 func (h *Handler) EstimateMessageFee(
@@ -93,7 +88,6 @@ func (h *Handler) EstimateMessageFee(
 	// In order to estimate the message fee, since there's no "message fee" transaction,
 	// we wrap the message in a L1_HANDLER transaction.
 	l1Handler := core.L1HandlerTransaction{
-		TransactionHash:    nil, // to be calculated
 		ContractAddress:    &msg.To,
 		EntryPointSelector: &msg.Selector,
 		CallData:           calldata,
@@ -110,21 +104,13 @@ func (h *Handler) EstimateMessageFee(
 	}
 	l1Handler.TransactionHash = &txnHash
 
-	payload := MessageFeePayload{
-		L1Handler: l1Handler,
-		// Needed to marshal to blockifier type.
-		// Must be greater than zero to successfully execute transaction.
-		PaidFeeOnL1: felt.FromUint64[felt.Felt](1),
-	}
-
 	result, httpHeader, err := h.simulateTransactions(
-		ctx,
 		id,
-		nil,
-		&payload,
-		[]SimulationFlag{SkipFeeChargeFlag},
-		true,
-		true,
+		[]core.Transaction{&l1Handler},
+		nil,  // classes
+		nil,  // simulation flags
+		true, // err on revert
+		true, // is estimate fee
 	)
 	if err != nil {
 		if err.Code == rpccore.ErrTransactionExecutionError.Code {

@@ -175,14 +175,35 @@ func (h *Handler) SimulateTransactions(
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(ctx, id, transactions.Data, nil, simulationFlags, false, false)
+	return h.simulateBroadcastedTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
 }
 
-func (h *Handler) simulateTransactions(
+func (h *Handler) simulateBroadcastedTransactions(
 	ctx context.Context,
 	id *BlockID,
 	transactions []BroadcastedTransaction,
-	messageFeePayload *MessageFeePayload,
+	simulationFlags []SimulationFlag,
+	errOnRevert bool,
+	isEstimateFee bool,
+) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
+	httpHeader := http.Header{}
+	httpHeader.Set(ExecutionStepsHeader, "0")
+
+	network := h.bcReader.Network()
+	txns, classes, rpcErr := prepareTransactions(
+		ctx, h, transactions, network,
+	)
+	if rpcErr != nil {
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
+	}
+
+	return h.simulateTransactions(id, txns, classes, simulationFlags, errOnRevert, isEstimateFee)
+}
+
+func (h *Handler) simulateTransactions(
+	id *BlockID,
+	txns []core.Transaction,
+	classes []core.ClassDefinition,
 	simulationFlags []SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
@@ -203,26 +224,6 @@ func (h *Handler) simulateTransactions(
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return SimulateTransactionsResponse{}, httpHeader, rpcErr
-	}
-
-	network := h.bcReader.Network()
-
-	var (
-		txns         []core.Transaction
-		classes      []core.ClassDefinition
-		paidFeesOnL1 = []*felt.Felt{}
-	)
-
-	if messageFeePayload != nil {
-		txns = []core.Transaction{&messageFeePayload.L1Handler}
-		paidFeesOnL1 = []*felt.Felt{&messageFeePayload.PaidFeeOnL1}
-	} else {
-		txns, classes, rpcErr = h.prepareTransactions(
-			ctx, transactions, network,
-		)
-		if rpcErr != nil {
-			return SimulateTransactionsResponse{}, httpHeader, rpcErr
-		}
 	}
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
@@ -296,8 +297,9 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 		tx.ResourceBounds == nil
 }
 
-func (h *Handler) prepareTransactions(
+func prepareTransactions(
 	ctx context.Context,
+	h *Handler,
 	transactions []BroadcastedTransaction,
 	network *networks.Network,
 ) ([]core.Transaction, []core.ClassDefinition, *jsonrpc.Error) {

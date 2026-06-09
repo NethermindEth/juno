@@ -34,7 +34,7 @@ func BenchmarkSimulatePrep_3Mixed(b *testing.B) {
 		coreTxs := make([]core.Transaction, 0, len(txs))
 		var classes []core.ClassDefinition
 		for _, tx := range txs {
-			coreTx, sierra, _, err := rpcv9.AdaptBroadcastedTransaction(
+			coreTx, sierra, err := rpcv9.AdaptBroadcastedTransaction(
 				ctx, stub, tx, network,
 			)
 			if err != nil {
@@ -95,9 +95,8 @@ func BenchmarkMessageFeePrep(b *testing.B) {
 				Version:            &felt.Zero,
 				Nonce:              &felt.Zero,
 			},
-			PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 		}
-		_, _, _, err := rpcv9.AdaptBroadcastedTransaction(ctx, stub, &tx, network)
+		_, _, err := rpcv9.AdaptBroadcastedTransaction(ctx, stub, &tx, network)
 		if err != nil {
 			b.Fatal(err)
 		}

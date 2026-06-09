@@ -94,9 +94,5 @@ func BenchmarkMessageFeePrep(b *testing.B) {
 			b.Fatal(err)
 		}
 		l1Handler.TransactionHash = &txnHash
-		_ = MessageFeePayload{
-			L1Handler:   l1Handler,
-			PaidFeeOnL1: felt.FromUint64[felt.Felt](1),
-		}
 	}
 }
