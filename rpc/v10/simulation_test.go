@@ -187,20 +187,6 @@ func TestSimulateTransactions(t *testing.T) {
 func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *testing.T) {
 	t.Parallel()
 	n := &networks.Mainnet
-	headsHeader := &core.Header{
-		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    &felt.Zero,
-		L1GasPriceSTRK:   &felt.Zero,
-		L1DAMode:         0,
-		L1DataGasPrice: &core.GasPrice{
-			PriceInWei: &felt.Zero,
-			PriceInFri: &felt.Zero,
-		},
-		L2GasPrice: &core.GasPrice{
-			PriceInWei: &felt.Zero,
-			PriceInFri: &felt.Zero,
-		},
-	}
 
 	version3 := felt.FromUint64[felt.Felt](3)
 
@@ -296,11 +282,8 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockVM := mocks.NewMockVM(mockCtrl)
-			mockState := mocks.NewMockStateReader(mockCtrl)
 
 			mockReader.EXPECT().Network().Return(n)
-			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
 			handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
 
