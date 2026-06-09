@@ -16,13 +16,10 @@ import (
 // ------------------------------------------------------------------
 
 func BenchmarkSimulatePrep_3Mixed(b *testing.B) {
-	sierraRaw := loadSierraClassRaw(b)
-	declareJSON := buildDeclareBroadcastJSON(sierraRaw)
-
 	txs := []*BroadcastedTransaction{
-		loadBroadcastTxn(b, []byte(benchInvokeV3JSON)),
-		loadBroadcastTxn(b, []byte(benchDeployAccountV3JSON)),
-		loadBroadcastTxn(b, declareJSON),
+		buildInvokeTx(b),
+		buildDeployAccountTx(b),
+		buildDeclareTx(b),
 	}
 	ctx := b.Context()
 	stub := stubCompiler{}
