@@ -107,6 +107,9 @@ const (
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
+	newStateF                           = "new-state"
+	pruneModeF                          = node.PruneModeFlag
+	pruneMinAgeF                        = node.PruneMinAgeFlag
 
 	defaultConfig                             = ""
 	defaultLogJSON                            = false
@@ -166,7 +169,8 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultMaxConcurrentCompilations          = 8
 	defaultDisableReceivedTxnStream           = false
-	newStateF                                 = "new-state"
+	defaultPruneMode                          = uint64(0)
+	defaultPruneMinAge                        = 1 * time.Hour
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -248,7 +252,28 @@ const (
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	disableReceivedTxnStreamUsage  = "The starknet_subscribeNewTransactions WebSocket API " +
+	pruneModeUsage                 = "Enables block-data and state-history pruning. Pruning is " +
+		"disabled by default; passing this flag (with or without a value) turns " +
+		"it on. The value is the size of the retention window in blocks, counted " +
+		"back from the retention pivot (the lower of the L1-verified head and " +
+		"the local L2 head):\n" +
+		"  --prune-mode      same as --prune-mode=0; prune up to the pivot\n" +
+		"  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\n" +
+		"Blocks at or above the L2 head are always kept. The pivot is at or " +
+		"below the L1-verified head, so pruned blocks are reorg-safe. RPC " +
+		"remains fully functional for any block inside the retention window; " +
+		"requests targeting blocks below the floor fail because their data has " +
+		"been deleted. Pruning is irreversible: data deleted under a small " +
+		"window cannot be recovered without re-syncing. Changing this value " +
+		"across restarts is safe: the window grows or shrinks accordingly. " +
+		"Growth is gradual — pruning pauses until the pivot advances enough to " +
+		"reach the new floor."
+	pruneMinAgeUsage = "Protect blocks whose on-chain timestamp is " +
+		"younger than this duration from being pruned. Acts as an " +
+		"additional floor on top of --prune-mode: a block is retained " +
+		"if either the block-count window or this minimum-age window " +
+		"covers it. Set 0 to disable. Default 1h. Requires --prune-mode."
+	disableReceivedTxnStreamUsage = "The starknet_subscribeNewTransactions WebSocket API " +
 		"allows users to subscribe to new transactions. By default, it streams " +
 		"transactions that have been accepted on L2. Users can optionally provide " +
 		"a set of finality statuses to be notified about, including transactions " +
@@ -318,10 +343,11 @@ func main() {
 //nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
-		Use:     "juno",
-		Short:   "Starknet client implementation in Go.",
-		Version: Version,
-		RunE:    run,
+		Use:          "juno",
+		Short:        "Starknet client implementation in Go.",
+		Version:      Version,
+		RunE:         run,
+		SilenceUsage: true,
 	}
 
 	var cfgFile string
@@ -357,6 +383,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		if err := v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
 			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc()))); err != nil {
 			return err
+		}
+
+		// Pruning is gated on the flag's *presence* (CLI, YAML, or env), not
+		// its numeric value — --prune-mode=0 is still "on, retain 0".
+		config.Prune = v.IsSet(pruneModeF)
+
+		// --prune-min-age layers on top of --prune-mode; without pruning
+		// enabled there is no floor for it to constrain.
+		if v.IsSet(pruneMinAgeF) && !config.Prune {
+			return fmt.Errorf("--%s requires --%s to be set", pruneMinAgeF, pruneModeF)
 		}
 
 		// Set custom network
@@ -402,53 +438,90 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
-	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().String(logLevelF, log.INFO.String(), logLevelFlagUsage)
-	junoCmd.Flags().Bool(logJSONF, defaultLogJSON, logJSONUsage)
+	// --- HTTP RPC ---
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaultHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
+	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
+	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
+	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
+	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
+	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
+	junoCmd.Flags().Bool(
+		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
+	)
+	setCategory(junoCmd, catHTTPRPC,
+		httpF, httpHostF, httpPortF, corsEnableF,
+		rpcMaxBlockScanF, callMaxStepsF, callMaxGasF,
+		rpcRequestTimeoutF, disableRPCBatchRequestsF,
+	)
+
+	// --- WebSocket RPC ---
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
 	junoCmd.Flags().String(wsHostF, defaultHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
-	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
+	junoCmd.Flags().Bool(
+		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
+	)
+	setCategory(junoCmd, catWebSocket, wsF, wsHostF, wsPortF, disableReceivedTxnStreamF)
+
+	// --- Network & L1 ---
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
-	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
-	junoCmd.Flags().String(cnFeederURLF, defaultCNFeederURL, networkCustomFeederUsage)
-	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
-	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
-	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
-	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
-	junoCmd.Flags().IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
-	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
-	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
-	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
-	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
+	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
+
+	// --- Sync & Polling ---
 	junoCmd.Flags().Duration(
 		preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage,
 	)
-	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
-	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
-	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
-	junoCmd.Flags().String(p2pPublicAddrF, defaultP2pPublicAddr, p2pPublicAddrUsage)
-	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
-	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
-	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
+	junoCmd.Flags().Duration(
+		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
+	)
+	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
+	junoCmd.Flags().Uint(
+		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
+	)
+	setCategory(junoCmd, catSyncPolling,
+		preLatestPollIntervalF, preConfirmedPollIntervalF,
+		remoteDBF, readinessBlockToleranceF,
+	)
+
+	// --- Gateway ---
+	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
+	junoCmd.Flags().String(gwTimeoutsF, defaultGwTimeout, gwTimeoutsUsage)
+	setCategory(junoCmd, catGateway, gwAPIKeyF, gwTimeoutsF)
+
+	// --- Pruning ---
+	junoCmd.Flags().Uint64(pruneModeF, defaultPruneMode, pruneModeUsage)
+	// NoOptDefVal lets users pass --prune-mode without a value (treated as 0).
+	junoCmd.Flags().Lookup(pruneModeF).NoOptDefVal = "0"
+	junoCmd.Flags().Duration(pruneMinAgeF, defaultPruneMinAge, pruneMinAgeUsage)
+	setCategory(junoCmd, catPruning, pruneModeF, pruneMinAgeF)
+
+	// --- Logging ---
+	junoCmd.Flags().String(logLevelF, log.INFO.String(), logLevelFlagUsage)
+	junoCmd.Flags().Bool(logJSONF, defaultLogJSON, logJSONUsage)
+	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
+	setCategory(junoCmd, catLogging, logLevelF, logJSONF, colourF)
+
+	// --- Logs HTTP Update Endpoint ---
+	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
+	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
+	setCategory(junoCmd, catLogsHTTPUpdate, httpUpdateHostF, httpUpdatePortF)
+
+	// --- Metrics ---
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaultHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
-	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
-	junoCmd.Flags().String(grpcHostF, defaultHost, grpcHostUsage)
-	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
-	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
-	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
-	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
+	setCategory(junoCmd, catMetrics,
+		metricsF, metricsHostF, metricsPortF,
+	)
+
+	// --- Database ---
+	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
-	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 	junoCmd.Flags().String(
 		dbCompactionConcurrencyF, defaultDBCompactionConcurrency, dbCompactionConcurrencyUsage,
@@ -456,39 +529,97 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbMemtableSizeF, defaultDBMemtableSize, dbMemtableSizeUsage)
 	junoCmd.Flags().Uint(dbMemtableCountF, defaultDBMemtableCount, dbMemtableCountUsage)
 	junoCmd.Flags().String(dbCompressionF, defaultDBCompression, dbCompressionUsage)
-	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
-	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
-	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
-	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
-	junoCmd.Flags().String(gwTimeoutsF, defaultGwTimeout, gwTimeoutsUsage)
-	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
-	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
-	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
-	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
-	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
-	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
-	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
-	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
-	junoCmd.Flags().Uint(readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage)
-	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
-	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
+	setCategory(junoCmd, catDatabase,
+		dbPathF, dbCacheSizeF, dbMaxHandlesF,
+		dbCompactionConcurrencyF, dbMemtableSizeF, dbMemtableCountF, dbCompressionF,
+	)
+
+	// --- Transaction Cache ---
 	junoCmd.Flags().Uint(submittedTransactionsCacheSizeF, defaultSubmittedTransactionsCacheSize, submittedTransactionsCacheSize)
 	junoCmd.Flags().Duration(
 		submittedTransactionsCacheEntryTTLF,
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
 	)
-	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
-	junoCmd.Flags().Bool(
-		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
+	setCategory(junoCmd, catTxCache,
+		submittedTransactionsCacheSizeF, submittedTransactionsCacheEntryTTLF,
 	)
-	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
+
+	// --- VM & Compilation ---
+	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
+	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
 	junoCmd.Flags().Uint(
 		maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage,
 	)
-	junoCmd.Flags().Bool(
-		disableReceivedTxnStreamF, defaultDisableReceivedTxnStream, disableReceivedTxnStreamUsage,
+	junoCmd.Flags().String(
+		versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage,
 	)
+	setCategory(junoCmd, catVMCompile,
+		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF, versionedConstantsFileF,
+	)
+
+	// --- Custom Network ---
+	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
+	junoCmd.Flags().String(cnFeederURLF, defaultCNFeederURL, networkCustomFeederUsage)
+	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
+	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
+	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
+	junoCmd.Flags().String(
+		cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage,
+	)
+	junoCmd.Flags().IntSlice(
+		cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange,
+	)
+	junoCmd.MarkFlagsRequiredTogether(
+		cnNameF, cnFeederURLF, cnGatewayURLF,
+		cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF,
+	)
+	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
+	setCategory(junoCmd, catCustomNetwork,
+		cnNameF, cnFeederURLF, cnGatewayURLF,
+		cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF,
+	)
+
+	// --- Profiling ---
+	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
+	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
+	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
+	setCategory(junoCmd, catProfiling,
+		pprofF, pprofHostF, pprofPortF,
+	)
+
+	// --- P2P (experimental) ---
+	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
+	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
+	junoCmd.Flags().String(p2pPublicAddrF, defaultP2pPublicAddr, p2pPublicAddrUsage)
+	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
+	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
+	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
+	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
+	setCategory(junoCmd, catP2P,
+		p2pF, p2pAddrF, p2pPublicAddrF, p2pPeersF, p2pFeederNodeF, p2pPrivateKey,
+	)
+
+	// --- Sequencer ---
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
+	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
+	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
+	setCategory(junoCmd, catSequencer, seqEnF, seqBlockTimeF, seqGenesisFileF, seqDisableFeesF)
+
+	// --- gRPC ---
+	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
+	junoCmd.Flags().String(grpcHostF, defaultHost, grpcHostUsage)
+	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
+	setCategory(junoCmd, catGRPC, grpcF, grpcHostF, grpcPortF)
+
+	// --- Plugins & Misc ---
+	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
+	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
+	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
+	setCategory(junoCmd, catMisc, configF, pluginPathF, newStateF)
+
+	junoCmd.SetUsageFunc(writeGroupedUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd

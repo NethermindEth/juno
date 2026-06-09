@@ -129,6 +129,24 @@ func TestStateUpdate(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
+		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
+		l1AcceptedID := rpcv10.BlockIDL1Accepted()
+		update, rpcErr := handler.StateUpdate(&l1AcceptedID, nil)
+		require.Nil(t, rpcErr)
+		assertStateUpdateEq(t, update3077642, &update)
+	})
+
+	t.Run("l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: targetBlockNumber + 10,
+				BlockHash:   update3077642.BlockHash,
+				StateRoot:   update3077642.NewRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
 		mockReader.EXPECT().StateUpdateByNumber(targetBlockNumber).Return(update3077642, nil)
 		l1AcceptedID := rpcv10.BlockIDL1Accepted()
 		update, rpcErr := handler.StateUpdate(&l1AcceptedID, nil)
@@ -139,7 +157,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		update3077642.BlockHash = nil
 		update3077642.NewRoot = nil
-		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -182,7 +200,7 @@ func TestStateUpdate(t *testing.T) {
 		})
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
-			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, nil)
+			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, nil, "")
 			mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 			id := rpcv10.BlockIDPreConfirmed()
 			emptyFilter := rpcv10.AddressList{}

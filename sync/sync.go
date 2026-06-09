@@ -125,7 +125,7 @@ type Synchronizer struct {
 	logger   log.StructuredLogger
 	listener EventListener
 
-	preConfirmed             atomic.Pointer[pending.PreConfirmed]
+	preConfirmed             *PreConfirmedStorage
 	preLatestPollInterval    time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -157,6 +157,7 @@ func New(
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,
+		preConfirmed:             NewPreConfirmedStorage(),
 	}
 	return s
 }
@@ -368,10 +369,6 @@ func (s *Synchronizer) storeTask(
 		return
 	}
 
-	if err := s.storeEmptyPreConfirmed(block.Header, nil); err != nil {
-		s.logger.Error("Failed to store empty pre-confirmed data", zap.Error(err))
-	}
-
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
@@ -405,8 +402,6 @@ func (s *Synchronizer) storeTask(
 
 func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight uint64, resetStreams context.CancelFunc) {
 	defer resetStreams()
-	var lastHead *core.Header
-
 	shouldContinue := true
 	for shouldContinue {
 		localHeader, err := s.blockchain.HeadsHeader()
@@ -414,7 +409,6 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 			s.logger.Error("Failed to retrieve the local head header", zap.Error(err))
 			break
 		}
-		lastHead = localHeader
 
 		// Always reorg head newer than lastPossiblyValidHeight. Otherwise, check the hash
 		if localHeader.Number <= lastPossiblyValidHeight {
@@ -439,12 +433,6 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 			s.handlePluginRevertBlock()
 		}
 		s.revertHead(localHeader)
-	}
-
-	if lastHead != nil {
-		if err := s.storeEmptyPreConfirmed(lastHead, nil); err != nil {
-			s.logger.Error("Failed to store empty pre-confirmed data", zap.Error(err))
-		}
 	}
 }
 
@@ -608,13 +596,8 @@ func (s *Synchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
 		head = nil
 	}
 
-	preConfirmed := s.preConfirmed.Load()
-	if preConfirmed != nil && preConfirmed.Validate(head) {
-		// Special handling: if the pre-confirmed contains a 'pre-latest' block attachment
-		// that is now outdated (head moved on), return a copy with the pre-latest attachment discarded.
-		if head != nil && preConfirmed.Block.Number == head.Number+1 && preConfirmed.PreLatest != nil {
-			return preConfirmed.Copy().WithPreLatest(nil), nil
-		}
+	preConfirmed := s.preConfirmed.ReadPreConfirmedForHead(head)
+	if preConfirmed != nil {
 		return preConfirmed, nil
 	}
 

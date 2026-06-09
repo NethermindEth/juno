@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/starknet"
 )
 
 // StarknetData defines the function which are required to retrieve Starknet's state
@@ -23,5 +23,10 @@ type StarknetData interface {
 	StateUpdatePending(ctx context.Context) (*core.StateUpdate, error)
 	StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error)
 	StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error)
-	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (pending.PreConfirmed, error)
+	PreConfirmedBlockByNumber(
+		ctx context.Context,
+		blockNumber uint64,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (starknet.PreConfirmedUpdate, error)
 }

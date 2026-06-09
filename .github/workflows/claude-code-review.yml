@@ -1,0 +1,74 @@
+name: Claude PR Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "**/*.go"
+      - "**/*.rs"
+      - "go.mod"
+      - "go.sum"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/**"
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  review:
+    # Skip drafts and bot PRs (dependabot, etc.)
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.type != 'Bot' &&
+      github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install Jemalloc
+        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2
+
+      - name: Claude review
+        uses: anthropics/claude-code-action@v1 # TODO: pin to commit SHA
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          model: claude-opus-4-7
+          timeout_minutes: "20"
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this PR for the Juno Starknet node (Go + some Rust).
+
+            Focus on:
+            - Correctness bugs, race conditions, panics, nil derefs
+            - Concurrency safety (goroutines, channels, mutexes)
+            - Resource leaks (goroutines, file handles, db iterators, contexts)
+            - Error handling — wrapped errors, ignored returns, swallowed errors
+            - Protocol/consensus correctness in pkg paths under `consensus/`, `sync/`, `p2p/`
+            - Performance regressions in hot paths (sync, vm, mempool, pruner)
+            - Security: input validation on RPC handlers, panic-on-untrusted-input
+            - Tests: meaningful assertions, table-driven coverage, no flaky time.Sleep
+
+            Skip:
+            - Style nits already covered by golangci-lint
+            - Generated files (`*.pb.go`, `mocks/`)
+
+            Post specific issues as inline comments on the relevant file:line using
+            the inline comment tool. Use a final PR comment only for a short summary
+            grouped by severity (blocker / important / nit). If the PR is clean,
+            say so in one sentence and skip inline comments.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(go build:*),Bash(go vet:*),Bash(gofmt:*),Bash(git diff:*),Bash(git log:*),Bash(rg:*)"

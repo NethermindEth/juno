@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 )
@@ -23,10 +22,10 @@ const (
 )
 
 type Feeder struct {
-	client *feeder.Client
+	client feeder.Reader
 }
 
-func New(client *feeder.Client) *Feeder {
+func New(client feeder.Reader) *Feeder {
 	return &Feeder{
 		client: client,
 	}
@@ -73,15 +72,16 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		return nil, errors.New("no pending block")
 	}
 
-	var sig *starknet.Signature
+	var signature []*felt.Felt
 	if blockID != pendingID {
-		sig, err = f.client.Signature(ctx, blockID)
-		if err != nil {
-			return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)
+		sig, sErr := f.client.Signature(ctx, blockID)
+		if sErr != nil {
+			return nil, fmt.Errorf("get signature for block %q: %v", blockID, sErr)
 		}
+		signature = sig.Signature
 	}
 
-	return sn2core.AdaptBlock(response, sig)
+	return sn2core.AdaptBlock(response, signature)
 }
 
 // Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,
@@ -145,31 +145,36 @@ func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, err
 }
 
 func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
-	response, err := f.client.StateUpdateWithBlock(ctx, blockID)
-	if err != nil {
-		return nil, nil, err
-	}
+	var (
+		stateUpBlock starknet.StateUpdateWithBlock
+		signature    []*felt.Felt
+	)
 
-	if blockID == pendingID && response.Block.Status != "PENDING" {
-		return nil, nil, errors.New("no pending block")
-	}
-
-	var sig *starknet.Signature
-	if blockID != pendingID {
-		sig, err = f.client.Signature(ctx, blockID)
+	if blockID == pendingID {
+		resp, err := f.client.StateUpdateWithBlock(ctx, blockID)
 		if err != nil {
 			return nil, nil, err
 		}
+		stateUpBlock = *resp
+	} else {
+		resp, err := f.client.StateUpdateWithBlockAndSignature(ctx, blockID)
+		if err != nil {
+			return nil, nil, err
+		}
+		stateUpBlock.Block = resp.Block
+		stateUpBlock.StateUpdate = resp.StateUpdate
+		signature = resp.Signature
 	}
 
 	var adaptedState *core.StateUpdate
 	var adaptedBlock *core.Block
+	var err error
 
-	if adaptedState, err = sn2core.AdaptStateUpdate(response.StateUpdate); err != nil {
+	if adaptedState, err = sn2core.AdaptStateUpdate(stateUpBlock.StateUpdate); err != nil {
 		return nil, nil, err
 	}
 
-	if adaptedBlock, err = sn2core.AdaptBlock(response.Block, sig); err != nil {
+	if adaptedBlock, err = sn2core.AdaptBlock(stateUpBlock.Block, signature); err != nil {
 		return nil, nil, err
 	}
 
@@ -193,21 +198,22 @@ func (f *Feeder) StateUpdateWithBlock(
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
 
-// PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,
-// then adapts them to the pending.PreConfirmed and list of transaction hashes types respectively
+// PreConfirmedBlockByNumber fetches the pre_confirmed block at the given
+// height and returns a delta-aware update. blockIdentifier and
+// knownTransactionCount tell the server what the caller already has so the
+// server can return a no-change marker, only the transactions appended since
+// knownTransactionCount, or the full block when the round identifier no
+// longer matches. Set both to zero values to get a full block.
 func (f *Feeder) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-) (pending.PreConfirmed, error) {
-	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
-	if err != nil {
-		return pending.PreConfirmed{}, err
-	}
-
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
-	if err != nil {
-		return pending.PreConfirmed{}, err
-	}
-
-	return adaptedPreConfirmed, nil
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, error) {
+	return f.client.PreConfirmedBlockWithIdentifier(
+		ctx,
+		strconv.FormatUint(blockNumber, 10),
+		blockIdentifier,
+		knownTransactionCount,
+	)
 }

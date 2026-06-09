@@ -93,7 +93,7 @@ func newTrieReader(
 //   - key: represents the storage key for trie [Node]s. It is the full path to the node from the
 //     root.
 //
-// [specification]: https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#merkle_patricia_trie
+// [specification]: https://docs.starknet.io/learn/protocol/state#merkle-patricia-trie
 type Trie struct {
 	TrieReader
 	storage        *Storage

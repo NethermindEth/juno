@@ -188,7 +188,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 //
 // Parameters:
 //
-//   - vm: The virtual machine used for execution
+//   - runner: The virtual machine used for execution
 //
 //   - transactions: The transactions to trace
 //
@@ -199,7 +199,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 //
 //   - blockInfo: Block context for execution
 func traceTransactionsWithState(
-	vm vm.VM,
+	runner vm.VM,
 	transactions []core.Transaction,
 	executionState core.StateReader,
 	classLookupState core.StateReader,
@@ -207,7 +207,6 @@ func traceTransactionsWithState(
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	// Collect declared classes and L1 fees for VM execution
 	declaredClasses, paidFeesOnL1, err := fetchDeclaredClassesAndL1Fees(
 		transactions,
 		classLookupState,
@@ -216,19 +215,13 @@ func traceTransactionsWithState(
 		return nil, httpHeader, err
 	}
 
-	executionResult, vmErr := vm.Execute(
+	executionResult, vmErr := runner.Trace(
 		transactions,
 		declaredClasses,
 		paidFeesOnL1,
 		blockInfo,
 		executionState,
-		false, // skipValidate
-		false, // skipFeeCharge
-		false, // skipNonceCharge
-		true,  // allowZeroMaxFee
-		false, // allowNoSignature
-		false, // isEstimateFee
-		false, // returnInitialReads
+		vm.TraceOptions{},
 	)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
@@ -263,18 +256,12 @@ func traceTransactionsWithState(
 	return traces, httpHeader, nil
 }
 
-// fetchDeclaredClassesAndL1Fees collects class declarations and L1 handler fees for VM execution.
-//
-// Parameters:
-//   - transactions: The transactions to process
-//   - state: The state reader used to look up class definitions
-//
-// Returns the list of declared classes, L1 handler fees, and an error if any.
+// fetchDeclaredClassesAndL1Fees collects class declarations and L1Handler placeholder fees.
 func fetchDeclaredClassesAndL1Fees(
 	transactions []core.Transaction, state core.StateReader,
 ) ([]core.ClassDefinition, []*felt.Felt, *jsonrpc.Error) {
 	var declaredClasses []core.ClassDefinition
-	l1HandlerFees := []*felt.Felt{}
+	paidFeesOnL1 := []*felt.Felt{}
 
 	for _, transaction := range transactions {
 		switch tx := transaction.(type) {
@@ -285,11 +272,12 @@ func fetchDeclaredClassesAndL1Fees(
 			}
 			declaredClasses = append(declaredClasses, class.Class)
 		case *core.L1HandlerTransaction:
-			l1HandlerFees = append(l1HandlerFees, &felt.One)
+			// TODO (granza): use real L1 message fee.
+			paidFeesOnL1 = append(paidFeesOnL1, &felt.One)
 		}
 	}
 
-	return declaredClasses, l1HandlerFees, nil
+	return declaredClasses, paidFeesOnL1, nil
 }
 
 /****************************************************

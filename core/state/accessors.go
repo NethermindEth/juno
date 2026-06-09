@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 )
 
 func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateObject, error) {
@@ -35,12 +36,27 @@ func GetContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
 	return contract, nil
 }
 
+// todo(rdr): `addr` should be a felt.Addr
 func HasContract(r db.KeyValueReader, addr *felt.Felt) (bool, error) {
 	key := db.ContractKey(addr)
 	return r.Has(key)
 }
 
-func WriteContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
+func WriteContract(
+	w db.KeyValueWriter,
+	addr *felt.Felt,
+	nonce, classHash felt.Felt,
+	deployHeight uint64,
+) error {
+	contract := stateContract{
+		Nonce:          nonce,
+		ClassHash:      classHash,
+		DeployedHeight: deployHeight,
+	}
+	return writeContract(w, addr, &contract)
+}
+
+func writeContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
 	key := db.ContractKey(addr)
 	data, err := contract.MarshalBinary()
 	if err != nil {
@@ -88,21 +104,13 @@ func DeleteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint6
 func WriteClass(
 	w db.KeyValueWriter,
 	classHash *felt.Felt,
-	class core.ClassDefinition,
-	declaredAt uint64,
+	class *core.DeclaredClassDefinition,
 ) error {
-	key := db.ClassKey(classHash)
-
-	dc := core.DeclaredClassDefinition{
-		At:    declaredAt,
-		Class: class,
-	}
-	enc, err := dc.MarshalBinary()
+	enc, err := encoder.Marshal(class)
 	if err != nil {
 		return err
 	}
-
-	return w.Put(key, enc)
+	return w.Put(db.ClassKey(classHash), enc)
 }
 
 func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
@@ -114,7 +122,9 @@ func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClassDef
 	key := db.ClassKey(classHash)
 
 	var class core.DeclaredClassDefinition
-	if err := r.Get(key, class.UnmarshalBinary); err != nil {
+	if err := r.Get(key, func(data []byte) error {
+		return encoder.Unmarshal(data, &class)
+	}); err != nil {
 		return nil, err
 	}
 

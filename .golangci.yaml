@@ -44,14 +44,12 @@ linters:
           deny:
             - pkg: github.com/sirupsen/logrus
               desc: use github.com/NethermindEth/juno/utils for logging
-    dupl:
-      threshold: 100
     funlen:
       lines: 120
       statements: 50
     goconst:
-      min-len: 2
-      min-occurrences: 3
+      min-len: 4
+      min-occurrences: 4
     gocritic:
       disabled-checks:
         - sloppyReassign
@@ -141,6 +139,14 @@ linters:
           - staticcheck
         path: vm/state.go
         text: "ST1003.*_cgo"
+      # Legacy Cairo0 canonical serializer streams ~100+ writes into a
+      # bufio.Writer over a Keccak state. bufio's sticky-error model surfaces
+      # any failure on Flush(), which is checked at the top of the function,
+      # so per-call errcheck noise here is purely visual.
+      - linters:
+          - errcheck
+        path: core/deprecated_cairo_program\.go
+        text: 'Error return value of `[^`]+\.(Write|WriteByte|WriteString|WriteRune)` is not checked'
 formatters:
   enable:
     - gci

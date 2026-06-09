@@ -2,6 +2,7 @@ package l1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -24,9 +25,13 @@ type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	LatestHeight(ctx context.Context) (uint64, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
+	FilterLogStateUpdate(
+		ctx context.Context,
+		fromBlock,
+		toBlock uint64,
+	) ([]*contract.StarknetLogStateUpdate, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-
 	Close()
 }
 
@@ -37,39 +42,75 @@ type Client struct {
 	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
+	catchUpChunkSize      uint64
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
 	listener              EventListener
 }
 
 var _ service.Service = (*Client)(nil)
 
-func NewClient(l1 Subscriber, chain *blockchain.Blockchain, logger log.StructuredLogger) *Client {
+// defaultCatchUpChunkSize is the L1 block range per backward eth_getLogs request.
+const defaultCatchUpChunkSize uint64 = 1_000
+
+// options holds configuration for constructing a l1 client.
+type options struct {
+	EventListener         EventListener
+	ResubscribeDelay      time.Duration
+	PollFinalisedInterval time.Duration
+	// CatchUpChunkSize is the L1 block range per backward eth_getLogs request
+	// during the startup catch-up scan.
+	CatchUpChunkSize uint64
+}
+
+// Option is a functional option for configuring l1 client options.
+type Option func(*options)
+
+func WithEventListener(l EventListener) Option {
+	return func(o *options) { o.EventListener = l }
+}
+
+func WithResubscribeDelay(d time.Duration) Option {
+	return func(o *options) { o.ResubscribeDelay = d }
+}
+
+// WithPollFinalisedInterval sets the time to wait before
+// checking for an update to the finalised L1 block.
+func WithPollFinalisedInterval(d time.Duration) Option {
+	return func(o *options) { o.PollFinalisedInterval = d }
+}
+
+// WithCatchUpChunkSize sets the L1 block range per backward eth_getLogs request
+// during the startup catch-up scan.
+func WithCatchUpChunkSize(size uint64) Option {
+	return func(o *options) { o.CatchUpChunkSize = size }
+}
+
+func NewClient(
+	l1 Subscriber,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+	opts ...Option,
+) *Client {
+	o := options{
+		EventListener:         SelectiveListener{},
+		ResubscribeDelay:      10 * time.Second,
+		PollFinalisedInterval: time.Minute,
+		CatchUpChunkSize:      defaultCatchUpChunkSize,
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,
 		logger:                logger,
 		network:               chain.Network(),
-		resubscribeDelay:      10 * time.Second,
-		pollFinalisedInterval: time.Minute,
-		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate, 0),
-		listener:              SelectiveListener{},
+		resubscribeDelay:      o.ResubscribeDelay,
+		pollFinalisedInterval: o.PollFinalisedInterval,
+		catchUpChunkSize:      o.CatchUpChunkSize,
+		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate),
+		listener:              o.EventListener,
 	}
-}
-
-func (c *Client) WithEventListener(l EventListener) *Client {
-	c.listener = l
-	return c
-}
-
-func (c *Client) WithResubscribeDelay(delay time.Duration) *Client {
-	c.resubscribeDelay = delay
-	return c
-}
-
-// WithPollFinalisedInterval sets the time to wait before checking for an update to the finalised L1 block.
-func (c *Client) WithPollFinalisedInterval(delay time.Duration) *Client {
-	c.pollFinalisedInterval = delay
-	return c
 }
 
 func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
@@ -91,20 +132,35 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 	}
 }
 
+// checkChainID checks that the client is connected to the right L1 client
 func (c *Client) checkChainID(ctx context.Context) error {
-	gotChainID, err := c.l1.ChainID(ctx)
+	const chainIDCheckTimeout = 30 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, chainIDCheckTimeout)
+	defer cancel()
+
+	l1ChainID, err := c.l1.ChainID(ctx)
 	if err != nil {
-		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf(
+				"eth_chainId did not respond within %s; is --eth-node a valid Ethereum L1 RPC URL?",
+				chainIDCheckTimeout,
+			)
+		}
+		return fmt.Errorf("retrieving Ethereum chain ID: %w", err)
 	}
 
-	wantChainID := c.network.L1ChainID
-	if gotChainID.Cmp(wantChainID) == 0 {
+	expectedL1ChainID := c.network.L1ChainID
+	if l1ChainID.Cmp(expectedL1ChainID) == 0 {
 		return nil
 	}
 
 	// NOTE: for now we return an error. If we want to support users who fork
 	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
-	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network.String())
+	return fmt.Errorf(
+		"mismatched network id between L1 and L2. L2 network is %s; "+
+			"is --eth-node pointing to the right network?",
+		c.network.String(),
+	)
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -113,6 +169,32 @@ func (c *Client) Run(ctx context.Context) error {
 		return err
 	}
 
+	// catchUpL1HeadUpdates is best-effort: a backward eth_getLogs scan can fail
+	// on free-tier RPC providers that cap range size or rate-limit. On failure
+	// we skip catch-up and proceed straight to the live subscription — the L1
+	// head will lag until the next on-chain LogStateUpdate is observed, which
+	// is acceptable rather terminating the execution.
+	if err := c.catchUpL1HeadUpdates(ctx); err != nil {
+		c.logger.Warn("L1 head catch-up failed; resuming with live subscription only",
+			zap.Error(err),
+		)
+	}
+
+	return c.watchL1StateUpdates(ctx)
+}
+
+// CatchUpL1Head verifies the chain ID then writes the L1 head to the
+// database, without entering the live subscription loop. Closes the
+// underlying Subscriber on return; the Client must not be reused.
+func (c *Client) CatchUpL1Head(ctx context.Context) error {
+	defer c.l1.Close()
+	if err := c.checkChainID(ctx); err != nil {
+		return err
+	}
+	return c.catchUpL1HeadUpdates(ctx)
+}
+
+func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 	buffer := 128
 
 	c.logger.Info("Subscribing to L1 updates...")
@@ -149,22 +231,7 @@ func (c *Client) Run(ctx context.Context) error {
 					}
 					defer updateSub.Unsubscribe() //nolint:gocritic
 				case logStateUpdate := <-updateChan:
-					c.logger.Debug("Received L1 LogStateUpdate",
-						zap.String("number", logStateUpdate.BlockNumber.String()),
-						zap.String("stateRoot", logStateUpdate.GlobalRoot.Text(felt.Base16)),
-						zap.String("blockHash", logStateUpdate.BlockHash.Text(felt.Base16)),
-					)
-
-					if logStateUpdate.Raw.Removed {
-						for l1BlockNumber := range c.nonFinalisedLogs {
-							if l1BlockNumber >= logStateUpdate.Raw.BlockNumber {
-								delete(c.nonFinalisedLogs, l1BlockNumber)
-							}
-						}
-						// TODO What if the finalised block is also reorged?
-					} else {
-						c.nonFinalisedLogs[logStateUpdate.Raw.BlockNumber] = logStateUpdate
-					}
+					c.applyLogStateUpdate(logStateUpdate)
 				default:
 					break Outer
 				}
@@ -177,13 +244,133 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 }
 
+// applyLogStateUpdate merges a LogStateUpdate (from either the forward
+// subscription or the historical filter) into nonFinalisedLogs. A removed
+// log clears all entries at or above its L1 block number.
+func (c *Client) applyLogStateUpdate(u *contract.StarknetLogStateUpdate) {
+	c.logger.Debug("Received L1 LogStateUpdate",
+		zap.String("number", u.BlockNumber.String()),
+		zap.String("stateRoot", u.GlobalRoot.Text(felt.Base16)),
+		zap.String("blockHash", u.BlockHash.Text(felt.Base16)),
+	)
+	if u.Raw.Removed {
+		for l1BlockNumber := range c.nonFinalisedLogs {
+			if l1BlockNumber >= u.Raw.BlockNumber {
+				delete(c.nonFinalisedLogs, l1BlockNumber)
+			}
+		}
+	} else {
+		c.nonFinalisedLogs[u.Raw.BlockNumber] = u
+	}
+}
+
+// catchUpL1HeadUpdates performs a backward scan of historical LogStateUpdate
+// events emitted while the node was offline (or before it ever ran), populating
+// nonFinalisedLogs so that the first setL1Head call can write an L1 head
+// without waiting for the next forward event. The scan walks back from
+// LatestHeight in chunks of catchUpChunkSize until at least one finalised event
+// is captured if any exists in the scanned range.
+//
+// On a mid-scan error the function returns without rolling back: entries
+// already merged into nonFinalisedLogs are real on-chain events and remain
+// usable by setL1Head and by the live subscription that runs afterward. The
+// caller (Run) treats the error as best-effort and proceeds to the live
+// subscription, so the partial state is an additive head-start, not a leak.
+func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
+	const (
+		heightCallTimeout = 30 * time.Second
+		filterCallTimeout = 60 * time.Second
+	)
+
+	latestCtx, cancelLatest := context.WithTimeout(ctx, heightCallTimeout)
+	latest, err := c.l1.LatestHeight(latestCtx)
+	cancelLatest()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf(
+				"eth_blockNumber did not respond within %s; is --eth-node responsive?",
+				heightCallTimeout,
+			)
+		}
+		return fmt.Errorf("failed to get latest height: %w", err)
+	}
+
+	finalisedCtx, cancelFinalised := context.WithTimeout(ctx, heightCallTimeout)
+	finalised, err := c.l1.FinalisedHeight(finalisedCtx)
+	cancelFinalised()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf(
+				`eth_getBlockByNumber("finalized") did not respond within %s; `+
+					`does --eth-node support the finalized block tag?`,
+				heightCallTimeout,
+			)
+		}
+		return fmt.Errorf("failed to get finalised height: %w", err)
+	}
+
+	c.logger.Info("L1 catch-up starting",
+		zap.Uint64("latest", latest),
+		zap.Uint64("finalised", finalised),
+		zap.Uint64("chunkSize", c.catchUpChunkSize),
+	)
+
+	var chunks, total int
+	foundFinalised := false
+	to := latest
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		var from uint64
+		if to+1 > c.catchUpChunkSize {
+			from = to + 1 - c.catchUpChunkSize
+		}
+		filterCtx, cancelFilter := context.WithTimeout(ctx, filterCallTimeout)
+		events, err := c.l1.FilterLogStateUpdate(filterCtx, from, to)
+		cancelFilter()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return fmt.Errorf(
+					"eth_getLogs did not respond within %s; is --eth-node responsive?",
+					filterCallTimeout,
+				)
+			}
+			return err
+		}
+		chunks++
+		total += len(events)
+		for _, ev := range events {
+			c.applyLogStateUpdate(ev)
+			if ev.Raw.BlockNumber <= finalised {
+				foundFinalised = true
+			}
+		}
+		// Stop once we've captured at least one finalised event (so setL1Head
+		// has something to commit) or we've walked back to genesis.
+		if foundFinalised || from == 0 {
+			c.logger.Info("L1 catch-up complete",
+				zap.Int("chunks", chunks),
+				zap.Int("events", total),
+				zap.Int("nonFinalisedLogs", len(c.nonFinalisedLogs)),
+				zap.Bool("foundFinalised", foundFinalised),
+			)
+			return c.setL1Head(ctx)
+		}
+		to = from - 1
+	}
+}
+
 func (c *Client) finalisedHeight(ctx context.Context) uint64 {
+	const finalisedHeightTimeout = 30 * time.Second
 	for {
 		select {
 		case <-ctx.Done():
 			return 0
 		default:
-			finalisedHeight, err := c.l1.FinalisedHeight(ctx)
+			callCtx, cancel := context.WithTimeout(ctx, finalisedHeightTimeout)
+			finalisedHeight, err := c.l1.FinalisedHeight(callCtx)
+			cancel()
 			if err == nil {
 				return finalisedHeight
 			}

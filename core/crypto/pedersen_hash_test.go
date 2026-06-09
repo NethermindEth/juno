@@ -6,6 +6,8 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
+	pedersenhash "github.com/consensys/gnark-crypto/ecc/stark-curve/pedersen-hash"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,49 +17,37 @@ func TestPedersen(t *testing.T) {
 		want string
 	}{
 		{
-			"0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
-			"0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
-			"0x030e480bed5fe53fa909cc0f8c4d99b8f9f2c016be4c41e13a4848797979c662",
+			a:    "0x03d937c035c878245caf64531a5756109c53068da139362728feb561405371cb",
+			b:    "0x0208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a",
+			want: "0x030e480bed5fe53fa909cc0f8c4d99b8f9f2c016be4c41e13a4848797979c662",
 		},
 		{
-			"0x58f580910a6ca59b28927c08fe6c43e2e303ca384badc365795fc645d479d45",
-			"0x78734f65a067be9bdb39de18434d71e79f7b6466a4b66bbd979ab9e7515fe0b",
-			"0x68cc0b76cddd1dd4ed2301ada9b7c872b23875d5ff837b3a87993e0d9996b87",
+			a:    "0x58f580910a6ca59b28927c08fe6c43e2e303ca384badc365795fc645d479d45",
+			b:    "0x78734f65a067be9bdb39de18434d71e79f7b6466a4b66bbd979ab9e7515fe0b",
+			want: "0x68cc0b76cddd1dd4ed2301ada9b7c872b23875d5ff837b3a87993e0d9996b87",
 		},
 	}
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("TestHash %d", i), func(t *testing.T) {
-			a, err := new(felt.Felt).SetString(tt.a)
-			if err != nil {
-				t.Errorf("expected no error but got %s", err)
-			}
-			b, err := new(felt.Felt).SetString(tt.b)
-			if err != nil {
-				t.Errorf("expected no error but got %s", err)
-			}
+			a := felt.NewUnsafeFromString[felt.Felt](tt.a)
+			b := felt.NewUnsafeFromString[felt.Felt](tt.b)
+			want := felt.UnsafeFromString[felt.Felt](tt.want)
 
-			want, err := new(felt.Felt).SetString(tt.want)
-			if err != nil {
-				t.Errorf("expected no error but got %s", err)
-			}
-
-			ans := crypto.Pedersen(a, b)
-			if !ans.Equal(want) {
-				t.Errorf("TestHash got %s, want %s", ans.String(), want.String())
-			}
+			got := crypto.Pedersen(a, b)
+			assert.Equal(t, want, got)
 		})
 	}
 }
 
 func TestPedersenArray(t *testing.T) {
-	tests := [...]struct {
+	tests := []struct {
 		input []string
 		want  string
 	}{
 		// Contract address calculation. See the following links for how the
 		// calculation is carried out and the result referenced.
 		//
-		// https://docs.starknet.io/architecture-and-concepts/smart-contracts/contract-address/
+		// https://www.starknet.io/cairo-book/ch100-01-contracts-classes-and-instances.html
 		{
 			input: []string{
 				// Hex representation of []byte("STARKNET_CONTRACT_ADDRESS").
@@ -101,21 +91,54 @@ func TestPedersenArray(t *testing.T) {
 			want: "0x49ee3eba8c1600700ee1b87eb599f16716b0b1022947733551fde4050ca6804",
 		},
 	}
-	for _, test := range tests {
+	for _, tt := range tests {
 		var digest, digestWhole crypto.PedersenDigest
-		data := make([]*felt.Felt, len(test.input))
-		for i, item := range test.input {
+		data := make([]*felt.Felt, len(tt.input))
+		for i, item := range tt.input {
 			elem := felt.NewUnsafeFromString[felt.Felt](item)
 			digest.Update(elem)
 			data[i] = elem
 		}
 		digestWhole.Update(data...)
-		want := felt.UnsafeFromString[felt.Felt](test.want)
+		want := felt.UnsafeFromString[felt.Felt](tt.want)
 		got := crypto.PedersenArray(data...)
 		assert.Equal(t, want, got)
 		assert.Equal(t, want, digest.Finish())
 		assert.Equal(t, want, digestWhole.Finish())
 	}
+}
+
+func TestPedersenMatchesGnarkCryptoOnRandomPairs(t *testing.T) {
+	for range 256 {
+		a := felt.NewRandom[felt.Felt]()
+		b := felt.NewRandom[felt.Felt]()
+
+		got := crypto.Pedersen(a, b)
+		want := felt.Felt(pedersenhash.Pedersen(a.Impl(), b.Impl()))
+		assert.Equal(t, want, got)
+	}
+}
+
+func TestPedersenArrayMatchesGnarkCryptoOnRandomSlices(t *testing.T) {
+	for size := range 33 {
+		data := make([]*felt.Felt, size)
+		for i := range size {
+			elem := felt.NewRandom[felt.Felt]()
+			data[i] = elem
+		}
+
+		got := crypto.PedersenArray(data...)
+		want := felt.Felt(pedersenhash.PedersenArray(mapFeltsToFPElems(data)...))
+		assert.Equal(t, want, got)
+	}
+}
+
+func mapFeltsToFPElems(felts []*felt.Felt) []*fp.Element {
+	fpElems := make([]*fp.Element, len(felts))
+	for i, elem := range felts {
+		fpElems[i] = elem.Impl()
+	}
+	return fpElems
 }
 
 // By having a package and local level variable compiler optimisations can be eliminated for more accurate results.

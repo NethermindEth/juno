@@ -43,6 +43,11 @@ type gossipTracer struct {
 }
 
 func NewGossipTracer(h host.Host) *gossipTracer {
+	const (
+		labelTopic          = "topic"
+		labelControlMessage = "control_message"
+	)
+
 	return &gossipTracer{
 		host: h,
 		p2PPeerCount: promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -52,43 +57,43 @@ func NewGossipTracer(h host.Host) *gossipTracer {
 		psMsgDeliver: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_deliver_total",
 			Help: "The number of messages received for delivery",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psMsgUndeliverable: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_undeliverable_total",
 			Help: "The number of messages received which weren't able to be delivered",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psMsgValidate: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_validate_total",
 			Help: "The number of messages received for validation",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psMsgDuplicate: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_duplicate_total",
 			Help: "The number of duplicate messages sent",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psMsgReject: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_reject_total",
 			Help: "The number of messages rejected",
-		}, []string{"topic", "reason"}),
+		}, []string{labelTopic, "reason"}),
 		psTopicsActive: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "p2p_pubsub_topic_active",
 			Help: "The topics that the peer is participating in gossipsub",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psTopicsPrune: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_prune_total",
 			Help: "The number of prune messages sent by the peer",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psTopicsGraft: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_graft_total",
 			Help: "The number of graft messages sent by the peer",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psThrottlePeer: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_throttle_total",
 			Help: "The number of times the peer has been throttled",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psRPCRecv: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_recv_total",
 			Help: "The number of messages received via rpc for a particular control message",
-		}, []string{"control_message"}),
+		}, []string{labelControlMessage}),
 		psRPCSubRecv: promauto.NewCounter(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_recv_sub_total",
 			Help: "The number of subscription messages received via rpc",
@@ -96,11 +101,11 @@ func NewGossipTracer(h host.Host) *gossipTracer {
 		psRPCPubRecv: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_recv_pub_total",
 			Help: "The number of publish messages received via rpc",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psRPCDrop: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_drop_total",
 			Help: "The number of messages dropped via rpc for a particular control message",
-		}, []string{"control_message"}),
+		}, []string{labelControlMessage}),
 		psRPCSubDrop: promauto.NewCounter(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_drop_sub_total",
 			Help: "The number of subscription messages dropped via rpc",
@@ -108,11 +113,11 @@ func NewGossipTracer(h host.Host) *gossipTracer {
 		psRPCPubDrop: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_drop_pub_total",
 			Help: "The number of publish messages dropped via rpc",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 		psRPCSent: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_sent_total",
 			Help: "The number of messages sent via rpc for a particular control message",
-		}, []string{"control_message"}),
+		}, []string{labelControlMessage}),
 		psRPCSubSent: promauto.NewCounter(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_sent_sub_total",
 			Help: "The number of subscription messages sent via rpc",
@@ -120,15 +125,15 @@ func NewGossipTracer(h host.Host) *gossipTracer {
 		psRPCPubSent: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "p2p_pubsub_rpc_sent_pub_total",
 			Help: "The number of publish messages sent via rpc",
-		}, []string{"topic"}),
+		}, []string{labelTopic}),
 	}
 }
 
-func (g *gossipTracer) AddPeer(p peer.ID, proto protocol.ID) {
+func (g *gossipTracer) OnNewOutboundStream(p peer.ID, proto protocol.ID) {
 	g.p2PPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Inc()
 }
 
-func (g *gossipTracer) RemovePeer(p peer.ID) {
+func (g *gossipTracer) OnClosedOutboundStream(p peer.ID) {
 	g.p2PPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Dec()
 }
 

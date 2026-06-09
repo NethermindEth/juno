@@ -240,6 +240,15 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		withoutHistoryCount uint
 	)
 
+	historyBuckets := []db.Bucket{
+		db.DeprecatedContractStorageHistory,
+		db.DeprecatedContractNonceHistory,
+		db.DeprecatedContractClassHashHistory,
+		db.ContractStorageHistory,
+		db.ContractNonceHistory,
+		db.ContractClassHashHistory,
+	}
+
 	buckets := db.BucketValues()
 	items := make([][]string, 0, len(buckets)+3)
 	for _, b := range buckets {
@@ -266,7 +275,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 			withHistoryCount += bucketItem.Count
 		}
 
-		if utils.AnyOf(b, db.ContractStorageHistory, db.ContractNonceHistory, db.ContractClassHashHistory) {
+		if utils.AnyOf(b, historyBuckets...) {
 			withHistorySize += bucketItem.Size
 			withHistoryCount += bucketItem.Count
 		}

@@ -104,7 +104,7 @@ func (h *Handler) simulateTransactions(
 	}
 
 	network := h.bcReader.Network()
-	txns, classes, paidFeesOnL1, rpcErr := h.prepareTransactions(
+	txns, classes, rpcErr := h.prepareTransactions(
 		ctx, transactions, network,
 	)
 	if rpcErr != nil {
@@ -120,8 +120,20 @@ func (h *Handler) simulateTransactions(
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, skipFeeCharge, skipValidate, errOnRevert, true, true, isEstimateFee, false)
+	var executionResults vm.ExecutionResults
+	if isEstimateFee {
+		executionResults, err = h.vm.EstimateFee(txns, classes, &blockInfo,
+			state, vm.EstimateFeeOptions{
+				SkipValidate: skipValidate,
+			})
+	} else {
+		executionResults, err = h.vm.Simulate(txns, classes, &blockInfo,
+			state, vm.SimulateOptions{
+				SkipChargeFee: skipFeeCharge,
+				SkipValidate:  skipValidate,
+				ErrOnRevert:   errOnRevert,
+			})
+	}
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}
@@ -152,11 +164,10 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 func (h *Handler) prepareTransactions(
 	ctx context.Context, transactions []BroadcastedTransaction, network *networks.Network,
 ) (
-	[]core.Transaction, []core.ClassDefinition, []*felt.Felt, *jsonrpc.Error,
+	[]core.Transaction, []core.ClassDefinition, *jsonrpc.Error,
 ) {
 	txns := make([]core.Transaction, len(transactions))
 	var classes []core.ClassDefinition
-	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {
 		// Check for missing required fields in struct that can't be validated by
@@ -166,25 +177,27 @@ func (h *Handler) prepareTransactions(
 		// it might be a good idea to implement a custom validator and unmarshal handler
 		// to solve this problem in a more elegant way
 		if checkTxHasSenderAddress(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
+			return nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			)
 		}
 
 		if checkTxHasResourceBounds(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
+			return nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			)
 		}
 
-		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(
+		txn, declaredClass, aErr := AdaptBroadcastedTransaction(
 			ctx,
 			h.compiler,
 			&transactions[idx],
 			network,
 		)
 		if aErr != nil {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
-		}
-
-		if paidFeeOnL1 != nil {
-			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
 
 		txns[idx] = txn
@@ -193,7 +206,7 @@ func (h *Handler) prepareTransactions(
 		}
 	}
 
-	return txns, classes, paidFeesOnL1, nil
+	return txns, classes, nil
 }
 
 func handleExecutionError(err error) *jsonrpc.Error {

@@ -214,7 +214,9 @@ func NewZapLogger(logLevel *Level, opts ...LoggerOption) (*ZapLogger, error) {
 }
 
 func NewZapLoggerWithConfig(config *zap.Config) (*ZapLogger, error) {
-	log, err := config.Build()
+	// AddCallerSkip(1) skips the ZapLogger wrapper frame so caller info
+	// points at the user's call site, not utils/log/log.go.
+	log, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +225,7 @@ func NewZapLoggerWithConfig(config *zap.Config) (*ZapLogger, error) {
 }
 
 func NewZapLoggerWithCore(core zapcore.Core) *ZapLogger {
-	logger := zap.New(core)
+	logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 	return &ZapLogger{
 		structured: logger,
 		sugared:    logger.Sugar(),
@@ -240,18 +242,6 @@ func (l *ZapLogger) Errorf(msg string, args ...any) {
 
 func (l *ZapLogger) Fatalf(msg string, args ...any) {
 	l.sugared.Fatalf(msg, args)
-}
-
-func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
-	if l.IsTraceEnabled() {
-		// l.WithOptions() clones logger every time there is a Tracew() call
-		// which may be inefficient, one possible improvement is to create
-		// special logger just for traces in ZapLogger with AddCallerSkip(1)
-		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
-
-		// AddCallerSkip(1) is necessary to skip the caller of this function
-		l.sugared.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
-	}
 }
 
 func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {
@@ -272,7 +262,7 @@ func (l *ZapLogger) Error(msg string, fields ...zap.Field) {
 
 func (l *ZapLogger) Trace(msg string, fields ...zap.Field) {
 	if l.IsTraceEnabled() {
-		l.structured.WithOptions(zap.AddCallerSkip(1)).Log(TRACE, msg, fields...)
+		l.structured.Log(TRACE, msg, fields...)
 	}
 }
 

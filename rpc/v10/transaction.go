@@ -134,9 +134,7 @@ func (h *Handler) addToMempool(
 	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
-		// PaidFeeOnL1 only applies to L1_HANDLER txs, which the v0.10.2 spec does not expose via RPC.
-		PaidFeeOnL1: nil,
-		Proof:       tx.Proof,
+		Proof:         tx.Proof,
 	}); err != nil {
 		return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
@@ -373,12 +371,10 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	case blockID.IsNumber():
 		blockNumber = blockID.Number()
 	case blockID.IsL1Accepted():
-		var l1Head core.L1Head
-		l1Head, err = h.bcReader.L1Head()
+		blockNumber, err = h.l1AcceptedBlockNumber()
 		if err != nil {
 			break
 		}
-		blockNumber = l1Head.BlockNumber
 	default:
 		panic("unknown block type id")
 	}

@@ -470,10 +470,13 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(1204672)
-	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(blockNumber, 10))
+	preConfirmedBlockWithCandidates, err := gw.DeprecatedPreConfirmedBlock(
+		t.Context(), strconv.FormatUint(blockNumber, 10),
+	)
 	require.NoError(t, err)
 
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
+	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedBlock)
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
 	handler := rpc.New(nil, mockSyncReader, nil, nil)
 
@@ -629,6 +632,31 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
+			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			return latestBlock.Transactions[index], nil
+		})
+
+		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index])
+		blockID := blockIDL1Accepted(t)
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
+		require.Nil(t, rpcErr)
+		require.Equal(t, expectedTxn, actualTxn)
+	})
+
+	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		index := rand.Intn(int(latestBlock.TransactionCount))
+
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: latestBlockNumber + 10,
+				BlockHash:   latestBlockHash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
@@ -644,7 +672,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -1771,28 +1799,19 @@ func TestTransactionStatus(t *testing.T) {
 			network := &networks.SepoliaIntegration
 			sepoliaIntClient := feeder.NewTestClient(t, network)
 			sepoliaIntGw := adaptfeeder.New(sepoliaIntClient)
-			blockNumber := uint64(1204672)
-			preConfirmed, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber)
+			blockNumber := uint64(11252240)
+			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
 			require.NoError(t, gwErr)
+			full, ok := update.(starknet.PreConfirmedBlock)
+			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
+			adapted, err := sn2core.AdaptPreConfirmedBlock(&full, blockNumber)
+			require.NoError(t, err)
+			preConfirmed := adapted
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			client := feeder.NewTestClient(t, network)
 			handler := rpc.New(mockReader, mockSyncReader, nil, logger).WithFeeder(client)
-			t.Run("found in candidates", func(t *testing.T) {
-				require.Greater(t, len(preConfirmed.CandidateTxs), 0)
-				for _, candidateTx := range preConfirmed.CandidateTxs {
-					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-						(*felt.TransactionHash)(candidateTx.Hash()),
-					).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-					mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil).Times(2)
-
-					status, err := handler.TransactionStatus(ctx, candidateTx.Hash())
-					require.Nil(t, err)
-					require.Equal(t, rpc.TxnStatusCandidate, status.Finality)
-					require.Equal(t, rpc.UnknownExecution, status.Execution)
-				}
-			})
 
 			t.Run("found in pre_confirmed", func(t *testing.T) {
 				preConfirmedTx := preConfirmed.Block.Transactions[0].Hash()
@@ -2149,7 +2168,7 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 	txnNonZeroL2Gas := rpc.BroadcastedTransaction{}
 	require.NoError(t, json.Unmarshal([]byte(txnNonZeroL2GasData), &txnNonZeroL2Gas))
 
-	tx, _, _, err := rpc.AdaptBroadcastedTransaction(
+	tx, _, err := rpc.AdaptBroadcastedTransaction(
 		t.Context(), nil, &txnNonZeroL2Gas, &networks.Sepolia,
 	)
 	require.NoError(t, err)

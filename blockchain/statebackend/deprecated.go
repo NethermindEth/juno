@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/pruner"
 )
 
 type deprecatedStateBackend struct {
@@ -33,15 +34,12 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 func (b *deprecatedStateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	//nolint:staticcheck,nolintlint // used by old state
-	txn := b.database.NewIndexedBatch()
-
-	// Note(Ege): Why do we fetch header here? To validate block exists?
-	_, err := core.GetBlockHeaderByNumber(txn, blockNumber)
+	_, err := pruner.HeaderByNumberIfStateRetained(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	//nolint:staticcheck,nolintlint // used by old state
+	txn := b.database.NewIndexedBatch()
 	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		blockNumber,
@@ -58,12 +56,12 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return deprecatedstate.New(txn), NoopStateCloser, nil
 	}
 
-	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
-	header, err := core.GetBlockHeaderByHash(txn, blockHash)
+	header, err := pruner.HeaderByHashIfStateRetained(b.database, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
 	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		header.Number,
@@ -77,10 +75,11 @@ func (b *deprecatedStateBackend) Store(
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
-	err := b.database.Update(func(txn db.IndexedBatch) error {
+	return b.database.Update(func(txn db.IndexedBatch) error {
 		if err := verifyBlockSuccession(txn, block); err != nil {
 			return err
 		}
+
 		err := deprecatedstate.New(txn).Update(
 			block.Header,
 			stateUpdate,
@@ -91,7 +90,7 @@ func (b *deprecatedStateBackend) Store(
 			return err
 		}
 
-		return writeBlockContent(
+		err = writeBlockContent(
 			b.database,
 			txn,
 			block,
@@ -99,20 +98,17 @@ func (b *deprecatedStateBackend) Store(
 			blockCommitments,
 			newClasses,
 		)
-	})
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	return b.runningFilter.Insert(
-		block.EventsBloom,
-		block.Number,
-	)
+		return b.runningFilter.InsertWithBatch(txn, block.EventsBloom, block.Number)
+	})
 }
 
 func (b *deprecatedStateBackend) RevertHead() error {
 	//nolint:staticcheck,nolintlint // used by old state
-	err := b.database.Update(func(txn db.IndexedBatch) error {
+	return b.database.Update(func(txn db.IndexedBatch) error {
 		blockNumber, err := core.GetChainHeight(txn)
 		if err != nil {
 			return err
@@ -132,12 +128,12 @@ func (b *deprecatedStateBackend) RevertHead() error {
 			return err
 		}
 
-		return deleteBlockContent(txn, txn, stateUpdate, blockNumber)
+		if err := deleteBlockContent(txn, txn, stateUpdate, blockNumber); err != nil {
+			return err
+		}
+
+		return b.runningFilter.OnReorgWithBatch(txn)
 	})
-	if err != nil {
-		return err
-	}
-	return b.runningFilter.OnReorg()
 }
 
 func (b *deprecatedStateBackend) GetReverseStateDiff() (core.StateDiff, error) {
@@ -209,7 +205,7 @@ func (b *deprecatedStateBackend) Finalise(
 	sign core.BlockSignFunc,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
-	err := b.database.Update(func(txn db.IndexedBatch) error {
+	return b.database.Update(func(txn db.IndexedBatch) error {
 		err := updateStateRoots(deprecatedstate.New(txn), block, stateUpdate, newClasses)
 		if err != nil {
 			return err
@@ -228,7 +224,7 @@ func (b *deprecatedStateBackend) Finalise(
 			}
 		}
 
-		return writeBlockContent(
+		err = writeBlockContent(
 			txn,
 			txn,
 			block,
@@ -236,12 +232,12 @@ func (b *deprecatedStateBackend) Finalise(
 			commitments,
 			newClasses,
 		)
-	})
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	return b.runningFilter.Insert(block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(txn, block.EventsBloom, block.Number)
+	})
 }
 
 func (b *deprecatedStateBackend) VerifyBlockHash(

@@ -2,6 +2,7 @@ package vote
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
@@ -20,6 +21,10 @@ type starknetVoteAdapter struct{}
 var StarknetVoteAdapter VoteAdapter[starknet.Hash, starknet.Address] = starknetVoteAdapter{}
 
 func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error) {
+	if _, ok := consensus.Vote_VoteType_name[int32(vote.GetVoteType())]; !ok {
+		return starknet.Vote{}, fmt.Errorf("unknown vote_type value: %d", vote.GetVoteType())
+	}
+
 	var id *starknet.Hash
 	if proposalCommitment := vote.GetProposalCommitment().GetElements(); proposalCommitment != nil {
 		id = felt.NewFromBytes[starknet.Hash](proposalCommitment)

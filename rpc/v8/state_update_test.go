@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -194,7 +193,7 @@ func TestStateUpdate(t *testing.T) {
 		update, rpcErr := handler.StateUpdate(blockIDPending(t))
 		require.Nil(t, rpcErr)
 		expectedStateDiff := core.EmptyStateDiff()
-		expectedStateDiff.StorageDiffs[*sync.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
+		expectedStateDiff.StorageDiffs[*core.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
 			felt.FromUint64[felt.Felt](blockToRegisterHash.Number): blockToRegisterHash.Hash,
 		}
 		checkUpdate(t, &core.StateUpdate{

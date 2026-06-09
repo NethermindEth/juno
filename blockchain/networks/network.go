@@ -70,7 +70,7 @@ var (
 	_ pflag.Value              = (*Network)(nil)
 	_ encoding.TextUnmarshaler = (*Network)(nil)
 
-	// The docs states the addresses for each network: https://docs.starknet.io/tools/important-addresses/
+	// The docs states the addresses for each network: https://docs.starknet.io/learn/cheatsheets/chain-info#important-addresses
 	Mainnet = Network{
 		Name:                "mainnet",
 		FeederURL:           "https://feeder.alpha-mainnet.starknet.io/feeder_gateway/",

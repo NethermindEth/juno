@@ -877,7 +877,7 @@ func ContractAddress(
 	prefix := felt.FromBytes[felt.Felt]([]byte("STARKNET_CONTRACT_ADDRESS"))
 	callDataHash := crypto.PedersenArray(constructorCallData...)
 
-	// https://docs.starknet.io/architecture-and-concepts/smart-contracts/contract-address/
+	// https://www.starknet.io/cairo-book/ch100-01-contracts-classes-and-instances.html
 	return crypto.PedersenArray(
 		&prefix,
 		callerAddress,

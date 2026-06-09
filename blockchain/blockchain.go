@@ -89,8 +89,9 @@ type Blockchain struct {
 
 // options holds configuration for constructing a Blockchain.
 type options struct {
-	listener     EventListener
-	stateVersion bool
+	listener                EventListener
+	stateVersion            bool
+	runningFilterInitialize core.RunningEventFilterInitializer
 }
 
 // Option is a functional option for configuring Blockchain options.
@@ -108,10 +109,21 @@ func WithNewState(enabled bool) Option {
 	return func(o *options) { o.stateVersion = enabled }
 }
 
+// WithRunningEventFilterInitializer overrides the initializer used to lazily
+// bring up the running event filter. Defaults to
+// [core.InitializeRunningEventFilter]; pass pruner.InitializeRunningEventFilter
+// on pruning nodes.
+func WithRunningEventFilterInitializer(initialize core.RunningEventFilterInitializer) Option {
+	return func(o *options) {
+		o.runningFilterInitialize = initialize
+	}
+}
+
 func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *Blockchain {
 	o := options{
-		listener:     &SelectiveListener{},
-		stateVersion: false,
+		listener:                &SelectiveListener{},
+		stateVersion:            false,
+		runningFilterInitialize: core.InitializeRunningEventFilter,
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -123,14 +135,14 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 	}
 	cachedFilters.WithFallback(fallback)
 
-	runningFilter := core.NewRunningEventFilterLazy(database)
+	runningFilter := core.NewRunningEventFilterLazy(database, o.runningFilterInitialize)
 
 	return &Blockchain{
 		database:      database,
 		network:       network,
 		listener:      o.listener,
 		l1HeadFeed:    feed.New[*core.L1Head](),
-		cachedFilters: &cachedFilters,
+		cachedFilters: cachedFilters,
 		runningFilter: runningFilter,
 		stateBackend: statebackend.New(
 			database,

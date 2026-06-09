@@ -5,6 +5,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/pruner"
 )
 
 type stateBackend struct {
@@ -33,7 +34,7 @@ func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
 func (b *stateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+	header, err := pruner.HeaderByNumberIfStateRetained(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -56,12 +57,16 @@ func (b *stateBackend) StateAtBlockHash(
 		return st, NoopStateCloser, nil
 	}
 
-	blockNumber, err := core.GetBlockHeaderNumberByHash(b.database, blockHash)
+	header, err := pruner.HeaderByHashIfStateRetained(b.database, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return b.StateAtBlockNumber(blockNumber)
+	history, err := state.NewStateHistory(header.Number, header.GlobalStateRoot, b.stateDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &history, NoopStateCloser, nil
 }
 
 func (b *stateBackend) Store(
@@ -70,7 +75,7 @@ func (b *stateBackend) Store(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	err := b.database.Write(func(batch db.Batch) error {
+	return b.database.Write(func(batch db.Batch) error {
 		if err := verifyBlockSuccession(b.database, block); err != nil {
 			return err
 		}
@@ -83,7 +88,7 @@ func (b *stateBackend) Store(
 			return err
 		}
 
-		return writeBlockContent(
+		err = writeBlockContent(
 			b.database,
 			batch,
 			block,
@@ -91,16 +96,16 @@ func (b *stateBackend) Store(
 			blockCommitments,
 			newClasses,
 		)
-	})
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	return b.runningFilter.Insert(block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(batch, block.EventsBloom, block.Number)
+	})
 }
 
 func (b *stateBackend) RevertHead() error {
-	err := b.database.Write(func(batch db.Batch) error {
+	return b.database.Write(func(batch db.Batch) error {
 		blockNumber, err := core.GetChainHeight(b.database)
 		if err != nil {
 			return err
@@ -125,12 +130,12 @@ func (b *stateBackend) RevertHead() error {
 			return err
 		}
 
-		return deleteBlockContent(b.database, batch, stateUpdate, blockNumber)
+		if err := deleteBlockContent(b.database, batch, stateUpdate, blockNumber); err != nil {
+			return err
+		}
+
+		return b.runningFilter.OnReorgWithBatch(batch)
 	})
-	if err != nil {
-		return err
-	}
-	return b.runningFilter.OnReorg()
 }
 
 func (b *stateBackend) GetReverseStateDiff() (core.StateDiff, error) {
@@ -198,7 +203,7 @@ func (b *stateBackend) Finalise(
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign core.BlockSignFunc,
 ) error {
-	err := b.database.Write(func(batch db.Batch) error {
+	return b.database.Write(func(batch db.Batch) error {
 		st, err := state.New(stateUpdate.OldRoot, b.stateDB, batch)
 		if err != nil {
 			return err
@@ -220,7 +225,7 @@ func (b *stateBackend) Finalise(
 			}
 		}
 
-		return writeBlockContent(
+		err = writeBlockContent(
 			b.database,
 			batch,
 			block,
@@ -228,12 +233,12 @@ func (b *stateBackend) Finalise(
 			commitments,
 			newClasses,
 		)
-	})
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	return b.runningFilter.Insert(block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(batch, block.EventsBloom, block.Number)
+	})
 }
 
 func (b *stateBackend) VerifyBlockHash(

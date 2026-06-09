@@ -3,6 +3,9 @@ package core_test
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -17,45 +20,146 @@ import (
 )
 
 func TestClassV0Hash(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Sepolia)
-
-	gw := adaptfeeder.New(client)
 	tests := []struct {
-		classHash string
+		name    string
+		network *networks.Network
 	}{
-		{
-			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909
-			classHash: "0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
-		},
-		{
-			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3
-			classHash: "0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
-		},
-		{
-			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43
-			classHash: "0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
-		},
+		{name: "Mainnet", network: &networks.Mainnet},
+		{name: "Sepolia", network: &networks.Sepolia},
 	}
 
 	for _, tt := range tests {
-		t.Run("ClassHash", func(t *testing.T) {
-			hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
-			class, err := gw.Class(t.Context(), &hash)
-			require.NoError(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			client := feeder.NewTestClient(t, tt.network)
+			gw := adaptfeeder.New(client)
 
-			got, err := class.Hash()
-			require.NoError(t, err)
-			assert.Equal(t, hash, got)
+			for _, fixture := range loadDeprecatedCairoHashFixtures(t, tt.network.Name) {
+				t.Run(fixture.fixtureKey, func(t *testing.T) {
+					hash := felt.UnsafeFromString[felt.Felt](fixture.fixtureKey)
+					class, err := gw.Class(t.Context(), &hash)
+					require.NoError(t, err)
+
+					_, ok := class.(*core.DeprecatedCairoClass)
+					require.True(
+						t,
+						ok,
+						"fixture %s on %s should be a DeprecatedCairoClass",
+						fixture.fixtureKey,
+						tt.network.Name,
+					)
+
+					got, err := class.Hash()
+					require.NoError(t, err)
+					assert.Equal(t, felt.UnsafeFromString[felt.Felt](fixture.expectedClassHash), got)
+				})
+			}
 		})
 	}
+}
+
+type deprecatedCairoHashFixture struct {
+	fixtureKey        string
+	expectedClassHash string
+}
+
+// deprecatedCairoHashFixturesByNetwork lists the frozen V0 class hashes
+// captured from the pre-migration Rust/FFI implementation or a trusted gateway
+// response. Some checked-in fixture filenames no longer match the hash their
+// current bytes produce, so fixtureKey and expectedClassHash can differ.
+var deprecatedCairoHashFixturesByNetwork = map[string][]deprecatedCairoHashFixture{
+	"mainnet": {
+		{
+			fixtureKey:        "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+			expectedClassHash: "0x2220884df4e83cf7ba6e968416ccd44f31c9846f47a021e2a52b6da29a1781e",
+		},
+		{
+			fixtureKey:        "0x1efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f",
+			expectedClassHash: "0x694716ddb975811b5a016e849475851996eb0d581d7cdc9332950f699f7e022",
+		},
+		{
+			fixtureKey:        "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e",
+			expectedClassHash: "0x4ee0b2964f380cb35c72346531ff1d518bb4ba0fff17f6d6bb669730860b88d",
+		},
+	},
+	"sepolia": {
+		{
+			fixtureKey:        "0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
+			expectedClassHash: "0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
+		},
+		{
+			fixtureKey:        "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+			expectedClassHash: "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+		},
+		{
+			fixtureKey:        "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8",
+			expectedClassHash: "0x22a4f508608ca25a4f8de87b6c12fc9279060f8f13246c09d631e207ed1b9c",
+		},
+		{
+			fixtureKey:        "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+			expectedClassHash: "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+		},
+		{
+			fixtureKey:        "0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
+			expectedClassHash: "0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
+		},
+		{
+			fixtureKey:        "0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+			expectedClassHash: "0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+		},
+		{
+			fixtureKey:        "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3",
+			expectedClassHash: "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3",
+		},
+	},
+}
+
+func loadDeprecatedCairoHashFixtures(t *testing.T, network string) []deprecatedCairoHashFixture {
+	t.Helper()
+
+	pattern := filepath.Join("..", "clients", "feeder", "testdata", network, "class", "*.json")
+	paths, err := filepath.Glob(pattern)
+	require.NoError(t, err)
+
+	expectedFixtures, ok := deprecatedCairoHashFixturesByNetwork[network]
+	require.True(t, ok, "missing expected hashes for network %s", network)
+
+	expectedClassHashes := make(map[string]string, len(expectedFixtures))
+	for _, fixture := range expectedFixtures {
+		expectedClassHashes[fixture.fixtureKey] = fixture.expectedClassHash
+	}
+
+	fixtures := make([]deprecatedCairoHashFixture, 0, len(paths))
+	for _, path := range paths {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		var probe struct {
+			ContractClassVersion *string `json:"contract_class_version"`
+		}
+		require.NoError(t, json.Unmarshal(contents, &probe))
+		if probe.ContractClassVersion != nil {
+			continue
+		}
+
+		fixtureKey := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		expectedClassHash, ok := expectedClassHashes[fixtureKey]
+		require.True(t, ok, "missing expected hash for deprecated fixture %s on %s", fixtureKey, network)
+		fixtures = append(fixtures, deprecatedCairoHashFixture{
+			fixtureKey:        fixtureKey,
+			expectedClassHash: expectedClassHash,
+		})
+	}
+
+	require.Len(t, fixtures, len(expectedFixtures))
+
+	return fixtures
 }
 
 func TestClassV1Hash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 	gw := adaptfeeder.New(client)
 	tests := []struct {
-		classHash       string
-		checkNoCompiled bool
+		classHash string
 	}{
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5
@@ -630,4 +734,40 @@ func TestClassCasmHashMetadata(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, v2Hash, hash)
 	})
+}
+
+var benchmarkClassV0Fixtures = []struct {
+	name      string
+	classHash string
+}{
+	{
+		name:      "smallerDeprecatedClass",
+		classHash: "0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+	},
+	{
+		name:      "largerDeprecatedClass",
+		classHash: "0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+	},
+}
+
+func BenchmarkClassV0Hash(b *testing.B) {
+	client := feeder.NewTestClient(b, &networks.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	for _, benchmark := range benchmarkClassV0Fixtures {
+		hash := felt.UnsafeFromString[felt.Felt](benchmark.classHash)
+		class, err := gw.Class(b.Context(), &hash)
+		require.NoError(b, err)
+
+		deprecatedClass, ok := class.(*core.DeprecatedCairoClass)
+		require.True(b, ok)
+
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				_, err := deprecatedClass.Hash()
+				require.NoError(b, err)
+			}
+		})
+	}
 }

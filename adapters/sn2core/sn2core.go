@@ -14,7 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block, error) {
+// ErrPreConfirmedIdentifierMismatch is returned by AdaptPreConfirmedWithDelta
+// when the delta's block identifier does not match the current pre_confirmed's.
+// Callers should treat this as a signal to drop the delta and re-fetch a full
+// block on the next poll.
+var ErrPreConfirmedIdentifierMismatch = errors.New("pre_confirmed block identifier mismatch")
+
+func AdaptBlock(response *starknet.Block, sig []*felt.Felt) (*core.Block, error) {
 	if response == nil {
 		return nil, errors.New("nil client block")
 	}
@@ -37,7 +43,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 
 	sigs := [][]*felt.Felt{}
 	if sig != nil {
-		sigs = append(sigs, sig.Signature)
+		sigs = append(sigs, sig)
 	}
 
 	return &core.Block{
@@ -500,8 +506,8 @@ func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-// Comparing to preconfirmed, candidate txns don't include state diffs and receipts.
-// `||` is used to cover any possible descrepancies
+// IsCandidateTx reports whether the transaction at index id is a candidate
+// (no receipt / no state diff yet). `||` covers possible discrepancies.
 // https://community.starknet.io/t/sn-0-14-0-pre-release-notes
 func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
 	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
@@ -511,10 +517,6 @@ func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
 ) (pending.PreConfirmed, error) {
-	if response == nil {
-		return pending.PreConfirmed{}, errors.New("nil preconfirmed block")
-	}
-
 	if response.Status != "PRE_CONFIRMED" {
 		return pending.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
 	}
@@ -527,13 +529,13 @@ func AdaptPreConfirmedBlock(
 		)
 	}
 
-	preConfirmedTxCount := 0
+	candidateCount := 0
 	for i := range len(response.Transactions) {
-		if !IsCandidateTx(response, i) {
-			preConfirmedTxCount++
+		if IsCandidateTx(response, i) {
+			candidateCount++
 		}
 	}
-	candidateCount := len(response.Transactions) - preConfirmedTxCount
+	preConfirmedTxCount := len(response.Transactions) - candidateCount
 
 	txns := make([]core.Transaction, preConfirmedTxCount)
 	txStateDiffs := make([]*core.StateDiff, preConfirmedTxCount)
@@ -545,27 +547,28 @@ func AdaptPreConfirmedBlock(
 	preIdx := 0
 	candIdx := 0
 	for i := range len(response.Transactions) {
-		if !IsCandidateTx(response, i) {
-			txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
-			if err != nil {
-				return pending.PreConfirmed{}, err
-			}
-			var stateDiff core.StateDiff
-			stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
-			if err != nil {
-				return pending.PreConfirmed{}, err
-			}
-			txStateDiffs[preIdx] = &stateDiff
-			receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
-			eventCount += uint64(len(response.Receipts[i].Events))
-			preIdx++
-		} else {
+		if IsCandidateTx(response, i) {
 			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
 			if err != nil {
 				return pending.PreConfirmed{}, err
 			}
 			candIdx++
+			continue
 		}
+
+		txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
+		if err != nil {
+			return pending.PreConfirmed{}, err
+		}
+		var stateDiff core.StateDiff
+		stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
+		if err != nil {
+			return pending.PreConfirmed{}, err
+		}
+		txStateDiffs[preIdx] = &stateDiff
+		receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+		eventCount += uint64(len(response.Receipts[i].Events))
+		preIdx++
 	}
 
 	// Squash per-tx state updates
@@ -577,7 +580,6 @@ func AdaptPreConfirmedBlock(
 	stateUpdate := core.StateUpdate{
 		BlockHash: nil,
 		NewRoot:   nil,
-		// Must be set to previous global state root, when have access to latest header
 		OldRoot:   nil,
 		StateDiff: &stateDiff,
 	}
@@ -609,7 +611,98 @@ func AdaptPreConfirmedBlock(
 		Transactions: txns,
 		Receipts:     receipts,
 	}
-	return pending.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs), nil
+	preConfirmed := pending.NewPreConfirmed(
+		adaptedBlock,
+		&stateUpdate,
+		txStateDiffs,
+		candidateTxs,
+		response.BlockIdentifier,
+	)
+	return preConfirmed, nil
+}
+
+// AdaptPreConfirmedWithDelta returns a new pre_confirmed produced by applying
+// delta on top of current; current is not modified.
+//
+// Returns [ErrPreConfirmedIdentifierMismatch] if current.BlockIdentifier
+// differs from delta.BlockIdentifier.
+func AdaptPreConfirmedWithDelta(
+	current *pending.PreConfirmed,
+	delta *starknet.PreConfirmedDeltaUpdate,
+) (pending.PreConfirmed, error) {
+	if current.BlockIdentifier != delta.BlockIdentifier {
+		return pending.PreConfirmed{}, ErrPreConfirmedIdentifierMismatch
+	}
+	if len(delta.Transactions) != len(delta.Receipts) ||
+		len(delta.Transactions) != len(delta.TransactionStateDiffs) {
+		return pending.PreConfirmed{}, fmt.Errorf(
+			"mismatched lengths: transactions (%d), state diffs (%d), receipts (%d) must be equal",
+			len(delta.Transactions), len(delta.TransactionStateDiffs), len(delta.Receipts),
+		)
+	}
+
+	existingTxs := current.Block.Transactions
+	existingReceipts := current.Block.Receipts
+	existingStateDiffs := current.TransactionStateDiffs
+
+	n := len(existingTxs)
+	addedCount := len(delta.Transactions)
+
+	mergedTxs := make([]core.Transaction, n+addedCount)
+	mergedReceipts := make([]*core.TransactionReceipt, n+addedCount)
+	mergedStateDiffs := make([]*core.StateDiff, n+addedCount)
+	copy(mergedTxs, existingTxs)
+	copy(mergedReceipts, existingReceipts)
+	copy(mergedStateDiffs, existingStateDiffs)
+
+	nextStateDiff := core.EmptyStateDiff()
+	nextStateDiff.Merge(current.StateUpdate.StateDiff)
+
+	addedEventCount := uint64(0)
+	for i := range delta.Transactions {
+		tx, err := AdaptTransaction(&delta.Transactions[i])
+		if err != nil {
+			return pending.PreConfirmed{}, err
+		}
+		mergedTxs[n+i] = tx
+
+		sd, err := AdaptStateDiff(delta.TransactionStateDiffs[i])
+		if err != nil {
+			return pending.PreConfirmed{}, err
+		}
+		mergedStateDiffs[n+i] = &sd
+		nextStateDiff.Merge(&sd)
+
+		mergedReceipts[n+i] = AdaptTransactionReceipt(delta.Receipts[i])
+		addedEventCount += uint64(len(delta.Receipts[i].Events))
+	}
+
+	nextHeader := *current.Block.Header
+	addedBloom := core.EventsBloom(mergedReceipts[n:])
+	if err := addedBloom.Merge(current.Block.Header.EventsBloom); err != nil {
+		return pending.PreConfirmed{}, err
+	}
+	nextHeader.EventsBloom = addedBloom
+	nextHeader.EventCount += addedEventCount
+	nextHeader.TransactionCount += uint64(addedCount)
+
+	nextBlock := *current.Block
+	nextBlock.Header = &nextHeader
+	nextBlock.Transactions = mergedTxs
+	nextBlock.Receipts = mergedReceipts
+
+	nextStateUpdate := core.StateUpdate{
+		BlockHash: current.StateUpdate.BlockHash,
+		NewRoot:   current.StateUpdate.NewRoot,
+		OldRoot:   current.StateUpdate.OldRoot,
+		StateDiff: &nextStateDiff,
+	}
+
+	next := *current
+	next.Block = &nextBlock
+	next.StateUpdate = &nextStateUpdate
+	next.TransactionStateDiffs = mergedStateDiffs
+	return next, nil
 }
 
 func safeFeltToUint64(f *felt.Felt) uint64 {

@@ -15,6 +15,17 @@ import (
 
 type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
 
+// BlockHashLag is the Starknet protocol-defined lag for the BLOCK_HASH
+// syscall: when executing block N, contracts can read the hash of block
+// N - BlockHashLag.
+const BlockHashLag uint64 = 10
+
+// Block hash storage contract introduced with starknet v0.12.0.
+// Contract stores block number to block hash mapping,
+// and serve this information through [get_block_hash_syscall].
+// Queriable range is [first_v0_12_0_block, current_block - 10]
+var BlockHashStorageContract = &felt.One
+
 type L1Head struct {
 	BlockNumber uint64
 	BlockHash   *felt.Felt

@@ -8,6 +8,8 @@ coverage:
       default:
         target: 60%
         only_pulls: true
+github_checks:
+  annotations: true
 ignore:
   - mocks
   - l1/internal/contract/starknet.go

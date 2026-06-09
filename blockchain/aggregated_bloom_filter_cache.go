@@ -2,10 +2,11 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/ethereum/go-ethereum/common/lru"
 )
 
 // NOTE(Ege): consider making it configurable
@@ -26,15 +27,18 @@ type EventFiltersCacheKey struct {
 // for block ranges, supporting fallback loading and bulk insertion.
 // It is safe for concurrent use.
 type AggregatedBloomFilterCache struct {
-	cache        lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
+	cache        *lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
 	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
 }
 
 // NewAggregatedBloomCache creates a new LRU cache for aggregated bloom filters
 // with the specified maximum size (number of ranges to cache).
-func NewAggregatedBloomCache(size int) AggregatedBloomFilterCache {
-	return AggregatedBloomFilterCache{
-		cache: *lru.NewCache[EventFiltersCacheKey, *core.AggregatedBloomFilter](size),
+func NewAggregatedBloomCache(size int) *AggregatedBloomFilterCache {
+	return &AggregatedBloomFilterCache{
+		cache: lru.New[
+			EventFiltersCacheKey,
+			*core.AggregatedBloomFilter,
+		](size),
 	}
 }
 
@@ -148,10 +152,18 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	toAligned := fromAligned + core.NumBlocksPerFilter - 1
 
 	// Falls into range of running filter
-	if fromAligned == it.runningFilter.FromBlock() {
-		err := it.matcher.getCandidateBlocksForFilterInto(it.runningFilter.InnerFilter(), it.currentBits)
+	runningFrom, err := it.runningFilter.FromBlock()
+	if err != nil {
+		return fmt.Errorf("reading running filter from-block: %w", err)
+	}
+	if fromAligned == runningFrom {
+		inner, err := it.runningFilter.InnerFilter()
 		if err != nil {
-			return err
+			return fmt.Errorf("reading running filter inner filter: %w", err)
+		}
+		err = it.matcher.getCandidateBlocksForFilterInto(inner, it.currentBits)
+		if err != nil {
+			return fmt.Errorf("getting candidate blocks for running filter: %w", err)
 		}
 		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
@@ -163,7 +175,7 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	if ok {
 		err := it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
 		if err != nil {
-			return err
+			return fmt.Errorf("getting candidate blocks for cached filter: %w", err)
 		}
 		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
@@ -176,7 +188,7 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 
 	fetched, err := it.cache.fallbackFunc(key)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetching aggregated bloom filter via fallback: %w", err)
 	}
 	filter = &fetched
 	if filter.FromBlock() != fromAligned || filter.ToBlock() != toAligned {
@@ -187,7 +199,7 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 
 	err = it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting candidate blocks for fetched filter: %w", err)
 	}
 	it.currentWindowStart = fromAligned // set current window start absolute index
 	return nil

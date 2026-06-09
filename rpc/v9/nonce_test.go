@@ -134,7 +134,26 @@ func TestNonce(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(l1AcceptedBlockNumber, nil)
 		mockReader.EXPECT().StateAtBlockNumber(l1AcceptedBlockNumber).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
+
+		l1AcceptedID := blockIDL1Accepted(t)
+		nonce, rpcErr := handler.Nonce(&l1AcceptedID, &targetAddress)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedNonce, nonce)
+	})
+
+	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		chainHeight := uint64(10)
+		l1HeadAhead := chainHeight + 5
+
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{BlockNumber: l1HeadAhead, BlockHash: &felt.One, StateRoot: &felt.One},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(chainHeight, nil)
+		mockReader.EXPECT().StateAtBlockNumber(chainHeight).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
 		l1AcceptedID := blockIDL1Accepted(t)

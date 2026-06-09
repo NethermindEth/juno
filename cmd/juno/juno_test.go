@@ -74,6 +74,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCRequestTimeout := 1 * time.Minute
 	defaultMaxConcurrentCompilations := uint(8)
 	defaultDisableReceivedTxnStream := false
+	defaultPruneMinAge := time.Hour
 	expectedConfig1 := node.Config{
 		LogLevel:                           "debug",
 		HTTP:                               defaultHTTP,
@@ -116,6 +117,7 @@ func TestConfigPrecedence(t *testing.T) {
 		ReadinessBlockTolerance:            6,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+		PruneMinAge:                        defaultPruneMinAge,
 	}
 
 	expectedConfig2 := node.Config{
@@ -160,6 +162,7 @@ func TestConfigPrecedence(t *testing.T) {
 		ReadinessBlockTolerance:            6,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+		PruneMinAge:                        defaultPruneMinAge,
 	}
 	tests := map[string]struct {
 		cfgFile         bool
@@ -265,6 +268,7 @@ pprof: true
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -315,6 +319,7 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"all flags without config file": {
@@ -364,6 +369,7 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"some flags without config file": {
@@ -413,6 +419,7 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -488,6 +495,7 @@ db-cache-size: 1024
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -540,6 +548,7 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -588,6 +597,7 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"only set env variables": {
@@ -634,6 +644,7 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -681,6 +692,7 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"log-json flag via CLI": {
@@ -727,6 +739,7 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -775,6 +788,7 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
 	}
@@ -814,6 +828,24 @@ network: sepolia
 func TestGenP2PKeyPair(t *testing.T) {
 	cmd := juno.GenP2PKeyPair()
 	require.NoError(t, cmd.Execute())
+}
+
+func TestUnknownFlagDoesNotPrintUsage(t *testing.T) {
+	config := new(node.Config)
+	cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+
+	var buf strings.Builder
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--some-unknown-flag"})
+
+	err := cmd.ExecuteContext(t.Context())
+	require.Error(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "unknown flag")
+	assert.NotContains(t, output, "Available Commands:")
+	assert.NotContains(t, output, "Global Flags:")
 }
 
 func tempCfgFile(t *testing.T, cfg string) string {

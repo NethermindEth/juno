@@ -53,6 +53,24 @@ func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *co
 	return s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, sink)
 }
 
+func (s *EthSubscriber) FilterLogStateUpdate(
+	ctx context.Context,
+	start,
+	end uint64,
+) ([]*contract.StarknetLogStateUpdate, error) {
+	reqTimer := time.Now()
+	events, err := s.filterer.FilterLogStateUpdate(&bind.FilterOpts{
+		Context: ctx,
+		Start:   start,
+		End:     &end,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("filter LogStateUpdate [%d,%d]: %w", start, end, err)
+	}
+	s.listener.OnL1Call("eth_getLogs", time.Since(reqTimer))
+	return events, nil
+}
+
 func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
 	reqTimer := time.Now()
 	chainID, err := s.ethClient.ChainID(ctx)

@@ -8,7 +8,6 @@ on:
   pull_request:
     paths:
       - vm/rust/**
-      - core/rust/**
       - starknet/compiler/rust/**
       - rust-toolchain.toml
       - .github/workflows/rust-lint.yml
@@ -22,32 +21,25 @@ jobs:
     name: rust-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # master
         with:
           toolchain: "1.88.0"
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2.8.1
         with:
           workspaces: |
             vm/rust
-            core/rust
             starknet/compiler/rust
       - name: fmt vm/rust
         run: cargo fmt --check
         working-directory: vm/rust
-      - name: fmt core/rust
-        run: cargo fmt --check
-        working-directory: core/rust
       - name: fmt starknet/compiler/rust
         run: cargo fmt --check
         working-directory: starknet/compiler/rust
       - name: clippy vm/rust
         run: cargo clippy -- -D warnings
         working-directory: vm/rust
-      - name: clippy core/rust
-        run: cargo clippy -- -D warnings
-        working-directory: core/rust
       - name: clippy starknet/compiler/rust
         run: cargo clippy -- -D warnings
         working-directory: starknet/compiler/rust

@@ -140,7 +140,10 @@ func (s *State) Update(
 		}
 	}
 
-	return s.flush(blockNum, &stateUpdate, dirtyClasses, true)
+	if err := s.flush(blockNum, &stateUpdate, dirtyClasses); err != nil {
+		return err
+	}
+	return s.writeHistory(blockNum, update.StateDiff)
 }
 
 // Revert a given state update. The block number is the block number of the state update.
@@ -223,7 +226,7 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &newComm)
 	}
 
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
+	if err := s.flush(blockNum, &stateUpdate, dirtyClasses); err != nil {
 		return err
 	}
 	return s.deleteHistory(blockNum, update.StateDiff)
@@ -344,12 +347,10 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	return newComm, su, nil
 }
 
-//nolint:gocyclo
 func (s *State) flush(
 	blockNum uint64,
 	update *stateUpdate,
 	classes map[felt.Felt]core.ClassDefinition,
-	storeHistory bool,
 ) error {
 	err := s.db.triedb.Update(
 		(*felt.StateRootHash)(&update.curComm),
@@ -375,24 +376,8 @@ func (s *State) flush(
 				return err
 			}
 		} else { // updated
-			if err := WriteContract(s.batch, &addr, obj.contract); err != nil {
+			if err := writeContract(s.batch, &addr, obj.contract); err != nil {
 				return err
-			}
-
-			if storeHistory {
-				for key, val := range obj.dirtyStorage {
-					if err := WriteStorageHistory(s.batch, &addr, &key, blockNum, val); err != nil {
-						return err
-					}
-				}
-
-				if err := WriteNonceHistory(s.batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
-					return err
-				}
-
-				if err := WriteClassHashHistory(s.batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
-					return err
-				}
 			}
 		}
 	}
@@ -403,7 +388,11 @@ func (s *State) flush(
 				return err
 			}
 		} else {
-			if err := WriteClass(s.batch, &classHash, class, blockNum); err != nil {
+			err := WriteClass(s.batch, &classHash, &core.DeclaredClassDefinition{
+				At:    blockNum,
+				Class: class,
+			})
+			if err != nil {
 				return err
 			}
 		}
@@ -526,6 +515,36 @@ func (s *State) getStateObject(addr *felt.Felt) (*stateObject, error) {
 
 	s.stateObjects[*addr] = obj
 	return obj, nil
+}
+
+func (s *State) writeHistory(blockNum uint64, diff *core.StateDiff) error {
+	for addr, storage := range diff.StorageDiffs {
+		for key, val := range storage {
+			if err := WriteStorageHistory(s.batch, &addr, &key, blockNum, val); err != nil {
+				return err
+			}
+		}
+	}
+
+	for addr, nonce := range diff.Nonces {
+		if err := WriteNonceHistory(s.batch, &addr, blockNum, nonce); err != nil {
+			return err
+		}
+	}
+
+	for addr, classHash := range diff.ReplacedClasses {
+		if err := WriteClassHashHistory(s.batch, &addr, blockNum, classHash); err != nil {
+			return err
+		}
+	}
+
+	for addr, classHash := range diff.DeployedContracts {
+		if err := WriteClassHashHistory(s.batch, &addr, blockNum, classHash); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *State) deleteHistory(blockNum uint64, diff *core.StateDiff) error {

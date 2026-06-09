@@ -112,3 +112,11 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 		})
 	}
 }
+
+func TestNew_RejectsPruneWithoutL1Verification(t *testing.T) {
+	_, err := node.New(&node.Config{
+		Prune:                 true,
+		DisableL1Verification: true,
+	}, "test", log.NewLevel(log.INFO))
+	require.ErrorContains(t, err, "prune-mode requires L1 verification")
+}

@@ -161,6 +161,24 @@ func TestStateUpdate(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(uint64(21656), nil)
+		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
+		l1AcceptedID := blockIDL1Accepted(t)
+		update, rpcErr := handler.StateUpdate(&l1AcceptedID)
+		require.Nil(t, rpcErr)
+		checkUpdate(t, update21656, &update)
+	})
+
+	t.Run("l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: uint64(21656) + 10,
+				BlockHash:   update21656.BlockHash,
+				StateRoot:   update21656.NewRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(uint64(21656), nil)
 		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
 		l1AcceptedID := blockIDL1Accepted(t)
 		update, rpcErr := handler.StateUpdate(&l1AcceptedID)
@@ -171,7 +189,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		preConfirmed := pending.NewPreConfirmed(nil, update21656, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(nil, update21656, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,

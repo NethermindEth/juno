@@ -107,30 +107,50 @@ func TestNewRunner(t *testing.T) {
 		require.NotNil(t, runner)
 	})
 
-	t.Run("Error on opt-out attempt", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with version downgrade, tests different error message, nolintlint because main config does not check lll in tests
-		testDB := setupTestDB(t)
-		existingMetadata := migration.SchemaMetadata{
-			CurrentVersion:    migration.SchemaVersion(0b011), // Migrations 0 and 1 applied
-			LastTargetVersion: migration.SchemaVersion(0b111), // Migrations 0, 1 and 2 previously enabled
+	t.Run("Error on opt-out attempt", func(t *testing.T) {
+		// Optional migration at idx 2 was previously enabled and is now being opted out.
+		// The "already applied" case guards the ordering bug: CurrentVersion having a bit
+		// Target does not is misread as a downgrade when validateNoVersionDowngrade runs first.
+		tests := []struct {
+			name           string
+			currentVersion migration.SchemaVersion
+		}{
+			{
+				name:           "previously enabled optional migration had not yet completed",
+				currentVersion: migration.SchemaVersion(0b011),
+			},
+			{
+				name:           "previously enabled optional migration is already applied",
+				currentVersion: migration.SchemaVersion(0b111),
+			},
 		}
-		require.NoError(t, migration.WriteSchemaMetadata(testDB, existingMetadata))
 
-		// Create registry with migrations 0 and 1 (but not 2, which was previously enabled)
-		registry := migration.NewRegistry().
-			With(&mockMigration{}).
-			With(&mockMigration{}).
-			WithOptional(&mockMigration{}, false, "migration-2")
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				testDB := setupTestDB(t)
+				existingMetadata := migration.SchemaMetadata{
+					CurrentVersion:    tc.currentVersion,
+					LastTargetVersion: migration.SchemaVersion(0b111), // Migrations 0, 1 and 2 previously enabled
+				}
+				require.NoError(t, migration.WriteSchemaMetadata(testDB, existingMetadata))
 
-		runner, err := migration.NewRunner(
-			registry,
-			testDB,
-			&networks.Mainnet,
-			log.NewNopZapLogger(),
-		)
-		require.Error(t, err)
-		require.Nil(t, runner)
-		require.Contains(t, err.Error(), "cannot opt out of previously enabled migrations:")
-		require.Contains(t, err.Error(), "--migration-2")
+				registry := migration.NewRegistry().
+					With(&mockMigration{}).
+					With(&mockMigration{}).
+					WithOptional(&mockMigration{}, false, "migration-2")
+
+				runner, err := migration.NewRunner(
+					registry,
+					testDB,
+					&networks.Mainnet,
+					log.NewNopZapLogger(),
+				)
+				require.Error(t, err)
+				require.Nil(t, runner)
+				require.Contains(t, err.Error(), "cannot opt out of previously enabled migrations:")
+				require.Contains(t, err.Error(), "--migration-2")
+			})
+		}
 	})
 
 	t.Run("Error on version downgrade", func(t *testing.T) { //nolint:dupl,lll,nolintlint // shares code with opt-out attempt, tests different error message, nolintlint because main config does not check lll in tests

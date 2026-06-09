@@ -1053,6 +1053,79 @@ func TestStateUpdateWithBlock(t *testing.T) {
 	})
 }
 
+func TestStateUpdateWithBlockAndSignature(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
+
+	t.Run("Test normal case", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(t.Context(), strconv.Itoa(0))
+		assert.NoError(t, err)
+		assert.Equal(
+			t,
+			"0x19f675d3fb226821493a6ab9a1955e384bba80f130de625621a418e9a7c0ca3",
+			actualStateUpdate.Block.Hash.String(),
+		)
+		assert.Equal(t, "0x0", actualStateUpdate.Block.ParentHash.String())
+		assert.Equal(
+			t,
+			"0x461065b969aa793d1d66e4ca56ad13116c8589e21c803b5118c520a33c60eb9",
+			actualStateUpdate.Block.StateRoot.String(),
+		)
+		assert.Equal(
+			t,
+			"0x19f675d3fb226821493a6ab9a1955e384bba80f130de625621a418e9a7c0ca3",
+			actualStateUpdate.StateUpdate.BlockHash.String(),
+		)
+		assert.Equal(
+			t,
+			"0x461065b969aa793d1d66e4ca56ad13116c8589e21c803b5118c520a33c60eb9",
+			actualStateUpdate.StateUpdate.NewRoot.String(),
+		)
+		assert.Equal(t, "0x0", actualStateUpdate.StateUpdate.OldRoot.String())
+		assert.Equal(
+			t,
+			map[string]*felt.Felt{
+				//nolint:lll // Break this line would be ugly
+				"0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8": felt.NewFromUint64[felt.Felt](2),
+			},
+			actualStateUpdate.StateUpdate.StateDiff.Nonces,
+		)
+		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
+	})
+	t.Run("Test with includeSignature", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(
+			t.Context(), strconv.Itoa(78541),
+		)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, actualStateUpdate.StateUpdate)
+		assert.NotEmpty(t, actualStateUpdate.Block)
+		assert.NotEmpty(t, actualStateUpdate.Signature)
+		assert.Equal(t, 2, len(actualStateUpdate.Signature))
+		assert.Equal(
+			t,
+			"0xf5feb0ca93ae60e034ff55ddba88636d47db325c5dd99ec1686a6202b2ee7d",
+			actualStateUpdate.Signature[0].String(),
+		)
+		assert.Equal(
+			t,
+			"0x36fd2c74719c126db9f7b4fcfa521fa557db3d855bbec2e9f1f80da5f5624af",
+			actualStateUpdate.Signature[1].String(),
+		)
+	})
+	t.Run("Test on unexisting block", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(
+			t.Context(),
+			strconv.Itoa(10000000000),
+		)
+		assert.Error(t, err)
+		assert.Nil(t, actualStateUpdate)
+	})
+	t.Run("Test on latest block", func(t *testing.T) {
+		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(t.Context(), "latest")
+		assert.NoError(t, err)
+		assert.NotNil(t, actualStateUpdate)
+	})
+}
+
 func TestBlockTrace(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 
@@ -1177,7 +1250,7 @@ func TestClientRetryBehavior(t *testing.T) {
 func TestPreConfirmedBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 
-	snPreConfirmedBlock, err := client.PreConfirmedBlock(t.Context(), strconv.Itoa(1204672))
+	snPreConfirmedBlock, err := client.DeprecatedPreConfirmedBlock(t.Context(), strconv.Itoa(1204672))
 	assert.NoError(t, err)
 
 	assert.Equal(t, "0.14.0", snPreConfirmedBlock.Version)
@@ -1193,4 +1266,25 @@ func TestPreConfirmedBlock(t *testing.T) {
 	assert.NotNil(t, snPreConfirmedBlock.L2GasPrice)
 	assert.NotNil(t, snPreConfirmedBlock.SequencerAddress)
 	assert.NotNil(t, snPreConfirmedBlock.Timestamp)
+}
+
+func TestBlockHeader(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+
+	t.Run("normal case", func(t *testing.T) {
+		header, err := client.BlockHeader(t.Context(), strconv.Itoa(11817))
+		require.NoError(t, err)
+		assert.Equal(
+			t,
+			"0x24c692acaed3b486990bd9d2b2fbbee802b37b3bd79c59f295bad3277200a83",
+			header.Hash.String(),
+		)
+		assert.Equal(t, uint64(11817), header.Number)
+	})
+
+	t.Run("block not found", func(t *testing.T) {
+		header, err := client.BlockHeader(t.Context(), strconv.Itoa(1000000))
+		assert.Error(t, err)
+		assert.Zero(t, header)
+	})
 }

@@ -602,6 +602,9 @@ func (h *Server) processIterationRequestMulti(iteration *synccommon.Iteration, f
 }
 
 func (h *Server) newIterator(it *synccommon.Iteration) (*iterator, error) {
+	if _, ok := synccommon.Iteration_Direction_name[int32(it.Direction)]; !ok {
+		return nil, fmt.Errorf("unknown direction value: %d", it.Direction)
+	}
 	forward := it.Direction == synccommon.Iteration_Forward
 	// todo restrict limit max value ?
 	switch v := it.Start.(type) {

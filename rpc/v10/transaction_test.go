@@ -596,16 +596,14 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(1204672)
-	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(
+	preConfirmedBlockWithCandidates, err := gw.DeprecatedPreConfirmedBlock(
 		t.Context(),
 		strconv.FormatUint(blockNumber, 10),
 	)
 	require.NoError(t, err)
 
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(
-		preConfirmedBlockWithCandidates,
-		blockNumber,
-	)
+	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedBlock)
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
 	handler := rpcv10.New(nil, mockSyncReader, nil, nil)
 
@@ -767,6 +765,31 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
+			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			return latestBlock.Transactions[index], nil
+		})
+
+		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
+		blockID := rpcv10.BlockIDL1Accepted()
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
+		require.Nil(t, rpcErr)
+		require.Equal(t, &expectedTxn, actualTxn)
+	})
+
+	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		index := rand.Intn(int(latestBlock.TransactionCount))
+
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: latestBlockNumber + 10,
+				BlockHash:   latestBlockHash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
@@ -782,7 +805,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,

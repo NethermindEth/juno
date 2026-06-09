@@ -4,14 +4,11 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 )
-
-const BlockHashLag uint64 = 10
-
-var BlockHashStorageContract = &felt.One
 
 // makeStateDiffForEmptyBlock constructs a minimal state diff for an empty block.
 // It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
@@ -26,16 +23,16 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash, 0),
 	}
 
-	if blockNumber < BlockHashLag {
+	if blockNumber < core.BlockHashLag {
 		return stateDiff, nil
 	}
 
-	header, err := bc.BlockHeaderByNumber(blockNumber - BlockHashLag)
+	header, err := bc.BlockHeaderByNumber(blockNumber - core.BlockHashLag)
 	if err != nil {
 		return nil, err
 	}
 
-	stateDiff.StorageDiffs[*BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
+	stateDiff.StorageDiffs[*core.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
 		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
 	return stateDiff, nil
@@ -118,6 +115,7 @@ func MakeEmptyPreConfirmedForParent(
 		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
 		TransactionStateDiffs: make([]*core.StateDiff, 0),
 		CandidateTxs:          make([]core.Transaction, 0),
+		BlockIdentifier:       feeder.PreConfirmedBlankIdentifier,
 	}
 
 	return preConfirmed, nil

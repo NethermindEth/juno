@@ -99,6 +99,19 @@ func createBlockTestCases(
 			blockStatus: rpc.BlockAcceptedL1,
 		},
 		{
+			description: "blockID - l1_accepted bounded to chain height when L1 is ahead",
+			block:       block,
+			commitments: commitments,
+			stateUpdate: stateUpdate,
+			blockID:     &blockIDL1Accepted,
+			l1Head: &core.L1Head{
+				BlockNumber: block.Number + 10,
+				BlockHash:   block.Hash,
+				StateRoot:   block.GlobalStateRoot,
+			},
+			blockStatus: rpc.BlockAcceptedL1,
+		},
+		{
 			description: "blockID - pre_confirmed",
 			block:       block,
 			commitments: nil,
@@ -430,6 +443,7 @@ func setupMockBlockTest(
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
 	case blockID.IsL1Accepted():
+		mockChain.EXPECT().Height().Return(block.Number, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
 		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
@@ -588,6 +602,24 @@ func TestBlockTransactionCount(t *testing.T) {
 			},
 			nil,
 		)
+		mockReader.EXPECT().Height().Return(latestBlock.Number, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		l1AcceptedID := rpc.BlockIDL1Accepted()
+		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
+		mockReader.EXPECT().L1Head().Return(
+			core.L1Head{
+				BlockNumber: latestBlock.Number + 10,
+				BlockHash:   latestBlock.Hash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().Height().Return(latestBlock.Number, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
 		l1AcceptedID := rpc.BlockIDL1Accepted()
 		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
@@ -598,7 +630,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil)
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -802,6 +834,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Shares similar structure with TestBlockWithReceipts but tests BlockWithTxs
 func TestBlockWithTxs(t *testing.T) {
 	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
@@ -952,6 +985,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Shares similar structure with TestBlockWithTxs but tests BlockWithReceipts
 func TestBlockWithReceipts(t *testing.T) {
 	network := &networks.Mainnet
 	client := feeder.NewTestClient(t, network)
