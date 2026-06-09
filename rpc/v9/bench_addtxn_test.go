@@ -1,4 +1,4 @@
-package rpcv9_test
+package rpcv9
 
 import (
 	"context"
@@ -7,16 +7,24 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils/log"
 	gomock "go.uber.org/mock/gomock"
+)
+
+const (
+	invokeTxnPath        = "../../clients/feeder/testdata/sepolia/transaction/0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea.json"
+	declareTxnPath       = "../../clients/feeder/testdata/sepolia/transaction/0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155.json"
+	deployAccountTxnPath = "../../clients/feeder/testdata/sepolia/transaction/0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975.json"
+
+	sierraClassPath = "../../clients/feeder/testdata/sepolia/class/0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b.json"
 )
 
 // ------------------------------------------------------------------
@@ -35,10 +43,6 @@ func (stubCompiler) Compile(
 	}, nil
 }
 
-// realFFICompiler returns the in-process Sierra->CASM compiler used by the
-// REAL_COMPILER benchmark.
-func realFFICompiler() compiler.Compiler { return compiler.NewUnsafe() }
-
 // noopMempool always accepts a Push without any side effect.
 type noopMempool struct{}
 
@@ -46,108 +50,59 @@ func (noopMempool) Push(context.Context, *mempool.BroadcastedTransaction) error 
 	return nil
 }
 
-const sierraClassFixturePath = "../../clients/feeder/testdata/sepolia-integration/class/0x941a2dc3ab607819fdc929bea95831a2e0c1aab2f2f34b3a23c55cebc8a040.json"
+type benchcase struct {
+	name string
+	tx   *BroadcastedTransaction
+}
 
-func loadSierraClassRaw(tb testing.TB) []byte {
+func getBenchmarkCases(tb testing.TB) []benchcase {
 	tb.Helper()
-	abs, err := filepath.Abs(sierraClassFixturePath)
+	return []benchcase{
+		{name: "declare tx", tx: buildDeclareTx(tb)},
+		{name: "invoke tx", tx: loadBroadcastedTxn(tb, invokeTxnPath)},
+		{name: "deploy account tx", tx: loadBroadcastedTxn(tb, deployAccountTxnPath)},
+	}
+}
+
+func buildDeclareTx(tb testing.TB) *BroadcastedTransaction {
+	tb.Helper()
+	sierraClassBytes := readFile(tb, sierraClassPath)
+
+	broadcastedTxn := loadBroadcastedTxn(tb, declareTxnPath)
+	broadcastedTxn.ContractClass = sierraClassBytes
+	return broadcastedTxn
+}
+
+func loadBroadcastedTxn(tb testing.TB, path string) *BroadcastedTransaction {
+	tb.Helper()
+
+	var temp struct {
+		Transaction starknet.Transaction `json:"transaction"`
+	}
+	if err := json.Unmarshal(readFile(tb, path), &temp); err != nil {
+		tb.Fatalf("error unmarshalling broadcast txn: %v", err)
+	}
+
+	coreTx, err := sn2core.AdaptTransaction(&temp.Transaction)
 	if err != nil {
-		tb.Fatalf("resolve sierra class path: %v", err)
+		tb.Fatalf("error adapting transaction: %v", err)
+	}
+
+	tx := AdaptTransaction(coreTx)
+	broadcastedTxn := BroadcastedTransaction{Transaction: *tx}
+	return &broadcastedTxn
+}
+
+func readFile(tb testing.TB, path string) []byte {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		tb.Fatalf("error resolving path: %v", err)
 	}
 	data, err := os.ReadFile(abs)
 	if err != nil {
-		tb.Fatalf("read sierra class fixture: %v", err)
+		tb.Fatalf("error reading file: %v", err)
 	}
 	return data
-}
-
-const benchInvokeV3JSON = `{
-	"type": "INVOKE",
-	"version": "0x3",
-	"sender_address": "0xf9e998b2853e6d01f3ae3c598c754c1b9a7bd398fec7657de022f3b778679",
-	"calldata": [
-		"0x1",
-		"0x41a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf",
-		"0x1987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d",
-		"0x4",
-		"0x16342ade8a7cc8296920731bc34b5a6530f5ee1dc1bfd3cc83cb3f519d6530a",
-		"0x65d7d6a3cd92f5d836fc410db222801cf70c6966bf5c0dc4d25699def10f4e9",
-		"0x1",
-		"0x0"
-	],
-	"signature": ["0x1", "0x2"],
-	"nonce": "0x77d8",
-	"resource_bounds": {
-		"l1_gas":      {"max_amount": "0x100", "max_price_per_unit": "0x1"},
-		"l2_gas":      {"max_amount": "0x100", "max_price_per_unit": "0x1"},
-		"l1_data_gas": {"max_amount": "0x100", "max_price_per_unit": "0x1"}
-	},
-	"tip": "0x0",
-	"paymaster_data": [],
-	"nonce_data_availability_mode": "L1",
-	"fee_data_availability_mode": "L1",
-	"account_deployment_data": []
-}`
-
-const benchDeployAccountV3JSON = `{
-	"type": "DEPLOY_ACCOUNT",
-	"version": "0x3",
-	"signature": [
-		"0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa",
-		"0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"
-	],
-	"nonce": "0x1",
-	"contract_address_salt": "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
-	"constructor_calldata": [
-		"0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
-		"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"
-	],
-	"class_hash": "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
-	"resource_bounds": {
-		"l1_gas":      {"max_amount": "0x6fde2b4eb000", "max_price_per_unit": "0x6fde2b4eb000"},
-		"l2_gas":      {"max_amount": "0x6fde2b4eb000", "max_price_per_unit": "0x6fde2b4eb000"},
-		"l1_data_gas": {"max_amount": "0x6fde2b4eb000", "max_price_per_unit": "0x6fde2b4eb000"}
-	},
-	"tip": "0x1",
-	"paymaster_data": [],
-	"nonce_data_availability_mode": "L1",
-	"fee_data_availability_mode": "L2"
-}`
-
-const benchDeclareV3HeaderJSON = `{
-	"type": "DECLARE",
-	"version": "0x3",
-	"signature": ["0x1", "0x2"],
-	"nonce": "0x1",
-	"sender_address": "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
-	"compiled_class_hash": "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
-	"resource_bounds": {
-		"l1_gas":      {"max_amount": "0x186a0", "max_price_per_unit": "0x2540be400"},
-		"l2_gas":      {"max_amount": "0x0",    "max_price_per_unit": "0x0"},
-		"l1_data_gas": {"max_amount": "0x186a0", "max_price_per_unit": "0x2540be400"}
-	},
-	"tip": "0x0",
-	"paymaster_data": [],
-	"account_deployment_data": [],
-	"nonce_data_availability_mode": "L1",
-	"fee_data_availability_mode": "L1"`
-
-func buildDeclareBroadcastJSON(sierraClassBytes []byte) []byte {
-	out := make([]byte, 0, len(benchDeclareV3HeaderJSON)+len(sierraClassBytes)+32)
-	out = append(out, benchDeclareV3HeaderJSON...)
-	out = append(out, `, "contract_class": `...)
-	out = append(out, sierraClassBytes...)
-	out = append(out, '}')
-	return out
-}
-
-func loadV9BroadcastTxn(tb testing.TB, raw []byte) *rpcv9.BroadcastedTransaction {
-	tb.Helper()
-	tx := &rpcv9.BroadcastedTransaction{}
-	if err := json.Unmarshal(raw, tx); err != nil {
-		tb.Fatalf("unmarshal broadcast txn: %v", err)
-	}
-	return tx
 }
 
 // ------------------------------------------------------------------
@@ -155,16 +110,14 @@ func loadV9BroadcastTxn(tb testing.TB, raw []byte) *rpcv9.BroadcastedTransaction
 // ------------------------------------------------------------------
 
 // newMempoolHandler wires a Handler that takes the addToMempool branch.
-// receivedTransactionFeed is wired because it is enabled by default in the
-// running node, so it must be present in every benchmark iteration.
 // Compiler is a parameter so the same builder is reused for stub and FFI.
-func newMempoolHandler(b *testing.B, c compiler.Compiler) *rpcv9.Handler {
+func newMempoolHandler(b *testing.B, c compiler.Compiler) *Handler {
 	b.Helper()
 	ctrl := gomock.NewController(b)
 	mockReader := mocks.NewMockReader(ctrl)
 	mockReader.EXPECT().Network().Return(&networks.Sepolia).AnyTimes()
 
-	return rpcv9.New(mockReader, nil, nil, log.NewNopZapLogger()).
+	return New(mockReader, nil, nil, log.NewNopZapLogger()).
 		WithCompiler(c).
 		WithMempool(noopMempool{}).
 		WithReceivedTransactionFeed(feed.New[core.Transaction]())
@@ -172,10 +125,8 @@ func newMempoolHandler(b *testing.B, c compiler.Compiler) *rpcv9.Handler {
 
 // newGatewayHandler wires a Handler that takes the pushToFeederGateway branch
 // (no mempool). The mock gateway returns a canned, well-formed response.
-// receivedTransactionFeed is wired because it is enabled by default in the
-// running node, so it must be present in every benchmark iteration.
 // Compiler is a parameter so the same builder is reused for stub and FFI.
-func newGatewayHandler(b *testing.B, c compiler.Compiler) *rpcv9.Handler {
+func newGatewayHandler(b *testing.B, c compiler.Compiler) *Handler {
 	b.Helper()
 	ctrl := gomock.NewController(b)
 	mockReader := mocks.NewMockReader(ctrl)
@@ -187,7 +138,7 @@ func newGatewayHandler(b *testing.B, c compiler.Compiler) *rpcv9.Handler {
 		Return(json.RawMessage(`{"transaction_hash":"0x1"}`), nil).
 		AnyTimes()
 
-	return rpcv9.New(mockReader, nil, nil, log.NewNopZapLogger()).
+	return New(mockReader, nil, nil, log.NewNopZapLogger()).
 		WithCompiler(c).
 		WithGateway(mockGateway).
 		WithReceivedTransactionFeed(feed.New[core.Transaction]())
@@ -197,49 +148,23 @@ func newGatewayHandler(b *testing.B, c compiler.Compiler) *rpcv9.Handler {
 // AddTransaction benchmarks — full method call, mempool path.
 // ------------------------------------------------------------------
 
-func BenchmarkAddTxn_Mempool_Invoke(b *testing.B) {
-	tx := loadV9BroadcastTxn(b, []byte(benchInvokeV3JSON))
-	h := newMempoolHandler(b, stubCompiler{})
+func BenchmarkAddTxn_Mempool(b *testing.B) {
+	benchcases := getBenchmarkCases(b)
 	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
 
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+	for _, benchcase := range benchcases {
+		b.Run(benchcase.name, func(b *testing.B) {
+			h := newMempoolHandler(b, stubCompiler{})
+			b.ReportAllocs()
+			b.ResetTimer()
 
-func BenchmarkAddTxn_Mempool_DeployAccount(b *testing.B) {
-	tx := loadV9BroadcastTxn(b, []byte(benchDeployAccountV3JSON))
-	h := newMempoolHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkAddTxn_Mempool_Declare(b *testing.B) {
-	sierraRaw := loadSierraClassRaw(b)
-	tx := loadV9BroadcastTxn(b, buildDeclareBroadcastJSON(sierraRaw))
-	h := newMempoolHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
+			for b.Loop() {
+				_, err := h.AddTransaction(ctx, benchcase.tx)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -247,57 +172,23 @@ func BenchmarkAddTxn_Mempool_Declare(b *testing.B) {
 // AddTransaction benchmarks — full method call, feeder gateway path.
 // ------------------------------------------------------------------
 
-func BenchmarkAddTxn_Gateway_Invoke(b *testing.B) {
-	tx := loadV9BroadcastTxn(b, []byte(benchInvokeV3JSON))
-	h := newGatewayHandler(b, stubCompiler{})
+func BenchmarkAddTxn_Gateway(b *testing.B) {
+	benchcases := getBenchmarkCases(b)
 	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
 
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+	for _, benchcase := range benchcases {
+		b.Run(benchcase.name, func(b *testing.B) {
+			h := newGatewayHandler(b, stubCompiler{})
+			b.ReportAllocs()
+			b.ResetTimer()
 
-func BenchmarkAddTxn_Gateway_DeployAccount(b *testing.B) {
-	tx := loadV9BroadcastTxn(b, []byte(benchDeployAccountV3JSON))
-	h := newGatewayHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkAddTxn_Gateway_Declare(b *testing.B) {
-	sierraRaw := loadSierraClassRaw(b)
-	declareJSON := buildDeclareBroadcastJSON(sierraRaw)
-	tx := loadV9BroadcastTxn(b, declareJSON)
-	// pushToFeederGateway mutates tx.ContractClass in place (gzips the sierra
-	// program). Snapshot the original bytes so each iteration starts from the
-	// same input.
-	originalCC := append(json.RawMessage(nil), tx.ContractClass...)
-	h := newGatewayHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		b.StopTimer()
-		tx.ContractClass = append(json.RawMessage(nil), originalCC...)
-		b.StartTimer()
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
+			for b.Loop() {
+				_, err := h.AddTransaction(ctx, benchcase.tx)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -309,9 +200,8 @@ func BenchmarkAddTxn_Gateway_Declare(b *testing.B) {
 // ------------------------------------------------------------------
 
 func BenchmarkAddTxn_Declare_RealCompiler_Mempool(b *testing.B) {
-	sierraRaw := loadSierraClassRaw(b)
-	tx := loadV9BroadcastTxn(b, buildDeclareBroadcastJSON(sierraRaw))
-	h := newMempoolHandler(b, realFFICompiler())
+	tx := buildDeclareTx(b)
+	h := newMempoolHandler(b, compiler.NewUnsafe())
 	ctx := b.Context()
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -325,19 +215,13 @@ func BenchmarkAddTxn_Declare_RealCompiler_Mempool(b *testing.B) {
 }
 
 func BenchmarkAddTxn_Declare_RealCompiler_Gateway(b *testing.B) {
-	sierraRaw := loadSierraClassRaw(b)
-	tx := loadV9BroadcastTxn(b, buildDeclareBroadcastJSON(sierraRaw))
-	// Gateway path mutates tx.ContractClass in place (gzips sierra_program).
-	originalCC := append(json.RawMessage(nil), tx.ContractClass...)
-	h := newGatewayHandler(b, realFFICompiler())
+	tx := buildDeclareTx(b)
+	h := newGatewayHandler(b, compiler.NewUnsafe())
 	ctx := b.Context()
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for b.Loop() {
-		b.StopTimer()
-		tx.ContractClass = append(json.RawMessage(nil), originalCC...)
-		b.StartTimer()
 		_, err := h.AddTransaction(ctx, tx)
 		if err != nil {
 			b.Fatal(err)

@@ -1,4 +1,4 @@
-package rpcv9_test
+package rpcv9
 
 import (
 	"testing"
@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -17,13 +16,10 @@ import (
 // ------------------------------------------------------------------
 
 func BenchmarkSimulatePrep_3Mixed(b *testing.B) {
-	sierraRaw := loadSierraClassRaw(b)
-	declareJSON := buildDeclareBroadcastJSON(sierraRaw)
-
-	txs := []*rpcv9.BroadcastedTransaction{
-		loadV9BroadcastTxn(b, []byte(benchInvokeV3JSON)),
-		loadV9BroadcastTxn(b, []byte(benchDeployAccountV3JSON)),
-		loadV9BroadcastTxn(b, declareJSON),
+	txs := []*BroadcastedTransaction{
+		loadBroadcastedTxn(b, invokeTxnPath),
+		loadBroadcastedTxn(b, deployAccountTxnPath),
+		buildDeclareTx(b),
 	}
 	ctx := b.Context()
 	stub := stubCompiler{}
@@ -34,7 +30,7 @@ func BenchmarkSimulatePrep_3Mixed(b *testing.B) {
 		coreTxs := make([]core.Transaction, 0, len(txs))
 		var classes []core.ClassDefinition
 		for _, tx := range txs {
-			coreTx, sierra, err := rpcv9.AdaptBroadcastedTransaction(
+			coreTx, sierra, err := AdaptBroadcastedTransaction(
 				ctx, stub, tx, network,
 			)
 			if err != nil {
@@ -70,7 +66,7 @@ func BenchmarkMessageFeePrep(b *testing.B) {
 		felt.FromUint64[felt.Felt](3),
 		felt.FromUint64[felt.Felt](4),
 	}
-	msg := &rpcv9.MsgFromL1{
+	msg := &MsgFromL1{
 		From: from, To: *to, Selector: *selector, Payload: payload,
 	}
 	ctx := b.Context()
@@ -86,9 +82,9 @@ func BenchmarkMessageFeePrep(b *testing.B) {
 		for j := range msg.Payload {
 			calldata[j+1] = &msg.Payload[j]
 		}
-		tx := rpcv9.BroadcastedTransaction{
-			Transaction: rpcv9.Transaction{
-				Type:               rpcv9.TxnL1Handler,
+		tx := BroadcastedTransaction{
+			Transaction: Transaction{
+				Type:               TxnL1Handler,
 				ContractAddress:    &msg.To,
 				EntryPointSelector: &msg.Selector,
 				CallData:           &calldata,
@@ -96,7 +92,7 @@ func BenchmarkMessageFeePrep(b *testing.B) {
 				Nonce:              &felt.Zero,
 			},
 		}
-		_, _, err := rpcv9.AdaptBroadcastedTransaction(ctx, stub, &tx, network)
+		_, _, err := AdaptBroadcastedTransaction(ctx, stub, &tx, network)
 		if err != nil {
 			b.Fatal(err)
 		}
