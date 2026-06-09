@@ -86,7 +86,7 @@ func (t *testBlockDataSource) getBlocks() []sync.CommittedBlock {
 
 func getBlock(blocks []sync.CommittedBlock, blockNumber uint64) sync.CommittedBlock {
 	committedBlock := blocks[blockNumber]
-	committedBlock.Persisted = make(chan struct{})
+	committedBlock.Persisted = make(chan error, 1)
 	return committedBlock
 }
 

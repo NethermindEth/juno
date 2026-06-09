@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
+	consensuswal "github.com/NethermindEth/juno/consensus/types/wal"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/utils/log"
@@ -23,10 +24,10 @@ import (
 )
 
 type (
-	listeners      = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
-	broadcasters   = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
-	tendermintDB   = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
-	commitListener = driver.CommitListener[starknet.Value, starknet.Hash]
+	listeners          = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
+	broadcasters       = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
+	tendermintWALStore = db.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
+	commitListener     = driver.CommitListener[starknet.Value, starknet.Hash]
 )
 
 const (
@@ -95,22 +96,22 @@ func generateAndRegisterRandomActions(
 		case 0:
 			proposal := getRandProposal(random)
 			expectedBroadcast.proposals = append(expectedBroadcast.proposals, &proposal)
-			actions[i] = new(starknet.BroadcastProposal(proposal))
+			actions[i] = (*starknet.BroadcastProposal)(&proposal)
 		case 1:
 			prevote := getRandPrevote(random)
 			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, &prevote)
-			actions[i] = new(starknet.BroadcastPrevote(prevote))
+			actions[i] = (*starknet.BroadcastPrevote)(&prevote)
 		case 2:
 			precommit := getRandPrecommit(random)
 			expectedBroadcast.precommits = append(expectedBroadcast.precommits, &precommit)
-			actions[i] = new(starknet.BroadcastPrecommit(precommit))
+			actions[i] = (*starknet.BroadcastPrecommit)(&precommit)
 		}
 	}
 	return actions
 }
 
 func toAction(timeout types.Timeout) starknet.Action {
-	return new(actions.ScheduleTimeout(timeout))
+	return (*actions.ScheduleTimeout)(&timeout)
 }
 
 func increaseBroadcasterWaitGroup[M any](
@@ -134,13 +135,24 @@ func waitAndAssertBroadcaster[M any](
 	assert.ElementsMatch(t, expectedBroadcast, mockBroadcaster.broadcastedMessages)
 }
 
-func newTendermintDB(t *testing.T) tendermintDB {
+func newTendermintWALStore(t *testing.T) tendermintWALStore {
 	t.Helper()
-	dbPath := t.TempDir()
-	pebbleDB, err := pebblev2.New(dbPath)
+	pebbleDB, err := pebblev2.New(t.TempDir())
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, pebbleDB.Close())
+	})
 
-	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB)
+	walStore, err := db.NewTendermintWALStore[
+		starknet.Value,
+		starknet.Hash,
+		starknet.Address,
+	](pebbleDB)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, walStore.Close())
+	})
+	return walStore
 }
 
 func TestDriver(t *testing.T) {
@@ -173,7 +185,7 @@ func TestDriver(t *testing.T) {
 
 	driver := driver.New(
 		log.NewNopZapLogger(),
-		newTendermintDB(t),
+		newTendermintWALStore(t),
 		stateMachine,
 		newMockCommitListener(t, &commitAction),
 		broadcasters,
@@ -240,4 +252,67 @@ func TestDriver(t *testing.T) {
 	waitAndAssertBroadcaster(t, expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
 
 	cancel()
+}
+
+func TestDriverReturnsErrorWhenCommitListenerFails(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMachine := mocks.NewMockStateMachine[starknet.Value, starknet.Hash, starknet.Address](ctrl)
+	commitAction := starknet.Commit(getRandProposal(rand.New(rand.NewSource(seed + 1))))
+
+	// Emit the commit straight from ProcessStart to exercise the commit path
+	// without simulating a full proposal/prevote/precommit round.
+	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return([]starknet.Action{&commitAction})
+
+	commitListener := &mockCommitListener{
+		t:              t,
+		expectedCommit: &commitAction,
+		persisted:      false,
+	}
+
+	driver := driver.New(
+		log.NewNopZapLogger(),
+		newTendermintWALStore(t),
+		stateMachine,
+		commitListener,
+		broadcasters{},
+		listeners{},
+		nil,
+		nil,
+		mockTimeoutFn,
+	)
+
+	require.Error(t, driver.Run(t.Context()))
+}
+
+func TestDriverReplaySkipsEntriesBelowCurrentHeight(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	walStore := newTendermintWALStore(t)
+	currentHeight := types.Height(2)
+	staleWALEntry := consensuswal.Start(currentHeight - 1)
+	require.NoError(t, walStore.SetWALEntry(&staleWALEntry))
+	require.NoError(t, walStore.Flush())
+
+	stateMachine := mocks.NewMockStateMachine[starknet.Value, starknet.Hash, starknet.Address](ctrl)
+	stateMachine.EXPECT().Height().Return(currentHeight)
+	stateMachine.EXPECT().ProcessWAL(gomock.Any()).Times(0)
+
+	driver := driver.New(
+		log.NewNopZapLogger(),
+		walStore,
+		stateMachine,
+		&mockCommitListener{t: t},
+		broadcasters{},
+		listeners{},
+		nil,
+		nil,
+		mockTimeoutFn,
+	)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	require.NoError(t, driver.Run(ctx))
 }

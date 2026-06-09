@@ -2,6 +2,8 @@ package memory
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -22,8 +24,10 @@ var _ db.KeyValueStore = (*Database)(nil)
 // Represents an in-memory key-value store.
 // It is thread-safe.
 type Database struct {
-	db   map[string][]byte
-	lock sync.RWMutex
+	db                map[string][]byte
+	path              string
+	removePathOnClose bool
+	lock              sync.RWMutex
 }
 
 func New() *Database {
@@ -89,7 +93,30 @@ func (d *Database) Close() error {
 	defer d.lock.Unlock()
 
 	d.db = nil
+	if d.removePathOnClose && d.path != "" {
+		_ = os.RemoveAll(d.path)
+	}
 	return nil
+}
+
+func (d *Database) Path() string {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	if d.db == nil {
+		return ""
+	}
+	if d.path != "" {
+		return d.path
+	}
+
+	path, err := os.MkdirTemp("", "juno-memory-db-*")
+	if err != nil {
+		panic(fmt.Errorf("create memory DB temp dir: %w", err))
+	}
+	d.path = path
+	d.removePathOnClose = true
+	return d.path
 }
 
 func (d *Database) DeleteRange(start, end []byte) error {

@@ -33,6 +33,15 @@ type ConsensusServices struct {
 	CommitListener driver.CommitListener[starknet.Value, starknet.Hash]
 }
 
+type initOptions struct {
+	wrapWALStore func(
+		consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
+	) consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
+	wrapBroadcasters func(
+		p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address],
+	) p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
+}
+
 func Init(
 	host host.Host,
 	logger *log.ZapLogger,
@@ -46,15 +55,52 @@ func Init(
 	bootstrapPeersFn func() []peer.AddrInfo,
 	compiler compiler.Compiler,
 ) (ConsensusServices, error) {
+	return initWithOptions(
+		host,
+		logger,
+		database,
+		blockchain,
+		vm,
+		blockFetcher,
+		nodeAddress,
+		validators,
+		timeoutFn,
+		bootstrapPeersFn,
+		compiler,
+		initOptions{},
+	)
+}
+
+func initWithOptions(
+	host host.Host,
+	logger *log.ZapLogger,
+	database db.KeyValueStore,
+	blockchain *blockchain.Blockchain,
+	vm vm.VM,
+	blockFetcher *sync.BlockFetcher,
+	nodeAddress *starknet.Address,
+	validators votecounter.Validators[starknet.Address],
+	timeoutFn driver.TimeoutFn,
+	bootstrapPeersFn func() []peer.AddrInfo,
+	compiler compiler.Compiler,
+	options initOptions,
+) (ConsensusServices, error) {
 	chainHeight, err := blockchain.Height()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return ConsensusServices{}, err
 	}
 	currentHeight := types.Height(chainHeight + 1)
-
-	tendermintDB := consensusDB.NewTendermintDB[
-		starknet.Value, starknet.Hash, starknet.Address,
+	tendermintWALStore, err := consensusDB.NewTendermintWALStore[
+		starknet.Value,
+		starknet.Hash,
+		starknet.Address,
 	](database)
+	if err != nil {
+		return ConsensusServices{}, err
+	}
+	if options.wrapWALStore != nil {
+		tendermintWALStore = options.wrapWALStore(tendermintWALStore)
+	}
 
 	executor := builder.NewExecutor(blockchain, vm, logger, false, false)
 	builder := builder.New(blockchain, executor)
@@ -77,13 +123,17 @@ func Init(
 	commitListener := driver.NewCommitListener(logger, &proposalStore, proposer, p2p)
 
 	messageExtractor := consensusSync.New(validators, toValue, &proposalStore)
+	broadcasters := p2p.Broadcasters()
+	if options.wrapBroadcasters != nil {
+		broadcasters = options.wrapBroadcasters(broadcasters)
+	}
 
 	driver := driver.New(
 		logger,
-		tendermintDB,
+		tendermintWALStore,
 		stateMachine,
 		commitListener,
-		p2p.Broadcasters(),
+		broadcasters,
 		p2p.Listeners(),
 		blockFetcher,
 		&messageExtractor,
