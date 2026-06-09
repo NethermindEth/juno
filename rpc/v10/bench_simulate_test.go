@@ -17,8 +17,8 @@ import (
 
 func BenchmarkSimulatePrep_3Mixed(b *testing.B) {
 	txs := []*BroadcastedTransaction{
-		buildInvokeTx(b),
-		buildDeployAccountTx(b),
+		loadBroadcastedTxn(b, invokeTxnPath),
+		loadBroadcastedTxn(b, deployAccountTxnPath),
 		buildDeclareTx(b),
 	}
 	ctx := b.Context()

@@ -43,15 +43,25 @@ func (stubCompiler) Compile(
 	}, nil
 }
 
-// realFFICompiler returns the in-process Sierra->CASM compiler used by the
-// REAL_COMPILER benchmark.
-func realFFICompiler() compiler.Compiler { return compiler.NewUnsafe() }
-
 // noopMempool always accepts a Push without any side effect.
 type noopMempool struct{}
 
 func (noopMempool) Push(context.Context, *mempool.BroadcastedTransaction) error {
 	return nil
+}
+
+type benchcase struct {
+	name string
+	tx   *BroadcastedTransaction
+}
+
+func getBenchmarkCases(tb testing.TB) []benchcase {
+	tb.Helper()
+	return []benchcase{
+		{name: "declare tx", tx: buildDeclareTx(tb)},
+		{name: "invoke tx", tx: loadBroadcastedTxn(tb, invokeTxnPath)},
+		{name: "deploy account tx", tx: loadBroadcastedTxn(tb, deployAccountTxnPath)},
+	}
 }
 
 func buildDeclareTx(tb testing.TB) *BroadcastedTransaction {
@@ -65,30 +75,6 @@ func buildDeclareTx(tb testing.TB) *BroadcastedTransaction {
 	broadcastedTxn := loadBroadcastedTxn(tb, declareTxnPath)
 	broadcastedTxn.ContractClass = &contractClass
 	return broadcastedTxn
-}
-
-func buildInvokeTx(tb testing.TB) *BroadcastedTransaction {
-	tb.Helper()
-	broadcastedTxn := loadBroadcastedTxn(tb, invokeTxnPath)
-	return broadcastedTxn
-}
-
-func buildDeployAccountTx(tb testing.TB) *BroadcastedTransaction {
-	tb.Helper()
-	broadcastedTxn := loadBroadcastedTxn(tb, deployAccountTxnPath)
-	return broadcastedTxn
-}
-
-func readFile(tb testing.TB, path string) []byte {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		tb.Fatalf("error resolving path: %v", err)
-	}
-	data, err := os.ReadFile(abs)
-	if err != nil {
-		tb.Fatalf("error reading file: %v", err)
-	}
-	return data
 }
 
 func loadBroadcastedTxn(tb testing.TB, path string) *BroadcastedTransaction {
@@ -111,13 +97,23 @@ func loadBroadcastedTxn(tb testing.TB, path string) *BroadcastedTransaction {
 	return &broadcastedTxn
 }
 
+func readFile(tb testing.TB, path string) []byte {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		tb.Fatalf("error resolving path: %v", err)
+	}
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		tb.Fatalf("error reading file: %v", err)
+	}
+	return data
+}
+
 // ------------------------------------------------------------------
 // Handler builders for the two AddTransaction paths.
 // ------------------------------------------------------------------
 
 // newMempoolHandler wires a Handler that takes the addToMempool branch.
-// receivedTransactionFeed is wired because it is enabled by default in the
-// running node, so it must be present in every benchmark iteration.
 // Compiler is a parameter so the same builder is reused for stub and FFI.
 func newMempoolHandler(b *testing.B, c compiler.Compiler) *Handler {
 	b.Helper()
@@ -133,8 +129,6 @@ func newMempoolHandler(b *testing.B, c compiler.Compiler) *Handler {
 
 // newGatewayHandler wires a Handler that takes the pushToFeederGateway branch
 // (no mempool). The mock gateway returns a canned, well-formed response.
-// receivedTransactionFeed is wired because it is enabled by default in the
-// running node, so it must be present in every benchmark iteration.
 // Compiler is a parameter so the same builder is reused for stub and FFI.
 func newGatewayHandler(b *testing.B, c compiler.Compiler) *Handler {
 	b.Helper()
@@ -158,48 +152,23 @@ func newGatewayHandler(b *testing.B, c compiler.Compiler) *Handler {
 // AddTransaction benchmarks — full method call, mempool path.
 // ------------------------------------------------------------------
 
-func BenchmarkAddTxn_Mempool_Invoke(b *testing.B) {
-	tx := buildInvokeTx(b)
-	h := newMempoolHandler(b, stubCompiler{})
+func BenchmarkAddTxn_Mempool(b *testing.B) {
+	benchcases := getBenchmarkCases(b)
 	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
 
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+	for _, benchcase := range benchcases {
+		b.Run(benchcase.name, func(b *testing.B) {
+			h := newMempoolHandler(b, stubCompiler{})
+			b.ReportAllocs()
+			b.ResetTimer()
 
-func BenchmarkAddTxn_Mempool_DeployAccount(b *testing.B) {
-	tx := buildDeployAccountTx(b)
-	h := newMempoolHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkAddTxn_Mempool_Declare(b *testing.B) {
-	tx := buildDeclareTx(b)
-	h := newMempoolHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
+			for b.Loop() {
+				_, err := h.AddTransaction(ctx, benchcase.tx)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -207,48 +176,23 @@ func BenchmarkAddTxn_Mempool_Declare(b *testing.B) {
 // AddTransaction benchmarks — full method call, feeder gateway path.
 // ------------------------------------------------------------------
 
-func BenchmarkAddTxn_Gateway_Invoke(b *testing.B) {
-	tx := buildInvokeTx(b)
-	h := newGatewayHandler(b, stubCompiler{})
+func BenchmarkAddTxn_Gateway(b *testing.B) {
+	benchcases := getBenchmarkCases(b)
 	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
 
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+	for _, benchcase := range benchcases {
+		b.Run(benchcase.name, func(b *testing.B) {
+			h := newGatewayHandler(b, stubCompiler{})
+			b.ReportAllocs()
+			b.ResetTimer()
 
-func BenchmarkAddTxn_Gateway_DeployAccount(b *testing.B) {
-	tx := buildDeployAccountTx(b)
-	h := newGatewayHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkAddTxn_Gateway_Declare(b *testing.B) {
-	tx := buildDeclareTx(b)
-	h := newGatewayHandler(b, stubCompiler{})
-	ctx := b.Context()
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
-		_, err := h.AddTransaction(ctx, tx)
-		if err != nil {
-			b.Fatal(err)
-		}
+			for b.Loop() {
+				_, err := h.AddTransaction(ctx, benchcase.tx)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -261,7 +205,7 @@ func BenchmarkAddTxn_Gateway_Declare(b *testing.B) {
 
 func BenchmarkAddTxn_Declare_RealCompiler_Mempool(b *testing.B) {
 	tx := buildDeclareTx(b)
-	h := newMempoolHandler(b, realFFICompiler())
+	h := newMempoolHandler(b, compiler.NewUnsafe())
 	ctx := b.Context()
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -276,7 +220,7 @@ func BenchmarkAddTxn_Declare_RealCompiler_Mempool(b *testing.B) {
 
 func BenchmarkAddTxn_Declare_RealCompiler_Gateway(b *testing.B) {
 	tx := buildDeclareTx(b)
-	h := newGatewayHandler(b, realFFICompiler())
+	h := newGatewayHandler(b, compiler.NewUnsafe())
 	ctx := b.Context()
 	b.ReportAllocs()
 	b.ResetTimer()
