@@ -60,12 +60,19 @@ func (h *Handler) AddTransaction(
 	if h.memPool != nil {
 		var userTxn core.Transaction
 		res, userTxn, err = h.addToMempool(ctx, tx)
+		if err != nil {
+			return AddTxResponse{}, err
+		}
 
 		if h.receivedTransactionFeed != nil {
 			h.receivedTransactionFeed.Send(userTxn)
 		}
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
+		if err != nil {
+			return AddTxResponse{}, err
+		}
+
 		if h.receivedTransactionFeed != nil {
 			adaptedTxn, _, aErr := adaptAndCompileBroadcastedTxToCore(
 				ctx, h.compiler, tx, h.bcReader.Network(),
@@ -77,10 +84,6 @@ func (h *Handler) AddTransaction(
 				h.receivedTransactionFeed.Send(adaptedTxn)
 			}
 		}
-	}
-
-	if err != nil {
-		return AddTxResponse{}, err
 	}
 
 	if h.submittedTransactionsCache != nil {
