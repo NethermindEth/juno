@@ -53,28 +53,20 @@ func (h *Handler) AddTransaction(
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
 	var (
-		res      AddTxResponse
-		finalTxn core.Transaction
-		err      *jsonrpc.Error
+		res AddTxResponse
+		err *jsonrpc.Error
 	)
+
 	if h.memPool != nil {
-		res, finalTxn, err = h.addToMempool(ctx, tx)
+		var userTxn core.Transaction
+		res, userTxn, err = h.addToMempool(ctx, tx)
+
+		if h.receivedTransactionFeed != nil {
+			h.receivedTransactionFeed.Send(userTxn)
+		}
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
-	}
-
-	if err != nil {
-		return AddTxResponse{}, err
-	}
-
-	if h.submittedTransactionsCache != nil {
-		h.submittedTransactionsCache.Add((*felt.Felt)(&res.TransactionHash))
-	}
-
-	if h.receivedTransactionFeed != nil {
-		if finalTxn != nil {
-			h.receivedTransactionFeed.Send(finalTxn)
-		} else {
+		if h.receivedTransactionFeed != nil {
 			adaptedTxn, _, aErr := adaptAndCompileBroadcastedTxToCore(
 				ctx, h.compiler, tx, h.bcReader.Network(),
 			)
@@ -85,6 +77,14 @@ func (h *Handler) AddTransaction(
 				h.receivedTransactionFeed.Send(adaptedTxn)
 			}
 		}
+	}
+
+	if err != nil {
+		return AddTxResponse{}, err
+	}
+
+	if h.submittedTransactionsCache != nil {
+		h.submittedTransactionsCache.Add((*felt.Felt)(&res.TransactionHash))
 	}
 
 	return res, nil
@@ -150,7 +150,7 @@ func (h *Handler) addToMempool(
 		)
 		res.ContractAddress = (*felt.Address)(&contractAddress)
 	case TxnDeclare:
-		// Class hash was already computed in AdaptBroadcastedTransactionToCore.
+		// Class hash was already computed in adaptAndCompileBroadcastedTxToCore.
 		res.ClassHash = (*felt.ClassHash)(userTxn.(*core.DeclareTransaction).ClassHash)
 	}
 	return res, userTxn, nil
