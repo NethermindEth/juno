@@ -239,7 +239,8 @@ func (p *Pruner) Run(ctx context.Context) error {
 				// seedFloor above already established a usable baseline;
 				// transient tick failures leave the previous sample in
 				// place and we retry next tick.
-				p.logger.Warn("min-retention height sample failed", zap.Error(err))
+				p.listener.OnPruneError(err)
+				p.logger.Error("min-retention height sample failed", zap.Error(err))
 			}
 
 		case <-staleTicker.C:
@@ -404,6 +405,10 @@ func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error 
 	if err != nil {
 		return err
 	}
+
+	// Keep latestSampledHeight at or above the retention floor so the next
+	// sampleHeight binary search never starts from a pruned block.
+	p.latestSampledHeight = max(p.latestSampledHeight, oldestKept)
 
 	elapsed := time.Since(start)
 	p.listener.OnPrune(oldestKept, blocksPruned, elapsed)

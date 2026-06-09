@@ -25,6 +25,7 @@ func TestPruner_MinAgeFloor(t *testing.T) {
 	t.Run("L1 steady state: floor does not bind when above standard", testMinAgeFloorL1NoBind)
 	t.Run("L2 path: floor binds for near-tip block (fresh timestamp)", testMinAgeFloorL2Binds)
 	t.Run("L2 path: deep catch-up (ancient timestamp) suppresses floor", testMinAgeFloorL2DeepCatchUp)
+	t.Run("prune bumps latestSampledHeight so next tick is safe", testMinAgeFloorPruneBumpsSample)
 }
 
 func testMinAgeFloorTickRefresh(t *testing.T) {
@@ -205,6 +206,58 @@ func testMinAgeFloorL2Binds(t *testing.T) {
 		ev := sp.sendL2WithTimestampAndAwait(t, 20, uint64(time.Now().Unix()))
 		assert.Equal(t, uint64(5), ev.oldest)
 		assert.Equal(t, uint64(5), ev.count)
+	})
+}
+
+// testMinAgeFloorPruneBumpsSample asserts that after a prune advances
+// past the cached latestSampledHeight, the post-prune bump in pruneUpto
+// keeps the next sampleHeight tick from probing a now-pruned block.
+// Without the bump, sampleHeight reads a deleted header and the failure
+// surfaces through startPrunerService's OnPruneErrorCb (-> t.Errorf).
+func testMinAgeFloorPruneBumpsSample(t *testing.T) {
+	const retention uint64 = 10
+	const initialBlocks uint64 = 5
+	const totalBlocks uint64 = 47
+	const tickInterval = 50 * time.Millisecond
+	const ancientTimestamp uint64 = 1
+	synctest.Test(t, func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		// Deep catch-up: blocks 0..4 ancient + chainHeight=4 → seedFloor
+		// parks latestSampledHeight at chainHeight (=4) via ErrNoBlockInWindow.
+		for i := range initialBlocks {
+			testutils.StoreBlockWithTimestamp(t, database, i, ancientTimestamp)
+		}
+		require.NoError(t, core.WriteChainHeight(database, initialBlocks-1))
+
+		sp := startPrunerService(t, database, retention,
+			pruner.WithMinAge(testMinAge),
+			pruner.WithFloorTickInterval(tickInterval),
+			pruner.WithL2HeadsPerPrune(1),
+		)
+		synctest.Wait()
+
+		// Catch-up continues: append more ancient blocks (monotonic) and
+		// a high L1 head so the L2 path isn't short-circuited.
+		for i := initialBlocks; i < totalBlocks; i++ {
+			testutils.StoreBlockWithTimestamp(t, database, i, ancientTimestamp)
+		}
+		require.NoError(t, core.WriteChainHeight(database, totalBlocks-1))
+		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 900}))
+
+		// L2 head at the new tip (block 46) with its on-chain ancient
+		// timestamp → suppression → pruneTo = 46-10 = 36. Carve-out keeps
+		// headers in [36-BlockHashLag, 36) = [26, 36); headers in [0, 26)
+		// are physically deleted.
+		ev := sp.sendL2WithTimestampAndAwait(t, totalBlocks-1, ancientTimestamp)
+		assert.Equal(t, uint64(36), ev.oldest)
+
+		// Fire one sampleHeight tick. Without the post-prune bump,
+		// FindOldestBlockAtOrAfter starts at lower=4, upper=46 and probes
+		// mid=25 first — which lies in the deleted gap [0, 26) and surfaces
+		// through OnPruneErrorCb as a test failure. With the bump,
+		// lower=36 and every probe hits a preserved header.
+		time.Sleep(tickInterval + time.Millisecond)
+		synctest.Wait()
 	})
 }
 
