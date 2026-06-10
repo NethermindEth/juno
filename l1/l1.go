@@ -113,21 +113,32 @@ func NewClient(
 	}
 }
 
-func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
+// subscribeToUpdates blocks until a subscription is established. If context is cancelled,
+// returns nil
+func (c *Client) subscribeToUpdates(
+	ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate,
+) event.Subscription {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
-		default:
+			c.logger.Debug(
+				"Program stopped before resubscription was successful",
+				zap.Error(ctx.Err()),
+			)
+			return nil
+		case <-timer.C:
 			updateSub, err := c.l1.WatchLogStateUpdate(ctx, updateChan)
 			if err == nil {
-				return updateSub, nil
+				return updateSub
 			}
 			c.logger.Debug("Failed to subscribe to L1 state updates",
 				zap.Duration("tryAgainIn", c.resubscribeDelay),
 				zap.Error(err),
 			)
-			time.Sleep(c.resubscribeDelay)
+			timer.Reset(c.resubscribeDelay)
 		}
 	}
 }
@@ -200,9 +211,9 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 	c.logger.Info("Subscribing to L1 updates...")
 
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
-	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
-	if err != nil {
-		return err
+	updateSub := c.subscribeToUpdates(ctx, updateChan)
+	if updateSub == nil {
+		return nil
 	}
 	defer updateSub.Unsubscribe()
 
@@ -225,9 +236,9 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 					c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
 					updateSub.Unsubscribe()
 
-					updateSub, err = c.subscribeToUpdates(ctx, updateChan)
-					if err != nil {
-						return err
+					updateSub = c.subscribeToUpdates(ctx, updateChan)
+					if updateSub == nil {
+						return nil
 					}
 					defer updateSub.Unsubscribe() //nolint:gocritic
 				case logStateUpdate := <-updateChan:
@@ -361,27 +372,35 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 	}
 }
 
-func (c *Client) finalisedHeight(ctx context.Context) uint64 {
-	const finalisedHeightTimeout = 30 * time.Second
+// finalisedHeight blocks until the L1 finalised height is retrieved. If
+// context is cancelled, returns false
+func (c *Client) finalisedHeight(ctx context.Context) (uint64, bool) {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
-			return 0
-		default:
+			return 0, false
+		case <-timer.C:
+			const finalisedHeightTimeout = 30 * time.Second
 			callCtx, cancel := context.WithTimeout(ctx, finalisedHeightTimeout)
 			finalisedHeight, err := c.l1.FinalisedHeight(callCtx)
 			cancel()
 			if err == nil {
-				return finalisedHeight
+				return finalisedHeight, true
 			}
 			c.logger.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
-			time.Sleep(c.resubscribeDelay)
+			timer.Reset(c.resubscribeDelay)
 		}
 	}
 }
 
 func (c *Client) setL1Head(ctx context.Context) error {
-	finalisedHeight := c.finalisedHeight(ctx)
+	finalisedHeight, found := c.finalisedHeight(ctx)
+	if !found {
+		return nil
+	}
 
 	// Get max finalised Starknet head.
 	var maxFinalisedNumber uint64
@@ -407,7 +426,10 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		StateRoot:   new(felt.Felt).SetBigInt(maxFinalisedHead.GlobalRoot),
 	}
 	if err := c.l2Chain.SetL1Head(head); err != nil {
-		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
+		return fmt.Errorf(
+			"l1 head for block %d and state root %s: %w",
+			head.BlockNumber, head.StateRoot.String(), err,
+		)
 	}
 	c.listener.OnNewL1Head(head)
 	c.logger.Info("Updated l1 head",
