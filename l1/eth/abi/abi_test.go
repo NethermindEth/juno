@@ -1,10 +1,11 @@
-package abi
+package abi_test
 
 import (
 	"encoding/hex"
 	"strings"
 	"testing"
 
+	"github.com/NethermindEth/juno/l1/eth/abi"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +39,7 @@ func mustHex(t *testing.T, s string) []byte {
 
 // hexWord parses a hex string (optionally 0x-prefixed) into a right-aligned
 // 32-byte word, matching how uint256 values appear on the wire.
-func hexWord(t *testing.T, s string) Word {
+func hexWord(t *testing.T, s string) abi.Word {
 	t.Helper()
 	s = strings.TrimPrefix(s, "0x")
 	if len(s)%2 != 0 {
@@ -46,15 +47,15 @@ func hexWord(t *testing.T, s string) Word {
 	}
 	b, err := hex.DecodeString(s)
 	require.NoError(t, err)
-	require.LessOrEqual(t, len(b), wordSize)
-	var w Word
-	copy(w[wordSize-len(b):], b)
+	require.LessOrEqual(t, len(b), abi.WordSize)
+	var w abi.Word
+	copy(w[abi.WordSize-len(b):], b)
 	return w
 }
 
 func TestUnpackLogMessageToL2_MainnetFixture(t *testing.T) {
 	data := mustHex(t, mainnetLogMessageToL2Data)
-	payload, nonce, fee, err := UnpackLogMessageToL2(data)
+	payload, nonce, fee, err := abi.UnpackLogMessageToL2(data)
 	require.NoError(t, err)
 
 	require.Equal(t, hexWord(t, "0x195c3c"), nonce)
@@ -75,7 +76,7 @@ func TestUnpackLogMessageToL2_EmptyPayload(t *testing.T) {
 		"00000000000000000000000000000000000000000000000000000000000000aa"+ // nonce = 0xaa
 		"00000000000000000000000000000000000000000000000000000000000000bb"+ // fee = 0xbb
 		"0000000000000000000000000000000000000000000000000000000000000000") // length = 0
-	payload, nonce, fee, err := UnpackLogMessageToL2(data)
+	payload, nonce, fee, err := abi.UnpackLogMessageToL2(data)
 	require.NoError(t, err)
 	require.Empty(t, payload)
 	require.Equal(t, hexWord(t, "0xaa"), nonce)
@@ -85,7 +86,7 @@ func TestUnpackLogMessageToL2_EmptyPayload(t *testing.T) {
 // unpackErr discards the three success values and returns only the error,
 // so individual test cases don't trip the dogsled lint with `_, _, _, err`.
 func unpackErr(data []byte) error {
-	_, _, _, err := UnpackLogMessageToL2(data) //nolint:dogsled // collapses 4-value return for tests
+	_, _, _, err := abi.UnpackLogMessageToL2(data) //nolint:dogsled // collapses 4-value return for tests
 	return err
 }
 

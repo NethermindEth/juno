@@ -7,13 +7,13 @@ import (
 	"fmt"
 )
 
-// wordSize is the size of a single ABI-encoded word: a uint256.
-const wordSize = 32
+// WordSize is the size of a single ABI-encoded word: a uint256.
+const WordSize = 32
 
 // Word is one ABI-encoded uint256: 32 big-endian bytes. The decoder
 // returns words verbatim — interpretation (numeric, address, hash) is
 // the caller's job.
-type Word [wordSize]byte
+type Word [WordSize]byte
 
 // UnpackLogMessageToL2 decodes the data section of the Starknet core
 // contract's LogMessageToL2 event into its three non-indexed fields.
@@ -37,7 +37,7 @@ type Word [wordSize]byte
 //	tail at head[0]:    length (32 bytes), then length × 32 bytes of elements
 func UnpackLogMessageToL2(data []byte) (payload []Word, nonce, fee Word, err error) {
 	const headWords = 3
-	if len(data) < headWords*wordSize {
+	if len(data) < headWords*WordSize {
 		return nil, Word{}, Word{}, fmt.Errorf(
 			"data too short for LogMessageToL2 head: %d bytes", len(data),
 		)
@@ -47,8 +47,8 @@ func UnpackLogMessageToL2(data []byte) (payload []Word, nonce, fee Word, err err
 	if err != nil {
 		return nil, Word{}, Word{}, fmt.Errorf("payload offset: %w", err)
 	}
-	copy(nonce[:], data[wordSize:2*wordSize])
-	copy(fee[:], data[2*wordSize:3*wordSize])
+	copy(nonce[:], data[WordSize:2*WordSize])
+	copy(fee[:], data[2*WordSize:3*WordSize])
 
 	payload, err = readUint256Array(data, offset)
 	if err != nil {
@@ -62,16 +62,16 @@ func UnpackLogMessageToL2(data []byte) (payload []Word, nonce, fee Word, err err
 // integer) are rejected — a well-formed payload from a real contract has
 // an offset well under 2^32.
 func readOffset(data []byte, pos int) (int, error) {
-	if pos+wordSize > len(data) {
+	if pos+WordSize > len(data) {
 		return 0, fmt.Errorf("offset word out of range")
 	}
 	// Top 24 bytes must be zero — anything larger overflows int.
-	for _, b := range data[pos : pos+wordSize-8] {
+	for _, b := range data[pos : pos+WordSize-8] {
 		if b != 0 {
 			return 0, fmt.Errorf("offset overflows int64")
 		}
 	}
-	off := binary.BigEndian.Uint64(data[pos+wordSize-8 : pos+wordSize])
+	off := binary.BigEndian.Uint64(data[pos+WordSize-8 : pos+WordSize])
 	if off > uint64(len(data)) {
 		return 0, fmt.Errorf("offset %d out of range for buffer of %d bytes", off, len(data))
 	}
@@ -81,27 +81,27 @@ func readOffset(data []byte, pos int) (int, error) {
 // readUint256Array reads a dynamic uint256[] starting at data[off]:
 // a length word followed by length × 32 bytes of elements.
 func readUint256Array(data []byte, off int) ([]Word, error) {
-	if off+wordSize > len(data) {
+	if off+WordSize > len(data) {
 		return nil, fmt.Errorf("length word out of range at offset %d", off)
 	}
 	// Top 24 bytes of the length word must be zero.
-	for _, b := range data[off : off+wordSize-8] {
+	for _, b := range data[off : off+WordSize-8] {
 		if b != 0 {
 			return nil, fmt.Errorf("length overflows int64")
 		}
 	}
-	length := binary.BigEndian.Uint64(data[off+wordSize-8 : off+wordSize])
-	start := off + wordSize
+	length := binary.BigEndian.Uint64(data[off+WordSize-8 : off+WordSize])
+	start := off + WordSize
 	// Guard against length×32 overflowing or exceeding the buffer.
-	if length > uint64(len(data)-start)/wordSize {
+	if length > uint64(len(data)-start)/WordSize {
 		return nil, fmt.Errorf(
 			"array length %d exceeds buffer (need %d bytes, have %d)",
-			length, length*wordSize, len(data)-start,
+			length, length*WordSize, len(data)-start,
 		)
 	}
 	out := make([]Word, length)
 	for i := range out {
-		copy(out[i][:], data[start+i*wordSize:start+(i+1)*wordSize])
+		copy(out[i][:], data[start+i*WordSize:start+(i+1)*WordSize])
 	}
 	return out, nil
 }

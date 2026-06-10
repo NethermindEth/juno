@@ -1,4 +1,4 @@
-package rpccore
+package rpccore_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
@@ -53,7 +54,7 @@ func TestEthReceiptAdapter_TransactionReceipt_ConvertsAllFields(t *testing.T) {
 	}}
 
 	fetcher := &fakeGethFetcher{receipt: gethReceipt}
-	adapter := &EthReceiptAdapter{Sub: fetcher}
+	adapter := &rpccore.EthReceiptAdapter{Sub: fetcher}
 
 	got, err := adapter.TransactionReceipt(t.Context(), txHash)
 	require.NoError(t, err)
@@ -81,7 +82,7 @@ func TestEthReceiptAdapter_TransactionReceipt_ConvertsAllFields(t *testing.T) {
 
 func TestEthReceiptAdapter_TransactionReceipt_EmptyLogs(t *testing.T) {
 	fetcher := &fakeGethFetcher{receipt: &gethTypes.Receipt{Logs: nil}}
-	adapter := &EthReceiptAdapter{Sub: fetcher}
+	adapter := &rpccore.EthReceiptAdapter{Sub: fetcher}
 
 	got, err := adapter.TransactionReceipt(t.Context(), eth.Hash{})
 	require.NoError(t, err)
@@ -92,7 +93,7 @@ func TestEthReceiptAdapter_TransactionReceipt_EmptyLogs(t *testing.T) {
 func TestEthReceiptAdapter_TransactionReceipt_PropagatesError(t *testing.T) {
 	sentinel := errors.New("rpc upstream down")
 	fetcher := &fakeGethFetcher{err: sentinel}
-	adapter := &EthReceiptAdapter{Sub: fetcher}
+	adapter := &rpccore.EthReceiptAdapter{Sub: fetcher}
 
 	got, err := adapter.TransactionReceipt(t.Context(), eth.Hash{})
 	require.Nil(t, got)
