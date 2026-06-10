@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,9 +36,9 @@ func randomSliceT[T any](t *testing.T, size int, generator func(t *testing.T) T)
 	return items
 }
 
-func randomL1Address(t *testing.T) common.Address {
+func randomL1Address(t *testing.T) eth.Address {
 	t.Helper()
-	var l1Address common.Address
+	var l1Address eth.Address
 	read, err := cryptorand.Read(l1Address[:])
 	require.Equal(t, len(l1Address), read)
 	require.NoError(t, err)

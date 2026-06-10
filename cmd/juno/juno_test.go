@@ -12,8 +12,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	juno "github.com/NethermindEth/juno/cmd/juno"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWS := false
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
-	defaultCoreContractAddress := common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
+	defaultCoreContractAddress := eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
 	defaultNetwork := networks.Mainnet
 	defaultCustomNetwork := networks.Network{
 		Name:                "custom",

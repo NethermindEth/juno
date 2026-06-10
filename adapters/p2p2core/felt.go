@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils"
-	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/receipt"
 )
@@ -18,8 +18,8 @@ func AdaptAddress(h *common.Address) *felt.Felt {
 	return adapt(h)
 }
 
-func AdaptEthAddress(h *receipt.EthereumAddress) ethcommon.Address {
-	return ethcommon.BytesToAddress(h.Elements)
+func AdaptEthAddress(h *receipt.EthereumAddress) eth.Address {
+	return eth.AddressFromBytes(h.Elements)
 }
 
 func AdaptFelt(f *common.Felt252) *felt.Felt {

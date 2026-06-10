@@ -9,7 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -141,13 +141,13 @@ func TestNetworkType(t *testing.T) {
 }
 
 func TestCoreContractAddress(t *testing.T) {
-	addresses := map[networks.Network]common.Address{
-		networks.Mainnet:            common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		networks.Goerli:             common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		networks.Goerli2:            common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		networks.Integration:        common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
-		networks.Sepolia:            common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
-		networks.SepoliaIntegration: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
+	addresses := map[networks.Network]eth.Address{
+		networks.Mainnet:            eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+		networks.Goerli:             eth.AddressFromString("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+		networks.Goerli2:            eth.AddressFromString("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		networks.Integration:        eth.AddressFromString("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
+		networks.Sepolia:            eth.AddressFromString("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
+		networks.SepoliaIntegration: eth.AddressFromString("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 	}
 
 	for n := range networkStrings {

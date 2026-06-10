@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,10 @@ type EthSubscriber struct {
 
 var _ Subscriber = (*EthSubscriber)(nil)
 
-func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Address) (*EthSubscriber, error) {
+func NewEthSubscriber(
+	ethClientAddress string,
+	coreContractAddress eth.Address,
+) (*EthSubscriber, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -37,7 +41,7 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 		return nil, err
 	}
 	ethClient := ethclient.NewClient(client)
-	filterer, err := contract.NewStarknetFilterer(coreContractAddress, ethClient)
+	filterer, err := contract.NewStarknetFilterer(common.Address(coreContractAddress), ethClient)
 	if err != nil {
 		return nil, err
 	}
