@@ -24,7 +24,7 @@ jobs:
   find-smallest-rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Find smallest supported Rust version
         id: rust-version
         uses: derrix060/detect-rust-minimum-version@7758bf709a98d268224549d3e5b2285d23ca9baf # v1.1.0
