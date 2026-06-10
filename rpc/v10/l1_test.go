@@ -10,11 +10,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -24,9 +23,9 @@ func TestGetMessageStatus(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSubscriber := mocks.NewMockSubscriber(mockCtrl)
+	mockL1Client := mocks.NewMockL1Client(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil).WithL1Client(mockSubscriber)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil).WithL1Client(mockL1Client)
 
 	//nolint:lll // Long path name
 	rawL1Receipt, err := os.ReadFile(
@@ -34,7 +33,7 @@ func TestGetMessageStatus(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var l1TxnReceipt types.Receipt
+	var l1TxnReceipt eth.Receipt
 	require.NoError(t, json.Unmarshal(rawL1Receipt, &l1TxnReceipt))
 
 	//nolint:lll // Long path name
@@ -43,21 +42,21 @@ func TestGetMessageStatus(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var l1TxnReceiptSepolia types.Receipt
+	var l1TxnReceiptSepolia eth.Receipt
 	require.NoError(t, json.Unmarshal(rawL1ReceiptSepolia, &l1TxnReceiptSepolia))
 
 	tests := map[string]struct {
 		network        networks.Network
-		l1TxnHash      common.Hash
+		l1TxnHash      eth.Hash
 		msgs           []rpc.MsgStatus
-		msgHashes      []common.Hash
-		l1TxnReceipt   types.Receipt
+		msgHashes      []eth.Hash
+		l1TxnReceipt   eth.Receipt
 		blockNum       uint64
 		l1HeadBlockNum uint64
 	}{
 		"mainnet 0.13.2.1": {
 			network: networks.Mainnet,
-			l1TxnHash: common.HexToHash(
+			l1TxnHash: eth.HashFromString(
 				"0x5780c6fe46f958a7ebf9308e6db16d819ff9e06b1e88f9e718c50cde10898f38",
 			),
 			msgs: []rpc.MsgStatus{{
@@ -68,8 +67,8 @@ func TestGetMessageStatus(t *testing.T) {
 				FailureReason:   "",
 				ExecutionStatus: rpc.TxnSuccess,
 			}},
-			msgHashes: []common.Hash{
-				common.HexToHash("0xd8824a75a588f0726d7d83b3e9560810c763043e979fdb77b11c1a51a991235d"),
+			msgHashes: []eth.Hash{
+				eth.HashFromString("0xd8824a75a588f0726d7d83b3e9560810c763043e979fdb77b11c1a51a991235d"),
 			},
 			l1TxnReceipt:   l1TxnReceipt,
 			blockNum:       763497,
@@ -77,7 +76,7 @@ func TestGetMessageStatus(t *testing.T) {
 		},
 		"sepolia 0.13.4": {
 			network: networks.Sepolia,
-			l1TxnHash: common.HexToHash(
+			l1TxnHash: eth.HashFromString(
 				"0xeafadb9958437ef43ce7ed19f8ac0c8071c18f4a55fd778cecc23d8b6f86026f",
 			),
 			msgs: []rpc.MsgStatus{{
@@ -88,8 +87,8 @@ func TestGetMessageStatus(t *testing.T) {
 				FailureReason:   "",
 				ExecutionStatus: rpc.TxnSuccess,
 			}},
-			msgHashes: []common.Hash{
-				common.HexToHash("0x162e74b4ccf7e350a1668de856f892057e0da112e1ad2262603306ee5dffb158"),
+			msgHashes: []eth.Hash{
+				eth.HashFromString("0x162e74b4ccf7e350a1668de856f892057e0da112e1ad2262603306ee5dffb158"),
 			},
 			l1TxnReceipt:   l1TxnReceiptSepolia,
 			blockNum:       469719,
@@ -121,7 +120,7 @@ func TestGetMessageStatus(t *testing.T) {
 				l1handlerTxns[i] = txn
 			}
 
-			mockSubscriber.EXPECT().TransactionReceipt(
+			mockL1Client.EXPECT().TransactionReceipt(
 				gomock.Any(),
 				gomock.Any(),
 			).Return(&test.l1TxnReceipt, nil)
@@ -150,7 +149,7 @@ func TestGetMessageStatus(t *testing.T) {
 
 	t.Run("l1 client not found", func(t *testing.T) {
 		handler := rpc.New(nil, nil, nil, nil).WithL1Client(nil)
-		msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &common.Hash{})
+		msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &eth.Hash{})
 		require.Nil(t, msgStatuses)
 		require.NotNil(t, rpcErr)
 	})

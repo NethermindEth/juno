@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"strings"
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -15,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -23,7 +21,6 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/sourcegraph/conc"
 )
 
@@ -58,8 +55,7 @@ type Handler struct {
 
 	compiler compiler.Compiler
 
-	l1Client        rpccore.L1Client
-	coreContractABI abi.ABI
+	l1Client rpccore.L1Client
 }
 
 type subscription struct {
@@ -74,11 +70,6 @@ func New(
 	virtualMachine vm.VM,
 	logger log.Logger,
 ) *Handler {
-	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
-	if err != nil {
-		logger.Fatalf("Failed to parse ABI: %v", err)
-	}
-
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
@@ -100,8 +91,7 @@ func New(
 			rpccore.TraceCacheKey,
 			TraceBlockTransactionsResponse,
 		](rpccore.TraceCacheSize),
-		filterLimit:     math.MaxUint,
-		coreContractABI: contractABI,
+		filterLimit: math.MaxUint,
 	}
 }
 

@@ -39,20 +39,20 @@ func UnpackLogMessageToL2(data []byte) (payload []Word, nonce, fee Word, err err
 	const headWords = 3
 	if len(data) < headWords*wordSize {
 		return nil, Word{}, Word{}, fmt.Errorf(
-			"abi: data too short for LogMessageToL2 head: %d bytes", len(data),
+			"data too short for LogMessageToL2 head: %d bytes", len(data),
 		)
 	}
 
 	offset, err := readOffset(data, 0)
 	if err != nil {
-		return nil, Word{}, Word{}, fmt.Errorf("abi: payload offset: %w", err)
+		return nil, Word{}, Word{}, fmt.Errorf("payload offset: %w", err)
 	}
 	copy(nonce[:], data[wordSize:2*wordSize])
 	copy(fee[:], data[2*wordSize:3*wordSize])
 
 	payload, err = readUint256Array(data, offset)
 	if err != nil {
-		return nil, Word{}, Word{}, fmt.Errorf("abi: payload: %w", err)
+		return nil, Word{}, Word{}, fmt.Errorf("payload: %w", err)
 	}
 	return payload, nonce, fee, nil
 }
