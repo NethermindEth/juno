@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -26,6 +28,7 @@ import (
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1260,7 +1263,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/4qOBQQAAP//KbtMDQIAAAA=",
+					"sierra_program": "H4sIAAAAAAAE/wADAPz/W10KAQAA//9E0mhwAwAAAA==",
 					"contract_class_version": "0.1.0",
 					"entry_points_by_type": {
 						"CONSTRUCTOR": [],
@@ -2115,4 +2118,52 @@ func TestResourceBoundsValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestContractClassToGatewayPayload verifies the gateway-payload encoder
+// produces a JSON object whose sierra_program field, after base64-decode +
+// gzip-decompress + JSON-unmarshal, round-trips back to the original
+// []felt.Felt slice, and whose other fields match the input ContractClass.
+// The encoder is on the hot path of declare submissions; this test guards
+// against regressions when its internals are tuned for performance.
+func TestContractClassToGatewayPayload(t *testing.T) {
+	t.Run("nil class", func(t *testing.T) {
+		out, err := rpcv10.ContractClassToGatewayPayload(nil)
+		require.NoError(t, err)
+		require.Equal(t, []byte{}, out)
+	})
+
+	t.Run("round-trip", func(t *testing.T) {
+		const sierraPath = "../../clients/feeder/testdata/sepolia/class/0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b.json"
+		abs, err := filepath.Abs(sierraPath)
+		require.NoError(t, err)
+		raw, err := os.ReadFile(abs)
+		require.NoError(t, err)
+
+		var class rpcv10.ContractClass
+		require.NoError(t, json.Unmarshal(raw, &class))
+		require.NotEmpty(t, class.SierraProgram, "fixture has empty sierra_program")
+
+		out, err := rpcv10.ContractClassToGatewayPayload(&class)
+		require.NoError(t, err)
+
+		var decoded struct {
+			SierraProgram        string                          `json:"sierra_program"`
+			ContractClassVersion string                          `json:"contract_class_version"`
+			EntryPoints          rpcv10.ContractClassEntryPoints `json:"entry_points_by_type"`
+			ABI                  string                          `json:"abi,omitempty"`
+		}
+		require.NoError(t, json.Unmarshal(out, &decoded), "encoder output must be valid JSON")
+
+		require.Equal(t, class.ContractClassVersion, decoded.ContractClassVersion)
+		require.Equal(t, class.EntryPoints, decoded.EntryPoints)
+		require.Equal(t, class.ABI, decoded.ABI)
+
+		sierraJSON, err := utils.Gzip64Decode(decoded.SierraProgram)
+		require.NoError(t, err, "sierra_program must be gzip+base64 encoded")
+
+		var roundTripped []felt.Felt
+		require.NoError(t, json.Unmarshal(sierraJSON, &roundTripped))
+		require.Equal(t, class.SierraProgram, roundTripped)
+	})
 }

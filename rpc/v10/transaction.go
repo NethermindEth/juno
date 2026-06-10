@@ -1,10 +1,15 @@
 package rpcv10
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -16,8 +21,19 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
+)
+
+var (
+	gzPool = sync.Pool{
+		New: func() any {
+			w, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
+			return w
+		},
+	}
+	bufPool = sync.Pool{
+		New: func() any { return new(bytes.Buffer) },
+	}
 )
 
 // AdaptTransaction adapts a core.Transaction to a local *Transaction.
@@ -214,19 +230,29 @@ func (h *Handler) pushToFeederGateway(
 
 // ContractClassToGatewayPayload returns the contract class payload in the format
 // expected by the gateway.
-// @todo add test
 func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
 	if class == nil {
 		return []byte{}, nil
 	}
 
-	sierraProgBytes, err := json.Marshal(class.SierraProgram)
-	if err != nil {
+	sierraBuf := bufPool.Get().(*bytes.Buffer)
+	sierraBuf.Reset()
+	defer bufPool.Put(sierraBuf)
+
+	b64 := base64.NewEncoder(base64.StdEncoding, sierraBuf)
+	gz := gzPool.Get().(*gzip.Writer)
+	gz.Reset(b64)
+	defer gzPool.Put(gz)
+
+	enc := json.NewEncoder(gz)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(class.SierraProgram); err != nil {
 		return nil, err
 	}
-
-	gwSierraProg, err := utils.Gzip64Encode(sierraProgBytes)
-	if err != nil {
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	if err := b64.Close(); err != nil {
 		return nil, err
 	}
 
@@ -236,12 +262,11 @@ func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
 		EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type"`
 		ABI                  string                   `json:"abi,omitempty"`
 	}{
-		SierraProgram:        gwSierraProg,
+		SierraProgram:        sierraBuf.String(),
 		ContractClassVersion: class.ContractClassVersion,
 		EntryPoints:          class.EntryPoints,
 		ABI:                  class.ABI,
 	}
-
 	return json.Marshal(temp)
 }
 
