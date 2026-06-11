@@ -90,6 +90,15 @@ func TestEthReceiptAdapter_TransactionReceipt_EmptyLogs(t *testing.T) {
 	require.Empty(t, got.Logs)
 }
 
+func TestEthReceiptAdapter_TransactionReceipt_NilReceiptReturnsError(t *testing.T) {
+	fetcher := &fakeGethFetcher{receipt: nil}
+	adapter := &rpccore.EthReceiptAdapter{Sub: fetcher}
+
+	got, err := adapter.TransactionReceipt(t.Context(), eth.Hash{})
+	require.Nil(t, got)
+	require.Error(t, err)
+}
+
 func TestEthReceiptAdapter_TransactionReceipt_PropagatesError(t *testing.T) {
 	sentinel := errors.New("rpc upstream down")
 	fetcher := &fakeGethFetcher{err: sentinel}

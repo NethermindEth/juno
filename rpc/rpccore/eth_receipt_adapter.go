@@ -4,6 +4,7 @@ package rpccore
 
 import (
 	"context"
+	"errors"
 
 	"github.com/NethermindEth/juno/l1/eth"
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -35,7 +36,7 @@ func (a *EthReceiptAdapter) TransactionReceipt(
 		return nil, err
 	}
 	if r == nil {
-		return nil, nil
+		return nil, errors.New("transaction receipt not found")
 	}
 	out := &eth.Receipt{Logs: make([]eth.Log, 0, len(r.Logs))}
 	for _, gl := range r.Logs {
