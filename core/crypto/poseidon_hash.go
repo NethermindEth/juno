@@ -9,45 +9,37 @@ import (
 const (
 	fullRounds    = 8
 	partialRounds = 83
+	totalRounds   = fullRounds + partialRounds
 )
 
-func addRoundKeys(state []felt.Felt, round int) {
-	state[0].Add(&state[0], &roundKeys[round][0])
-	state[1].Add(&state[1], &roundKeys[round][1])
-	state[2].Add(&state[2], &roundKeys[round][2])
-}
-
-func subWords(state []felt.Felt, full bool) {
-	squared := felt.Felt{}
-	state[2].Mul(&state[2], squared.Mul(&state[2], &state[2]))
-	if full {
-		state[0].Mul(&state[0], squared.Mul(&state[0], &state[0]))
-		state[1].Mul(&state[1], squared.Mul(&state[1], &state[1]))
-	}
-}
-
-// M = ((3,1,1), (1,-1,1), (1,1,-2))
-// state = M * state
-func mixLayer(state []felt.Felt) {
-	stateSum := new(felt.Felt).Add(&state[0], &state[1])
-	stateSum.Add(stateSum, &state[2])
-	state[0].Double(&state[0]).Add(&state[0], stateSum)                               // stateSum + state[0] * 2
-	state[1].Sub(stateSum, state[1].Double(&state[1]))                                // stateSum - state[1] * 2
-	state[2].Sub(stateSum, state[2].Add(&state[2], new(felt.Felt).Double(&state[2]))) // stateSum - state[2] * 3
-}
-
-func round(state []felt.Felt, full bool, index int) {
-	addRoundKeys(state, index)
-	subWords(state, full)
-	mixLayer(state)
-}
-
-func HadesPermutation(state []felt.Felt) {
+// HadesPermutation applies the Hades permutation to state in place.
+// The hashing steps are intentionally inlined for performance reasons.
+func HadesPermutation(stateSlice []felt.Felt) {
 	initialiseRoundKeys.Do(setRoundKeys)
-	totalRounds := fullRounds + partialRounds
+	state := (*[3]felt.Felt)(stateSlice)
+
+	var squared, stateSum, triple felt.Felt
 	for i := range totalRounds {
 		full := (i < fullRounds/2) || (totalRounds-i <= fullRounds/2)
-		round(state, full, i)
+
+		// add round keys
+		state[0].Add(&state[0], &roundKeys[i][0])
+		state[1].Add(&state[1], &roundKeys[i][1])
+		state[2].Add(&state[2], &roundKeys[i][2])
+
+		// S-box: cube state[2] every round, state[0] and state[1] only in full rounds
+		state[2].Mul(&state[2], squared.Mul(&state[2], &state[2]))
+		if full {
+			state[0].Mul(&state[0], squared.Mul(&state[0], &state[0]))
+			state[1].Mul(&state[1], squared.Mul(&state[1], &state[1]))
+		}
+
+		// mix layer: state = M * state
+		stateSum.Add(&state[0], &state[1])
+		stateSum.Add(&stateSum, &state[2])
+		state[0].Double(&state[0]).Add(&state[0], &stateSum)
+		state[1].Sub(&stateSum, state[1].Double(&state[1]))
+		state[2].Sub(&stateSum, triple.Double(&state[2]).Add(&triple, &state[2]))
 	}
 }
 
@@ -90,23 +82,21 @@ func PoseidonArray(elems ...*felt.Felt) felt.Felt {
 
 var (
 	initialiseRoundKeys sync.Once
-	roundKeys           = [][]felt.Felt{}
+	roundKeys           [totalRounds][3]felt.Felt
 )
 
 func setRoundKeys() {
 	var err error
-	for _, keysStr := range roundKeysSpec {
-		curRound := make([]felt.Felt, len(keysStr))
+	for round, keysStr := range roundKeysSpec {
 		for i, keyStr := range keysStr {
-			curRound[i], err = felt.FromString[felt.Felt](keyStr)
+			roundKeys[round][i], err = felt.FromString[felt.Felt](keyStr)
 			if err != nil {
 				panic(err)
 			}
-			if keyStr != curRound[i].Text(felt.Base10) {
+			if keyStr != roundKeys[round][i].Text(felt.Base10) {
 				panic("round key not in stark field " + keyStr)
 			}
 		}
-		roundKeys = append(roundKeys, curRound)
 	}
 }
 
