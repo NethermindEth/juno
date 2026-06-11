@@ -104,7 +104,9 @@ func (h *Handler) messageToL2Logs(
 
 	messageHashes := make([]*eth.Hash, 0, len(receipt.Logs))
 	for i, vLog := range receipt.Logs {
-		if vLog.Topics[0].Cmp(logMsgToL2SigHash) != 0 {
+		// LogMessageToL2 has the signature in Topics[0] and three indexed
+		// fields in Topics[1..3]. Anything else can't be this event.
+		if len(vLog.Topics) < 4 || vLog.Topics[0] != logMsgToL2SigHash {
 			continue
 		}
 		payload, nonce, fee, err := abi.UnpackLogMessageToL2(vLog.Data)
@@ -112,7 +114,7 @@ func (h *Handler) messageToL2Logs(
 			return nil, jsonrpc.Err(
 				jsonrpc.InternalError,
 				fmt.Sprintf(
-					"failed to unpack log, l1 txn hash %s, logIndex %d err: %v",
+					"failed to unpack log, l1 txn hash %s, position %d in receipt err: %v",
 					txHash.Hex(),
 					i,
 					err,

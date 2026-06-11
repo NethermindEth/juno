@@ -50,9 +50,14 @@ func UnpackLogMessageToL2(data []byte) (payload []Word, nonce, fee Word, err err
 	copy(nonce[:], data[WordSize:2*WordSize])
 	copy(fee[:], data[2*WordSize:3*WordSize])
 
-	payload, err = readUint256Array(data, offset)
+	payload, consumed, err := readUint256Array(data, offset)
 	if err != nil {
 		return nil, Word{}, Word{}, fmt.Errorf("payload: %w", err)
+	}
+	if consumed != len(data) {
+		return nil, Word{}, Word{}, fmt.Errorf(
+			"trailing data after payload: %d unconsumed bytes", len(data)-consumed,
+		)
 	}
 	return payload, nonce, fee, nil
 }
@@ -79,22 +84,24 @@ func readOffset(data []byte, pos int) (int, error) {
 }
 
 // readUint256Array reads a dynamic uint256[] starting at data[off]:
-// a length word followed by length × 32 bytes of elements.
-func readUint256Array(data []byte, off int) ([]Word, error) {
+// a length word followed by length × 32 bytes of elements. It also
+// returns the index one past the last byte read, so callers can check
+// for unconsumed trailing data.
+func readUint256Array(data []byte, off int) ([]Word, int, error) {
 	if off+WordSize > len(data) {
-		return nil, fmt.Errorf("length word out of range at offset %d", off)
+		return nil, 0, fmt.Errorf("length word out of range at offset %d", off)
 	}
 	// Top 24 bytes of the length word must be zero.
 	for _, b := range data[off : off+WordSize-8] {
 		if b != 0 {
-			return nil, fmt.Errorf("length overflows int64")
+			return nil, 0, fmt.Errorf("length overflows int64")
 		}
 	}
 	length := binary.BigEndian.Uint64(data[off+WordSize-8 : off+WordSize])
 	start := off + WordSize
 	// Guard against length×32 overflowing or exceeding the buffer.
 	if length > uint64(len(data)-start)/WordSize {
-		return nil, fmt.Errorf(
+		return nil, 0, fmt.Errorf(
 			"array length %d exceeds buffer (need %d bytes, have %d)",
 			length, length*WordSize, len(data)-start,
 		)
@@ -103,5 +110,5 @@ func readUint256Array(data []byte, off int) ([]Word, error) {
 	for i := range out {
 		copy(out[i][:], data[start+i*WordSize:start+(i+1)*WordSize])
 	}
-	return out, nil
+	return out, start + int(length)*WordSize, nil //nolint:gosec // length bounded above
 }

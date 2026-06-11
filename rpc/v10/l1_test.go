@@ -153,4 +153,19 @@ func TestGetMessageStatus(t *testing.T) {
 		require.Nil(t, msgStatuses)
 		require.NotNil(t, rpcErr)
 	})
+
+	t.Run("malformed log with too few topics is skipped, not a panic", func(t *testing.T) {
+		// LogMessageToL2 must have 4 topics. A log carrying the signature
+		// in Topics[0] but missing the indexed fields used to panic on
+		// Topics[1..3] indexing; now it should be skipped.
+		sig := eth.HashFromString(
+			"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
+		)
+		mockL1Client.EXPECT().TransactionReceipt(gomock.Any(), gomock.Any()).Return(
+			&eth.Receipt{Logs: []eth.Log{{Topics: []eth.Hash{sig}}}}, nil,
+		)
+		msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &eth.Hash{})
+		require.Nil(t, rpcErr)
+		require.Empty(t, msgStatuses)
+	})
 }

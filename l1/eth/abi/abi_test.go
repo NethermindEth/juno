@@ -84,9 +84,9 @@ func TestUnpackLogMessageToL2_EmptyPayload(t *testing.T) {
 }
 
 // unpackErr discards the three success values and returns only the error,
-// so individual test cases don't trip the dogsled lint with `_, _, _, err`.
 func unpackErr(data []byte) error {
-	_, _, _, err := abi.UnpackLogMessageToL2(data) //nolint:dogsled // collapses 4-value return for tests
+	//nolint:dogsled // collapses 4-value return for tests
+	_, _, _, err := abi.UnpackLogMessageToL2(data)
 	return err
 }
 
@@ -125,4 +125,15 @@ func TestUnpackLogMessageToL2_OffsetWordMissing(t *testing.T) {
 		"0000000000000000000000000000000000000000000000000000000000000000"+
 		"0000000000000000000000000000000000000000000000000000000000000000")
 	require.ErrorContains(t, unpackErr(data), "length word out of range")
+}
+
+func TestUnpackLogMessageToL2_TrailingData(t *testing.T) {
+	// Well-formed payload followed by one extra word of garbage.
+	data := mustHex(t, ""+
+		"0000000000000000000000000000000000000000000000000000000000000060"+ // offset = 96
+		"0000000000000000000000000000000000000000000000000000000000000000"+ // nonce
+		"0000000000000000000000000000000000000000000000000000000000000000"+ // fee
+		"0000000000000000000000000000000000000000000000000000000000000000"+ // length = 0
+		"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef") // trailing
+	require.ErrorContains(t, unpackErr(data), "trailing data")
 }
