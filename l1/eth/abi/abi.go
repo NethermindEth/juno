@@ -47,6 +47,11 @@ func UnpackLogMessageToL2(data []byte) (payload []Word, nonce, fee Word, err err
 	if err != nil {
 		return nil, Word{}, Word{}, fmt.Errorf("payload offset: %w", err)
 	}
+	if offset != headWords*WordSize {
+		return nil, Word{}, Word{}, fmt.Errorf(
+			"non-canonical payload offset: got %d, want %d", offset, headWords*WordSize,
+		)
+	}
 	copy(nonce[:], data[WordSize:2*WordSize])
 	copy(fee[:], data[2*WordSize:3*WordSize])
 

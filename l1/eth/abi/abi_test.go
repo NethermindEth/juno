@@ -107,6 +107,18 @@ func TestUnpackLogMessageToL2_OffsetOutOfRange(t *testing.T) {
 			strings.Contains(err.Error(), "length"))
 }
 
+func TestUnpackLogMessageToL2_NonCanonicalOffset(t *testing.T) {
+	// Offset = 0x80 is in-bounds (buffer is long enough) but not the
+	// canonical 0x60. A strict decoder rejects this.
+	data := mustHex(t, ""+
+		"0000000000000000000000000000000000000000000000000000000000000080"+ // offset = 128
+		"0000000000000000000000000000000000000000000000000000000000000000"+ // nonce
+		"0000000000000000000000000000000000000000000000000000000000000000"+ // fee
+		"0000000000000000000000000000000000000000000000000000000000000000"+ // gap word
+		"0000000000000000000000000000000000000000000000000000000000000000") // length = 0
+	require.ErrorContains(t, unpackErr(data), "non-canonical payload offset")
+}
+
 func TestUnpackLogMessageToL2_LengthExceedsBuffer(t *testing.T) {
 	// length = 5 but no element words follow.
 	data := mustHex(t, ""+
