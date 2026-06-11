@@ -602,7 +602,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(l1Client.L1())
+		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {

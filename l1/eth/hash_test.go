@@ -38,6 +38,8 @@ func TestHash_HashFromString_GethParity(t *testing.T) {
 		"0xabcd",                        // short, left-padded
 		"",                              // empty
 		"0x" + strings.Repeat("ff", 40), // too long, left-cropped
+		"0xZZ",                          // invalid hex - geth silently returns zero
+		"not-hex",                       // non-hex without prefix
 	}
 	for _, in := range cases {
 		t.Run(in, func(t *testing.T) {
