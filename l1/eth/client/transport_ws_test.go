@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync/atomic"
 	"testing"
@@ -201,6 +202,60 @@ func TestWS_ContextCancelMidCall(t *testing.T) {
 	_, err = cli.ChainID(ctx)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled, got %v", err)
+}
+
+// TestWS_SubscribeOmitsBlockRange is a regression test for the live-logs
+// shape sent on eth_subscribe. Geth treats an explicit toBlock=0 as a
+// bounded historical filter that terminates at block 0 — so an empty
+// FilterQuery MUST serialise without fromBlock/toBlock keys, otherwise
+// no live LogStateUpdate events ever reach the node.
+//
+// This is the unit-level guard for the bug; the manual Sepolia smoke is
+// still the strongest end-to-end check.
+func TestWS_SubscribeOmitsBlockRange(t *testing.T) {
+	const subID = "0xfeed"
+	type capturedSub struct {
+		params []json.RawMessage
+	}
+	var captured atomic.Pointer[capturedSub]
+
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+		if req.Method == "eth_subscribe" {
+			captured.Store(&capturedSub{params: req.Params})
+			return subID, nil
+		}
+		if req.Method == "eth_unsubscribe" {
+			return true, nil
+		}
+		return nil, &client.TestRPCError{Code: -32601, Message: req.Method}
+	})
+
+	cli, err := client.New(t.Context(), srv.WSURL())
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	sink := make(chan *eth.Log, 1)
+	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
+	require.NoError(t, err)
+	defer sub.Unsubscribe()
+
+	got := captured.Load()
+	require.NotNil(t, got, "eth_subscribe was never received by the test server")
+	require.Len(t, got.params, 2, `expected ["logs", <filter>] params`)
+
+	var filter map[string]any
+	require.NoError(t, json.Unmarshal(got.params[1], &filter))
+	_, hasFrom := filter["fromBlock"]
+	assert.False(t, hasFrom,
+		`eth_subscribe filter must omit "fromBlock" for a live-logs subscription; got %v`,
+		filter,
+	)
+	_, hasTo := filter["toBlock"]
+	assert.False(t, hasTo,
+		`eth_subscribe filter must omit "toBlock" for a live-logs subscription; got %v`,
+		filter,
+	)
 }
 
 // receiveLogs drains up to n logs from sink with a timeout. Returns
