@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+import "p2p/proto/common.proto";
+
+option go_package = "github.com/NethermindEth/juno/consensus/propeller/proto";
+
+// A Merkle proof consisting of sibling hashes used to verify that a leaf belongs to a Merkle tree.
+// Each sibling hash is 32 bytes (SHA-256). The siblings are ordered from leaf level to root level.
+message MerkleProof {
+    // The sibling hashes needed to reconstruct the path from the leaf to the root.
+    // Each hash is 32 bytes.
+    repeated Hash256 siblings = 1;
+}
+
+// A single erasure-coded fragment of the original message.
+message Shard {
+    bytes data = 1;
+}
+
+// A collection of shards assigned to a single peer.
+// The proto-encoded bytes of this message are used as Merkle tree leaf data,
+// ensuring cross-language determinism.
+message ShardsOfPeer {
+    repeated Shard shards = 1;
+}
+
+// A single unit in the Propeller protocol containing shards of erasure-coded data
+// along with cryptographic proofs for verification.
+message PropellerUnit {
+    // The shards assigned to this unit's peer.
+    ShardsOfPeer shards = 1;
+    // The position of this shard in the erasure coding scheme.
+    uint64 index = 2;
+    // The Merkle root of all shards, used to verify shard integrity.
+    Hash256 merkle_root = 3;
+    // The Merkle proof that this shard belongs to the tree with the given root.
+    MerkleProof merkle_proof = 4;
+    // The peer ID of the original publisher who created and signed this unit.
+    PeerID publisher = 5;
+    // Cryptographic signature from the publisher over the merkle_root.
+    bytes signature = 6;
+    // Committee identifier for multiplexing different message streams.
+    Hash256 committee_id = 7;
+    // A strictly increasing number, to avoid replays.
+    // Current implementation is nanoseconds since UNIX_EPOCH.
+    // TODO(guyn): CRITICAL: protect against replay attacks using this timestamp
+    uint64 nonce = 8;
+}
+
+// A batch of PropellerUnits for efficient transmission.
+message PropellerUnitBatch {
+    repeated PropellerUnit batch = 1;
+}
+

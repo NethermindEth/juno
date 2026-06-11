@@ -7,13 +7,14 @@
 package consensus
 
 import (
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+
 	common "github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	transaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -1109,31 +1110,33 @@ func file_p2p_proto_consensus_consensus_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_consensus_consensus_proto_rawDescData
 }
 
-var file_p2p_proto_consensus_consensus_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_p2p_proto_consensus_consensus_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
-var file_p2p_proto_consensus_consensus_proto_goTypes = []any{
-	(Vote_VoteType)(0),                     // 0: Vote.VoteType
-	(*ConsensusTransaction)(nil),           // 1: ConsensusTransaction
-	(*Vote)(nil),                           // 2: Vote
-	(*ConsensusStreamId)(nil),              // 3: ConsensusStreamId
-	(*ProposalPart)(nil),                   // 4: ProposalPart
-	(*ProposalInit)(nil),                   // 5: ProposalInit
-	(*ProposalFin)(nil),                    // 6: ProposalFin
-	(*TransactionBatch)(nil),               // 7: TransactionBatch
-	(*StreamMessage)(nil),                  // 8: StreamMessage
-	(*ProposalCommitment)(nil),             // 9: ProposalCommitment
-	(*BlockInfo)(nil),                      // 10: BlockInfo
-	(*transaction.DeclareV3WithClass)(nil), // 11: DeclareV3WithClass
-	(*transaction.DeployAccountV3)(nil),    // 12: DeployAccountV3
-	(*transaction.InvokeV3)(nil),           // 13: InvokeV3
-	(*transaction.L1HandlerV0)(nil),        // 14: L1HandlerV0
-	(*common.Hash)(nil),                    // 15: Hash
-	(*common.Address)(nil),                 // 16: Address
-	(*common.Fin)(nil),                     // 17: Fin
-	(*common.Felt252)(nil),                 // 18: Felt252
-	(*common.Uint128)(nil),                 // 19: Uint128
-	(common.L1DataAvailabilityMode)(0),     // 20: L1DataAvailabilityMode
-}
+var (
+	file_p2p_proto_consensus_consensus_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+	file_p2p_proto_consensus_consensus_proto_msgTypes  = make([]protoimpl.MessageInfo, 10)
+	file_p2p_proto_consensus_consensus_proto_goTypes   = []any{
+		(Vote_VoteType)(0),                     // 0: Vote.VoteType
+		(*ConsensusTransaction)(nil),           // 1: ConsensusTransaction
+		(*Vote)(nil),                           // 2: Vote
+		(*ConsensusStreamId)(nil),              // 3: ConsensusStreamId
+		(*ProposalPart)(nil),                   // 4: ProposalPart
+		(*ProposalInit)(nil),                   // 5: ProposalInit
+		(*ProposalFin)(nil),                    // 6: ProposalFin
+		(*TransactionBatch)(nil),               // 7: TransactionBatch
+		(*StreamMessage)(nil),                  // 8: StreamMessage
+		(*ProposalCommitment)(nil),             // 9: ProposalCommitment
+		(*BlockInfo)(nil),                      // 10: BlockInfo
+		(*transaction.DeclareV3WithClass)(nil), // 11: DeclareV3WithClass
+		(*transaction.DeployAccountV3)(nil),    // 12: DeployAccountV3
+		(*transaction.InvokeV3)(nil),           // 13: InvokeV3
+		(*transaction.L1HandlerV0)(nil),        // 14: L1HandlerV0
+		(*common.Hash)(nil),                    // 15: Hash
+		(*common.Address)(nil),                 // 16: Address
+		(*common.Fin)(nil),                     // 17: Fin
+		(*common.Felt252)(nil),                 // 18: Felt252
+		(*common.Uint128)(nil),                 // 19: Uint128
+		(common.L1DataAvailabilityMode)(0),     // 20: L1DataAvailabilityMode
+	}
+)
 var file_p2p_proto_consensus_consensus_proto_depIdxs = []int32{
 	11, // 0: ConsensusTransaction.declare_v3:type_name -> DeclareV3WithClass
 	12, // 1: ConsensusTransaction.deploy_account_v3:type_name -> DeployAccountV3

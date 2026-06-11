@@ -7,11 +7,12 @@
 package capabilities
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -333,14 +334,16 @@ func file_p2p_proto_capabilities_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_capabilities_proto_rawDescData
 }
 
-var file_p2p_proto_capabilities_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_p2p_proto_capabilities_proto_goTypes = []any{
-	(*SyncCapability)(nil),                        // 0: SyncCapability
-	(*SyncCapability_ArchiveStrategy)(nil),        // 1: SyncCapability.ArchiveStrategy
-	(*SyncCapability_L1PruneStrategy)(nil),        // 2: SyncCapability.L1PruneStrategy
-	(*SyncCapability_ConstSizePruneStrategy)(nil), // 3: SyncCapability.ConstSizePruneStrategy
-	(*SyncCapability_StaticPruneStrategy)(nil),    // 4: SyncCapability.StaticPruneStrategy
-}
+var (
+	file_p2p_proto_capabilities_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+	file_p2p_proto_capabilities_proto_goTypes  = []any{
+		(*SyncCapability)(nil),                        // 0: SyncCapability
+		(*SyncCapability_ArchiveStrategy)(nil),        // 1: SyncCapability.ArchiveStrategy
+		(*SyncCapability_L1PruneStrategy)(nil),        // 2: SyncCapability.L1PruneStrategy
+		(*SyncCapability_ConstSizePruneStrategy)(nil), // 3: SyncCapability.ConstSizePruneStrategy
+		(*SyncCapability_StaticPruneStrategy)(nil),    // 4: SyncCapability.StaticPruneStrategy
+	}
+)
 var file_p2p_proto_capabilities_proto_depIdxs = []int32{
 	1, // 0: SyncCapability.archive_strategy:type_name -> SyncCapability.ArchiveStrategy
 	2, // 1: SyncCapability.l1_prune_strategy:type_name -> SyncCapability.L1PruneStrategy
