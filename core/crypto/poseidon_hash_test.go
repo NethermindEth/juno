@@ -61,17 +61,15 @@ func TestPoseidonArray(t *testing.T) {
 	}
 }
 
-// go test -bench=. -run=^# -cpu=1,2,4,8,16
 func BenchmarkPoseidonArray(b *testing.B) {
 	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
 
-	for _, i := range numOfElems {
-		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
-			randomFeltSls := genRandomFeltSls(b, i)
+	for _, n := range numOfElems {
+		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
+			elems := genRandomFelts(b, n)
 			var f felt.Felt
-			b.ResetTimer()
-			for n := range b.N {
-				f = crypto.PoseidonArray(randomFeltSls[n]...)
+			for b.Loop() {
+				f = crypto.PoseidonArray(elems...)
 			}
 			benchHashR = f
 		})
@@ -79,12 +77,11 @@ func BenchmarkPoseidonArray(b *testing.B) {
 }
 
 func BenchmarkPoseidon(b *testing.B) {
-	randFelts := genRandomFeltPairs(b)
+	in := genRandomFelts(b, 2)
 
 	var f felt.Felt
-	b.ResetTimer()
-	for n := range b.N {
-		f = crypto.Poseidon(randFelts[n][0], randFelts[n][1])
+	for b.Loop() {
+		f = crypto.Poseidon(in[0], in[1])
 	}
 	benchHashR = f
 }
