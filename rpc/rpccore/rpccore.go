@@ -30,6 +30,13 @@ type L1Client interface {
 	TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error)
 }
 
+// EthMessagingClient is the consumer-aligned name for the RPC handlers'
+// view of the L1 client: the slice they need to serve
+// starknet_getMessageStatus. It is an alias for L1Client during the
+// L1-boundary migration; L1Client will be deleted once the wiring
+// switches to the new name in the next commit.
+type EthMessagingClient = L1Client
+
 type TraceCacheKey struct {
 	BlockHash felt.Felt
 }
