@@ -14,9 +14,8 @@ const (
 
 // HadesPermutation applies the Hades permutation to state in place.
 // The hashing steps are intentionally inlined for performance reasons.
-func HadesPermutation(stateSlice []felt.Felt) {
+func HadesPermutation(state *[3]felt.Felt) {
 	initialiseRoundKeys.Do(setRoundKeys)
-	state := (*[3]felt.Felt)(stateSlice)
 
 	var squared, stateSum, triple felt.Felt
 	for i := range totalRounds {
@@ -49,8 +48,8 @@ var two = felt.FromUint64[felt.Felt](2)
 //
 // [Poseidon hash]: https://docs.starknet.io/learn/protocol/cryptography#poseidon-hash
 func Poseidon(x, y *felt.Felt) felt.Felt {
-	state := []felt.Felt{*x, *y, two}
-	HadesPermutation(state)
+	state := [3]felt.Felt{*x, *y, two}
+	HadesPermutation(&state)
 	return state[0]
 }
 
@@ -62,12 +61,12 @@ func Poseidon(x, y *felt.Felt) felt.Felt {
 //
 // [Poseidon array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
 func PoseidonArray(elems ...*felt.Felt) felt.Felt {
-	state := []felt.Felt{{}, {}, {}}
+	state := [3]felt.Felt{}
 
 	for i := range len(elems) / 2 {
 		state[0].Add(&state[0], elems[2*i])
 		state[1].Add(&state[1], elems[2*i+1])
-		HadesPermutation(state)
+		HadesPermutation(&state)
 	}
 
 	rem := len(elems) % 2
@@ -75,7 +74,7 @@ func PoseidonArray(elems ...*felt.Felt) felt.Felt {
 		state[0].Add(&state[0], elems[len(elems)-1])
 	}
 	state[rem].Add(&state[rem], &felt.One)
-	HadesPermutation(state)
+	HadesPermutation(&state)
 
 	return state[0]
 }
@@ -114,7 +113,7 @@ func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
 		} else {
 			d.state[0].Add(&d.state[0], d.lastElem)
 			d.state[1].Add(&d.state[1], elems[idx])
-			HadesPermutation(d.state[:])
+			HadesPermutation(&d.state)
 			d.lastElem = nil
 		}
 	}
@@ -128,7 +127,7 @@ func (d *PoseidonDigest) Finish() felt.Felt {
 		d.state[0].Add(&d.state[0], d.lastElem)
 		d.state[1].Add(&d.state[1], &felt.One)
 	}
-	HadesPermutation(d.state[:])
+	HadesPermutation(&d.state)
 	return d.state[0]
 }
 
