@@ -30,6 +30,11 @@ type DataSource interface {
 		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
+	PreConfirmedBlockLatest(
+		ctx context.Context,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (starknet.PreConfirmedUpdate, uint64, error)
 }
 
 type feederGatewayDataSource struct {
@@ -156,4 +161,12 @@ func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
 		blockIdentifier,
 		knownTransactionCount,
 	)
+}
+
+func (f *feederGatewayDataSource) PreConfirmedBlockLatest(
+	ctx context.Context,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, uint64, error) {
+	return f.starknetData.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)
 }
