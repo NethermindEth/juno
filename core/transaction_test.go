@@ -279,6 +279,28 @@ func TestTransactionV3Hash(t *testing.T) {
 	}
 }
 
+// BenchmarkTransactionV3Hash measures the Poseidon-based v3 invoke transaction hash.
+func BenchmarkTransactionV3Hash(b *testing.B) {
+	network := networks.Sepolia
+	gw := adaptfeeder.New(feeder.NewTestClient(b, &network))
+
+	key := "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea"
+	hash := felt.UnsafeFromString[felt.Felt](key)
+	//nolint:staticcheck // need the full transaction to hash it; the status endpoint won't do
+	tx, err := gw.Transaction(b.Context(), &hash)
+	require.NoError(b, err)
+	invoke, ok := tx.(*core.InvokeTransaction)
+	require.True(b, ok)
+	invoke.TransactionHash = nil
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_, err := core.TransactionHash(invoke, &network)
+		require.NoError(b, err)
+	}
+}
+
 func TestTransactionVersion(t *testing.T) {
 	f := felt.NewUnsafeFromString[felt.Felt]("0x100000000000000000000000000000002")
 	v := (*core.TransactionVersion)(f)
