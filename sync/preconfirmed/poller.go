@@ -168,7 +168,7 @@ func (p *Poller) backfill(
 		return fmt.Errorf("polling pre_confirmed by number %d: %w", fromBlock, err)
 	}
 	if err := p.apply(update, fromBlock, txCount, head); err != nil {
-		return fmt.Errorf("backfilling pre_confirmed at %d: %w", fromBlock, err)
+		return fmt.Errorf("applying pre_confirmed at %d: %w", fromBlock, err)
 	}
 	for n := fromBlock + 1; n < endExclusive; n++ {
 		update, err := p.dataSource.PreConfirmedBlockByNumber(ctx, n, "", 0)
@@ -176,7 +176,7 @@ func (p *Poller) backfill(
 			return fmt.Errorf("polling pre_confirmed by number %d: %w", n, err)
 		}
 		if err := p.apply(update, n, 0, head); err != nil {
-			return fmt.Errorf("backfilling pre_confirmed at %d: %w", n, err)
+			return fmt.Errorf("applying pre_confirmed at %d: %w", n, err)
 		}
 	}
 	return nil

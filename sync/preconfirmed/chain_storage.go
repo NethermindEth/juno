@@ -72,8 +72,6 @@ func (c *ChainReader) NewestFirst() iter.Seq[*pending.PreConfirmed] {
 }
 
 // OldestFirst yields entries from head+1 up to the most recent, bounded by Length.
-// Implemented via recursion (no slice materialised); for a head-aligned view
-// the recursion depth is at most BlockHashLag, so the stack cost is bounded.
 func (c *ChainReader) OldestFirst() iter.Seq[*pending.PreConfirmed] {
 	return func(yield func(*pending.PreConfirmed) bool) {
 		if c == nil {
@@ -196,8 +194,8 @@ func (c *ChainReader) PendingStateBeforeIndexAt(
 // materialising a slice. remaining bounds the depth so head-aligned views
 // stop short of the underlying linked list's nil terminator (relevant after
 // SnapshotForHead trims an oversized chain). Returns false when the yield
-// callback aborts iteration. Depth is capped by BlockHashLag, so the stack cost
-// is bounded.
+// callback aborts iteration. Depth equals the caller's Length: BlockHashLag for
+// SnapshotForHead views, the full stored chain for UnsafeSnapshot.
 func walkOldestFirst(
 	n *node,
 	remaining int,
