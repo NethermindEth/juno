@@ -140,20 +140,29 @@ var (
 //   - "changed": false                → NoChange
 //   - "changed": true + "timestamp"   → Full (new round)
 //   - "changed": true, no "timestamp" → Delta
+//
+// BlockNumber is set when the response carries a top-level "block_number"
+// (the "latest" endpoint includes it; the explicit-number endpoint does not,
+// since the caller already knows the requested number).
 type PreConfirmedUpdateEnvelope struct {
-	Update PreConfirmedUpdate
+	Update      PreConfirmedUpdate
+	BlockNumber uint64
 }
 
 func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 	var peek struct {
-		Changed   *bool   `json:"changed"`
-		Timestamp *uint64 `json:"timestamp"`
+		Changed     *bool   `json:"changed"`
+		Timestamp   *uint64 `json:"timestamp"`
+		BlockNumber *uint64 `json:"block_number"`
 	}
 	if err := json.Unmarshal(data, &peek); err != nil {
 		return err
 	}
 	if peek.Changed == nil {
 		return errors.New("pre_confirmed update: missing required \"changed\" field")
+	}
+	if peek.BlockNumber != nil {
+		e.BlockNumber = *peek.BlockNumber
 	}
 
 	switch {

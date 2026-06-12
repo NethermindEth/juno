@@ -58,6 +58,11 @@ type Reader interface {
 		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
+	PreConfirmedBlockLatest(
+		ctx context.Context,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (starknet.PreConfirmedUpdate, uint64, error)
 	PublicKey(ctx context.Context) (*felt.Felt, error)
 	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)
@@ -382,6 +387,35 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
+	env, err := c.fetchPreConfirmedUpdate(ctx, blockNumber, blockIdentifier, knownTransactionCount)
+	if err != nil {
+		return nil, err
+	}
+	return env.Update, nil
+}
+
+// PreConfirmedBlockLatest fetches the deepest pre_confirmed block the server
+// currently exposes (up to head+10). The response carries its block_number so
+// the caller can discover the server's pre_confirmed tip without tracking the
+// height itself. Pass an empty identifier and zero txCount for a full reply.
+func (c *Client) PreConfirmedBlockLatest(
+	ctx context.Context,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, uint64, error) {
+	env, err := c.fetchPreConfirmedUpdate(ctx, "latest", blockIdentifier, knownTransactionCount)
+	if err != nil {
+		return nil, 0, err
+	}
+	return env.Update, env.BlockNumber, nil
+}
+
+func (c *Client) fetchPreConfirmedUpdate(
+	ctx context.Context,
+	blockNumber string,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (*starknet.PreConfirmedUpdateEnvelope, error) {
 	if blockIdentifier == "" {
 		blockIdentifier = PreConfirmedBlankIdentifier
 	}
@@ -390,12 +424,7 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 		"blockIdentifier":       blockIdentifier,
 		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
 	})
-
-	env, err := doRequest[starknet.PreConfirmedUpdateEnvelope](ctx, c, queryURL)
-	if err != nil {
-		return nil, err
-	}
-	return env.Update, nil
+	return doRequest[starknet.PreConfirmedUpdateEnvelope](ctx, c, queryURL)
 }
 
 // Deprecated: Transaction calls the get_transaction endpoint which returns
