@@ -14,6 +14,10 @@ import (
 	"github.com/NethermindEth/juno/l1/eth/contract"
 )
 
+// watchForwarderBuffer is the per-subscription buffer between the
+// contract decoder and the l1.StateUpdate sink consumed by l1.Client.
+const watchForwarderBuffer = 64
+
 // EthSettlement is the Ethereum implementation of SettlementLayer. It
 // wraps a hand-rolled JSON-RPC client (l1/eth/client) and the hand-
 // written LogStateUpdate decoder (l1/eth/contract) — together they
@@ -108,7 +112,11 @@ func (s *EthSettlement) LatestHeight(ctx context.Context) (uint64, error) {
 
 // FilterStateUpdate decodes every LogStateUpdate in [from, to] into
 // the chain-neutral StateUpdate shape.
-func (s *EthSettlement) FilterStateUpdate(ctx context.Context, from, to uint64) ([]*StateUpdate, error) {
+func (s *EthSettlement) FilterStateUpdate(
+	ctx context.Context,
+	from,
+	to uint64,
+) ([]*StateUpdate, error) {
 	t := time.Now()
 	events, err := contract.FilterLogStateUpdate(ctx, s.client, s.contractAddress, from, to)
 	if err != nil {
@@ -128,7 +136,7 @@ func (s *EthSettlement) FilterStateUpdate(ctx context.Context, from, to uint64) 
 func (s *EthSettlement) WatchStateUpdate(
 	ctx context.Context, sink chan<- *StateUpdate,
 ) (eth.Subscription, error) {
-	raw := make(chan *contract.LogStateUpdate, 64)
+	raw := make(chan *contract.LogStateUpdate, watchForwarderBuffer)
 	inner, err := contract.WatchLogStateUpdate(ctx, s.client, s.contractAddress, raw)
 	if err != nil {
 		return nil, err
@@ -146,7 +154,10 @@ func (s *EthSettlement) WatchStateUpdate(
 
 // TransactionReceipt fetches an L1 transaction receipt by hash. Used by
 // the RPC handlers for starknet_getMessageStatus.
-func (s *EthSettlement) TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error) {
+func (s *EthSettlement) TransactionReceipt(
+	ctx context.Context,
+	txHash eth.Hash,
+) (*eth.Receipt, error) {
 	t := time.Now()
 	r, err := s.client.TransactionReceipt(ctx, txHash)
 	if err != nil {

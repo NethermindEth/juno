@@ -32,7 +32,7 @@ func TestLogStateUpdateSigHash_DerivedFromSignature(t *testing.T) {
 func TestDecode_Success(t *testing.T) {
 	// globalRoot = 0x11..11; blockNumber = 0x539 (1337);
 	// blockHash = 0x22..22.
-	data := bytes.Repeat([]byte{0x11}, 32)                 // globalRoot
+	data := bytes.Repeat([]byte{0x11}, 32) // globalRoot
 	data = append(data, leftPad32(big.NewInt(1337).Bytes())...)
 	data = append(data, bytes.Repeat([]byte{0x22}, 32)...) // blockHash
 	require.Len(t, data, 96)
@@ -69,9 +69,9 @@ func TestDecode_NegativeInt256(t *testing.T) {
 		"int256 0xff..ff should decode as -1")
 
 	// GlobalRoot/BlockHash are uint256 — unsigned — and stay positive.
-	max := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
-	assert.Equal(t, max, ev.GlobalRoot)
-	assert.Equal(t, max, ev.BlockHash)
+	maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+	assert.Equal(t, maxU256, ev.GlobalRoot)
+	assert.Equal(t, maxU256, ev.BlockHash)
 }
 
 func TestDecode_WrongTopic(t *testing.T) {
@@ -114,7 +114,11 @@ func (f *fakeLogClient) FilterLogs(_ context.Context, _ client.FilterQuery) ([]e
 	return f.filterReturn, f.filterErr
 }
 
-func (f *fakeLogClient) SubscribeLogs(_ context.Context, _ client.FilterQuery, sink chan<- *eth.Log) (eth.Subscription, error) {
+func (f *fakeLogClient) SubscribeLogs(
+	_ context.Context,
+	_ client.FilterQuery,
+	sink chan<- *eth.Log,
+) (eth.Subscription, error) {
 	f.mu.Lock()
 	f.subSink = sink
 	f.subErr = make(chan error, 1)
@@ -260,7 +264,12 @@ func leftPad32(b []byte) []byte {
 	return out
 }
 
-func drainStateUpdates(t *testing.T, sink <-chan *contract.LogStateUpdate, n int, timeout time.Duration) []*contract.LogStateUpdate {
+func drainStateUpdates(
+	t *testing.T,
+	sink <-chan *contract.LogStateUpdate,
+	n int,
+	timeout time.Duration,
+) []*contract.LogStateUpdate {
 	t.Helper()
 	deadline := time.After(timeout)
 	out := make([]*contract.LogStateUpdate, 0, n)

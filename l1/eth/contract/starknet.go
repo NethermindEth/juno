@@ -30,6 +30,11 @@ var LogStateUpdateSigHash = eth.HashFromString(
 // fields are in data rather than topics.
 const logStateUpdateDataLen = 3 * 32
 
+// watchSinkBuffer is the per-subscription buffer between the raw log
+// channel and the decoded-event sink. Sized so a slow consumer doesn't
+// immediately stall the underlying transport reader.
+const watchSinkBuffer = 64
+
 // LogStateUpdate is the decoded form of the Starknet core contract's
 // LogStateUpdate event.
 //
@@ -71,13 +76,18 @@ func Decode(log *eth.Log) (*LogStateUpdate, error) {
 	}, nil
 }
 
+// int256Bits is the bit width of the Solidity int256 type. Used by
+// decodeInt256 to compute the two's-complement adjustment for
+// negative values.
+const int256Bits = 256
+
 // decodeInt256 reads a 32-byte big-endian two's-complement signed
 // integer into *big.Int. If the high bit is set, subtract 2^256 to
 // recover the negative value — matching go-ethereum's ABI decoder.
 func decodeInt256(b []byte) *big.Int {
 	n := new(big.Int).SetBytes(b)
 	if b[0]&0x80 != 0 {
-		twoTo256 := new(big.Int).Lsh(big.NewInt(1), 256)
+		twoTo256 := new(big.Int).Lsh(big.NewInt(1), int256Bits)
 		n.Sub(n, twoTo256)
 	}
 	return n
@@ -88,7 +98,11 @@ func decodeInt256(b []byte) *big.Int {
 // a real endpoint.
 type LogClient interface {
 	FilterLogs(ctx context.Context, q client.FilterQuery) ([]eth.Log, error)
-	SubscribeLogs(ctx context.Context, q client.FilterQuery, sink chan<- *eth.Log) (eth.Subscription, error)
+	SubscribeLogs(
+		ctx context.Context,
+		q client.FilterQuery,
+		sink chan<- *eth.Log,
+	) (eth.Subscription, error)
 }
 
 // FilterLogStateUpdate returns every LogStateUpdate emitted by contract
@@ -127,7 +141,7 @@ func FilterLogStateUpdate(
 func WatchLogStateUpdate(
 	ctx context.Context, c LogClient, contract eth.Address, sink chan<- *LogStateUpdate,
 ) (eth.Subscription, error) {
-	rawSink := make(chan *eth.Log, 64)
+	rawSink := make(chan *eth.Log, watchSinkBuffer)
 	inner, err := c.SubscribeLogs(ctx, client.FilterQuery{
 		Addresses: []eth.Address{contract},
 		Topics:    [][]eth.Hash{{LogStateUpdateSigHash}},
@@ -200,4 +214,3 @@ func (w *stateUpdateWatcher) run(rawSink <-chan *eth.Log, sink chan<- *LogStateU
 		}
 	}
 }
-

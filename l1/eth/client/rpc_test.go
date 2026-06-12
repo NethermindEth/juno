@@ -77,7 +77,8 @@ func TestDecodeResponse_MalformedJSON(t *testing.T) {
 }
 
 func TestDecodeResponse_PreservesErrorData(t *testing.T) {
-	body := []byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"execution reverted","data":"0xdeadbeef"}}`)
+	body := []byte(`{"jsonrpc":"2.0","id":1,` +
+		`"error":{"code":-32000,"message":"execution reverted","data":"0xdeadbeef"}}`)
 	_, err := decodeResponse(body, 1)
 	require.Error(t, err)
 	var rerr *rpcError

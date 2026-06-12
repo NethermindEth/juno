@@ -415,7 +415,8 @@ func TestEventListener(t *testing.T) {
 	subscriber.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog,
+	client := l1.NewClient(
+		subscriber, chain, nopLog,
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Nanosecond),
 		l1.WithEventListener(l1.SelectiveListener{
@@ -481,7 +482,8 @@ func TestEventListenerCatchUp(t *testing.T) {
 	subscriber.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog,
+	client := l1.NewClient(
+		subscriber, chain, nopLog,
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Hour),
 		l1.WithEventListener(l1.SelectiveListener{
@@ -575,4 +577,3 @@ func TestCatchUpL1Head_ChainIDMismatch(t *testing.T) {
 	require.ErrorContains(t, err, "mismatched network id between L1 and L2")
 	require.ErrorContains(t, err, "--eth-node")
 }
-
