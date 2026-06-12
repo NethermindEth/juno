@@ -25,6 +25,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpc "github.com/NethermindEth/juno/rpc/v10"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -1983,7 +1984,7 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	}
 }
 
-func TestResourceBoundsValidation(t *testing.T) {
+func TestTransactionValidation(t *testing.T) {
 	const invalidInvokeV3 = `{
 		"type": "INVOKE",
 		"sender_address": "0xf9e998b2853e6d01f3ae3c598c754c1b9a7bd398fec7657de022f3b778679",
@@ -2118,6 +2119,35 @@ func TestResourceBoundsValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResourceBoundsValidation(t *testing.T) {
+	t.Parallel()
+	v := rpc.Validator()
+
+	validBounds := rpc.ResourceBounds{
+		MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffff"),                 // max uint64
+		MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffffffffffffffffffff"), // max uint128
+	}
+
+	t.Run("valid bounds", func(t *testing.T) {
+		t.Parallel()
+		assert.NoError(t, v.Struct(validBounds))
+	})
+
+	t.Run("max_amount exceeds uint64", func(t *testing.T) {
+		t.Parallel()
+		b := validBounds
+		b.MaxAmount = felt.NewUnsafeFromString[felt.Felt]("0x10000000000000000")
+		assert.Error(t, v.Struct(b))
+	})
+
+	t.Run("max_price_per_unit exceeds uint128", func(t *testing.T) {
+		t.Parallel()
+		b := validBounds
+		b.MaxPricePerUnit = felt.NewUnsafeFromString[felt.Felt]("0x100000000000000000000000000000000")
+		assert.Error(t, v.Struct(b))
+	})
 }
 
 // TestContractClassToGatewayPayload verifies the gateway-payload encoder
