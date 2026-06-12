@@ -21,7 +21,7 @@ import (
 var ErrBaseTxCountMismatch = errors.New("pre_confirmed base transaction count mismatch")
 
 // node is one entry in the chain's immutable linked list, pointing back
-// toward older blocks via older. Nodes are never mutated in place — every
+// toward older blocks via parent. Nodes are never mutated in place — every
 // storage write produces fresh nodes for the affected slot and everything
 // newer than it, so concurrent readers walking a prior snapshot see a stable
 // graph. Popped nodes become unreferenced and GC-collectable.
@@ -31,7 +31,7 @@ type node struct {
 }
 
 // ChainReader is an immutable snapshot of a contiguous run of pre-confirmed
-// blocks, ordered newest-first via older pointers. Iteration must respect Length
+// blocks, ordered newest-first via parent pointers. Iteration must respect Length
 // — head-aligned views (see ChainStorage.SnapshotForHead) may stop
 // before the underlying linked list's nil terminator.
 type ChainReader struct {
