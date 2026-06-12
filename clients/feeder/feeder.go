@@ -394,10 +394,10 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 	return env.Update, nil
 }
 
-// PreConfirmedBlockLatest fetches the deepest pre_confirmed block the server
-// currently exposes (up to head+10). The response carries its block_number so
-// the caller can discover the server's pre_confirmed tip without tracking the
-// height itself. Pass an empty identifier and zero txCount for a full reply.
+// PreConfirmedBlockLatest fetches the highest pre_confirmed block the server
+// currently exposes. The response carries its block_number so the caller can
+// discover the pre_confirmed tip without tracking  the height itself.
+// Pass an empty identifier and zero txCount for a full reply.
 func (c *Client) PreConfirmedBlockLatest(
 	ctx context.Context,
 	blockIdentifier string,
