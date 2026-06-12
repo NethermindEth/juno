@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
@@ -106,12 +107,13 @@ func fetchL1HeadIfMissing(
 
 	logger.Info("Fetching the L1 head before running the prune migration")
 	// Metrics are registered by the long-lived L1 client built in node.New; reusing
-	// them here would panic via prometheus.MustRegister.
-	client, err := newL1Client(config.EthNode, false, chain, logger)
+	// them here would panic via prometheus.MustRegister. Hence no listener.
+	settlement, err := newEthSettlement(config.EthNode, chain)
 	if err != nil {
 		return fmt.Errorf("creating a new L1 client: %w", err)
 	}
 
+	client := l1.NewClient(settlement, chain, logger)
 	if err := client.CatchUpL1Head(ctx); err != nil {
 		return fmt.Errorf("catching up to the latest L1 head: %w", err)
 	}
