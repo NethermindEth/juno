@@ -13,7 +13,11 @@ import (
 // logs are delivered to sink as they arrive. The returned subscription
 // surfaces transport errors on Err() and tears down the server-side
 // subscription on Unsubscribe.
-func (c *Client) SubscribeLogs(ctx context.Context, q FilterQuery, sink chan<- *eth.Log) (eth.Subscription, error) {
+func (c *Client) SubscribeLogs(
+	ctx context.Context,
+	q FilterQuery,
+	sink chan<- *eth.Log,
+) (eth.Subscription, error) {
 	return c.tr.(*wsTransport).subscribeLogs(ctx, q, sink)
 }
 

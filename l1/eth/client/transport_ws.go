@@ -43,10 +43,11 @@ type wsTransport struct {
 	writeMu sync.Mutex
 	nextID  atomic.Uint64
 
-	mu          sync.Mutex
-	pending     map[uint64]chan rpcReply // by request id
-	pendingSubs map[uint64]*wsLogSub     // subscribe calls awaiting the server-assigned sub id, by request id
-	subs        map[string]*wsLogSub     // active subscriptions, by sub id
+	mu      sync.Mutex
+	pending map[uint64]chan rpcReply // by request id
+	// pendingSubs: subscribe calls awaiting the server-assigned sub id, keyed by request id.
+	pendingSubs map[uint64]*wsLogSub
+	subs        map[string]*wsLogSub // active subscriptions, by sub id
 
 	closed    chan struct{}
 	closeErr  error
@@ -56,7 +57,10 @@ type wsTransport struct {
 // dialWS dials rawURL and starts the reader goroutine. The caller is
 // responsible for calling close to release the connection.
 func dialWS(ctx context.Context, rawURL string) (*wsTransport, error) {
-	conn, _, err := websocket.Dial(ctx, rawURL, nil)
+	conn, resp, err := websocket.Dial(ctx, rawURL, nil)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("dial ws: %w", err)
 	}
@@ -68,7 +72,7 @@ func dialWS(ctx context.Context, rawURL string) (*wsTransport, error) {
 		subs:        make(map[string]*wsLogSub),
 		closed:      make(chan struct{}),
 	}
-	go t.readLoop()
+	go t.readLoop() //nolint:gosec // G118: long-lived loop, not request-scoped
 	return t, nil
 }
 
@@ -244,7 +248,11 @@ func (t *wsTransport) writeJSON(ctx context.Context, v any) error {
 }
 
 // call sends a JSON-RPC request and waits for its response.
-func (t *wsTransport) call(ctx context.Context, method string, params ...any) (json.RawMessage, error) {
+func (t *wsTransport) call(
+	ctx context.Context,
+	method string,
+	params ...any,
+) (json.RawMessage, error) {
 	return t.callWithSubReg(ctx, method, nil, params...)
 }
 

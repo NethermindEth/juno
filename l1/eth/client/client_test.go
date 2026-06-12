@@ -22,17 +22,27 @@ func newTestClient(t *testing.T, srv *client.TestServer) *client.Client {
 	return c
 }
 
+// methodResponse is a static reply for a single JSON-RPC method.
+// Exactly one of result / rpcErr should be non-nil.
+type methodResponse struct {
+	result any
+	rpcErr *client.TestRPCError
+}
+
 // captureHandler installs a TestHandler that records every request and
-// dispatches by method to a per-method response function. methods not
-// in the map fall through to a "method not found" error.
-func captureHandler(t *testing.T, responses map[string]func(req client.TestRequest) (any, *client.TestRPCError)) (*client.TestServer, *[]client.TestRequest) {
+// dispatches by method to a per-method static response. Methods not in
+// the map fall through to a "method not found" error.
+func captureHandler(
+	t *testing.T,
+	responses map[string]methodResponse,
+) (*client.TestServer, *[]client.TestRequest) {
 	t.Helper()
 	srv := client.NewTestServer(t)
 	captured := make([]client.TestRequest, 0)
 	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
 		captured = append(captured, req)
-		if h, ok := responses[req.Method]; ok {
-			return h(req)
+		if r, ok := responses[req.Method]; ok {
+			return r.result, r.rpcErr
 		}
 		return nil, &client.TestRPCError{Code: -32601, Message: "method not found: " + req.Method}
 	})
@@ -60,10 +70,8 @@ func TestNew_SchemeDispatch(t *testing.T) {
 }
 
 func TestChainID_Success(t *testing.T) {
-	srv, calls := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_chainId": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return "0x539", nil
-		},
+	srv, calls := captureHandler(t, map[string]methodResponse{
+		"eth_chainId": {result: "0x539"},
 	})
 	cli := newTestClient(t, srv)
 
@@ -78,10 +86,8 @@ func TestChainID_Success(t *testing.T) {
 func TestChainID_LargeValue(t *testing.T) {
 	// uint64 max + 1 must round-trip through *big.Int.
 	const big65bit = "0x10000000000000000"
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_chainId": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return big65bit, nil
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_chainId": {result: big65bit},
 	})
 	cli := newTestClient(t, srv)
 
@@ -92,10 +98,8 @@ func TestChainID_LargeValue(t *testing.T) {
 }
 
 func TestChainID_ServerError(t *testing.T) {
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_chainId": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return nil, &client.TestRPCError{Code: -32603, Message: "internal error"}
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_chainId": {rpcErr: &client.TestRPCError{Code: -32603, Message: "internal error"}},
 	})
 	cli := newTestClient(t, srv)
 
@@ -106,10 +110,8 @@ func TestChainID_ServerError(t *testing.T) {
 }
 
 func TestBlockNumber_Success(t *testing.T) {
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_blockNumber": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return "0x10", nil
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_blockNumber": {result: "0x10"},
 	})
 	cli := newTestClient(t, srv)
 
@@ -119,14 +121,12 @@ func TestBlockNumber_Success(t *testing.T) {
 }
 
 func TestHeaderByNumber_Finalized(t *testing.T) {
-	srv, calls := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getBlockByNumber": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return map[string]any{
-				"number":     "0x539",
-				"hash":       "0x" + zeroHex(64),
-				"parentHash": "0x" + zeroHex(64),
-			}, nil
-		},
+	srv, calls := captureHandler(t, map[string]methodResponse{
+		"eth_getBlockByNumber": {result: map[string]any{
+			"number":     "0x539",
+			"hash":       "0x" + zeroHex(64),
+			"parentHash": "0x" + zeroHex(64),
+		}},
 	})
 	cli := newTestClient(t, srv)
 
@@ -143,10 +143,8 @@ func TestHeaderByNumber_Finalized(t *testing.T) {
 }
 
 func TestHeaderByNumber_NotFound_NullResult(t *testing.T) {
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getBlockByNumber": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return nil, nil
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_getBlockByNumber": {result: nil},
 	})
 	cli := newTestClient(t, srv)
 
@@ -155,10 +153,8 @@ func TestHeaderByNumber_NotFound_NullResult(t *testing.T) {
 }
 
 func TestHeaderByNumber_BadHeader(t *testing.T) {
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getBlockByNumber": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return map[string]any{"number": "not-hex"}, nil
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_getBlockByNumber": {result: map[string]any{"number": "not-hex"}},
 	})
 	cli := newTestClient(t, srv)
 
@@ -168,21 +164,19 @@ func TestHeaderByNumber_BadHeader(t *testing.T) {
 }
 
 func TestTransactionReceipt_Success(t *testing.T) {
-	srv, calls := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getTransactionReceipt": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return map[string]any{
-				"logs": []any{
-					map[string]any{
-						"topics": []string{
-							"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
-						},
-						"data":        "0xdeadbeef",
-						"blockNumber": "0x10",
-						"removed":     false,
+	srv, calls := captureHandler(t, map[string]methodResponse{
+		"eth_getTransactionReceipt": {result: map[string]any{
+			"logs": []any{
+				map[string]any{
+					"topics": []string{
+						"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
 					},
+					"data":        "0xdeadbeef",
+					"blockNumber": "0x10",
+					"removed":     false,
 				},
-			}, nil
-		},
+			},
+		}},
 	})
 	cli := newTestClient(t, srv)
 
@@ -200,10 +194,8 @@ func TestTransactionReceipt_Success(t *testing.T) {
 }
 
 func TestTransactionReceipt_NotFound(t *testing.T) {
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getTransactionReceipt": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return nil, nil
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_getTransactionReceipt": {result: nil},
 	})
 	cli := newTestClient(t, srv)
 	_, err := cli.TransactionReceipt(t.Context(), eth.Hash{})
@@ -211,10 +203,8 @@ func TestTransactionReceipt_NotFound(t *testing.T) {
 }
 
 func TestFilterLogs_Empty(t *testing.T) {
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getLogs": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return []any{}, nil
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_getLogs": {result: []any{}},
 	})
 	cli := newTestClient(t, srv)
 
@@ -228,17 +218,15 @@ func TestFilterLogs_Empty(t *testing.T) {
 
 func TestFilterLogs_OneLog(t *testing.T) {
 	const sigHash = "0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b"
-	srv, calls := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getLogs": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return []any{
-				map[string]any{
-					"topics":      []string{sigHash},
-					"data":        "0x",
-					"blockNumber": "0x100",
-					"removed":     false,
-				},
-			}, nil
-		},
+	srv, calls := captureHandler(t, map[string]methodResponse{
+		"eth_getLogs": {result: []any{
+			map[string]any{
+				"topics":      []string{sigHash},
+				"data":        "0x",
+				"blockNumber": "0x100",
+				"removed":     false,
+			},
+		}},
 	})
 	cli := newTestClient(t, srv)
 
@@ -364,10 +352,11 @@ func TestFilterQuery_MarshalShapes(t *testing.T) {
 }
 
 func TestFilterLogs_ServerError(t *testing.T) {
-	srv, _ := captureHandler(t, map[string]func(req client.TestRequest) (any, *client.TestRPCError){
-		"eth_getLogs": func(req client.TestRequest) (any, *client.TestRPCError) {
-			return nil, &client.TestRPCError{Code: -32005, Message: "query returned more than 10000 results"}
-		},
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_getLogs": {rpcErr: &client.TestRPCError{
+			Code:    -32005,
+			Message: "query returned more than 10000 results",
+		}},
 	})
 	cli := newTestClient(t, srv)
 
@@ -385,7 +374,7 @@ func TestMethods_ContextCancelled(t *testing.T) {
 	gate := make(chan struct{})
 	t.Cleanup(func() { close(gate) })
 	srv := client.NewTestServer(t)
-	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+	srv.SetHandler(func(_ client.TestRequest) (any, *client.TestRPCError) {
 		<-gate
 		return nil, nil
 	})

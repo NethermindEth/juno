@@ -218,4 +218,3 @@ func (ts *TestServer) respondTo(req rawRPCRequest) map[string]any {
 	out["result"] = result
 	return out
 }
-
