@@ -289,7 +289,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var throttledVM *ThrottledVM
 
 	compiler := compiler.New(
-		cfg.MaxConcurrentCompilations,
+		&compiler.Config{
+			MaxConcurrent: cfg.MaxConcurrentCompilations,
+			MaxMemory:     uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+			MaxCPUTime:    uint64(cfg.MaxCompilationCPUTime),
+		},
 		"",
 		logger,
 	)

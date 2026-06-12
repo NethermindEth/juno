@@ -252,7 +252,11 @@ const (
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	pruneModeUsage                 = "Enables block-data and state-history pruning. Pruning is " +
+	maxCompilationMemoryUsage      = "Maximum memory (in MB) each Sierra compilation process may " +
+		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
+	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
+		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
+	pruneModeUsage = "Enables block-data and state-history pruning. Pruning is " +
 		"disabled by default; passing this flag (with or without a value) turns " +
 		"it on. The value is the size of the retention window in blocks, counted " +
 		"back from the retention pivot (the lower of the L1-verified head and " +
