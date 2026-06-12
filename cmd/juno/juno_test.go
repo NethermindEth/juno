@@ -72,7 +72,9 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
 	defaultRPCRequestTimeout := 1 * time.Minute
-	defaultMaxConcurrentCompilations := uint(8)
+	defaultMaxConcurrentCompilations := uint(runtime.GOMAXPROCS(0))
+	defaultMaxCompilationMemory := uint(4 * 1024)
+	defaultMaxCompilationCPUTime := uint(10)
 	defaultDisableReceivedTxnStream := false
 	defaultPruneMinAge := time.Hour
 	expectedConfig1 := node.Config{
@@ -117,6 +119,8 @@ func TestConfigPrecedence(t *testing.T) {
 		ReadinessBlockTolerance:            6,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
 
@@ -162,6 +166,8 @@ func TestConfigPrecedence(t *testing.T) {
 		ReadinessBlockTolerance:            6,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
 	tests := map[string]struct {
@@ -268,6 +274,8 @@ pprof: true
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -319,6 +327,8 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -369,6 +379,8 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -419,6 +431,8 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -495,6 +509,8 @@ db-cache-size: 1024
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -548,6 +564,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -597,6 +615,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -644,6 +664,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -692,6 +714,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -739,6 +763,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -788,6 +814,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},

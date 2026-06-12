@@ -135,6 +135,8 @@ type Config struct {
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
+	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
+	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
 	NewState                  bool          `mapstructure:"new-state"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0

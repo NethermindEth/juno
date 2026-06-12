@@ -106,6 +106,8 @@ const (
 	dbCompressionF                      = "db-compression"
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
+	maxCompilationMemoryF               = "max-compilation-memory"
+	maxCompilationCPUTimeF              = "max-compilation-cpu-time"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 	newStateF                           = "new-state"
 	pruneModeF                          = node.PruneModeFlag
@@ -167,7 +169,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
-	defaultMaxConcurrentCompilations          = 8
+	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
+	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
 	defaultPruneMode                          = uint64(0)
 	defaultPruneMinAge                        = 1 * time.Hour
@@ -255,7 +258,8 @@ const (
 	maxCompilationMemoryUsage      = "Maximum memory (in MB) each Sierra compilation process may " +
 		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
 	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
-		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
+		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
+		"0 disables the limit."
 	pruneModeUsage = "Enables block-data and state-history pruning. Pruning is " +
 		"disabled by default; passing this flag (with or without a value) turns " +
 		"it on. The value is the size of the retention window in blocks, counted " +
@@ -440,6 +444,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultNetwork := networks.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
+	defaultMaxConcurrentCompilations := runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
@@ -553,13 +558,20 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
 	junoCmd.Flags().Uint(
-		maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage,
+		maxConcurrentCompilationsF,
+		uint(defaultMaxConcurrentCompilations),
+		maxConcurrentCompilationsUsage,
+	)
+	junoCmd.Flags().Uint(maxCompilationMemoryF, defaultMaxCompilationMemory, maxCompilationMemoryUsage)
+	junoCmd.Flags().Uint(
+		maxCompilationCPUTimeF, defaultMaxCompilationCPUTime, maxCompilationCPUTimeUsage,
 	)
 	junoCmd.Flags().String(
 		versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage,
 	)
 	setCategory(junoCmd, catVMCompile,
-		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF, versionedConstantsFileF,
+		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF,
+		maxCompilationMemoryF, maxCompilationCPUTimeF, versionedConstantsFileF,
 	)
 
 	// --- Custom Network ---
