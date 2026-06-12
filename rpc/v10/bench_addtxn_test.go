@@ -19,6 +19,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+//nolint:lll // File paths
 const (
 	invokeTxnPath        = "../../clients/feeder/testdata/sepolia/transaction/0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea.json"
 	declareTxnPath       = "../../clients/feeder/testdata/sepolia/transaction/0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155.json"

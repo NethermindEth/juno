@@ -2134,6 +2134,7 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 	})
 
 	t.Run("round-trip", func(t *testing.T) {
+		//nolint:lll // File path
 		const sierraPath = "../../clients/feeder/testdata/sepolia/class/0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b.json"
 		abs, err := filepath.Abs(sierraPath)
 		require.NoError(t, err)
