@@ -7,8 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/NethermindEth/juno/l1/eth"
 )
 
 const (
@@ -26,8 +25,9 @@ type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
 }
 
+//go:generate mockgen -destination=../../mocks/mock_l1_client.go -package=mocks github.com/NethermindEth/juno/rpc/rpccore L1Client
 type L1Client interface {
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error)
 }
 
 type TraceCacheKey struct {

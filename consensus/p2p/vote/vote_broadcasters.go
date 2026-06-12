@@ -34,7 +34,9 @@ func NewVoteBroadcaster[H types.Hash, A types.Addr](
 	}
 }
 
-func (b *voteBroadcaster[H, A]) broadcast(ctx context.Context, message *types.Vote[H, A], voteType consensus.Vote_VoteType) {
+func (b *voteBroadcaster[H, A]) broadcast(
+	ctx context.Context, message *types.Vote[H, A], voteType consensus.Vote_VoteType,
+) {
 	msg, err := b.voteAdapter.FromVote(message, voteType)
 	if err != nil {
 		b.logger.Error("unable to convert vote", zap.Error(err))
@@ -60,6 +62,10 @@ func (b *prevoteBroadcaster[H, A]) Broadcast(ctx context.Context, message *types
 
 type precommitBroadcaster[H types.Hash, A types.Addr] voteBroadcaster[H, A]
 
-func (b *precommitBroadcaster[H, A]) Broadcast(ctx context.Context, message *types.Precommit[H, A]) {
-	(*voteBroadcaster[H, A])(b).broadcast(ctx, (*types.Vote[H, A])(message), consensus.Vote_Precommit)
+func (b *precommitBroadcaster[H, A]) Broadcast(
+	ctx context.Context, message *types.Precommit[H, A],
+) {
+	(*voteBroadcaster[H, A])(b).broadcast(
+		ctx, (*types.Vote[H, A])(message), consensus.Vote_Precommit,
+	)
 }

@@ -372,12 +372,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		nodeVM = vm.New(&chainInfo, false, logger)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
-		adFeeder := adaptfeeder.New(client)
-		// TODO: remove this and use adaptfeeder directly once the new feeder improvements
-		// are implemented on mainnet
-		migrationFeeder := adaptfeeder.NewFeederAdapter(adFeeder, logger)
-		services = append(services, migrationFeeder)
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, migrationFeeder)
+		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(
 			chain,
 			feederGatewayDataSource,
@@ -607,7 +602,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(l1Client.L1())
+		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {

@@ -7,14 +7,14 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // MsgFromL1 represents a message sent from L1 to L2.
 type MsgFromL1 struct {
 	// The address of the L1 contract sending the message.
-	From common.Address `json:"from_address" validate:"required"`
+	From eth.Address `json:"from_address" validate:"required"`
 	// The address of the L2 contract receiving the message.
 	To felt.Felt `json:"to_address" validate:"required"`
 	// The payload of the message.

@@ -16,8 +16,8 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/l1/eth"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -265,7 +265,8 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
-	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	l1HandlerMsgHash := eth.HashFromString(
+		"0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
 	require.NoError(t, err)
 	expectedHash := felt.UnsafeFromString[felt.Felt](

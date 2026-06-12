@@ -2,49 +2,50 @@ package rpcv8
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
-	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/l1/eth/abi"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/crypto/sha3"
 )
 
-var logMsgToL2SigHash = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
+var logMsgToL2SigHash = eth.HashFromString(
+	"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
+)
 
 type logMessageToL2 struct {
-	FromAddress *common.Address
-	ToAddress   *big.Int
-	Nonce       *big.Int
-	Selector    *big.Int
-	Payload     []*big.Int
-	Fee         *big.Int
+	FromAddress eth.Address
+	ToAddress   abi.Word
+	Nonce       abi.Word
+	Selector    abi.Word
+	Payload     []abi.Word
+	Fee         abi.Word
 }
 
-func (l *logMessageToL2) hashMessage() *common.Hash {
+func (l *logMessageToL2) hashMessage() *eth.Hash {
 	hash := sha3.NewLegacyKeccak256()
-
-	writeUint256 := func(value *big.Int) {
-		bytes := make([]byte, 32)
-		value.FillBytes(bytes)
-		hash.Write(bytes)
-	}
 
 	// Pad FromAddress to 32 bytes
 	hash.Write(make([]byte, 12)) //nolint:mnd
 	hash.Write(l.FromAddress.Bytes())
-	writeUint256(l.ToAddress)
-	writeUint256(l.Nonce)
-	writeUint256(l.Selector)
-	writeUint256(big.NewInt(int64(len(l.Payload))))
 
-	for _, elem := range l.Payload {
-		writeUint256(elem)
+	hash.Write(l.ToAddress[:])
+	hash.Write(l.Nonce[:])
+	hash.Write(l.Selector[:])
+
+	var lenWord abi.Word
+	binary.BigEndian.PutUint64(lenWord[24:], uint64(len(l.Payload))) //nolint:mnd // 32 - 8 = 24
+	hash.Write(lenWord[:])
+
+	for i := range l.Payload {
+		hash.Write(l.Payload[i][:])
 	}
 
-	tmp := common.BytesToHash(hash.Sum(nil))
+	tmp := eth.HashFromBytes(hash.Sum(nil))
 	return &tmp
 }
 
@@ -54,7 +55,9 @@ type MsgStatus struct {
 	FailureReason  string     `json:"failure_reason,omitempty"`
 }
 
-func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) ([]MsgStatus, *jsonrpc.Error) {
+func (h *Handler) GetMessageStatus(
+	ctx context.Context, l1TxnHash *eth.Hash,
+) ([]MsgStatus, *jsonrpc.Error) {
 	// l1 txn hash -> (l1 handler) msg hashes
 	msgHashes, rpcErr := h.messageToL2Logs(ctx, l1TxnHash)
 	if rpcErr != nil {
@@ -67,7 +70,8 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 		if err != nil {
 			return nil, jsonrpc.Err(
 				jsonrpc.InternalError,
-				fmt.Sprintf("failed to retrieve L1 handler txn hash. msgHash %s, err: %v",
+				fmt.Sprintf(
+					"failed to retrieve L1 handler txn hash. msgHash %s, err: %v",
 					msgHash.Hex(),
 					err,
 				),
@@ -86,7 +90,9 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 	return results, nil
 }
 
-func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*common.Hash, *jsonrpc.Error) {
+func (h *Handler) messageToL2Logs(
+	ctx context.Context, txHash *eth.Hash,
+) ([]*eth.Hash, *jsonrpc.Error) {
 	if h.l1Client == nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, "L1 client not found")
 	}
@@ -96,29 +102,33 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	messageHashes := make([]*common.Hash, 0, len(receipt.Logs))
+	messageHashes := make([]*eth.Hash, 0, len(receipt.Logs))
 	for i, vLog := range receipt.Logs {
-		if common.HexToHash(vLog.Topics[0].Hex()).Cmp(logMsgToL2SigHash) != 0 {
+		// LogMessageToL2 has the signature in Topics[0] and three indexed
+		// fields in Topics[1..3]. Anything else can't be this event.
+		if len(vLog.Topics) < 4 || vLog.Topics[0] != logMsgToL2SigHash {
 			continue
 		}
-		var event logMessageToL2
-		err = h.coreContractABI.UnpackIntoInterface(&event, "LogMessageToL2", vLog.Data)
+		payload, nonce, fee, err := abi.UnpackLogMessageToL2(vLog.Data)
 		if err != nil {
 			return nil, jsonrpc.Err(
 				jsonrpc.InternalError,
-				fmt.Sprintf("failed to unpack log, l1 txn hash %s, logIndex %d err: %v",
+				fmt.Sprintf(
+					"failed to unpack log, l1 txn hash %s, position %d in receipt err: %v",
 					txHash.Hex(),
 					i,
 					err,
 				),
 			)
 		}
-		// Extract indexed fields from topics
-		fromAddress := common.HexToAddress(vLog.Topics[1].Hex())
-		event.ToAddress = new(big.Int).SetBytes(vLog.Topics[2].Bytes())
-		selector := new(big.Int).SetBytes(vLog.Topics[3].Bytes())
-		event.FromAddress = &fromAddress
-		event.Selector = selector
+		event := logMessageToL2{
+			FromAddress: eth.AddressFromBytes(vLog.Topics[1].Bytes()),
+			ToAddress:   abi.Word(vLog.Topics[2]),
+			Selector:    abi.Word(vLog.Topics[3]),
+			Payload:     payload,
+			Nonce:       nonce,
+			Fee:         fee,
+		}
 		messageHashes = append(messageHashes, event.hashMessage())
 	}
 	return messageHashes, nil
