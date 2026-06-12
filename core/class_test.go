@@ -771,3 +771,23 @@ func BenchmarkClassV0Hash(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkSierraClassHash measures the Poseidon-based Sierra (Cairo 1) class hash.
+func BenchmarkSierraClassHash(b *testing.B) {
+	client := feeder.NewTestClient(b, &networks.Integration)
+	gw := adaptfeeder.New(client)
+
+	key := "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc"
+	hash := felt.UnsafeFromString[felt.Felt](key)
+	class, err := gw.Class(b.Context(), &hash)
+	require.NoError(b, err)
+	sierra, ok := class.(*core.SierraClass)
+	require.True(b, ok)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_, err := sierra.Hash()
+		require.NoError(b, err)
+	}
+}
