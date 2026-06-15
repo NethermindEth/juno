@@ -88,7 +88,7 @@ func TestWS_SubscribeServerError(t *testing.T) {
 	sink := make(chan *eth.Log, 1)
 	_, err = cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "eth_subscribe")
+	assert.Contains(t, err.Error(), "subscribe to logs")
 	assert.Contains(t, err.Error(), "method not supported")
 }
 

@@ -174,7 +174,7 @@ func TestChainIDFetchError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancel)
 	err := client.Run(ctx)
-	require.ErrorContains(t, err, "retrieving Ethereum chain ID")
+	require.ErrorContains(t, err, "get Ethereum chain id")
 	require.ErrorIs(t, err, rpcErr)
 }
 

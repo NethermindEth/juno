@@ -65,7 +65,7 @@ func Decode(log *eth.Log) (*LogStateUpdate, error) {
 		return nil, ErrWrongTopic
 	}
 	if len(log.Data) != logStateUpdateDataLen {
-		return nil, fmt.Errorf("LogStateUpdate: bad data length %d, want %d",
+		return nil, fmt.Errorf("bad LogStateUpdate data length: got %d, want %d",
 			len(log.Data), logStateUpdateDataLen)
 	}
 	return &LogStateUpdate{
@@ -108,7 +108,10 @@ type LogClient interface {
 // FilterLogStateUpdate returns every LogStateUpdate emitted by contract
 // in the inclusive L1 block range [from, to].
 func FilterLogStateUpdate(
-	ctx context.Context, c LogClient, contract eth.Address, from, to uint64,
+	ctx context.Context,
+	c LogClient,
+	contract eth.Address,
+	from, to uint64,
 ) ([]*LogStateUpdate, error) {
 	logs, err := c.FilterLogs(ctx, client.FilterQuery{
 		FromBlock: &from,
@@ -117,13 +120,13 @@ func FilterLogStateUpdate(
 		Topics:    [][]eth.Hash{{LogStateUpdateSigHash}},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("FilterLogStateUpdate: %w", err)
+		return nil, fmt.Errorf("filter LogStateUpdate: %w", err)
 	}
 	out := make([]*LogStateUpdate, 0, len(logs))
 	for i := range logs {
 		ev, derr := Decode(&logs[i])
 		if derr != nil {
-			return nil, fmt.Errorf("FilterLogStateUpdate: %w", derr)
+			return nil, fmt.Errorf("decode LogStateUpdate: %w", derr)
 		}
 		out = append(out, ev)
 	}
@@ -139,7 +142,10 @@ func FilterLogStateUpdate(
 // Err() — a misformatted log can only mean we're talking to the wrong
 // contract or to a buggy node.
 func WatchLogStateUpdate(
-	ctx context.Context, c LogClient, contract eth.Address, sink chan<- *LogStateUpdate,
+	ctx context.Context,
+	c LogClient,
+	contract eth.Address,
+	sink chan<- *LogStateUpdate,
 ) (eth.Subscription, error) {
 	rawSink := make(chan *eth.Log, watchSinkBuffer)
 	inner, err := c.SubscribeLogs(ctx, client.FilterQuery{
@@ -147,7 +153,7 @@ func WatchLogStateUpdate(
 		Topics:    [][]eth.Hash{{LogStateUpdateSigHash}},
 	}, rawSink)
 	if err != nil {
-		return nil, fmt.Errorf("WatchLogStateUpdate: %w", err)
+		return nil, fmt.Errorf("subscribe to LogStateUpdate: %w", err)
 	}
 	w := &stateUpdateWatcher{
 		inner:  inner,
@@ -203,7 +209,7 @@ func (w *stateUpdateWatcher) run(rawSink <-chan *eth.Log, sink chan<- *LogStateU
 		case raw := <-rawSink:
 			ev, err := Decode(raw)
 			if err != nil {
-				w.fail(fmt.Errorf("WatchLogStateUpdate decode: %w", err))
+				w.fail(fmt.Errorf("decode LogStateUpdate: %w", err))
 				return
 			}
 			select {

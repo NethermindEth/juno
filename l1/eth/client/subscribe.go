@@ -18,7 +18,7 @@ func (c *Client) SubscribeLogs(
 	q FilterQuery,
 	sink chan<- *eth.Log,
 ) (eth.Subscription, error) {
-	return c.tr.(*wsTransport).subscribeLogs(ctx, q, sink)
+	return c.tr.subscribeLogs(ctx, q, sink)
 }
 
 // wsLogSub is the concrete subscription returned by SubscribeLogs.
@@ -101,7 +101,9 @@ func (s *wsLogSub) dispatch() {
 }
 
 func (t *wsTransport) subscribeLogs(
-	ctx context.Context, q FilterQuery, sink chan<- *eth.Log,
+	ctx context.Context,
+	q FilterQuery,
+	sink chan<- *eth.Log,
 ) (*wsLogSub, error) {
 	sub := &wsLogSub{
 		transport: t,
@@ -115,7 +117,7 @@ func (t *wsTransport) subscribeLogs(
 		// Subscribe call failed; drop the pre-registered sub so the
 		// dispatcher never runs.
 		sub.closeOnce.Do(func() { close(sub.closed); close(sub.errCh) })
-		return nil, fmt.Errorf("eth_subscribe: %w", err)
+		return nil, fmt.Errorf("subscribe to logs: %w", err)
 	}
 
 	go sub.dispatch()

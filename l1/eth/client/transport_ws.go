@@ -133,16 +133,18 @@ func (t *wsTransport) dispatchResponse(data []byte) {
 		// Decode the subscription id and register the sub BEFORE the
 		// caller's goroutine wakes up. Otherwise a notification could
 		// race in (the reader processes one frame at a time, but the
-		// caller doesn't get scheduled in lockstep).
+		// caller doesn't get scheduled in lockstep). pendingSub.id is
+		// set under t.mu so callWithSubReg can safely test for it on
+		// the ctx.Done() cleanup path.
 		var subID string
 		if err := json.Unmarshal(resp.Result, &subID); err != nil {
 			reply.err = fmt.Errorf("decode subscription id: %w", err)
 		} else if subID == "" {
 			reply.err = errors.New("empty subscription id")
 		} else {
-			pendingSub.id = subID
 			t.mu.Lock()
 			if t.subs != nil {
+				pendingSub.id = subID
 				t.subs[subID] = pendingSub
 				reply.result = resp.Result
 			} else {
@@ -261,7 +263,10 @@ func (t *wsTransport) call(
 // extracts the subscription id and registers the sub atomically with
 // the reply delivery.
 func (t *wsTransport) callWithSubReg(
-	ctx context.Context, method string, pendingSub *wsLogSub, params ...any,
+	ctx context.Context,
+	method string,
+	pendingSub *wsLogSub,
+	params ...any,
 ) (json.RawMessage, error) {
 	if params == nil {
 		params = []any{}
@@ -272,7 +277,7 @@ func (t *wsTransport) callWithSubReg(
 	t.mu.Lock()
 	if t.pending == nil {
 		t.mu.Unlock()
-		return nil, fmt.Errorf("%s: %w", method, ErrTransportClosed)
+		return nil, ErrTransportClosed
 	}
 	t.pending[id] = ch
 	if pendingSub != nil {
@@ -296,7 +301,7 @@ func (t *wsTransport) callWithSubReg(
 		Params:  params,
 	}); err != nil {
 		deregister()
-		return nil, fmt.Errorf("%s: write: %w", method, err)
+		return nil, fmt.Errorf("write request: %w", err)
 	}
 
 	select {
@@ -307,10 +312,42 @@ func (t *wsTransport) callWithSubReg(
 		}
 		return reply.result, nil
 	case <-ctx.Done():
-		deregister()
+		t.cancelPending(id, pendingSub)
 		return nil, ctx.Err()
 	case <-t.closed:
 		deregister()
-		return nil, fmt.Errorf("%s: %w", method, t.closeErr)
+		return nil, t.closeErr
 	}
+}
+
+// cancelPending tears down a pending call after the caller's ctx fired.
+// If dispatchResponse already registered a subscription, this removes it
+// from t.subs and best-effort tells the server to release its side; the
+// unsubscribe RPC is sent on a fresh background ctx because the caller's
+// ctx is already dead.
+func (t *wsTransport) cancelPending(id uint64, pendingSub *wsLogSub) {
+	var leakedSubID string
+	t.mu.Lock()
+	if t.pending != nil {
+		delete(t.pending, id)
+		delete(t.pendingSubs, id)
+	}
+	if pendingSub != nil && pendingSub.id != "" && t.subs != nil {
+		leakedSubID = pendingSub.id
+		delete(t.subs, leakedSubID)
+	}
+	t.mu.Unlock()
+	if leakedSubID == "" {
+		return
+	}
+	// The sub was registered between dispatchResponse and the caller's
+	// ctx firing; the caller will never call Unsubscribe on it, so we
+	// must. Spawned because we don't want to delay the caller's return
+	// past their cancelled ctx; lifetime is bounded by the unsubscribe
+	// timeout and by t.closed (t.call selects on it).
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
+		defer cancel()
+		_, _ = t.call(ctx, "eth_unsubscribe", leakedSubID)
+	}()
 }

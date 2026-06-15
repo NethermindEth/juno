@@ -96,7 +96,8 @@ func NewClient(
 // subscribeToUpdates blocks until a subscription is established. If context is cancelled,
 // returns nil
 func (c *Client) subscribeToUpdates(
-	ctx context.Context, updateChan chan *StateUpdate,
+	ctx context.Context,
+	updateChan chan *StateUpdate,
 ) eth.Subscription {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
@@ -137,7 +138,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 				chainIDCheckTimeout,
 			)
 		}
-		return fmt.Errorf("retrieving Ethereum chain ID: %w", err)
+		return fmt.Errorf("get Ethereum chain id: %w", err)
 	}
 
 	expectedL1ChainID := c.network.L1ChainID
@@ -195,7 +196,12 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 	if updateSub == nil {
 		return nil
 	}
-	defer updateSub.Unsubscribe()
+	// Closure form so the deferred Unsubscribe targets the *current*
+	// updateSub at function exit; reassigning updateSub during a
+	// resubscribe would otherwise leak the new sub. A plain
+	// `defer updateSub.Unsubscribe()` would also stack a new defer per
+	// reconnect — unbounded growth on a long-running node.
+	defer func() { updateSub.Unsubscribe() }()
 
 	c.logger.Info("Subscribed to L1 updates")
 
@@ -219,7 +225,6 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 					if updateSub == nil {
 						return nil
 					}
-					defer updateSub.Unsubscribe() //nolint:gocritic
 				case update := <-updateChan:
 					c.applyStateUpdate(update)
 				default:
@@ -282,7 +287,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 				heightCallTimeout,
 			)
 		}
-		return fmt.Errorf("failed to get latest height: %w", err)
+		return fmt.Errorf("get latest L1 height: %w", err)
 	}
 
 	finalisedCtx, cancelFinalised := context.WithTimeout(ctx, heightCallTimeout)
@@ -296,7 +301,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 				heightCallTimeout,
 			)
 		}
-		return fmt.Errorf("failed to get finalised height: %w", err)
+		return fmt.Errorf("get finalised L1 height: %w", err)
 	}
 
 	c.logger.Info("L1 catch-up starting",

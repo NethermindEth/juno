@@ -23,10 +23,8 @@ const watchForwarderBuffer = 64
 // written LogStateUpdate decoder (l1/eth/contract) — together they
 // replace the go-ethereum ethclient + abigen pipeline.
 //
-// The same instance also satisfies rpccore.L1Client /
-// rpccore.EthMessagingClient via TransactionReceipt, so node.go can
-// construct one client and hand it to both the L1 sync loop and the
-// RPC handlers.
+// The same instance also satisfies rpccore.L1Client via TransactionReceipt, so node.go
+// can construct one client and hand it to both the L1 sync loop and the RPC handlers.
 type EthSettlement struct {
 	client          *client.Client
 	contractAddress eth.Address
@@ -39,7 +37,10 @@ type EthSettlement struct {
 // scheme; ws/wss is required if the caller intends to use
 // WatchStateUpdate.
 func NewEthSettlement(
-	ctx context.Context, url string, contractAddress eth.Address, opts ...EthSettlementOption,
+	ctx context.Context,
+	url string,
+	contractAddress eth.Address,
+	opts ...EthSettlementOption,
 ) (*EthSettlement, error) {
 	c, err := client.New(ctx, url)
 	if err != nil {
@@ -71,42 +72,47 @@ func WithSettlementListener(l EventListener) EthSettlementOption {
 // them together.
 func (s *EthSettlement) SetListener(l EventListener) { s.listener = l }
 
+// observe wraps an RPC call so OnL1Call fires on both success and
+// failure paths — error rates and latency under failure are as
+// interesting to monitor as success.
+func (s *EthSettlement) observe(method string) func() {
+	t := time.Now()
+	return func() { s.listener.OnL1Call(method, time.Since(t)) }
+}
+
 // ChainID returns the Ethereum chain id (eth_chainId).
 func (s *EthSettlement) ChainID(ctx context.Context) (*big.Int, error) {
-	t := time.Now()
+	defer s.observe("eth_chainId")()
 	id, err := s.client.ChainID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get chain ID: %w", err)
+		return nil, fmt.Errorf("get chain id: %w", err)
 	}
-	s.listener.OnL1Call("eth_chainId", time.Since(t))
 	return id, nil
 }
 
-// FinalisedHeight returns the latest finalised L1 block number. Maps
-// eth.ErrNotFound from the underlying client to a descriptive error
-// matching the legacy behaviour.
+// FinalisedHeight returns the latest finalised L1 block number. A
+// missing finalised header is reported as eth.ErrNotFound so callers
+// can distinguish "node hasn't seen finality yet" from a transport
+// failure.
 func (s *EthSettlement) FinalisedHeight(ctx context.Context) (uint64, error) {
-	t := time.Now()
+	defer s.observe("eth_getBlockByNumber")()
 	h, err := s.client.HeaderByNumber(ctx, client.BlockFinalized)
 	if err != nil {
 		if errors.Is(err, eth.ErrNotFound) {
-			s.listener.OnL1Call("eth_getBlockByNumber", time.Since(t))
-			return 0, errors.New("finalised block not found")
+			return 0, fmt.Errorf("finalised block not found: %w", eth.ErrNotFound)
 		}
 		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
 	}
-	s.listener.OnL1Call("eth_getBlockByNumber", time.Since(t))
 	return uint64(h.Number), nil
 }
 
 // LatestHeight returns the latest known L1 block number (eth_blockNumber).
 func (s *EthSettlement) LatestHeight(ctx context.Context) (uint64, error) {
-	t := time.Now()
+	defer s.observe("eth_blockNumber")()
 	n, err := s.client.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("get latest Ethereum block number: %w", err)
 	}
-	s.listener.OnL1Call("eth_blockNumber", time.Since(t))
 	return n, nil
 }
 
@@ -114,15 +120,13 @@ func (s *EthSettlement) LatestHeight(ctx context.Context) (uint64, error) {
 // the chain-neutral StateUpdate shape.
 func (s *EthSettlement) FilterStateUpdate(
 	ctx context.Context,
-	from,
-	to uint64,
+	from, to uint64,
 ) ([]*StateUpdate, error) {
-	t := time.Now()
+	defer s.observe("eth_getLogs")()
 	events, err := contract.FilterLogStateUpdate(ctx, s.client, s.contractAddress, from, to)
 	if err != nil {
 		return nil, fmt.Errorf("filter LogStateUpdate [%d,%d]: %w", from, to, err)
 	}
-	s.listener.OnL1Call("eth_getLogs", time.Since(t))
 	out := make([]*StateUpdate, len(events))
 	for i, ev := range events {
 		out[i] = stateUpdateFromContract(ev)
@@ -134,7 +138,8 @@ func (s *EthSettlement) FilterStateUpdate(
 // forwards each one (decoded into StateUpdate, with felt conversion
 // already applied) on sink. Requires a ws/wss endpoint.
 func (s *EthSettlement) WatchStateUpdate(
-	ctx context.Context, sink chan<- *StateUpdate,
+	ctx context.Context,
+	sink chan<- *StateUpdate,
 ) (eth.Subscription, error) {
 	raw := make(chan *contract.LogStateUpdate, watchForwarderBuffer)
 	inner, err := contract.WatchLogStateUpdate(ctx, s.client, s.contractAddress, raw)
@@ -158,12 +163,11 @@ func (s *EthSettlement) TransactionReceipt(
 	ctx context.Context,
 	txHash eth.Hash,
 ) (*eth.Receipt, error) {
-	t := time.Now()
+	defer s.observe("eth_getTransactionReceipt")()
 	r, err := s.client.TransactionReceipt(ctx, txHash)
 	if err != nil {
-		return nil, fmt.Errorf("get eth transaction receipt: %w", err)
+		return nil, fmt.Errorf("get transaction receipt: %w", err)
 	}
-	s.listener.OnL1Call("eth_getTransactionReceipt", time.Since(t))
 	return r, nil
 }
 

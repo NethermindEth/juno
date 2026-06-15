@@ -96,7 +96,7 @@ func TestDecode_BadDataLength(t *testing.T) {
 	}
 	_, err := contract.Decode(log)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "bad data length")
+	assert.Contains(t, err.Error(), "bad LogStateUpdate data length")
 }
 
 // fakeLogClient is a hand-written LogClient for the Filter/Watch tests.
@@ -158,7 +158,7 @@ func TestFilterLogStateUpdate_DecodeFailureSurfaces(t *testing.T) {
 	_, err := contract.FilterLogStateUpdate(t.Context(), fc,
 		eth.Address{}, 0, 1)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "bad data length")
+	assert.Contains(t, err.Error(), "bad LogStateUpdate data length")
 }
 
 func TestFilterLogStateUpdate_FilterErr(t *testing.T) {

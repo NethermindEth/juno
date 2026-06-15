@@ -29,7 +29,7 @@ type methodResponse struct {
 	rpcErr *client.TestRPCError
 }
 
-// captureHandler installs a TestHandler that records every request and
+// captureHandler installs a client.TestHandler that records every request and
 // dispatches by method to a per-method static response. Methods not in
 // the map fall through to a "method not found" error.
 func captureHandler(
@@ -105,7 +105,7 @@ func TestChainID_ServerError(t *testing.T) {
 
 	_, err := cli.ChainID(t.Context())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "eth_chainId")
+	assert.Contains(t, err.Error(), "chain id")
 	assert.Contains(t, err.Error(), "internal error")
 }
 
@@ -365,7 +365,7 @@ func TestFilterLogs_ServerError(t *testing.T) {
 		ToBlock:   ptr(uint64(1_000_000)),
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "eth_getLogs")
+	assert.Contains(t, err.Error(), "filter logs")
 	assert.Contains(t, err.Error(), "10000 results")
 }
 
