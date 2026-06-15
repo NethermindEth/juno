@@ -111,7 +111,8 @@ func (t *wsTransport) dispatch(data []byte) {
 		// remote shows up as a call timeout to the caller; the log
 		// is how operators distinguish "upstream silent" from
 		// "upstream sending garbage".
-		t.logger.Trace("ws: drop unparseable frame",
+		t.logger.Trace(
+			"ws: drop unparseable frame",
 			zap.Int("bytes", len(data)),
 			zap.Error(err),
 		)
@@ -123,7 +124,8 @@ func (t *wsTransport) dispatch(data []byte) {
 	case len(probe.ID) > 0 && !bytes.Equal(probe.ID, jsonNull):
 		t.dispatchResponse(data)
 	default:
-		t.logger.Trace("ws: drop frame with no id and no recognised method",
+		t.logger.Trace(
+			"ws: drop frame with no id and no recognised method",
 			zap.ByteString("method", []byte(probe.Method)),
 		)
 	}
@@ -132,7 +134,8 @@ func (t *wsTransport) dispatch(data []byte) {
 func (t *wsTransport) dispatchResponse(data []byte) {
 	var resp rpcResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
-		t.logger.Trace("ws: drop response (decode failed)",
+		t.logger.Trace(
+			"ws: drop response (decode failed)",
 			zap.Int("bytes", len(data)),
 			zap.Error(err),
 		)
@@ -140,7 +143,8 @@ func (t *wsTransport) dispatchResponse(data []byte) {
 	}
 	id, err := parseResponseID(resp.ID)
 	if err != nil {
-		t.logger.Trace("ws: drop response (bad id)",
+		t.logger.Trace(
+			"ws: drop response (bad id)",
 			zap.ByteString("rawID", resp.ID),
 			zap.Error(err),
 		)
@@ -159,7 +163,8 @@ func (t *wsTransport) dispatchResponse(data []byte) {
 		// cleaned up, or the server is replying to a request we
 		// never sent. Either way nothing actionable; log so an
 		// operator can correlate against client-side cancellations.
-		t.logger.Trace("ws: drop response (no pending caller)",
+		t.logger.Trace(
+			"ws: drop response (no pending caller)",
 			zap.Uint64("id", id),
 		)
 		return
@@ -213,7 +218,8 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 		} `json:"params"`
 	}
 	if err := json.Unmarshal(data, &notif); err != nil {
-		t.logger.Trace("ws: drop notification (decode failed)",
+		t.logger.Trace(
+			"ws: drop notification (decode failed)",
 			zap.Int("bytes", len(data)),
 			zap.Error(err),
 		)
@@ -226,7 +232,8 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 		// Server may emit one more notification between our
 		// eth_unsubscribe send and the server processing it; harmless,
 		// but log so it's visible.
-		t.logger.Trace("ws: drop notification for unknown subscription",
+		t.logger.Trace(
+			"ws: drop notification for unknown subscription",
 			zap.String("subscription", notif.Params.Subscription),
 		)
 		return
@@ -339,6 +346,12 @@ func (t *wsTransport) callWithSubReg(
 		Params:  params,
 	}); err != nil {
 		deregister()
+		// If the write failed because the caller's ctx was cancelled,
+		// surface the ctx error verbatim — that's what the caller is
+		// going to check for.
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 		return nil, fmt.Errorf("write request: %w", err)
 	}
 
@@ -346,6 +359,16 @@ func (t *wsTransport) callWithSubReg(
 	case reply := <-ch:
 		// dispatchResponse already removed our entry; deregister is a no-op.
 		if reply.err != nil {
+			// Same race as the t.closed branch below: a cancelled-ctx
+			// write can tear down the conn, the readLoop's Read fails,
+			// and shutdown fans that error out to every pending caller
+			// via ch — so <-ch and <-ctx.Done() are ready together and
+			// the select picks at random. The caller asked about their
+			// ctx; honour that rather than surfacing the resulting
+			// "use of closed network connection".
+			if cerr := ctx.Err(); cerr != nil {
+				return nil, cerr
+			}
 			return nil, reply.err
 		}
 		return reply.result, nil
@@ -354,6 +377,14 @@ func (t *wsTransport) callWithSubReg(
 		return nil, ctx.Err()
 	case <-t.closed:
 		deregister()
+		// Race: a cancelled-ctx write into coder/websocket can tear
+		// down the underlying conn, which makes t.closed and
+		// ctx.Done() ready simultaneously — select picks at random.
+		// The caller asked about their ctx; honour that rather than
+		// surfacing the transport's "use of closed network connection".
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 		return nil, t.closeErr
 	}
 }
@@ -387,7 +418,8 @@ func (t *wsTransport) cancelPending(id uint64, pendingSub *wsLogSub) {
 		ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
 		defer cancel()
 		if _, err := t.call(ctx, "eth_unsubscribe", leakedSubID); err != nil {
-			t.logger.Trace("ws: best-effort eth_unsubscribe failed",
+			t.logger.Trace(
+				"ws: best-effort eth_unsubscribe failed",
 				zap.String("subscription", leakedSubID),
 				zap.Error(err),
 			)

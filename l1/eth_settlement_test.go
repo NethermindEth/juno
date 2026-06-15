@@ -28,6 +28,7 @@ func (r *recordingListener) OnL1Call(method string, _ time.Duration) {
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, method)
 }
+
 func (r *recordingListener) Methods() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -46,8 +47,7 @@ func (r *recordingListener) Methods() []string {
 func TestEthSettlement_RedialsAfterTransportClosed(t *testing.T) {
 	srv := client.NewTestServer(t)
 	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
-		switch req.Method {
-		case "eth_chainId":
+		if req.Method == "eth_chainId" {
 			return "0x539", nil
 		}
 		return nil, &client.TestRPCError{Code: -32601, Message: req.Method}

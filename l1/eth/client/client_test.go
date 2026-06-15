@@ -385,7 +385,7 @@ func TestMethods_ContextCancelled(t *testing.T) {
 
 	_, err := cli.ChainID(ctx)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, context.Canceled))
+	assert.True(t, errors.Is(err, context.Canceled), "got: %v", err)
 }
 
 // --- helpers ---
