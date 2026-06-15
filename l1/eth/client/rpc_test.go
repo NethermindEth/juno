@@ -73,6 +73,37 @@ func TestDecodeResponse_IDMismatch(t *testing.T) {
 	require.ErrorIs(t, err, client.ErrIDMismatch)
 }
 
+// TestDecodeResponse_StringID covers spec-tolerance for servers that
+// echo our outgoing uint64 as a JSON string. Matches juno's own
+// jsonrpc/server.go which accepts both shapes.
+func TestDecodeResponse_StringID(t *testing.T) {
+	body := []byte(`{"jsonrpc":"2.0","id":"7","result":"0x539"}`)
+	result, err := client.DecodeResponse(body, 7)
+	require.NoError(t, err)
+	assert.JSONEq(t, `"0x539"`, string(result))
+}
+
+// TestDecodeResponse_NullID rejects null ids — a null id in a response
+// signals a server-side parse failure, not "my reply matches your
+// request". Treat it as an id mismatch so callers don't accidentally
+// consume the result.
+func TestDecodeResponse_NullID(t *testing.T) {
+	body := []byte(`{"jsonrpc":"2.0","id":null,"result":"0x1"}`)
+	_, err := client.DecodeResponse(body, 1)
+	require.Error(t, err)
+	require.ErrorIs(t, err, client.ErrIDMismatch)
+}
+
+// TestDecodeResponse_NonNumericStringID rejects non-numeric string ids
+// since our outgoing ids are always uint64-shaped — anything else can't
+// possibly match.
+func TestDecodeResponse_NonNumericStringID(t *testing.T) {
+	body := []byte(`{"jsonrpc":"2.0","id":"abc","result":"0x1"}`)
+	_, err := client.DecodeResponse(body, 1)
+	require.Error(t, err)
+	require.ErrorIs(t, err, client.ErrIDMismatch)
+}
+
 func TestDecodeResponse_MalformedJSON(t *testing.T) {
 	_, err := client.DecodeResponse([]byte(`{"jsonrpc":"2.0","id":1`), 1)
 	require.Error(t, err)

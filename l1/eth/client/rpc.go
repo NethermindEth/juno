@@ -1,19 +1,25 @@
 // Package client speaks JSON-RPC 2.0 to an Ethereum execution-layer node
-// over HTTP or WebSocket. It implements the small surface juno needs to
-// follow the L1 head and serve starknet_getMessageStatus — it is not a
-// general-purpose Ethereum RPC library.
+// over WebSocket. It implements the small surface juno needs to follow
+// the L1 head and serve starknet_getMessageStatus — it is not a
+// general-purpose Ethereum RPC library. WebSocket-only because
+// subscribe-based log delivery (eth_subscribe) requires a long-lived
+// connection that HTTP doesn't provide; unary calls share the same conn.
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 const jsonrpcVersion = "2.0"
 
 // rpcRequest is the JSON-RPC 2.0 request envelope. Params is always an
-// array; methods with no arguments serialise "params":[].
+// array; methods with no arguments serialise "params":[]. ID is always
+// uint64 on the way out; we accept either number- or string-shaped ids
+// on the response (see parseResponseID).
 type rpcRequest struct {
 	JSONRPC string `json:"jsonrpc"`
 	ID      uint64 `json:"id"`
@@ -32,10 +38,12 @@ type RPCError struct {
 }
 
 // rpcResponse is the JSON-RPC 2.0 response envelope. A well-formed
-// response carries either Result or Error, never both.
+// response carries either Result or Error, never both. ID is kept as
+// json.RawMessage so we can match both `42` and `"42"` shapes against
+// our outgoing uint64 — the spec permits either, and providers diverge.
 type rpcResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      uint64          `json:"id"`
+	ID      json.RawMessage `json:"id,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *RPCError       `json:"error,omitempty"`
 }
@@ -52,6 +60,27 @@ func (e *RPCError) Error() string {
 // request than the one we sent.
 var ErrIDMismatch = errors.New("response id mismatch")
 
+// parseResponseID parses a JSON-RPC response id into uint64. The spec
+// allows id to be number, string, or null; servers vary, so accept
+// number ("42") and string ("\"42\"") shapes and reject everything
+// else (null included — null id means the server couldn't determine
+// which request it was answering).
+func parseResponseID(raw json.RawMessage) (uint64, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, jsonNull) {
+		return 0, errors.New("missing or null id")
+	}
+	// Strip a pair of surrounding quotes if the id is string-shaped.
+	if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"' {
+		trimmed = trimmed[1 : len(trimmed)-1]
+	}
+	n, err := strconv.ParseUint(string(trimmed), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse id %q: %w", raw, err)
+	}
+	return n, nil
+}
+
 // DecodeResponse parses a single JSON-RPC response body and returns the
 // raw Result payload. A server-side RPCError is returned verbatim so
 // callers can match on Code if needed; the methods layer is responsible
@@ -63,8 +92,12 @@ func DecodeResponse(body []byte, reqID uint64) (json.RawMessage, error) {
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	if resp.ID != reqID {
-		return nil, fmt.Errorf("%w: got %d, want %d", ErrIDMismatch, resp.ID, reqID)
+	id, err := parseResponseID(resp.ID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrIDMismatch, err)
+	}
+	if id != reqID {
+		return nil, fmt.Errorf("%w: got %d, want %d", ErrIDMismatch, id, reqID)
 	}
 	if resp.Error != nil {
 		return nil, resp.Error

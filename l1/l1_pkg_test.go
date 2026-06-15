@@ -994,3 +994,100 @@ func TestSubscribeRetryReturnsPromptlyOnCancel(t *testing.T) {
 			"Run stalled in subscribeToUpdates retry after ctx cancel")
 	})
 }
+
+// TestCancelDuringMidStreamResubscribeDoesNotPanic is a regression for
+// a nil-deref panic observed on ctrl-C: the first WatchStateUpdate
+// succeeds, the subscription later errors out (transport drop), the
+// inner resubscribe loop fails repeatedly, ctx is cancelled during a
+// retry, watchL1StateUpdates returns nil — and the deferred
+// `updateSub.Unsubscribe()` would deref a nil sub from the failed
+// resubscribe attempt.
+//
+// Goal: Run() returns cleanly with no panic.
+//
+// Real-time (not synctest) because the bug surfaces via a deferred
+// nil-deref at function exit, which we want to trigger on the real
+// scheduler.
+func TestCancelDuringMidStreamResubscribeDoesNotPanic(t *testing.T) {
+	t.Parallel()
+	ctrl := gomock.NewController(t)
+	nopLog := log.NewNopZapLogger()
+	network := networks.Mainnet
+	chain := blockchain.New(
+		memory.New(),
+		&network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	subscriber := mocks.NewMockSettlementLayer(ctrl)
+	subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.
+		EXPECT().
+		FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		AnyTimes()
+
+	// First WatchStateUpdate succeeds with a sub that immediately
+	// errors — drives the inner loop into the resubscribe path.
+	boom := errors.New("transport dropped")
+	firstSub := newFakeSubscription(boom)
+	firstCall := subscriber.
+		EXPECT().
+		WatchStateUpdate(gomock.Any(), gomock.Any()).
+		Return(firstSub, nil).
+		Times(1)
+
+	// Resubscribe attempt fails — leaves updateSub at nil in the caller
+	// when ctx is then cancelled, which is exactly the panic path.
+	resubCh := make(chan struct{}, 1)
+	subscriber.
+		EXPECT().
+		WatchStateUpdate(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ chan<- *StateUpdate) (eth.Subscription, error) {
+			select {
+			case resubCh <- struct{}{}:
+			default:
+			}
+			return nil, errors.New("still dead")
+		}).
+		MinTimes(1).
+		After(firstCall)
+
+	subscriber.EXPECT().Close().Times(1)
+
+	client := NewClient(subscriber, chain, nopLog,
+		WithResubscribeDelay(time.Hour),
+		WithPollFinalisedInterval(time.Millisecond),
+	)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- errors.New("panicked")
+			}
+		}()
+		done <- client.Run(ctx)
+	}()
+
+	// Wait until at least one failing resubscribe has happened — by
+	// then watchL1StateUpdates is parked in subscribeToUpdates'
+	// inter-attempt timer.
+	select {
+	case <-resubCh:
+	case <-time.After(2 * time.Second):
+		cancel()
+		t.Fatal("resubscribe never happened")
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		require.NoError(t, err, "Run must return cleanly without panic")
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after cancel")
+	}
+}

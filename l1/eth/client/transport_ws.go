@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,7 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/coder/websocket"
+	"go.uber.org/zap"
 )
 
 const (
@@ -42,6 +45,7 @@ type wsTransport struct {
 	conn    *websocket.Conn
 	writeMu sync.Mutex
 	nextID  atomic.Uint64
+	logger  log.StructuredLogger
 
 	mu      sync.Mutex
 	pending map[uint64]chan rpcReply // by request id
@@ -55,8 +59,12 @@ type wsTransport struct {
 }
 
 // dialWS dials rawURL and starts the reader goroutine. The caller is
-// responsible for calling close to release the connection.
-func dialWS(ctx context.Context, rawURL string) (*wsTransport, error) {
+// responsible for calling close to release the connection. logger may
+// be nil, in which case a no-op logger is used.
+func dialWS(ctx context.Context, rawURL string, logger log.StructuredLogger) (*wsTransport, error) {
+	if logger == nil {
+		logger = log.NewNopZapLogger()
+	}
 	conn, resp, err := websocket.Dial(ctx, rawURL, nil)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
@@ -67,6 +75,7 @@ func dialWS(ctx context.Context, rawURL string) (*wsTransport, error) {
 	conn.SetReadLimit(wsReadLimit)
 	t := &wsTransport{
 		conn:        conn,
+		logger:      logger,
 		pending:     make(map[uint64]chan rpcReply),
 		pendingSubs: make(map[uint64]*wsLogSub),
 		subs:        make(map[string]*wsLogSub),
@@ -98,30 +107,61 @@ func (t *wsTransport) dispatch(data []byte) {
 		Method string          `json:"method,omitempty"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
+		// Malformed top-level JSON — drop the frame. A misbehaving
+		// remote shows up as a call timeout to the caller; the log
+		// is how operators distinguish "upstream silent" from
+		// "upstream sending garbage".
+		t.logger.Trace("ws: drop unparseable frame",
+			zap.Int("bytes", len(data)),
+			zap.Error(err),
+		)
 		return
 	}
 	switch {
 	case probe.Method == "eth_subscription":
 		t.dispatchNotification(data)
-	case len(probe.ID) > 0 && !bytesEqual(probe.ID, jsonNull):
+	case len(probe.ID) > 0 && !bytes.Equal(probe.ID, jsonNull):
 		t.dispatchResponse(data)
+	default:
+		t.logger.Trace("ws: drop frame with no id and no recognised method",
+			zap.ByteString("method", []byte(probe.Method)),
+		)
 	}
 }
 
 func (t *wsTransport) dispatchResponse(data []byte) {
 	var resp rpcResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
+		t.logger.Trace("ws: drop response (decode failed)",
+			zap.Int("bytes", len(data)),
+			zap.Error(err),
+		)
+		return
+	}
+	id, err := parseResponseID(resp.ID)
+	if err != nil {
+		t.logger.Trace("ws: drop response (bad id)",
+			zap.ByteString("rawID", resp.ID),
+			zap.Error(err),
+		)
 		return
 	}
 
 	t.mu.Lock()
-	ch, hasPending := t.pending[resp.ID]
-	delete(t.pending, resp.ID)
-	pendingSub, isSubscribe := t.pendingSubs[resp.ID]
-	delete(t.pendingSubs, resp.ID)
+	ch, hasPending := t.pending[id]
+	delete(t.pending, id)
+	pendingSub, isSubscribe := t.pendingSubs[id]
+	delete(t.pendingSubs, id)
 	t.mu.Unlock()
 
 	if !hasPending {
+		// Either the caller's ctx fired and cancelPending already
+		// cleaned up, or the server is replying to a request we
+		// never sent. Either way nothing actionable; log so an
+		// operator can correlate against client-side cancellations.
+		t.logger.Trace("ws: drop response (no pending caller)",
+			zap.Uint64("id", id),
+		)
 		return
 	}
 
@@ -173,12 +213,22 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 		} `json:"params"`
 	}
 	if err := json.Unmarshal(data, &notif); err != nil {
+		t.logger.Trace("ws: drop notification (decode failed)",
+			zap.Int("bytes", len(data)),
+			zap.Error(err),
+		)
 		return
 	}
 	t.mu.Lock()
 	sub := t.subs[notif.Params.Subscription]
 	t.mu.Unlock()
 	if sub == nil {
+		// Server may emit one more notification between our
+		// eth_unsubscribe send and the server processing it; harmless,
+		// but log so it's visible.
+		t.logger.Trace("ws: drop notification for unknown subscription",
+			zap.String("subscription", notif.Params.Subscription),
+		)
 		return
 	}
 	select {
@@ -186,18 +236,6 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 	case <-sub.closed:
 	case <-t.closed:
 	}
-}
-
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // shutdown is the single termination path. It fans the cause out to
@@ -348,6 +386,11 @@ func (t *wsTransport) cancelPending(id uint64, pendingSub *wsLogSub) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
 		defer cancel()
-		_, _ = t.call(ctx, "eth_unsubscribe", leakedSubID)
+		if _, err := t.call(ctx, "eth_unsubscribe", leakedSubID); err != nil {
+			t.logger.Trace("ws: best-effort eth_unsubscribe failed",
+				zap.String("subscription", leakedSubID),
+				zap.Error(err),
+			)
+		}
 	}()
 }

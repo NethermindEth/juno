@@ -115,7 +115,8 @@ func (c *Client) subscribeToUpdates(
 			if err == nil {
 				return updateSub
 			}
-			c.logger.Debug("Failed to subscribe to L1 state updates",
+			c.logger.Debug(
+				"Failed to subscribe to L1 state updates",
 				zap.Duration("tryAgainIn", c.resubscribeDelay),
 				zap.Error(err),
 			)
@@ -167,7 +168,8 @@ func (c *Client) Run(ctx context.Context) error {
 	// head will lag until the next on-chain LogStateUpdate is observed, which
 	// is acceptable rather terminating the execution.
 	if err := c.catchUpL1HeadUpdates(ctx); err != nil {
-		c.logger.Warn("L1 head catch-up failed; resuming with live subscription only",
+		c.logger.Warn(
+			"L1 head catch-up failed; resuming with live subscription only",
 			zap.Error(err),
 		)
 	}
@@ -201,7 +203,11 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 	// resubscribe would otherwise leak the new sub. A plain
 	// `defer updateSub.Unsubscribe()` would also stack a new defer per
 	// reconnect — unbounded growth on a long-running node.
-	defer func() { updateSub.Unsubscribe() }()
+	defer func() {
+		if updateSub != nil {
+			updateSub.Unsubscribe()
+		}
+	}()
 
 	c.logger.Info("Subscribed to L1 updates")
 
@@ -243,7 +249,8 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 // subscription or the historical filter) into nonFinalisedLogs. A removed
 // log clears all entries at or above its L1 block number.
 func (c *Client) applyStateUpdate(u *StateUpdate) {
-	c.logger.Debug("Received L1 state update",
+	c.logger.Debug(
+		"Received L1 state update",
 		zap.Uint64("l2Block", u.L2BlockNumber),
 		zap.String("stateRoot", u.StateRoot.ShortString()),
 		zap.String("l2BlockHash", u.L2BlockHash.ShortString()),
@@ -304,7 +311,8 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 		return fmt.Errorf("get finalised L1 height: %w", err)
 	}
 
-	c.logger.Info("L1 catch-up starting",
+	c.logger.Info(
+		"L1 catch-up starting",
 		zap.Uint64("latest", latest),
 		zap.Uint64("finalised", finalised),
 		zap.Uint64("chunkSize", c.catchUpChunkSize),
@@ -344,7 +352,8 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 		// Stop once we've captured at least one finalised event (so setL1Head
 		// has something to commit) or we've walked back to genesis.
 		if foundFinalised || from == 0 {
-			c.logger.Info("L1 catch-up complete",
+			c.logger.Info(
+				"L1 catch-up complete",
 				zap.Int("chunks", chunks),
 				zap.Int("events", total),
 				zap.Int("nonFinalisedLogs", len(c.nonFinalisedLogs)),
@@ -416,7 +425,8 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		)
 	}
 	c.listener.OnNewL1Head(head)
-	c.logger.Info("Updated l1 head",
+	c.logger.Info(
+		"Updated l1 head",
 		zap.Uint64("blockNumber", head.BlockNumber),
 		zap.String("blockHash", head.BlockHash.ShortString()),
 		zap.String("stateRoot", head.StateRoot.ShortString()),

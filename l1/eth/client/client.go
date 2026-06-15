@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 // Client is the hand-rolled Ethereum execution-layer client juno uses to
@@ -37,9 +38,24 @@ const (
 // this to eth.ErrNotFound on a per-method basis.
 var jsonNull = []byte("null")
 
+// Option configures Client at construction time.
+type Option func(*options)
+
+type options struct {
+	logger log.StructuredLogger
+}
+
+// WithLogger attaches a debug logger. Used to surface dropped frames,
+// id mismatches, and best-effort eth_unsubscribe failures — the kinds
+// of events that would otherwise vanish into call timeouts. Defaults
+// to a no-op logger.
+func WithLogger(l log.StructuredLogger) Option {
+	return func(o *options) { o.logger = l }
+}
+
 // New dials the endpoint at rawURL. The URL must use the ws:// or
 // wss:// scheme.
-func New(ctx context.Context, rawURL string) (*Client, error) {
+func New(ctx context.Context, rawURL string, opts ...Option) (*Client, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse url: %w", err)
@@ -47,7 +63,11 @@ func New(ctx context.Context, rawURL string) (*Client, error) {
 	if u.Scheme != "ws" && u.Scheme != "wss" {
 		return nil, fmt.Errorf("unsupported url scheme %q (need ws/wss)", u.Scheme)
 	}
-	ws, err := dialWS(ctx, rawURL)
+	o := options{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	ws, err := dialWS(ctx, rawURL, o.logger)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/l1/eth"
+	"go.uber.org/zap"
 )
 
 // SubscribeLogs subscribes to live log events matching q. Incoming
@@ -59,7 +60,16 @@ func (s *wsLogSub) Unsubscribe() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
 	defer cancel()
-	_, _ = s.transport.call(ctx, "eth_unsubscribe", s.id)
+	if _, err := s.transport.call(ctx, "eth_unsubscribe", s.id); err != nil {
+		// Server-side cleanup may have already happened (transport
+		// closed) or the server may simply have dropped the call.
+		// Either way local state is already torn down; debug-log so
+		// it's visible without being noisy.
+		s.transport.logger.Trace("ws: eth_unsubscribe failed",
+			zap.String("subscription", s.id),
+			zap.Error(err),
+		)
+	}
 }
 
 // fail terminates the subscription. cause may be nil for a clean

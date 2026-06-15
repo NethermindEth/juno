@@ -596,7 +596,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		settlement, err := newEthSettlement(cfg.EthNode, n.blockchain)
+		settlement, err := newEthSettlement(cfg.EthNode, n.blockchain, n.logger)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
@@ -635,7 +635,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 // log delivery (eth_subscribe) requires a long-lived connection that
 // HTTP doesn't provide. The listener is attached separately by the
 // caller (after metrics gauges are wired against the same instance).
-func newEthSettlement(ethNode string, chain *blockchain.Blockchain) (*l1.EthSettlement, error) {
+func newEthSettlement(
+	ethNode string,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+) (*l1.EthSettlement, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -649,7 +653,10 @@ func newEthSettlement(ethNode string, chain *blockchain.Blockchain) (*l1.EthSett
 	dialCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	settlement, err := l1.NewEthSettlement(dialCtx, ethNode, chain.Network().CoreContractAddress)
+	settlement, err := l1.NewEthSettlement(
+		dialCtx, ethNode, chain.Network().CoreContractAddress,
+		l1.WithSettlementLogger(logger),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("set up L1 settlement client: %w", err)
 	}
