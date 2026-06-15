@@ -7,11 +7,12 @@ package contract
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/eth/client"
 )
@@ -40,12 +41,15 @@ const watchSinkBuffer = 64
 //
 //	event LogStateUpdate(uint256 globalRoot, int256 blockNumber, uint256 blockHash)
 //
-// BlockNumber is declared as int256 in Solidity and decoded with sign
-// extension; in practice the bridge always emits non-negative values.
+// BlockNumber is declared as int256 in Solidity but the bridge always
+// emits non-negative values that fit in uint64, so we decode it as
+// uint64 (low 8 bytes of the 32-byte word). globalRoot and blockHash
+// are Starknet field elements packed into a uint256 slot, so they
+// land in felt.Felt without going through *big.Int.
 type LogStateUpdate struct {
-	GlobalRoot  *big.Int
-	BlockNumber *big.Int
-	BlockHash   *big.Int
+	GlobalRoot  felt.Felt
+	BlockNumber uint64
+	BlockHash   felt.Felt
 
 	// Raw is the underlying log envelope, preserving the L1 block
 	// number where the event was emitted and the Removed flag set on
@@ -68,29 +72,16 @@ func Decode(log *eth.Log) (*LogStateUpdate, error) {
 		return nil, fmt.Errorf("bad LogStateUpdate data length: got %d, want %d",
 			len(log.Data), logStateUpdateDataLen)
 	}
-	return &LogStateUpdate{
-		GlobalRoot:  new(big.Int).SetBytes(log.Data[0:32]),
-		BlockNumber: decodeInt256(log.Data[32:64]),
-		BlockHash:   new(big.Int).SetBytes(log.Data[64:96]),
+	ev := &LogStateUpdate{
+		// Low 8 bytes of the 32-byte int256 slot. The upper 24 bytes
+		// are silently dropped; the bridge always emits a block number
+		// that fits in uint64.
+		BlockNumber: binary.BigEndian.Uint64(log.Data[56:64]),
 		Raw:         *log,
-	}, nil
-}
-
-// int256Bits is the bit width of the Solidity int256 type. Used by
-// decodeInt256 to compute the two's-complement adjustment for
-// negative values.
-const int256Bits = 256
-
-// decodeInt256 reads a 32-byte big-endian two's-complement signed
-// integer into *big.Int. If the high bit is set, subtract 2^256 to
-// recover the negative value — matching go-ethereum's ABI decoder.
-func decodeInt256(b []byte) *big.Int {
-	n := new(big.Int).SetBytes(b)
-	if b[0]&0x80 != 0 {
-		twoTo256 := new(big.Int).Lsh(big.NewInt(1), int256Bits)
-		n.Sub(n, twoTo256)
 	}
-	return n
+	ev.GlobalRoot.SetBytes(log.Data[0:32])
+	ev.BlockHash.SetBytes(log.Data[64:96])
+	return ev, nil
 }
 
 // LogClient is the slice of *client.Client the contract decoder needs.

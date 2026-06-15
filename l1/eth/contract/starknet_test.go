@@ -3,13 +3,15 @@ package contract_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
-	"math/big"
+	"math"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/eth/client"
 	"github.com/NethermindEth/juno/l1/eth/contract"
@@ -33,7 +35,7 @@ func TestDecode_Success(t *testing.T) {
 	// globalRoot = 0x11..11; blockNumber = 0x539 (1337);
 	// blockHash = 0x22..22.
 	data := bytes.Repeat([]byte{0x11}, 32) // globalRoot
-	data = append(data, leftPad32(big.NewInt(1337).Bytes())...)
+	data = append(data, leftPad32Uint64(1337)...)
 	data = append(data, bytes.Repeat([]byte{0x22}, 32)...) // blockHash
 	require.Len(t, data, 96)
 
@@ -46,32 +48,43 @@ func TestDecode_Success(t *testing.T) {
 
 	ev, err := contract.Decode(log)
 	require.NoError(t, err)
-	assert.Equal(t, new(big.Int).SetBytes(bytes.Repeat([]byte{0x11}, 32)), ev.GlobalRoot)
-	assert.Equal(t, big.NewInt(1337), ev.BlockNumber)
-	assert.Equal(t, new(big.Int).SetBytes(bytes.Repeat([]byte{0x22}, 32)), ev.BlockHash)
+
+	var wantRoot, wantHash felt.Felt
+	wantRoot.SetBytes(bytes.Repeat([]byte{0x11}, 32))
+	wantHash.SetBytes(bytes.Repeat([]byte{0x22}, 32))
+	assert.Equal(t, wantRoot, ev.GlobalRoot)
+	assert.Equal(t, uint64(1337), ev.BlockNumber)
+	assert.Equal(t, wantHash, ev.BlockHash)
 	assert.Equal(t, uint64(1_000), uint64(ev.Raw.BlockNumber))
 	assert.False(t, ev.Raw.Removed)
 }
 
-func TestDecode_NegativeInt256(t *testing.T) {
-	// All-0xFF data is "-1" as int256.
+// TestDecode_BlockNumberTakesLow8Bytes verifies the upper 24 bytes of
+// the int256 slot are dropped (the bridge only ever emits values that
+// fit in uint64, but the on-the-wire slot is 32 bytes). All-0xff in
+// the low 8 bytes must round-trip as math.MaxUint64; the high bytes
+// must not influence the result.
+func TestDecode_BlockNumberTakesLow8Bytes(t *testing.T) {
 	data := make([]byte, 96)
-	for i := range data {
+	// globalRoot — anything decodable.
+	data[31] = 0x01
+	// blockNumber slot [32:64]: upper 24 bytes are noise, low 8 bytes
+	// are math.MaxUint64.
+	for i := 32; i < 56; i++ {
+		data[i] = 0xaa
+	}
+	for i := 56; i < 64; i++ {
 		data[i] = 0xff
 	}
-	log := &eth.Log{
+	// blockHash — anything decodable.
+	data[95] = 0x02
+
+	ev, err := contract.Decode(&eth.Log{
 		Topics: []eth.Hash{contract.LogStateUpdateSigHash},
 		Data:   eth.DataBytes(data),
-	}
-	ev, err := contract.Decode(log)
+	})
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(-1), ev.BlockNumber,
-		"int256 0xff..ff should decode as -1")
-
-	// GlobalRoot/BlockHash are uint256 — unsigned — and stay positive.
-	maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
-	assert.Equal(t, maxU256, ev.GlobalRoot)
-	assert.Equal(t, maxU256, ev.BlockHash)
+	assert.Equal(t, uint64(math.MaxUint64), ev.BlockNumber)
 }
 
 func TestDecode_WrongTopic(t *testing.T) {
@@ -137,8 +150,8 @@ func (f *fakeLogClient) Unsubscribe() {
 func TestFilterLogStateUpdate_DecodesAll(t *testing.T) {
 	fc := &fakeLogClient{
 		filterReturn: []eth.Log{
-			validStateUpdateLog(big.NewInt(1)),
-			validStateUpdateLog(big.NewInt(2)),
+			validStateUpdateLog(1),
+			validStateUpdateLog(2),
 		},
 	}
 	contractAddr := eth.AddressFromString("0x000000000000000000000000000000000000beef")
@@ -146,12 +159,12 @@ func TestFilterLogStateUpdate_DecodesAll(t *testing.T) {
 	got, err := contract.FilterLogStateUpdate(t.Context(), fc, contractAddr, 100, 200)
 	require.NoError(t, err)
 	require.Len(t, got, 2)
-	assert.Equal(t, big.NewInt(1), got[0].BlockNumber)
-	assert.Equal(t, big.NewInt(2), got[1].BlockNumber)
+	assert.Equal(t, uint64(1), got[0].BlockNumber)
+	assert.Equal(t, uint64(2), got[1].BlockNumber)
 }
 
 func TestFilterLogStateUpdate_DecodeFailureSurfaces(t *testing.T) {
-	bad := validStateUpdateLog(big.NewInt(1))
+	bad := validStateUpdateLog(1)
 	bad.Data = bad.Data[:50] // truncated
 	fc := &fakeLogClient{filterReturn: []eth.Log{bad}}
 
@@ -176,17 +189,17 @@ func TestWatchLogStateUpdate_DeliversDecoded(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	// Push two log payloads through the fake's sub sink.
-	for _, n := range []int64{42, 43} {
+	for _, n := range []uint64{42, 43} {
 		fc.mu.Lock()
 		sender := fc.subSink
 		fc.mu.Unlock()
-		raw := validStateUpdateLog(big.NewInt(n))
+		raw := validStateUpdateLog(n)
 		sender <- &raw
 	}
 	got := drainStateUpdates(t, sink, 2, time.Second)
 	require.Len(t, got, 2)
-	assert.Equal(t, big.NewInt(42), got[0].BlockNumber)
-	assert.Equal(t, big.NewInt(43), got[1].BlockNumber)
+	assert.Equal(t, uint64(42), got[0].BlockNumber)
+	assert.Equal(t, uint64(43), got[1].BlockNumber)
 }
 
 func TestWatchLogStateUpdate_DecodeFailureClosesErr(t *testing.T) {
@@ -202,7 +215,7 @@ func TestWatchLogStateUpdate_DecodeFailureClosesErr(t *testing.T) {
 		defer fc.mu.Unlock()
 		return fc.subSink != nil
 	}, time.Second, time.Millisecond)
-	bad := validStateUpdateLog(big.NewInt(1))
+	bad := validStateUpdateLog(1)
 	bad.Data = bad.Data[:1]
 	fc.subSink <- &bad
 
@@ -240,27 +253,29 @@ func TestWatchLogStateUpdate_InnerErrPropagates(t *testing.T) {
 
 // validStateUpdateLog builds an eth.Log with the LogStateUpdate sig
 // hash and a well-formed 96-byte data section. blockNumber is the
-// int256; globalRoot and blockHash are placeholders that vary by
-// blockNumber so different blocks produce different logs (a sanity
+// int256 payload; globalRoot and blockHash are placeholders that vary
+// by blockNumber so different blocks produce different logs (a sanity
 // hook for ordering tests).
-func validStateUpdateLog(blockNumber *big.Int) eth.Log {
+func validStateUpdateLog(blockNumber uint64) eth.Log {
 	data := make([]byte, 0, 96)
 	// globalRoot — use blockNumber as a placeholder.
-	data = append(data, leftPad32(blockNumber.Bytes())...)
+	data = append(data, leftPad32Uint64(blockNumber)...)
 	// blockNumber as int256 (positive values match unsigned encoding).
-	data = append(data, leftPad32(blockNumber.Bytes())...)
+	data = append(data, leftPad32Uint64(blockNumber)...)
 	// blockHash — also placeholder.
-	data = append(data, leftPad32(blockNumber.Bytes())...)
+	data = append(data, leftPad32Uint64(blockNumber)...)
 	return eth.Log{
 		Topics:      []eth.Hash{contract.LogStateUpdateSigHash},
 		Data:        eth.DataBytes(data),
-		BlockNumber: eth.HexU64(blockNumber.Uint64() + 1_000_000),
+		BlockNumber: eth.HexU64(blockNumber + 1_000_000),
 	}
 }
 
-func leftPad32(b []byte) []byte {
+// leftPad32Uint64 encodes n as a 32-byte big-endian uint256 (uint64
+// value zero-extended into the high 24 bytes).
+func leftPad32Uint64(n uint64) []byte {
 	out := make([]byte, 32)
-	copy(out[32-len(b):], b)
+	binary.BigEndian.PutUint64(out[24:], n)
 	return out
 }
 

@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/eth/client"
 	"github.com/NethermindEth/juno/l1/eth/contract"
@@ -175,13 +174,13 @@ func (s *EthSettlement) TransactionReceipt(
 func (s *EthSettlement) Close() { s.client.Close() }
 
 // stateUpdateFromContract translates the on-chain event shape into the
-// chain-neutral StateUpdate. felt conversion happens here so consumers
-// (l1.Client) never see *big.Int.
+// chain-neutral StateUpdate. The contract decoder already lands felts
+// and uint64s in their target types, so this is just a field rename.
 func stateUpdateFromContract(ev *contract.LogStateUpdate) *StateUpdate {
 	return &StateUpdate{
-		L2BlockNumber: ev.BlockNumber.Uint64(),
-		L2BlockHash:   new(felt.Felt).SetBigInt(ev.BlockHash),
-		StateRoot:     new(felt.Felt).SetBigInt(ev.GlobalRoot),
+		L2BlockNumber: ev.BlockNumber,
+		L2BlockHash:   &ev.BlockHash,
+		StateRoot:     &ev.GlobalRoot,
 		L1RefHeight:   uint64(ev.Raw.BlockNumber),
 		Removed:       ev.Raw.Removed,
 	}
