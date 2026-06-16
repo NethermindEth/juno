@@ -514,7 +514,6 @@ func adaptBroadcastedDeployAccountToCore(
 
 // AdaptBroadcastedTransactionToCore adapts a BroadcastedTransaction to a core.Transaction,
 // and populates the transaction hash.
-// @todo add tests for this function.
 func AdaptBroadcastedTransactionToCore(
 	ctx context.Context,
 	broadcastedTxn *BroadcastedTransaction,
