@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/eth/client"
 	"github.com/NethermindEth/juno/l1/eth/contract"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
@@ -257,6 +258,15 @@ func (s *EthSettlement) FilterStateUpdate(
 // forwards each one (decoded into StateUpdate, with felt conversion
 // already applied) on sink. Requires a ws/wss endpoint. Redials the
 // underlying transport if it has been closed.
+//
+// Caller contract: sink MUST be drained promptly. The forwarder hops
+// raw → sink through two 64-deep buffers (the transport's wsLogSubBuffer
+// and our watchForwarderBuffer), but a sink that stalls eventually
+// back-pressures the transport's readLoop and stalls every unary RPC
+// sharing the conn (ChainID, LatestHeight, FilterStateUpdate,
+// TransactionReceipt). l1.Client.watchL1StateUpdates drains updateChan
+// on a per-tick basis (default 1 min) — fine given LogStateUpdate
+// cadence, but a slower drain elsewhere is a hazard.
 func (s *EthSettlement) WatchStateUpdate(
 	ctx context.Context,
 	sink chan<- *StateUpdate,
@@ -385,5 +395,6 @@ func (w *stateUpdateForwarder) run() {
 // is intended to serve, and won't silently lose a method as the
 // surface evolves.
 var (
-	_ SettlementLayer = (*EthSettlement)(nil)
+	_ SettlementLayer  = (*EthSettlement)(nil)
+	_ rpccore.L1Client = (*EthSettlement)(nil)
 )

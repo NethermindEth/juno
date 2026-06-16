@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -83,6 +85,78 @@ func TestEthSettlement_RedialsAfterTransportClosed(t *testing.T) {
 		return err == nil
 	}, 2*time.Second, 20*time.Millisecond,
 		"ChainID should succeed after transport drop via auto-redial")
+}
+
+// TestEthSettlement_DroppingCallRedials is the regression target for the
+// shutdown-cause normalisation fix in the wsTransport. When the conn
+// dies while a call is in flight, the fanned-out cause is the raw
+// read/ping error (io.EOF, ws close, "ws ping: ..."), not
+// ErrTransportClosed. Without normalisation, errors.Is(err, ErrTransportClosed)
+// is false in withRetryOnClosed and **the dropping call itself** surfaces
+// a raw transport error — the redial only kicks in on a subsequent call.
+// One-shot callers like the RPC TransactionReceipt path have no retry
+// loop above them, so this matters.
+//
+// With normalisation, the dropping call itself redials and returns a
+// successful response.
+func TestEthSettlement_DroppingCallRedials(t *testing.T) {
+	var callCount atomic.Int64
+	firstCallStarted := make(chan struct{})
+	releaseFirstCall := make(chan struct{})
+
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+		if req.Method != "eth_chainId" {
+			return nil, &client.TestRPCError{Code: -32601, Message: req.Method}
+		}
+		n := callCount.Add(1)
+		if n == 1 {
+			// First call: signal we've reached the handler, then block
+			// until the test releases us. The conn will be killed in
+			// between — when we unblock and try to write the response,
+			// the conn is gone, so this reply never reaches the client.
+			close(firstCallStarted)
+			<-releaseFirstCall
+		}
+		return "0x539", nil
+	})
+
+	s, err := l1.NewEthSettlement(t.Context(), srv.WSURL(), eth.Address{})
+	require.NoError(t, err)
+	t.Cleanup(s.Close)
+
+	type res struct {
+		id  *big.Int
+		err error
+	}
+	done := make(chan res, 1)
+	go func() {
+		id, err := s.ChainID(t.Context())
+		done <- res{id, err}
+	}()
+
+	// Wait until the first call reaches the handler, then sever the
+	// conn out from under it. The handler is still blocked; the
+	// transport sees the read error and shuts down, fanning the cause
+	// out to the in-flight pending call.
+	select {
+	case <-firstCallStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler never received the first eth_chainId call")
+	}
+	srv.KillWSConns()
+	close(releaseFirstCall) // first handler unblocks; its write is a no-op (conn dead)
+
+	select {
+	case r := <-done:
+		require.NoError(t, r.err,
+			"dropping call must auto-redial; got: %v", r.err)
+		assert.Equal(t, "1337", r.id.String())
+		assert.GreaterOrEqual(t, callCount.Load(), int64(2),
+			"redial must have invoked the handler a second time")
+	case <-time.After(5 * time.Second):
+		t.Fatal("dropping ChainID did not return via auto-redial")
+	}
 }
 
 // TestEthSettlement_AfterCloseReturnsErrClosed verifies Close is

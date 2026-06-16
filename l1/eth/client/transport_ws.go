@@ -24,6 +24,17 @@ const (
 	// wsLogSubBuffer is the per-subscription pending-notification
 	// buffer. Sized so a stuck consumer doesn't immediately stall the
 	// reader, but bounded so an idle subscription doesn't pin memory.
+	//
+	// Liveness invariant: dispatchNotification blocks the single
+	// readLoop goroutine on logCh until the buffer drains, the sub
+	// closes, or the transport closes. While blocked, no responses to
+	// in-flight unary calls are dispatched and no control frames are
+	// processed — meaning a stalled subscription consumer stalls every
+	// unary RPC on the shared conn and eventually trips the ping
+	// timeout. The 64-deep buffer plus infrequent log cadence keep this
+	// safe in practice, but callers MUST drain their subscription sinks
+	// promptly; a sink read on a long ticker (e.g. minute-scale) only
+	// works because the buffer absorbs the gap.
 	wsLogSubBuffer = 64
 
 	// wsUnsubscribeTimeout is how long Unsubscribe waits for the server
@@ -312,10 +323,18 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 
 // shutdown is the single termination path. It fans the cause out to
 // every pending caller and active subscription, then closes the conn.
+//
+// The cause is normalised so that errors.Is(err, ErrTransportClosed) is
+// reliable for every caller observing a close — including the in-flight
+// call that races the disconnect (which would otherwise see the raw
+// read/ping error and skip the redial path in withRetryOnClosed).
 func (t *wsTransport) shutdown(cause error) {
 	t.closeOnce.Do(func() {
-		if cause == nil {
+		switch {
+		case cause == nil:
 			cause = ErrTransportClosed
+		case !errors.Is(cause, ErrTransportClosed):
+			cause = errors.Join(ErrTransportClosed, cause)
 		}
 		t.mu.Lock()
 		pending, pendingSubs, subs := t.pending, t.pendingSubs, t.subs
