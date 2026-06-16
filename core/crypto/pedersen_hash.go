@@ -167,6 +167,7 @@ func (d *PedersenDigest) Finish() felt.Felt {
 }
 
 func pedersen(a, b *fp.Element) fp.Element {
+	recordPedersen(a, b) // MEASUREMENT BRANCH ONLY
 	// Hot path: unlike gnark-crypto's nibble tables, the lower 248 bits are
 	// handled as bytes, so each low window needs one lookup and one mixed add
 	// instead of two nibble lookups/adds. Affine tables let the Jacobian

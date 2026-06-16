@@ -21,6 +21,7 @@ var (
 // HadesPermutation applies the Hades permutation to state in place.
 func HadesPermutation(state *[3]felt.Felt) {
 	poseidonInit.Do(initializePoseidon)
+	recordPoseidon(state) // MEASUREMENT BRANCH ONLY
 	if *state == emptyDataInput {
 		*state = emptyDataOutput
 		return
