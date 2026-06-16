@@ -133,6 +133,23 @@ func (ts *TestServer) PushNotification(ctx context.Context, subID string, payloa
 	return firstErr
 }
 
+// PushRawFrame writes data verbatim to every live websocket connection.
+// Intended for tests that need to exercise the client's tolerance for
+// malformed frames or unsolicited responses — payloads that the server
+// would never legitimately emit. Returns the first write error, if any.
+func (ts *TestServer) PushRawFrame(ctx context.Context, data []byte) error {
+	ts.mu.Lock()
+	conns := append([]*websocket.Conn(nil), ts.wsConns...)
+	ts.mu.Unlock()
+	var firstErr error
+	for _, c := range conns {
+		if werr := c.Write(ctx, websocket.MessageText, data); werr != nil && firstErr == nil {
+			firstErr = werr
+		}
+	}
+	return firstErr
+}
+
 func (ts *TestServer) callHandler(req TestRequest) (any, *TestRPCError) {
 	ts.mu.Lock()
 	h := ts.handler

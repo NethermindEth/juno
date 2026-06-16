@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/eth/client"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,6 +49,25 @@ func captureHandler(
 		return nil, &client.TestRPCError{Code: -32601, Message: "method not found: " + req.Method}
 	})
 	return srv, &captured
+}
+
+// TestNew_WithLogger smoke-tests the WithLogger option — supplying a
+// custom logger must not break construction.
+func TestNew_WithLogger(t *testing.T) {
+	srv := client.NewTestServer(t)
+	c, err := client.New(t.Context(), srv.WSURL(),
+		client.WithLogger(log.NewNopZapLogger()))
+	require.NoError(t, err)
+	t.Cleanup(c.Close)
+}
+
+// TestTestServer_URL guards the http:// scheme returned by URL() — used
+// by future unary-only tests; documents the expected scheme.
+func TestTestServer_URL(t *testing.T) {
+	srv := client.NewTestServer(t)
+	u := srv.URL()
+	assert.Truef(t, strings.HasPrefix(u, "http://"),
+		"URL() must return an http:// URL, got %q", u)
 }
 
 func TestNew_SchemeDispatch(t *testing.T) {
@@ -107,6 +128,86 @@ func TestChainID_ServerError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "chain id")
 	assert.Contains(t, err.Error(), "internal error")
+}
+
+// TestChainID_DecodeErrors exercises decodeQuantityBig's validation
+// branches via the public ChainID surface. Each subtest installs a
+// server that replies with a malformed "quantity" — every branch must
+// produce a "decode quantity" error (rather than panic or return zero).
+func TestChainID_DecodeErrors(t *testing.T) {
+	cases := []struct {
+		name    string
+		raw     any
+		wantSub string
+	}{
+		// JSON decode error: a numeric result, not a string.
+		{"non-string", 1, "decode quantity"},
+		// Missing 0x prefix.
+		{"missing prefix", "abc", "missing 0x prefix"},
+		// Empty body (only "0x", no digits).
+		{"no digits", "0x", "no digits"},
+		// Leading zero (non-minimal encoding).
+		{"leading zero", "0x01", "leading zero"},
+		// Invalid hex digits.
+		{"invalid hex", "0xZZ", "invalid hex"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			srv, _ := captureHandler(t, map[string]methodResponse{
+				"eth_chainId": {result: c.raw},
+			})
+			cli := newTestClient(t, srv)
+
+			_, err := cli.ChainID(t.Context())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), c.wantSub)
+		})
+	}
+}
+
+// TestBlockNumber_DecodeError exercises decodeQuantityUint64's error
+// branch — HexU64 UnmarshalJSON rejects values with no digits, a leading
+// zero, or non-hex characters. Per the current implementation the
+// "decode quantity" wrapper is the outermost message on the decode path
+// (the "get block number" wrapper is only applied to transport-call
+// errors); this test pins that behavior.
+func TestBlockNumber_DecodeError(t *testing.T) {
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_blockNumber": {result: "not-hex"},
+	})
+	cli := newTestClient(t, srv)
+
+	_, err := cli.BlockNumber(t.Context())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode quantity")
+}
+
+// TestFilterLogs_DecodeFailure verifies the FilterLogs error path when
+// the server returns a non-list (e.g. an object) where logs are
+// expected. The wrapping must still identify the method.
+func TestFilterLogs_DecodeFailure(t *testing.T) {
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_getLogs": {result: map[string]any{"unexpected": "shape"}},
+	})
+	cli := newTestClient(t, srv)
+
+	_, err := cli.FilterLogs(t.Context(), client.FilterQuery{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode logs")
+}
+
+// TestTransactionReceipt_DecodeFailure verifies receipt-decode error
+// surfacing. A logs field that isn't an array forces the JSON unmarshal
+// to fail mid-receipt.
+func TestTransactionReceipt_DecodeFailure(t *testing.T) {
+	srv, _ := captureHandler(t, map[string]methodResponse{
+		"eth_getTransactionReceipt": {result: map[string]any{"logs": "not-an-array"}},
+	})
+	cli := newTestClient(t, srv)
+
+	_, err := cli.TransactionReceipt(t.Context(), eth.Hash{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode receipt")
 }
 
 func TestBlockNumber_Success(t *testing.T) {

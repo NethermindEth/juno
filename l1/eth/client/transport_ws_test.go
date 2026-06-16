@@ -314,6 +314,146 @@ func TestWS_PingTimeoutClosesTransport(t *testing.T) {
 	}
 }
 
+// TestWS_SubscribeDispatchDecodeFailure pushes a notification whose
+// payload can't be JSON-decoded as eth.Log. The per-subscription
+// dispatch goroutine must surface the decode error on Err() — without
+// this, a single malformed event would silently disappear (sink stays
+// empty, Err() never fires, caller waits forever).
+func TestWS_SubscribeDispatchDecodeFailure(t *testing.T) {
+	const subID = "0xc0de"
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+		switch req.Method {
+		case "eth_subscribe":
+			return subID, nil
+		case "eth_unsubscribe":
+			return true, nil
+		}
+		return nil, &client.TestRPCError{Code: -32601, Message: req.Method}
+	})
+
+	cli, err := client.New(t.Context(), srv.WSURL())
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	sink := make(chan *eth.Log, 1)
+	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
+	require.NoError(t, err)
+	defer sub.Unsubscribe()
+
+	// topics expects an array of hex strings; a string here forces the
+	// eth.Log unmarshal to fail.
+	require.NoError(t, srv.PushNotification(t.Context(), subID, map[string]any{
+		"topics": "not-an-array",
+	}))
+
+	select {
+	case errOut, open := <-sub.Err():
+		assert.True(t, open, "Err() must deliver the cause before closing")
+		require.Error(t, errOut)
+		assert.Contains(t, errOut.Error(), "decode log")
+	case <-time.After(2 * time.Second):
+		t.Fatal("Err() did not fire on undecodable notification payload")
+	}
+}
+
+// TestWS_DispatchDropsMalformedFrames verifies the readLoop's defensive
+// posture: a malformed frame (unparseable JSON, frame with no id and no
+// recognised method, response with bad/unknown id) must be dropped
+// without tearing the transport down. Without this guarantee a single
+// confused upstream takes the entire client offline.
+func TestWS_DispatchDropsMalformedFrames(t *testing.T) {
+	const subID = "0xabc"
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+		switch req.Method {
+		case "eth_subscribe":
+			return subID, nil
+		case "eth_unsubscribe":
+			return true, nil
+		case "eth_chainId":
+			return "0x1", nil
+		}
+		return nil, &client.TestRPCError{Code: -32601, Message: req.Method}
+	})
+
+	cli, err := client.New(t.Context(), srv.WSURL())
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	// Open a subscription so an active sub exists when we push the
+	// notification-with-unknown-sub frame below.
+	sink := make(chan *eth.Log, 1)
+	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
+	require.NoError(t, err)
+	defer sub.Unsubscribe()
+
+	frames := [][]byte{
+		// Unparseable top-level JSON.
+		[]byte(`{not json`),
+		// No id and no recognised method → "drop frame" branch.
+		[]byte(`{"jsonrpc":"2.0","method":"unknown_method"}`),
+		// Response with a string id that isn't numeric — parseResponseID errors.
+		[]byte(`{"jsonrpc":"2.0","id":"not-a-number","result":"0x1"}`),
+		// Response with a numeric id that doesn't match any in-flight call.
+		[]byte(`{"jsonrpc":"2.0","id":999999,"result":"0x1"}`),
+		// Notification for an unknown subscription id.
+		[]byte(`{"jsonrpc":"2.0","method":"eth_subscription",` +
+			`"params":{"subscription":"0xdead","result":{}}}`),
+		// Notification with broken envelope (decode fails on params).
+		[]byte(`{"jsonrpc":"2.0","method":"eth_subscription","params":"oops"}`),
+		// Response with malformed body (id present, but result not decodable as JSON).
+		[]byte(`{"jsonrpc":"2.0","id":1,"result":`),
+	}
+	for _, f := range frames {
+		require.NoError(t, srv.PushRawFrame(t.Context(), f),
+			"server-side write should not fail")
+	}
+
+	// The transport must still serve calls — neither the malformed
+	// frames nor the unknown-sub notification should have torn it down.
+	id, err := cli.ChainID(t.Context())
+	require.NoError(t, err, "transport must survive every malformed frame")
+	assert.Equal(t, "1", id.String())
+
+	// Active subscription's Err() must NOT have fired.
+	select {
+	case e, open := <-sub.Err():
+		t.Fatalf("subscription Err() fired unexpectedly (open=%v err=%v)", open, e)
+	default:
+	}
+}
+
+// TestWS_CallReturnsCtxErrAfterCancellation exercises the
+// cancelPending path on a call whose subscribe response never arrived
+// (no pendingSub.id set → "leakedSubID == \"\"" branch). The handler
+// blocks, the caller cancels its ctx, the call returns ctx.Canceled.
+func TestWS_CallReturnsCtxErrAfterCancellation(t *testing.T) {
+	gate := make(chan struct{})
+	t.Cleanup(func() { close(gate) })
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(_ client.TestRequest) (any, *client.TestRPCError) {
+		<-gate
+		return "0xfeed", nil
+	})
+
+	cli, err := client.New(t.Context(), srv.WSURL())
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		cancel()
+	}()
+	sink := make(chan *eth.Log, 1)
+	_, err = cli.SubscribeLogs(ctx, client.FilterQuery{}, sink)
+	require.Error(t, err)
+	// cancelPending ran for a subscribe with no id yet — the leakedSubID
+	// branch must NOT have spawned a goroutine for empty-id cleanup.
+	assert.True(t, errors.Is(err, context.Canceled), "expected ctx.Canceled, got %v", err)
+}
+
 // receiveLogs drains up to n logs from sink with a timeout. Returns
 // what it got; the caller asserts count and contents.
 func receiveLogs(t *testing.T, sink <-chan *eth.Log, n int, timeout time.Duration) []*eth.Log {
