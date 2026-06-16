@@ -480,7 +480,8 @@ func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt
 		calldataHash := crypto.PoseidonArray(i.CallData...)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode))
 
-		hashElems := []*felt.Felt{
+		var digest crypto.PoseidonDigest
+		digest.Update(
 			invokeFelt,
 			i.Version.AsFelt(),
 			i.SenderAddress,
@@ -491,19 +492,18 @@ func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt
 			&daMode,
 			&accountDeploymentDataHash,
 			&calldataHash,
-		}
+		)
 
 		if len(i.ProofFacts) > 0 {
-			proofFacts := make([]*felt.Felt, len(i.ProofFacts))
-			for i, proofFact := range i.ProofFacts {
-				proofFacts[i] = &proofFact
+			var proofFactsDigest crypto.PoseidonDigest
+			for j := range i.ProofFacts {
+				proofFactsDigest.Update(&i.ProofFacts[j])
 			}
-
-			proofFactsHash := crypto.PoseidonArray(proofFacts...)
-			hashElems = append(hashElems, &proofFactsHash)
+			proofFactsHash := proofFactsDigest.Finish()
+			digest.Update(&proofFactsHash)
 		}
 
-		return crypto.PoseidonArray(hashElems...), nil
+		return digest.Finish(), nil
 	default:
 		return felt.Felt{}, errInvalidTransactionVersion(i, i.Version)
 	}
@@ -513,19 +513,17 @@ func tipAndResourcesHash(tip uint64, resourceBounds map[Resource]ResourceBounds)
 	l1Bounds := felt.FromBytes[felt.Felt](resourceBounds[ResourceL1Gas].Bytes(ResourceL1Gas))
 	l2Bounds := felt.FromBytes[felt.Felt](resourceBounds[ResourceL2Gas].Bytes(ResourceL2Gas))
 	tipFelt := felt.FromUint64[felt.Felt](tip)
-	elems := []*felt.Felt{
-		&tipFelt,
-		&l1Bounds,
-		&l2Bounds,
-	}
+
+	var digest crypto.PoseidonDigest
+	digest.Update(&tipFelt, &l1Bounds, &l2Bounds)
 
 	// l1_data_gas resource bounds were added in 0.13.4
 	if bounds, ok := resourceBounds[ResourceL1DataGas]; ok && bounds.MaxPricePerUnit != nil {
 		l1DataBounds := felt.FromBytes[felt.Felt](bounds.Bytes(ResourceL1DataGas))
-		elems = append(elems, &l1DataBounds)
+		digest.Update(&l1DataBounds)
 	}
 
-	return crypto.PoseidonArray(elems...)
+	return digest.Finish()
 }
 
 func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) uint64 {

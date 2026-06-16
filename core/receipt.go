@@ -54,17 +54,18 @@ func (r *TransactionReceipt) hash() felt.Felt {
 }
 
 func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
-	chain := []*felt.Felt{
-		felt.NewFromUint64[felt.Felt](uint64(len(messages))),
-	}
+	var digest crypto.PoseidonDigest
+	var count, msgTo, payloadSize felt.Felt
+	count.SetUint64(uint64(len(messages)))
+	digest.Update(&count)
 	for _, msg := range messages {
-		msgTo := felt.FromBytes[felt.Felt](msg.To.Bytes())
-		payloadSize := felt.FromUint64[felt.Felt](uint64(len(msg.Payload)))
-		chain = append(chain, msg.From, &msgTo, &payloadSize)
-		chain = append(chain, msg.Payload...)
+		msgTo.SetBytes(msg.To.Bytes())
+		payloadSize.SetUint64(uint64(len(msg.Payload)))
+		digest.Update(msg.From, &msgTo, &payloadSize)
+		digest.Update(msg.Payload...)
 	}
 
-	return crypto.PoseidonArray(chain...)
+	return digest.Finish()
 }
 
 func receiptCommitment(receipts []*TransactionReceipt, backend TempTrieBackend) (felt.Felt, error) {
