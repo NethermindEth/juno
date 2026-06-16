@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/coder/websocket"
@@ -25,6 +26,9 @@ type TestServer struct {
 	mu      sync.Mutex
 	handler TestHandler
 	wsConns []*websocket.Conn
+
+	pingsReceived atomic.Int64
+	dropPings     atomic.Bool
 }
 
 // TestHandler returns the JSON-RPC reply for a single request. result
@@ -162,8 +166,24 @@ func (ts *TestServer) serveOnePost(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// PingsReceived returns the total number of websocket ping frames the
+// server has received across all live connections.
+func (ts *TestServer) PingsReceived() int64 { return ts.pingsReceived.Load() }
+
+// SetDropPings, when true, makes the server count incoming pings but
+// suppress the automatic pong reply — used to provoke client-side ping
+// timeouts.
+func (ts *TestServer) SetDropPings(b bool) { ts.dropPings.Store(b) }
+
 func (ts *TestServer) serveWebsocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := websocket.Accept(w, r, nil)
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		OnPingReceived: func(_ context.Context, _ []byte) bool {
+			ts.pingsReceived.Add(1)
+			// Return true to let coder/websocket auto-reply with a pong,
+			// false to drop it silently.
+			return !ts.dropPings.Load()
+		},
+	})
 	if err != nil {
 		return
 	}

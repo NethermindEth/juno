@@ -258,6 +258,62 @@ func TestWS_SubscribeOmitsBlockRange(t *testing.T) {
 	)
 }
 
+// TestWS_PingLoopFires verifies the transport sends idle keep-alive
+// pings without provocation. Without this, intermediaries with a TCP
+// idle timeout (Cloudflare, Alchemy, et al.) close the conn after a few
+// minutes of no notifications and we churn through reconnect cycles.
+func TestWS_PingLoopFires(t *testing.T) {
+	srv := client.NewTestServer(t)
+	cli, err := client.New(t.Context(), srv.WSURL(),
+		client.WithPingConfig(20*time.Millisecond, time.Second),
+	)
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	require.Eventually(t, func() bool {
+		return srv.PingsReceived() >= 3
+	}, 2*time.Second, 10*time.Millisecond,
+		"expected >= 3 pings within window; got %d", srv.PingsReceived())
+}
+
+// TestWS_PingTimeoutClosesTransport verifies that when the server stops
+// honouring pings, the client tears the transport down via the same
+// path as a read error. The active subscription's Err() must fire so
+// the redial loop above takes over.
+func TestWS_PingTimeoutClosesTransport(t *testing.T) {
+	const subID = "0xfade"
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+		switch req.Method {
+		case "eth_subscribe":
+			return subID, nil
+		case "eth_unsubscribe":
+			return true, nil
+		}
+		return nil, &client.TestRPCError{Code: -32601, Message: req.Method}
+	})
+	srv.SetDropPings(true)
+
+	cli, err := client.New(t.Context(), srv.WSURL(),
+		client.WithPingConfig(20*time.Millisecond, 50*time.Millisecond),
+	)
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	sink := make(chan *eth.Log, 1)
+	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
+	require.NoError(t, err)
+	defer sub.Unsubscribe()
+
+	select {
+	case err, open := <-sub.Err():
+		assert.True(t, open, "Err() should deliver an error before closing")
+		assert.Error(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("subscription Err() did not fire after ping timeout")
+	}
+}
+
 // receiveLogs drains up to n logs from sink with a timeout. Returns
 // what it got; the caller asserts count and contents.
 func receiveLogs(t *testing.T, sink <-chan *eth.Log, n int, timeout time.Duration) []*eth.Log {

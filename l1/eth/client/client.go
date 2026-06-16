@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"time"
 
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils/log"
@@ -42,7 +43,9 @@ var jsonNull = []byte("null")
 type Option func(*options)
 
 type options struct {
-	logger log.StructuredLogger
+	logger       log.StructuredLogger
+	pingInterval time.Duration
+	pingTimeout  time.Duration
 }
 
 // WithLogger attaches a debug logger. Used to surface dropped frames,
@@ -67,7 +70,7 @@ func New(ctx context.Context, rawURL string, opts ...Option) (*Client, error) {
 	for _, opt := range opts {
 		opt(&o)
 	}
-	ws, err := dialWS(ctx, rawURL, o.logger)
+	ws, err := dialWS(ctx, rawURL, o)
 	if err != nil {
 		return nil, err
 	}

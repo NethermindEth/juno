@@ -29,6 +29,19 @@ const (
 	// wsUnsubscribeTimeout is how long Unsubscribe waits for the server
 	// to acknowledge eth_unsubscribe before giving up.
 	wsUnsubscribeTimeout = 2 * time.Second
+
+	// wsPingInterval is how long the connection may sit idle before we
+	// send a keep-alive ping. Matches go-ethereum's rpc/websocket.go
+	// constant — that value has held up against every major hosted RPC
+	// provider (Alchemy, Infura, QuickNode) and any Cloudflare-class
+	// proxy in front of them.
+	wsPingInterval = 30 * time.Second
+
+	// wsPingTimeout bounds a single ping round-trip. A wedged write or
+	// stalled pong reply trips this and tears the transport down via
+	// the same path as a read error, instead of letting the reader
+	// silently hang.
+	wsPingTimeout = 10 * time.Second
 )
 
 // rpcReply is the message exchanged on a pending-call channel: either
@@ -53,17 +66,31 @@ type wsTransport struct {
 	pendingSubs map[uint64]*wsLogSub
 	subs        map[string]*wsLogSub // active subscriptions, by sub id
 
+	// pingReset is signalled (best-effort) after every successful
+	// writeJSON so pingLoop can defer the next idle ping. Buffered to 1
+	// so writers never block on a busy reset.
+	pingReset    chan struct{}
+	pingInterval time.Duration
+	pingTimeout  time.Duration
+
 	closed    chan struct{}
 	closeErr  error
 	closeOnce sync.Once
 }
 
-// dialWS dials rawURL and starts the reader goroutine. The caller is
-// responsible for calling close to release the connection. logger may
-// be nil, in which case a no-op logger is used.
-func dialWS(ctx context.Context, rawURL string, logger log.StructuredLogger) (*wsTransport, error) {
-	if logger == nil {
-		logger = log.NewNopZapLogger()
+// dialWS dials rawURL and starts the reader and ping goroutines. The
+// caller is responsible for calling close to release the connection.
+// A zero opts.logger is replaced with a no-op logger; zero ping
+// durations fall back to the package defaults.
+func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, error) {
+	if opts.logger == nil {
+		opts.logger = log.NewNopZapLogger()
+	}
+	if opts.pingInterval <= 0 {
+		opts.pingInterval = wsPingInterval
+	}
+	if opts.pingTimeout <= 0 {
+		opts.pingTimeout = wsPingTimeout
 	}
 	conn, resp, err := websocket.Dial(ctx, rawURL, nil)
 	if resp != nil && resp.Body != nil {
@@ -74,14 +101,18 @@ func dialWS(ctx context.Context, rawURL string, logger log.StructuredLogger) (*w
 	}
 	conn.SetReadLimit(wsReadLimit)
 	t := &wsTransport{
-		conn:        conn,
-		logger:      logger,
-		pending:     make(map[uint64]chan rpcReply),
-		pendingSubs: make(map[uint64]*wsLogSub),
-		subs:        make(map[string]*wsLogSub),
-		closed:      make(chan struct{}),
+		conn:         conn,
+		logger:       opts.logger,
+		pending:      make(map[uint64]chan rpcReply),
+		pendingSubs:  make(map[uint64]*wsLogSub),
+		subs:         make(map[string]*wsLogSub),
+		pingReset:    make(chan struct{}, 1),
+		pingInterval: opts.pingInterval,
+		pingTimeout:  opts.pingTimeout,
+		closed:       make(chan struct{}),
 	}
 	go t.readLoop() //nolint:gosec // G118: long-lived loop, not request-scoped
+	go t.pingLoop() //nolint:gosec // G118: long-lived loop, not request-scoped
 	return t, nil
 }
 
@@ -98,6 +129,40 @@ func (t *wsTransport) readLoop() {
 			return
 		}
 		t.dispatch(data)
+	}
+}
+
+// pingLoop sends a keep-alive ping after pingInterval of silence on the
+// connection. Any outbound write resets the timer via pingReset, so a
+// busy connection issues no redundant pings. A ping failure (write
+// stall, pong timeout, transport already torn) goes through the same
+// shutdown path as a read error — the redial layer above handles the
+// rest.
+func (t *wsTransport) pingLoop() {
+	timer := time.NewTimer(t.pingInterval)
+	defer timer.Stop()
+	for {
+		select {
+		case <-t.closed:
+			return
+		case <-t.pingReset:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(t.pingInterval)
+		case <-timer.C:
+			ctx, cancel := context.WithTimeout(context.Background(), t.pingTimeout)
+			err := t.conn.Ping(ctx)
+			cancel()
+			if err != nil {
+				t.shutdown(fmt.Errorf("ws ping: %w", err))
+				return
+			}
+			timer.Reset(t.pingInterval)
+		}
 	}
 }
 
@@ -283,7 +348,9 @@ func (t *wsTransport) close() { t.shutdown(ErrTransportClosed) }
 
 // writeJSON serialises and sends one frame. Writes are serialised
 // because coder/websocket's Write is not concurrency-safe for arbitrary
-// callers (only one Writer/Reader pair may be active at a time).
+// callers (only one Writer/Reader pair may be active at a time). On a
+// successful write the idle ping timer is reset so we don't spend a
+// ping on top of real traffic.
 func (t *wsTransport) writeJSON(ctx context.Context, v any) error {
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -291,7 +358,14 @@ func (t *wsTransport) writeJSON(ctx context.Context, v any) error {
 	}
 	t.writeMu.Lock()
 	defer t.writeMu.Unlock()
-	return t.conn.Write(ctx, websocket.MessageText, data)
+	if err := t.conn.Write(ctx, websocket.MessageText, data); err != nil {
+		return err
+	}
+	select {
+	case t.pingReset <- struct{}{}:
+	default:
+	}
+	return nil
 }
 
 // call sends a JSON-RPC request and waits for its response.
