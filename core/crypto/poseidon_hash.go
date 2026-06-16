@@ -12,7 +12,8 @@ const (
 	totalRounds   = fullRounds + partialRounds
 )
 
-// Caches the {0, 1, 0} input (empty data); emptyDataOutput is computed in initializePoseidon.
+// Caches the {0, 1, 0} input (state for hashing a single zero felt).
+// emptyDataOutput is computed in initializePoseidon.
 var (
 	emptyDataInput  = [3]felt.Felt{{}, felt.One, {}}
 	emptyDataOutput [3]felt.Felt
