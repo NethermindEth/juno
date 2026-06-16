@@ -334,7 +334,12 @@ func (t *wsTransport) shutdown(cause error) {
 		case cause == nil:
 			cause = ErrTransportClosed
 		case !errors.Is(cause, ErrTransportClosed):
-			cause = errors.Join(ErrTransportClosed, cause)
+			// fmt.Errorf with two %w verbs (Go 1.20+) wraps both errors
+			// into the chain — errors.Is(err, ErrTransportClosed) is
+			// reliable — while rendering on a single line. errors.Join
+			// would also work but its separator is "\n", which uglifies
+			// the resulting log message.
+			cause = fmt.Errorf("%w: %w", ErrTransportClosed, cause)
 		}
 		t.mu.Lock()
 		pending, pendingSubs, subs := t.pending, t.pendingSubs, t.subs

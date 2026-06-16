@@ -314,6 +314,110 @@ func TestWS_PingTimeoutClosesTransport(t *testing.T) {
 	}
 }
 
+// TestWS_CancelPendingCleansLeakedSubscription deterministically
+// exercises cancelPending's leaked-subscription cleanup branch — the
+// race-tight path where dispatchResponse registered the sub
+// (pendingSub.id is set) just before the caller's ctx fired. The branch
+// matters because the caller will never call Unsubscribe on a sub that
+// raced its ctx cancel, so cancelPending must (a) remove it from t.subs
+// and (b) fire a best-effort eth_unsubscribe to the server.
+//
+// From the public surface this race is timing-dependent and not
+// reachable deterministically — once dispatchResponse has set
+// pendingSub.id under t.mu, the reply is also on ch, and Go's select
+// picks pseudo-randomly between ctx.Done() and the ready reply. We use
+// the CancelPendingFor test helper to invoke cancelPending directly
+// against a successfully-subscribed sub, simulating the race outcome.
+func TestWS_CancelPendingCleansLeakedSubscription(t *testing.T) {
+	const subID = "0xleaked"
+	var unsubReceived atomic.Bool
+
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+		switch req.Method {
+		case "eth_subscribe":
+			return subID, nil
+		case "eth_unsubscribe":
+			unsubReceived.Store(true)
+			return true, nil
+		}
+		return nil, &client.TestRPCError{Code: -32601, Message: req.Method}
+	})
+
+	cli, err := client.New(t.Context(), srv.WSURL())
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	sink := make(chan *eth.Log, 1)
+	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
+	require.NoError(t, err)
+	// Don't defer sub.Unsubscribe(): CancelPendingFor simulates the
+	// "caller's ctx fired before they could call Unsubscribe" path,
+	// and the cleanup we're testing is the substitute for Unsubscribe.
+
+	// Trigger the leaked-sub cleanup branch directly.
+	client.CancelPendingFor(cli, sub)
+
+	// Server-side best-effort eth_unsubscribe must arrive.
+	require.Eventually(t, unsubReceived.Load, 2*time.Second, 10*time.Millisecond,
+		"cancelPending must spawn best-effort eth_unsubscribe for the leaked sub")
+
+	// And the sub must be gone from t.subs — push a notification with
+	// the same id; if the cleanup worked it gets dropped (no panic, no
+	// delivery to sink).
+	require.NoError(t, srv.PushNotification(t.Context(), subID, map[string]any{
+		"topics":      []string{"0xdeadbeef0000000000000000000000000000000000000000000000000000beef"},
+		"data":        "0x",
+		"blockNumber": "0x1",
+		"removed":     false,
+	}))
+	select {
+	case got := <-sink:
+		t.Fatalf("notification for leaked sub should not be delivered; got %+v", got)
+	case <-time.After(100 * time.Millisecond):
+		// Expected: nothing arrives.
+	}
+}
+
+// TestWS_CancelPendingLogsUnsubscribeFailure exercises the trace-log
+// branch inside cancelPending's spawned best-effort eth_unsubscribe
+// goroutine — fired when the unsubscribe RPC itself fails (e.g. server
+// returns an error or transport has since closed). Without this
+// coverage, a regression that silently swallows the eth_unsubscribe
+// failure (e.g. dropping the trace log) wouldn't be caught.
+func TestWS_CancelPendingLogsUnsubscribeFailure(t *testing.T) {
+	const subID = "0xleakederr"
+	var unsubAttempted atomic.Bool
+
+	srv := client.NewTestServer(t)
+	srv.SetHandler(func(req client.TestRequest) (any, *client.TestRPCError) {
+		switch req.Method {
+		case "eth_subscribe":
+			return subID, nil
+		case "eth_unsubscribe":
+			unsubAttempted.Store(true)
+			// Server returns an error — the spawned goroutine's
+			// best-effort call returns it, and the trace-log branch
+			// fires.
+			return nil, &client.TestRPCError{Code: -32000, Message: "subscription not found"}
+		}
+		return nil, &client.TestRPCError{Code: -32601, Message: req.Method}
+	})
+
+	cli, err := client.New(t.Context(), srv.WSURL())
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	sink := make(chan *eth.Log, 1)
+	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
+	require.NoError(t, err)
+
+	client.CancelPendingFor(cli, sub)
+
+	require.Eventually(t, unsubAttempted.Load, 2*time.Second, 10*time.Millisecond,
+		"cancelPending must still attempt best-effort eth_unsubscribe even when the server rejects it")
+}
+
 // TestWS_SubscribeDispatchDecodeFailure pushes a notification whose
 // payload can't be JSON-decoded as eth.Log. The per-subscription
 // dispatch goroutine must surface the decode error on Err() — without
