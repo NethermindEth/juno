@@ -26,7 +26,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
-	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -36,7 +35,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-var validate = rpcv10.Validator()
+var validate = rpc.Validator()
 
 // loadBlockFromFeederTestdata loads a block from feeder testdata and adapts it to core.Block.
 // This allows us to use testdata blocks without fetching from a real gateway.
@@ -64,9 +63,9 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
 
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	tx, rpcErr := handler.TransactionByHash(txHash, rpcv10.ResponseFlags{})
+	tx, rpcErr := handler.TransactionByHash(txHash, rpc.ResponseFlags{})
 	assert.Nil(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
@@ -94,9 +93,9 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	tx, rpcErr := handler.TransactionByHash(searchTxHash, rpcv10.ResponseFlags{})
+	tx, rpcErr := handler.TransactionByHash(searchTxHash, rpc.ResponseFlags{})
 	assert.Nil(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
@@ -106,7 +105,7 @@ func TestTransactionByHash(t *testing.T) {
 		hash           string
 		network        *networks.Network
 		expected       string
-		responseFlags  rpcv10.ResponseFlags
+		responseFlags  rpc.ResponseFlags
 		withProofFacts bool
 	}{
 		"DECLARE v1": {
@@ -494,7 +493,7 @@ func TestTransactionByHash(t *testing.T) {
 				"fee_data_availability_mode": "L1",
 				"proof_facts": ["0x64", "0xc8"]
 			}`,
-			responseFlags: rpcv10.ResponseFlags{IncludeProofFacts: true},
+			responseFlags: rpc.ResponseFlags{IncludeProofFacts: true},
 		},
 		"INVOKE v3 with response flags and no proof facts": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -544,7 +543,7 @@ func TestTransactionByHash(t *testing.T) {
 				"fee_data_availability_mode": "L1",
 				"proof_facts": []
 			}`,
-			responseFlags: rpcv10.ResponseFlags{IncludeProofFacts: true},
+			responseFlags: rpc.ResponseFlags{IncludeProofFacts: true},
 		},
 	}
 
@@ -579,7 +578,7 @@ func TestTransactionByHash(t *testing.T) {
 					},
 				},
 			}, nil)
-			handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 			hash, err := felt.NewFromString[felt.Felt](test.hash)
 			require.NoError(t, err)
@@ -609,12 +608,12 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedBlock)
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
-	handler := rpcv10.New(nil, mockSyncReader, nil, nil)
+	handler := rpc.New(nil, mockSyncReader, nil, nil)
 
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
 		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
-		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpcv10.ResponseFlags{})
+		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpc.ResponseFlags{})
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
 	})
@@ -622,7 +621,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Run("Transaction found in pre_confirmed block - Candidate transactions", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.CandidateTxs[0]
 		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
-		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpcv10.ResponseFlags{})
+		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpc.ResponseFlags{})
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
 	})
@@ -639,7 +638,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 		adaptedPreConfirmed.WithPreLatest(&preLatest)
 
 		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
-		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpcv10.ResponseFlags{})
+		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpc.ResponseFlags{})
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
 	})
@@ -659,13 +658,13 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
-		blockID := rpcv10.BlockIDLatest()
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpcv10.ResponseFlags{})
+		blockID := rpc.BlockIDLatest()
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -673,10 +672,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockNumberByHash(gomock.Any()).Return(uint64(0), db.ErrKeyNotFound)
 
-		blockID := rpcv10.BlockIDFromHash(
+		blockID := rpc.BlockIDFromHash(
 			felt.NewFromBytes[felt.Felt]([]byte("random")),
 		)
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpcv10.ResponseFlags{})
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -684,8 +683,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
 			gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
-		blockID := rpcv10.BlockIDFromNumber(rand.Uint64())
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpcv10.ResponseFlags{})
+		blockID := rpc.BlockIDFromNumber(rand.Uint64())
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
@@ -693,8 +692,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("negative index", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("negative index"))
 
-		blockID := rpcv10.BlockIDLatest()
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1, rpcv10.ResponseFlags{})
+		blockID := rpc.BlockIDLatest()
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1, rpc.ResponseFlags{})
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
@@ -702,11 +701,11 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("invalid index", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 
-		blockID := rpcv10.BlockIDLatest()
+		blockID := rpc.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
 			&blockID,
 			len(latestBlock.Transactions),
-			rpcv10.ResponseFlags{},
+			rpc.ResponseFlags{},
 		)
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -720,9 +719,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			return latestBlock.Transactions[index], nil
 		})
 
-		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv10.BlockIDLatest()
-		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
+		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
+		blockID := rpc.BlockIDLatest()
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
 	})
@@ -736,9 +735,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			return latestBlock.Transactions[index], nil
 		})
 
-		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv10.BlockIDFromHash(latestBlock.Hash)
-		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
+		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
+		blockID := rpc.BlockIDFromHash(latestBlock.Hash)
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
 	})
@@ -751,9 +750,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			return latestBlock.Transactions[index], nil
 		})
 
-		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv10.BlockIDFromNumber(latestBlockNumber)
-		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
+		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
+		blockID := rpc.BlockIDFromNumber(latestBlockNumber)
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
 	})
@@ -775,9 +774,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			return latestBlock.Transactions[index], nil
 		})
 
-		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv10.BlockIDL1Accepted()
-		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
+		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
+		blockID := rpc.BlockIDL1Accepted()
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
 	})
@@ -799,9 +798,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			return latestBlock.Transactions[index], nil
 		})
 
-		expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-		blockID := rpcv10.BlockIDL1Accepted()
-		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpcv10.ResponseFlags{})
+		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
+		blockID := rpc.BlockIDL1Accepted()
+		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
 		require.Equal(t, &expectedTxn, actualTxn)
 	})
@@ -814,7 +813,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			&preConfirmed,
 			nil,
 		).Times(2)
-		blockID := rpcv10.BlockIDPreConfirmed()
+		blockID := rpc.BlockIDPreConfirmed()
 
 		t.Run("invalid index", func(t *testing.T) {
 			invalidIndex := len(preConfirmed.Block.Transactions)
@@ -822,7 +821,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(
 				&blockID,
 				invalidIndex,
-				rpcv10.ResponseFlags{},
+				rpc.ResponseFlags{},
 			)
 			require.Equal(t, rpcErr, rpccore.ErrInvalidTxIndex)
 			require.Nil(t, actualTxn)
@@ -830,12 +829,12 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		t.Run("valid index", func(t *testing.T) {
 			index := rand.Intn(int(latestBlock.TransactionCount))
-			expectedTxn := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
+			expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
 
 			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(
 				&blockID,
 				index,
-				rpcv10.ResponseFlags{},
+				rpc.ResponseFlags{},
 			)
 			require.Nil(t, rpcErr)
 			require.Equal(t, &expectedTxn, actualTxn)
@@ -857,17 +856,17 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		blockID := rpcv10.BlockIDFromNumber(1)
+		blockID := rpc.BlockIDFromNumber(1)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(1), uint64(0)).
 			Return(invokeTxCore, nil).AnyTimes()
 		mockReader.EXPECT().Network().Return(network).AnyTimes()
-		h := rpcv10.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
+		h := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
 
 		t.Run("WithResponseFlag", func(t *testing.T) {
 			tx, rpcErr := h.TransactionByBlockIDAndIndex(
 				&blockID,
 				0,
-				rpcv10.ResponseFlags{IncludeProofFacts: true},
+				rpc.ResponseFlags{IncludeProofFacts: true},
 			)
 			require.Nil(t, rpcErr)
 			require.NotNil(t, tx)
@@ -875,20 +874,20 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
 		})
 		t.Run("WithoutResponseFlag", func(t *testing.T) {
-			tx, rpcErr := h.TransactionByBlockIDAndIndex(&blockID, 0, rpcv10.ResponseFlags{})
+			tx, rpcErr := h.TransactionByBlockIDAndIndex(&blockID, 0, rpc.ResponseFlags{})
 			require.Nil(t, rpcErr)
 			require.NotNil(t, tx)
 			require.Nil(t, tx.ProofFacts)
 		})
 
-		blockID2 := rpcv10.BlockIDFromNumber(2)
+		blockID2 := rpc.BlockIDFromNumber(2)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(2), uint64(0)).
 			Return(invokeTxCore, nil)
 		t.Run("WithResponseFlag and empty proof facts", func(t *testing.T) {
 			tx, rpcErr := h.TransactionByBlockIDAndIndex(
 				&blockID2,
 				0,
-				rpcv10.ResponseFlags{IncludeProofFacts: true},
+				rpc.ResponseFlags{IncludeProofFacts: true},
 			)
 			require.Nil(t, rpcErr)
 			require.NotNil(t, tx)
@@ -902,7 +901,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	type testCase struct {
 		description    string
 		network        *networks.Network
-		expected       *rpcv10.TransactionReceipt
+		expected       *rpc.TransactionReceipt
 		preConfirmedFn func(t *testing.T, block *core.Block) *pending.PreConfirmed
 		l1Head         core.L1Head
 	}
@@ -960,7 +959,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l2",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_accepted_on_l2.json",
 			),
@@ -970,7 +969,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l1",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_accepted_on_l1.json",
 			),
@@ -980,7 +979,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt pre confirmed",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_pre_confirmed.json",
 			),
@@ -990,7 +989,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt pre latest",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_pre_latest.json",
 			),
@@ -1000,7 +999,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt reverted",
 			network:     &networks.Integration,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_reverted.json",
 			),
@@ -1010,7 +1009,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt invoke v3",
 			network:     &networks.Integration,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_invoke_v3.json",
 			),
@@ -1020,7 +1019,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt non empty da",
 			network:     &networks.SepoliaIntegration,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_non_empty_da.json",
 			),
@@ -1030,7 +1029,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt deploy",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpcv10.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceipt](
 				t,
 				"transactions/receipt_deploy.json",
 			),
@@ -1050,7 +1049,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-			handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 			loadedBlock := loadBlockFromFeederTestdata(t, test.network, *expected.BlockNumber)
 			var transaction core.Transaction
@@ -1095,7 +1094,7 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	txHash := felt.NewFromBytes[felt.Felt]([]byte("random hash"))
 	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
@@ -1146,7 +1145,7 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 
 	for description, txJSON := range tests {
 		t.Run(description, func(t *testing.T) {
-			tx := rpcv10.BroadcastedTransaction{}
+			tx := rpc.BroadcastedTransaction{}
 			require.NoError(t, json.Unmarshal([]byte(txJSON), &tx))
 		})
 	}
@@ -1155,15 +1154,15 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	n := &networks.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	txWithoutClass := func(hash string) rpcv10.BroadcastedTransaction {
+	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
-		return rpcv10.BroadcastedTransaction{
-			Transaction: *rpcv10.AdaptCoreTransaction(tx),
+		return rpc.BroadcastedTransaction{
+			Transaction: *rpc.AdaptCoreTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
-		txn          rpcv10.BroadcastedTransaction
+		txn          rpc.BroadcastedTransaction
 		expectedJSON string
 	}{
 		"invoke v3": {
@@ -1217,17 +1216,17 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v3": {
-			txn: func() rpcv10.BroadcastedTransaction {
+			txn: func() rpc.BroadcastedTransaction {
 				tx := txWithoutClass(
 					"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 				)
-				tx.ContractClass = &rpcv10.ContractClass{
+				tx.ContractClass = &rpc.ContractClass{
 					SierraProgram:        []felt.Felt{},
 					ContractClassVersion: "0.1.0",
-					EntryPoints: rpcv10.ContractClassEntryPoints{
-						Constructor: []rpcv10.ContractClassEntryPoint{},
-						External:    []rpcv10.ContractClassEntryPoint{},
-						L1Handler:   []rpcv10.ContractClassEntryPoint{},
+					EntryPoints: rpc.ContractClassEntryPoints{
+						Constructor: []rpc.ContractClassEntryPoint{},
+						External:    []rpc.ContractClassEntryPoint{},
+						L1Handler:   []rpc.ContractClassEntryPoint{},
 					},
 				}
 				return tx
@@ -1311,14 +1310,14 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"invoke v3 with proof_facts": {
-			txn: func() rpcv10.BroadcastedTransaction {
+			txn: func() rpc.BroadcastedTransaction {
 				base := createBaseInvokeTransactionV3()
 				base.ProofFacts = []felt.Felt{
 					felt.FromUint64[felt.Felt](100),
 					felt.FromUint64[felt.Felt](200),
 				}
-				return rpcv10.BroadcastedTransaction{
-					Transaction: *rpcv10.AdaptCoreTransaction(&base),
+				return rpc.BroadcastedTransaction{
+					Transaction: *rpc.AdaptCoreTransaction(&base),
 					Proof:       "AAAAAQAAAAIAAAAD",
 				}
 			}(),
@@ -1381,14 +1380,14 @@ func TestAddTransaction(t *testing.T) {
 				}`), nil).
 				Times(1)
 
-			handler := rpcv10.New(nil, nil, nil, log.NewNopZapLogger())
+			handler := rpc.New(nil, nil, nil, log.NewNopZapLogger())
 			_, rpcErr := handler.AddTransaction(t.Context(), new(test.txn))
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
 			got, rpcErr := handler.AddTransaction(t.Context(), new(test.txn))
 			require.Nil(t, rpcErr)
-			require.Equal(t, rpcv10.AddTxResponse{
+			require.Equal(t, rpc.AddTxResponse{
 				TransactionHash: felt.FromUint64[felt.TransactionHash](0x1),
 				ContractAddress: felt.NewFromUint64[felt.Address](0x2),
 				ClassHash:       felt.NewFromUint64[felt.ClassHash](0x3),
@@ -1464,7 +1463,7 @@ func TestAddTransaction(t *testing.T) {
 					AddTransaction(gomock.Any(), gomock.Any()).
 					Return(nil, tc.gatewayError)
 
-				handler := rpcv10.New(nil, nil, nil, log.NewNopZapLogger()).WithGateway(mockGateway)
+				handler := rpc.New(nil, nil, nil, log.NewNopZapLogger()).WithGateway(mockGateway)
 				addTxRes, rpcErr := handler.AddTransaction(
 					t.Context(),
 					new(tests["invoke v3"].txn),
@@ -1499,8 +1498,8 @@ func TestAddTransaction(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		broadcastedTxn := rpcv10.BroadcastedTransaction{
-			Transaction: rpcv10.AdaptTransaction(tx, false),
+		broadcastedTxn := rpc.BroadcastedTransaction{
+			Transaction: rpc.AdaptTransaction(tx, false),
 		}
 
 		mockGateway := mocks.NewMockGateway(mockCtrl)
@@ -1512,7 +1511,7 @@ func TestAddTransaction(t *testing.T) {
 			}`, tx.Hash().String())), nil).
 			Times(1)
 
-		handler := rpcv10.New(mockReader, nil, nil, log.NewNopZapLogger()).
+		handler := rpc.New(mockReader, nil, nil, log.NewNopZapLogger()).
 			WithReceivedTransactionFeed(receivedTxFeed).
 			WithGateway(mockGateway)
 
@@ -1542,7 +1541,7 @@ func TestTransactionStatus(t *testing.T) {
 		description    string
 		network        *networks.Network
 		txHash         *felt.Felt
-		expectedStatus rpcv10.TransactionStatus
+		expectedStatus rpc.TransactionStatus
 		expectedErr    *jsonrpc.Error
 		setupMocks     func(
 			mockReader *mocks.MockReader,
@@ -1588,9 +1587,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status ACCEPTED_ON_L2",
 			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusAcceptedOnL2,
-				Execution: rpcv10.TxnSuccess,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:  rpc.TxnStatusAcceptedOnL2,
+				Execution: rpc.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockFoundInDB(mockReader, mockSyncReader)
@@ -1601,9 +1600,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status ACCEPTED_ON_L1",
 			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusAcceptedOnL1,
-				Execution: rpcv10.TxnSuccess,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:  rpc.TxnStatusAcceptedOnL1,
+				Execution: rpc.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockFoundInDB(mockReader, mockSyncReader)
@@ -1614,9 +1613,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status PRE_CONFIRMED",
 			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusPreConfirmed,
-				Execution: rpcv10.TxnSuccess,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:  rpc.TxnStatusPreConfirmed,
+				Execution: rpc.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockSyncReader.EXPECT().PreConfirmed().Return(
@@ -1636,9 +1635,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status CANDIDATE",
 			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusCandidate,
-				Execution: rpcv10.UnknownExecution,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:  rpc.TxnStatusCandidate,
+				Execution: rpc.UnknownExecution,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
@@ -1660,9 +1659,9 @@ func TestTransactionStatus(t *testing.T) {
 			description: "status PRE_CONFIRMED from pre-latest",
 			network:     &networks.Mainnet,
 			txHash:      targetTxnHash,
-			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusPreConfirmed,
-				Execution: rpcv10.TxnSuccess,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:  rpc.TxnStatusPreConfirmed,
+				Execution: rpc.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				preLatest := pending.PreLatest{
@@ -1688,9 +1687,9 @@ func TestTransactionStatus(t *testing.T) {
 			txHash: felt.NewUnsafeFromString[felt.Felt](
 				"0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
 			),
-			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusAcceptedOnL1,
-				Execution: rpcv10.TxnSuccess,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:  rpc.TxnStatusAcceptedOnL1,
+				Execution: rpc.TxnSuccess,
 			},
 			setupMocks: mockNotFound,
 		},
@@ -1700,9 +1699,9 @@ func TestTransactionStatus(t *testing.T) {
 			txHash: felt.NewUnsafeFromString[felt.Felt](
 				"0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
 			),
-			expectedStatus: rpcv10.TransactionStatus{
-				Finality:  rpcv10.TxnStatusAcceptedOnL2,
-				Execution: rpcv10.TxnSuccess,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:  rpc.TxnStatusAcceptedOnL2,
+				Execution: rpc.TxnSuccess,
 			},
 			setupMocks: mockNotFound,
 		},
@@ -1733,7 +1732,7 @@ func TestTransactionStatus(t *testing.T) {
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			test.setupMocks(mockReader, mockSyncReader)
 
-			handler := rpcv10.New(mockReader, mockSyncReader, nil, nil).WithFeeder(client)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil).WithFeeder(client)
 
 			status, rpcErr := handler.TransactionStatus(t.Context(), test.txHash)
 			require.Equal(t, test.expectedErr, rpcErr)
@@ -1756,8 +1755,8 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 	txnToAdd := createBaseInvokeTransactionV3()
 
-	broadcastedTxn := &rpcv10.BroadcastedTransaction{
-		Transaction: *rpcv10.AdaptCoreTransaction(&txnToAdd),
+	broadcastedTxn := &rpc.BroadcastedTransaction{
+		Transaction: *rpc.AdaptCoreTransaction(&txnToAdd),
 	}
 
 	var gatewayResponse struct {
@@ -1795,7 +1794,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		handler := rpcv10.New(mockReader, mockSyncReader, nil, logger).
+		handler := rpc.New(mockReader, mockSyncReader, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
@@ -1809,8 +1808,8 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 		status, err := handler.TransactionStatus(ctx, (*felt.Felt)(&res.TransactionHash))
 		require.Nil(t, err)
-		require.Equal(t, rpcv10.TxnStatusReceived, status.Finality)
-		require.Equal(t, rpcv10.UnknownExecution, status.Execution)
+		require.Equal(t, rpc.TxnStatusReceived, status.Finality)
+		require.Equal(t, rpc.UnknownExecution, status.Execution)
 	})
 
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
@@ -1824,7 +1823,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		handler := rpcv10.New(mockReader, mockSyncReader, nil, logger).
+		handler := rpc.New(mockReader, mockSyncReader, nil, logger).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
@@ -1850,9 +1849,9 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	network := &networks.Sepolia
 
 	t.Run("RejectProofForNonInvoke", func(t *testing.T) {
-		broadcastedTxn := &rpcv10.BroadcastedTransaction{
-			Transaction: rpcv10.Transaction{
-				Type:    rpcv10.TxnDeclare,
+		broadcastedTxn := &rpc.BroadcastedTransaction{
+			Transaction: rpc.Transaction{
+				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
 				Signature: &[]*felt.Felt{
 					felt.NewFromUint64[felt.Felt](0x1),
@@ -1872,9 +1871,9 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	t.Run("RejectProofFactsForNonInvoke", func(t *testing.T) {
-		broadcastedTxn := &rpcv10.BroadcastedTransaction{
-			Transaction: rpcv10.Transaction{
-				Type:    rpcv10.TxnDeclare,
+		broadcastedTxn := &rpc.BroadcastedTransaction{
+			Transaction: rpc.Transaction{
+				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
 				Signature: &[]*felt.Felt{
 					felt.NewFromUint64[felt.Felt](0x1),
@@ -1894,8 +1893,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 	})
 
 	base := createBaseInvokeTransactionV3()
-	correctBroadcastedTxn := &rpcv10.BroadcastedTransaction{
-		Transaction: *rpcv10.AdaptCoreTransaction(&base),
+	correctBroadcastedTxn := &rpc.BroadcastedTransaction{
+		Transaction: *rpc.AdaptCoreTransaction(&base),
 	}
 
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
@@ -1937,7 +1936,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			"validation should pass for INVOKE v3 transaction with proof and proof_facts",
 		)
 
-		_, err = rpcv10.AdaptBroadcastedTransactionToCore(
+		_, err = rpc.AdaptBroadcastedTransactionToCore(
 			t.Context(),
 			correctBroadcastedTxn,
 			nil,
@@ -2106,7 +2105,7 @@ func TestTransactionValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var txn rpcv10.Transaction
+			var txn rpc.Transaction
 			require.NoError(t, json.Unmarshal([]byte(tt.txnJSON), &txn))
 
 			err := validate.Struct(txn)
@@ -2126,8 +2125,10 @@ func TestResourceBoundsValidation(t *testing.T) {
 	v := rpc.Validator()
 
 	validBounds := rpc.ResourceBounds{
-		MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffff"),                 // max uint64
-		MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffffffffffffffffffff"), // max uint128
+		// max uint64
+		MaxAmount: felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffff"),
+		// max uint128
+		MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffffffffffffffffffff"),
 	}
 
 	t.Run("valid bounds", func(t *testing.T) {
@@ -2158,7 +2159,7 @@ func TestResourceBoundsValidation(t *testing.T) {
 // against regressions when its internals are tuned for performance.
 func TestContractClassToGatewayPayload(t *testing.T) {
 	t.Run("nil class", func(t *testing.T) {
-		out, err := rpcv10.ContractClassToGatewayPayload(nil)
+		out, err := rpc.ContractClassToGatewayPayload(nil)
 		require.NoError(t, err)
 		require.Equal(t, []byte{}, out)
 	})
@@ -2171,18 +2172,18 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 		raw, err := os.ReadFile(abs)
 		require.NoError(t, err)
 
-		var class rpcv10.ContractClass
+		var class rpc.ContractClass
 		require.NoError(t, json.Unmarshal(raw, &class))
 		require.NotEmpty(t, class.SierraProgram, "fixture has empty sierra_program")
 
-		out, err := rpcv10.ContractClassToGatewayPayload(&class)
+		out, err := rpc.ContractClassToGatewayPayload(&class)
 		require.NoError(t, err)
 
 		var decoded struct {
-			SierraProgram        string                          `json:"sierra_program"`
-			ContractClassVersion string                          `json:"contract_class_version"`
-			EntryPoints          rpcv10.ContractClassEntryPoints `json:"entry_points_by_type"`
-			ABI                  string                          `json:"abi,omitempty"`
+			SierraProgram        string                       `json:"sierra_program"`
+			ContractClassVersion string                       `json:"contract_class_version"`
+			EntryPoints          rpc.ContractClassEntryPoints `json:"entry_points_by_type"`
+			ABI                  string                       `json:"abi,omitempty"`
 		}
 		require.NoError(t, json.Unmarshal(out, &decoded), "encoder output must be valid JSON")
 

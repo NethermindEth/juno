@@ -62,8 +62,12 @@ func TestValidateFeltMaxBitsInStruct(t *testing.T) {
 		Amount *felt.Felt `validate:"felt_max_bits=64"`
 	}
 
-	assert.NoError(t, v.Struct(boundsStruct{Amount: felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffff")}))
-	assert.Error(t, v.Struct(boundsStruct{Amount: felt.NewUnsafeFromString[felt.Felt]("0x10000000000000000")}))
+	assert.NoError(
+		t, v.Struct(boundsStruct{Amount: felt.NewUnsafeFromString[felt.Felt]("0xffffffffffffffff")}),
+	)
+	assert.Error(
+		t, v.Struct(boundsStruct{Amount: felt.NewUnsafeFromString[felt.Felt]("0x10000000000000000")}),
+	)
 }
 
 func TestVersion0x3Validation(t *testing.T) {
