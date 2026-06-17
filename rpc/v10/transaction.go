@@ -114,9 +114,9 @@ func adaptAndCompileBroadcastedTxToCore(
 	compiler compiler.Compiler,
 	tx *BroadcastedTransaction,
 	network *networks.Network,
-) (core.Transaction, *core.SierraClass, error) {
+) (core.Transaction, core.ClassDefinition, error) {
 	var classHash *felt.Felt
-	var sierraClass *core.SierraClass
+	var sierraClass core.ClassDefinition
 
 	if tx.Type == TxnDeclare {
 		class := adaptContractClassToStarknet(tx.ContractClass)
