@@ -1,0 +1,11 @@
+[package]
+name = "juno-crypto-rs"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+starknet-types-core = { version = "0.2.4", features = ["hash"] }
+
+[lib]
+crate-type = ["staticlib"]
+name = "juno_crypto_rs"

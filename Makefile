@@ -33,7 +33,7 @@ PKG ?= ./...
 
 MAKEFLAGS += -j$(NPROCS)
 
-rustdeps: check-rust vm compiler
+rustdeps: check-rust vm compiler crypto
 
 juno: rustdeps ## Compile Juno
 	@mkdir -p build
@@ -55,6 +55,9 @@ vm:
 
 compiler:
 	$(MAKE) -C starknet/compiler/rust $(VM_TARGET)
+
+crypto:
+	$(MAKE) -C core/crypto/rust $(VM_TARGET)
 
 generate-buf: ## Generate protobuf files
 	@buf generate
@@ -111,19 +114,23 @@ tidy: ## Add missing and remove unused modules
 rust-format-check: ## Check Rust formatting across all crates
 	$(MAKE) -C vm/rust format-check
 	$(MAKE) -C starknet/compiler/rust format-check
+	$(MAKE) -C core/crypto/rust format-check
 
 rust-lint: ## Run clippy on all Rust crates
 	$(MAKE) -C vm/rust lint
 	$(MAKE) -C starknet/compiler/rust lint
+	$(MAKE) -C core/crypto/rust lint
 
 format: ## Format Go and Rust code
 	$(MAKE) -C vm/rust format
 	$(MAKE) -C starknet/compiler/rust format
+	$(MAKE) -C core/crypto/rust format
 	gofumpt -l -w .
 
 clean: ## Clean project builds
 	$(MAKE) -C vm/rust clean
 	$(MAKE) -C starknet/compiler/rust clean
+	$(MAKE) -C core/crypto/rust clean
 	@rm -rf ./build
 
 help: ## Show help
