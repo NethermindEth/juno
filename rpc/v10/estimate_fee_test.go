@@ -194,7 +194,7 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	t.Run("happy path returns FeeEstimate", func(t *testing.T) {
 		mockState := mocks.NewMockStateReader(mockCtrl)
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(2)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, nil)
 

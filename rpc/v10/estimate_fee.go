@@ -105,6 +105,7 @@ func (h *Handler) EstimateMessageFee(
 	l1Handler.TransactionHash = &txnHash
 
 	result, httpHeader, err := h.simulateTransactions(
+		state,
 		id,
 		[]core.Transaction{&l1Handler},
 		nil,  // classes
