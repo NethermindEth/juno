@@ -26,8 +26,8 @@ var ErrBaseTxCountMismatch = errors.New("pre_confirmed base transaction count mi
 // newer than it, so concurrent readers walking a prior snapshot see a stable
 // graph. Popped nodes become unreferenced and GC-collectable.
 type node struct {
-	pc     *pending.PreConfirmed
-	parent *node
+	preconfirmed *pending.PreConfirmed
+	parent       *node
 }
 
 // ChainReader is an immutable snapshot of a contiguous run of pre-confirmed
@@ -41,29 +41,23 @@ type ChainReader struct {
 
 // Length is the number of entries in this chain view.
 func (c *ChainReader) Length() int {
-	if c == nil {
-		return 0
-	}
 	return c.length
 }
 
 // Head returns the most recent pre-confirmed in the view, or nil if empty.
 func (c *ChainReader) Head() *pending.PreConfirmed {
-	if c == nil || c.length == 0 {
+	if c.length == 0 {
 		return nil
 	}
-	return c.head.pc
+	return c.head.preconfirmed
 }
 
 // NewestFirst yields entries from the most recent down to head+1, bounded by Length.
 func (c *ChainReader) NewestFirst() iter.Seq[*pending.PreConfirmed] {
 	return func(yield func(*pending.PreConfirmed) bool) {
-		if c == nil {
-			return
-		}
 		n := c.head
 		for i := 0; i < c.length && n != nil; i++ {
-			if !yield(n.pc) {
+			if !yield(n.preconfirmed) {
 				return
 			}
 			n = n.parent
@@ -74,9 +68,6 @@ func (c *ChainReader) NewestFirst() iter.Seq[*pending.PreConfirmed] {
 // OldestFirst yields entries from head+1 up to the most recent, bounded by Length.
 func (c *ChainReader) OldestFirst() iter.Seq[*pending.PreConfirmed] {
 	return func(yield func(*pending.PreConfirmed) bool) {
-		if c == nil {
-			return
-		}
 		walkOldestFirst(c.head, c.length, yield)
 	}
 }
@@ -85,7 +76,7 @@ func (c *ChainReader) OldestFirst() iter.Seq[*pending.PreConfirmed] {
 //
 // Returns [pending.ErrTransactionNotFound] when missing.
 func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
-	if c == nil || c.length == 0 {
+	if c.length == 0 {
 		return nil, pending.ErrTransactionNotFound
 	}
 	for entry := range c.NewestFirst() {
@@ -105,7 +96,7 @@ func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, erro
 func (c *ChainReader) ReceiptByHash(
 	hash *felt.Felt,
 ) (*core.TransactionReceipt, uint64, error) {
-	if c == nil || c.length == 0 {
+	if c.length == 0 {
 		return nil, 0, pending.ErrTransactionReceiptNotFound
 	}
 	for entry := range c.NewestFirst() {
@@ -127,11 +118,11 @@ func (c *ChainReader) PendingStateAt(
 	blockNumber uint64,
 	baseState core.StateReader,
 ) (core.StateReader, error) {
-	if c == nil || c.length == 0 {
+	if c.length == 0 {
 		return nil, pending.ErrPreConfirmedNotFound
 	}
-	bottom := c.head.pc.Block.Number - uint64(c.length-1)
-	if blockNumber < bottom || blockNumber > c.head.pc.Block.Number {
+	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
+	if blockNumber < bottom || blockNumber > c.head.preconfirmed.Block.Number {
 		return nil, pending.ErrPreConfirmedNotFound
 	}
 	stateDiff := core.EmptyStateDiff()
@@ -156,11 +147,11 @@ func (c *ChainReader) PendingStateBeforeIndexAt(
 	index uint,
 	baseState core.StateReader,
 ) (core.StateReader, error) {
-	if c == nil || c.length == 0 {
+	if c.length == 0 {
 		return nil, pending.ErrPreConfirmedNotFound
 	}
-	bottom := c.head.pc.Block.Number - uint64(c.length-1)
-	if blockNumber < bottom || blockNumber > c.head.pc.Block.Number {
+	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
+	if blockNumber < bottom || blockNumber > c.head.preconfirmed.Block.Number {
 		return nil, pending.ErrPreConfirmedNotFound
 	}
 	stateDiff := core.EmptyStateDiff()
@@ -202,7 +193,7 @@ func walkOldestFirst(
 	if !walkOldestFirst(n.parent, remaining-1, yield) {
 		return false
 	}
-	return yield(n.pc)
+	return yield(n.preconfirmed)
 }
 
 // ChainStorage holds an uncapped contiguous run of pre-confirmed blocks above
@@ -245,7 +236,7 @@ func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
 		return ChainReader{}
 	}
 	wantBottom := headPlusOne(head)
-	storedTip := c.head.pc.Block.Number
+	storedTip := c.head.preconfirmed.Block.Number
 	if wantBottom > storedTip {
 		return ChainReader{}
 	}
@@ -326,7 +317,7 @@ func (s *ChainStorage) AdvanceTo(head *core.Header) bool {
 	if current == nil || current.length == 0 {
 		return false
 	}
-	mostRecent := current.head.pc.Block.Number
+	mostRecent := current.head.preconfirmed.Block.Number
 	bottom := mostRecent - uint64(current.length-1)
 	wantBottom := headPlusOne(head)
 	if wantBottom == bottom {
@@ -351,7 +342,7 @@ func rebuild(n *node, keep int) *node {
 		return nil
 	}
 	child := rebuild(n.parent, keep-1)
-	return &node{pc: n.pc, parent: child}
+	return &node{preconfirmed: n.preconfirmed, parent: child}
 }
 
 // computeUpdate is the pure dispatcher that turns a wire-side update into a
@@ -383,7 +374,7 @@ func computeUpdate(
 		return bootstrapChain(&block, blockNumber, head)
 	}
 
-	mostRecent := current.head.pc.Block.Number
+	mostRecent := current.head.preconfirmed.Block.Number
 	bottom := mostRecent - uint64(current.length-1)
 
 	if !validBottomForHead(bottom, head) {
@@ -443,7 +434,7 @@ func bootstrapChain(
 	if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 		return nil, nil, err
 	}
-	newNode := &node{pc: &next, parent: nil}
+	newNode := &node{preconfirmed: &next, parent: nil}
 	return &ChainReader{head: newNode, length: 1}, &next, nil
 }
 
@@ -461,7 +452,7 @@ func extend(
 	if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 		return nil, nil, err
 	}
-	newNode := &node{pc: &next, parent: current.head}
+	newNode := &node{preconfirmed: &next, parent: current.head}
 	return &ChainReader{head: newNode, length: current.length + 1}, &next, nil
 }
 
@@ -484,7 +475,7 @@ func replaceSlot(
 	blockNumber uint64,
 	baseTxCount uint64,
 ) (*ChainReader, *pending.PreConfirmed, error) {
-	depthFromHead := int(current.head.pc.Block.Number - blockNumber)
+	depthFromHead := int(current.head.preconfirmed.Block.Number - blockNumber)
 	target := current.head
 	for range depthFromHead {
 		target = target.parent
@@ -498,10 +489,10 @@ func replaceSlot(
 		if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 			return nil, nil, err
 		}
-		if shouldPreserveSlot(target.pc, &next) {
+		if shouldPreserveSlot(target.preconfirmed, &next) {
 			return nil, nil, nil
 		}
-		newNode := &node{pc: &next, parent: target.parent}
+		newNode := &node{preconfirmed: &next, parent: target.parent}
 		return &ChainReader{
 			head:   newNode,
 			length: current.length - depthFromHead,
@@ -512,14 +503,14 @@ func replaceSlot(
 		if depthFromHead != 0 {
 			return nil, nil, fmt.Errorf("delta at non-tip slot %d (depth %d)", blockNumber, depthFromHead)
 		}
-		if uint64(len(target.pc.Block.Transactions)) != baseTxCount {
+		if uint64(len(target.preconfirmed.Block.Transactions)) != baseTxCount {
 			return nil, nil, ErrBaseTxCountMismatch
 		}
-		next, err := sn2core.AdaptPreConfirmedWithDelta(target.pc, &u)
+		next, err := sn2core.AdaptPreConfirmedWithDelta(target.preconfirmed, &u)
 		if err != nil {
 			return nil, nil, err
 		}
-		newNode := &node{pc: &next, parent: target.parent}
+		newNode := &node{preconfirmed: &next, parent: target.parent}
 		return &ChainReader{
 			head:   newNode,
 			length: current.length,
