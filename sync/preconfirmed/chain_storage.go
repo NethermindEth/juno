@@ -81,10 +81,9 @@ func (c *ChainReader) OldestFirst() iter.Seq[*pending.PreConfirmed] {
 	}
 }
 
-// TransactionByHash scans every chain entry's Block.Transactions and the
-// most recent entry's CandidateTxs. Returns ErrTransactionNotFound when missing.
-// Candidates live only at the most recent slot (they represent the next round's
-// speculation); lower entries are sealed from the sequencer's perspective.
+// TransactionByHash scans every chain entry's Block.Transactions.
+//
+// Returns [pending.ErrTransactionNotFound] when missing.
 func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	if c == nil || c.length == 0 {
 		return nil, pending.ErrTransactionNotFound
@@ -96,11 +95,7 @@ func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, erro
 			}
 		}
 	}
-	for _, tx := range c.head.pc.CandidateTxs {
-		if tx.Hash().Equal(hash) {
-			return tx, nil
-		}
-	}
+
 	return nil, pending.ErrTransactionNotFound
 }
 
