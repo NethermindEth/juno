@@ -40,7 +40,7 @@ func TestMakeL1Metrics(t *testing.T) {
 	t.Run("successful metric reporting", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBCReader := mocks.NewMockReader(ctrl)
-		mockSubscriber := mocks.NewMockSubscriber(ctrl)
+		mockSubscriber := mocks.NewMockSettlementLayer(ctrl)
 
 		reg := prometheus.NewRegistry()
 		prometheus.DefaultRegisterer = reg
@@ -64,7 +64,7 @@ func TestMakeL1Metrics(t *testing.T) {
 	t.Run("error in metric reporting", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBCReader := mocks.NewMockReader(ctrl)
-		mockSubscriber := mocks.NewMockSubscriber(ctrl)
+		mockSubscriber := mocks.NewMockSettlementLayer(ctrl)
 
 		reg := prometheus.NewRegistry()
 		prometheus.DefaultRegisterer = reg
