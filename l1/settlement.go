@@ -6,7 +6,29 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/utils/log"
 )
+
+// watchForwarderBuffer is the per-subscription buffer between the
+// contract decoder and the StateUpdate sink consumed by l1.Client.
+// Shared across SettlementLayer implementations.
+const watchForwarderBuffer = 64
+
+// SettlementOption configures a SettlementLayer implementation at
+// construction time. Both NewGethSettlement and NewEthSettlement accept
+// the same option type since the configurable surface (currently just
+// a logger) is impl-agnostic.
+type SettlementOption func(*settlementOptions)
+
+type settlementOptions struct {
+	logger log.StructuredLogger
+}
+
+// WithSettlementLogger attaches a logger forwarded to the settlement.
+// Surfaces transport-level warnings at debug level.
+func WithSettlementLogger(l log.StructuredLogger) SettlementOption {
+	return func(o *settlementOptions) { o.logger = l }
+}
 
 // SettlementLayer is the chain-neutral interface l1.Client consumes to
 // follow whatever layer Starknet settles to. Today the only

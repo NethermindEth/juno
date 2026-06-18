@@ -22,10 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-// watchForwarderBuffer is the per-subscription buffer between the
-// contract decoder and the l1.StateUpdate sink consumed by l1.Client.
-const watchForwarderBuffer = 64
-
 // gethFinalizedBlockNumber is the geth tag value for the latest
 // finalised block; used as the "block number" arg to HeaderByNumber.
 var gethFinalizedBlockNumber = new(big.Int).SetInt64(rpc.FinalizedBlockNumber.Int64())
@@ -62,9 +58,9 @@ func NewGethSettlement(
 	ctx context.Context,
 	rawURL string,
 	contractAddress eth.Address,
-	opts ...GethSettlementOption,
+	opts ...SettlementOption,
 ) (*GethSettlement, error) {
-	o := gethSettlementOptions{}
+	o := settlementOptions{}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -93,19 +89,6 @@ func NewGethSettlement(
 		filterer:        filterer,
 		listener:        SelectiveListener{},
 	}, nil
-}
-
-// GethSettlementOption configures a GethSettlement at construction time.
-type GethSettlementOption func(*gethSettlementOptions)
-
-type gethSettlementOptions struct {
-	logger log.StructuredLogger
-}
-
-// WithSettlementLogger attaches a logger forwarded to the settlement.
-// Surfaces transport-level warnings at debug level.
-func WithSettlementLogger(l log.StructuredLogger) GethSettlementOption {
-	return func(o *gethSettlementOptions) { o.logger = l }
 }
 
 // SetListener swaps the event listener after construction. The metrics
