@@ -138,7 +138,7 @@ func (c *compiler) Compile(
 		}
 		if CPURlimitExceeded(err) {
 			return nil, fmt.Errorf(
-				"failed to compile Sierra to CASM: exceeded max CPU time %d: %w. stderr: %s",
+				"failed to compile Sierra to CASM: exceeded max CPU time (%ds): %w. stderr: %s",
 				c.maxCPUTime, err, stderr.String(),
 			)
 		}
