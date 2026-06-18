@@ -348,7 +348,7 @@ func main() {
 //  3. The config struct is populated.
 //  4. Cobra calls the run function.
 //
-//nolint:funlen
+//nolint:funlen,gocyclo // huge function that just sets variables
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:          "juno",
