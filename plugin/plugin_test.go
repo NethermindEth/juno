@@ -52,7 +52,6 @@ func TestPlugin(t *testing.T) {
 		dataSource,
 		log.NewNopZapLogger(),
 		0,
-		0,
 		false,
 		nil,
 	).WithPlugin(plugin)
@@ -91,7 +90,6 @@ func TestPlugin(t *testing.T) {
 			bc,
 			dataSource,
 			log.NewNopZapLogger(),
-			0,
 			0,
 			false,
 			nil,

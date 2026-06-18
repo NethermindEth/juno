@@ -113,9 +113,8 @@ func newEventSubscriber(
 				headHeader.Number,
 			)
 		},
-		onReorg:     state.onReorg,
-		onNewHead:   state.onNewHead,
-		onPreLatest: state.onPreLatest,
+		onReorg:   state.onReorg,
+		onNewHead: state.onNewHead,
 	}
 
 	if finalityStatus != nil &&
@@ -143,15 +142,6 @@ func (s *eventSubscriberState) onNewHead(
 	head *core.Block,
 ) error {
 	return s.processBlock(ctx, id, head, TxnAcceptedOnL2)
-}
-
-func (s *eventSubscriberState) onPreLatest(
-	ctx context.Context,
-	id string,
-	_ *subscription,
-	preLatest *pending.PreLatest,
-) error {
-	return s.processBlock(ctx, id, preLatest.Block, TxnPreConfirmed)
 }
 
 func (s *eventSubscriberState) onPreConfirmed(
@@ -222,7 +212,17 @@ func (s *eventSubscriberState) processHistoricalEvents(
 	keys [][]felt.Felt,
 	height uint64,
 ) error {
-	filter, err := s.handler.bcReader.EventFilter(fromAddrs, keys, s.handler.syncReader.PreConfirmed)
+	filter, err := s.handler.bcReader.EventFilter(
+		fromAddrs,
+		keys,
+		func() (blockchain.PreConfirmedReader, error) {
+			chain, err := s.handler.syncReader.PreConfirmedChain()
+			if err != nil {
+				return nil, err
+			}
+			return &chain, nil
+		},
+	)
 	if err != nil {
 		return err
 	}

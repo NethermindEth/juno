@@ -36,7 +36,6 @@ func TestNewNode(t *testing.T) {
 		Pprof:                              true,
 		PprofPort:                          0,
 		Colour:                             true,
-		PreLatestPollInterval:              time.Second,
 		PreConfirmedPollInterval:           time.Second,
 		Metrics:                            true,
 		MetricsPort:                        0,
@@ -84,7 +83,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			)
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
-			syncer := sync.New(chain, dataSource, logger, 0, 0, false, database).
+			syncer := sync.New(chain, dataSource, logger, 0, false, database).
 				WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
 					// Stop the syncer after we successfully stored block.
 					if op == sync.OpStore {

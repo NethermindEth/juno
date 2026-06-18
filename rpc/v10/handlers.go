@@ -37,7 +37,6 @@ type Handler struct {
 	reorgs                  *feed.Feed[*sync.ReorgBlockRange]
 	preConfirmedFeed        *feed.Feed[*pending.PreConfirmed]
 	l1Heads                 *feed.Feed[*core.L1Head]
-	preLatestFeed           *feed.Feed[*pending.PreLatest]
 	receivedTransactionFeed *feed.Feed[core.Transaction]
 
 	idgen         func() string
@@ -85,7 +84,6 @@ func New(
 		reorgs:           feed.New[*sync.ReorgBlockRange](),
 		preConfirmedFeed: feed.New[*pending.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
-		preLatestFeed:    feed.New[*pending.PreLatest](),
 
 		blockTraceCache: lru.New[
 			rpccore.TraceCacheKey,
@@ -157,17 +155,14 @@ func (h *Handler) Run(ctx context.Context) error {
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	preConfirmedSub := h.syncReader.SubscribePreConfirmed().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
-	preLatestSub := h.syncReader.SubscribePreLatest().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
 	defer preConfirmedSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
-	defer preLatestSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
 	feed.Tee(preConfirmedSub, h.preConfirmedFeed)
 	feed.Tee(l1HeadsSub, h.l1Heads)
-	feed.Tee(preLatestSub, h.preLatestFeed)
 
 	<-ctx.Done()
 	h.subscriptions.Range(func(key, value any) bool {

@@ -154,11 +154,11 @@ func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 			return h.bcReader.StateUpdateByNumber(height)
 		}
 	case preConfirmed:
-		pending, err := h.syncReader.PreConfirmed()
+		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
 			return nil, err
 		}
-		return pending.GetStateUpdate(), nil
+		return chain.Head().StateUpdate, nil
 	case hash:
 		return h.bcReader.StateUpdateByHash(id.Hash())
 	case number:

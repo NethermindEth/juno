@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
@@ -23,7 +22,6 @@ type CommittedBlock struct {
 type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockHeaderLatest(ctx context.Context) (*core.Header, error)
-	BlockPreLatest(ctx context.Context) (pending.PreLatest, error)
 	PreConfirmedBlockByNumber(
 		ctx context.Context,
 		blockNumber uint64,
@@ -74,24 +72,6 @@ func (f *feederGatewayDataSource) BlockHeaderLatest(ctx context.Context) (*core.
 		return nil, err
 	}
 	return &header, nil
-}
-
-func (f *feederGatewayDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
-	pendingStateUpdate, pendingBlock, err := f.starknetData.StateUpdatePendingWithBlock(ctx)
-	if err != nil {
-		return pending.PreLatest{}, err
-	}
-
-	newClasses, err := f.fetchUnknownClasses(ctx, pendingStateUpdate)
-	if err != nil {
-		return pending.PreLatest{}, err
-	}
-
-	return pending.PreLatest{
-		Block:       pendingBlock,
-		StateUpdate: pendingStateUpdate,
-		NewClasses:  newClasses,
-	}, nil
 }
 
 func (f *feederGatewayDataSource) fetchUnknownClasses(

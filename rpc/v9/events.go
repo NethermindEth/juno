@@ -106,7 +106,13 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		args.EventFilter.Keys,
-		h.syncReader.PreConfirmed,
+		func() (blockchain.PreConfirmedReader, error) {
+			chain, err := h.syncReader.PreConfirmedChain()
+			if err != nil {
+				return nil, err
+			}
+			return &chain, nil
+		},
 	)
 	if err != nil {
 		return EventsChunk{}, rpccore.ErrInternal

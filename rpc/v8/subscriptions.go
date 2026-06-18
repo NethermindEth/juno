@@ -351,7 +351,7 @@ func (h *Handler) processEvents(
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		keys,
-		func() (*pendingpkg.PreConfirmed, error) {
+		func() (blockchain.PreConfirmedReader, error) {
 			return nil, pendingpkg.ErrPreConfirmedNotFound
 		},
 	)

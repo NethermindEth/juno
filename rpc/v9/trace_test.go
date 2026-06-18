@@ -339,10 +339,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, "")
-			mockSyncReader.EXPECT().PreConfirmed().Return(
-				&preConfirmed,
-				nil,
-			)
+			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
@@ -458,10 +455,7 @@ func TestTraceTransaction(t *testing.T) {
 				StateDiff: &preConfirmedStateDiff,
 			},
 		}
-		mockSyncReader.EXPECT().PreConfirmed().Return(
-			&preConfirmed,
-			nil,
-		)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
 			Return(headState, nopCloser, nil)
@@ -502,93 +496,65 @@ func TestTraceTransaction(t *testing.T) {
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 
-	t.Run("pre_latest block", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
-		tx := &core.DeclareTransaction{
+	// Multi-block pre_confirmed chain: target tx lives in the BASE entry, not
+	// the tip. findAndTraceInPreConfirmed must walk newest-first and
+	// reconstruct state at the matching entry.
+	t.Run("pre_confirmed multi-block chain - tx in non-tip entry", func(t *testing.T) {
+		hash := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
+		tx := &core.InvokeTransaction{
 			TransactionHash: hash,
-			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
 
-		header := &core.Header{
-			Number:           1,
-			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
+		baseHeader := &core.Header{
+			Number:           5,
 			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		}
-		require.Nil(t, header.Hash, "hash must be nil for pre_latest block")
-		require.NotNil(t, header.ParentHash, "ParentHash must be nil for pre_latest block")
-
-		block := &core.Block{
-			Header:       header,
-			Transactions: []core.Transaction{tx},
+		baseBlock := &core.Block{Header: baseHeader, Transactions: []core.Transaction{tx}}
+		baseDiff := core.EmptyStateDiff()
+		baseEntry := pending.PreConfirmed{
+			Block:                 baseBlock,
+			StateUpdate:           &core.StateUpdate{StateDiff: &baseDiff},
+			TransactionStateDiffs: []*core.StateDiff{&baseDiff},
 		}
 
-		declaredClass := &core.DeclaredClassDefinition{
-			At:    3002,
-			Class: &core.SierraClass{},
-		}
-		preLatestStateDiff := core.EmptyStateDiff()
-		preLatest := pending.PreLatest{
-			Block: block,
-			StateUpdate: &core.StateUpdate{
-				StateDiff: &preLatestStateDiff,
-			},
-			NewClasses: map[felt.Felt]core.ClassDefinition{*tx.ClassHash: declaredClass.Class},
+		tipHeader := *baseHeader
+		tipHeader.Number = baseHeader.Number + 1
+		tipDiff := core.EmptyStateDiff()
+		tipEntry := pending.PreConfirmed{
+			Block:       &core.Block{Header: &tipHeader},
+			StateUpdate: &core.StateUpdate{StateDiff: &tipDiff},
 		}
 
-		preConfirmed := pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number: preLatest.Block.Number + 1,
-				},
-			},
-		}
-		mockSyncReader.EXPECT().PreConfirmed().Return(
-			preConfirmed.WithPreLatest(&preLatest),
-			nil,
-		)
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-		headState := mocks.NewMockStateReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(preLatest.Block.ParentHash).
-			Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PreConfirmedChain().
+			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
+		mockReader.EXPECT().StateAtBlockNumber(baseHeader.Number-1).
+			Return(mocks.NewMockStateReader(mockCtrl), nopCloser, nil)
 
 		vmTrace, err := readTestData[vm.TransactionTrace]("traces/vm_transaction_trace.json")
 		require.NoError(t, err)
-
-		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
-		overallFee := []*felt.Felt{felt.NewFromUint64[felt.Felt](1)}
-
-		stepsUsed := uint64(123)
-		stepsUsedStr := "123"
-
 		mockVM.EXPECT().Trace(
 			[]core.Transaction{tx},
-			[]core.ClassDefinition{declaredClass.Class},
+			nil,
 			[]*felt.Felt{},
-			&vm.BlockInfo{Header: header},
+			&vm.BlockInfo{Header: baseHeader},
 			gomock.Any(),
 			vm.TraceOptions{},
-		).
-			Return(vm.ExecutionResults{
-				OverallFees: overallFee,
-				GasConsumed: gc,
-				Traces:      []vm.TransactionTrace{vmTrace},
-				NumSteps:    stepsUsed,
-			}, nil)
+		).Return(vm.ExecutionResults{
+			OverallFees: []*felt.Felt{felt.NewFromUint64[felt.Felt](1)},
+			GasConsumed: []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}},
+			Traces:      []vm.TransactionTrace{vmTrace},
+			NumSteps:    uint64(7),
+		}, nil)
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
-
 		require.Nil(t, rpcErr)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
-
-		vmTrace.ExecutionResources = &vm.ExecutionResources{
-			L1Gas:     2,
-			L1DataGas: 3,
-			L2Gas:     4,
-		}
+		require.Equal(t, "7", httpHeader.Get(rpc.ExecutionStepsHeader))
+		vmTrace.ExecutionResources = &vm.ExecutionResources{L1Gas: 2, L1DataGas: 3, L2Gas: 4}
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 

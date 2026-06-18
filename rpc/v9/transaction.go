@@ -533,9 +533,9 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Error) {
-	// Check the pre-confirmed block first
-	if preConfirmed, err := h.syncReader.PreConfirmed(); err == nil {
-		if txn, err := preConfirmed.TransactionByHash(hash); err == nil {
+	// Check the pre-confirmed chain first.
+	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+		if txn, err := chain.TransactionByHash(hash); err == nil {
 			return AdaptTransaction(txn), nil
 		}
 	}
@@ -566,16 +566,17 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		preConfirmed, err := h.syncReader.PreConfirmed()
+		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) >= preConfirmed.GetBlock().TransactionCount {
+		tipBlock := chain.Head().Block
+		if uint64(txIndex) >= tipBlock.TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(preConfirmed.GetBlock().Transactions[txIndex]), nil
+		return AdaptTransaction(tipBlock.Transactions[txIndex]), nil
 	case latest:
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
@@ -612,17 +613,17 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
 ) (*TransactionReceipt, *jsonrpc.Error) {
-	preConfirmed, err := h.syncReader.PreConfirmed()
+	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	receipt, _, blockNumber, err := preConfirmed.ReceiptByHash(hash)
+	receipt, blockNumber, err := chain.ReceiptByHash(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	txn, err := preConfirmed.TransactionByHash(hash)
+	txn, err := chain.TransactionByHash(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}

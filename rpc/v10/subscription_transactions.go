@@ -94,7 +94,6 @@ func newTransactionsSubscriber(
 
 	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
 		s.onPreConfirmed = state.onPreConfirmed
-		s.onPreLatest = state.onPreLatest
 	}
 
 	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusReceived)) {
@@ -124,19 +123,6 @@ func (s *transactionsSubscriberState) onNewHead(
 		id,
 		head,
 		TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
-	)
-}
-
-func (s *transactionsSubscriberState) onPreLatest(
-	_ context.Context,
-	id string,
-	_ *subscription,
-	preLatest *pending.PreLatest,
-) error {
-	return s.processBlock(
-		id,
-		preLatest.Block,
-		TxnStatusWithoutL1(TxnStatusPreConfirmed),
 	)
 }
 
