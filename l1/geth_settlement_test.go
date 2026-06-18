@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils/log"
@@ -99,35 +98,6 @@ func (s *gethJSONRPCServer) dispatch(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
-}
-
-// --- recording listener -----------------------------------------------
-
-type recordingListener struct {
-	mu    sync.Mutex
-	calls []recordedCall
-}
-
-type recordedCall struct {
-	method string
-	dur    time.Duration
-}
-
-func (r *recordingListener) OnNewL1Head(_ *core.L1Head) {}
-func (r *recordingListener) OnL1Call(method string, took time.Duration) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.calls = append(r.calls, recordedCall{method, took})
-}
-
-func (r *recordingListener) methods() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make([]string, len(r.calls))
-	for i, c := range r.calls {
-		out[i] = c.method
-	}
-	return out
 }
 
 // --- test helpers -----------------------------------------------------
@@ -319,7 +289,7 @@ func TestGethSettlement_Listener_RecordsCalls(t *testing.T) {
 	s.SetListener(rec)
 	_, _ = s.ChainID(t.Context())
 	_, _ = s.LatestHeight(t.Context())
-	assert.Equal(t, []string{"eth_chainId", "eth_blockNumber"}, rec.methods())
+	assert.Equal(t, []string{"eth_chainId", "eth_blockNumber"}, rec.Methods())
 }
 
 func TestGethSettlement_Close_Idempotent(t *testing.T) {
