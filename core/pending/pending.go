@@ -54,16 +54,12 @@ func (p *Pending) GetStateUpdate() *core.StateUpdate {
 	return p.StateUpdate
 }
 
-type PreLatest Pending
-
 type PreConfirmed struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
 	// Node does not fetch unknown classes. but we keep it for sequencer
 	NewClasses            map[felt.Felt]core.ClassDefinition
 	TransactionStateDiffs []*core.StateDiff
-	// Optional field, exists if pre_confirmed is N+2 when latest is N
-	PreLatest *PreLatest
 	// BlockIdentifier is an identifier returned by the feeder gateway
 	// that uniquely identifies the current round of the pre_confirmed block.
 	// It is used to negotiate delta-sync responses on subsequent polls.
@@ -86,11 +82,6 @@ func NewPreConfirmed(
 
 func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]core.ClassDefinition) *PreConfirmed {
 	p.NewClasses = newClasses
-	return p
-}
-
-func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
-	p.PreLatest = preLatest
 	return p
 }
 
@@ -123,106 +114,25 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*core.StateDiff {
 	return p.TransactionStateDiffs
 }
 
-func (p *PreConfirmed) GetPreLatest() *PreLatest {
-	return p.PreLatest
-}
-
-func (p *PreConfirmed) Validate(parent *core.Header) bool {
-	if parent == nil {
-		return p.Block.Number == 0
-	}
-
-	if p.Block.Number == parent.Number+1 {
-		// preconfirmed is latest + 1
-		return true
-	}
-
-	if p.PreLatest == nil {
-		return false
-	}
-
-	// is pre_confirmed based on valid pre_latest
-	return p.Block.Number == p.PreLatest.Block.Number+1 &&
-		p.PreLatest.Block.ParentHash.Equal(parent.Hash)
-}
-
-func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
-	if preLatest := p.PreLatest; preLatest != nil {
-		for _, tx := range preLatest.Block.Transactions {
-			if tx.Hash().Equal(hash) {
-				return tx, nil
-			}
-		}
-	}
-
-	for _, tx := range p.Block.Transactions {
+// TransactionByHash locates a transaction by hash in the block and returns
+// it together with its index. Returns ErrTransactionNotFound when missing.
+func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, uint, error) {
+	for i, tx := range p.Block.Transactions {
 		if tx.Hash().Equal(hash) {
-			return tx, nil
+			return tx, uint(i), nil // TODO(Ege): maybe use uint16
 		}
 	}
-
-	return nil, ErrTransactionNotFound
+	return nil, 0, ErrTransactionNotFound
 }
 
 func (p *PreConfirmed) ReceiptByHash(
 	hash *felt.Felt,
-) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
-	if preLatest := p.PreLatest; preLatest != nil {
-		for _, receipt := range preLatest.Block.Receipts {
-			if receipt.TransactionHash.Equal(hash) {
-				return receipt, preLatest.Block.Header.ParentHash, preLatest.Block.Number, nil
-			}
-		}
-	}
-
+) (*core.TransactionReceipt, error) {
 	for _, receipt := range p.Block.Receipts {
 		if receipt.TransactionHash.Equal(hash) {
-			return receipt, nil, p.Block.Number, nil
+			return receipt, nil
 		}
 	}
 
-	return nil, nil, 0, ErrTransactionReceiptNotFound
-}
-
-func (p *PreConfirmed) PendingStateBeforeIndex(
-	baseState core.StateReader,
-	index uint,
-) (core.StateReader, error) {
-	if index > uint(len(p.Block.Transactions)) {
-		return nil, ErrTransactionIndexOutOfBounds
-	}
-
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.ClassDefinition)
-
-	// Add pre_latest state diff if available
-	preLatest := p.PreLatest
-	if preLatest != nil {
-		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-		newClasses = preLatest.NewClasses
-	}
-
-	// Apply transaction state diffs up to the given index
-	txStateDiffs := p.TransactionStateDiffs
-	for _, txStateDiff := range txStateDiffs[:index] {
-		stateDiff.Merge(txStateDiff)
-	}
-
-	return NewState(&stateDiff, newClasses, baseState, p.Block.Number), nil
-}
-
-func (p *PreConfirmed) PendingState(baseState core.StateReader) core.StateReader {
-	stateDiff := core.EmptyStateDiff()
-	newClasses := make(map[felt.Felt]core.ClassDefinition)
-
-	// Add pre_latest state diff if available
-	preLatest := p.PreLatest
-	if preLatest != nil {
-		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-		newClasses = preLatest.NewClasses
-	}
-
-	stateDiff.Merge(p.StateUpdate.StateDiff)
-
-	return NewState(&stateDiff, newClasses, baseState, p.Block.Number)
+	return nil, ErrTransactionReceiptNotFound
 }

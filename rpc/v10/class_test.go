@@ -250,9 +250,36 @@ func TestClassHashAt(t *testing.T) {
 				StateDiff: &stateDiff,
 			},
 		}
-		mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
 			Return(mockState, nopCloser, nil)
+
+		preConfirmedID := rpc.BlockIDPreConfirmed()
+		classHash, rpcErr := handler.ClassHashAt(&preConfirmedID, &targetAddress)
+		require.Nil(t, rpcErr)
+		require.Equal(t, expectedClassHash, classHash)
+	})
+
+	//nolint:dupl // shares structure with the nonce tip test but exercises class-hash resolution
+	t.Run("blockID - pre_confirmed multi-block chain returns tip class hash", func(t *testing.T) {
+		oldClassHash := felt.NewFromUint64[felt.Felt](42)
+
+		baseStateDiff := core.EmptyStateDiff()
+		baseStateDiff.DeployedContracts[targetAddress] = oldClassHash
+
+		tipStateDiff := core.EmptyStateDiff()
+		tipStateDiff.ReplacedClasses[targetAddress] = expectedClassHash
+
+		baseEntry := &pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 2}},
+			StateUpdate: &core.StateUpdate{StateDiff: &baseStateDiff},
+		}
+		tipEntry := &pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 3}},
+			StateUpdate: &core.StateUpdate{StateDiff: &tipStateDiff},
+		}
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, baseEntry, tipEntry), nil)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(1)).Return(mockState, nopCloser, nil)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
 		classHash, rpcErr := handler.ClassHashAt(&preConfirmedID, &targetAddress)

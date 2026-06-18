@@ -282,16 +282,6 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 	assert.Equal(t, stateUpdate, adaptedStateUpdate)
 }
 
-func TestBlockPreLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	block, err := adapter.BlockPreLatest(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, block)
-}
-
 func TestStateUpdatePending(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	adapter := adaptfeeder.New(client)

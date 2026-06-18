@@ -38,7 +38,6 @@
 | Config Option | Default Value | Description |
 | - | - | - |
 | `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
-| `prelatest-poll-interval` | `1s` | Sets polling interval for pre-latest block updates. (0s will disable polling) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
 

@@ -56,12 +56,6 @@ func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
 	}, nil
 }
 
-// BlockPreLatest gets the pre-latest (pending) block from the feeder,
-// then adapts it to the core.Block type.
-func (f *Feeder) BlockPreLatest(ctx context.Context) (*core.Block, error) {
-	return f.block(ctx, pendingID)
-}
-
 func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error) {
 	response, err := f.client.Block(ctx, blockID)
 	if err != nil {

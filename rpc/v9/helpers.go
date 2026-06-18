@@ -9,11 +9,10 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"go.uber.org/zap"
 )
 
@@ -54,10 +53,10 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch blockID.Type() {
 	case preConfirmed:
-		var preConfirmed *pending.PreConfirmed
-		preConfirmed, err = h.syncReader.PreConfirmed()
+		var chain preconfirmed.ChainReader
+		chain, err = h.syncReader.PreConfirmedChain()
 		if err == nil {
-			block = preConfirmed.GetBlock()
+			block = chain.Head().Block
 		}
 	case latest:
 		block, err = h.bcReader.Head()
@@ -89,15 +88,14 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
 	switch blockID.Type() {
 	case preConfirmed:
-		preConfirmed, err := h.syncReader.PreConfirmed()
+		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil, rpccore.ErrBlockNotFound
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
-		txns := preConfirmed.GetTransactions()
-		return txns, nil
+		return chain.Head().Block.Transactions, nil
 	default:
 		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
 		if err != nil {
@@ -115,10 +113,10 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		var preConfirmed *pending.PreConfirmed
-		preConfirmed, err = h.syncReader.PreConfirmed()
+		var chain preconfirmed.ChainReader
+		chain, err = h.syncReader.PreConfirmedChain()
 		if err == nil {
-			header = preConfirmed.GetBlock().Header
+			header = chain.Head().Block.Header
 		}
 	case latest:
 		header, err = h.bcReader.HeadsHeader()
@@ -199,10 +197,10 @@ func (h *Handler) stateByBlockID(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		var preConfirmed *pending.PreConfirmed
-		preConfirmed, err = h.syncReader.PreConfirmed()
+		var chain preconfirmed.ChainReader
+		chain, err = h.syncReader.PreConfirmedChain()
 		if err == nil {
-			reader, closer, err = sync.PendingState(preConfirmed, h.bcReader)
+			reader, closer, err = chain.PreConfirmedStateAt(chain.Head().Block.Number, h.bcReader)
 		}
 	case latest:
 		reader, closer, err = h.bcReader.HeadState()

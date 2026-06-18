@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"iter"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/blockchain/statebackend"
@@ -15,6 +16,15 @@ import (
 
 type L1HeadSubscription struct {
 	*feed.Subscription[*core.L1Head]
+}
+
+// PreConfirmedReader is the subset of the preconfirmed.ChainReader API the
+// blockchain's EventFilter needs. Declared here to keep blockchain free of a
+// cyclic dependency on the sync/preconfirmed package (the poller already
+// imports blockchain).
+type PreConfirmedReader interface {
+	Length() int
+	OldestFirst() iter.Seq[*pending.PreConfirmed]
 }
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -60,7 +70,7 @@ type Reader interface {
 	EventFilter(
 		addresses []felt.Address,
 		keys [][]felt.Felt,
-		preConfirmedFn func() (*pending.PreConfirmed, error),
+		preConfirmedFn func() (PreConfirmedReader, error),
 	) (EventFilterer, error)
 
 	Network() *networks.Network
@@ -376,7 +386,7 @@ func (b *Blockchain) StateAtBlockHash(
 func (b *Blockchain) EventFilter(
 	addresses []felt.Address,
 	keys [][]felt.Felt,
-	preConfirmedFn func() (*pending.PreConfirmed, error),
+	preConfirmedFn func() (PreConfirmedReader, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
 	latest, err := core.GetChainHeight(b.database)

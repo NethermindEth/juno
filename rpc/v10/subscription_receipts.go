@@ -82,7 +82,6 @@ func newReceiptsSubscriber(
 
 	if slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnPreConfirmed)) {
 		s.onPreConfirmed = state.onPreConfirmed
-		s.onPreLatest = state.onPreLatest
 	}
 
 	return s, nil
@@ -108,19 +107,6 @@ func (s *receiptsSubscriberState) onNewHead(
 		id,
 		head,
 		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
-	)
-}
-
-func (s *receiptsSubscriberState) onPreLatest(
-	_ context.Context,
-	id string,
-	_ *subscription,
-	preLatest *pending.PreLatest,
-) error {
-	return s.processBlock(
-		id,
-		preLatest.Block,
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
 	)
 }
 

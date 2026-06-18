@@ -29,7 +29,6 @@ type subscriber struct {
 	onNewHead             on[*core.Block]
 	onPreConfirmed        on[*pending.PreConfirmed]
 	onL1Head              on[*core.L1Head]
-	onPreLatest           on[*pending.PreLatest]
 	onReceivedTransaction on[core.Transaction]
 }
 
@@ -67,7 +66,6 @@ func (h *Handler) subscribe(
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
 	preConfirmedSub, preConfirmedRecv := getSubscription(subscriber.onPreConfirmed, h.preConfirmedFeed)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
-	preLatestSub, preLatestRecv := getSubscription(subscriber.onPreLatest, h.preLatestFeed)
 	receivedTransactionSub, receivedTransactionRecv := getSubscription(
 		subscriber.onReceivedTransaction,
 		h.receivedTransactionFeed,
@@ -80,7 +78,6 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(l1HeadSub)
 			unsubscribeFeedSubscription(newHeadsSub)
 			unsubscribeFeedSubscription(preConfirmedSub)
-			unsubscribeFeedSubscription(preLatestSub)
 			unsubscribeFeedSubscription(receivedTransactionSub)
 		}()
 
@@ -113,11 +110,6 @@ func (h *Handler) subscribe(
 			case preConfirmed := <-preConfirmedRecv:
 				if err := subscriber.onPreConfirmed(subscriptionCtx, id, sub, preConfirmed); err != nil {
 					h.logger.Warn("Error on pre confirmed", zap.String("id", id), zap.Error(err))
-					return
-				}
-			case preLatest := <-preLatestRecv:
-				if err := subscriber.onPreLatest(subscriptionCtx, id, sub, preLatest); err != nil {
-					h.logger.Warn("Error on preLatest", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case transaction := <-receivedTransactionRecv:

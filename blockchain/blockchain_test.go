@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/eth"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -514,9 +515,13 @@ func TestState(t *testing.T) {
 
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
-	preConfirmedFunc := func() (*pending.PreConfirmed, error) { //nolint:unparam // used in tests
+	preConfirmedFunc := func() (blockchain.PreConfirmedReader, error) { //nolint:unparam // test stub
 		preConfirmed := pending.NewPreConfirmed(pendingB, nil, nil, "")
-		return &preConfirmed, nil
+		chain, err := preconfirmed.NewChain(&preConfirmed)
+		if err != nil {
+			return nil, err
+		}
+		return &chain, nil
 	}
 
 	testDB := memory.New()
@@ -727,6 +732,221 @@ func TestEvents(t *testing.T) {
 				require.NoError(t, filter.Close())
 			})
 		}
+	})
+}
+
+// TestEventsMultiPreConfirmed covers the blockchain event filter against a
+// multi-entry pre_confirmed chain (blocks 5 and 6 sitting above canonical
+// head=4). Exercises iteration order, pagination across the slot boundary,
+// and address-filtered scans through both pre_confirmed entries.
+func TestEventsMultiPreConfirmed(t *testing.T) {
+	testDB := memory.New()
+	chain := blockchain.New(
+		testDB,
+		&networks.Sepolia,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	const (
+		numCanonicalBlocks       = uint64(5) // store blocks 0..4
+		firstPreConfirmedBlock   = uint64(5)
+		preConfirmedChainLength  = uint64(2) // blocks 5 (bottom) and 6 (tip)
+		lastPreConfirmedBlockNum = firstPreConfirmedBlock + preConfirmedChainLength - 1
+	)
+
+	for i := range numCanonicalBlocks {
+		b, err := gw.BlockByNumber(t.Context(), i)
+		require.NoError(t, err)
+		s, err := gw.StateUpdate(t.Context(), i)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(b, &emptyCommitments, s, nil))
+	}
+
+	pcEntries := make([]*pending.PreConfirmed, 0, preConfirmedChainLength)
+	for i := firstPreConfirmedBlock; i <= lastPreConfirmedBlockNum; i++ {
+		b, err := gw.BlockByNumber(t.Context(), i)
+		require.NoError(t, err)
+		pc := pending.NewPreConfirmed(b, nil, nil, "")
+		pcEntries = append(pcEntries, &pc)
+	}
+	multiChain, err := preconfirmed.NewChain(pcEntries...)
+	require.NoError(t, err)
+	preConfirmedFunc := func() (blockchain.PreConfirmedReader, error) { //nolint:unparam // test stub
+		return &multiChain, nil
+	}
+
+	from := []felt.Address{
+		felt.UnsafeFromString[felt.Address](
+			"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		),
+	}
+
+	// Baseline: full scan across canonical + multi pre_confirmed with no
+	// chunking AND no address filter — both pre_confirmed slots have events
+	// (sepolia testdata) so we get coverage of slot traversal. Pagination
+	// subtests below compare against this set.
+	newFilter := func(t *testing.T) blockchain.EventFilterer {
+		t.Helper()
+		f, err := chain.EventFilter(nil, nil, preConfirmedFunc)
+		require.NoError(t, err)
+		require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+		// ^uint64(0) is the "include all pre_confirmed" sentinel used by the
+		// RPC layer when the caller specifies the preConfirmed tag.
+		require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+		t.Cleanup(func() { require.NoError(t, f.Close()) })
+		return f
+	}
+
+	var baseline []blockchain.FilteredEvent
+	t.Run("canonical + multi pre_confirmed - no pagination", func(t *testing.T) {
+		events, cToken, err := newFilter(t).Events(nil, 1024)
+		require.NoError(t, err)
+		require.True(t, cToken.IsEmpty())
+		require.NotEmpty(t, events,
+			"sepolia testdata should produce events across blocks 0..6")
+
+		// Sanity: at least one event must come from each of the two
+		// pre_confirmed slots, otherwise the multi-slot scenario degenerates
+		// to the existing single-slot coverage.
+		var inSlot5, inSlot6 int
+		for _, e := range events {
+			require.NotNil(t, e.BlockNumber)
+			switch *e.BlockNumber {
+			case firstPreConfirmedBlock:
+				inSlot5++
+			case lastPreConfirmedBlockNum:
+				inSlot6++
+			}
+		}
+		require.Positive(t, inSlot5, "expected events in pre_confirmed slot 5")
+		require.Positive(t, inSlot6, "expected events in pre_confirmed slot 6")
+
+		baseline = events
+	})
+
+	// Pagination with several chunk sizes — including ones that fall inside
+	// the bottom slot, exactly at the slot boundary, and inside the tip slot
+	// — to exercise the continuation token's `fromBlock`/`processedEvents`
+	// state through both pre_confirmed entries.
+	t.Run("canonical + multi pre_confirmed - pagination chunk sizes", func(t *testing.T) {
+		require.NotEmpty(t, baseline, "baseline must be populated by the preceding subtest")
+
+		for _, chunkSize := range []uint64{1, 2, 3, uint64(len(baseline) - 1)} {
+			t.Run(fmt.Sprintf("chunk size %d", chunkSize), func(t *testing.T) {
+				filter := newFilter(t)
+				var acc []blockchain.FilteredEvent
+				var token blockchain.ContinuationToken
+				var tokenPtr *blockchain.ContinuationToken
+				// Generous upper bound on iterations so a misbehaving
+				// continuation token can't spin forever.
+				for range len(baseline) + 2 {
+					if !token.IsEmpty() {
+						tokenPtr = &token
+					}
+					page, next, err := filter.Events(tokenPtr, chunkSize)
+					require.NoError(t, err)
+					require.LessOrEqual(t, uint64(len(page)), chunkSize)
+					acc = append(acc, page...)
+					if next.IsEmpty() {
+						token = blockchain.ContinuationToken{}
+						break
+					}
+					token = next
+				}
+				require.True(t, token.IsEmpty(),
+					"pagination did not terminate within the expected number of pages")
+				require.Equal(t, baseline, acc)
+			})
+		}
+	})
+
+	// Pre_confirmed-only range: from == to == ^uint64(0). The canonical scan
+	// is skipped (fromBlock above latest canonical height) and only the two
+	// pre_confirmed slots contribute events.
+	t.Run("pre_confirmed only range - both slots", func(t *testing.T) {
+		filter, err := chain.EventFilter(nil, nil, preConfirmedFunc)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, filter.Close()) })
+
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+
+		events, cToken, err := filter.Events(nil, 1024)
+		require.NoError(t, err)
+		require.True(t, cToken.IsEmpty())
+		for _, e := range events {
+			require.NotNil(t, e.BlockNumber)
+			require.GreaterOrEqual(t, *e.BlockNumber, firstPreConfirmedBlock,
+				"only pre_confirmed events should be returned for an all-pre_confirmed range")
+		}
+	})
+
+	// Address-filtered scan that crosses both pre_confirmed slots — exercises
+	// the matcher's per-slot bloom test path across the multi-entry chain.
+	// Sepolia block 5 has no events from `from` and block 6 has one — the
+	// filter must still traverse both slots and return the block-6 match
+	// rather than short-circuiting at the empty bottom slot.
+	t.Run("address filter across multi pre_confirmed slots", func(t *testing.T) {
+		filter, err := chain.EventFilter(from, nil, preConfirmedFunc)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, filter.Close()) })
+
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+
+		events, cToken, err := filter.Events(nil, 1024)
+		require.NoError(t, err)
+		require.True(t, cToken.IsEmpty())
+		require.NotEmpty(t, events, "block 6 has an event from `from`")
+		for _, e := range events {
+			require.NotNil(t, e.From)
+			require.Equal(t, from[0], felt.Address(*e.From))
+			require.NotNil(t, e.BlockNumber)
+			require.GreaterOrEqual(t, *e.BlockNumber, firstPreConfirmedBlock)
+		}
+	})
+
+	t.Run("pre_confirmed only range - chunk size 1 traverses both slots", func(t *testing.T) {
+		filter, err := chain.EventFilter(nil, nil, preConfirmedFunc)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, filter.Close()) })
+
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+
+		var acc []blockchain.FilteredEvent
+		var token blockchain.ContinuationToken
+		var tokenPtr *blockchain.ContinuationToken
+		for range 64 { // hard cap as a runaway-loop guard
+			if !token.IsEmpty() {
+				tokenPtr = &token
+			}
+			page, next, err := filter.Events(tokenPtr, 1)
+			require.NoError(t, err)
+			require.LessOrEqual(t, len(page), 1)
+			acc = append(acc, page...)
+			if next.IsEmpty() {
+				token = blockchain.ContinuationToken{}
+				break
+			}
+			token = next
+		}
+		require.True(t, token.IsEmpty(), "pagination did not terminate")
+
+		// Reference: pre_confirmed-only range, no pagination.
+		ref, _, err := func() ([]blockchain.FilteredEvent, blockchain.ContinuationToken, error) {
+			f, ferr := chain.EventFilter(nil, nil, preConfirmedFunc)
+			require.NoError(t, ferr)
+			defer func() { require.NoError(t, f.Close()) }()
+			require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
+			require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+			return f.Events(nil, 1024)
+		}()
+		require.NoError(t, err)
+		require.Equal(t, ref, acc)
 	})
 }
 

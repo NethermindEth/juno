@@ -156,19 +156,10 @@ func (e *EventMatcher) AppendBlockEvents(
 	receipts []*core.TransactionReceipt,
 	skippedEvents uint64,
 	chunkSize uint64,
-	isPreLatest bool,
 ) ([]FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for txIndex, receipt := range receipts {
 		for i, event := range receipt.Events {
-			var blockNumber *uint64
-			// if header.Hash == nil it's a pending block
-			// if header.Hash == nil and header.ParentHash is nil preconfirmed block
-			// if isPreLatest is true, it's a prelatest block (should have block number)
-			if header.Hash != nil || header.ParentHash == nil || isPreLatest {
-				blockNumber = &header.Number
-			}
-
 			// if last request was interrupted mid-block, and we are still processing that block, skip events
 			// that were already processed
 			if processedEvents < skippedEvents {
@@ -192,7 +183,7 @@ func (e *EventMatcher) AppendBlockEvents(
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
-					BlockNumber:      blockNumber,
+					BlockNumber:      &header.Number,
 					BlockHash:        header.Hash,
 					BlockParentHash:  header.ParentHash,
 					TransactionHash:  receipt.TransactionHash,
