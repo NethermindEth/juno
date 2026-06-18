@@ -274,10 +274,10 @@ func SegmentedBytecodeHash(
 // Order matters (selector then index): it influences the class hash.
 func sierraEntryPointsHash(entryPoints []SierraEntryPoint) felt.Felt {
 	var digest crypto.PoseidonDigest
-	var index felt.Felt
-	for i := range entryPoints {
-		index.SetUint64(entryPoints[i].Index)
-		digest.Update(entryPoints[i].Selector, &index)
+	for _, ep := range entryPoints {
+		var index felt.Felt
+		index.SetUint64(ep.Index)
+		digest.Update(ep.Selector, &index)
 	}
 	return digest.Finish()
 }
@@ -285,11 +285,14 @@ func sierraEntryPointsHash(entryPoints []SierraEntryPoint) felt.Felt {
 // Order matters (selector, offset, builtins hash): it influences the class hash.
 func compiledEntryPointsHash(entryPoints []CasmEntryPoint, h Hasher) felt.Felt {
 	digest := h.NewDigest()
+	// Passing &offset and &builtinsHash to digest.Update (an interface call)
+	// makes the compiler heap-allocate them. Declaring them once and reusing
+	// them keeps that to a single allocation instead of one per entry point.
 	var offset, builtinsHash felt.Felt
-	for i := range entryPoints {
-		offset.SetUint64(entryPoints[i].Offset)
-		builtinsHash = compiledBuiltinsHash(entryPoints[i].Builtins, h)
-		digest.Update(entryPoints[i].Selector, &offset, &builtinsHash)
+	for _, ep := range entryPoints {
+		offset.SetUint64(ep.Offset)
+		builtinsHash = compiledBuiltinsHash(ep.Builtins, h)
+		digest.Update(ep.Selector, &offset, &builtinsHash)
 	}
 	return digest.Finish()
 }
