@@ -33,11 +33,11 @@ func ApplySelfRLimits(cpuSeconds, memoryBytes uint64) error {
 	return nil
 }
 
-// CPURLimitExceeded reports whether err indicates the compile-sierra child was
+// CPURlimitExceeded reports whether err indicates the compile-sierra child was
 // killed by the kernel for exceeding an applied rlimit: RLIMIT_CPU raises
 // SIGXCPU and then SIGKILL. It turns the otherwise opaque "signal: killed"
 // exec error into a diagnosable resource-limit message.
-func CPURLimitExceeded(err error) bool {
+func CPURlimitExceeded(err error) bool {
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
 		return false
