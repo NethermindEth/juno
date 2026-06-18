@@ -79,6 +79,7 @@ type Config struct {
 	Network                  networks.Network `mapstructure:"network"`
 	EthNode                  string           `mapstructure:"eth-node"`
 	DisableL1Verification    bool             `mapstructure:"disable-l1-verification"`
+	L1Client                 string           `mapstructure:"l1-client"`
 	Pprof                    bool             `mapstructure:"pprof"`
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
@@ -596,10 +597,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		settlement, err := newGethSettlement(cfg.EthNode, n.blockchain)
+		settlement, err := newSettlement(cfg.L1Client, cfg.EthNode, n.blockchain, n.logger)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
+		n.logger.Info("Selected L1 client", zap.String("client", cfg.L1Client))
 
 		// One EventListener is shared between the L1 client (which
 		// fires OnNewL1Head) and the settlement (which fires OnL1Call
@@ -630,12 +632,27 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	return n, nil
 }
 
-// newGethSettlement validates the Ethereum endpoint URL and dials the L1
-// client. ws/wss is enforced at the URL level because subscribe-based
-// log delivery (eth_subscribe) requires a long-lived connection that
-// HTTP doesn't provide. The listener is attached separately by the
-// caller (after metrics gauges are wired against the same instance).
-func newGethSettlement(ethNode string, chain *blockchain.Blockchain) (*l1.GethSettlement, error) {
+// l1Settlement is the cross-section of capabilities a concrete L1
+// settlement implementation must provide to the node: SettlementLayer
+// for the sync loop, rpccore.L1Client for the RPC handlers, plus
+// post-construction listener attachment.
+type l1Settlement interface {
+	l1.SettlementLayer
+	rpccore.L1Client
+	SetListener(l1.EventListener)
+}
+
+// newSettlement validates the Ethereum endpoint URL and dials the L1
+// client using the implementation selected by --l1-client. ws/wss is
+// enforced at the URL level because subscribe-based log delivery
+// (eth_subscribe) requires a long-lived connection that HTTP doesn't
+// provide. The listener is attached separately by the caller (after
+// metrics gauges are wired against the same instance).
+func newSettlement(
+	client, ethNode string,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+) (l1Settlement, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -649,11 +666,27 @@ func newGethSettlement(ethNode string, chain *blockchain.Blockchain) (*l1.GethSe
 	dialCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	settlement, err := l1.NewGethSettlement(dialCtx, ethNode, chain.Network().CoreContractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("set up L1 settlement client: %w", err)
+	contractAddress := chain.Network().CoreContractAddress
+
+	// Empty string matches the geth default; this fallback covers config
+	// paths that bypass cmd flag parsing (e.g. the migration entry point
+	// in node/migration.go) and never populate L1Client.
+	switch client {
+	case "", "geth":
+		s, err := l1.NewGethSettlement(dialCtx, ethNode, contractAddress, l1.WithSettlementLogger(logger))
+		if err != nil {
+			return nil, fmt.Errorf("set up L1 settlement client (geth): %w", err)
+		}
+		return s, nil
+	case "juno":
+		s, err := l1.NewEthSettlement(dialCtx, ethNode, contractAddress, l1.WithSettlementLogger(logger))
+		if err != nil {
+			return nil, fmt.Errorf("set up L1 settlement client (juno): %w", err)
+		}
+		return s, nil
+	default:
+		return nil, fmt.Errorf("invalid --l1-client %q (must be %q or %q)", client, "geth", "juno")
 	}
-	return settlement, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
