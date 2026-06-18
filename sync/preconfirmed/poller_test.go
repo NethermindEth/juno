@@ -235,7 +235,8 @@ func TestPollerColdBootstrapNoGap(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		assertChain(t, h.storage.UnsafeSnapshot(), entry(1, &block1))
+		view := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view, entry(1, &block1))
 	})
 }
 
@@ -271,7 +272,8 @@ func TestPollerColdBootstrapWithGap(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		assertChain(t, h.storage.UnsafeSnapshot(),
+		view := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view,
 			entry(1, &block1),
 			entry(2, &block2),
 			entry(3, &block3),
@@ -296,7 +298,7 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
 		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, h.head)
 		require.NoError(t, err)
-		before := h.storage.UnsafeSnapshot()
+		before := h.storage.SnapshotForHead(h.head)
 
 		go h.poller.Run(t.Context())
 		synctest.Wait()
@@ -304,9 +306,10 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		require.Same(t, before, h.storage.UnsafeSnapshot(),
+		after := h.storage.SnapshotForHead(h.head)
+		require.Same(t, before.Head(), after.Head(),
 			"NoChange must leave the chain pointer unchanged")
-		assertChain(t, h.storage.UnsafeSnapshot(), entry(1, &seed))
+		assertChain(t, &after, entry(1, &seed))
 	})
 }
 
@@ -338,7 +341,8 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 		synctest.Wait()
 
 		// Delta preserves seed.identifier and appends its own txs to seed's.
-		assertChain(t, h.storage.UnsafeSnapshot(), entry(1, &seed, &delta))
+		view := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view, entry(1, &seed, &delta))
 	})
 }
 
@@ -378,7 +382,8 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		assertChain(t, h.storage.UnsafeSnapshot(),
+		view := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view,
 			entry(1, &seed, &finaliseDelta), // seed + delta merged at block 1
 			entry(2, &block2),
 		)
@@ -428,7 +433,8 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		assertChain(t, h.storage.UnsafeSnapshot(),
+		view := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view,
 			entry(1, &seed), // identifier preserved by finalise
 			entry(2, &block2),
 			entry(3, &block3),
@@ -456,7 +462,8 @@ func TestPollerNotAtTipSkipsAllWork(t *testing.T) {
 
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		require.Nil(t, h.storage.UnsafeSnapshot())
+		view := h.storage.SnapshotForHead(h.head)
+		require.Zero(t, view.Length())
 	})
 }
 
@@ -479,7 +486,8 @@ func TestPollerLatestErrorSkipsApply(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		require.Nil(t, h.storage.UnsafeSnapshot(), "latest error must not produce any storage state")
+		view := h.storage.SnapshotForHead(h.head)
+		require.Zero(t, view.Length(), "latest error must not produce any storage state")
 	})
 }
 
@@ -510,7 +518,8 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		require.Nil(t, h.storage.UnsafeSnapshot(), "tick aborts before any apply when backfill errors")
+		view := h.storage.SnapshotForHead(h.head)
+		require.Zero(t, view.Length(), "tick aborts before any apply when backfill errors")
 	})
 }
 
@@ -554,12 +563,14 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		assertChain(t, h.storage.UnsafeSnapshot(), entry(1, &block1))
+		view1 := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view1, entry(1, &block1))
 
 		// Tick 2.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		assertChain(t, h.storage.UnsafeSnapshot(),
+		view2 := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view2,
 			entry(1, &block1),
 			entry(2, &block2),
 		)
@@ -567,7 +578,8 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 		// Tick 3.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		assertChain(t, h.storage.UnsafeSnapshot(),
+		view3 := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view3,
 			entry(1, &block1),
 			entry(2, &block2),
 			entry(3, &block3),
@@ -599,7 +611,8 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 		require.NoError(t, err)
 		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, h.head)
 		require.NoError(t, err)
-		require.Equal(t, 2, h.storage.UnsafeSnapshot().Length())
+		before := h.storage.SnapshotForHead(h.head)
+		require.Equal(t, 2, before.Length())
 
 		// Canonical head advances by one — block head+1 is now committed.
 		newHead := fx.advanceHead(t)
@@ -613,7 +626,8 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 		synctest.Wait()
 
 		// seed1 committed → dropped; only seed2 remains at the new head+1.
-		assertChain(t, h.storage.UnsafeSnapshot(), entry(newHead.Number+1, &seed2))
+		view := h.storage.SnapshotForHead(newHead)
+		assertChain(t, &view, entry(newHead.Number+1, &seed2))
 	})
 }
 
@@ -647,7 +661,8 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 		require.NoError(t, err)
 		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, h.head)
 		require.NoError(t, err)
-		require.Equal(t, 3, h.storage.UnsafeSnapshot().Length())
+		before := h.storage.SnapshotForHead(h.head)
+		require.Equal(t, 3, before.Length())
 
 		go h.poller.Run(t.Context())
 		synctest.Wait()
@@ -656,7 +671,8 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 		synctest.Wait()
 
 		// Block 2 swapped to the new identifier; block 3 truncated.
-		assertChain(t, h.storage.UnsafeSnapshot(),
+		view := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view,
 			entry(1, &seed1),
 			entry(2, &replacement),
 		)
@@ -686,7 +702,8 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 		require.NoError(t, err)
 		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, h.head)
 		require.NoError(t, err)
-		require.Equal(t, 3, h.storage.UnsafeSnapshot().Length())
+		before := h.storage.SnapshotForHead(h.head)
+		require.Equal(t, 3, before.Length())
 
 		go h.poller.Run(t.Context())
 		synctest.Wait()
@@ -695,7 +712,8 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 		synctest.Wait()
 
 		// Deepest slot replaced; lower entries and length untouched.
-		assertChain(t, h.storage.UnsafeSnapshot(),
+		view := h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view,
 			entry(1, &seed1),
 			entry(2, &seed2),
 			entry(3, &replacement),
@@ -764,51 +782,5 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 			t.Fatalf("did not expect a broadcast on NoChange, got %+v", pc)
 		default:
 		}
-	})
-}
-
-// Regression: storage is uncapped on the writer side; only the SnapshotForHead
-// reader caps at head+BlockHashLag. The poller must use the uncapped Snapshot()
-// when computing its identifier+txCount hint for PreConfirmedBlockLatest, so that
-// when storage briefly holds entries above the cap it asks the sequencer
-// about the actual stored tip instead of a slot it already has.
-//
-// Setting up: pre-seed BlockHashLag+2 contiguous slots, then run one tick.
-// The mock expectation pins down the wire-side identifier — if a future change
-// flips this back to SnapshotForHead, the poller would hint with
-// roundID(head+BlockHashLag) and the mock would fail to match.
-func TestPollerHintsFromUncappedStoredTip(t *testing.T) {
-	t.Parallel()
-	fx := newChainFixture(t)
-
-	const extra uint64 = 2
-	// BlockHashLag entries the reader can see + extra above the cap
-	total := core.BlockHashLag + extra
-	topSlot := total // head=0, so slot N == apply index N
-
-	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
-	// MUST be the uncapped tip's identifier; the capped view's tip would be
-	// roundID(head + BlockHashLag) = roundID(BlockHashLag).
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), roundID(topSlot), uint64(0)).
-		Return(starknet.PreConfirmedNoChange{}, topSlot, nil)
-
-	synctest.Test(t, func(t *testing.T) {
-		h := wirePoller(t, fx.bc, fx.head, ds)
-		for n := uint64(1); n <= topSlot; n++ {
-			_, err := h.storage.ApplyUpdate(
-				makeTestPreConfirmedBlock(roundID(n), 0), n, 0, h.head)
-			require.NoError(t, err)
-		}
-		// Sanity: writer accepted everything; the capped reader sees only BlockHashLag.
-		require.Equal(t, int(total), h.storage.UnsafeSnapshot().Length())
-		view := h.storage.SnapshotForHead(h.head)
-		require.Equal(t, int(core.BlockHashLag), view.Length())
-
-		go h.poller.Run(t.Context())
-		synctest.Wait()
-
-		time.Sleep(tickInterval)
-		synctest.Wait()
 	})
 }

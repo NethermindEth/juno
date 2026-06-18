@@ -387,7 +387,12 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
-	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(ctx, blockNumber, blockIdentifier, knownTransactionCount)
+	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(
+		ctx,
+		blockNumber,
+		blockIdentifier,
+		knownTransactionCount,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +408,12 @@ func (c *Client) PreConfirmedBlockLatest(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, uint64, error) {
-	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(ctx, "latest", blockIdentifier, knownTransactionCount)
+	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(
+		ctx,
+		"latest",
+		blockIdentifier,
+		knownTransactionCount,
+	)
 	if err != nil {
 		return nil, 0, err
 	}
