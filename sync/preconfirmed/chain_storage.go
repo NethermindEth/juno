@@ -225,9 +225,8 @@ func (c *ChainReader) baseState(
 // the way back up, producing oldest-first iteration order without
 // materialising a slice. remaining bounds the depth so head-aligned views
 // stop short of the underlying linked list's nil terminator (relevant after
-// SnapshotForHead trims an oversized chain). Returns false when the yield
-// callback aborts iteration. Depth equals the caller's Length: BlockHashLag for
-// SnapshotForHead views, the full stored chain for UnsafeSnapshot.
+// SnapshotForHead trims entries at or below the canonical head). Returns false
+// when the yield callback aborts iteration. Depth equals the caller's Length.
 func walkOldestFirst(
 	n *node,
 	remaining int,
@@ -242,10 +241,10 @@ func walkOldestFirst(
 	return yield(n.preconfirmed)
 }
 
-// ChainStorage holds an uncapped contiguous run of pre-confirmed blocks above
-// the canonical head. The BlockHashLag visibility cap is enforced reader-side
-// by SnapshotForHead, not by the storage. Single writer (polling loop) with
-// many concurrent readers; reads are lock-free via atomic.Pointer.
+// ChainStorage holds a contiguous run of pre-confirmed blocks above the
+// canonical head. Readers obtain a head-aligned view via SnapshotForHead.
+// Single writer (polling loop) with many concurrent readers; reads are
+// lock-free via atomic.Pointer.
 type ChainStorage struct {
 	inner atomic.Pointer[ChainReader]
 }
@@ -254,28 +253,23 @@ func NewChainStorage() *ChainStorage {
 	return &ChainStorage{}
 }
 
-// UnsafeSnapshot returns the live chain as-is — no head alignment, no
-// BlockHashLag cap. Use [SnapshotForHead] to trim stale entries below head+1
-// and to bound the view at head+BlockHashLag; this is for the poller's
-// internal use. Returns nil when storage is empty.
-func (s *ChainStorage) UnsafeSnapshot() *ChainReader {
-	return s.inner.Load()
-}
-
-// SnapshotForHead returns a chain view bounded by the canonical head on both
-// ends:
+// SnapshotForHead returns a head-aligned view of the pre-confirmed chain: its
+// conceptual bottom is head.Number+1 (or 0 at genesis with head == nil), so
+// entries at or below the canonical head are excluded via the reported length.
+// If the stored chain briefly extends below head+1 (AdvanceTo hasn't run yet
+// against this head advance), the view reports a shorter length, excluding the
+// now-committed entries.
 //
-//   - Lower bound: conceptual bottom is head.Number+1 (or 0 at genesis with
-//     head == nil). If the stored chain extends below head+1 (storage briefly
-//     stale because AdvanceTo hasn't run yet against this head advance), the
-//     view reports a shorter length, excluding now-committed entries.
-//   - Upper bound: the view exposes at most BlockHashLag entries (head+1 .. head+
-//     BlockHashLag). Entries above head+BlockHashLag (which storage may transiently
-//     hold while the sequencer runs ahead) are excluded; the view's tip walks
-//     down from storage's head past them.
+// The view is uncapped: it exposes every stored entry from head+1 up to the
+// stored tip, even when the chain runs more than core.BlockHashLag ahead of the
+// canonical head. Reading pre-confirmed state at such a far-ahead block can fail
+// at execution time, when a get_block_hash lookup falls outside the available
+// window; that failure is intentionally left to the execution layer rather than
+// masked by truncating the view here.
 //
 // Returns the zero-value ChainReader (length 0) if the chain does not cover
-// head+1; callers should branch on Length().
+// head+1 (head advanced past the stored tip, or the chain's bottom sits above
+// head+1); callers should branch on Length().
 func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
 	c := s.inner.Load()
 	if c == nil || c.length == 0 {
@@ -290,25 +284,11 @@ func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
 	if wantBottom < storedBottom {
 		return ChainReader{}
 	}
-
-	// Upper-bound cap: walk down from storage's head past any entries above
-	// head+BlockHashLag so the view's tip is at most head+BlockHashLag.
-	upperBound := wantBottom + core.BlockHashLag - 1
-	viewHead := c.head
-	viewTip := storedTip
-	if storedTip > upperBound {
-		skip := storedTip - upperBound
-		for range skip {
-			viewHead = viewHead.parent
-		}
-		viewTip = upperBound
-	}
-
-	want := int(viewTip - wantBottom + 1)
-	if viewHead == c.head && want == c.length {
+	want := int(storedTip - wantBottom + 1)
+	if want == c.length {
 		return *c
 	}
-	return ChainReader{head: viewHead, length: want}
+	return ChainReader{head: c.head, length: want}
 }
 
 // ApplyUpdate atomically evolves the stored chain from a wire-side update.

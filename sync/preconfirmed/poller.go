@@ -104,7 +104,7 @@ func (p *Poller) tick(ctx context.Context) error {
 		return nil
 	}
 
-	chain := p.storage.UnsafeSnapshot()
+	chain := p.storage.SnapshotForHead(head)
 	var (
 		mostRecent *pending.PreConfirmed
 		identifier string
@@ -112,7 +112,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	)
 	fromBlock := headPlusOne(head)
 
-	if chain != nil && chain.Length() > 0 {
+	if chain.Length() > 0 {
 		if mostRecent = chain.Head(); mostRecent != nil {
 			fromBlock = mostRecent.Block.Number
 			identifier = mostRecent.BlockIdentifier
