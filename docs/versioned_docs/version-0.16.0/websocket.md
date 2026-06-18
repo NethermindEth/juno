@@ -14,8 +14,15 @@ To enable the WebSocket RPC server, use the following configuration options:
 - `ws-host`: The interface on which the Websocket RPC server will listen for requests. If skipped, it defaults to `localhost`.
 - `ws-port`: The port on which the WebSocket server will listen for requests. If skipped, it defaults to `6061`.
 
+```mdx-code-block
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+```
+
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
+
 ```bash
-# Docker container
 docker run -d \
   --name juno \
   -p 6061:6061 \
@@ -24,19 +31,21 @@ docker run -d \
   --ws-port 6061 \
   --ws-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE>
+```
 
-# Standalone binary
+</TabItem>
+<TabItem value="binary" label="Binary">
+
+```bash
 ./build/juno --ws --ws-port 6061 --ws-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
 ```
+
+</TabItem>
+</Tabs>
 
 ## Making WebSocket requests
 
 You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
-
-```mdx-code-block
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-```
 
 <Tabs>
 <TabItem value="request" label="Request">

@@ -66,13 +66,27 @@ eth-node: <YOUR-ETH-NODE>
 
 To run Juno with a configuration file, use the `config` option to specify the path of the configuration file:
 
-```bash
-# Standalone binary
-./build/juno --config <CONFIG FILE PATH>
+```mdx-code-block
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+```
 
-# Docker container
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
+
+```bash
 docker run nethermind/juno --config <CONFIG FILE PATH>
 ```
+
+</TabItem>
+<TabItem value="binary" label="Binary">
+
+```bash
+./build/juno --config <CONFIG FILE PATH>
+```
+
+</TabItem>
+</Tabs>
 
 :::info
 By default, Juno looks for the configuration file in the `$XDG_CONFIG_HOME` directory.
@@ -86,13 +100,22 @@ Configuration file rank third in configuration precedence. [Command line paramet
 
 To list all available command line options, you can use the `--help` parameter:
 
-```bash
-# Standalone binary
-./build/juno --help
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
 
-# Docker container
+```bash
 docker run nethermind/juno --help
 ```
+
+</TabItem>
+<TabItem value="binary" label="Binary">
+
+```bash
+./build/juno --help
+```
+
+</TabItem>
+</Tabs>
 
 Below is a list of all configuration options available in Juno, along with their default values and descriptions:
 
