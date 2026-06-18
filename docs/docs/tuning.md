@@ -71,6 +71,10 @@ A larger cache reduces disk reads and improves query performance. On systems wit
 
 ## Sierra Compilation Limits
 
+:::warning
+These limits are enforced by the kernel and only on **Linux**. On other operating systems they have no effect.
+:::
+
 Juno compiles Sierra classes to CASM in isolated child processes. Two flags cap the resources each compilation process may use, protecting the node from pathological or malicious classes that would otherwise consume CPU and memory without bound:
 
 - `--max-compilation-memory` (default: 4096 MB): Maximum memory a single compilation process may use. A compilation exceeding it is aborted.
@@ -80,10 +84,6 @@ Setting either flag to `0` disables that limit. The defaults are generous for le
 
 :::info
 The CPU time limit counts seconds of CPU actually consumed by the compilation process, not elapsed wall-clock time, so it is unaffected by how busy the rest of the machine is.
-:::
-
-:::warning
-These limits are enforced by the kernel and only on **Linux**. On other operating systems they have no effect.
 :::
 
 Up to `--max-concurrent-compilations` (default: one per available CPU core) processes can run at once, so the worst-case memory that compilations can claim is the product of that flag and `--max-compilation-memory`. Lower either value on memory-constrained machines.
