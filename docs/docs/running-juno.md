@@ -4,10 +4,14 @@ title: Running Juno
 
 # Running Juno :rocket:
 
+```mdx-code-block
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+```
+
 You can run a Juno node using several methods:
 
-- [Docker container](#docker-container)
-- [Standalone binary](#standalone-binary)
+- **Docker container** or **Standalone binary** — see below
 - [Building from source](#building-from-source)
 - [Kubernetes with Helm](running-on-kubernetes)
 - [Google Cloud Platform (GCP)](running-on-gcp)
@@ -16,9 +20,10 @@ You can run a Juno node using several methods:
 You can use a snapshot to quickly synchronise your node with the network. Check out the [Database Snapshots](snapshots) guide to get started.
 :::
 
-## Docker container
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
 
-### 1. Get the Docker image
+**1. Get the Docker image**
 
 Juno Docker images can be found at the [nethermind/juno](https://hub.docker.com/r/nethermind/juno) repository on Docker Hub. Download the latest image:
 
@@ -37,7 +42,7 @@ cd juno
 docker build -t nethermind/juno:latest .
 ```
 
-### 2. Run the Docker container
+**2. Run the Docker container**
 
 ```bash
 # Prepare the snapshots directory
@@ -62,9 +67,14 @@ You can view logs from the Docker container using the following command:
 docker logs -f juno
 ```
 
-## Standalone binary
+</TabItem>
+<TabItem value="binary" label="Standalone Binary">
 
-Download standalone binaries from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as ZIP archives for Linux (amd64 and arm64) and macOS (amd64). For macOS (arm64) or Windows users, consider [running Juno using Docker](#docker-container).
+**1. Download the binary**
+
+Download the standalone binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as a ZIP archive for Linux and MacOS (amd64 and arm64). For Windows users, consider running Juno via **Docker** instead.
+
+**2. Run the binary**
 
 ```bash
 # Prepare the snapshots directory
@@ -79,11 +89,9 @@ mkdir -p $HOME/snapshots
   --db-path $HOME/snapshots/juno_mainnet
 ```
 
-You should replace `<YOUR-ETH-NODE>` with your actual Ethereum node address.
-If you're using Infura, your Ethereum node address might look something like: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`.
-Make sure you are using the WebSockets URL `ws`/`wss` and not the http URL `http`/`https`.
+Replace `<YOUR-ETH-NODE>` with your actual Ethereum node address. If you're using Infura, it might look something like `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Make sure you use the WebSockets URL (`ws`/`wss`) and not the HTTP URL (`http`/`https`).
 
-When running the standalone binary, logs are written to stdout/stderr. To save them to a file, you can redirect the output:
+You can view logs from the standalone binary by redirecting the output to a file:
 
 ```shell
 ./juno \
@@ -95,21 +103,63 @@ When running the standalone binary, logs are written to stdout/stderr. To save t
   > juno.log 2>&1
 ```
 
+</TabItem>
+</Tabs>
+
 ## Building from source
 
 You can build the Juno binary or Docker image from the source code to access the latest updates or specific versions.
 
-### Prerequisites
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
+
+Building the Docker image requires only [Docker](https://docs.docker.com/get-docker/).
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/NethermindEth/juno
+cd juno
+```
+
+:::tip
+You can use `git tag -l` to view specific version tags.
+:::
+
+**2. Build the Docker image**
+
+```bash
+docker build -t nethermind/juno:latest .
+```
+
+**3. Run the Docker container**
+
+```bash
+# Prepare the snapshots directory
+mkdir -p $HOME/snapshots
+
+# Run the container
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path /snapshots/juno_mainnet
+```
+
+</TabItem>
+<TabItem value="binary" label="Standalone Binary">
+
+**Prerequisites**
 
 - [Golang 1.26](https://go.dev/doc/install) or later
 - [Rust](https://www.rust-lang.org/tools/install) 1.88.0 or higher.
 - C compiler: `gcc` or `clang`
 - [jemalloc](https://github.com/jemalloc/jemalloc)
-
-```mdx-code-block
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-```
 
 <Tabs>
 <TabItem value="ubuntu" label="Ubuntu">
@@ -128,9 +178,7 @@ brew install jemalloc pkg-config
 </TabItem>
 </Tabs>
 
-### 1. Clone the repository
-
-Clone Juno's source code from our [GitHub repository](https://github.com/NethermindEth/juno):
+**1. Clone the repository**
 
 ```bash
 git clone https://github.com/NethermindEth/juno
@@ -141,7 +189,7 @@ cd juno
 You can use `git tag -l` to view specific version tags.
 :::
 
-### 2. Build the binary or Docker image
+**2. Build the binary**
 
 ```bash
 # Install juno dependencies
@@ -149,12 +197,9 @@ make install-deps
 
 # Build the binary
 make juno
-
-# Build the Docker image
-docker build -t nethermind/juno:latest .
 ```
 
-### 3. Run the binary
+**3. Run the binary**
 
 Locate the standalone binary in the `./build/` directory:
 
@@ -170,6 +215,9 @@ mkdir -p $HOME/snapshots
   --db-path $HOME/snapshots/juno_mainnet \
   --eth-node <YOUR-ETH-NODE>
 ```
+
+</TabItem>
+</Tabs>
 
 :::tip
 To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
