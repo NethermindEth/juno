@@ -1321,3 +1321,37 @@ func TestFeederValidation(t *testing.T) {
 		)
 	})
 }
+
+func TestPreConfirmedBlockLatest(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+
+	t.Run("blank identifier returns the full block for a new round", func(t *testing.T) {
+		update, blockNumber, err := client.PreConfirmedBlockLatest(t.Context(), "", 0)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(10936237), blockNumber)
+
+		full, ok := update.(starknet.PreConfirmedBlock)
+		require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
+		assert.Equal(t, "0x1cbe25d9", full.BlockIdentifier)
+		assert.Equal(t, "PRE_CONFIRMED", full.Status)
+		assert.Equal(t, "0.14.2", full.Version)
+		assert.Len(t, full.Transactions, 3)
+	})
+
+	t.Run("matching identifier and txn count returns the appended delta", func(t *testing.T) {
+		update, blockNumber, err := client.PreConfirmedBlockLatest(t.Context(), "0x1cbe25d9", 3)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(10936237), blockNumber)
+
+		delta, ok := update.(starknet.PreConfirmedDeltaUpdate)
+		require.True(t, ok, "expected PreConfirmedDeltaUpdate, got %T", update)
+		assert.Equal(t, "0x1cbe25d9", delta.BlockIdentifier)
+		assert.Len(t, delta.Transactions, 1)
+	})
+
+	t.Run("matching identifier with no appended txns returns no change", func(t *testing.T) {
+		update, _, err := client.PreConfirmedBlockLatest(t.Context(), "0x1cbe25d9", 4)
+		require.NoError(t, err)
+		assert.IsType(t, starknet.PreConfirmedNoChange{}, update)
+	})
+}
