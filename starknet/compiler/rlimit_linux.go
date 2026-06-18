@@ -1,6 +1,12 @@
 package compiler
 
-import "golang.org/x/sys/unix"
+import (
+	"errors"
+	"os/exec"
+	"syscall"
+
+	"golang.org/x/sys/unix"
+)
 
 const rlimitsSupported = true
 
@@ -25,4 +31,20 @@ func ApplySelfRLimits(cpuSeconds, memoryBytes uint64) error {
 		}
 	}
 	return nil
+}
+
+// CPURLimitExceeded reports whether err indicates the compile-sierra child was
+// killed by the kernel for exceeding an applied rlimit: RLIMIT_CPU raises
+// SIGXCPU and then SIGKILL. It turns the otherwise opaque "signal: killed"
+// exec error into a diagnosable resource-limit message.
+func CPURLimitExceeded(err error) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	ws, ok := exitErr.Sys().(syscall.WaitStatus)
+	if !ok {
+		return false
+	}
+	return ws.Signaled() && (ws.Signal() == syscall.SIGKILL || ws.Signal() == syscall.SIGXCPU)
 }
