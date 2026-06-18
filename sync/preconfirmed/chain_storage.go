@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -37,6 +38,29 @@ type node struct {
 type ChainReader struct {
 	head   *node
 	length int
+}
+
+// NewChain builds a ChainReader from non-nil pre-confirmed entries given in
+// oldest-first order with contiguous block numbers. No args returns the
+// zero-value ChainReader.
+func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
+	if len(entries) == 0 {
+		return ChainReader{}, nil
+	}
+	var head *node
+	for i, pc := range entries {
+		if pc == nil {
+			return ChainReader{}, fmt.Errorf("building pre_confirmed chain: entry %d is nil", i)
+		}
+		if i > 0 && pc.Block.Number != entries[i-1].Block.Number+1 {
+			return ChainReader{}, fmt.Errorf(
+				"building pre_confirmed chain: non-contiguous block numbers at index %d (%d after %d)",
+				i, pc.Block.Number, entries[i-1].Block.Number,
+			)
+		}
+		head = &node{preconfirmed: pc, parent: head}
+	}
+	return ChainReader{head: head, length: len(entries)}, nil
 }
 
 // Length is the number of entries in this chain view.
@@ -79,6 +103,7 @@ func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, erro
 	if c.length == 0 {
 		return nil, pending.ErrTransactionNotFound
 	}
+
 	for entry := range c.NewestFirst() {
 		for _, tx := range entry.Block.Transactions {
 			if tx.Hash().Equal(hash) {
@@ -109,21 +134,25 @@ func (c *ChainReader) ReceiptByHash(
 	return nil, 0, pending.ErrTransactionReceiptNotFound
 }
 
-// PendingStateAt returns the chain's view of state at blockNumber: baseState
-// (canonical state immediately below the chain's bottom) layered with every
-// chain entry's full StateDiff from the bottom through blockNumber inclusive.
-// Returns [pending.ErrPreConfirmedNotFound] if blockNumber falls outside the
-// chain.
-func (c *ChainReader) PendingStateAt(
+// PreConfirmedStateAt returns the chain's view of state at blockNumber. The chain
+// owns base resolution: it opens the canonical state immediately below its
+// own bottom (derived from tip - length + 1.
+//
+//	Returns [pending.ErrPreConfirmedNotFound] if blockNumber falls outside the chain.
+func (c *ChainReader) PreConfirmedStateAt(
 	blockNumber uint64,
-	baseState core.StateReader,
-) (core.StateReader, error) {
+	bcReader blockchain.Reader,
+) (core.StateReader, blockchain.StateCloser, error) {
 	if c.length == 0 {
-		return nil, pending.ErrPreConfirmedNotFound
+		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
 	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
 	if blockNumber < bottom || blockNumber > c.head.preconfirmed.Block.Number {
-		return nil, pending.ErrPreConfirmedNotFound
+		return nil, nil, pending.ErrPreConfirmedNotFound
+	}
+	base, closer, err := c.baseState(bcReader)
+	if err != nil {
+		return nil, nil, err
 	}
 	stateDiff := core.EmptyStateDiff()
 	for entry := range c.OldestFirst() {
@@ -132,27 +161,27 @@ func (c *ChainReader) PendingStateAt(
 			break
 		}
 	}
-	return pending.NewState(&stateDiff, nil, baseState, blockNumber), nil
+	return pending.NewState(&stateDiff, nil, base, blockNumber), closer, nil
 }
 
-// PendingStateBeforeIndexAt returns the chain's view of state immediately
-// before transaction `index` at blockNumber: full StateDiffs of every chain
-// entry below blockNumber, then the target's TransactionStateDiffs up to (but
-// not including) `index`. Returns [pending.ErrPreConfirmedNotFound] if
-// blockNumber isn't in the chain, or
+// PreConfirmedStateBeforeIndexAt returns the chain's view of state immediately
+// before transaction `index` at blockNumber. See PreConfirmedStateAt for the base-
+// resolution contract; here the chain additionally layers the target slot's
+// per-transaction diffs up to (but not including) `index`. Returns
+// [pending.ErrPreConfirmedNotFound] if blockNumber isn't in the chain, or
 // [pending.ErrTransactionIndexOutOfBounds] if `index` exceeds the target's
 // transaction count.
-func (c *ChainReader) PendingStateBeforeIndexAt(
+func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	blockNumber uint64,
 	index uint,
-	baseState core.StateReader,
-) (core.StateReader, error) {
+	bcReader blockchain.Reader,
+) (core.StateReader, blockchain.StateCloser, error) {
 	if c.length == 0 {
-		return nil, pending.ErrPreConfirmedNotFound
+		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
 	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
 	if blockNumber < bottom || blockNumber > c.head.preconfirmed.Block.Number {
-		return nil, pending.ErrPreConfirmedNotFound
+		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
 	stateDiff := core.EmptyStateDiff()
 	var target *pending.PreConfirmed
@@ -164,15 +193,32 @@ func (c *ChainReader) PendingStateBeforeIndexAt(
 		stateDiff.Merge(entry.StateUpdate.StateDiff)
 	}
 	if target == nil {
-		return nil, pending.ErrPreConfirmedNotFound
+		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
 	if index > uint(len(target.Block.Transactions)) {
-		return nil, pending.ErrTransactionIndexOutOfBounds
+		return nil, nil, pending.ErrTransactionIndexOutOfBounds
+	}
+	base, closer, err := c.baseState(bcReader)
+	if err != nil {
+		return nil, nil, err
 	}
 	for _, txStateDiff := range target.TransactionStateDiffs[:index] {
 		stateDiff.Merge(txStateDiff)
 	}
-	return pending.NewState(&stateDiff, nil, baseState, blockNumber), nil
+	return pending.NewState(&stateDiff, nil, base, blockNumber), closer, nil
+}
+
+// baseState opens the canonical state immediately below the chain's bottom.
+// Caller must hold a non-empty chain (length>0 verified upstream by the
+// public methods).
+func (c *ChainReader) baseState(
+	bcReader blockchain.Reader,
+) (core.StateReader, blockchain.StateCloser, error) {
+	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
+	if bottom == 0 {
+		return bcReader.StateAtBlockHash(&felt.Zero)
+	}
+	return bcReader.StateAtBlockNumber(bottom - 1)
 }
 
 // walkOldestFirst recurses to the bottom of the chain and yields entries on

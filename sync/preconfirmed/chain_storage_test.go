@@ -1,6 +1,7 @@
 package preconfirmed_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -9,9 +10,11 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 // ---- helpers --------------------------------------------------------------
@@ -607,14 +610,36 @@ func TestChainReader(t *testing.T) {
 	t.Run("OldestFirst early-exit stops walking", testChainReaderOldestFirstEarlyExit)
 	t.Run("iterators are alloc-free", testChainReaderIteratorsAllocFree)
 	t.Run("Length and Head are nil-safe on a nil receiver", testChainReaderNilReceiverSafe)
-	t.Run("PendingStateAt composes diffs through target block", testChainReaderPendingStateAtComposes)
-	t.Run("PendingStateAt rejects blockNumber outside chain", testChainReaderPendingStateAtOutOfRange)
-	t.Run("PendingStateBeforeIndexAt walks tx diffs of slot",
-		testChainReaderPendingStateBeforeIndexAtTraversesTxs)
-	t.Run("PendingStateBeforeIndexAt rejects index past tx count",
-		testChainReaderPendingStateBeforeIndexAtBadIndex)
-	t.Run("PendingStateBeforeIndexAt rejects block outside chain",
-		testChainReaderPendingStateBeforeIndexAtOutOfRange)
+	t.Run("PreConfirmedStateAt composes diffs through target block",
+		testChainReaderPreConfirmedStateAtComposes)
+	t.Run("PreConfirmedStateAt rejects blockNumber outside chain",
+		testChainReaderPreConfirmedStateAtOutOfRange)
+	t.Run("PreConfirmedStateBeforeIndexAt walks tx diffs of slot",
+		testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs)
+	t.Run("PreConfirmedStateBeforeIndexAt rejects index past tx count",
+		testChainReaderPreConfirmedStateBeforeIndexAtBadIndex)
+	t.Run("PreConfirmedStateBeforeIndexAt rejects block outside chain",
+		testChainReaderPreConfirmedStateBeforeIndexAtOutOfRange)
+	t.Run("PreConfirmedStateAt resolves base at chain bottom minus one",
+		testChainReaderPreConfirmedStateAtBaseAlignsWithBottom)
+	t.Run("PreConfirmedStateAt at genesis resolves base via zero hash",
+		testChainReaderPreConfirmedStateAtBaseAtGenesis)
+	t.Run("PreConfirmedStateAt surfaces bcReader error from base lookup",
+		testChainReaderPreConfirmedStateAtBaseError)
+	t.Run("TransactionByHash finds tx in any chain entry",
+		testChainReaderTransactionByHashAcrossChain)
+	t.Run("TransactionByHash returns not-found on miss",
+		testChainReaderTransactionByHashMissing)
+	t.Run("ReceiptByHash finds receipt and reports owning block",
+		testChainReaderReceiptByHashAcrossChain)
+	t.Run("ReceiptByHash returns not-found on miss",
+		testChainReaderReceiptByHashMissing)
+	t.Run("NewChain with single entry produces a length-1 reader",
+		testChainReaderNewChainSingleEntry)
+	t.Run("NewChain with multiple entries orders newest-first",
+		testChainReaderNewChainMultiEntry)
+	t.Run("NewChain errors on nil entry or non-contiguous numbers",
+		testChainReaderNewChainInvalid)
 }
 
 func chainReaderFixture(t *testing.T, count int) *preconfirmed.ChainReader {
@@ -703,7 +728,7 @@ type storageWrite struct {
 // applyBlockWithStorageWrites applies a block where each write becomes its
 // own tx. The block-level merged StateDiff resolves to the last value per
 // key (last-write-wins), while the preserved TransactionStateDiffs let
-// PendingStateBeforeIndexAt walk through intermediate values.
+// PreConfirmedStateBeforeIndexAt walk through intermediate values.
 func applyBlockWithStorageWrites(
 	t *testing.T,
 	s *preconfirmed.ChainStorage,
@@ -758,7 +783,7 @@ func applyBlockWithStorageWrites(
 	require.NoError(t, err)
 }
 
-func testChainReaderPendingStateAtComposes(t *testing.T) {
+func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 	head := headAt(0)
 	s := preconfirmed.NewChainStorage()
 	contract := felt.FromUint64[felt.Felt](0xC0)
@@ -805,27 +830,37 @@ func testChainReaderPendingStateAtComposes(t *testing.T) {
 		{2, 22},
 		{3, 32},
 	}
+
+	ctrl := gomock.NewController(t)
+	bc := mocks.NewMockReader(ctrl)
+	baseReader := mocks.NewMockStateReader(ctrl)
+	bc.EXPECT().StateAtBlockNumber(uint64(0)).
+		Return(baseReader, func() error { return nil }, nil).
+		Times(len(cases))
 	for _, tc := range cases {
-		state, err := c.PendingStateAt(tc.blockNumber, nil)
+		state, closer, err := c.PreConfirmedStateAt(tc.blockNumber, bc)
 		require.NoError(t, err)
 
 		gotShared, err := state.ContractStorage(&contract, &keyShared)
 		require.NoError(t, err)
 		require.Equal(t, felt.FromUint64[felt.Felt](tc.want), gotShared,
-			"PendingStateAt(%d) keyShared should resolve to %d", tc.blockNumber, tc.want)
+			"PreConfirmedStateAt(%d) keyShared should resolve to %d", tc.blockNumber, tc.want)
 
 		// keyOnlyInSlot1 survives every merge — no upper slot rewrites it.
 		gotPreserved, err := state.ContractStorage(&contract, &keyOnlyInSlot1)
 		require.NoError(t, err)
 		require.Equal(t, felt.FromUint64[felt.Felt](100), gotPreserved,
-			"PendingStateAt(%d) keyOnlyInSlot1 must survive the merge", tc.blockNumber)
+			"PreConfirmedStateAt(%d) keyOnlyInSlot1 must survive the merge", tc.blockNumber)
+		require.NoError(t, closer())
 	}
 }
 
-func testChainReaderPendingStateAtOutOfRange(t *testing.T) {
+func testChainReaderPreConfirmedStateAtOutOfRange(t *testing.T) {
+	// All three subtests trip the bounds check before baseState is opened,
+	// so passing a nil bcReader is safe and proves the early-return order.
 	t.Run("empty chain", func(t *testing.T) {
 		s := preconfirmed.NewChainStorage()
-		_, err := s.UnsafeSnapshot().PendingStateAt(1, nil)
+		_, _, err := s.UnsafeSnapshot().PreConfirmedStateAt(1, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 	})
 
@@ -833,7 +868,7 @@ func testChainReaderPendingStateAtOutOfRange(t *testing.T) {
 		head := headAt(0)
 		s := preconfirmed.NewChainStorage()
 		applyBlock(t, s, roundID(1), 0, 1, head)
-		_, err := s.UnsafeSnapshot().PendingStateAt(99, nil)
+		_, _, err := s.UnsafeSnapshot().PreConfirmedStateAt(99, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 	})
 
@@ -843,12 +878,12 @@ func testChainReaderPendingStateAtOutOfRange(t *testing.T) {
 		applyBlock(t, s, roundID(1), 0, 1, head)
 		applyBlock(t, s, roundID(2), 0, 2, head)
 		s.AdvanceTo(headAt(1)) // chain bottom is now slot 2.
-		_, err := s.UnsafeSnapshot().PendingStateAt(1, nil)
+		_, _, err := s.UnsafeSnapshot().PreConfirmedStateAt(1, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 	})
 }
 
-func testChainReaderPendingStateBeforeIndexAtTraversesTxs(t *testing.T) {
+func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 	head := headAt(0)
 	s := preconfirmed.NewChainStorage()
 	contract := felt.FromUint64[felt.Felt](0xC0)
@@ -903,32 +938,41 @@ func testChainReaderPendingStateBeforeIndexAtTraversesTxs(t *testing.T) {
 		{2, 0, 12}, // no slot-2 txs applied → falls through to slot 1's full diff
 		{2, 1, 21}, // slot 2's tx[0]
 		{2, 2, 22}, // slot 2's tx[0..1]
-		{2, 3, 23}, // slot 2's tx[0..2] — equivalent to PendingStateAt(2)
+		{2, 3, 23}, // slot 2's tx[0..2] — equivalent to PreConfirmedStateAt(2)
 		// Tip — slot 1 and slot 2's full diffs are merged first, then slot 3 prefixes.
 		{3, 0, 23}, // no slot-3 txs applied → falls through to slot 2's full diff
 		{3, 1, 31},
 		{3, 2, 32},
 	}
+	// Chain bottom is slot 1 (head=0); base resolves via StateAtBlockNumber(0)
+	// once per case. nil StateReader is fine — every queried key lives in the
+	// chain's diff, so pending.State never consults the base.
+	ctrl := gomock.NewController(t)
+	bc := mocks.NewMockReader(ctrl)
+	bc.EXPECT().StateAtBlockNumber(uint64(0)).
+		Return(nil, func() error { return nil }, nil).
+		Times(len(cases))
 	for _, tc := range cases {
-		state, err := c.PendingStateBeforeIndexAt(tc.blockNumber, tc.index, nil)
+		state, closer, err := c.PreConfirmedStateBeforeIndexAt(tc.blockNumber, tc.index, bc)
 		require.NoError(t, err)
 
 		gotShared, err := state.ContractStorage(&contract, &key)
 		require.NoError(t, err)
 		require.Equal(t, felt.FromUint64[felt.Felt](tc.want), gotShared,
-			"PendingStateBeforeIndexAt(%d, %d) keyShared should resolve to %d",
+			"PreConfirmedStateBeforeIndexAt(%d, %d) keyShared should resolve to %d",
 			tc.blockNumber, tc.index, tc.want)
 
 		// keyOnlyInSlot1 must survive every merge — no upper slot rewrites it.
 		gotPreserved, err := state.ContractStorage(&contract, &keyOnlyInSlot1)
 		require.NoError(t, err)
 		require.Equal(t, felt.FromUint64[felt.Felt](100), gotPreserved,
-			"PendingStateBeforeIndexAt(%d, %d) keyOnlyInSlot1 must survive the merge",
+			"PreConfirmedStateBeforeIndexAt(%d, %d) keyOnlyInSlot1 must survive the merge",
 			tc.blockNumber, tc.index)
+		require.NoError(t, closer())
 	}
 }
 
-func testChainReaderPendingStateBeforeIndexAtBadIndex(t *testing.T) {
+func testChainReaderPreConfirmedStateBeforeIndexAtBadIndex(t *testing.T) {
 	head := headAt(0)
 	s := preconfirmed.NewChainStorage()
 	contract := felt.FromUint64[felt.Felt](0xC0)
@@ -945,15 +989,17 @@ func testChainReaderPendingStateBeforeIndexAtBadIndex(t *testing.T) {
 	)
 	c := s.UnsafeSnapshot()
 
-	// Slot 1 has 2 transactions; index 3 is past the end.
-	_, err := c.PendingStateBeforeIndexAt(1, 3, nil)
+	// Slot 1 has 2 transactions; index 3 is past the end. The index check
+	// runs before baseState, so a nil bcReader is safe here.
+	_, _, err := c.PreConfirmedStateBeforeIndexAt(1, 3, nil)
 	require.ErrorIs(t, err, pending.ErrTransactionIndexOutOfBounds)
 }
 
-func testChainReaderPendingStateBeforeIndexAtOutOfRange(t *testing.T) {
+func testChainReaderPreConfirmedStateBeforeIndexAtOutOfRange(t *testing.T) {
+	// Both subtests trip the bounds check before baseState is opened.
 	t.Run("empty chain", func(t *testing.T) {
 		s := preconfirmed.NewChainStorage()
-		_, err := s.UnsafeSnapshot().PendingStateBeforeIndexAt(1, 0, nil)
+		_, _, err := s.UnsafeSnapshot().PreConfirmedStateBeforeIndexAt(1, 0, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 	})
 
@@ -961,8 +1007,234 @@ func testChainReaderPendingStateBeforeIndexAtOutOfRange(t *testing.T) {
 		head := headAt(0)
 		s := preconfirmed.NewChainStorage()
 		applyBlock(t, s, roundID(1), 0, 1, head)
-		_, err := s.UnsafeSnapshot().PendingStateBeforeIndexAt(99, 0, nil)
+		_, _, err := s.UnsafeSnapshot().PreConfirmedStateBeforeIndexAt(99, 0, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
+	})
+}
+
+// testChainReaderPreConfirmedStateAtBaseAlignsWithBottom is the regression test
+// for the head-vs-snapshot race: even with a 3-entry chain whose canonical
+// head sits multiple slots below the tip, the base lookup must hit exactly
+// `chain.bottom - 1` and never the live head — otherwise base diffs would
+// overlap with chain entries.
+func testChainReaderPreConfirmedStateAtBaseAlignsWithBottom(t *testing.T) {
+	head := headAt(4)
+	s := preconfirmed.NewChainStorage()
+	for n := uint64(5); n <= 7; n++ {
+		applyBlock(t, s, roundID(n), 0, n, head)
+	}
+	c := s.UnsafeSnapshot()
+	require.Equal(t, 3, c.Length())
+
+	// bottom = 7 - (3-1) = 5; base must resolve at block 4.
+	bc := mocks.NewMockReader(gomock.NewController(t))
+	bc.EXPECT().StateAtBlockNumber(uint64(4)).
+		Return(nil, func() error { return nil }, nil)
+
+	_, closer, err := c.PreConfirmedStateAt(7, bc)
+	require.NoError(t, err)
+	require.NoError(t, closer())
+}
+
+// testChainReaderPreConfirmedStateAtBaseAtGenesis exercises the bottom==0 branch:
+// a single-entry chain at slot 0 has no canonical block below it, so the
+// base resolves via the zero hash rather than StateAtBlockNumber.
+func testChainReaderPreConfirmedStateAtBaseAtGenesis(t *testing.T) {
+	s := preconfirmed.NewChainStorage()
+	applyBlock(t, s, roundID(0), 0, 0, nil)
+	c := s.UnsafeSnapshot()
+
+	bc := mocks.NewMockReader(gomock.NewController(t))
+	bc.EXPECT().StateAtBlockHash(&felt.Zero).
+		Return(nil, func() error { return nil }, nil)
+
+	_, closer, err := c.PreConfirmedStateAt(0, bc)
+	require.NoError(t, err)
+	require.NoError(t, closer())
+}
+
+// testChainReaderPreConfirmedStateAtBaseError verifies that a bcReader failure
+// (e.g. base block pruned) is surfaced verbatim — no swallowing, no closer
+// returned that the caller might invoke against a half-opened state.
+func testChainReaderPreConfirmedStateAtBaseError(t *testing.T) {
+	head := headAt(0)
+	s := preconfirmed.NewChainStorage()
+	applyBlock(t, s, roundID(1), 0, 1, head)
+	c := s.UnsafeSnapshot()
+
+	wantErr := errors.New("base pruned")
+	bc := mocks.NewMockReader(gomock.NewController(t))
+	bc.EXPECT().StateAtBlockNumber(uint64(0)).
+		Return(nil, nil, wantErr)
+
+	state, closer, err := c.PreConfirmedStateAt(1, bc)
+	require.ErrorIs(t, err, wantErr)
+	require.Nil(t, state)
+	require.Nil(t, closer)
+}
+
+// emptyStateDiffPtr returns a fresh empty StateDiff value as a pointer.
+func emptyStateDiffPtr() *core.StateDiff {
+	sd := core.EmptyStateDiff()
+	return &sd
+}
+
+// txChainFixture builds a 3-block chain where every transaction is uniquely
+// hashed via applyBlockWithStorageWrites's `number*1000 + index` scheme.
+// Block 1 carries txs 1000,1001,1002; block 2 carries 2000,2001; block 3 (tip)
+// carries 3000,3001,3002.
+func txChainFixture(t *testing.T) *preconfirmed.ChainReader {
+	t.Helper()
+	head := headAt(0)
+	s := preconfirmed.NewChainStorage()
+	contract := felt.FromUint64[felt.Felt](0xC0)
+	applyBlockWithStorageWrites(t, s, roundID(1), &contract,
+		[]storageWrite{
+			{felt.FromUint64[felt.Felt](1), 1},
+			{felt.FromUint64[felt.Felt](2), 2},
+			{felt.FromUint64[felt.Felt](3), 3},
+		},
+		1, head)
+	applyBlockWithStorageWrites(t, s, roundID(2), &contract,
+		[]storageWrite{{felt.FromUint64[felt.Felt](4), 4}, {felt.FromUint64[felt.Felt](5), 5}},
+		2, head)
+	applyBlockWithStorageWrites(t, s, roundID(3), &contract,
+		[]storageWrite{
+			{felt.FromUint64[felt.Felt](6), 6},
+			{felt.FromUint64[felt.Felt](7), 7},
+			{felt.FromUint64[felt.Felt](8), 8},
+		},
+		3, head)
+	return s.UnsafeSnapshot()
+}
+
+func testChainReaderTransactionByHashAcrossChain(t *testing.T) {
+	c := txChainFixture(t)
+
+	cases := []struct {
+		name string
+		hash uint64
+	}{
+		{"bottom block", 1000},
+		{"middle block", 2001},
+		{"tip block", 3002},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			hash := felt.NewFromUint64[felt.Felt](tc.hash)
+			tx, err := c.TransactionByHash(hash)
+			require.NoError(t, err)
+			require.NotNil(t, tx)
+			require.True(t, tx.Hash().Equal(hash))
+		})
+	}
+}
+
+func testChainReaderTransactionByHashMissing(t *testing.T) {
+	t.Run("empty chain", func(t *testing.T) {
+		var nilReader *preconfirmed.ChainReader
+		_, err := nilReader.TransactionByHash(new(felt.Felt).SetUint64(1))
+		require.ErrorIs(t, err, pending.ErrTransactionNotFound)
+	})
+
+	t.Run("unknown hash", func(t *testing.T) {
+		c := txChainFixture(t)
+		_, err := c.TransactionByHash(new(felt.Felt).SetUint64(999_999))
+		require.ErrorIs(t, err, pending.ErrTransactionNotFound)
+	})
+}
+
+func testChainReaderReceiptByHashAcrossChain(t *testing.T) {
+	c := txChainFixture(t)
+
+	cases := []struct {
+		name        string
+		hash        uint64
+		wantBlockNo uint64
+	}{
+		{"bottom block", 1002, 1},
+		{"middle block", 2000, 2},
+		{"tip block", 3001, 3},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			hash := felt.NewFromUint64[felt.Felt](tc.hash)
+			receipt, blockNumber, err := c.ReceiptByHash(hash)
+			require.NoError(t, err)
+			require.NotNil(t, receipt)
+			require.True(t, receipt.TransactionHash.Equal(hash))
+			require.Equal(t, tc.wantBlockNo, blockNumber)
+		})
+	}
+}
+
+func testChainReaderReceiptByHashMissing(t *testing.T) {
+	t.Run("empty chain", func(t *testing.T) {
+		var nilReader *preconfirmed.ChainReader
+		_, _, err := nilReader.ReceiptByHash(new(felt.Felt).SetUint64(1))
+		require.ErrorIs(t, err, pending.ErrTransactionReceiptNotFound)
+	})
+
+	t.Run("unknown hash", func(t *testing.T) {
+		c := txChainFixture(t)
+		_, _, err := c.ReceiptByHash(new(felt.Felt).SetUint64(999_999))
+		require.ErrorIs(t, err, pending.ErrTransactionReceiptNotFound)
+	})
+}
+
+func testChainReaderNewChainSingleEntry(t *testing.T) {
+	t.Run("no args produces empty reader", func(t *testing.T) {
+		c, err := preconfirmed.NewChain()
+		require.NoError(t, err)
+		require.Equal(t, 0, c.Length())
+		require.Nil(t, c.Head())
+	})
+
+	t.Run("non-nil produces length-1 reader pointing at entry", func(t *testing.T) {
+		pc := &pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 42}},
+			StateUpdate: &core.StateUpdate{StateDiff: emptyStateDiffPtr()},
+		}
+		c, err := preconfirmed.NewChain(pc)
+		require.NoError(t, err)
+		require.Equal(t, 1, c.Length())
+		require.Same(t, pc, c.Head())
+	})
+}
+
+func newChainEntry(n uint64) *pending.PreConfirmed {
+	return &pending.PreConfirmed{
+		Block:       &core.Block{Header: &core.Header{Number: n}},
+		StateUpdate: &core.StateUpdate{StateDiff: emptyStateDiffPtr()},
+	}
+}
+
+func testChainReaderNewChainMultiEntry(t *testing.T) {
+	// Entries are given oldest-first; the reader exposes them newest-first with
+	// the highest block number as Head.
+	c, err := preconfirmed.NewChain(newChainEntry(5), newChainEntry(6), newChainEntry(7))
+	require.NoError(t, err)
+	require.Equal(t, 3, c.Length())
+	require.Equal(t, uint64(7), c.Head().Block.Number)
+
+	var newest []uint64
+	for pc := range c.NewestFirst() {
+		newest = append(newest, pc.Block.Number)
+	}
+	require.Equal(t, []uint64{7, 6, 5}, newest)
+
+	require.Equal(t, []uint64{5, 6, 7}, chainBlockNumbers(&c))
+}
+
+func testChainReaderNewChainInvalid(t *testing.T) {
+	t.Run("nil entry returns error", func(t *testing.T) {
+		_, err := preconfirmed.NewChain(newChainEntry(5), nil)
+		require.ErrorContains(t, err, "entry 1 is nil")
+	})
+
+	t.Run("non-contiguous block numbers return error", func(t *testing.T) {
+		_, err := preconfirmed.NewChain(newChainEntry(5), newChainEntry(7))
+		require.ErrorContains(t, err, "non-contiguous block numbers at index 1 (7 after 5)")
 	})
 }
 
