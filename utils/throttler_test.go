@@ -61,3 +61,35 @@ func TestThrottler(t *testing.T) {
 	wg.Wait()
 	assert.Equal(t, int64(4), runCount)
 }
+
+func TestThrottlerWithZeroMaxQueueLen(t *testing.T) {
+	throttledRes := utils.NewThrottler(1, new(int)).WithMaxQueueLen(0)
+	release := make(chan struct{})
+	started := make(chan struct{})
+	done := make(chan error, 1)
+
+	go func() {
+		done <- throttledRes.Do(func(ptr *int) error {
+			if ptr == nil {
+				return errors.New("nilptr")
+			}
+			close(started)
+			<-release
+			return nil
+		})
+	}()
+
+	select {
+	case <-started:
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for throttled job to start")
+	}
+
+	assert.Equal(t, 0, throttledRes.QueueLen())
+	require.ErrorIs(t, throttledRes.Do(func(*int) error { return nil }), utils.ErrResourceBusy)
+
+	close(release)
+	require.NoError(t, <-done)
+}

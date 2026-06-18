@@ -32,6 +32,15 @@ func (t *Throttler[T]) WithMaxQueueLen(maxQueueLen int32) *Throttler[T] {
 
 // Do lets caller acquire the resource within the context of a callback
 func (t *Throttler[T]) Do(doer func(resource *T) error) error {
+	select {
+	case t.sem <- struct{}{}:
+		defer func() {
+			<-t.sem
+		}()
+		return doer(t.resource)
+	default:
+	}
+
 	queueLen := t.queue.Add(1)
 	if queueLen > t.maxQueueLen {
 		t.queue.Add(-1)
