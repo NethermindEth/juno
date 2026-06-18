@@ -32,6 +32,39 @@ func benchJSONInputs(b *testing.B) []struct {
 	}
 }
 
+// BenchmarkMulLatency measures a dependent chain: each Mul waits on the previous
+// result, so it is bound by the multiply's latency.
+func BenchmarkMulLatency(b *testing.B) {
+	c := felt.Random[felt.Felt]()
+	x := felt.Random[felt.Felt]()
+	for b.Loop() {
+		x.Mul(&x, &c)
+	}
+	benchFeltSink = x
+}
+
+// BenchmarkMulThroughput runs four independent chains so the CPU can run the
+// multiplies in parallel; ns/op covers four muls (divide by 4 to compare with
+// BenchmarkMulLatency). The gap between the two shows how much parallelism the
+// field multiply has.
+func BenchmarkMulThroughput(b *testing.B) {
+	c := felt.Random[felt.Felt]()
+	x0 := felt.Random[felt.Felt]()
+	x1 := felt.Random[felt.Felt]()
+	x2 := felt.Random[felt.Felt]()
+	x3 := felt.Random[felt.Felt]()
+	for b.Loop() {
+		x0.Mul(&x0, &c)
+		x1.Mul(&x1, &c)
+		x2.Mul(&x2, &c)
+		x3.Mul(&x3, &c)
+	}
+	benchFeltSink = x0
+	benchFeltSink = x1
+	benchFeltSink = x2
+	benchFeltSink = x3
+}
+
 func BenchmarkMarshalJSON(b *testing.B) {
 	for _, tc := range benchJSONInputs(b) {
 		f := felt.UnsafeFromString[felt.Felt](tc.hex)
