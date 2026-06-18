@@ -93,11 +93,20 @@ func TestCompileCPULimit(t *testing.T) {
 		t.Skip("rlimits are only enforced on Linux")
 	}
 
-	// A fake compiler binary that burns CPU for ~4 wall-clock seconds
-	// and, only if it survives, prints a valid (empty) CASM JSON
-	// document.
+	// A fake compiler binary that stands in for `juno compile-sierra`: it
+	// applies the CPU-time limit passed by the parent to itself (as the
+	// real child does), then burns CPU for ~4 wall-clock seconds and,
+	// only if it survives, prints a valid (empty) CASM JSON document.
 	script := writeScript(t, "busy.sh",
 		"#!/bin/sh\n"+
+			"cpu=0\n"+
+			"while [ $# -gt 0 ]; do\n"+
+			"  case \"$1\" in\n"+
+			"    --max-cpu-time) cpu=$2; shift 2;;\n"+
+			"    *) shift;;\n"+
+			"  esac\n"+
+			"done\n"+
+			"[ \"$cpu\" -gt 0 ] && ulimit -t \"$cpu\"\n"+
 			"end=$(($(date +%s)+4))\n"+
 			"while [ \"$(date +%s)\" -lt \"$end\" ]; do\n"+
 			"  i=0\n"+
@@ -135,10 +144,21 @@ func TestCompileMemoryLimit(t *testing.T) {
 		t.Skip("rlimits are only enforced on Linux")
 	}
 
-	// A fake compiler binary that allocates a 256 MB buffer and, only
-	// if that succeeds, prints a valid (empty) CASM JSON document.
+	// A fake compiler binary that stands in for `juno compile-sierra`: it
+	// applies the memory limit passed by the parent to itself (as the
+	// real child does), then allocates a 256 MB buffer and, only if that
+	// succeeds, prints a valid (empty) CASM JSON document. ulimit -v is
+	// in KB, while the parent passes RLIMIT_AS in bytes.
 	script := writeScript(t, "hungry.sh",
 		"#!/bin/sh\n"+
+			"mem=0\n"+
+			"while [ $# -gt 0 ]; do\n"+
+			"  case \"$1\" in\n"+
+			"    --max-memory) mem=$2; shift 2;;\n"+
+			"    *) shift;;\n"+
+			"  esac\n"+
+			"done\n"+
+			"[ \"$mem\" -gt 0 ] && ulimit -v $((mem/1024))\n"+
 			"dd if=/dev/zero of=/dev/null bs=$((256*1024*1024)) count=1 || exit 1\n"+
 			"echo '{}'\n",
 	)

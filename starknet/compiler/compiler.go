@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
@@ -20,6 +21,15 @@ type Compiler interface {
 		*starknet.CasmClass, error,
 	)
 }
+
+// Flag names used to pass per-compilation resource limits to the
+// compile-sierra child process. They are shared by the parent (which
+// builds the child's argv) and the child command (which defines the
+// flags and applies the limits to itself).
+const (
+	FlagMaxMemory  = "max-memory"   // bytes (RLIMIT_AS)
+	FlagMaxCPUTime = "max-cpu-time" // seconds (RLIMIT_CPU)
+)
 
 // Config bounds the resources used by compilation child processes.
 type Config struct {
@@ -98,15 +108,25 @@ func (c *compiler) Compile(
 		)
 	}
 
+	// The child applies these limits to itself before compiling, so they
+	// are in force for the whole compile with no race window.
+	args := []string{"compile-sierra"}
+	if c.maxMemory > 0 {
+		args = append(args, "--"+FlagMaxMemory, strconv.FormatUint(c.maxMemory, 10))
+	}
+	if c.maxCPUTime > 0 {
+		args = append(args, "--"+FlagMaxCPUTime, strconv.FormatUint(c.maxCPUTime, 10))
+	}
+
 	//nolint:gosec // binaryPath is the juno binary, not user input
-	cmd := exec.CommandContext(ctx, c.binaryPath, "compile-sierra")
+	cmd := exec.CommandContext(ctx, c.binaryPath, args...)
 	cmd.Stdin = bytes.NewReader(sierraJSON)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := c.run(cmd); err != nil {
+	if err := cmd.Run(); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			c.logger.Warn("Sierra to CASM compilation timed out",
 				zap.Error(ctxErr),
@@ -127,21 +147,6 @@ func (c *compiler) Compile(
 	}
 
 	return &casmClass, nil
-}
-
-// run starts cmd, applies the configured rlimits to the child and
-// waits for it to finish. If the limits cannot be applied the child
-// is killed rather than left running unrestricted.
-func (c *compiler) run(cmd *exec.Cmd) error {
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	if err := applyRLimits(cmd.Process.Pid, c.maxCPUTime, c.maxMemory); err != nil {
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
-		return fmt.Errorf("applying compilation resource limits: %w", err)
-	}
-	return cmd.Wait()
 }
 
 type inProcessCompiler struct{}
