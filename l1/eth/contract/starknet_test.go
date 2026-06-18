@@ -222,7 +222,7 @@ func TestWatchLogStateUpdate_DecodeFailureClosesErr(t *testing.T) {
 	select {
 	case errOut := <-sub.Err():
 		require.Error(t, errOut)
-		assert.Contains(t, errOut.Error(), "decode")
+		assert.Contains(t, errOut.Error(), "decoding")
 	case <-time.After(time.Second):
 		t.Fatal("Err() did not fire on decode failure")
 	}

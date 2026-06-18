@@ -680,7 +680,9 @@ func newSettlement(
 	switch client {
 	case "", "geth":
 		s, err := l1.NewGethSettlement(
-			dialCtx, ethNode, contractAddress,
+			dialCtx,
+			ethNode,
+			contractAddress,
 			l1.WithSettlementLogger(logger),
 		)
 		if err != nil {
@@ -689,7 +691,9 @@ func newSettlement(
 		return s, nil
 	case "juno":
 		s, err := l1.NewEthSettlement(
-			dialCtx, ethNode, contractAddress,
+			dialCtx,
+			ethNode,
+			contractAddress,
 			l1.WithSettlementLogger(logger),
 		)
 		if err != nil {

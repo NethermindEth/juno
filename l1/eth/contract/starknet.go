@@ -102,7 +102,8 @@ func FilterLogStateUpdate(
 	ctx context.Context,
 	c LogClient,
 	contract eth.Address,
-	from, to uint64,
+	from uint64,
+	to uint64,
 ) ([]*LogStateUpdate, error) {
 	logs, err := c.FilterLogs(ctx, client.FilterQuery{
 		FromBlock: &from,
@@ -111,15 +112,15 @@ func FilterLogStateUpdate(
 		Topics:    [][]eth.Hash{{LogStateUpdateSigHash}},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("filter LogStateUpdate: %w", err)
+		return nil, fmt.Errorf("filtering LogStateUpdate: %w", err)
 	}
-	out := make([]*LogStateUpdate, 0, len(logs))
+	out := make([]*LogStateUpdate, len(logs))
 	for i := range logs {
 		ev, derr := Decode(&logs[i])
 		if derr != nil {
-			return nil, fmt.Errorf("decode LogStateUpdate: %w", derr)
+			return nil, fmt.Errorf("decoding LogStateUpdate: %w", derr)
 		}
-		out = append(out, ev)
+		out[i] = ev
 	}
 	return out, nil
 }
@@ -144,7 +145,7 @@ func WatchLogStateUpdate(
 		Topics:    [][]eth.Hash{{LogStateUpdateSigHash}},
 	}, rawSink)
 	if err != nil {
-		return nil, fmt.Errorf("subscribe to LogStateUpdate: %w", err)
+		return nil, fmt.Errorf("subscribing to LogStateUpdate: %w", err)
 	}
 	w := &stateUpdateWatcher{
 		inner:  inner,
@@ -200,7 +201,7 @@ func (w *stateUpdateWatcher) run(rawSink <-chan *eth.Log, sink chan<- *LogStateU
 		case raw := <-rawSink:
 			ev, err := Decode(raw)
 			if err != nil {
-				w.fail(fmt.Errorf("decode LogStateUpdate: %w", err))
+				w.fail(fmt.Errorf("decoding LogStateUpdate: %w", err))
 				return
 			}
 			select {
