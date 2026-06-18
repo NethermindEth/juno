@@ -102,7 +102,7 @@ You can build the Juno binary or Docker image from the source code to access the
 ### Prerequisites
 
 - [Golang 1.26](https://go.dev/doc/install) or later
-- [Rust](https://www.rust-lang.org/tools/install) 1.88.0 or higher.
+- [Rust](https://www.rust-lang.org/tools/install) 1.94.0 or higher.
 - C compiler: `gcc` or `clang`
 - [jemalloc](https://github.com/jemalloc/jemalloc)
 
