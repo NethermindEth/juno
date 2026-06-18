@@ -235,7 +235,7 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	}
 }
 
-func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.EventListener {
+func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.SettlementLayer) l1.EventListener {
 	l2BlockFinalizedOnL1 := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
 		Name:      "l2_finalised_height",
