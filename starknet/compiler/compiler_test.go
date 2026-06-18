@@ -135,7 +135,7 @@ func TestCompileCPULimit(t *testing.T) {
 		log.NewNopZapLogger(),
 	)
 	_, err = limited.Compile(ctx, &starknet.SierraClass{})
-	require.ErrorContains(t, err, "exceeded resource limit")
+	require.ErrorContains(t, err, "exceeded max CPU time")
 	require.NotErrorIs(t, err, context.DeadlineExceeded)
 }
 
