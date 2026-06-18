@@ -403,6 +403,19 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			return fmt.Errorf("--%s requires --%s to be set", pruneMinAgeF, pruneModeF)
 		}
 
+		// Compilation resource limits are enforced on Linux only. Elsewhere,
+		// drop the non-zero defaults to 0 so the compiler doesn't warn about
+		// limits it can't apply. A value the user set explicitly (CLI/env/YAML)
+		// is preserved, so an intentional limit still triggers the warning.
+		if runtime.GOOS != "linux" {
+			if !v.IsSet(maxCompilationMemoryF) {
+				config.MaxCompilationMemory = 0
+			}
+			if !v.IsSet(maxCompilationCPUTimeF) {
+				config.MaxCompilationCPUTime = 0
+			}
+		}
+
 		// Set custom network
 		if v.IsSet(cnNameF) {
 			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
