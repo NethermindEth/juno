@@ -165,6 +165,235 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 	})
 }
 
+func nonEmptyTx() starknet.Transaction {
+	return starknet.Transaction{Hash: felt.NewRandom[felt.Felt]()}
+}
+
+// validBlock returns a PreConfirmedBlock that passes validate(), so individual
+// tests can flip a single field to exercise one failure path at a time.
+func validBlock() starknet.PreConfirmedBlock {
+	return starknet.PreConfirmedBlock{
+		BlockIdentifier:       "abc123",
+		Transactions:          []starknet.Transaction{nonEmptyTx()},
+		Receipts:              []*starknet.TransactionReceipt{{}},
+		TransactionStateDiffs: []*starknet.StateDiff{{}},
+		Status:                "PRE_CONFIRMED",
+		Version:               "0.14.0",
+		SequencerAddress:      new(felt.Felt).SetUint64(0xaa),
+		L1GasPrice:            &starknet.GasPrice{},
+		L2GasPrice:            &starknet.GasPrice{},
+		L1DataGasPrice:        &starknet.GasPrice{},
+	}
+}
+
+// validDelta returns a PreConfirmedDeltaUpdate that passes validate().
+func validDelta() starknet.PreConfirmedDeltaUpdate {
+	return starknet.PreConfirmedDeltaUpdate{
+		BlockIdentifier:       "abc123",
+		Transactions:          []starknet.Transaction{nonEmptyTx()},
+		Receipts:              []*starknet.TransactionReceipt{{}},
+		TransactionStateDiffs: []*starknet.StateDiff{{}},
+	}
+}
+
+func TestPreConfirmedUpdateEnvelope_Validate(t *testing.T) {
+	t.Run("NoChange is always valid", func(t *testing.T) {
+		env := &starknet.PreConfirmedUpdateEnvelope{Update: starknet.PreConfirmedNoChange{}}
+		got, err := env.Validate()
+		require.NoError(t, err)
+		require.Same(t, env, got)
+	})
+
+	t.Run("valid Block passes", func(t *testing.T) {
+		env := &starknet.PreConfirmedUpdateEnvelope{Update: validBlock()}
+		got, err := env.Validate()
+		require.NoError(t, err)
+		require.Same(t, env, got)
+	})
+
+	t.Run("valid Delta passes", func(t *testing.T) {
+		env := &starknet.PreConfirmedUpdateEnvelope{Update: validDelta()}
+		got, err := env.Validate()
+		require.NoError(t, err)
+		require.Same(t, env, got)
+	})
+
+	t.Run("invalid Block propagates validate error", func(t *testing.T) {
+		b := validBlock()
+		b.Status = "ACCEPTED_ON_L2"
+		env := &starknet.PreConfirmedUpdateEnvelope{Update: b}
+		got, err := env.Validate()
+		require.Error(t, err)
+		require.Nil(t, got)
+	})
+
+	t.Run("invalid Delta propagates validate error", func(t *testing.T) {
+		d := validDelta()
+		d.Transactions = nil
+		env := &starknet.PreConfirmedUpdateEnvelope{Update: d}
+		got, err := env.Validate()
+		require.Error(t, err)
+		require.Nil(t, got)
+	})
+
+	t.Run("nil Update hits the default branch", func(t *testing.T) {
+		// A zero-value envelope has a nil Update interface, which falls through
+		// the type switch to the default error branch.
+		env := &starknet.PreConfirmedUpdateEnvelope{}
+		got, err := env.Validate()
+		require.Error(t, err)
+		require.Nil(t, got)
+	})
+}
+
+func TestPreConfirmedBlock_validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*starknet.PreConfirmedBlock)
+		wantErr bool
+	}{
+		{name: "valid", mutate: func(*starknet.PreConfirmedBlock) {}},
+		{
+			name:    "missing block_identifier",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.BlockIdentifier = "" },
+			wantErr: true,
+		},
+		{
+			name:    "wrong status",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.Status = "ACCEPTED_ON_L2" },
+			wantErr: true,
+		},
+		{
+			name:    "missing version",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.Version = "" },
+			wantErr: true,
+		},
+		{
+			name:    "missing sequencer_address",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.SequencerAddress = nil },
+			wantErr: true,
+		},
+		{
+			name:    "missing l1_gas_price",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.L1GasPrice = nil },
+			wantErr: true,
+		},
+		{
+			name:    "missing l2_gas_price",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.L2GasPrice = nil },
+			wantErr: true,
+		},
+		{
+			name:    "missing l1_data_gas_price",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.L1DataGasPrice = nil },
+			wantErr: true,
+		},
+		{
+			name: "mismatched lengths",
+			mutate: func(b *starknet.PreConfirmedBlock) {
+				b.Receipts = nil
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty transaction",
+			mutate: func(b *starknet.PreConfirmedBlock) {
+				b.Transactions = []starknet.Transaction{{}}
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil receipt",
+			mutate: func(b *starknet.PreConfirmedBlock) {
+				b.Receipts = []*starknet.TransactionReceipt{nil}
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil state diff",
+			mutate: func(b *starknet.PreConfirmedBlock) {
+				b.TransactionStateDiffs = []*starknet.StateDiff{nil}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := validBlock()
+			tt.mutate(&b)
+			// validate() is unexported; drive it through the exported Validate().
+			_, err := (&starknet.PreConfirmedUpdateEnvelope{Update: b}).Validate()
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestPreConfirmedDeltaUpdate_validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*starknet.PreConfirmedDeltaUpdate)
+		wantErr bool
+	}{
+		{name: "valid", mutate: func(*starknet.PreConfirmedDeltaUpdate) {}},
+		{
+			name:    "missing block_identifier",
+			mutate:  func(d *starknet.PreConfirmedDeltaUpdate) { d.BlockIdentifier = "" },
+			wantErr: true,
+		},
+		{
+			name:    "zero transactions",
+			mutate:  func(d *starknet.PreConfirmedDeltaUpdate) { d.Transactions = nil },
+			wantErr: true,
+		},
+		{
+			name: "mismatched lengths",
+			mutate: func(d *starknet.PreConfirmedDeltaUpdate) {
+				d.Transactions = []starknet.Transaction{nonEmptyTx(), nonEmptyTx()}
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty transaction",
+			mutate: func(d *starknet.PreConfirmedDeltaUpdate) {
+				d.Transactions = []starknet.Transaction{{}}
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil receipt",
+			mutate: func(d *starknet.PreConfirmedDeltaUpdate) {
+				d.Receipts = []*starknet.TransactionReceipt{nil}
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil state diff",
+			mutate: func(d *starknet.PreConfirmedDeltaUpdate) {
+				d.TransactionStateDiffs = []*starknet.StateDiff{nil}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := validDelta()
+			tt.mutate(&d)
+			_, err := (&starknet.PreConfirmedUpdateEnvelope{Update: d}).Validate()
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+		})
+	}
+}
+
 // AsUpdate produces a PreConfirmedBlock that shares the legacy block's data
 // and carries the synthetic "LegacyAPI" identifier downstream code uses to
 // detect a legacy source.

@@ -513,6 +513,8 @@ func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
 	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
 }
 
+// AdaptPreConfirmedBlock adapts a pre_confirmed block into a pending.PreConfirmed.
+// It assumes that the response was already sanitized, not containing any nil/invalid values.
 func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,

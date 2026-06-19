@@ -1288,3 +1288,51 @@ func TestBlockHeader(t *testing.T) {
 		assert.Zero(t, header)
 	})
 }
+
+// clientServingBody spins up a test feeder server that answers every request
+// with the given body, and returns a client wired to it.
+func clientServingBody(t *testing.T, body string) *feeder.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+}
+
+// TestFeederValidation checks that the response
+// validation wired into [doRequest] works as expected.
+func TestFeederValidation(t *testing.T) {
+	t.Run("valid response is returned", func(t *testing.T) {
+		// invalid response for the preconfirmed endpoint: delta cannot have zero transactions
+		body := `{
+			"changed": true,
+			"block_identifier": "abc123",
+			"transactions": [{"version": "0x3"}],
+			"transaction_receipts": [{"transaction_hash": "0x123"}],
+			"transaction_state_diffs": [{"storage_diffs": {}}]
+		}`
+		client := clientServingBody(t, body)
+
+		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", "", 0)
+		require.NoError(t, err)
+		_, ok := update.(starknet.PreConfirmedDeltaUpdate)
+		require.True(t, ok)
+	})
+
+	t.Run("invalid response fails validation", func(t *testing.T) {
+		// invalid response for the preconfirmed endpoint: delta cannot have zero transactions
+		body := `{
+			"changed": true,
+			"block_identifier": "abc123",
+			"transactions": [],
+			"transaction_receipts": [],
+			"transaction_state_diffs": []
+		}`
+		client := clientServingBody(t, body)
+
+		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", "", 0)
+		require.Error(t, err)
+		require.Nil(t, update)
+	})
+}
