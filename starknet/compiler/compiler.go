@@ -33,9 +33,6 @@ const (
 
 // Config bounds the resources used by compilation child processes.
 type Config struct {
-	// MaxConcurrent is the maximum number of compilation processes
-	// running at once.
-	MaxConcurrent uint
 	// MaxMemory is the address-space limit (RLIMIT_AS) in bytes
 	// applied to each compilation process. Exceeding it aborts that
 	// compilation. Enforced on Linux only. 0 disables the limit.
@@ -52,13 +49,11 @@ type compiler struct {
 	binaryPath string
 	maxMemory  uint64
 	maxCPUTime uint64
-	sem        chan struct{}
 	logger     log.StructuredLogger
 }
 
 // New creates a Compiler that runs Sierra-to-CASM compilation
-// in isolated child processes with concurrency and resource
-// control. The caller's context controls the compilation deadline.
+// in isolated child processes with per-process resource control.
 func New(cfg *Config, binaryPath string, logger log.StructuredLogger) Compiler {
 	if binaryPath == "" {
 		var err error
@@ -77,13 +72,13 @@ func New(cfg *Config, binaryPath string, logger log.StructuredLogger) Compiler {
 		binaryPath: binaryPath,
 		maxMemory:  cfg.MaxMemory,
 		maxCPUTime: cfg.MaxCPUTime,
-		sem:        make(chan struct{}, cfg.MaxConcurrent),
 		logger:     logger,
 	}
 }
 
 // Compile runs Sierra-to-CASM compilation in an isolated child
-// process. The child process is killed if the context is cancelled.
+// process. Function interrupts if context is cancelled and returns
+// an error.
 func (c *compiler) Compile(
 	ctx context.Context, sierra *starknet.SierraClass,
 ) (*starknet.CasmClass, error) {
@@ -96,16 +91,6 @@ func (c *compiler) Compile(
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal sierra class: %w", err)
-	}
-
-	// Acquire semaphore slot for concurrency limiting.
-	select {
-	case c.sem <- struct{}{}:
-		defer func() { <-c.sem }()
-	case <-ctx.Done():
-		return nil, fmt.Errorf(
-			"waiting for compilation slot: %w", ctx.Err(),
-		)
 	}
 
 	// The child applies these limits to itself before compiling, so they

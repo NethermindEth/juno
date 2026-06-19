@@ -197,6 +197,9 @@ func (h *Handler) prepareTransactions(
 			network,
 		)
 		if aErr != nil {
+			if errors.Is(aErr, utils.ErrResourceBusy) {
+				return nil, nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
+			}
 			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
 
