@@ -1304,7 +1304,6 @@ func clientServingBody(t *testing.T, body string) *feeder.Client {
 // validation wired into [doRequest] works as expected.
 func TestFeederValidation(t *testing.T) {
 	t.Run("valid response is returned", func(t *testing.T) {
-		// invalid response for the preconfirmed endpoint: delta cannot have zero transactions
 		body := `{
 			"changed": true,
 			"block_identifier": "abc123",

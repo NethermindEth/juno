@@ -113,7 +113,7 @@ func (pb *PreConfirmedBlock) validate() error {
 		return errors.New("l2_gas_price is required")
 	}
 	if pb.L1DataGasPrice == nil {
-		return errors.New("l2_gas_price is required")
+		return errors.New("l1_data_gas_price is required")
 	}
 	return validateTxsLength(
 		pb.Transactions, pb.Receipts, pb.TransactionStateDiffs,
@@ -189,6 +189,7 @@ func (e *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, er
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
+
 func (b *Block) Validate() (*Block, error) {
 	return b, nil
 }
