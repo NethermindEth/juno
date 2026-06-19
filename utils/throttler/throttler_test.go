@@ -1,4 +1,4 @@
-package utils_test
+package throttler_test
 
 import (
 	"errors"
@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestThrottler(t *testing.T) {
-	throttledRes := utils.NewThrottler(2, new(int)).WithMaxQueueLen(2)
+	throttledRes := throttler.NewThrottler(2, new(int)).WithMaxQueueLen(2)
 	waitOn := make(chan struct{})
 
 	var runCount int64
@@ -46,7 +46,7 @@ func TestThrottler(t *testing.T) {
 	do() // should be queued
 	assert.Equal(t, 2, throttledRes.QueueLen())
 
-	require.ErrorIs(t, throttledRes.Do(doer), utils.ErrResourceBusy)
+	require.ErrorIs(t, throttledRes.Do(doer), throttler.ErrResourceBusy)
 
 	waitOn <- struct{}{} // release one of the slots
 	time.Sleep(time.Millisecond)

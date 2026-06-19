@@ -3,19 +3,19 @@ package node
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
 )
 
 var _ vm.VM = (*ThrottledVM)(nil)
 
 type ThrottledVM struct {
-	*utils.Throttler[vm.VM]
+	*throttler.Throttler[vm.VM]
 }
 
 func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *ThrottledVM {
 	return &ThrottledVM{
-		Throttler: utils.NewThrottler(concurrenyBudget, &res).WithMaxQueueLen(maxQueueLen),
+		Throttler: throttler.NewThrottler(concurrenyBudget, &res).WithMaxQueueLen(maxQueueLen),
 	}
 }
 

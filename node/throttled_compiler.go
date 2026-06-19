@@ -5,20 +5,20 @@ import (
 
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 )
 
 var _ compiler.Compiler = (*ThrottledCompiler)(nil)
 
 type ThrottledCompiler struct {
-	*utils.Throttler[compiler.Compiler]
+	*throttler.Throttler[compiler.Compiler]
 }
 
 func NewThrottledCompiler(
 	res compiler.Compiler, concurrencyBudget uint, maxQueueLen int32,
 ) *ThrottledCompiler {
 	return &ThrottledCompiler{
-		Throttler: utils.NewThrottler(concurrencyBudget, &res).WithMaxQueueLen(maxQueueLen),
+		Throttler: throttler.NewThrottler(concurrencyBudget, &res).WithMaxQueueLen(maxQueueLen),
 	}
 }
 
