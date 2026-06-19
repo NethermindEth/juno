@@ -517,18 +517,6 @@ func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
 ) (pending.PreConfirmed, error) {
-	if response.Status != "PRE_CONFIRMED" {
-		return pending.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
-	}
-
-	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
-		len(response.Transactions) != len(response.Receipts)
-	if isInvalidPayloadSizes {
-		return pending.PreConfirmed{}, errors.New(
-			"invalid sizes of transactions, state diffs and receipts",
-		)
-	}
-
 	candidateCount := 0
 	for i := range len(response.Transactions) {
 		if IsCandidateTx(response, i) {
@@ -634,13 +622,6 @@ func AdaptPreConfirmedWithDelta(
 ) (pending.PreConfirmed, error) {
 	if current.BlockIdentifier != delta.BlockIdentifier {
 		return pending.PreConfirmed{}, ErrPreConfirmedIdentifierMismatch
-	}
-	if len(delta.Transactions) != len(delta.Receipts) ||
-		len(delta.Transactions) != len(delta.TransactionStateDiffs) {
-		return pending.PreConfirmed{}, fmt.Errorf(
-			"mismatched lengths: transactions (%d), state diffs (%d), receipts (%d) must be equal",
-			len(delta.Transactions), len(delta.TransactionStateDiffs), len(delta.Receipts),
-		)
 	}
 
 	existingTxs := current.Block.Transactions
