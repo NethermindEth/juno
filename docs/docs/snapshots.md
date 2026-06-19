@@ -70,16 +70,29 @@ mkdir -p $HOME/snapshots
 
 [zstd (Zstandard)](https://github.com/facebook/zstd) is required to decompress and directly stream the snapshots into your system without requiring temporary storage. `zstd` provides significantly better compression ratios and faster decompression speeds compared to traditional tar compression.
 
+<Tabs groupId="os">
+<TabItem value="ubuntu" label="Ubuntu/Debian" default>
+
 ```bash
-# On Ubuntu/Debian
 sudo apt-get install zstd
+```
 
-# On macOS
+</TabItem>
+<TabItem value="macos" label="macOS">
+
+```bash
 brew install zstd
+```
 
-# On RHEL/CentOS/Fedora
+</TabItem>
+<TabItem value="rhel" label="RHEL/CentOS/Fedora">
+
+```bash
 sudo dnf install zstd  # or yum install zstd
 ```
+
+</TabItem>
+</Tabs>
 
 ### 3. Download and extract
 
