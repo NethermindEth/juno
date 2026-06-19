@@ -42,21 +42,31 @@ func (val *PreConfirmedDeltaUpdate) validate() error {
 		return errors.New("delta can not have zero transactions")
 	}
 
-	if len(val.Transactions) != len(val.Receipts) ||
-		len(val.Transactions) != len(val.TransactionStateDiffs) {
+	return validateTxsLength(
+		val.Transactions, val.Receipts, val.TransactionStateDiffs,
+	)
+}
+
+func validateTxsLength(
+	txs []Transaction,
+	receipts []*TransactionReceipt,
+	stateDiffs []*StateDiff,
+) error {
+	if len(txs) != len(receipts) ||
+		len(txs) != len(stateDiffs) {
 		return errors.New(
 			"transactions, receipts, and tx_state_diffs must have the same length",
 		)
 	}
 
-	for i := range len(val.Transactions) {
-		if val.Transactions[i] == (Transaction{}) {
+	for i := range len(txs) {
+		if txs[i] == (Transaction{}) {
 			return fmt.Errorf("transaction at index %d is empty", i)
 		}
-		if val.Receipts[i] == nil {
+		if receipts[i] == nil {
 			return fmt.Errorf("receipt at index %d is nil", i)
 		}
-		if val.TransactionStateDiffs[i] == nil {
+		if stateDiffs[i] == nil {
 			return fmt.Errorf("transaction state diff at index %d is nil", i)
 		}
 	}
@@ -83,9 +93,31 @@ type PreConfirmedBlock struct {
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
 }
 
-// @todo: implement validation
-func (val *PreConfirmedBlock) validate() error {
-	return nil
+func (pb *PreConfirmedBlock) validate() error {
+	if pb.BlockIdentifier == "" {
+		return errors.New("block_identifier is required")
+	}
+	if pb.Status != "PRE_CONFIRMED" {
+		return fmt.Errorf("invalid status: %s", pb.Status)
+	}
+	if pb.Version == "" {
+		return errors.New("version is required")
+	}
+	if pb.SequencerAddress == nil {
+		return errors.New("sequencer_address is required")
+	}
+	if pb.L1GasPrice == nil {
+		return errors.New("l1_gas_price is required")
+	}
+	if pb.L2GasPrice == nil {
+		return errors.New("l2_gas_price is required")
+	}
+	if pb.L1DataGasPrice == nil {
+		return errors.New("l2_gas_price is required")
+	}
+	return validateTxsLength(
+		pb.Transactions, pb.Receipts, pb.TransactionStateDiffs,
+	)
 }
 
 func (PreConfirmedNoChange) isPreConfirmedUpdate()    {}
