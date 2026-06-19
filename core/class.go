@@ -210,20 +210,20 @@ var compiledClassV1Prefix = felt.NewFromBytes[felt.Felt]([]byte("COMPILED_CLASS_
 
 // Hash computes the class hash using the specified hash version
 func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
-	h := NewCasmHasher(version)
+	hasher := NewCasmHasher(version)
 
 	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
-		bytecodeHash = h.HashArray(c.Bytecode...)
+		bytecodeHash = hasher.HashArray(c.Bytecode...)
 	} else {
-		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children, h)
+		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children, hasher)
 	}
 
-	externalEntryPointsHash := compiledEntryPointsHash(c.External, h)
-	l1HandlerEntryPointsHash := compiledEntryPointsHash(c.L1Handler, h)
-	constructorHash := compiledEntryPointsHash(c.Constructor, h)
+	externalEntryPointsHash := compiledEntryPointsHash(c.External, hasher)
+	l1HandlerEntryPointsHash := compiledEntryPointsHash(c.L1Handler, hasher)
+	constructorHash := compiledEntryPointsHash(c.Constructor, hasher)
 
-	return h.HashArray(
+	return hasher.HashArray(
 		compiledClassV1Prefix,
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
@@ -235,13 +235,13 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 func SegmentedBytecodeHash(
 	bytecode []*felt.Felt,
 	segmentLengths []SegmentLengths,
-	h Hasher,
+	hasher Hasher,
 ) felt.Felt {
 	var startingOffset uint64
 	var digestSegment func(segments []SegmentLengths) (uint64, felt.Felt)
 	digestSegment = func(segments []SegmentLengths) (uint64, felt.Felt) {
 		var totalLength uint64
-		digest := h.NewDigest()
+		digest := hasher.NewDigest()
 
 		for _, segment := range segments {
 			var curSegmentLength uint64
@@ -250,7 +250,7 @@ func SegmentedBytecodeHash(
 			if len(segment.Children) == 0 {
 				curSegmentLength = segment.Length
 				segmentBytecode := bytecode[startingOffset : startingOffset+segment.Length]
-				curSegmentHash = h.HashArray(segmentBytecode...)
+				curSegmentHash = hasher.HashArray(segmentBytecode...)
 			} else {
 				curSegmentLength, curSegmentHash = digestSegment(segment.Children)
 			}
@@ -283,22 +283,22 @@ func sierraEntryPointsHash(entryPoints []SierraEntryPoint) felt.Felt {
 }
 
 // Order matters (selector, offset, builtins hash): it influences the class hash.
-func compiledEntryPointsHash(entryPoints []CasmEntryPoint, h Hasher) felt.Felt {
-	digest := h.NewDigest()
+func compiledEntryPointsHash(entryPoints []CasmEntryPoint, hasher Hasher) felt.Felt {
+	digest := hasher.NewDigest()
 	// Passing &offset and &builtinsHash to digest.Update (an interface call)
 	// makes the compiler heap-allocate them. Declaring them once and reusing
 	// them keeps that to a single allocation instead of one per entry point.
 	var offset, builtinsHash felt.Felt
 	for _, ep := range entryPoints {
 		offset.SetUint64(ep.Offset)
-		builtinsHash = compiledBuiltinsHash(ep.Builtins, h)
+		builtinsHash = compiledBuiltinsHash(ep.Builtins, hasher)
 		digest.Update(ep.Selector, &offset, &builtinsHash)
 	}
 	return digest.Finish()
 }
 
-func compiledBuiltinsHash(builtins []string, h Hasher) felt.Felt {
-	digest := h.NewDigest()
+func compiledBuiltinsHash(builtins []string, hasher Hasher) felt.Felt {
+	digest := hasher.NewDigest()
 	var b felt.Felt
 	for i := range builtins {
 		b.SetBytes([]byte(builtins[i]))
