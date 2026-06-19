@@ -102,3 +102,45 @@ func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *Block) Validate() (*Block, error) {
+	return val, nil
+}
+func (val *BlockHeader) Validate() (*BlockHeader, error) {
+	return val, nil
+}
+func (val *BlockTrace) Validate() (*BlockTrace, error) {
+	return val, nil
+}
+func (val *ClassDefinition) Validate() (*ClassDefinition, error) {
+	return val, nil
+}
+func (val *FeeTokenAddresses) Validate() (*FeeTokenAddresses, error) {
+	return val, nil
+}
+func (val *Signature) Validate() (*Signature, error) {
+	return val, nil
+}
+func (val *StateUpdate) Validate() (*StateUpdate, error) {
+	return val, nil
+}
+func (val *StateUpdateWithBlock) Validate() (*StateUpdateWithBlock, error) {
+	return val, nil
+}
+func (val *StateUpdateWithBlockAndSignature) Validate() (*StateUpdateWithBlockAndSignature, error) {
+	return val, nil
+}
+func (val *DeprecatedPreConfirmedBlock) Validate() (*DeprecatedPreConfirmedBlock, error) {
+	return val, nil
+}
+func (val *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, error) {
+	return val, nil
+}
+func (val *DeprecatedTransactionStatus) Validate() (*DeprecatedTransactionStatus, error) {
+	return val, nil
+}
+func (val *TransactionStatus) Validate() (*TransactionStatus, error) {
+	return val, nil
+}

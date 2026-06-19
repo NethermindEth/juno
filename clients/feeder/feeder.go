@@ -321,15 +321,22 @@ func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddres
 	return *addresses, err
 }
 
+// A string type that implements the Validatable constraint.
+type publicKey string
+
+func (val *publicKey) Validate() (*publicKey, error) {
+	return val, nil
+}
+
 func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	queryURL := c.buildQueryString("get_public_key", nil)
 
 	// public key is a hex string
-	publicKey, err := doRequest[string](ctx, c, queryURL)
+	publicKey, err := doRequest[publicKey](ctx, c, queryURL)
 	if err != nil {
 		return nil, err
 	}
-	return felt.NewFromString[felt.Felt](*publicKey)
+	return felt.NewFromString[felt.Felt](string(*publicKey))
 }
 
 func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
@@ -441,16 +448,28 @@ func (c *Client) TransactionStatus(
 	return doRequest[starknet.TransactionStatus](ctx, c, queryURL)
 }
 
-func doRequest[T any](ctx context.Context, client *Client, queryURL string) (*T, error) {
-	result := new(T)
+// Validatable is a generic constraint satisfied by a pointer type *T whose
+// underlying value type T can validate itself. Implementers provide a
+// Validate method with a pointer receiver that checks the receiver's fields
+// and returns itself with no changesin case of success, or an error if validation fails.
+type Validatable[T any] interface {
+	*T
+	Validate() (*T, error)
+}
+
+func doRequest[
+	T any,
+	V Validatable[T],
+](ctx context.Context, client *Client, queryURL string) (*T, error) {
+	var result T
 	body, err := client.get(ctx, queryURL)
 	if err != nil {
 		return nil, err
 	}
 	defer body.Close()
 
-	if err = json.NewDecoder(body).Decode(result); err != nil {
+	if err = json.NewDecoder(body).Decode(&result); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return V(&result).Validate()
 }
