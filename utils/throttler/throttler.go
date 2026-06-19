@@ -13,17 +13,17 @@ type Throttler[T any] struct {
 	sem      chan struct{}
 	queue    atomic.Int32
 
-	maxQueueLen int32
+	maxQueueLen uint64
 }
 
 type options struct {
-	maxQueueLen int32
+	maxQueueLen uint64
 }
 
 type Option func(*options)
 
 // WithMaxQueueLen sets the maximum length the queue can grow to
-func WithMaxQueueLen(maxQueueLen int32) Option {
+func WithMaxQueueLen(maxQueueLen uint64) Option {
 	return func(o *options) {
 		o.maxQueueLen = maxQueueLen
 	}
@@ -46,7 +46,7 @@ func NewThrottler[T any](concurrencyBudget uint, resource *T, opts ...Option) *T
 // Do lets caller acquire the resource within the context of a callback
 func (t *Throttler[T]) Do(doer func(resource *T) error) error {
 	queueLen := t.queue.Add(1)
-	if queueLen > t.maxQueueLen {
+	if uint64(queueLen) > t.maxQueueLen {
 		t.queue.Add(-1)
 		return ErrResourceBusy
 	}

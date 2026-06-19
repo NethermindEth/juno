@@ -15,7 +15,7 @@ type ThrottledCompiler struct {
 }
 
 func NewThrottledCompiler(
-	res compiler.Compiler, concurrencyBudget uint, maxQueueLen int32,
+	res compiler.Compiler, concurrencyBudget uint, maxQueueLen uint64,
 ) *ThrottledCompiler {
 	return &ThrottledCompiler{
 		Throttler: throttler.NewThrottler(

@@ -13,7 +13,7 @@ type ThrottledVM struct {
 	*throttler.Throttler[vm.VM]
 }
 
-func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *ThrottledVM {
+func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen uint64) *ThrottledVM {
 	return &ThrottledVM{
 		Throttler: throttler.NewThrottler(concurrenyBudget, &res, throttler.WithMaxQueueLen(maxQueueLen)),
 	}
