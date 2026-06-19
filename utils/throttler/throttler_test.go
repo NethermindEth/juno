@@ -13,7 +13,7 @@ import (
 )
 
 func TestThrottler(t *testing.T) {
-	throttledRes := throttler.NewThrottler(2, new(int)).WithMaxQueueLen(2)
+	throttledRes := throttler.NewThrottler(2, new(int), throttler.WithMaxQueueLen(2))
 	waitOn := make(chan struct{})
 
 	var runCount int64

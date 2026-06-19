@@ -16,18 +16,31 @@ type Throttler[T any] struct {
 	maxQueueLen int32
 }
 
-func NewThrottler[T any](concurrencyBudget uint, resource *T) *Throttler[T] {
-	return &Throttler[T]{
-		resource:    resource,
-		sem:         make(chan struct{}, concurrencyBudget),
-		maxQueueLen: math.MaxInt32,
+type options struct {
+	maxQueueLen int32
+}
+
+type Option func(*options)
+
+// WithMaxQueueLen sets the maximum length the queue can grow to
+func WithMaxQueueLen(maxQueueLen int32) Option {
+	return func(o *options) {
+		o.maxQueueLen = maxQueueLen
 	}
 }
 
-// WithMaxQueueLen sets the maximum length the queue can grow to
-func (t *Throttler[T]) WithMaxQueueLen(maxQueueLen int32) *Throttler[T] {
-	t.maxQueueLen = maxQueueLen
-	return t
+func NewThrottler[T any](concurrencyBudget uint, resource *T, opts ...Option) *Throttler[T] {
+	o := options{
+		maxQueueLen: math.MaxInt32,
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return &Throttler[T]{
+		resource:    resource,
+		sem:         make(chan struct{}, concurrencyBudget),
+		maxQueueLen: o.maxQueueLen,
+	}
 }
 
 // Do lets caller acquire the resource within the context of a callback

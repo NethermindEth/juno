@@ -18,7 +18,9 @@ func NewThrottledCompiler(
 	res compiler.Compiler, concurrencyBudget uint, maxQueueLen int32,
 ) *ThrottledCompiler {
 	return &ThrottledCompiler{
-		Throttler: throttler.NewThrottler(concurrencyBudget, &res).WithMaxQueueLen(maxQueueLen),
+		Throttler: throttler.NewThrottler(
+			concurrencyBudget, &res, throttler.WithMaxQueueLen(maxQueueLen),
+		),
 	}
 }
 
