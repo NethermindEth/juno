@@ -16,7 +16,7 @@ type Throttler[T any] struct {
 	sem      chan struct{}
 
 	// currentRequests counts current active and queued requests
-	currentRequests atomic.Int32
+	currentRequests atomic.Uint64
 	// maxRequests is the total of possible requests (active + queued)
 	maxRequests uint64
 }
@@ -54,7 +54,7 @@ func NewThrottler[T any](maxConcurrentReqs uint, resource *T, opts ...Option) *T
 		resource: resource,
 		sem:      make(chan struct{}, maxConcurrentReqs),
 
-		currentRequests: atomic.Int32{},
+		currentRequests: atomic.Uint64{},
 		maxRequests:     maxRequests,
 	}
 }
@@ -66,8 +66,8 @@ func (t *Throttler[T]) Do(ctx context.Context, doer func(resource *T) error) err
 	}
 
 	activeReqs := t.currentRequests.Add(1)
-	defer t.currentRequests.Add(-1)
-	if uint64(activeReqs) > t.maxRequests {
+	defer t.currentRequests.Add(^uint64(0)) // decrement by 1
+	if activeReqs > t.maxRequests {
 		return ErrResourceBusy
 	}
 
