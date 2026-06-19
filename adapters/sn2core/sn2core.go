@@ -610,12 +610,11 @@ func AdaptPreConfirmedBlock(
 }
 
 // AdaptPreConfirmedWithDelta returns a new pre_confirmed produced by applying
-// delta on top of current; current is not modified.
+// delta on top of current; current is not modified. It assumes that the delta
+// was already sanitized, not containing any nil/invalid values.
 //
 // Returns [ErrPreConfirmedIdentifierMismatch] if current.BlockIdentifier
 // differs from delta.BlockIdentifier.
-//
-//nolint:funlen // Let's simplify it later.
 func AdaptPreConfirmedWithDelta(
 	current *pending.PreConfirmed,
 	delta *starknet.PreConfirmedDeltaUpdate,
@@ -642,26 +641,10 @@ func AdaptPreConfirmedWithDelta(
 	nextStateDiff.Merge(current.StateUpdate.StateDiff)
 
 	addedEventCount := uint64(0)
-	var candidateTxs []core.Transaction
 	for i := range delta.Transactions {
 		tx, err := AdaptTransaction(&delta.Transactions[i])
 		if err != nil {
 			return pending.PreConfirmed{}, err
-		}
-
-		// Bug workaround: the delta endpoint may still return txs that carry a null
-		// state diff / receipt, similar to candidate txs. Store them as candidate txs
-		// instead of dereferencing nil and panicking, and reducing the slice lengths
-		// to match the number of txs that actually have state diff / receipt.
-		// Ref: https://demerzelsolutions.slack.com/archives/C02UDC3AZHQ/p1781793289647619
-		if delta.TransactionStateDiffs[i] == nil || delta.Receipts[i] == nil {
-			candidateTxs = append(candidateTxs, tx)
-			mergedTxs = mergedTxs[:len(mergedTxs)-1]
-			mergedReceipts = mergedReceipts[:len(mergedReceipts)-1]
-			mergedStateDiffs = mergedStateDiffs[:len(mergedStateDiffs)-1]
-			n--
-			addedCount--
-			continue
 		}
 		mergedTxs[n+i] = tx
 
@@ -701,7 +684,6 @@ func AdaptPreConfirmedWithDelta(
 	next.Block = &nextBlock
 	next.StateUpdate = &nextStateUpdate
 	next.TransactionStateDiffs = mergedStateDiffs
-	next.CandidateTxs = candidateTxs
 	return next, nil
 }
 
