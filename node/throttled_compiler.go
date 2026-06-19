@@ -28,7 +28,7 @@ func (tc *ThrottledCompiler) Compile(
 	ctx context.Context, sierra *starknet.SierraClass,
 ) (*starknet.CasmClass, error) {
 	var result *starknet.CasmClass
-	err := tc.Do(func(c *compiler.Compiler) error {
+	err := tc.Do(ctx, func(c *compiler.Compiler) error {
 		var cErr error
 		result, cErr = (*c).Compile(ctx, sierra)
 		return cErr

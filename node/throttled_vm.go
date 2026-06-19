@@ -1,6 +1,8 @@
 package node
 
 import (
+	"context"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/throttler"
@@ -28,7 +30,8 @@ func (tvm *ThrottledVM) Call(
 	errStack, returnStateDiff bool,
 ) (vm.CallResult, error) {
 	ret := vm.CallResult{}
-	return ret, tvm.Do(func(vm *vm.VM) error {
+	// vm.VM carries no ctx; queued VM calls aren't cancellable yet.
+	return ret, tvm.Do(context.Background(), func(vm *vm.VM) error {
 		var err error
 		ret, err = (*vm).Call(
 			callInfo,
@@ -47,7 +50,8 @@ func (tvm *ThrottledVM) runExec(
 	fn func(inner vm.VM) (vm.ExecutionResults, error),
 ) (vm.ExecutionResults, error) {
 	var result vm.ExecutionResults
-	return result, tvm.Do(func(inner *vm.VM) error {
+	// vm.VM carries no ctx; queued VM calls aren't cancellable yet.
+	return result, tvm.Do(context.Background(), func(inner *vm.VM) error {
 		var err error
 		result, err = fn(*inner)
 		return err

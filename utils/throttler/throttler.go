@@ -1,6 +1,7 @@
 package throttler
 
 import (
+	"context"
 	"errors"
 	"math"
 	"sync/atomic"
@@ -44,13 +45,21 @@ func NewThrottler[T any](concurrencyBudget uint, resource *T, opts ...Option) *T
 }
 
 // Do lets caller acquire the resource within the context of a callback
-func (t *Throttler[T]) Do(doer func(resource *T) error) error {
+func (t *Throttler[T]) Do(ctx context.Context, doer func(resource *T) error) error {
+	if err := ctx.Err(); err != nil {
+		return err // already cancelled, don't even enter the queue
+	}
 	queueLen := t.queue.Add(1)
 	if uint64(queueLen) > t.maxQueueLen {
 		t.queue.Add(-1)
 		return ErrResourceBusy
 	}
-	t.sem <- struct{}{}
+	select {
+	case t.sem <- struct{}{}:
+	case <-ctx.Done():
+		t.queue.Add(-1) // balance the Add(1) above; we never took a slot
+		return ctx.Err()
+	}
 	defer func() {
 		<-t.sem
 	}()
