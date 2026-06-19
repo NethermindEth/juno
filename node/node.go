@@ -596,7 +596,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		settlement, err := newGethSettlement(cfg.EthNode, n.blockchain)
+		settlement, err := newGethSettlement(context.Background(), cfg.EthNode, n.blockchain)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
@@ -635,7 +635,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 // log delivery (eth_subscribe) requires a long-lived connection that
 // HTTP doesn't provide. The listener is attached separately by the
 // caller (after metrics gauges are wired against the same instance).
-func newGethSettlement(ethNode string, chain *blockchain.Blockchain) (*l1.GethSettlement, error) {
+func newGethSettlement(
+	ctx context.Context,
+	ethNode string,
+	chain *blockchain.Blockchain,
+) (*l1.GethSettlement, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -644,9 +648,9 @@ func newGethSettlement(ethNode string, chain *blockchain.Blockchain) (*l1.GethSe
 		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
 	}
 
-	// Dial has its own one-minute timeout; this is not the node's
-	// lifetime context (which doesn't exist at construction time).
-	dialCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	// One-minute timeout layered on the caller's ctx so a slow dial
+	// can't outlive node startup or the migration that triggered it.
+	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	settlement, err := l1.NewGethSettlement(dialCtx, ethNode, chain.Network().CoreContractAddress)
