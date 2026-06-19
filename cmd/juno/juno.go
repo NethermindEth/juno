@@ -106,6 +106,7 @@ const (
 	dbCompressionF                      = "db-compression"
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
+	maxCompilationQueueF                = "max-compilation-queue"
 	maxCompilationMemoryF               = "max-compilation-memory"
 	maxCompilationCPUTimeF              = "max-compilation-cpu-time"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
@@ -255,7 +256,9 @@ const (
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	maxCompilationMemoryUsage      = "Maximum memory (in MB) each Sierra compilation process may " +
+	maxCompilationQueueUsage       = "Maximum number of compilation requests to queue after " +
+		"reaching max-concurrent-compilations before starting to reject incoming requests."
+	maxCompilationMemoryUsage = "Maximum memory (in MB) each Sierra compilation process may " +
 		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
 	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
 		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
@@ -575,6 +578,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		uint(defaultMaxConcurrentCompilations),
 		maxConcurrentCompilationsUsage,
 	)
+	junoCmd.Flags().Uint(
+		maxCompilationQueueF,
+		2*uint(defaultMaxConcurrentCompilations),
+		maxCompilationQueueUsage,
+	)
 	junoCmd.Flags().Uint(maxCompilationMemoryF, defaultMaxCompilationMemory, maxCompilationMemoryUsage)
 	junoCmd.Flags().Uint(
 		maxCompilationCPUTimeF, defaultMaxCompilationCPUTime, maxCompilationCPUTimeUsage,
@@ -583,8 +591,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage,
 	)
 	setCategory(junoCmd, catVMCompile,
-		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF,
-		maxCompilationMemoryF, maxCompilationCPUTimeF, versionedConstantsFileF,
+		maxVMsF, maxVMQueueF,
+		maxConcurrentCompilationsF,
+		maxCompilationQueueF,
+		maxCompilationMemoryF,
+		maxCompilationCPUTimeF,
+		versionedConstantsFileF,
 	)
 
 	// --- Custom Network ---

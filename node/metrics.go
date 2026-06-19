@@ -363,6 +363,24 @@ func makeVMThrottlerMetrics(throttledVM *ThrottledVM) {
 	prometheus.MustRegister(vmJobs, vmQueue)
 }
 
+func makeCompilerThrottlerMetrics(throttledCompiler *ThrottledCompiler) {
+	compilerJobs := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "compiler",
+		Name:      "jobs",
+		Help:      "Number of currently running compiler jobs",
+	}, func() float64 {
+		return float64(throttledCompiler.JobsRunning())
+	})
+	compilerQueue := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "compiler",
+		Name:      "queue",
+		Help:      "Number of compiler jobs waiting in the queue",
+	}, func() float64 {
+		return float64(throttledCompiler.QueueLen())
+	})
+	prometheus.MustRegister(compilerJobs, compilerQueue)
+}
+
 func makePrunerMetrics() pruner.EventListener {
 	oldestBlockKept := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespacePruner,

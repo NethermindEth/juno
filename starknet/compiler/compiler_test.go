@@ -65,7 +65,7 @@ func TestCompileFFI(t *testing.T) {
 
 func TestCompile(t *testing.T) {
 	c := compiler.New(
-		&compiler.Config{MaxConcurrent: 1},
+		&compiler.Config{},
 		"",
 		log.NewNopZapLogger(),
 	)
@@ -122,7 +122,7 @@ func TestCompileCPULimit(t *testing.T) {
 	// failure below is caused by the CPU time limit rather than by the
 	// environment.
 	unlimited := compiler.New(
-		&compiler.Config{MaxConcurrent: 1},
+		&compiler.Config{},
 		script,
 		log.NewNopZapLogger(),
 	)
@@ -130,7 +130,7 @@ func TestCompileCPULimit(t *testing.T) {
 	require.NoError(t, err)
 
 	limited := compiler.New(
-		&compiler.Config{MaxConcurrent: 1, MaxCPUTime: 1},
+		&compiler.Config{MaxCPUTime: 1},
 		script,
 		log.NewNopZapLogger(),
 	)
@@ -170,7 +170,7 @@ func TestCompileMemoryLimit(t *testing.T) {
 	// failure below is caused by the memory limit rather than by the
 	// environment (e.g. a dd variant rejecting the block size).
 	unlimited := compiler.New(
-		&compiler.Config{MaxConcurrent: 1},
+		&compiler.Config{},
 		script,
 		log.NewNopZapLogger(),
 	)
@@ -178,7 +178,7 @@ func TestCompileMemoryLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	limited := compiler.New(
-		&compiler.Config{MaxConcurrent: 1, MaxMemory: 64 << 20},
+		&compiler.Config{MaxMemory: 64 << 20},
 		script,
 		log.NewNopZapLogger(),
 	)

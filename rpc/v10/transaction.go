@@ -200,6 +200,9 @@ func (h *Handler) addToMempool(
 		ctx, h.compiler, tx, h.bcReader.Network(),
 	)
 	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
+		}
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{

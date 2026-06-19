@@ -135,6 +135,7 @@ type Config struct {
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
+	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
 	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
 	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
 	NewState                  bool          `mapstructure:"new-state"`
@@ -290,14 +291,17 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	compiler := compiler.New(
-		&compiler.Config{
-			MaxConcurrent: cfg.MaxConcurrentCompilations,
-			MaxMemory:     uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
-			MaxCPUTime:    uint64(cfg.MaxCompilationCPUTime),
-		},
-		"",
-		logger,
+	throttledCompiler := NewThrottledCompiler(
+		compiler.New(
+			&compiler.Config{
+				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
+			},
+			"",
+			logger,
+		),
+		cfg.MaxConcurrentCompilations,
+		int32(cfg.MaxCompilationQueue),
 	)
 
 	if cfg.Sequencer {
@@ -324,7 +328,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger)
 		seq.WithPlugin(junoPlugin)
 		rpcHandler = rpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).
-			WithCompiler(compiler).
+			WithCompiler(throttledCompiler).
 			WithMempool(mempool).
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
 			WithCallMaxGas(cfg.RPCCallMaxGas)
@@ -415,7 +419,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				&cfg.Network,
 				logger,
 				database,
-				compiler,
+				throttledCompiler,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("set up p2p service: %w", err)
@@ -435,7 +439,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 		services = append(services, submittedTransactionsCache)
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, logger, &cfg.Network).
-			WithCompiler(compiler).
+			WithCompiler(throttledCompiler).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
 			WithSubmittedTransactionsCache(submittedTransactionsCache).
@@ -559,6 +563,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if cfg.Metrics {
 		makeJeMallocMetrics()
 		makeVMThrottlerMetrics(throttledVM)
+		makeCompilerThrottlerMetrics(throttledCompiler)
 		makePebbleMetrics(database)
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
@@ -591,7 +596,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		version:       version,
 		db:            database,
 		blockchain:    chain,
-		compiler:      compiler,
+		compiler:      throttledCompiler,
 		services:      services,
 		earlyServices: earlyServices,
 	}
