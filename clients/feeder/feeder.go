@@ -457,10 +457,7 @@ type Validatable[T any] interface {
 	Validate() (*T, error)
 }
 
-func doRequest[
-	T any,
-	V Validatable[T],
-](
+func doRequest[T any, V Validatable[T]](
 	ctx context.Context,
 	client *Client,
 	queryURL string,
