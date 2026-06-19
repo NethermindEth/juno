@@ -3,6 +3,7 @@ package starknet
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -33,6 +34,35 @@ type PreConfirmedDeltaUpdate struct {
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
 }
 
+func (val *PreConfirmedDeltaUpdate) validate() error {
+	if val.BlockIdentifier == "" {
+		return errors.New("block_identifier is required")
+	}
+	if len(val.Transactions) == 0 {
+		return errors.New("delta can not have zero transactions")
+	}
+
+	if len(val.Transactions) != len(val.Receipts) ||
+		len(val.Transactions) != len(val.TransactionStateDiffs) {
+		return errors.New(
+			"transactions, receipts, and tx_state_diffs must have the same length",
+		)
+	}
+
+	for i := range len(val.Transactions) {
+		if val.Transactions[i] == (Transaction{}) {
+			return fmt.Errorf("transaction at index %d is empty", i)
+		}
+		if val.Receipts[i] == nil {
+			return fmt.Errorf("receipt at index %d is nil", i)
+		}
+		if val.TransactionStateDiffs[i] == nil {
+			return fmt.Errorf("transaction state diff at index %d is nil", i)
+		}
+	}
+	return nil
+}
+
 // PreConfirmedBlock carries a full pre_confirmed block for a new round.
 //
 // Note: the wire JSON also carries a top-level `"changed"` boolean which is not
@@ -51,6 +81,11 @@ type PreConfirmedBlock struct {
 	L2GasPrice            *GasPrice             `json:"l2_gas_price"`
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
+}
+
+// @todo: implement validation
+func (val *PreConfirmedBlock) validate() error {
+	return nil
 }
 
 func (PreConfirmedNoChange) isPreConfirmedUpdate()    {}
@@ -103,6 +138,23 @@ func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (val *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, error) {
+	switch update := val.Update.(type) {
+	case PreConfirmedNoChange:
+	case PreConfirmedDeltaUpdate:
+		if err := update.validate(); err != nil {
+			return nil, err
+		}
+	case PreConfirmedBlock:
+		if err := update.validate(); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("invalid pre_confirmed update type %T", val.Update)
+	}
+	return val, nil
+}
+
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
 func (val *Block) Validate() (*Block, error) {
@@ -133,9 +185,6 @@ func (val *StateUpdateWithBlockAndSignature) Validate() (*StateUpdateWithBlockAn
 	return val, nil
 }
 func (val *DeprecatedPreConfirmedBlock) Validate() (*DeprecatedPreConfirmedBlock, error) {
-	return val, nil
-}
-func (val *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, error) {
 	return val, nil
 }
 func (val *DeprecatedTransactionStatus) Validate() (*DeprecatedTransactionStatus, error) {
