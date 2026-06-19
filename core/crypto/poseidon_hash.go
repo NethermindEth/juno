@@ -32,6 +32,9 @@ func HadesPermutation(state *[3]felt.Felt) {
 // hadesPermutationRounds runs the Hades rounds in place.
 // The hashing steps are intentionally inlined for performance reasons.
 // The sparse-MDS optimization was measured ~53% slower here (our MDS is mul-free), don't try it.
+//
+// The only remaining way to speed up Poseidon is FFI, see the discussion:
+// https://github.com/NethermindEth/juno/pull/3731
 func hadesPermutationRounds(state *[3]felt.Felt) {
 	var squared, stateSum, triple felt.Felt
 	for i := range totalRounds {
