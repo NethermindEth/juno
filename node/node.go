@@ -135,6 +135,8 @@ type Config struct {
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
+	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
+	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
 	NewState                  bool          `mapstructure:"new-state"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0
@@ -289,7 +291,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var throttledVM *ThrottledVM
 
 	compiler := compiler.New(
-		cfg.MaxConcurrentCompilations,
+		&compiler.Config{
+			MaxConcurrent: cfg.MaxConcurrentCompilations,
+			MaxMemory:     uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+			MaxCPUTime:    uint64(cfg.MaxCompilationCPUTime),
+		},
 		"",
 		logger,
 	)

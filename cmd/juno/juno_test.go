@@ -72,7 +72,15 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
 	defaultRPCRequestTimeout := 1 * time.Minute
-	defaultMaxConcurrentCompilations := uint(8)
+	defaultMaxConcurrentCompilations := uint(runtime.GOMAXPROCS(0))
+	defaultMaxCompilationMemory := uint(4 * 1024)
+	defaultMaxCompilationCPUTime := uint(10)
+	if runtime.GOOS != "linux" {
+		// Limits are enforced on Linux only; PreRunE zeroes the unset
+		// defaults elsewhere, so the expected config matches per platform.
+		defaultMaxCompilationMemory = 0
+		defaultMaxCompilationCPUTime = 0
+	}
 	defaultDisableReceivedTxnStream := false
 	defaultPruneMinAge := time.Hour
 	expectedConfig1 := node.Config{
@@ -117,6 +125,8 @@ func TestConfigPrecedence(t *testing.T) {
 		ReadinessBlockTolerance:            6,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
 
@@ -162,8 +172,17 @@ func TestConfigPrecedence(t *testing.T) {
 		ReadinessBlockTolerance:            6,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
+
+	// An explicit limit is preserved on every platform (it is not zeroed on
+	// non-Linux), so these expected values are platform-independent.
+	expectedExplicitCompilationLimits := expectedConfig2
+	expectedExplicitCompilationLimits.MaxCompilationMemory = 2048
+	expectedExplicitCompilationLimits.MaxCompilationCPUTime = 5
+
 	tests := map[string]struct {
 		cfgFile         bool
 		cfgFileContents string
@@ -203,6 +222,12 @@ cn-unverifiable-range: [0,10]
 		"default config with no flags": {
 			inputArgs:      []string{""},
 			expectedConfig: &expectedConfig2,
+		},
+		"explicit compilation limits survive": {
+			inputArgs: []string{
+				"--max-compilation-memory", "2048", "--max-compilation-cpu-time", "5",
+			},
+			expectedConfig: &expectedExplicitCompilationLimits,
 		},
 		"config file path is empty string": {
 			inputArgs:      []string{"--config", ""},
@@ -268,6 +293,8 @@ pprof: true
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -319,6 +346,8 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -369,6 +398,8 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -419,6 +450,8 @@ http-port: 4576
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -495,6 +528,8 @@ db-cache-size: 1024
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -548,6 +583,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -597,6 +634,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -644,6 +683,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -692,6 +733,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -739,6 +782,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},
@@ -788,6 +833,8 @@ network: sepolia
 				ReadinessBlockTolerance:            6,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
+				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
 		},

@@ -106,6 +106,8 @@ const (
 	dbCompressionF                      = "db-compression"
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
+	maxCompilationMemoryF               = "max-compilation-memory"
+	maxCompilationCPUTimeF              = "max-compilation-cpu-time"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 	newStateF                           = "new-state"
 	pruneModeF                          = node.PruneModeFlag
@@ -167,7 +169,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
-	defaultMaxConcurrentCompilations          = 8
+	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
+	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
 	defaultPruneMode                          = uint64(0)
 	defaultPruneMinAge                        = 1 * time.Hour
@@ -252,7 +255,12 @@ const (
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	pruneModeUsage                 = "Enables block-data and state-history pruning. Pruning is " +
+	maxCompilationMemoryUsage      = "Maximum memory (in MB) each Sierra compilation process may " +
+		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
+	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
+		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
+		"0 disables the limit."
+	pruneModeUsage = "Enables block-data and state-history pruning. Pruning is " +
 		"disabled by default; passing this flag (with or without a value) turns " +
 		"it on. The value is the size of the retention window in blocks, counted " +
 		"back from the retention pivot (the lower of the L1-verified head and " +
@@ -340,7 +348,7 @@ func main() {
 //  3. The config struct is populated.
 //  4. Cobra calls the run function.
 //
-//nolint:funlen
+//nolint:funlen,gocyclo // huge function that just sets variables
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:          "juno",
@@ -395,6 +403,19 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			return fmt.Errorf("--%s requires --%s to be set", pruneMinAgeF, pruneModeF)
 		}
 
+		// Compilation resource limits are enforced on Linux only. Elsewhere,
+		// drop the non-zero defaults to 0 so the compiler doesn't warn about
+		// limits it can't apply. A value the user set explicitly (CLI/env/YAML)
+		// is preserved, so an intentional limit still triggers the warning.
+		if runtime.GOOS != "linux" {
+			if !v.IsSet(maxCompilationMemoryF) {
+				config.MaxCompilationMemory = 0
+			}
+			if !v.IsSet(maxCompilationCPUTimeF) {
+				config.MaxCompilationCPUTime = 0
+			}
+		}
+
 		// Set custom network
 		if v.IsSet(cnNameF) {
 			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
@@ -436,6 +457,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultNetwork := networks.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
+	defaultMaxConcurrentCompilations := runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
@@ -549,13 +571,20 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
 	junoCmd.Flags().Uint(
-		maxConcurrentCompilationsF, defaultMaxConcurrentCompilations, maxConcurrentCompilationsUsage,
+		maxConcurrentCompilationsF,
+		uint(defaultMaxConcurrentCompilations),
+		maxConcurrentCompilationsUsage,
+	)
+	junoCmd.Flags().Uint(maxCompilationMemoryF, defaultMaxCompilationMemory, maxCompilationMemoryUsage)
+	junoCmd.Flags().Uint(
+		maxCompilationCPUTimeF, defaultMaxCompilationCPUTime, maxCompilationCPUTimeUsage,
 	)
 	junoCmd.Flags().String(
 		versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage,
 	)
 	setCategory(junoCmd, catVMCompile,
-		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF, versionedConstantsFileF,
+		maxVMsF, maxVMQueueF, maxConcurrentCompilationsF,
+		maxCompilationMemoryF, maxCompilationCPUTimeF, versionedConstantsFileF,
 	)
 
 	// --- Custom Network ---
