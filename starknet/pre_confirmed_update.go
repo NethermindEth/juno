@@ -59,7 +59,7 @@ func validateTxsLength(
 		)
 	}
 
-	for i := range len(txs) {
+	for i := range txs {
 		if txs[i] == (Transaction{}) {
 			return fmt.Errorf("transaction at index %d is empty", i)
 		}
@@ -170,8 +170,8 @@ func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (val *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, error) {
-	switch update := val.Update.(type) {
+func (e *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, error) {
+	switch update := e.Update.(type) {
 	case PreConfirmedNoChange:
 	case PreConfirmedDeltaUpdate:
 		if err := update.validate(); err != nil {
@@ -182,46 +182,57 @@ func (val *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, 
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("invalid pre_confirmed update type %T", val.Update)
+		return nil, fmt.Errorf("invalid pre_confirmed update type %T", e.Update)
 	}
-	return val, nil
+	return e, nil
 }
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *Block) Validate() (*Block, error) {
-	return val, nil
+func (b *Block) Validate() (*Block, error) {
+	return b, nil
 }
+
 func (val *BlockHeader) Validate() (*BlockHeader, error) {
 	return val, nil
 }
+
 func (val *BlockTrace) Validate() (*BlockTrace, error) {
 	return val, nil
 }
-func (val *ClassDefinition) Validate() (*ClassDefinition, error) {
-	return val, nil
+
+func (c *ClassDefinition) Validate() (*ClassDefinition, error) {
+	return c, nil
 }
+
 func (val *FeeTokenAddresses) Validate() (*FeeTokenAddresses, error) {
 	return val, nil
 }
+
 func (val *Signature) Validate() (*Signature, error) {
 	return val, nil
 }
+
 func (val *StateUpdate) Validate() (*StateUpdate, error) {
 	return val, nil
 }
+
 func (val *StateUpdateWithBlock) Validate() (*StateUpdateWithBlock, error) {
 	return val, nil
 }
+
 func (val *StateUpdateWithBlockAndSignature) Validate() (*StateUpdateWithBlockAndSignature, error) {
 	return val, nil
 }
-func (val *DeprecatedPreConfirmedBlock) Validate() (*DeprecatedPreConfirmedBlock, error) {
-	return val, nil
+
+func (b *DeprecatedPreConfirmedBlock) Validate() (*DeprecatedPreConfirmedBlock, error) {
+	return b, nil
 }
+
 func (val *DeprecatedTransactionStatus) Validate() (*DeprecatedTransactionStatus, error) {
 	return val, nil
 }
+
 func (val *TransactionStatus) Validate() (*TransactionStatus, error) {
 	return val, nil
 }
