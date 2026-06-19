@@ -3,6 +3,7 @@ package throttler_test
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -121,5 +122,52 @@ func TestThrottlerAlreadyCancelledContext(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	assert.False(t, ran) // the doer is never invoked
 	assert.Equal(t, 0, throttledRes.JobsRunning())
+	assert.Equal(t, 0, throttledRes.QueueLen())
+}
+
+func TestThrottlerZeroQueue(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		// Budget of 2 with no queue: up to 2 calls run concurrently, anything
+		// beyond is rejected immediately rather than waiting.
+		throttledRes := throttler.NewThrottler(2, new(int), throttler.WithMaxQueueLen(0))
+		waitOn := make(chan struct{})
+
+		//nolint: unparam // defined this way to satisfy a function signature
+		blockingDoer := func(*int) error {
+			<-waitOn
+			return nil
+		}
+
+		var wg sync.WaitGroup
+		run := func() {
+			wg.Go(func() {
+				assert.NoError(t, throttledRes.Do(t.Context(), blockingDoer))
+			})
+			synctest.Wait()
+		}
+
+		// Both calls fit within the concurrency budget and run despite the 0 queue.
+		run()
+		assert.Equal(t, 1, throttledRes.JobsRunning())
+		run()
+		assert.Equal(t, 2, throttledRes.JobsRunning())
+		assert.Equal(t, 0, throttledRes.QueueLen())
+
+		// Budget is full and the queue allows nothing, so the next call is rejected.
+		require.ErrorIs(t, throttledRes.Do(t.Context(), blockingDoer), throttler.ErrResourceBusy)
+
+		// Release the running jobs.
+		waitOn <- struct{}{}
+		waitOn <- struct{}{}
+		wg.Wait()
+	})
+}
+
+func TestThrottlerMaxQueueLenOverflow(t *testing.T) {
+	// maxQueueLen + budget must not overflow: MaxUint64 + 1 wraps to 0, which
+	// without the guard would reject every call. The guard treats an overflowing
+	// total as unbounded, so a call within the budget still runs.
+	throttledRes := throttler.NewThrottler(1, new(int), throttler.WithMaxQueueLen(math.MaxUint64))
+	require.NoError(t, throttledRes.Do(t.Context(), func(*int) error { return nil }))
 	assert.Equal(t, 0, throttledRes.QueueLen())
 }

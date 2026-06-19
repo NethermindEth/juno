@@ -9,12 +9,16 @@ import (
 
 var ErrResourceBusy = errors.New("resource busy, try again")
 
+// Throttler limits how many times an action is done concurrently
+// and how many requests for these actions can be queued at max.
 type Throttler[T any] struct {
 	resource *T
 	sem      chan struct{}
-	queue    atomic.Int32
 
-	maxQueueLen uint64
+	// currentRequests counts current active and queued requests
+	currentRequests atomic.Int32
+	// maxRequests is the total of possible requests (active + queued)
+	maxRequests uint64
 }
 
 type options struct {
@@ -23,24 +27,35 @@ type options struct {
 
 type Option func(*options)
 
-// WithMaxQueueLen sets the maximum length the queue can grow to
+// WithMaxQueueLen sets the maximum length the queue can grow to.
 func WithMaxQueueLen(maxQueueLen uint64) Option {
 	return func(o *options) {
 		o.maxQueueLen = maxQueueLen
 	}
 }
 
-func NewThrottler[T any](concurrencyBudget uint, resource *T, opts ...Option) *Throttler[T] {
+// NewThrottler returns a new throttler that will allow up to `maxConcurrentReqs` concurrent
+// requests for resource `T`. See [throttler.Option] for other options.
+func NewThrottler[T any](maxConcurrentReqs uint, resource *T, opts ...Option) *Throttler[T] {
 	o := options{
-		maxQueueLen: math.MaxInt32,
+		maxQueueLen: 1024,
 	}
 	for _, opt := range opts {
 		opt(&o)
 	}
+
+	// guard against overlfow
+	maxRequests := o.maxQueueLen + uint64(maxConcurrentReqs)
+	if maxRequests < o.maxQueueLen {
+		maxRequests = math.MaxUint64
+	}
+
 	return &Throttler[T]{
-		resource:    resource,
-		sem:         make(chan struct{}, concurrencyBudget),
-		maxQueueLen: o.maxQueueLen,
+		resource: resource,
+		sem:      make(chan struct{}, maxConcurrentReqs),
+
+		currentRequests: atomic.Int32{},
+		maxRequests:     maxRequests,
 	}
 }
 
@@ -49,27 +64,28 @@ func (t *Throttler[T]) Do(ctx context.Context, doer func(resource *T) error) err
 	if err := ctx.Err(); err != nil {
 		return err // already cancelled, don't even enter the queue
 	}
-	queueLen := t.queue.Add(1)
-	if uint64(queueLen) > t.maxQueueLen {
-		t.queue.Add(-1)
+
+	activeReqs := t.currentRequests.Add(1)
+	defer t.currentRequests.Add(-1)
+	if uint64(activeReqs) > t.maxRequests {
 		return ErrResourceBusy
 	}
+
 	select {
 	case t.sem <- struct{}{}:
 	case <-ctx.Done():
-		t.queue.Add(-1) // balance the Add(1) above; we never took a slot
 		return ctx.Err()
 	}
+
 	defer func() {
 		<-t.sem
 	}()
-	t.queue.Add(-1)
 	return doer(t.resource)
 }
 
 // QueueLen returns the number of Do calls that is blocked on the resource
 func (t *Throttler[T]) QueueLen() int {
-	return int(t.queue.Load())
+	return int(t.currentRequests.Load()) - len(t.sem)
 }
 
 // JobsRunning returns the number of Do calls that are running at the moment
