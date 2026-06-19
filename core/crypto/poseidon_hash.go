@@ -12,11 +12,30 @@ const (
 	totalRounds   = fullRounds + partialRounds
 )
 
-// HadesPermutation applies the Hades permutation to state in place.
-// The hashing steps are intentionally inlined for performance reasons.
-func HadesPermutation(state *[3]felt.Felt) {
-	initialiseRoundKeys.Do(setRoundKeys)
+// Caches the {0, 1, 0} input (state for hashing a single zero felt).
+// emptyDataOutput is computed in initializePoseidon.
+var (
+	emptyDataInput  = [3]felt.Felt{{}, felt.One, {}}
+	emptyDataOutput [3]felt.Felt
+)
 
+// HadesPermutation applies the Hades permutation to state in place.
+func HadesPermutation(state *[3]felt.Felt) {
+	poseidonInit.Do(initializePoseidon)
+	if *state == emptyDataInput {
+		*state = emptyDataOutput
+		return
+	}
+	hadesPermutationRounds(state)
+}
+
+// hadesPermutationRounds runs the Hades rounds in place.
+// The hashing steps are intentionally inlined for performance reasons.
+// The sparse-MDS optimization was measured ~53% slower here (our MDS is mul-free), don't try it.
+//
+// The only remaining way to speed up Poseidon is FFI, see the discussion:
+// https://github.com/NethermindEth/juno/pull/3731
+func hadesPermutationRounds(state *[3]felt.Felt) {
 	var squared, stateSum, triple felt.Felt
 	for i := range totalRounds {
 		full := (i < fullRounds/2) || (totalRounds-i <= fullRounds/2)
@@ -80,9 +99,16 @@ func PoseidonArray(elems ...*felt.Felt) felt.Felt {
 }
 
 var (
-	initialiseRoundKeys sync.Once
-	roundKeys           [totalRounds][3]felt.Felt
+	poseidonInit sync.Once
+	roundKeys    [totalRounds][3]felt.Felt
 )
+
+// initializePoseidon loads the round keys and precomputes the empty-data output.
+func initializePoseidon() {
+	setRoundKeys()
+	emptyDataOutput = emptyDataInput
+	hadesPermutationRounds(&emptyDataOutput)
+}
 
 func setRoundKeys() {
 	var err error
@@ -103,28 +129,30 @@ var _ Digest = (*PoseidonDigest)(nil)
 
 type PoseidonDigest struct {
 	state    [3]felt.Felt
-	lastElem *felt.Felt
+	lastElem felt.Felt
+	hasLast  bool
 }
 
 func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
 	for idx := range elems {
-		if d.lastElem == nil {
-			d.lastElem = new(felt.Felt).Set(elems[idx])
+		if !d.hasLast {
+			d.lastElem = *elems[idx]
+			d.hasLast = true
 		} else {
-			d.state[0].Add(&d.state[0], d.lastElem)
+			d.state[0].Add(&d.state[0], &d.lastElem)
 			d.state[1].Add(&d.state[1], elems[idx])
 			HadesPermutation(&d.state)
-			d.lastElem = nil
+			d.hasLast = false
 		}
 	}
 	return d
 }
 
 func (d *PoseidonDigest) Finish() felt.Felt {
-	if d.lastElem == nil {
+	if !d.hasLast {
 		d.state[0].Add(&d.state[0], &felt.One)
 	} else {
-		d.state[0].Add(&d.state[0], d.lastElem)
+		d.state[0].Add(&d.state[0], &d.lastElem)
 		d.state[1].Add(&d.state[1], &felt.One)
 	}
 	HadesPermutation(&d.state)
