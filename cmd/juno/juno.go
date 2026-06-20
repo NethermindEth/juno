@@ -107,6 +107,8 @@ const (
 	dbMemtableCountF                    = "db-memtable-count"
 	dbCompressionF                      = "db-compression"
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
+	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
+	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	maxCompilationQueueF                = "max-compilation-queue"
 	maxCompilationMemoryF               = "max-compilation-memory"
@@ -172,6 +174,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
+	defaultRPCMaxConcurrentRequests           = 1024
+	defaultRPCMaxQueuedRequests               = defaultRPCMaxConcurrentRequests * 2
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
@@ -256,7 +260,10 @@ const (
 		"queue before stalling writes."
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
-	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
+	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
+	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
+	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
+		"reaching rpc-max-concurrent-requests limit."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
 	maxCompilationQueueUsage       = "Maximum number of compilation requests to queue after " +
 		"reaching max-concurrent-compilations before starting to reject incoming requests."
@@ -484,13 +491,31 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
+	junoCmd.Flags().Uint(
+		rpcMaxConcurrentRequestsF,
+		defaultRPCMaxConcurrentRequests,
+		rpcMaxConcurrentRequestsUsage,
+	)
+	junoCmd.Flags().Uint(
+		rpcMaxRequestQueueF,
+		defaultRPCMaxQueuedRequests,
+		rpcMaxRequestQueueUsage,
+	)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)
 	setCategory(junoCmd, catHTTPRPC,
-		httpF, httpHostF, httpPortF, corsEnableF,
-		rpcMaxBlockScanF, callMaxStepsF, callMaxGasF,
-		rpcRequestTimeoutF, disableRPCBatchRequestsF,
+		httpF,
+		httpHostF,
+		httpPortF,
+		corsEnableF,
+		rpcMaxBlockScanF,
+		callMaxStepsF,
+		callMaxGasF,
+		rpcRequestTimeoutF,
+		rpcMaxConcurrentRequestsF,
+		rpcMaxRequestQueueF,
+		disableRPCBatchRequestsF,
 	)
 
 	// --- WebSocket RPC ---
