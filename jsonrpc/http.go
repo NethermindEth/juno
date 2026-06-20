@@ -22,6 +22,7 @@ type HTTP struct {
 
 	listener       NewRequestListener
 	requestTimeout time.Duration
+	gate           *Gate
 }
 
 func NewHTTP(rpc *Server, logger log.StructuredLogger) *HTTP {
@@ -46,6 +47,13 @@ func (h *HTTP) WithRequestTimeout(d time.Duration) *HTTP {
 	return h
 }
 
+// WithGate sets an admission-control gate that bounds how many requests are
+// processed concurrently (and queued) on this handler
+func (h *HTTP) WithGate(g *Gate) *HTTP {
+	h.gate = g
+	return h
+}
+
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodGet {
@@ -60,15 +68,25 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
-	h.listener.OnNewRequest("any")
-
 	ctx := req.Context()
 	if h.requestTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, h.requestTimeout)
 		defer cancel()
 	}
+
+	if h.gate != nil {
+		if err := h.gate.Acquire(ctx); err != nil {
+			writer.Header().Set("Retry-After", "1")
+			http.Error(writer, "Too many requests", http.StatusServiceUnavailable)
+			return
+		}
+		defer h.gate.Release()
+	}
+
+	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
+	h.listener.OnNewRequest("any")
+
 	resp, header, err := h.rpc.HandleReader(ctx, req.Body)
 
 	writer.Header().Set("Content-Type", "application/json")

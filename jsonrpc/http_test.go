@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -88,6 +89,76 @@ func TestHTTP(t *testing.T) {
 		})
 		assert.Len(t, listener.OnNewRequestLogs, 1)
 	})
+}
+
+func TestHTTPRequestGate(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseAll := func() { releaseOnce.Do(func() { close(release) }) }
+
+	method := jsonrpc.Method{
+		Name: "block",
+		Handler: func() (string, *jsonrpc.Error) {
+			started <- struct{}{}
+			<-release
+			return "ok", nil
+		},
+	}
+	logger := log.NewNopZapLogger()
+	rpc := jsonrpc.NewServer(1, logger)
+	require.NoError(t, rpc.RegisterMethods(method))
+
+	// Gate with a single slot and no queue: one request runs, the next is rejected.
+	httpHandler := jsonrpc.NewHTTP(rpc, logger).WithGate(jsonrpc.NewGate(1, 0))
+	srv := httptest.NewServer(httpHandler)
+	t.Cleanup(srv.Close)
+	// Registered after srv.Close so it runs first (cleanups are LIFO): it unblocks
+	// the in-flight handler so srv.Close can drain even if the test fails early.
+	t.Cleanup(releaseAll)
+
+	client := new(http.Client)
+	doPost := func() (*http.Response, error) {
+		msg := `{"jsonrpc":"2.0","method":"block","id":1}`
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodPost, srv.URL, bytes.NewReader([]byte(msg)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return client.Do(req)
+	}
+
+	// First request occupies the only slot and blocks in the handler.
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		resp, err := doPost()
+		if assert.NoError(t, err) {
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			assert.NoError(t, resp.Body.Close())
+		}
+	}()
+	<-started // the handler is running, so the gate slot is taken
+
+	// Second request: the gate is full, expect an immediate 503 + Retry-After.
+	resp, err := doPost()
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	assert.Equal(t, "1", resp.Header.Get("Retry-After"))
+	require.NoError(t, resp.Body.Close())
+
+	// GET "/" is never gated, even while the gate is saturated.
+	getReq, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, http.NoBody)
+	require.NoError(t, err)
+	getResp, err := client.Do(getReq)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, getResp.StatusCode)
+	require.NoError(t, getResp.Body.Close())
+
+	// Release the first request and confirm it completed successfully.
+	releaseAll()
+	<-firstDone
 }
 
 func TestGzipResponse(t *testing.T) {
