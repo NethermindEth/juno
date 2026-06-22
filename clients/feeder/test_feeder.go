@@ -177,24 +177,6 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	}
 }
 
-// buildQueryString builds the query url with encoded parameters
-func (c *Client) buildQueryString(endpoint string, args map[string]string) string {
-	base, err := url.Parse(c.url)
-	if err != nil {
-		panic("Malformed feeder base URL")
-	}
-
-	base.Path += endpoint
-
-	params := url.Values{}
-	for k, v := range args {
-		params.Add(k, v)
-	}
-	base.RawQuery = params.Encode()
-
-	return base.String()
-}
-
 func findTargetDirectory(targetRelPath string) (string, error) {
 	root, err := os.Getwd()
 	if err != nil {
