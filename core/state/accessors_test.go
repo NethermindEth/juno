@@ -11,10 +11,22 @@ import (
 )
 
 func TestContractAccessors(t *testing.T) {
-	stateDB := newTestStateDB()
 	addr := felt.NewUnsafeFromString[felt.Felt]("0x123")
 
+	// storeContract stores a contract with the given values and fails the test on error.
+	storeContract := func(t *testing.T, stateDB *StateDB, nonce, classHash string, height uint64) {
+		t.Helper()
+		require.NoError(t, WriteContract(
+			stateDB.disk, addr,
+			felt.UnsafeFromString[felt.Felt](nonce),
+			felt.UnsafeFromString[felt.Felt](classHash),
+			height,
+		))
+	}
+
 	t.Run("absent before write", func(t *testing.T) {
+		stateDB := newTestStateDB()
+
 		exists, err := HasContract(stateDB.disk, addr)
 		require.NoError(t, err)
 		assert.False(t, exists)
@@ -24,12 +36,8 @@ func TestContractAccessors(t *testing.T) {
 	})
 
 	t.Run("write then read round-trip", func(t *testing.T) {
-		require.NoError(t, WriteContract(
-			stateDB.disk, addr,
-			felt.UnsafeFromString[felt.Felt]("0x1"),   // nonce
-			felt.UnsafeFromString[felt.Felt]("0xabc"), // classHash
-			42,                                        // deployHeight
-		))
+		stateDB := newTestStateDB()
+		storeContract(t, stateDB, "0x1", "0xabc", 42)
 
 		exists, err := HasContract(stateDB.disk, addr)
 		require.NoError(t, err)
@@ -43,12 +51,9 @@ func TestContractAccessors(t *testing.T) {
 	})
 
 	t.Run("overwrite reflects latest values", func(t *testing.T) {
-		require.NoError(t, WriteContract(
-			stateDB.disk, addr,
-			felt.UnsafeFromString[felt.Felt]("0x2"),
-			felt.UnsafeFromString[felt.Felt]("0xdef"),
-			99,
-		))
+		stateDB := newTestStateDB()
+		storeContract(t, stateDB, "0x1", "0xabc", 42)
+		storeContract(t, stateDB, "0x2", "0xdef", 99)
 
 		contract, err := GetContract(stateDB.disk, addr)
 		require.NoError(t, err)
@@ -58,6 +63,9 @@ func TestContractAccessors(t *testing.T) {
 	})
 
 	t.Run("delete removes the contract", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		storeContract(t, stateDB, "0x1", "0xabc", 42)
+
 		require.NoError(t, DeleteContract(stateDB.disk, addr))
 
 		exists, err := HasContract(stateDB.disk, addr)
@@ -70,17 +78,20 @@ func TestContractAccessors(t *testing.T) {
 }
 
 func TestClassAccessors(t *testing.T) {
-	stateDB := newTestStateDB()
 	classHash := felt.NewUnsafeFromString[felt.Felt]("0xabc")
-	class := &core.DeclaredClassDefinition{
-		At: 12,
-		Class: &core.SierraClass{
-			SemanticVersion: "0.1.0",
-			Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x1")},
-		},
+	newClass := func() *core.DeclaredClassDefinition {
+		return &core.DeclaredClassDefinition{
+			At: 12,
+			Class: &core.SierraClass{
+				SemanticVersion: "0.1.0",
+				Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x1")},
+			},
+		}
 	}
 
 	t.Run("absent before write", func(t *testing.T) {
+		stateDB := newTestStateDB()
+
 		exists, err := HasClass(stateDB.disk, classHash)
 		require.NoError(t, err)
 		assert.False(t, exists)
@@ -90,6 +101,8 @@ func TestClassAccessors(t *testing.T) {
 	})
 
 	t.Run("write then read round-trips the encoded class", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		class := newClass()
 		require.NoError(t, WriteClass(stateDB.disk, classHash, class))
 
 		exists, err := HasClass(stateDB.disk, classHash)
@@ -106,6 +119,9 @@ func TestClassAccessors(t *testing.T) {
 	})
 
 	t.Run("delete removes the class", func(t *testing.T) {
+		stateDB := newTestStateDB()
+		require.NoError(t, WriteClass(stateDB.disk, classHash, newClass()))
+
 		require.NoError(t, DeleteClass(stateDB.disk, classHash))
 
 		exists, err := HasClass(stateDB.disk, classHash)
@@ -181,31 +197,46 @@ func TestHistoryAccessors(t *testing.T) {
 
 	for _, k := range kinds {
 		t.Run(k.name, func(t *testing.T) {
-			stateDB := newTestStateDB()
-			reader, err := NewStateReader(&felt.Zero, stateDB)
-			require.NoError(t, err)
-
-			require.NoError(t, k.write(stateDB.disk, blockOne, k.valueOne))
+			// newReader returns a fresh state and a reader over it, so each subtest
+			// starts from an empty history and is independent of execution order.
+			newReader := func(t *testing.T) (*StateDB, *StateReader) {
+				t.Helper()
+				stateDB := newTestStateDB()
+				reader, err := NewStateReader(&felt.Zero, stateDB)
+				require.NoError(t, err)
+				return stateDB, reader
+			}
 
 			t.Run("reads the written value at its block", func(t *testing.T) {
+				stateDB, reader := newReader(t)
+				require.NoError(t, k.write(stateDB.disk, blockOne, k.valueOne))
+
 				got, err := k.readAt(reader, blockOne)
 				require.NoError(t, err)
 				assert.Equal(t, *k.valueOne, got)
 			})
 
 			t.Run("steps back to the last entry for a later block", func(t *testing.T) {
+				stateDB, reader := newReader(t)
+				require.NoError(t, k.write(stateDB.disk, blockOne, k.valueOne))
+
 				got, err := k.readAt(reader, blockOne+3)
 				require.NoError(t, err)
 				assert.Equal(t, *k.valueOne, got)
 			})
 
 			t.Run("reads zero before the first entry", func(t *testing.T) {
+				stateDB, reader := newReader(t)
+				require.NoError(t, k.write(stateDB.disk, blockOne, k.valueOne))
+
 				got, err := k.readAt(reader, blockOne-1)
 				require.NoError(t, err)
 				assert.Equal(t, felt.Zero, got)
 			})
 
 			t.Run("honours block boundaries across two entries", func(t *testing.T) {
+				stateDB, reader := newReader(t)
+				require.NoError(t, k.write(stateDB.disk, blockOne, k.valueOne))
 				require.NoError(t, k.write(stateDB.disk, blockTwo, k.valueTwo))
 
 				between, err := k.readAt(reader, blockTwo-1)
@@ -218,6 +249,10 @@ func TestHistoryAccessors(t *testing.T) {
 			})
 
 			t.Run("delete drops the entry", func(t *testing.T) {
+				stateDB, reader := newReader(t)
+				require.NoError(t, k.write(stateDB.disk, blockOne, k.valueOne))
+				require.NoError(t, k.write(stateDB.disk, blockTwo, k.valueTwo))
+
 				require.NoError(t, k.del(stateDB.disk, blockOne))
 				require.NoError(t, k.del(stateDB.disk, blockTwo))
 
@@ -230,15 +265,17 @@ func TestHistoryAccessors(t *testing.T) {
 }
 
 func TestGetStateObject(t *testing.T) {
-	stateDB := newTestStateDB()
 	addr := felt.NewUnsafeFromString[felt.Felt]("0x123")
 
 	t.Run("propagates not-found for a missing contract", func(t *testing.T) {
+		stateDB := newTestStateDB()
+
 		_, err := GetStateObject(stateDB.disk, nil, addr)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("wraps the stored contract on success", func(t *testing.T) {
+		stateDB := newTestStateDB()
 		require.NoError(t, WriteContract(stateDB.disk, addr,
 			felt.UnsafeFromString[felt.Felt]("0x1"),
 			felt.UnsafeFromString[felt.Felt]("0xabc"),
