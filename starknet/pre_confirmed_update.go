@@ -172,19 +172,19 @@ func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e *PreConfirmedUpdateEnvelope) Validate() (*PreConfirmedUpdateEnvelope, error) {
+func (e *PreConfirmedUpdateEnvelope) Validate() error {
 	switch update := e.Update.(type) {
 	case PreConfirmedNoChange:
 	case PreConfirmedDeltaUpdate:
 		if err := update.validate(); err != nil {
-			return nil, err
+			return err
 		}
 	case PreConfirmedBlock:
 		if err := update.validate(); err != nil {
-			return nil, err
+			return err
 		}
 	default:
-		return nil, fmt.Errorf("invalid pre_confirmed update type %T", e.Update)
+		return fmt.Errorf("invalid pre_confirmed update type %T", e.Update)
 	}
-	return e, nil
+	return nil
 }

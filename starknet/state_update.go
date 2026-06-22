@@ -12,8 +12,8 @@ type StateUpdate struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *StateUpdate) Validate() (*StateUpdate, error) {
-	return val, nil
+func (val *StateUpdate) Validate() error {
+	return nil
 }
 
 type StateDiff struct {
@@ -68,8 +68,8 @@ type StateUpdateWithBlock struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *StateUpdateWithBlock) Validate() (*StateUpdateWithBlock, error) {
-	return val, nil
+func (val *StateUpdateWithBlock) Validate() error {
+	return nil
 }
 
 // StateUpdateWithBlock represents the object response by the feeder for "get_state_update"
@@ -82,6 +82,6 @@ type StateUpdateWithBlockAndSignature struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *StateUpdateWithBlockAndSignature) Validate() (*StateUpdateWithBlockAndSignature, error) {
-	return val, nil
+func (val *StateUpdateWithBlockAndSignature) Validate() error {
+	return nil
 }

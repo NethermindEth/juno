@@ -75,8 +75,8 @@ type ClassDefinition struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (c *ClassDefinition) Validate() (*ClassDefinition, error) {
-	return c, nil
+func (c *ClassDefinition) Validate() error {
+	return nil
 }
 
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {

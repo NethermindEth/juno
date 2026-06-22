@@ -1333,5 +1333,9 @@ func TestFeederValidation(t *testing.T) {
 		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", "", 0)
 		require.Error(t, err)
 		require.Nil(t, update)
+		assert.ErrorContains(t, err, "invalid feeder response when calling")
+		assert.ErrorContains(t, err,
+			"get_preconfirmed_block?blockIdentifier=0x0&blockNumber=&knownTransactionCount=0",
+		)
 	})
 }

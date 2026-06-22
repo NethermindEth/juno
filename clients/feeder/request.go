@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -19,7 +20,7 @@ import (
 // and returns itself with no changes in case of success, or an error if validation fails.
 type Validatable[T any] interface {
 	*T
-	Validate() (*T, error)
+	Validate() error
 }
 
 func doRequest[T any, V Validatable[T]](
@@ -37,7 +38,13 @@ func doRequest[T any, V Validatable[T]](
 	if err = json.NewDecoder(body).Decode(&result); err != nil {
 		return nil, err
 	}
-	return V(&result).Validate()
+
+	err = V(&result).Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid feeder response when calling %s: %w", queryURL, err)
+	}
+
+	return &result, nil
 }
 
 // buildQueryString builds the query url with encoded parameters

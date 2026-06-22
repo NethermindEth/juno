@@ -8,8 +8,8 @@ type BlockTrace struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *BlockTrace) Validate() (*BlockTrace, error) {
-	return val, nil
+func (val *BlockTrace) Validate() error {
+	return nil
 }
 
 type TransactionTrace struct {

@@ -14,6 +14,6 @@ type Signature struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *Signature) Validate() (*Signature, error) {
-	return val, nil
+func (val *Signature) Validate() error {
+	return nil
 }

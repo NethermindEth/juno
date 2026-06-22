@@ -46,6 +46,6 @@ func (b *DeprecatedPreConfirmedBlock) AsUpdate() PreConfirmedUpdate {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (b *DeprecatedPreConfirmedBlock) Validate() (*DeprecatedPreConfirmedBlock, error) {
-	return b, nil
+func (b *DeprecatedPreConfirmedBlock) Validate() error {
+	return nil
 }

@@ -12,6 +12,6 @@ type FeeTokenAddresses struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *FeeTokenAddresses) Validate() (*FeeTokenAddresses, error) {
-	return val, nil
+func (val *FeeTokenAddresses) Validate() error {
+	return nil
 }

@@ -199,50 +199,44 @@ func validDelta() starknet.PreConfirmedDeltaUpdate {
 func TestPreConfirmedUpdateEnvelope_Validate(t *testing.T) {
 	t.Run("NoChange is always valid", func(t *testing.T) {
 		env := &starknet.PreConfirmedUpdateEnvelope{Update: starknet.PreConfirmedNoChange{}}
-		got, err := env.Validate()
+		err := env.Validate()
 		require.NoError(t, err)
-		require.Same(t, env, got)
 	})
 
 	t.Run("valid Block passes", func(t *testing.T) {
 		env := &starknet.PreConfirmedUpdateEnvelope{Update: validBlock()}
-		got, err := env.Validate()
+		err := env.Validate()
 		require.NoError(t, err)
-		require.Same(t, env, got)
 	})
 
 	t.Run("valid Delta passes", func(t *testing.T) {
 		env := &starknet.PreConfirmedUpdateEnvelope{Update: validDelta()}
-		got, err := env.Validate()
+		err := env.Validate()
 		require.NoError(t, err)
-		require.Same(t, env, got)
 	})
 
 	t.Run("invalid Block propagates validate error", func(t *testing.T) {
 		b := validBlock()
 		b.Status = "ACCEPTED_ON_L2"
 		env := &starknet.PreConfirmedUpdateEnvelope{Update: b}
-		got, err := env.Validate()
+		err := env.Validate()
 		require.Error(t, err)
-		require.Nil(t, got)
 	})
 
 	t.Run("invalid Delta propagates validate error", func(t *testing.T) {
 		d := validDelta()
 		d.Transactions = nil
 		env := &starknet.PreConfirmedUpdateEnvelope{Update: d}
-		got, err := env.Validate()
+		err := env.Validate()
 		require.Error(t, err)
-		require.Nil(t, got)
 	})
 
 	t.Run("nil Update hits the default branch", func(t *testing.T) {
 		// A zero-value envelope has a nil Update interface, which falls through
 		// the type switch to the default error branch.
 		env := &starknet.PreConfirmedUpdateEnvelope{}
-		got, err := env.Validate()
+		err := env.Validate()
 		require.Error(t, err)
-		require.Nil(t, got)
 	})
 }
 
@@ -323,7 +317,7 @@ func TestPreConfirmedBlock_validate(t *testing.T) {
 			b := validBlock()
 			tt.mutate(&b)
 			// validate() is unexported; drive it through the exported Validate().
-			_, err := (&starknet.PreConfirmedUpdateEnvelope{Update: b}).Validate()
+			err := (&starknet.PreConfirmedUpdateEnvelope{Update: b}).Validate()
 			if !tt.wantErr {
 				require.NoError(t, err)
 				return
@@ -384,7 +378,7 @@ func TestPreConfirmedDeltaUpdate_validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d := validDelta()
 			tt.mutate(&d)
-			_, err := (&starknet.PreConfirmedUpdateEnvelope{Update: d}).Validate()
+			err := (&starknet.PreConfirmedUpdateEnvelope{Update: d}).Validate()
 			if !tt.wantErr {
 				require.NoError(t, err)
 				return

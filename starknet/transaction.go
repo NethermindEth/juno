@@ -202,8 +202,8 @@ type DeprecatedTransactionStatus struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *DeprecatedTransactionStatus) Validate() (*DeprecatedTransactionStatus, error) {
-	return val, nil
+func (val *DeprecatedTransactionStatus) Validate() error {
+	return nil
 }
 
 // TransactionStatus represents the response from the get_transaction_status endpoint.
@@ -218,8 +218,8 @@ type TransactionStatus struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *TransactionStatus) Validate() (*TransactionStatus, error) {
-	return val, nil
+func (val *TransactionStatus) Validate() error {
+	return nil
 }
 
 // TransactionFailureReason represents the failure reason of a transaction

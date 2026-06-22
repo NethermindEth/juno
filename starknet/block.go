@@ -16,8 +16,8 @@ type BlockHeader struct {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (val *BlockHeader) Validate() (*BlockHeader, error) {
-	return val, nil
+func (val *BlockHeader) Validate() error {
+	return nil
 }
 
 // Block object returned by the feeder in JSON format for "get_block" endpoint
@@ -69,8 +69,8 @@ func (b *Block) L1GasPriceSTRK() *felt.Felt {
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
 // should be implemented in a follow-up PR.
-func (b *Block) Validate() (*Block, error) {
-	return b, nil
+func (b *Block) Validate() error {
+	return nil
 }
 
 type L1DAMode uint
