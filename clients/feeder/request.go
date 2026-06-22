@@ -19,7 +19,7 @@ var ErrInvalidFeederResponse = errors.New("invalid feeder response")
 // Validatable is a generic constraint satisfied by a pointer type *T whose
 // underlying value type T can validate itself. Implementers provide a
 // Validate method with a pointer receiver that checks the receiver's fields
-// and returns itself with no changes in case of success, or an error if validation fails.
+// and returns an error if validation fails.
 type Validatable[T any] interface {
 	*T
 	Validate() error
