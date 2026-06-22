@@ -11,3 +11,9 @@ type Signature struct {
 		StateDiffCommitment *felt.Felt `json:"state_diff_commitment"`
 	} `json:"signature_input"`
 }
+
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *Signature) Validate() (*Signature, error) {
+	return val, nil
+}

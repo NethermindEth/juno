@@ -73,6 +73,12 @@ type ClassDefinition struct {
 	Sierra          *SierraClass
 }
 
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (c *ClassDefinition) Validate() (*ClassDefinition, error) {
+	return c, nil
+}
+
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	jsonMap := make(map[string]any)
 	if err := json.Unmarshal(data, &jsonMap); err != nil {

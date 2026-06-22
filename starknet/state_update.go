@@ -10,6 +10,12 @@ type StateUpdate struct {
 	StateDiff StateDiff  `json:"state_diff"`
 }
 
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *StateUpdate) Validate() (*StateUpdate, error) {
+	return val, nil
+}
+
 type StateDiff struct {
 	// todo(rdr): What is key and value, I think it should go with `felt.StorageKey` and
 	//            `felt.StorageValue`. Also, why pointers to values and not values directly
@@ -60,10 +66,22 @@ type StateUpdateWithBlock struct {
 	StateUpdate *StateUpdate `json:"state_update"`
 }
 
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *StateUpdateWithBlock) Validate() (*StateUpdateWithBlock, error) {
+	return val, nil
+}
+
 // StateUpdateWithBlock represents the object response by the feeder for "get_state_update"
 // endpoint with `includeBlock` and `includeSignature` arguments
 type StateUpdateWithBlockAndSignature struct {
 	StateUpdate *StateUpdate `json:"state_update"`
 	Block       *Block       `json:"block"`
 	Signature   []*felt.Felt `json:"signature"`
+}
+
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *StateUpdateWithBlockAndSignature) Validate() (*StateUpdateWithBlockAndSignature, error) {
+	return val, nil
 }

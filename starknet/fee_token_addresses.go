@@ -9,3 +9,9 @@ type FeeTokenAddresses struct {
 	StrkL2TokenAddress felt.Felt `json:"strk_l2_token_address"`
 	EthL2TokenAddress  felt.Felt `json:"eth_l2_token_address"`
 }
+
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *FeeTokenAddresses) Validate() (*FeeTokenAddresses, error) {
+	return val, nil
+}
