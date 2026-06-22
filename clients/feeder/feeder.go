@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -29,7 +30,7 @@ var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 type Backoff func(wait time.Duration) time.Duration
 
 type Client struct {
-	url        string
+	url        *url.URL
 	client     *http.Client
 	backoff    Backoff
 	maxRetries int
@@ -145,8 +146,13 @@ func NopBackoff(d time.Duration) time.Duration {
 
 func NewClient(clientURL string) *Client {
 	defaultTimeouts := getDefaultFixedTimeouts()
+	base, err := url.Parse(clientURL)
+	if err != nil {
+		panic("malformed feeder base URL")
+	}
+
 	client := &Client{
-		url:        clientURL,
+		url:        base,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
 		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
@@ -160,7 +166,7 @@ func NewClient(clientURL string) *Client {
 }
 
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
+func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, error) {
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
@@ -170,7 +176,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			return nil, ctx.Err()
 		case <-time.After(wait):
 			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
+			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL.String(), http.NoBody)
 			if err != nil {
 				return nil, err
 			}
@@ -239,7 +245,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 }
 
 func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
-	queryURL := c.buildQueryString("get_block", map[string]string{
+	queryURL := buildQueryString(c.url, "get_block", map[string]string{
 		blockNumberArg: blockID,
 	})
 
@@ -249,7 +255,7 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 func (c *Client) BlockHeader(
 	ctx context.Context, blockID string,
 ) (starknet.BlockHeader, error) {
-	queryURL := c.buildQueryString("get_block", map[string]string{
+	queryURL := buildQueryString(c.url, "get_block", map[string]string{
 		blockNumberArg: blockID,
 		"headerOnly":   trueStr,
 	})
@@ -262,7 +268,7 @@ func (c *Client) BlockHeader(
 }
 
 func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error) {
-	queryURL := c.buildQueryString("get_block_traces", map[string]string{
+	queryURL := buildQueryString(c.url, "get_block_traces", map[string]string{
 		"blockHash": blockHash,
 	})
 
@@ -273,7 +279,7 @@ func (c *Client) CasmClassDefinition(
 	ctx context.Context,
 	classHash *felt.Felt,
 ) (*starknet.CasmClass, error) {
-	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
+	queryURL := buildQueryString(c.url, "get_compiled_class_by_class_hash", map[string]string{
 		classHashArg:   classHash.String(),
 		blockNumberArg: "latest",
 	})
@@ -303,7 +309,7 @@ func (c *Client) CasmClassDefinition(
 func (c *Client) ClassDefinition(
 	ctx context.Context, classHash *felt.Felt,
 ) (*starknet.ClassDefinition, error) {
-	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
+	queryURL := buildQueryString(c.url, "get_class_by_hash", map[string]string{
 		classHashArg:   classHash.String(),
 		blockNumberArg: "latest",
 	})
@@ -312,7 +318,7 @@ func (c *Client) ClassDefinition(
 }
 
 func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error) {
-	queryURL := c.buildQueryString("get_contract_addresses", nil)
+	queryURL := buildQueryString(c.url, "get_contract_addresses", nil)
 
 	addresses, err := doRequest[starknet.FeeTokenAddresses](ctx, c, queryURL)
 	if err != nil {
@@ -322,7 +328,7 @@ func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddres
 }
 
 func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
-	queryURL := c.buildQueryString("get_public_key", nil)
+	queryURL := buildQueryString(c.url, "get_public_key", nil)
 
 	// public key is a hex string
 	publicKey, err := doRequest[starknet.PublicKey](ctx, c, queryURL)
@@ -333,7 +339,7 @@ func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 }
 
 func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
-	queryURL := c.buildQueryString("get_signature", map[string]string{
+	queryURL := buildQueryString(c.url, "get_signature", map[string]string{
 		blockNumberArg: blockID,
 	})
 
@@ -341,7 +347,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 }
 
 func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
+	queryURL := buildQueryString(c.url, "get_state_update", map[string]string{
 		blockNumberArg: blockID,
 	})
 
@@ -349,7 +355,7 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 }
 
 func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
+	queryURL := buildQueryString(c.url, "get_state_update", map[string]string{
 		blockNumberArg: blockID,
 		"includeBlock": trueStr,
 	})
@@ -361,7 +367,7 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 	ctx context.Context,
 	blockID string,
 ) (*starknet.StateUpdateWithBlockAndSignature, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
+	queryURL := buildQueryString(c.url, "get_state_update", map[string]string{
 		blockNumberArg:     blockID,
 		"includeBlock":     trueStr,
 		"includeSignature": trueStr,
@@ -379,7 +385,7 @@ func (c *Client) DeprecatedPreConfirmedBlock(
 	ctx context.Context,
 	blockNumber string,
 ) (*starknet.DeprecatedPreConfirmedBlock, error) {
-	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
+	queryURL := buildQueryString(c.url, "get_preconfirmed_block", map[string]string{
 		blockNumberArg: blockNumber,
 	})
 
@@ -403,7 +409,7 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 	if blockIdentifier == "" {
 		blockIdentifier = PreConfirmedBlankIdentifier
 	}
-	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
+	queryURL := buildQueryString(c.url, "get_preconfirmed_block", map[string]string{
 		blockNumberArg:          blockNumber,
 		"blockIdentifier":       blockIdentifier,
 		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
@@ -421,7 +427,7 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 func (c *Client) Transaction(
 	ctx context.Context, transactionHash *felt.Felt,
 ) (*starknet.DeprecatedTransactionStatus, error) {
-	queryURL := c.buildQueryString("get_transaction", map[string]string{
+	queryURL := buildQueryString(c.url, "get_transaction", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
 
@@ -434,7 +440,7 @@ func (c *Client) TransactionStatus(
 	ctx context.Context,
 	transactionHash *felt.Felt,
 ) (*starknet.TransactionStatus, error) {
-	queryURL := c.buildQueryString("get_transaction_status", map[string]string{
+	queryURL := buildQueryString(c.url, "get_transaction_status", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
 

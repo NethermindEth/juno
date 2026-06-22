@@ -22,10 +22,10 @@ type Validatable[T any] interface {
 func doRequest[T any, V Validatable[T]](
 	ctx context.Context,
 	client *Client,
-	queryURL string,
+	fullURL *url.URL,
 ) (*T, error) {
 	var result T
-	body, err := client.get(ctx, queryURL)
+	body, err := client.get(ctx, fullURL)
 	if err != nil {
 		return nil, err
 	}
@@ -39,21 +39,16 @@ func doRequest[T any, V Validatable[T]](
 	if err != nil {
 		return nil, errors.Join(
 			ErrInvalidFeederResponse,
-			fmt.Errorf("querying %s: %w", queryURL, err),
+			fmt.Errorf("querying %s: %w", fullURL, err),
 		)
 	}
 
 	return &result, nil
 }
 
-// buildQueryString builds the query url with encoded parameters
-func (c *Client) buildQueryString(endpoint string, args map[string]string) string {
-	base, err := url.Parse(c.url)
-	if err != nil {
-		panic("Malformed feeder base URL")
-	}
-
-	base.Path += endpoint
+// buildQueryString builds the full URL with encoded parameters
+func buildQueryString(baseURL *url.URL, endpoint string, args map[string]string) *url.URL {
+	base := baseURL.JoinPath(endpoint)
 
 	params := url.Values{}
 	for k, v := range args {
@@ -61,5 +56,5 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 	}
 	base.RawQuery = params.Encode()
 
-	return base.String()
+	return base
 }
