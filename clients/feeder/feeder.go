@@ -241,18 +241,11 @@ func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddres
 	return *addresses, err
 }
 
-// A string type that implements the Validatable constraint.
-type publicKey string
-
-func (val *publicKey) Validate() (*publicKey, error) {
-	return val, nil
-}
-
 func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	queryURL := c.buildQueryString("get_public_key", nil)
 
 	// public key is a hex string
-	publicKey, err := doRequest[publicKey](ctx, c, queryURL)
+	publicKey, err := doRequest[starknet.PublicKey](ctx, c, queryURL)
 	if err != nil {
 		return nil, err
 	}
