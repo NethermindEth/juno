@@ -43,7 +43,7 @@ func (val *PreConfirmedDeltaUpdate) validate() error {
 		return errors.New("block_identifier is required")
 	}
 	if len(val.Transactions) == 0 {
-		return errors.New("delta can not have zero transactions")
+		return errors.New("delta requires at least one transaction")
 	}
 
 	return validateTxsLength(
@@ -177,11 +177,11 @@ func (e *PreConfirmedUpdateEnvelope) Validate() error {
 	case PreConfirmedNoChange:
 	case PreConfirmedDeltaUpdate:
 		if err := update.validate(); err != nil {
-			return err
+			return fmt.Errorf("invalid pre_confirmed delta update: %w", err)
 		}
 	case PreConfirmedBlock:
 		if err := update.validate(); err != nil {
-			return err
+			return fmt.Errorf("invalid pre_confirmed full block: %w", err)
 		}
 	default:
 		return fmt.Errorf("invalid pre_confirmed update type %T", e.Update)

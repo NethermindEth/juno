@@ -212,12 +212,12 @@ func (s *Synchronizer) pollPreConfirmed(
 				ctx, current.Block.Number, current.BlockIdentifier, txCount,
 			)
 			if err != nil {
-				msg := "Error while trying to poll pre_confirmed block"
+				const msg = "polling pre-confirmed block"
 				if errors.Is(err, feeder.ErrInvalidFeederResponse) {
 					s.logger.Error(msg, zap.Error(err))
 					continue
 				}
-				s.logger.Debug(msg, zap.Error(err))
+				s.logger.Debug(msg, zap.Error(err), zap.Uint64("block_number", current.Block.Number))
 				continue
 			}
 

@@ -179,7 +179,7 @@ func validBlock() starknet.PreConfirmedBlock {
 		TransactionStateDiffs: []*starknet.StateDiff{{}},
 		Status:                "PRE_CONFIRMED",
 		Version:               "0.14.0",
-		SequencerAddress:      new(felt.Felt).SetUint64(0xaa),
+		SequencerAddress:      felt.NewFromUint64[felt.Felt](0xaa),
 		L1GasPrice:            &starknet.GasPrice{},
 		L2GasPrice:            &starknet.GasPrice{},
 		L1DataGasPrice:        &starknet.GasPrice{},
@@ -236,7 +236,7 @@ func TestPreConfirmedUpdateEnvelope_Validate(t *testing.T) {
 		// the type switch to the default error branch.
 		env := &starknet.PreConfirmedUpdateEnvelope{}
 		err := env.Validate()
-		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid pre_confirmed update type")
 	})
 }
 
@@ -246,7 +246,10 @@ func TestPreConfirmedBlock_validate(t *testing.T) {
 		mutate  func(*starknet.PreConfirmedBlock)
 		wantErr bool
 	}{
-		{name: "valid", mutate: func(*starknet.PreConfirmedBlock) {}},
+		{
+			name:   "valid",
+			mutate: func(*starknet.PreConfirmedBlock) {},
+		},
 		{
 			name:    "missing block_identifier",
 			mutate:  func(b *starknet.PreConfirmedBlock) { b.BlockIdentifier = "" },
@@ -333,7 +336,10 @@ func TestPreConfirmedDeltaUpdate_validate(t *testing.T) {
 		mutate  func(*starknet.PreConfirmedDeltaUpdate)
 		wantErr bool
 	}{
-		{name: "valid", mutate: func(*starknet.PreConfirmedDeltaUpdate) {}},
+		{
+			name:   "valid",
+			mutate: func(*starknet.PreConfirmedDeltaUpdate) {},
+		},
 		{
 			name:    "missing block_identifier",
 			mutate:  func(d *starknet.PreConfirmedDeltaUpdate) { d.BlockIdentifier = "" },

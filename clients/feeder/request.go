@@ -45,7 +45,7 @@ func doRequest[T any, V Validatable[T]](
 	if err != nil {
 		return nil, errors.Join(
 			ErrInvalidFeederResponse,
-			fmt.Errorf("error while validating response from %s: %w", queryURL, err),
+			fmt.Errorf("querying %s: %w", queryURL, err),
 		)
 	}
 
