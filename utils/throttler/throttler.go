@@ -44,7 +44,7 @@ func NewThrottler[T any](maxConcurrentReqs uint, resource *T, opts ...Option) *T
 		opt(&o)
 	}
 
-	// guard against overlfow
+	// guard against overflow
 	maxRequests := o.maxQueueLen + uint64(maxConcurrentReqs)
 	if maxRequests < o.maxQueueLen {
 		maxRequests = math.MaxUint64
