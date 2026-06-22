@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var ErrInvalidFeederResponse = errors.New("invalid feeder response")
+
 // Validatable is a generic constraint satisfied by a pointer type *T whose
 // underlying value type T can validate itself. Implementers provide a
 // Validate method with a pointer receiver that checks the receiver's fields
@@ -41,7 +43,10 @@ func doRequest[T any, V Validatable[T]](
 
 	err = V(&result).Validate()
 	if err != nil {
-		return nil, fmt.Errorf("invalid feeder response when calling %s: %w", queryURL, err)
+		return nil, errors.Join(
+			ErrInvalidFeederResponse,
+			fmt.Errorf("error while validating response from %s: %w", queryURL, err),
+		)
 	}
 
 	return &result, nil
