@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/geth/contract"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -33,16 +34,15 @@ func (f *fakeEventSub) Unsubscribe() {
 	}
 }
 
-func newForwarderForTest(sink chan *StateUpdate, inner *fakeEventSub) *gethStateUpdateForwarder {
-	w := &gethStateUpdateForwarder{
-		inner:  inner,
-		sink:   sink,
-		raw:    make(chan *contract.StarknetLogStateUpdate, 1),
-		errCh:  make(chan error, 1),
-		closed: make(chan struct{}),
-	}
-	go w.run()
-	return w
+// newForwarderForTest wires forwardStateUpdates to a fake inner subscription
+// and returns the resulting eth.Subscription along with the writable raw
+// channel the test feeds contract events into.
+func newForwarderForTest(
+	sink chan *StateUpdate, inner *fakeEventSub,
+) (eth.Subscription, chan *contract.StarknetLogStateUpdate) {
+	raw := make(chan *contract.StarknetLogStateUpdate, 1)
+	sub := forwardStateUpdates(inner, raw, sink)
+	return sub, raw
 }
 
 func sampleStarknetLogStateUpdate() *contract.StarknetLogStateUpdate {
@@ -57,11 +57,10 @@ func sampleStarknetLogStateUpdate() *contract.StarknetLogStateUpdate {
 	}
 }
 
-// expectErrChClosed asserts that w.Err() is closed (drained of any
-// pending value, then EOF) within the deadline. shutdown closes errCh
-// exactly once via closeOnce, and run defers shutdown — so a closed
-// errCh proves either Unsubscribe ran or the run goroutine finished its
-// defer.
+// expectErrChClosed asserts that Err() is closed (drained of any pending
+// value, then EOF) within the deadline. event.NewSubscription closes the
+// error channel exactly once after the producer returns, so a closed Err()
+// proves the forwarding goroutine has torn down.
 func expectErrChClosed(t *testing.T, ch <-chan error) {
 	t.Helper()
 	deadline := time.After(2 * time.Second)
@@ -77,14 +76,14 @@ func expectErrChClosed(t *testing.T, ch <-chan error) {
 	}
 }
 
-func TestGethStateUpdateForwarder_NormalForward(t *testing.T) {
+func TestForwardStateUpdates_NormalForward(t *testing.T) {
 	sink := make(chan *StateUpdate, 1)
 	inner := newFakeEventSub()
-	w := newForwarderForTest(sink, inner)
-	t.Cleanup(w.Unsubscribe)
+	sub, raw := newForwarderForTest(sink, inner)
+	t.Cleanup(sub.Unsubscribe)
 
 	ev := sampleStarknetLogStateUpdate()
-	w.raw <- ev
+	raw <- ev
 
 	select {
 	case got := <-sink:
@@ -100,22 +99,22 @@ func TestGethStateUpdateForwarder_NormalForward(t *testing.T) {
 
 	// Err() should still be open while the forwarder is running.
 	select {
-	case _, ok := <-w.Err():
+	case _, ok := <-sub.Err():
 		t.Fatalf("Err() unexpectedly closed/delivered while running (ok=%v)", ok)
 	default:
 	}
 }
 
-func TestGethStateUpdateForwarder_InnerErrorDeliversAndCloses(t *testing.T) {
+func TestForwardStateUpdates_InnerErrorDeliversAndCloses(t *testing.T) {
 	sink := make(chan *StateUpdate, 1)
 	inner := newFakeEventSub()
-	w := newForwarderForTest(sink, inner)
+	sub, _ := newForwarderForTest(sink, inner)
 
 	cause := errors.New("upstream gone")
 	inner.errCh <- cause
 
 	select {
-	case err := <-w.Err():
+	case err := <-sub.Err():
 		require.ErrorIs(t, err, cause)
 	case <-time.After(2 * time.Second):
 		t.Fatal("Err() did not deliver the cause")
@@ -123,7 +122,7 @@ func TestGethStateUpdateForwarder_InnerErrorDeliversAndCloses(t *testing.T) {
 	// After the cause is delivered the channel must close — a second
 	// receive yields (zero, !ok).
 	select {
-	case err, ok := <-w.Err():
+	case err, ok := <-sub.Err():
 		assert.False(t, ok, "Err() should be closed after delivering cause")
 		assert.NoError(t, err)
 	case <-time.After(2 * time.Second):
@@ -131,27 +130,27 @@ func TestGethStateUpdateForwarder_InnerErrorDeliversAndCloses(t *testing.T) {
 	}
 }
 
-func TestGethStateUpdateForwarder_UnsubscribeExitsGoroutine(t *testing.T) {
+func TestForwardStateUpdates_UnsubscribeExitsGoroutine(t *testing.T) {
 	sink := make(chan *StateUpdate, 1)
 	inner := newFakeEventSub()
-	w := newForwarderForTest(sink, inner)
+	sub, _ := newForwarderForTest(sink, inner)
 
-	w.Unsubscribe()
+	sub.Unsubscribe()
 	assert.True(t, inner.unsubbed.Load(), "inner subscription should be Unsubscribed")
-	expectErrChClosed(t, w.Err())
+	expectErrChClosed(t, sub.Err())
 }
 
-func TestGethStateUpdateForwarder_SinkStalledThenUnsubscribe(t *testing.T) {
-	// Unbuffered sink, never drained: if the run loop reaches the
-	// `case w.sink <- su` branch it will block there. Unsubscribe() must
-	// unblock it via the <-w.closed arm of the inner select.
+func TestForwardStateUpdates_SinkStalledThenUnsubscribe(t *testing.T) {
+	// Unbuffered sink, never drained: if the forwarding loop reaches the
+	// `case sink <- ...` branch it will block there. Unsubscribe() must
+	// unblock it via the <-quit arm of the inner select.
 	sink := make(chan *StateUpdate)
 	inner := newFakeEventSub()
-	w := newForwarderForTest(sink, inner)
+	sub, raw := newForwarderForTest(sink, inner)
 
-	w.raw <- sampleStarknetLogStateUpdate()
-	w.Unsubscribe()
+	raw <- sampleStarknetLogStateUpdate()
+	sub.Unsubscribe()
 
-	expectErrChClosed(t, w.Err())
+	expectErrChClosed(t, sub.Err())
 	assert.True(t, inner.unsubbed.Load())
 }
