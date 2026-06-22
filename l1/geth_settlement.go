@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -203,15 +202,7 @@ func (s *GethSettlement) WatchStateUpdate(
 	if err != nil {
 		return nil, fmt.Errorf("subscribe LogStateUpdate: %w", err)
 	}
-	w := &gethStateUpdateForwarder{
-		inner:  inner,
-		sink:   sink,
-		raw:    raw,
-		errCh:  make(chan error, 1),
-		closed: make(chan struct{}),
-	}
-	go w.run()
-	return w, nil
+	return forwardStateUpdates(inner, raw, sink), nil
 }
 
 // TransactionReceipt fetches an L1 transaction receipt by hash. Used
@@ -273,58 +264,34 @@ func gethLogToEth(l *types.Log) eth.Log {
 	}
 }
 
-// gethStateUpdateForwarder decodes contract.StarknetLogStateUpdate events
-// into l1.StateUpdate as they arrive from the underlying log subscription.
-type gethStateUpdateForwarder struct {
-	inner     event.Subscription
-	sink      chan<- *StateUpdate
-	raw       chan *contract.StarknetLogStateUpdate
-	errCh     chan error
-	closed    chan struct{}
-	closeOnce sync.Once
-}
-
-func (w *gethStateUpdateForwarder) Err() <-chan error { return w.errCh }
-
-func (w *gethStateUpdateForwarder) Unsubscribe() {
-	w.shutdown(nil)
-	w.inner.Unsubscribe()
-}
-
-func (w *gethStateUpdateForwarder) shutdown(cause error) {
-	w.closeOnce.Do(func() {
-		close(w.closed)
-		if cause != nil {
+// forwardStateUpdates returns a subscription whose goroutine decodes each
+// contract.StarknetLogStateUpdate event into a neutral StateUpdate and
+// forwards it to sink, until the inner subscription errors or the caller
+// unsubscribes. The subscription lifecycle (once-only close, idempotent
+// Unsubscribe, error delivery, goroutine teardown) is handled by
+// event.NewSubscription; this only owns the type translation.
+func forwardStateUpdates(
+	inner event.Subscription,
+	raw <-chan *contract.StarknetLogStateUpdate,
+	sink chan<- *StateUpdate,
+) eth.Subscription {
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer inner.Unsubscribe()
+		for {
 			select {
-			case w.errCh <- cause:
-			default:
+			case ev := <-raw:
+				select {
+				case sink <- stateUpdateFromGethContract(ev):
+				case <-quit:
+					return nil
+				}
+			case err := <-inner.Err():
+				return err
+			case <-quit:
+				return nil
 			}
 		}
-		close(w.errCh)
 	})
-}
-
-func (w *gethStateUpdateForwarder) run() {
-	defer w.shutdown(nil)
-	for {
-		select {
-		case <-w.closed:
-			return
-		case err, ok := <-w.inner.Err():
-			if !ok {
-				return
-			}
-			w.shutdown(err)
-			return
-		case ev := <-w.raw:
-			su := stateUpdateFromGethContract(ev)
-			select {
-			case w.sink <- su:
-			case <-w.closed:
-				return
-			}
-		}
-	}
 }
 
 // Compile-time assertions: GethSettlement satisfies both interfaces it
