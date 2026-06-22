@@ -166,7 +166,7 @@ func (s *GethSettlement) LatestHeight(ctx context.Context) (uint64, error) {
 }
 
 // FilterStateUpdate decodes every LogStateUpdate in [from, to] into
-// the chain-neutral StateUpdate shape.
+// the StateUpdate shape.
 func (s *GethSettlement) FilterStateUpdate(
 	ctx context.Context,
 	from, to uint64,
@@ -237,8 +237,8 @@ func (s *GethSettlement) Close() {
 }
 
 // stateUpdateFromGethContract translates the abigen-decoded event into
-// the chain-neutral StateUpdate. felt conversion happens here so
-// l1.Client never touches Ethereum-flavoured types.
+// the StateUpdate. felt conversion happens here so l1.Client never
+// touches go-ethereum types.
 func stateUpdateFromGethContract(ev *contract.StarknetLogStateUpdate) *StateUpdate {
 	return &StateUpdate{
 		L2BlockNumber: ev.BlockNumber.Uint64(),
@@ -251,7 +251,7 @@ func stateUpdateFromGethContract(ev *contract.StarknetLogStateUpdate) *StateUpda
 
 // gethReceiptToEth shallow-copies the fields of a geth receipt that juno
 // actually reads. Today only Logs is consumed, but every nested Log is
-// converted so the shape matches the chain-neutral receipt type exactly.
+// converted so the shape matches juno's own eth.Receipt type exactly.
 func gethReceiptToEth(r *types.Receipt) *eth.Receipt {
 	logs := make([]eth.Log, len(r.Logs))
 	for i, l := range r.Logs {
