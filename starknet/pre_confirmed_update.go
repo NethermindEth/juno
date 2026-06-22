@@ -21,6 +21,8 @@ type PreConfirmedUpdate interface {
 // variant discrimination and discards it before decoding into this struct.
 type PreConfirmedNoChange struct{}
 
+func (PreConfirmedNoChange) isPreConfirmedUpdate() {}
+
 // PreConfirmedDeltaUpdate carries transactions/receipts/state diffs appended since the
 // caller's known transaction count for the same block_identifier.
 //
@@ -34,6 +36,8 @@ type PreConfirmedDeltaUpdate struct {
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
 }
 
+func (PreConfirmedDeltaUpdate) isPreConfirmedUpdate() {}
+
 func (val *PreConfirmedDeltaUpdate) validate() error {
 	if val.BlockIdentifier == "" {
 		return errors.New("block_identifier is required")
@@ -45,32 +49,6 @@ func (val *PreConfirmedDeltaUpdate) validate() error {
 	return validateTxsLength(
 		val.Transactions, val.Receipts, val.TransactionStateDiffs,
 	)
-}
-
-func validateTxsLength(
-	txs []Transaction,
-	receipts []*TransactionReceipt,
-	stateDiffs []*StateDiff,
-) error {
-	if len(txs) != len(receipts) ||
-		len(txs) != len(stateDiffs) {
-		return errors.New(
-			"transactions, receipts, and tx_state_diffs must have the same length",
-		)
-	}
-
-	for i := range txs {
-		if txs[i] == (Transaction{}) {
-			return fmt.Errorf("transaction at index %d is empty", i)
-		}
-		if receipts[i] == nil {
-			return fmt.Errorf("receipt at index %d is nil", i)
-		}
-		if stateDiffs[i] == nil {
-			return fmt.Errorf("transaction state diff at index %d is nil", i)
-		}
-	}
-	return nil
 }
 
 // PreConfirmedBlock carries a full pre_confirmed block for a new round.
@@ -92,6 +70,8 @@ type PreConfirmedBlock struct {
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
 }
+
+func (PreConfirmedBlock) isPreConfirmedUpdate() {}
 
 func (pb *PreConfirmedBlock) validate() error {
 	if pb.BlockIdentifier == "" {
@@ -120,9 +100,31 @@ func (pb *PreConfirmedBlock) validate() error {
 	)
 }
 
-func (PreConfirmedNoChange) isPreConfirmedUpdate()    {}
-func (PreConfirmedDeltaUpdate) isPreConfirmedUpdate() {}
-func (PreConfirmedBlock) isPreConfirmedUpdate()       {}
+func validateTxsLength(
+	txs []Transaction,
+	receipts []*TransactionReceipt,
+	stateDiffs []*StateDiff,
+) error {
+	if len(txs) != len(receipts) ||
+		len(txs) != len(stateDiffs) {
+		return errors.New(
+			"transactions, receipts, and tx_state_diffs must have the same length",
+		)
+	}
+
+	for i := range txs {
+		if txs[i] == (Transaction{}) {
+			return fmt.Errorf("transaction at index %d is empty", i)
+		}
+		if receipts[i] == nil {
+			return fmt.Errorf("receipt at index %d is nil", i)
+		}
+		if stateDiffs[i] == nil {
+			return fmt.Errorf("transaction state diff at index %d is nil", i)
+		}
+	}
+	return nil
+}
 
 var (
 	_ PreConfirmedUpdate = PreConfirmedNoChange{}

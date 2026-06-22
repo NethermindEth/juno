@@ -514,7 +514,6 @@ func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
 }
 
 // AdaptPreConfirmedBlock adapts a pre_confirmed block into a pending.PreConfirmed.
-// It assumes that the response was already sanitized, not containing any nil/invalid values.
 func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
@@ -612,8 +611,7 @@ func AdaptPreConfirmedBlock(
 }
 
 // AdaptPreConfirmedWithDelta returns a new pre_confirmed produced by applying
-// delta on top of current; current is not modified. It assumes that the delta
-// was already sanitized, not containing any nil/invalid values.
+// delta on top of current; current is not modified.
 //
 // Returns [ErrPreConfirmedIdentifierMismatch] if current.BlockIdentifier
 // differs from delta.BlockIdentifier.
