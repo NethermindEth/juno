@@ -16,10 +16,9 @@ import "reflect"
 //
 // A solution for this is to use i == nil || reflect.ValueOf(i).IsNil()), however, this can cause a panic as not all
 // reflect.Value has IsNil() defined. Therefore, default is to return false. For example, reflect.Array cannot be nil,
-// hence calling IsNil() will cause a panic.
+// hence calling IsNil() will cause a great panic.
 func IsNil(i any) bool {
 	if i == nil {
-		
 		return true
 	}
 
