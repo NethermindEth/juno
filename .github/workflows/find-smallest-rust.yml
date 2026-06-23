@@ -11,7 +11,6 @@ on:
       - starknet/compiler/rust/*
   workflow_dispatch:
 
-
 permissions:
   issues: write # Required for sending comments
   pull-requests: write # Required for sending comments
@@ -24,7 +23,7 @@ jobs:
   find-smallest-rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Find smallest supported Rust version
         id: rust-version
         uses: derrix060/detect-rust-minimum-version@7758bf709a98d268224549d3e5b2285d23ca9baf # v1.1.0
@@ -37,7 +36,7 @@ jobs:
         with:
           script: |
             const msrv = '${{ steps.rust-version.outputs.highest-msrv }}'
-            const previous_msrv = '1.88.0'
+            const previous_msrv = '1.94.1'
 
             if (msrv != previous_msrv) {
               github.rest.issues.createComment({

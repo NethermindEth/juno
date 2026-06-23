@@ -42,7 +42,7 @@ jobs:
 
       - name: Install JFrog CLI
         id: jfrog
-        uses: jfrog/setup-jfrog-cli@1641575d87647fb969c0545f0b6a76873e328b7c # v5.0.0
+        uses: jfrog/setup-jfrog-cli@deda456d982fc5e9a7a020b63eb0d2968aedd33e # v5.1.0
         env:
           JF_URL: https://${{ env.DOCKER_REGISTRY }}
         with:
@@ -59,7 +59,7 @@ jobs:
         run: docker pull ${{ env.FULL_IMAGE_PATH }}
 
       - name: Checkout Juno Smoke Tests
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: NethermindEth/juno-smoke-tests
           token: ${{ steps.generate-token.outputs.token }}

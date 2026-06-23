@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/zap"
 )
 
@@ -147,6 +148,9 @@ func (h *Handler) addToMempool(
 		ctx, h.compiler, tx, h.bcReader.Network(),
 	)
 	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
+		}
 		return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 

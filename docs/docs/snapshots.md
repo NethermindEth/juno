@@ -14,21 +14,45 @@ Snapshots are provided in a compressed `.tar.zst` format for faster downloads an
 | Sepolia             | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
 | Sepolia-Integration | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
+```mdx-code-block
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+```
+
+:::tip
+Select your network in any tab below and the rest of the page follows — the choice is synced across every command on this page.
+:::
+
 ## Getting snapshot sizes
 
+Snapshot sizes are refreshed weekly. As of `Fri May 8 2026`:
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
+
 ```bash
-$date
-Fri May  8 00:34:15 CEST 2026
-
-$curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-397.68 GB
-
-$curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-66.99 GB
-
-$curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-30.91 GB
+curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 397.68 GB
 ```
+
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 66.99 GB
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 30.91 GB
+```
+
+</TabItem>
+</Tabs>
 
 ## Run Juno with a snapshot
 
@@ -46,16 +70,29 @@ mkdir -p $HOME/snapshots
 
 [zstd (Zstandard)](https://github.com/facebook/zstd) is required to decompress and directly stream the snapshots into your system without requiring temporary storage. `zstd` provides significantly better compression ratios and faster decompression speeds compared to traditional tar compression.
 
+<Tabs groupId="os">
+<TabItem value="ubuntu" label="Ubuntu/Debian" default>
+
 ```bash
-# On Ubuntu/Debian
 sudo apt-get install zstd
+```
 
-# On macOS
+</TabItem>
+<TabItem value="macos" label="macOS">
+
+```bash
 brew install zstd
+```
 
-# On RHEL/CentOS/Fedora
+</TabItem>
+<TabItem value="rhel" label="RHEL/CentOS/Fedora">
+
+```bash
 sudo dnf install zstd  # or yum install zstd
 ```
+
+</TabItem>
+</Tabs>
 
 ### 3. Download and extract
 
@@ -63,21 +100,56 @@ Two-step approach where we first download the snapshot and extract it later. Not
 
 ##### 1. Download the snapshot
 
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
+
 ```bash
-# For Mainnet
 wget --continue -O "$HOME/snapshots/juno_mainnet.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet/latest
+```
 
+Or using `curl`:
 
-# Or using curl
+```bash
 curl -L -C - -o $HOME/snapshots/juno_mainnet.tar.zst https://juno-snapshots.nethermind.io/files/mainnet/latest
 ```
+
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+wget --continue -O "$HOME/snapshots/juno_sepolia.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia/latest
+```
+
+Or using `curl`:
+
+```bash
+curl -L -C - -o $HOME/snapshots/juno_sepolia.tar.zst https://juno-snapshots.nethermind.io/files/sepolia/latest
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+wget --continue -O "$HOME/snapshots/juno_sepolia_integration.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+```
+
+Or using `curl`:
+
+```bash
+curl -L -C - -o $HOME/snapshots/juno_sepolia_integration.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+```
+
+</TabItem>
+</Tabs>
 
 ##### 2. Extract the snapshot
 
 Create a subfolder inside `$HOME/snapshots` where to unzip the downloaded snapshot:
 
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
+
 ```bash
-# For Mainnet
 mkdir $HOME/snapshots/mainnet/
 ```
 
@@ -86,37 +158,88 @@ mkdir $HOME/snapshots/mainnet/
 zstd -d juno_mainnet.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet
 ```
 
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+mkdir $HOME/snapshots/sepolia/
+```
+
+```bash
+# Extract to your snapshots directory
+zstd -d juno_sepolia.tar.zst -c | tar -xvf - -C $HOME/snapshots/sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+mkdir $HOME/snapshots/sepolia-integration/
+```
+
+```bash
+# Extract to your snapshots directory
+zstd -d juno_sepolia_integration.tar.zst -c | tar -xvf - -C $HOME/snapshots/sepolia-integration
+```
+
+</TabItem>
+</Tabs>
+
 #### Alternative method: Stream the snapshot directly
 
 :::warning
 Streaming can become unreliable if the network conditions are not extremely good, requiring multiple restarts. Resort to this if disk space is at a premium.
 :::
 
-Create a subfolder inside `$HOME/snapshots` where to stream the download:
+Create a subfolder inside `$HOME/snapshots` where to stream the download, then download and extract the snapshot directly to your target directory:
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
-# For Mainnet
 mkdir $HOME/snapshots/mainnet/
 ```
 
-Download and extract the snapshot directly to your target directory:
-
 ```bash
-# For Mainnet
 curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
 | zstd -d | tar -xvf - -C $HOME/snapshots/mainnet
 ```
 
-For other networks, replace the URL with:
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
 
-- **Sepolia**: `https://juno-snapshots.nethermind.io/files/sepolia/latest`
-- **Sepolia-Integration**: `https://juno-snapshots.nethermind.io/files/sepolia-integration/latest`
+```bash
+mkdir $HOME/snapshots/sepolia/
+```
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia/latest \
+| zstd -d | tar -xvf - -C $HOME/snapshots/sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+mkdir $HOME/snapshots/sepolia-integration/
+```
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
+| zstd -d | tar -xvf - -C $HOME/snapshots/sepolia-integration
+```
+
+</TabItem>
+</Tabs>
 
 ## Running Juno with snapshots
 
 ### 1. Run Juno
 
 Run the Docker command to start Juno:
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
 docker run -d \
@@ -131,6 +254,43 @@ docker run -d \
   --eth-node <YOUR-ETH-NODE>
 ```
 
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -v $HOME/snapshots/sepolia:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --network sepolia \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -v $HOME/snapshots/sepolia-integration:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --network sepolia-integration \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+</TabItem>
+</Tabs>
+
 :::info
-Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL (e.g., `wss://mainnet.infura.io/ws/v3/your-project-id`). Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
+Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL, and make sure it matches the network's L1: Starknet Mainnet settles on Ethereum Mainnet (e.g. `wss://mainnet.infura.io/ws/v3/your-project-id`), while Sepolia and Sepolia-Integration settle on Ethereum Sepolia (e.g. `wss://sepolia.infura.io/ws/v3/your-project-id`). Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
 :::

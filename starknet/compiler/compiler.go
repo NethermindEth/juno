@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
+	"strconv"
 
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
@@ -20,22 +22,39 @@ type Compiler interface {
 	)
 }
 
+// Flag names used to pass per-compilation resource limits to the
+// compile-sierra child process. They are shared by the parent (which
+// builds the child's argv) and the child command (which defines the
+// flags and applies the limits to itself).
+const (
+	FlagMaxMemory  = "max-memory"   // bytes (RLIMIT_AS)
+	FlagMaxCPUTime = "max-cpu-time" // seconds (RLIMIT_CPU)
+)
+
+// Config bounds the resources used by compilation child processes.
+type Config struct {
+	// MaxMemory is the address-space limit (RLIMIT_AS) in bytes
+	// applied to each compilation process. Exceeding it aborts that
+	// compilation. Enforced on Linux only. 0 disables the limit.
+	MaxMemory uint64
+	// MaxCPUTime is the CPU-time limit (RLIMIT_CPU) in seconds
+	// applied to each compilation process. Exceeding it kills that
+	// compilation. Enforced on Linux only. 0 disables the limit.
+	MaxCPUTime uint64
+}
+
 // compiler compiles Sierra to CASM in a safe way by spawning
 // a separate process.
 type compiler struct {
 	binaryPath string
-	sem        chan struct{}
+	maxMemory  uint64
+	maxCPUTime uint64
 	logger     log.StructuredLogger
 }
 
 // New creates a Compiler that runs Sierra-to-CASM compilation
-// in isolated child processes with concurrency control.
-// The caller's context controls the compilation deadline.
-func New(
-	maxConcurrent uint,
-	binaryPath string,
-	logger log.StructuredLogger,
-) Compiler {
+// in isolated child processes with per-process resource control.
+func New(cfg *Config, binaryPath string, logger log.StructuredLogger) Compiler {
 	if binaryPath == "" {
 		var err error
 		binaryPath, err = os.Executable()
@@ -43,15 +62,23 @@ func New(
 			binaryPath = os.Args[0]
 		}
 	}
+	if (cfg.MaxMemory > 0 || cfg.MaxCPUTime > 0) && !rlimitsSupported {
+		logger.Warn(
+			"Compilation CPU and memory limits are only enforced on Linux and will not be applied",
+			zap.String("os", runtime.GOOS),
+		)
+	}
 	return &compiler{
 		binaryPath: binaryPath,
-		sem:        make(chan struct{}, maxConcurrent),
+		maxMemory:  cfg.MaxMemory,
+		maxCPUTime: cfg.MaxCPUTime,
 		logger:     logger,
 	}
 }
 
 // Compile runs Sierra-to-CASM compilation in an isolated child
-// process. The child process is killed if the context is cancelled.
+// process. Function interrupts if context is cancelled and returns
+// an error.
 func (c *compiler) Compile(
 	ctx context.Context, sierra *starknet.SierraClass,
 ) (*starknet.CasmClass, error) {
@@ -66,18 +93,18 @@ func (c *compiler) Compile(
 		return nil, fmt.Errorf("marshal sierra class: %w", err)
 	}
 
-	// Acquire semaphore slot for concurrency limiting.
-	select {
-	case c.sem <- struct{}{}:
-		defer func() { <-c.sem }()
-	case <-ctx.Done():
-		return nil, fmt.Errorf(
-			"waiting for compilation slot: %w", ctx.Err(),
-		)
+	// The child applies these limits to itself before compiling, so they
+	// are in force for the whole compile with no race window.
+	args := []string{"compile-sierra"}
+	if c.maxMemory > 0 {
+		args = append(args, "--"+FlagMaxMemory, strconv.FormatUint(c.maxMemory, 10))
+	}
+	if c.maxCPUTime > 0 {
+		args = append(args, "--"+FlagMaxCPUTime, strconv.FormatUint(c.maxCPUTime, 10))
 	}
 
 	//nolint:gosec // binaryPath is the juno binary, not user input
-	cmd := exec.CommandContext(ctx, c.binaryPath, "compile-sierra")
+	cmd := exec.CommandContext(ctx, c.binaryPath, args...)
 	cmd.Stdin = bytes.NewReader(sierraJSON)
 
 	var stdout, stderr bytes.Buffer
@@ -92,6 +119,12 @@ func (c *compiler) Compile(
 			return nil, fmt.Errorf(
 				"failed to compile Sierra to CASM: %w",
 				ctxErr,
+			)
+		}
+		if CPURlimitExceeded(err) {
+			return nil, fmt.Errorf(
+				"failed to compile Sierra to CASM: exceeded max CPU time (%ds): %w. stderr: %s",
+				c.maxCPUTime, err, stderr.String(),
 			)
 		}
 		return nil, fmt.Errorf(

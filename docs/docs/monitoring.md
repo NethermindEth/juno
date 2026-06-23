@@ -14,8 +14,15 @@ To enable the metrics server, use the following configuration options:
 - `metrics-host`: The interface on which the Prometheus endpoint will listen for requests. If skipped, it defaults to `localhost`.
 - `metrics-port`: The port on which the Prometheus endpoint will listen for requests. If skipped, it defaults to `9090`.
 
+```mdx-code-block
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+```
+
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
+
 ```bash
-# Docker container
 docker run -d \
   --name juno \
   -p 9090:9090 \
@@ -24,11 +31,17 @@ docker run -d \
   --metrics-port 9090 \
   --metrics-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE>
+```
 
+</TabItem>
+<TabItem value="binary" label="Binary">
 
-# Standalone binary
+```bash
 ./build/juno --metrics --metrics-port 9090 --metrics-host=0.0.0.0 --eth-node <YOUR-ETH-NODE>
 ```
+
+</TabItem>
+</Tabs>
 
 ## Configure Grafana dashboard
 

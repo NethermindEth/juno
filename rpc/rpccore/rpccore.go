@@ -15,6 +15,7 @@ const (
 	MaxEventFilterKeys            = 1024
 	TraceCacheSize                = 128
 	ThrottledVMErr                = "VM throughput limit reached"
+	ThrottledCompilerErr          = "Compiler throughput limit reached"
 	MaxBlocksBack                 = 1024
 	EntrypointNotFoundFelt string = "0x454e545259504f494e545f4e4f545f464f554e44"
 	ErrEPSNotFound                = "Entry point EntryPointSelector(%s) not found in contract."

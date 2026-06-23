@@ -957,6 +957,48 @@ func TestAdaptPreConfirmedWithDelta(t *testing.T) {
 		_, err := sn2core.AdaptPreConfirmedWithDelta(current, delta)
 		require.Error(t, err)
 	})
+
+	t.Run("handles tx carrying nil state diff/receipt in delta", func(t *testing.T) {
+		tx := starknet.Transaction{
+			Type: starknet.TxnInvoke, CallData: &[]*felt.Felt{}, Signature: &[]*felt.Felt{},
+		}
+		receipt := starknet.TransactionReceipt{}
+		stateDiff := starknet.StateDiff{}
+
+		// block with 1 "normal" tx
+		current := &pending.PreConfirmed{
+			BlockIdentifier: "round-a",
+			Block: &core.Block{
+				Header: &core.Header{
+					TransactionCount: 1,
+					EventCount:       0,
+					EventsBloom:      core.EventsBloom(nil),
+				},
+				Transactions: []core.Transaction{&core.InvokeTransaction{}},
+				Receipts:     []*core.TransactionReceipt{{}},
+			},
+			StateUpdate:           &core.StateUpdate{StateDiff: &core.StateDiff{}},
+			TransactionStateDiffs: []*core.StateDiff{{}},
+		}
+		// Delta with 2 valid txs and 1 tx without state diff and receipt.
+		// Must not panic; the "buggy" tx should be stored in the CandidateTxs slice,
+		// and the tx count should not include it.
+		delta := &starknet.PreConfirmedDeltaUpdate{
+			BlockIdentifier:       "round-a",
+			Transactions:          []starknet.Transaction{tx, tx, tx},
+			Receipts:              []*starknet.TransactionReceipt{&receipt, nil, &receipt},
+			TransactionStateDiffs: []*starknet.StateDiff{&stateDiff, nil, &stateDiff},
+		}
+
+		next, err := sn2core.AdaptPreConfirmedWithDelta(current, delta)
+		require.NoError(t, err)
+		newLen := len(current.Block.Transactions) + 2 // 2 valid txs
+		assert.Equal(t, newLen, len(next.Block.Transactions))
+		assert.Equal(t, newLen, len(next.Block.Receipts))
+		assert.Equal(t, newLen, len(next.TransactionStateDiffs))
+		assert.Equal(t, uint64(newLen), next.Block.TransactionCount)
+		assert.Equal(t, 1, len(next.CandidateTxs))
+	})
 }
 
 // mustFetchPreConfirmedBlock fetches a real pre_confirmed Full from the test client.

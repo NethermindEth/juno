@@ -334,6 +334,9 @@ func prepareTransactions(
 			ctx, h.compiler, &transactions[idx], network,
 		)
 		if err != nil {
+			if errors.Is(err, utils.ErrResourceBusy) {
+				return nil, nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
+			}
 			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
 		}
 

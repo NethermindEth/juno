@@ -85,3 +85,19 @@ func BenchmarkPoseidon(b *testing.B) {
 	}
 	benchHashR = f
 }
+
+// BenchmarkPoseidonDigest locks in the allocation count of the streaming
+// digest path (Update + Finish), which struct/array hashing relies on.
+// 40 felts exercises ~20 Hades permutations.
+func BenchmarkPoseidonDigest(b *testing.B) {
+	elems := genRandomFelts(b, 40)
+
+	var f felt.Felt
+	b.ReportAllocs()
+	for b.Loop() {
+		var digest crypto.PoseidonDigest
+		digest.Update(elems...)
+		f = digest.Finish()
+	}
+	benchHashR = f
+}

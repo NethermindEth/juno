@@ -1,6 +1,7 @@
 use cairo_lang_starknet_classes::casm_contract_class::{
     CasmContractClass, StarknetSierraCompilationError,
 };
+use cairo_lang_starknet_classes::contract_class::ContractClass;
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{self, AssertUnwindSafe};
 
@@ -17,8 +18,18 @@ pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char, result: *mut *
         }
     };
 
-    let sierra_class = match serde_json::from_str(sierra_json_str) {
+    let sierra_class: ContractClass = match serde_json::from_str(sierra_json_str) {
         Ok(value) => value,
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
+    };
+
+    let extracted_program = match sierra_class.extract_sierra_program(false) {
+        Ok(v) => v,
         Err(e) => {
             unsafe {
                 *result = raw_cstr(e.to_string());
@@ -32,6 +43,7 @@ pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char, result: *mut *
     let compilation_result = panic::catch_unwind(AssertUnwindSafe(|| {
         casm_class_result = Some(CasmContractClass::from_contract_class(
             sierra_class,
+            extracted_program,
             true,
             usize::MAX,
         ));

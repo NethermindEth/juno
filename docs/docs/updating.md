@@ -4,19 +4,21 @@ title: Updating Juno
 
 # Updating Juno :arrows_counterclockwise:
 
-It is important to run the latest version of Juno as each update brings new features, security patches, and improvements over previous versions. Follow these steps to update Juno:
+```mdx-code-block
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+```
 
-- [Docker container](#docker-container)
-- [Standalone binary](#standalone-binary)
-- [Updating from source](#updating-from-source)
+It is important to run the latest version of Juno as each update brings new features, security patches, and improvements over previous versions. Follow these steps to update Juno.
 
 :::info
 When running an updated node, use the same `db-path` as before to avoid restarting the sync and use the already synced database.
 :::
 
-## Docker container
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
 
-### 1. Get the latest Docker image
+**1. Get the latest Docker image**
 
 Download the latest Juno Docker image from the [nethermind/juno](https://hub.docker.com/r/nethermind/juno) repository:
 
@@ -24,7 +26,7 @@ Download the latest Juno Docker image from the [nethermind/juno](https://hub.doc
 docker pull nethermind/juno:latest
 ```
 
-### 2. Stop and remove the current Juno container
+**2. Stop and remove the current Juno container**
 
 Stop the currently running Juno container. If you're unsure of the container name, use `docker ps` to view all running containers:
 
@@ -38,7 +40,7 @@ Remove the old container to prevent any conflicts with the new version:
 docker rm juno
 ```
 
-### 3. Start a new container with the updated image
+**3. Start a new container with the updated image**
 
 Run a new container using the updated Docker image:
 
@@ -65,11 +67,36 @@ Verify that the node is running correctly with the updated version:
 docker logs juno
 ```
 
-## Standalone binary
+</TabItem>
+<TabItem value="binary" label="Standalone Binary">
 
 Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) page and replace the existing one.
 
+</TabItem>
+</Tabs>
+
 ## Updating from source
+
+<Tabs groupId="install">
+<TabItem value="docker" label="Docker" default>
+
+Pull the latest changes and rebuild the Docker image:
+
+```bash
+# Pull the latest updates to the codebase
+git pull
+
+# Rebuild the Docker image
+docker build -t nethermind/juno:latest .
+```
+
+Then stop, remove, and start the container again with the rebuilt image, as shown in the **Docker** tab above.
+
+</TabItem>
+<TabItem value="binary" label="Standalone Binary">
+
+You can update the standalone binary by pulling the latest changes from GitHub and rebuilding it.
+
 
 ```bash
 # Pull the latest updates to the codebase
@@ -77,12 +104,12 @@ git pull
 
 # Rebuild the binary
 make juno
-
-# OR
-
-# Rebuild the Docker image
-docker build -t nethermind/juno:latest .
 ```
+
+See [Building from source](running-juno#building-from-source) for the full prerequisites and build steps.
+
+</TabItem>
+</Tabs>
 
 :::tip
 To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.

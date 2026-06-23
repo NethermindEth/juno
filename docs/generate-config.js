@@ -106,6 +106,12 @@ const extractConfigs = (codebase) => {
     if (configName === "max-vm-queue") {
       defaultValue = "2 * max-vms";
     }
+    if (configName === "max-concurrent-compilations") {
+      defaultValue = "CPU Cores";
+    }
+    if (configName === "max-compilation-queue") {
+      defaultValue = "2 * max-concurrent-compilations";
+    }
     if (configName === "gw-timeouts") {
       defaultValue = "5s";
     }
