@@ -19,6 +19,7 @@ import "reflect"
 // hence calling IsNil() will cause a panic.
 func IsNil(i any) bool {
 	if i == nil {
+		
 		return true
 	}
 
