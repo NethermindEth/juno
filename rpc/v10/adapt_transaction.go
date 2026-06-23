@@ -71,17 +71,15 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 }
 
 func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
+	l1DataGasResourceBounds := ResourceBounds{
+		MaxAmount:       &felt.Zero,
+		MaxPricePerUnit: &felt.Zero,
+	}
 	// Check if L1DataGas exists in the map
-	var l1DataGasResourceBounds ResourceBounds
 	if _, ok := rb[core.ResourceL1DataGas]; ok {
 		l1DataGasResourceBounds = ResourceBounds{
 			MaxAmount:       felt.NewFromUint64[felt.Felt](rb[core.ResourceL1DataGas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
-		}
-	} else {
-		l1DataGasResourceBounds = ResourceBounds{
-			MaxAmount:       &felt.Zero,
-			MaxPricePerUnit: &felt.Zero,
 		}
 	}
 
