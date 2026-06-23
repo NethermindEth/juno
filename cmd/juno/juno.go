@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -684,10 +685,10 @@ func validateHTTPURL(rawURL string) error {
 		return err
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("URL must use http or https scheme")
+		return fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
 	}
 	if u.Host == "" {
-		return fmt.Errorf("URL must have a host")
+		return errors.New("URL must have a host")
 	}
 	return nil
 }
