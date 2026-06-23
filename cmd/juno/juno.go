@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -430,10 +432,20 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
 			}
 
+			feederURL := v.GetString(cnFeederURLF)
+			gatewayURL := v.GetString(cnGatewayURLF)
+
+			if err := validateHTTPURL(feederURL); err != nil {
+				return fmt.Errorf("invalid feeder URL %s: %w", feederURL, err)
+			}
+			if err := validateHTTPURL(gatewayURL); err != nil {
+				return fmt.Errorf("invalid gateway URL %s: %w", gatewayURL, err)
+			}
+
 			config.Network = networks.Network{
 				Name:                v.GetString(cnNameF),
-				FeederURL:           v.GetString(cnFeederURLF),
-				GatewayURL:          v.GetString(cnGatewayURLF),
+				FeederURL:           feederURL,
+				GatewayURL:          gatewayURL,
 				L1ChainID:           l1ChainID,
 				L2ChainID:           v.GetString(cnL2ChainIDF),
 				CoreContractAddress: eth.AddressFromString(v.GetString(cnCoreContractAddressF)),
@@ -664,4 +676,19 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd
+}
+
+func validateHTTPURL(rawURL string) error {
+	// rejects relative / scheme-less strings
+	u, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
+	}
+	if u.Host == "" {
+		return errors.New("URL must have a host")
+	}
+	return nil
 }

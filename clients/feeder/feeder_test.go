@@ -3,6 +3,7 @@ package feeder_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -708,17 +709,6 @@ func TestClassV1Unmarshal(t *testing.T) {
 	}
 }
 
-func TestBuildQueryString_WithErrorUrl(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			require.Fail(t, "The code did not panic")
-		}
-	}()
-	baseURL := "https\t://mock_feeder.io"
-	client := feeder.NewClient(baseURL).WithUserAgent(ua)
-	_, _ = client.Block(t.Context(), strconv.Itoa(0))
-}
-
 func TestStateUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
@@ -856,8 +846,10 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
 	client := feeder.
-		NewClient(srv.URL).
+		NewClient(feederURL).
 		WithBackoff(feeder.NopBackoff).
 		WithMaxRetries(maxRetries).
 		WithUserAgent(ua)
@@ -896,13 +888,15 @@ func TestBackoffFailure(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
 	c := feeder.
-		NewClient(srv.URL).
+		NewClient(feederURL).
 		WithBackoff(feeder.NopBackoff).
 		WithMaxRetries(maxRetries).
 		WithUserAgent(ua)
 
-	_, err := c.Block(t.Context(), strconv.Itoa(0))
+	_, err = c.Block(t.Context(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
@@ -1186,7 +1180,9 @@ func TestClientRetryBehavior(t *testing.T) {
 					}))
 		defer srv.Close()
 
-		client := feeder.NewClient(srv.URL).
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(feederURL).
 			WithTimeouts(
 				[]time.Duration{250 * time.Millisecond, 750 * time.Millisecond, 2 * time.Second},
 				false,
@@ -1209,12 +1205,14 @@ func TestClientRetryBehavior(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		client := feeder.NewClient(srv.URL).
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(feederURL).
 			WithTimeouts([]time.Duration{250 * time.Millisecond}, false).
 			WithMaxRetries(2).
 			WithBackoff(feeder.NopBackoff)
 
-		_, err := client.Block(t.Context(), "1")
+		_, err = client.Block(t.Context(), "1")
 		require.Error(t, err)
 		require.Equal(t, 3, requestCount)
 	})
@@ -1235,7 +1233,9 @@ func TestClientRetryBehavior(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		client := feeder.NewClient(srv.URL).
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(feederURL).
 			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false).
 			WithMaxRetries(1).
 			WithBackoff(feeder.NopBackoff)
@@ -1286,5 +1286,59 @@ func TestBlockHeader(t *testing.T) {
 		header, err := client.BlockHeader(t.Context(), strconv.Itoa(1000000))
 		assert.Error(t, err)
 		assert.Zero(t, header)
+	})
+}
+
+// clientServingBody spins up a test feeder server that answers every request
+// with the given body, and returns a client wired to it.
+func clientServingBody(t *testing.T, body string) *feeder.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	return feeder.NewClient(feederURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+}
+
+// TestFeederValidation checks that the response
+// validation wired into [doRequest] works as expected.
+func TestFeederValidation(t *testing.T) {
+	t.Run("valid response is returned", func(t *testing.T) {
+		body := `{
+			"changed": true,
+			"block_identifier": "abc123",
+			"transactions": [{"version": "0x3"}],
+			"transaction_receipts": [{"transaction_hash": "0x123"}],
+			"transaction_state_diffs": [{"storage_diffs": {}}]
+		}`
+		client := clientServingBody(t, body)
+
+		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", "", 0)
+		require.NoError(t, err)
+		_, ok := update.(starknet.PreConfirmedDeltaUpdate)
+		require.True(t, ok)
+	})
+
+	t.Run("invalid response fails validation", func(t *testing.T) {
+		// invalid response for the preconfirmed endpoint: delta cannot have zero transactions
+		body := `{
+			"changed": true,
+			"block_identifier": "abc123",
+			"transactions": [],
+			"transaction_receipts": [],
+			"transaction_state_diffs": []
+		}`
+		client := clientServingBody(t, body)
+
+		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", "", 0)
+		require.Error(t, err)
+		require.Nil(t, update)
+		assert.ErrorIs(t, err, feeder.ErrInvalidFeederResponse)
+		assert.ErrorContains(t, err,
+			"get_preconfirmed_block?blockIdentifier=0x0&blockNumber=&knownTransactionCount=0",
+			"error must contain the query URL that returned the invalid response",
+		)
 	})
 }
