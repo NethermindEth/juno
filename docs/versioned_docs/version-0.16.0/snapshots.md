@@ -303,8 +303,6 @@ docker run -d \
 </TabItem>
 <TabItem value="mainnet-pruned" label="Mainnet-Pruned">
 
-A pruned snapshot is a Mainnet database with historical state and block data removed. Run it with `--prune-mode` enabled so the database stays pruned as the node keeps syncing; without it the node would begin retaining full history again and the database would grow back to the full Mainnet size.
-
 ```bash
 docker run -d \
   --name juno \
