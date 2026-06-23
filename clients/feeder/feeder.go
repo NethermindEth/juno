@@ -144,15 +144,11 @@ func NopBackoff(d time.Duration) time.Duration {
 	return 0
 }
 
-func NewClient(clientURL string) *Client {
+func NewClient(clientURL *url.URL) *Client {
 	defaultTimeouts := getDefaultFixedTimeouts()
-	base, err := url.Parse(clientURL)
-	if err != nil {
-		panic("malformed feeder base URL")
-	}
 
 	client := &Client{
-		url:        base,
+		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
 		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)

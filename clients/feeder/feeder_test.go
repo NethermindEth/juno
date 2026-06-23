@@ -3,6 +3,7 @@ package feeder_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -708,17 +709,6 @@ func TestClassV1Unmarshal(t *testing.T) {
 	}
 }
 
-func TestBuildQueryString_WithErrorUrl(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			require.Fail(t, "The code did not panic")
-		}
-	}()
-	baseURL := "https\t://mock_feeder.io"
-	client := feeder.NewClient(baseURL).WithUserAgent(ua)
-	_, _ = client.Block(t.Context(), strconv.Itoa(0))
-}
-
 func TestStateUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
@@ -856,8 +846,10 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
 	client := feeder.
-		NewClient(srv.URL).
+		NewClient(feederURL).
 		WithBackoff(feeder.NopBackoff).
 		WithMaxRetries(maxRetries).
 		WithUserAgent(ua)
@@ -896,13 +888,15 @@ func TestBackoffFailure(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
 	c := feeder.
-		NewClient(srv.URL).
+		NewClient(feederURL).
 		WithBackoff(feeder.NopBackoff).
 		WithMaxRetries(maxRetries).
 		WithUserAgent(ua)
 
-	_, err := c.Block(t.Context(), strconv.Itoa(0))
+	_, err = c.Block(t.Context(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
@@ -1186,7 +1180,9 @@ func TestClientRetryBehavior(t *testing.T) {
 					}))
 		defer srv.Close()
 
-		client := feeder.NewClient(srv.URL).
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(feederURL).
 			WithTimeouts(
 				[]time.Duration{250 * time.Millisecond, 750 * time.Millisecond, 2 * time.Second},
 				false,
@@ -1209,12 +1205,14 @@ func TestClientRetryBehavior(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		client := feeder.NewClient(srv.URL).
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(feederURL).
 			WithTimeouts([]time.Duration{250 * time.Millisecond}, false).
 			WithMaxRetries(2).
 			WithBackoff(feeder.NopBackoff)
 
-		_, err := client.Block(t.Context(), "1")
+		_, err = client.Block(t.Context(), "1")
 		require.Error(t, err)
 		require.Equal(t, 3, requestCount)
 	})
@@ -1235,7 +1233,9 @@ func TestClientRetryBehavior(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		client := feeder.NewClient(srv.URL).
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(feederURL).
 			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false).
 			WithMaxRetries(1).
 			WithBackoff(feeder.NopBackoff)
@@ -1297,7 +1297,9 @@ func clientServingBody(t *testing.T, body string) *feeder.Client {
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(srv.Close)
-	return feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	return feeder.NewClient(feederURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
 }
 
 // TestFeederValidation checks that the response

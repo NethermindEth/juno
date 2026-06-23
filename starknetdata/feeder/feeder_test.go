@@ -3,6 +3,7 @@ package feeder_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
 
@@ -344,7 +345,9 @@ func TestAdapterErrorPaths(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		t.Cleanup(srv.Close)
-		errClient := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		errClient := feeder.NewClient(feederURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
 		errAdapter := adaptfeeder.New(errClient)
 		hdr, err := errAdapter.BlockHeaderLatest(ctx)
 		assert.Error(t, err)
