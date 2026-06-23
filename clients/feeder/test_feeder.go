@@ -26,7 +26,11 @@ func NewTestClient(t testing.TB, network *networks.Network) *Client {
 
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	c := NewClient(feederURL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
+	c := NewClient(feederURL).
+		WithBackoff(NopBackoff).
+		WithMaxRetries(0).
+		WithUserAgent(ua).
+		WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:

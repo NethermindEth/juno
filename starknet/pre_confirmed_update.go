@@ -105,10 +105,13 @@ func validateTxsLength(
 	receipts []*TransactionReceipt,
 	stateDiffs []*StateDiff,
 ) error {
-	if len(txs) != len(receipts) ||
-		len(txs) != len(stateDiffs) {
-		return errors.New(
-			"transactions, receipts, and tx_state_diffs must have the same length",
+	if len(txs) != len(receipts) || len(txs) != len(stateDiffs) {
+		return fmt.Errorf(
+			"transactions, receipts, and tx_state_diffs must have the same length: "+
+				"txs: %d, receipts: %d, stateDiffs: %d",
+			len(txs),
+			len(receipts),
+			len(stateDiffs),
 		)
 	}
 

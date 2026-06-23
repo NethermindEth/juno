@@ -214,7 +214,7 @@ func (s *Synchronizer) pollPreConfirmed(
 			if err != nil {
 				const msg = "polling pre-confirmed block"
 				if errors.Is(err, feeder.ErrInvalidFeederResponse) {
-					s.logger.Error(msg, zap.Error(err))
+					s.logger.Error(msg, zap.Error(err), zap.Uint64("block_number", current.Block.Number))
 					continue
 				}
 				s.logger.Debug(msg, zap.Error(err), zap.Uint64("block_number", current.Block.Number))
