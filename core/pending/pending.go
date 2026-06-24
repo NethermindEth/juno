@@ -62,7 +62,6 @@ type PreConfirmed struct {
 	// Node does not fetch unknown classes. but we keep it for sequencer
 	NewClasses            map[felt.Felt]core.ClassDefinition
 	TransactionStateDiffs []*core.StateDiff
-	CandidateTxs          []core.Transaction
 	// Optional field, exists if pre_confirmed is N+2 when latest is N
 	PreLatest *PreLatest
 	// BlockIdentifier is an identifier returned by the feeder gateway
@@ -75,14 +74,12 @@ func NewPreConfirmed(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	transactionStateDiffs []*core.StateDiff,
-	candidateTxs []core.Transaction,
 	blockIdentifier string,
 ) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,
 		TransactionStateDiffs: transactionStateDiffs,
-		CandidateTxs:          candidateTxs,
 		BlockIdentifier:       blockIdentifier,
 	}
 }
@@ -122,10 +119,6 @@ func (p *PreConfirmed) GetNewClasses() map[felt.Felt]core.ClassDefinition {
 	return p.NewClasses
 }
 
-func (p *PreConfirmed) GetCandidateTransaction() []core.Transaction {
-	return p.CandidateTxs
-}
-
 func (p *PreConfirmed) GetTransactionStateDiffs() []*core.StateDiff {
 	return p.TransactionStateDiffs
 }
@@ -159,12 +152,6 @@ func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, err
 			if tx.Hash().Equal(hash) {
 				return tx, nil
 			}
-		}
-	}
-
-	for _, tx := range p.CandidateTxs {
-		if tx.Hash().Equal(hash) {
-			return tx, nil
 		}
 	}
 

@@ -324,34 +324,18 @@ func (h *Handler) TransactionStatus(
 			FailureReason: receipt.RevertReason,
 		}, nil
 	case rpccore.ErrTxnHashNotFound:
-		// Search pre-confirmed block for 'CANDIDATE' status
-		var txStatus *starknet.TransactionStatus
-		var err error
-		preConfirmedB, err := h.syncReader.PreConfirmed()
-
-		if err == nil {
-			for _, txn := range preConfirmedB.GetCandidateTransaction() {
-				if txn.Hash().Equal(hash) {
-					txStatus = &starknet.TransactionStatus{FinalityStatus: starknet.Candidate}
-					break
-				}
-			}
+		if h.feederClient == nil {
+			break
 		}
-		// Not Candidate
-		if txStatus == nil {
-			if h.feederClient == nil {
-				break
-			}
 
-			txStatus, err = h.feederClient.TransactionStatus(ctx, hash)
-			if err != nil {
-				return TransactionStatus{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-			}
+		txStatus, err := h.feederClient.TransactionStatus(ctx, hash)
+		if err != nil {
+			return TransactionStatus{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
 
-			if txStatus.FinalityStatus == starknet.NotReceived && h.submittedTransactionsCache != nil {
-				if h.submittedTransactionsCache.Contains(hash) {
-					txStatus.FinalityStatus = starknet.Received
-				}
+		if txStatus.FinalityStatus == starknet.NotReceived && h.submittedTransactionsCache != nil {
+			if h.submittedTransactionsCache.Contains(hash) {
+				txStatus.FinalityStatus = starknet.Received
 			}
 		}
 

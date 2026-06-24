@@ -333,7 +333,7 @@ func TestTraceTransaction(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, nil, "")
+			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, "")
 			mockSyncReader.EXPECT().PreConfirmed().Return(
 				&preConfirmed,
 				nil,
@@ -527,7 +527,6 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		declaredClass := &core.DeclaredClassDefinition{
-			At:    3002,
 			Class: &core.SierraClass{},
 		}
 		preLatestStateDiff := core.EmptyStateDiff()

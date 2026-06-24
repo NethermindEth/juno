@@ -393,37 +393,3 @@ func TestPreConfirmedDeltaUpdate_validate(t *testing.T) {
 		})
 	}
 }
-
-// AsUpdate produces a PreConfirmedBlock that shares the legacy block's data
-// and carries the synthetic "LegacyAPI" identifier downstream code uses to
-// detect a legacy source.
-func TestPreConfirmedBlock_AsUpdate(t *testing.T) {
-	b := &starknet.DeprecatedPreConfirmedBlock{
-		Status:                "PRE_CONFIRMED",
-		Timestamp:             7,
-		Version:               "0.14.0",
-		L1DAMode:              starknet.Blob,
-		Transactions:          []starknet.Transaction{{}, {}},
-		Receipts:              []*starknet.TransactionReceipt{{}, {}},
-		TransactionStateDiffs: []*starknet.StateDiff{{}, {}},
-		SequencerAddress:      new(felt.Felt).SetUint64(0xaa),
-		L1GasPrice:            &starknet.GasPrice{},
-		L2GasPrice:            &starknet.GasPrice{},
-		L1DataGasPrice:        &starknet.GasPrice{},
-	}
-
-	full, ok := b.AsUpdate().(starknet.PreConfirmedBlock)
-	require.True(t, ok, "AsUpdate must return PreConfirmedBlock, got %T", b.AsUpdate())
-	require.Equal(t, "LegacyAPI", full.BlockIdentifier)
-	require.Equal(t, b.Status, full.Status)
-	require.Equal(t, b.Timestamp, full.Timestamp)
-	require.Equal(t, b.Version, full.Version)
-	require.Equal(t, b.L1DAMode, full.L1DAMode)
-	require.Len(t, full.Transactions, 2)
-	require.Len(t, full.Receipts, 2)
-	require.Len(t, full.TransactionStateDiffs, 2)
-	require.Same(t, b.SequencerAddress, full.SequencerAddress)
-	require.Same(t, b.L1GasPrice, full.L1GasPrice)
-	require.Same(t, b.L2GasPrice, full.L2GasPrice)
-	require.Same(t, b.L1DataGasPrice, full.L1DataGasPrice)
-}

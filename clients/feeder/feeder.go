@@ -44,7 +44,7 @@ type Client struct {
 }
 
 //go:generate mockgen -destination=../../mocks/mock_feeder.go -mock_names Reader=MockFeederReader -package=mocks github.com/NethermindEth/juno/clients/feeder Reader
-//nolint:staticcheck // We need to mention the deprecated type in the interface
+//nolint:staticcheck // Transaction() returns the deprecated DeprecatedTransactionStatus type.
 type Reader interface {
 	Block(ctx context.Context, blockID string) (*starknet.Block, error)
 	BlockHeader(ctx context.Context, blockID string) (starknet.BlockHeader, error)
@@ -52,10 +52,6 @@ type Reader interface {
 	CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error)
 	ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error)
 	FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error)
-	DeprecatedPreConfirmedBlock(
-		ctx context.Context,
-		blockNumber string,
-	) (*starknet.DeprecatedPreConfirmedBlock, error)
 	PreConfirmedBlockWithIdentifier(
 		ctx context.Context,
 		blockNumber string,
@@ -370,22 +366,6 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 	})
 
 	return doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)
-}
-
-// DeprecatedPreConfirmedBlock fetches the pre_confirmed block at the given
-// height from the legacy "get_preconfirmed_block" endpoint. Prefer
-// [Client.PreConfirmedBlockWithIdentifier].
-//
-//nolint:staticcheck // wraps the deprecated DeprecatedPreConfirmedBlock type.
-func (c *Client) DeprecatedPreConfirmedBlock(
-	ctx context.Context,
-	blockNumber string,
-) (*starknet.DeprecatedPreConfirmedBlock, error) {
-	queryURL := buildQueryString(c.url, "get_preconfirmed_block", map[string]string{
-		blockNumberArg: blockNumber,
-	})
-
-	return doRequest[starknet.DeprecatedPreConfirmedBlock](ctx, c, queryURL)
 }
 
 // PreConfirmedBlockWithIdentifier fetches the pre_confirmed block at the given height,
