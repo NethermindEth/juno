@@ -178,15 +178,19 @@ func (w *walWriter) closeManager() error {
 	return w.manager.Close()
 }
 
-func repairWALTail(walPath string, syncedOffset int64) error {
-	file, err := os.OpenFile(walPath, os.O_RDWR, 0)
-	if errors.Is(err, os.ErrNotExist) {
+func repairWALTail(walPath string, syncedOffset int64) (err error) {
+	file, openErr := os.OpenFile(walPath, os.O_RDWR, 0)
+	if errors.Is(openErr, os.ErrNotExist) {
 		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("Flush: open WAL for repair: %w", err)
+	if openErr != nil {
+		return fmt.Errorf("Flush: open WAL for repair: %w", openErr)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("Flush: close WAL after repair: %w", closeErr))
+		}
+	}()
 
 	info, err := file.Stat()
 	if err != nil {
