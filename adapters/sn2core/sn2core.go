@@ -506,22 +506,12 @@ func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
 	return stateDiff, nil
 }
 
+// AdaptPreConfirmedBlock adapts a pre_confirmed block into a pending.PreConfirmed.
+// It is assumed that `starknet.PreConfirmedBlock` is valid.
 func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
 ) (pending.PreConfirmed, error) {
-	if response.Status != "PRE_CONFIRMED" {
-		return pending.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
-	}
-
-	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
-		len(response.Transactions) != len(response.Receipts)
-	if isInvalidPayloadSizes {
-		return pending.PreConfirmed{}, errors.New(
-			"invalid sizes of transactions, state diffs and receipts",
-		)
-	}
-
 	txCount := len(response.Transactions)
 	txns := make([]core.Transaction, txCount)
 	txStateDiffs := make([]*core.StateDiff, txCount)
