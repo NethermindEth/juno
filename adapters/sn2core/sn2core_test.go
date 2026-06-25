@@ -644,115 +644,40 @@ func TestAdaptCompiledClass(t *testing.T) {
 func TestAdaptPreConfirmed(t *testing.T) {
 	n := &networks.SepoliaIntegration
 	client := feeder.NewTestClient(t, n)
-	emptyPreConfirmedBlock := uint64(1201960)
-	blockWithCandidates := uint64(1204672)
-	blockWithNoCandidates := uint64(1204673)
-	blockFullOfCandidates := uint64(1204674)
-	blocksWithRandomCandidateOrder := uint64(1204675)
 
 	type preConfirmedTest struct {
-		description        string
-		blockNumber        uint64
-		useNewFeederParams bool
+		description string
+		blockNumber uint64
 	}
 
 	tests := []preConfirmedTest{
 		{
-			description: "PreConfirmedBlock when there is no candidates",
-			blockNumber: blockWithNoCandidates,
+			description: "PreConfirmedBlock with no txs",
+			blockNumber: 11251800,
 		},
 		{
-			description: "PreConfirmedBlock with candidates",
-			blockNumber: blockWithCandidates,
-		},
-		{
-			description: "PreConfirmedBlock when full of candidates",
-			blockNumber: blockFullOfCandidates,
-		},
-		{
-			description: "PreConfirmedBlock when empty",
-			blockNumber: emptyPreConfirmedBlock,
-		},
-		{
-			description: "PreConfirmedBlock with candidate in between preconfirmed txns",
-			blockNumber: blocksWithRandomCandidateOrder,
-		},
-		// cases for new feeder params endpoint
-		{
-			description:        "PreConfirmedBlock with no txs",
-			blockNumber:        11251800,
-			useNewFeederParams: true,
-		},
-		{
-			description:        "PreConfirmedBlock full",
-			blockNumber:        11252240,
-			useNewFeederParams: true,
+			description: "PreConfirmedBlock full",
+			blockNumber: 11252240,
 		},
 	}
 
 	for _, test := range tests {
-		var response *starknet.PreConfirmedBlock
-		var err error
-		blockNumberStr := strconv.FormatUint(test.blockNumber, 10)
-
-		if test.useNewFeederParams {
-			var update starknet.PreConfirmedUpdate
-			update, err = client.PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, "", 0)
-			require.NoError(t, err)
-			full, ok := update.(starknet.PreConfirmedBlock)
-			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
-			response = &full
-			test.description = "new feeder params: " + test.description
-		} else {
-			//nolint:staticcheck // legacy endpoint test path intentionally uses the deprecated type
-			var legacy *starknet.DeprecatedPreConfirmedBlock
-			legacy, err = client.DeprecatedPreConfirmedBlock(t.Context(), blockNumberStr)
-			require.NoError(t, err)
-			update := legacy.AsUpdate()
-			full, ok := update.(starknet.PreConfirmedBlock)
-			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
-			response = &full
-		}
-
 		t.Run(test.description, func(t *testing.T) {
-			expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
-			expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
-			expectedReceipts := getPreconfirmedReceipts(response.Receipts)
+			blockNumberStr := strconv.FormatUint(test.blockNumber, 10)
+			update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, "", 0)
+			require.NoError(t, err)
+			responseFull, ok := update.(starknet.PreConfirmedBlock)
+			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
 
-			adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
+			adapted, err := sn2core.AdaptPreConfirmedBlock(&responseFull, test.blockNumber)
 			require.NoError(t, err)
 
-			assertPreConfirmedBlockBasics(t,
-				&adapted,
-				test.blockNumber,
-				response,
-				expectedPreConfirmedTxCount,
-				expectedCandidateCount,
-				expectedEventCount,
-			)
-			assertPreConfirmedBlockReceipts(
-				t,
-				expectedReceipts,
-				adapted.Block.Receipts,
-				expectedPreConfirmedTxCount,
-			)
-			assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
-			assertCandidateTxs(t, response, adapted.CandidateTxs)
-			assertStateDiffs(t, response, adapted.TransactionStateDiffs)
+			assertPreConfirmedBlockBasics(t, &adapted, test.blockNumber, &responseFull)
+			assertPreConfirmedBlockReceipts(t, responseFull.Receipts, adapted.Block.Receipts)
+			assertPreConfirmedBlockGasPrices(t, &responseFull, adapted.Block)
+			assertStateDiffs(t, &responseFull, adapted.TransactionStateDiffs)
 		})
 	}
-}
-
-func getPreconfirmedReceipts(
-	receipts []*starknet.TransactionReceipt,
-) []*starknet.TransactionReceipt {
-	var filtered []*starknet.TransactionReceipt
-	for _, r := range receipts {
-		if r != nil {
-			filtered = append(filtered, r)
-		}
-	}
-	return filtered
 }
 
 func assertPreConfirmedBlockBasics(
@@ -760,10 +685,14 @@ func assertPreConfirmedBlockBasics(
 	preConfirmed *pending.PreConfirmed,
 	blockNum uint64,
 	response *starknet.PreConfirmedBlock,
-	expectedTxCount int,
-	expectedCandidateCount int,
-	expectedEventCount uint64,
 ) {
+	t.Helper()
+	expectedTxCount := len(response.Transactions)
+	expectedEventCount := uint64(0)
+	for _, r := range response.Receipts {
+		expectedEventCount += uint64(len(r.Events))
+	}
+
 	assert.Equal(t, blockNum, preConfirmed.Block.Number)
 	assert.NotNil(t, preConfirmed.Block.EventsBloom)
 	assert.Empty(t, preConfirmed.Block.Hash)
@@ -774,7 +703,6 @@ func assertPreConfirmedBlockBasics(
 	assert.Empty(t, preConfirmed.StateUpdate.BlockHash)
 	assert.Equal(t, response.Timestamp, preConfirmed.Block.Timestamp)
 	assert.Equal(t, expectedTxCount, len(preConfirmed.Block.Transactions))
-	assert.Equal(t, expectedCandidateCount, len(preConfirmed.CandidateTxs))
 	assert.Equal(t, uint64(expectedTxCount), preConfirmed.Block.TransactionCount)
 	assert.Equal(t, expectedEventCount, preConfirmed.Block.EventCount)
 	assert.Equal(t, response.Version, preConfirmed.Block.ProtocolVersion)
@@ -783,42 +711,18 @@ func assertPreConfirmedBlockBasics(
 	assert.Equal(t, response.BlockIdentifier, preConfirmed.BlockIdentifier)
 }
 
-func assertCandidateTxs(
-	t *testing.T,
-	response *starknet.PreConfirmedBlock,
-	candidateTxs []core.Transaction,
-) {
-	t.Helper()
-
-	candID := 0
-	for i := range response.Transactions {
-		if sn2core.IsCandidateTx(response, i) {
-			adaptedTx, err := sn2core.AdaptTransaction(&response.Transactions[i])
-			require.NoError(t, err)
-			assert.Equal(t, adaptedTx, candidateTxs[candID])
-			candID++
-		}
-	}
-	assert.Equal(t, len(candidateTxs), candID)
-}
-
 func assertStateDiffs(
 	t *testing.T,
 	response *starknet.PreConfirmedBlock,
 	stateDiffs []*core.StateDiff,
 ) {
 	t.Helper()
-
-	preID := 0
+	require.Equal(t, len(response.Transactions), len(stateDiffs))
 	for i := range response.Transactions {
-		if !sn2core.IsCandidateTx(response, i) {
-			adaptedStateDiff, err := sn2core.AdaptStateDiff(response.TransactionStateDiffs[i])
-			require.NoError(t, err)
-			assert.Equal(t, &adaptedStateDiff, stateDiffs[preID])
-			preID++
-		}
+		adaptedStateDiff, err := sn2core.AdaptStateDiff(response.TransactionStateDiffs[i])
+		require.NoError(t, err)
+		assert.Equal(t, &adaptedStateDiff, stateDiffs[i])
 	}
-	assert.Equal(t, len(stateDiffs), preID)
 }
 
 func assertPreConfirmedBlockGasPrices(
@@ -831,19 +735,6 @@ func assertPreConfirmedBlockGasPrices(
 	assert.Equal(t, response.L1DataGasPrice.PriceInWei, block.L1DataGasPrice.PriceInWei)
 	assert.Equal(t, response.L2GasPrice.PriceInFri, block.L2GasPrice.PriceInFri)
 	assert.Equal(t, response.L2GasPrice.PriceInWei, block.L2GasPrice.PriceInWei)
-}
-
-func countEventsAndTxs(receipts []*starknet.TransactionReceipt) (uint64, int) {
-	var evCount uint64
-	txCount := 0
-	for _, r := range receipts {
-		if r == nil {
-			continue
-		}
-		evCount += uint64(len(r.Events))
-		txCount++
-	}
-	return evCount, txCount
 }
 
 // TestAdaptPreConfirmedWithDelta simulates the real feeder poll flow against
@@ -860,14 +751,6 @@ func TestAdaptPreConfirmedWithDelta(t *testing.T) {
 	blockNumber := uint64(11252240)
 
 	clean := mustFetchPreConfirmedBlock(t, client, blockNumber)
-	// The new feeder API contract guarantees no candidate transactions in a
-	// PreConfirmedBlock. Verify the fixture honours that so the splits below
-	// can index Receipts and TransactionStateDiffs by the same offsets as
-	// Transactions.
-	for i := range clean.Receipts {
-		require.NotNilf(t, clean.Receipts[i],
-			"PreConfirmedBlock must not contain candidate-tx slots (receipt %d was nil)", i)
-	}
 	N := len(clean.Transactions)
 	require.GreaterOrEqual(t, N, 2,
 		"test fixture must have at least 2 pre_confirmed txs to exercise sequential deltas")
@@ -1026,21 +909,19 @@ func assertPreConfirmedBlockReceipts(
 	t *testing.T,
 	expectedReceipts []*starknet.TransactionReceipt,
 	blockReceipts []*core.TransactionReceipt,
-	expectedPreConfirmedTxCount int,
 ) {
 	t.Helper()
-	if assert.Equal(t, expectedPreConfirmedTxCount, len(blockReceipts)) {
-		for i, actual := range blockReceipts {
-			expected := expectedReceipts[i]
-			assert.Equal(t, expected.ExecutionStatus == starknet.Reverted, actual.Reverted)
-			assert.Equal(t, expected.RevertError, actual.RevertReason)
-			if expected.ExecutionResources != nil {
-				assert.Equal(
-					t,
-					(*core.DataAvailability)(expected.ExecutionResources.DataAvailability),
-					actual.ExecutionResources.DataAvailability,
-				)
-			}
+	require.Equal(t, len(expectedReceipts), len(blockReceipts))
+	for i, actual := range blockReceipts {
+		expected := expectedReceipts[i]
+		assert.Equal(t, expected.ExecutionStatus == starknet.Reverted, actual.Reverted)
+		assert.Equal(t, expected.RevertError, actual.RevertReason)
+		if expected.ExecutionResources != nil {
+			assert.Equal(
+				t,
+				(*core.DataAvailability)(expected.ExecutionResources.DataAvailability),
+				actual.ExecutionResources.DataAvailability,
+			)
 		}
 	}
 }
