@@ -44,9 +44,9 @@ func NewGate(maxConcurrent uint, maxQueue uint64) *Gate {
 	}
 }
 
-// Acquire reserves a processing slot. Queues (blocks) all concurrent slots
-// are busy. It returns ErrServerBusy if the queue is full or ctx.Err() if context
-// is cancelled while waiting.
+// Acquire reserves a processing slot. It queues (blocks) when all concurrent
+// slots are busy. It returns ErrServerBusy if the queue is full, or ctx.Err()
+// if the context is cancelled while waiting.
 func (g *Gate) Acquire(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err // already cancelled, don't even enter the queue
