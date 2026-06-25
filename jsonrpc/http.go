@@ -8,7 +8,6 @@ import (
 	"maps"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -25,19 +24,20 @@ const busyLogInterval = time.Second
 type HTTP struct {
 	rpc    *Server
 	logger log.StructuredLogger
+	// For logging busy warnings without flodding
+	sampledLogger log.StructuredLogger
 
 	listener       NewRequestListener
 	requestTimeout time.Duration
 	gate           *Gate
-	// lastBusyLogNano is the UnixNano of the last server-busy log; rate-limits the log.
-	lastBusyLogNano atomic.Int64
 }
 
 func NewHTTP(rpc *Server, logger log.StructuredLogger) *HTTP {
 	h := &HTTP{
-		rpc:      rpc,
-		logger:   logger,
-		listener: &SelectiveListener{},
+		rpc:           rpc,
+		logger:        logger,
+		listener:      &SelectiveListener{},
+		sampledLogger: log.Sampled(logger, busyLogInterval, 1, 0),
 	}
 	return h
 }
@@ -62,18 +62,10 @@ func (h *HTTP) WithGate(g *Gate) *HTTP {
 	return h
 }
 
-// logServerBusy logs a server-busy rejection at most once per busyLogInterval to
-// avoid flooding the logs during sustained overload.
+// logServerBusy logs a server-busy rejection. busyLogger is sampled, so a sustained
+// overload logs at most once per busyLogInterval instead of flooding the logs.
 func (h *HTTP) logServerBusy() {
-	now := time.Now().UnixNano()
-	last := h.lastBusyLogNano.Load()
-	if now-last < int64(busyLogInterval) {
-		return
-	}
-	if !h.lastBusyLogNano.CompareAndSwap(last, now) {
-		return // another goroutine logged within this interval
-	}
-	h.logger.Warn("Rejected RPC request: server is busy",
+	h.sampledLogger.Warn("Rejected RPC request: server is busy",
 		zap.Int("running", h.gate.Running()),
 		zap.Int("queued", h.gate.Queued()),
 		zap.Uint64("rejected", h.gate.Rejected()),

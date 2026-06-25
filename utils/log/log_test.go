@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/yaml.v3"
 )
 
@@ -426,6 +428,49 @@ func TestCallerInfo(t *testing.T) {
 			)
 		})
 	}
+}
+
+// noopLogger is a StructuredLogger that is not a *ZapLogger, used to verify that
+// Sampled returns non-zap loggers unchanged.
+
+func TestSampled(t *testing.T) {
+	t.Run("keeps only the first entry per tick", func(t *testing.T) {
+		core, logs := observer.New(zapcore.WarnLevel)
+		// first=1, thereafter=0: at most one entry per (level, message) each tick.
+		logger := log.Sampled(log.NewZapLoggerWithCore(core), time.Second, 1, 0)
+
+		for range 5 {
+			logger.Warn("flood")
+		}
+
+		// All five logs fall in the same tick, so only the first survives.
+		assert.Equal(t, 1, logs.Len())
+	})
+
+	t.Run("keeps every thereafter'th entry beyond the first", func(t *testing.T) {
+		core, logs := observer.New(zapcore.WarnLevel)
+		// first=1, thereafter=2: keep the 1st, then every 2nd after it.
+		logger := log.Sampled(log.NewZapLoggerWithCore(core), time.Second, 1, 2)
+
+		for range 6 {
+			logger.Warn("flood")
+		}
+
+		// Kept: #1 (first), then #3 and #5; #2, #4 and #6 are dropped.
+		assert.Equal(t, 3, logs.Len())
+	})
+
+	t.Run("samples each message independently", func(t *testing.T) {
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := log.Sampled(log.NewZapLoggerWithCore(core), time.Second, 1, 0)
+
+		logger.Warn("a")
+		logger.Warn("a")
+		logger.Warn("b")
+
+		// "a" collapses to one entry; "b" has its own counter.
+		assert.Equal(t, 2, logs.Len())
+	})
 }
 
 func TestSanitizeString(t *testing.T) {
