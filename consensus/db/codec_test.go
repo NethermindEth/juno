@@ -3,6 +3,7 @@ package db_test
 import (
 	"testing"
 
+	consensusdb "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/wal"
@@ -68,6 +69,25 @@ func TestWALRecordsRoundTripThroughReopen(t *testing.T) {
 	})
 
 	assertLoadedEntries(t, walStore, entries)
+}
+
+func TestWALRecordDecodeRejectsMalformedPayloads(t *testing.T) {
+	start := wal.Start(types.Height(1))
+	valid, err := consensusdb.EncodeWALRecordPayload(&start)
+	require.NoError(t, err)
+
+	tests := map[string][]byte{
+		"empty":         {},
+		"unknown kind":  {0xFF},
+		"truncated":     valid[:len(valid)-1],
+		"trailing byte": append(append([]byte(nil), valid...), 0x00),
+	}
+
+	for name, payload := range tests {
+		t.Run(name, func(t *testing.T) {
+			require.Error(t, consensusdb.DecodeWALRecordPayload(payload))
+		})
+	}
 }
 
 func walAddress(v uint64) starknet.Address {
