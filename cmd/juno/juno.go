@@ -174,8 +174,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
-	defaultRPCMaxConcurrentRequests           = 1024
-	defaultRPCMaxQueuedRequests               = defaultRPCMaxConcurrentRequests * 2
+	defaultRPCMaxConcurrentRequests           = 256000
+	defaultRPCMaxQueuedRequests               = 256000
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
