@@ -139,6 +139,7 @@ type Config struct {
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
 	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
+	NodeMemoryReserve         uint          `mapstructure:"node-memory-reserve"`      // megabytes
 	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
 	NewState                  bool          `mapstructure:"new-state"`
 
@@ -293,6 +294,30 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
+	concurrentCompilations := cfg.MaxConcurrentCompilations
+	if concurrentCompilations == 0 {
+		availableMemoryMB := compiler.AvailableMemoryMB()
+		concurrentCompilations = max(compiler.ConcurrencyLimit(
+			uint(runtime.GOMAXPROCS(0)),
+			availableMemoryMB,
+			uint64(cfg.NodeMemoryReserve),
+			uint64(cfg.MaxCompilationMemory),
+		), 1)
+		logger.Info("deriving Sierra compilation concurrency",
+			zap.Uint("limit", concurrentCompilations),
+			zap.Uint64("availableMemoryMB", availableMemoryMB),
+			zap.Uint("nodeMemoryReserveMB", cfg.NodeMemoryReserve),
+			zap.Uint("maxMemoryPerCompilationMB", cfg.MaxCompilationMemory),
+		)
+	} else {
+		logger.Info("using configured Sierra compilation concurrency",
+			zap.Uint("limit", concurrentCompilations))
+	}
+
+	compilationQueue := cfg.MaxCompilationQueue
+	if compilationQueue == 0 {
+		compilationQueue = 2 * concurrentCompilations
+	}
 	throttledCompiler := NewThrottledCompiler(
 		compiler.New(
 			&compiler.Config{
@@ -302,8 +327,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			"",
 			logger,
 		),
-		cfg.MaxConcurrentCompilations,
-		uint64(cfg.MaxCompilationQueue),
+		concurrentCompilations,
+		uint64(compilationQueue),
 	)
 
 	if cfg.Sequencer {
