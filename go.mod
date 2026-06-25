@@ -3,6 +3,7 @@ module github.com/NethermindEth/juno
 go 1.26.0
 
 require (
+	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/VictoriaMetrics/fastcache v1.13.3
 	github.com/bits-and-blooms/bitset v1.24.5
@@ -23,6 +24,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multiaddr v0.16.1
 	github.com/olekukonko/tablewriter v1.1.4
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/cors v1.11.1
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
@@ -137,7 +139,6 @@ require (
 	github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6 // indirect
 	github.com/olekukonko/errors v1.2.0 // indirect
 	github.com/olekukonko/ll v0.1.6 // indirect
-	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pion/datachannel v1.6.0 // indirect
 	github.com/pion/dtls/v3 v3.1.2 // indirect
