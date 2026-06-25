@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -17,6 +18,10 @@ import (
 
 const MaxRequestBodySize = 10 * db.Megabyte
 
+// busyLogInterval bounds how often a server-busy rejection is logged, so a
+// sustained overload doesn't flood the logs.
+const busyLogInterval = time.Second
+
 type HTTP struct {
 	rpc    *Server
 	logger log.StructuredLogger
@@ -24,6 +29,8 @@ type HTTP struct {
 	listener       NewRequestListener
 	requestTimeout time.Duration
 	gate           *Gate
+	// lastBusyLogNano is the UnixNano of the last server-busy log; rate-limits the log.
+	lastBusyLogNano atomic.Int64
 }
 
 func NewHTTP(rpc *Server, logger log.StructuredLogger) *HTTP {
@@ -55,6 +62,24 @@ func (h *HTTP) WithGate(g *Gate) *HTTP {
 	return h
 }
 
+// logServerBusy logs a server-busy rejection at most once per busyLogInterval to
+// avoid flooding the logs during sustained overload.
+func (h *HTTP) logServerBusy() {
+	now := time.Now().UnixNano()
+	last := h.lastBusyLogNano.Load()
+	if now-last < int64(busyLogInterval) {
+		return
+	}
+	if !h.lastBusyLogNano.CompareAndSwap(last, now) {
+		return // another goroutine logged within this interval
+	}
+	h.logger.Warn("Rejected RPC request: server is busy",
+		zap.Int("running", h.gate.Running()),
+		zap.Int("queued", h.gate.Queued()),
+		zap.Uint64("rejected", h.gate.Rejected()),
+	)
+}
+
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodGet {
@@ -79,6 +104,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	if h.gate != nil {
 		if err := h.gate.Acquire(ctx); err != nil {
 			if errors.Is(err, ErrServerBusy) {
+				h.logServerBusy()
 				writer.Header().Set("Retry-After", "1")
 				http.Error(writer, "Too many requests", http.StatusServiceUnavailable)
 				return

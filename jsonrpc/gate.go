@@ -23,6 +23,8 @@ type Gate struct {
 
 	// activeRequests counts requests currently processing or queued.
 	activeRequests atomic.Uint64
+	// rejected counts requests turned away with ErrServerBusy (monotonic).
+	rejected atomic.Uint64
 	// maxRequests is the total admitted at once (maxConcurrent + maxQueue).
 	maxRequests uint64
 }
@@ -52,6 +54,7 @@ func (g *Gate) Acquire(ctx context.Context) error {
 
 	if g.increaseActiveReq() > g.maxRequests {
 		g.decreaseActivReq()
+		g.rejected.Add(1)
 		return ErrServerBusy
 	}
 
@@ -75,6 +78,9 @@ func (g *Gate) Running() int { return len(g.sem) }
 
 // Queued returns the number of requests waiting for a processing slot.
 func (g *Gate) Queued() int { return int(g.activeRequests.Load()) - len(g.sem) }
+
+// Rejected returns the total number of requests turned away with ErrServerBusy.
+func (g *Gate) Rejected() uint64 { return g.rejected.Load() }
 
 func (g *Gate) increaseActiveReq() uint64 {
 	return g.activeRequests.Add(1)

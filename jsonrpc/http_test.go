@@ -15,6 +15,8 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestHTTP(t *testing.T) {
@@ -105,12 +107,14 @@ func TestHTTPRequestGate(t *testing.T) {
 			return "ok", nil
 		},
 	}
-	logger := log.NewNopZapLogger()
+	core, logs := observer.New(zapcore.WarnLevel)
+	logger := log.NewZapLoggerWithCore(core)
 	rpc := jsonrpc.NewServer(1, logger)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Gate with a single slot and no queue: one request runs, the next is rejected.
-	httpHandler := jsonrpc.NewHTTP(rpc, logger).WithGate(jsonrpc.NewGate(1, 0))
+	gate := jsonrpc.NewGate(1, 0)
+	httpHandler := jsonrpc.NewHTTP(rpc, logger).WithGate(gate)
 	srv := httptest.NewServer(httpHandler)
 	t.Cleanup(srv.Close)
 	// Registered after srv.Close so it runs first (cleanups are LIFO): it unblocks
@@ -147,6 +151,9 @@ func TestHTTPRequestGate(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	assert.Equal(t, "1", resp.Header.Get("Retry-After"))
 	require.NoError(t, resp.Body.Close())
+	assert.Equal(t, uint64(1), gate.Rejected())
+	// The rejection is surfaced as a Warn log.
+	assert.Equal(t, 1, logs.FilterMessage("Rejected RPC request: server is busy").Len())
 
 	// GET "/" is never gated, even while the gate is saturated.
 	getReq, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, http.NoBody)

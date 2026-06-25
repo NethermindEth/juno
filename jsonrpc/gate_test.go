@@ -46,6 +46,7 @@ func TestGate(t *testing.T) {
 
 		// 2 running + 2 queued == capacity, so the next call is rejected at once.
 		require.ErrorIs(t, gate.Acquire(ctx), jsonrpc.ErrServerBusy)
+		assert.Equal(t, uint64(1), gate.Rejected())
 
 		// Release one running slot; a queued request is promoted to running.
 		waitOn <- struct{}{}
@@ -91,7 +92,8 @@ func TestGateContextCancellationWhileQueued(t *testing.T) {
 		cancel()
 		require.ErrorIs(t, <-errCh, context.Canceled)
 		synctest.Wait()
-		assert.Equal(t, 0, gate.Queued()) // queue count is released on cancellation
+		assert.Equal(t, 0, gate.Queued())           // queue count is released on cancellation
+		assert.Equal(t, uint64(0), gate.Rejected()) // cancellation is not a busy rejection
 
 		waitOn <- struct{}{}
 		wg.Wait()
@@ -106,6 +108,7 @@ func TestGateAlreadyCancelledContext(t *testing.T) {
 	require.ErrorIs(t, gate.Acquire(ctx), context.Canceled)
 	assert.Equal(t, 0, gate.Running()) // no slot was taken
 	assert.Equal(t, 0, gate.Queued())
+	assert.Equal(t, uint64(0), gate.Rejected()) // cancellation is not a busy rejection
 }
 
 func TestGateZeroQueue(t *testing.T) {
@@ -125,6 +128,7 @@ func TestGateZeroQueue(t *testing.T) {
 
 		require.ErrorIs(t, gate.Acquire(t.Context()), jsonrpc.ErrServerBusy)
 		assert.Equal(t, 0, gate.Queued())
+		assert.Equal(t, uint64(1), gate.Rejected())
 
 		waitOn <- struct{}{}
 		wg.Wait()

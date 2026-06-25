@@ -123,7 +123,15 @@ func makeHTTPGateMetrics(gate *jsonrpc.Gate) {
 	}, func() float64 {
 		return float64(gate.Queued())
 	})
-	prometheus.MustRegister(active, queued)
+	rejected := prometheus.NewCounterFunc(prometheus.CounterOpts{
+		Namespace: "rpc",
+		Subsystem: "http",
+		Name:      "rejected_requests",
+		Help:      "Total number of HTTP RPC requests rejected because the server was busy",
+	}, func() float64 {
+		return float64(gate.Rejected())
+	})
+	prometheus.MustRegister(active, queued, rejected)
 }
 
 func makeWSMetrics() jsonrpc.NewRequestListener {
