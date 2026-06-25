@@ -430,9 +430,6 @@ func TestCallerInfo(t *testing.T) {
 	}
 }
 
-// noopLogger is a StructuredLogger that is not a *ZapLogger, used to verify that
-// Sampled returns non-zap loggers unchanged.
-
 func TestSampled(t *testing.T) {
 	t.Run("keeps only the first entry per tick", func(t *testing.T) {
 		core, logs := observer.New(zapcore.WarnLevel)

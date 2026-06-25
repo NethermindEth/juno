@@ -15,16 +15,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const MaxRequestBodySize = 10 * db.Megabyte
-
-// busyLogInterval bounds how often a server-busy rejection is logged, so a
-// sustained overload doesn't flood the logs.
-const busyLogInterval = time.Second
-
 type HTTP struct {
 	rpc    *Server
 	logger log.StructuredLogger
-	// For logging busy warnings without flodding
+	// For logging busy warnings without flooding
 	sampledLogger log.StructuredLogger
 
 	listener       NewRequestListener
@@ -33,6 +27,8 @@ type HTTP struct {
 }
 
 func NewHTTP(rpc *Server, logger log.StructuredLogger) *HTTP {
+	const busyLogInterval = time.Second
+
 	h := &HTTP{
 		rpc:           rpc,
 		logger:        logger,
@@ -62,8 +58,6 @@ func (h *HTTP) WithGate(g *Gate) *HTTP {
 	return h
 }
 
-// logServerBusy logs a server-busy rejection. busyLogger is sampled, so a sustained
-// overload logs at most once per busyLogInterval instead of flooding the logs.
 func (h *HTTP) logServerBusy() {
 	h.sampledLogger.Warn("Rejected RPC request: server is busy",
 		zap.Int("running", h.gate.Running()),
@@ -98,7 +92,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 			if errors.Is(err, ErrServerBusy) {
 				h.logServerBusy()
 				writer.Header().Set("Retry-After", "1")
-				http.Error(writer, "Too many requests", http.StatusServiceUnavailable)
+				http.Error(writer, "Server is busy", http.StatusServiceUnavailable)
 				return
 			}
 			return
@@ -106,6 +100,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		defer h.gate.Release()
 	}
 
+	const MaxRequestBodySize = 10 * db.Megabyte
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	h.listener.OnNewRequest("any")
 

@@ -13,7 +13,7 @@ import (
 
 // ErrServerBusy is returned by [Gate.Acquire] when the gate is at capacity
 // (all concurrent slots are busy and the queue is full).
-var ErrServerBusy = errors.New("too many requests")
+var ErrServerBusy = errors.New("server busy")
 
 // Gate is an admission controller for incoming requests. It admits up to
 // maxConcurrent requests for immediate processing, queues up to maxQueue more
@@ -53,7 +53,7 @@ func (g *Gate) Acquire(ctx context.Context) error {
 	}
 
 	if g.increaseActiveReq() > g.maxRequests {
-		g.decreaseActivReq()
+		g.decreaseActiveReq()
 		g.rejected.Add(1)
 		return ErrServerBusy
 	}
@@ -62,7 +62,7 @@ func (g *Gate) Acquire(ctx context.Context) error {
 	case g.sem <- struct{}{}:
 		return nil
 	case <-ctx.Done():
-		g.decreaseActivReq()
+		g.decreaseActiveReq()
 		return ctx.Err()
 	}
 }
@@ -70,7 +70,7 @@ func (g *Gate) Acquire(ctx context.Context) error {
 // Release frees a processing slot previously taken by a successful Acquire.
 func (g *Gate) Release() {
 	<-g.sem
-	g.decreaseActivReq()
+	g.decreaseActiveReq()
 }
 
 // Running returns the number of requests currently being processed.
@@ -86,6 +86,6 @@ func (g *Gate) increaseActiveReq() uint64 {
 	return g.activeRequests.Add(1)
 }
 
-func (g *Gate) decreaseActivReq() {
+func (g *Gate) decreaseActiveReq() {
 	g.activeRequests.Add(^uint64(0))
 }
