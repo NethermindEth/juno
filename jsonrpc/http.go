@@ -3,6 +3,7 @@ package jsonrpc
 import (
 	"compress/gzip"
 	"context"
+	"errors"
 	"io"
 	"maps"
 	"net/http"
@@ -77,8 +78,11 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 
 	if h.gate != nil {
 		if err := h.gate.Acquire(ctx); err != nil {
-			writer.Header().Set("Retry-After", "1")
-			http.Error(writer, "Too many requests", http.StatusServiceUnavailable)
+			if errors.Is(err, ErrServerBusy) {
+				writer.Header().Set("Retry-After", "1")
+				http.Error(writer, "Too many requests", http.StatusServiceUnavailable)
+				return
+			}
 			return
 		}
 		defer h.gate.Release()
