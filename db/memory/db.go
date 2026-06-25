@@ -2,7 +2,6 @@ package memory
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"slices"
 	"sort"
@@ -112,7 +111,7 @@ func (d *Database) Path() string {
 
 	path, err := os.MkdirTemp("", "juno-memory-db-*")
 	if err != nil {
-		panic(fmt.Errorf("create memory DB temp dir: %w", err))
+		return ""
 	}
 	d.path = path
 	d.removePathOnClose = true
