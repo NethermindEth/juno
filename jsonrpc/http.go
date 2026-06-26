@@ -87,6 +87,8 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		defer cancel()
 	}
 
+	h.listener.OnNewRequest("any")
+
 	if h.gate != nil {
 		if err := h.gate.Acquire(ctx); err != nil {
 			if errors.Is(err, ErrServerBusy) {
@@ -95,6 +97,12 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 				http.Error(writer, "Server is busy", http.StatusServiceUnavailable)
 				return
 			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				writer.Header().Set("Retry-After", "1")
+				http.Error(writer, "Request timed out while queued", http.StatusServiceUnavailable)
+				return
+			}
+			// context.Canceled: the client has disconnected, so there is nobody to respond to.
 			return
 		}
 		defer h.gate.Release()
@@ -102,8 +110,6 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 
 	const MaxRequestBodySize = 10 * db.Megabyte
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
-	h.listener.OnNewRequest("any")
-
 	resp, header, err := h.rpc.HandleReader(ctx, req.Body)
 
 	writer.Header().Set("Content-Type", "application/json")
