@@ -88,7 +88,6 @@ func TestPreConfirmedValidate(t *testing.T) {
 func TestPreConfirmedTransactionByHash(t *testing.T) {
 	preLatestTxHash := felt.FromUint64[felt.Felt](1)
 	preConfirmedTxHash := felt.FromUint64[felt.Felt](2)
-	candidateTxHash := felt.FromUint64[felt.Felt](3)
 	nonExistingTxHash := felt.FromUint64[felt.Felt](4)
 
 	preLatestTx := &core.InvokeTransaction{
@@ -96,9 +95,6 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 	}
 	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: &preConfirmedTxHash,
-	}
-	candidateTx := &core.InvokeTransaction{
-		TransactionHash: &candidateTxHash,
 	}
 
 	preLatest := &pending.PreLatest{
@@ -118,7 +114,6 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 			},
 			Transactions: []core.Transaction{preConfirmedTx},
 		},
-		CandidateTxs: []core.Transaction{candidateTx},
 	}
 
 	t.Run("find transaction in pre_latest", func(t *testing.T) {
@@ -126,12 +121,6 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 		foundTx, err := preConfirmed.TransactionByHash(&preLatestTxHash)
 		require.NoError(t, err)
 		require.Equal(t, preLatestTx, foundTx)
-	})
-
-	t.Run("find transaction in candidate transactions", func(t *testing.T) {
-		foundTx, err := preConfirmed.TransactionByHash(&candidateTxHash)
-		require.NoError(t, err)
-		require.Equal(t, candidateTx, foundTx)
 	})
 
 	t.Run("find transaction in pre_confirmed block", func(t *testing.T) {

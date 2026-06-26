@@ -6,6 +6,12 @@ type BlockTrace struct {
 	Traces []TransactionTrace `json:"traces"`
 }
 
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *BlockTrace) Validate() error {
+	return nil
+}
+
 type TransactionTrace struct {
 	TransactionHash       felt.Felt           `json:"transaction_hash"`
 	RevertError           string              `json:"revert_error"`

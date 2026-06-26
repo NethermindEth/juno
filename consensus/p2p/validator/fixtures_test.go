@@ -323,7 +323,6 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 			},
 			NewClasses:            map[felt.Felt]core.ClassDefinition{},
 			TransactionStateDiffs: []*core.StateDiff{},
-			CandidateTxs:          []core.Transaction{},
 		},
 		L2GasConsumed:     0,
 		RevealedBlockHash: revealedBlockHeader.Hash,

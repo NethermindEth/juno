@@ -301,7 +301,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			logger,
 		),
 		cfg.MaxConcurrentCompilations,
-		int32(cfg.MaxCompilationQueue),
+		uint64(cfg.MaxCompilationQueue),
 	)
 
 	if cfg.Sequencer {
@@ -320,7 +320,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			FeeTokenAddresses: feeTokens,
 		}
 		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 		mempool := mempool.New(database, chain, mempoolLimit, logger)
 		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
@@ -358,7 +358,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
-		client = feeder.NewClient(cfg.Network.FeederURL).
+
+		feederURL, err := url.Parse(cfg.Network.FeederURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid feeder URL %s: %w", cfg.Network.FeederURL, err)
+		}
+		client = feeder.NewClient(feederURL).
 			WithUserAgent(ua).
 			WithLogger(logger).
 			WithTimeouts(timeouts, fixed).
@@ -380,7 +385,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			FeeTokenAddresses: feeTokens,
 		}
 		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(

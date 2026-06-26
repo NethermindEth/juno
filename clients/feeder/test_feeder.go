@@ -24,7 +24,13 @@ func NewTestClient(t testing.TB, network *networks.Network) *Client {
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	apiKey := "API_KEY"
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	c := NewClient(feederURL).
+		WithBackoff(NopBackoff).
+		WithMaxRetries(0).
+		WithUserAgent(ua).
+		WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -175,24 +181,6 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
-}
-
-// buildQueryString builds the query url with encoded parameters
-func (c *Client) buildQueryString(endpoint string, args map[string]string) string {
-	base, err := url.Parse(c.url)
-	if err != nil {
-		panic("Malformed feeder base URL")
-	}
-
-	base.Path += endpoint
-
-	params := url.Values{}
-	for k, v := range args {
-		params.Add(k, v)
-	}
-	base.RawQuery = params.Encode()
-
-	return base.String()
 }
 
 func findTargetDirectory(targetRelPath string) (string, error) {

@@ -200,6 +200,12 @@ type DeprecatedTransactionStatus struct {
 	FailureReason    *TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
 }
 
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *DeprecatedTransactionStatus) Validate() error {
+	return nil
+}
+
 // TransactionStatus represents the response from the get_transaction_status endpoint.
 type TransactionStatus struct {
 	TxStatus        string                   `json:"tx_status"`
@@ -208,6 +214,12 @@ type TransactionStatus struct {
 	BlockHash       *felt.Felt               `json:"block_hash"`
 	TxRevertReason  string                   `json:"tx_revert_reason,omitempty"`
 	TxFailureReason TransactionFailureReason `json:"tx_failure_reason,omitzero"`
+}
+
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *TransactionStatus) Validate() error {
+	return nil
 }
 
 // TransactionFailureReason represents the failure reason of a transaction

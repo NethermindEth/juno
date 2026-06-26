@@ -14,7 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -334,7 +334,7 @@ func prepareTransactions(
 			ctx, h.compiler, &transactions[idx], network,
 		)
 		if err != nil {
-			if errors.Is(err, utils.ErrResourceBusy) {
+			if errors.Is(err, throttler.ErrResourceBusy) {
 				return nil, nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
 			}
 			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
@@ -350,7 +350,7 @@ func prepareTransactions(
 }
 
 func handleExecutionError(err error) *jsonrpc.Error {
-	if errors.Is(err, utils.ErrResourceBusy) {
+	if errors.Is(err, throttler.ErrResourceBusy) {
 		return rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 	}
 	var txnExecutionError vm.TransactionExecutionError

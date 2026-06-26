@@ -46,4 +46,7 @@ jobs:
           TEST_NODE_URL: ${{ secrets.STARKNET_RPC }}
         run: |
           cd starknet-rust-accounts
-          cargo test jsonrpc -- --skip can_estimate_declare_v3_fee_with_jsonrpc --skip can_declare_cairo1_contract_v3_with_jsonrpc
+          # can_execute_eth_transfer_invoke_v3_with_manual_gas hardcodes an L2 gas price (1e10)
+          # below the network's dynamic minimum, so the sequencer rejects the transaction.
+          cargo test jsonrpc -- \
+            --skip can_execute_eth_transfer_invoke_v3_with_manual_gas_with_jsonrpc

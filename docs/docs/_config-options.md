@@ -51,7 +51,8 @@
 
 | Config Option | Default Value | Description |
 | - | - | - |
-| `prune-mode` | `0` | Enables block-data and state-history pruning. Pruning is disabled by default; passing this flag (with or without a value) turns it on. The value is the size of the retention window in blocks, counted back from the latest L1-verified head:\n  --prune-mode      same as --prune-mode=0; prune up to the L1 head\n  --prune-mode=N    keep blocks in (l1_head - N, l2_head], prune below\nBlocks at or above the L2 head are always kept. The floor is anchored on the L1-verified head — never on the local L2 head — so pruned blocks are reorg-safe. RPC remains fully functional for any block inside the retention window; requests targeting blocks below the floor fail because their data has been deleted. Pruning is irreversible: data deleted under a small window cannot be recovered without re-syncing. Changing this value across restarts is safe: the window grows or shrinks accordingly. Growth is gradual — pruning pauses until the L1 head advances enough to reach the new floor |
+| `prune-min-age` | `1h` | Protect blocks whose on-chain timestamp is younger than this duration from being pruned. Acts as an additional floor on top of --prune-mode: a block is retained if either the block-count window or this minimum-age window covers it. Set 0 to disable. Default 1h. Requires --prune-mode |
+| `prune-mode` | `128` | Enables block-data and state-history pruning. Pruning is disabled by default; passing this flag (with or without a value) turns it on. The value is the size of the retention window in blocks, counted back from the retention pivot (the lower of the L1-verified head and the local L2 head):\n  --prune-mode      same as --prune-mode=128; keep 128 blocks below the pivot\n  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\nBlocks at or above the L2 head are always kept. The pivot is at or below the L1-verified head, so pruned blocks are reorg-safe. RPC remains fully functional for any block inside the retention window; requests targeting blocks below the floor fail because their data has been deleted. Pruning is irreversible: data deleted under a small window cannot be recovered without re-syncing. Changing this value across restarts is safe: the window grows or shrinks accordingly. Growth is gradual — pruning pauses until the pivot advances enough to reach the new floor |
 
 ### Logging
 
@@ -99,7 +100,10 @@
 
 | Config Option | Default Value | Description |
 | - | - | - |
-| `max-concurrent-compilations` | `8` | Maximum concurrent Sierra compilations |
+| `max-compilation-cpu-time` | `10` | Maximum CPU time (in seconds) each Sierra compilation process may consume; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
+| `max-compilation-memory` | `4 * 1024` | Maximum memory (in MB) each Sierra compilation process may use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
+| `max-compilation-queue` | `2 * max-concurrent-compilations` | Maximum number of compilation requests to queue after reaching max-concurrent-compilations before starting to reject incoming requests |
+| `max-concurrent-compilations` | `CPU Cores` | Maximum concurrent Sierra compilations |
 | `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
 | `versioned-constants-file` |  | Use custom versioned constants from provided file |
