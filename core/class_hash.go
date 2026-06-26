@@ -5,17 +5,16 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
 
 func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
-	definition, err := makeDeprecatedVMClass(class)
+	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return felt.Felt{}, err
 	}
 
-	program, err := unmarshalDeprecatedCairoProgram(definition.Program)
+	program, err := unmarshalDeprecatedCairoProgram(decompressedProgram)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -40,13 +39,13 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 
 	go func() {
 		defer wg.Done()
-		externalEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.External)
-		l1HandlerEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.L1Handler)
-		constructorEntryPointsHash = hashDeprecatedEntryPoints(definition.EntryPoints.Constructor)
+		externalEntryPointsHash = hashDeprecatedEntryPoints(class.Externals)
+		l1HandlerEntryPointsHash = hashDeprecatedEntryPoints(class.L1Handlers)
+		constructorEntryPointsHash = hashDeprecatedEntryPoints(class.Constructors)
 		builtinsHash = hashBuiltinNames(program.Builtins)
 	}()
 
-	hintedClassHash, hintedClassHashErr = computeHintedClassHash(definition.Abi, program)
+	hintedClassHash, hintedClassHashErr = computeHintedClassHash(class.Abi, program)
 
 	wg.Wait()
 	if hintedClassHashErr != nil {
@@ -65,10 +64,10 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 	return hash, nil
 }
 
-func hashDeprecatedEntryPoints(entryPoints []starknet.EntryPoint) felt.Felt {
+func hashDeprecatedEntryPoints(entryPoints []DeprecatedEntryPoint) felt.Felt {
 	var digest crypto.PedersenDigest
 	for i := range entryPoints {
-		digest.Update(entryPoints[i].Selector, (*felt.Felt)(entryPoints[i].Offset))
+		digest.Update(entryPoints[i].Selector, entryPoints[i].Offset)
 	}
 	return digest.Finish()
 }
@@ -88,32 +87,4 @@ func hashDeprecatedProgramData(data []felt.Felt) felt.Felt {
 		digest.Update(&data[i])
 	}
 	return digest.Finish()
-}
-
-func makeDeprecatedVMClass(class *DeprecatedCairoClass) (*starknet.DeprecatedCairoClass, error) {
-	adaptEntryPoint := func(ep DeprecatedEntryPoint) starknet.EntryPoint {
-		return starknet.EntryPoint{
-			Selector: ep.Selector,
-			Offset:   (*starknet.EntryPointOffset)(ep.Offset),
-		}
-	}
-
-	constructors := utils.Map(utils.NonNilSlice(class.Constructors), adaptEntryPoint)
-	external := utils.Map(utils.NonNilSlice(class.Externals), adaptEntryPoint)
-	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), adaptEntryPoint)
-
-	decompressedProgram, err := utils.Gzip64Decode(class.Program)
-	if err != nil {
-		return nil, err
-	}
-
-	return &starknet.DeprecatedCairoClass{
-		Program: decompressedProgram,
-		Abi:     class.Abi,
-		EntryPoints: starknet.EntryPoints{
-			Constructor: constructors,
-			External:    external,
-			L1Handler:   handlers,
-		},
-	}, nil
 }
