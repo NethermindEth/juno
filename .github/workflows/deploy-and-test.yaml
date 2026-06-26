@@ -120,7 +120,11 @@ jobs:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_10?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-rs-rpcv09:
+    # Chained after starknet-rust-rpcv10 only to serialize access to the shared
+    # test account, not as a pass/fail dependency. Run regardless of the previous
+    # suite's result (but skip if the deploy failed or the run was cancelled).
     needs: [deploy, starknet-rust-rpcv10]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
     uses: ./.github/workflows/starknet-rs-tests.yml
     with:
       ref: starknet/v0.17.0
@@ -128,7 +132,11 @@ jobs:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-rs-rpcv08:
+    # Chained after starknet-rs-rpcv09 only to serialize access to the shared
+    # test account, not as a pass/fail dependency. Run regardless of the previous
+    # suite's result (but skip if the deploy failed or the run was cancelled).
     needs: [deploy, starknet-rs-rpcv09]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
     uses: ./.github/workflows/starknet-rs-tests.yml
     with:
       ref: starknet/v0.15.0
