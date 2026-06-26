@@ -134,6 +134,8 @@ type Config struct {
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
 	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
@@ -544,6 +546,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
+				cfg.RPCMaxConcurrentRequests,
+				cfg.RPCMaxRequestQueue,
 			),
 		)
 	}
