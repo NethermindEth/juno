@@ -361,11 +361,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
 
-		feederURL, err := url.Parse(cfg.Network.FeederURL)
-		if err != nil {
-			return nil, fmt.Errorf("invalid feeder URL %s: %w", cfg.Network.FeederURL, err)
-		}
-		client = feeder.NewClient(feederURL).
+		client = feeder.NewClient(cfg.Network.FeederURL).
 			WithUserAgent(ua).
 			WithLogger(logger).
 			WithTimeouts(timeouts, fixed).
@@ -401,7 +397,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 		synchronizer.WithPlugin(junoPlugin)
 
-		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, logger).
+		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL.String(), logger).
 			WithUserAgent(ua).
 			WithAPIKey(cfg.GatewayAPIKey)
 

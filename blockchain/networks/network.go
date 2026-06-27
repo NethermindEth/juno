@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -46,8 +47,8 @@ var errUnknownNetwork = fmt.Errorf("unknown network (known: %s)",
 
 type Network struct {
 	Name                string             `json:"name" validate:"required"`
-	FeederURL           string             `json:"feeder_url" validate:"required"`
-	GatewayURL          string             `json:"gateway_url" validate:"required"`
+	FeederURL           *url.URL           `json:"feeder_url" validate:"required"`
+	GatewayURL          *url.URL           `json:"gateway_url" validate:"required"`
 	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
 	L2ChainID           string             `json:"l2_chain_id" validate:"required"`
 	CoreContractAddress eth.Address        `json:"core_contract_address" validate:"required"`
@@ -73,8 +74,8 @@ var (
 	// The docs states the addresses for each network: https://docs.starknet.io/learn/cheatsheets/chain-info#important-addresses
 	Mainnet = Network{
 		Name:                "mainnet",
-		FeederURL:           "https://feeder.alpha-mainnet.starknet.io/feeder_gateway/",
-		GatewayURL:          "https://alpha-mainnet.starknet.io/gateway/",
+		FeederURL:           mustParseURL("https://feeder.alpha-mainnet.starknet.io/feeder_gateway/"),
+		GatewayURL:          mustParseURL("https://alpha-mainnet.starknet.io/gateway/"),
 		L2ChainID:           "SN_MAIN",
 		L1ChainID:           big.NewInt(1),
 		CoreContractAddress: eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
@@ -85,8 +86,8 @@ var (
 	}
 	Goerli = Network{
 		Name:       "goerli",
-		FeederURL:  "https://alpha4.starknet.io/feeder_gateway/",
-		GatewayURL: "https://alpha4.starknet.io/gateway/",
+		FeederURL:  mustParseURL("https://alpha4.starknet.io/feeder_gateway/"),
+		GatewayURL: mustParseURL("https://alpha4.starknet.io/gateway/"),
 		L2ChainID:  "SN_GOERLI",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
@@ -99,8 +100,8 @@ var (
 	}
 	Goerli2 = Network{
 		Name:       "goerli2",
-		FeederURL:  "https://alpha4-2.starknet.io/feeder_gateway/",
-		GatewayURL: "https://alpha4-2.starknet.io/gateway/",
+		FeederURL:  mustParseURL("https://alpha4-2.starknet.io/feeder_gateway/"),
+		GatewayURL: mustParseURL("https://alpha4-2.starknet.io/gateway/"),
 		L2ChainID:  "SN_GOERLI2",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
@@ -112,8 +113,8 @@ var (
 	}
 	Integration = Network{
 		Name:       "integration",
-		FeederURL:  "https://external.integration.starknet.io/feeder_gateway/",
-		GatewayURL: "https://external.integration.starknet.io/gateway/",
+		FeederURL:  mustParseURL("https://external.integration.starknet.io/feeder_gateway/"),
+		GatewayURL: mustParseURL("https://external.integration.starknet.io/gateway/"),
 		L2ChainID:  "SN_GOERLI",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
@@ -126,8 +127,8 @@ var (
 	}
 	Sepolia = Network{
 		Name:       "sepolia",
-		FeederURL:  "https://feeder.alpha-sepolia.starknet.io/feeder_gateway/",
-		GatewayURL: "https://alpha-sepolia.starknet.io/gateway/",
+		FeederURL:  mustParseURL("https://feeder.alpha-sepolia.starknet.io/feeder_gateway/"),
+		GatewayURL: mustParseURL("https://alpha-sepolia.starknet.io/gateway/"),
 		L2ChainID:  "SN_SEPOLIA",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
@@ -139,8 +140,8 @@ var (
 	}
 	SepoliaIntegration = Network{
 		Name:       "sepolia-integration",
-		FeederURL:  "https://feeder.integration-sepolia.starknet.io/feeder_gateway/",
-		GatewayURL: "https://integration-sepolia.starknet.io/gateway/",
+		FeederURL:  mustParseURL("https://feeder.integration-sepolia.starknet.io/feeder_gateway/"),
+		GatewayURL: mustParseURL("https://integration-sepolia.starknet.io/gateway/"),
 		L2ChainID:  "SN_INTEGRATION_SEPOLIA",
 		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
@@ -194,4 +195,14 @@ func (n *Network) UnmarshalText(text []byte) error {
 
 func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
+}
+
+// mustParseURL parses a raw URL and panics on error. It is only used for the
+// hardcoded predefined network URLs, which are always valid.
+func mustParseURL(rawURL string) *url.URL {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		panic(err)
+	}
+	return u
 }

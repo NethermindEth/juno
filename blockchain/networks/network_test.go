@@ -42,8 +42,8 @@ func TestNetwork(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("Network %v", tc.network), func(t *testing.T) {
-				assert.Equal(t, tc.feederURL, tc.network.FeederURL)
-				assert.Equal(t, tc.gatewayURL, tc.network.GatewayURL)
+				assert.Equal(t, tc.feederURL, tc.network.FeederURL.String())
+				assert.Equal(t, tc.gatewayURL, tc.network.GatewayURL.String())
 			})
 		}
 	})

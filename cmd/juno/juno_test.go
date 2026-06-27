@@ -3,6 +3,7 @@ package main_test
 import (
 	"math"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -37,10 +38,14 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultDBPath := filepath.Join(pwd, "juno")
 	defaultCoreContractAddress := eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
 	defaultNetwork := networks.Mainnet
+	customFeederURL, err := url.Parse("http://awesome.feeder")
+	require.NoError(t, err)
+	customGatewayURL, err := url.Parse("http://awesome.gateway")
+	require.NoError(t, err)
 	defaultCustomNetwork := networks.Network{
 		Name:                "custom",
-		FeederURL:           "http://awesome.feeder",
-		GatewayURL:          "http://awesome.gateway",
+		FeederURL:           customFeederURL,
+		GatewayURL:          customGatewayURL,
 		L2ChainID:           "SN_AWESOME",
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
@@ -980,8 +985,8 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.feeder, config.Network.FeederURL)
-			assert.Equal(t, tc.gateway, config.Network.GatewayURL)
+			assert.Equal(t, tc.feeder, config.Network.FeederURL.String())
+			assert.Equal(t, tc.gateway, config.Network.GatewayURL.String())
 		})
 	}
 }
