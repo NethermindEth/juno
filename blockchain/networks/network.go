@@ -198,11 +198,13 @@ func (n *Network) L2ChainIDFelt() *felt.Felt {
 }
 
 // mustParseURL parses a raw URL and panics on error. It is only used for the
-// hardcoded predefined network URLs, which are always valid.
+// hardcoded predefined network URLs, which are always valid. ParseRequestURI
+// (unlike Parse) rejects relative/scheme-less strings, so a malformed constant
+// fails fast and diagnostically at startup.
 func mustParseURL(rawURL string) *url.URL {
-	u, err := url.Parse(rawURL)
+	u, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("invalid network URL %q: %v", rawURL, err))
 	}
 	return u
 }
