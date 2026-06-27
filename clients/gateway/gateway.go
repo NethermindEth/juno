@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -63,10 +64,9 @@ func (c *Client) WithListener(l EventListener) *Client {
 	return c
 }
 
-func NewClient(gatewayURL string, logger log.StructuredLogger) *Client {
-	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
+func NewClient(gatewayURL *url.URL, logger log.StructuredLogger) *Client {
 	return &Client{
-		url: gatewayURL,
+		url: strings.TrimSuffix(gatewayURL.String(), "/"),
 		client: &http.Client{
 			Timeout: time.Minute,
 		},
