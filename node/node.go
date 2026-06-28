@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"time"
 
@@ -743,7 +744,11 @@ func (n *Node) StartService(
 		// re-panic so the WaitGroup can propagate it to the caller.
 		defer func() {
 			if r := recover(); r != nil {
-				n.logger.Error("Service panicked, shutting down node", zap.String("name", name), zap.Any("panic", r))
+				// Capture the stack here, while it still points at the original
+				// panic site: the WaitGroup re-panics from wg.Wait(), so the
+				// stack surfaced there would point at the re-panic instead.
+				n.logger.Error("Service panicked, shutting down node",
+					zap.String("name", name), zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
 				cancel()
 				panic(r)
 			}
