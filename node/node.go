@@ -79,6 +79,7 @@ type Config struct {
 	Network                  networks.Network `mapstructure:"network"`
 	EthNode                  string           `mapstructure:"eth-node"`
 	DisableL1Verification    bool             `mapstructure:"disable-l1-verification"`
+	L1Client                 string           `mapstructure:"l1-client"`
 	Pprof                    bool             `mapstructure:"pprof"`
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
@@ -555,7 +556,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 	if cfg.Websocket {
-		services = append(services,
+		services = append(
+			services,
 			makeRPCOverWebsocket(
 				cfg.WebsocketHost,
 				cfg.WebsocketPort,
@@ -567,8 +569,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		logger.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
-			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
+		logger.Info(
+			"Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+				cfg.HTTPUpdateHost +
+				":" +
+				fmt.Sprintf("%d", cfg.HTTPUpdatePort) +
+				"/log/level and /feeder/timeouts",
 		)
 		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
@@ -619,20 +625,35 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
+		settlement, err := newSettlement(cfg.L1Client, cfg.EthNode, n.blockchain, n.logger)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
+		n.logger.Info("Selected L1 client", zap.String("client", cfg.L1Client))
+
+		// One EventListener is shared between the L1 client (which
+		// fires OnNewL1Head) and the settlement (which fires OnL1Call
+		// for every Ethereum RPC method). Metrics are registered only
+		// when the node is built with --metrics; otherwise the default
+		// no-op SelectiveListener is used.
+		l1Opts := []l1.Option{}
+		if cfg.Metrics {
+			listener := makeL1Metrics(n.blockchain, settlement)
+			settlement.SetListener(listener)
+			l1Opts = append(l1Opts, l1.WithEventListener(listener))
+		}
+
+		l1Client := l1.NewClient(settlement, n.blockchain, n.logger, l1Opts...)
 		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
+		rpcHandler.WithL1Client(settlement)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
 		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger)
 		n.services = append(n.services, ug)
 	} else {
-		logger.Warn("Failed to parse Juno version, will not warn about new releases",
+		logger.Warn(
+			"Failed to parse Juno version, will not warn about new releases",
 			zap.String("version", version),
 		)
 	}
@@ -640,9 +661,27 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	return n, nil
 }
 
-func newL1Client(
-	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log log.StructuredLogger,
-) (*l1.Client, error) {
+// l1Settlement is the cross-section of capabilities a concrete L1
+// settlement implementation must provide to the node: SettlementLayer
+// for the sync loop, rpccore.L1Client for the RPC handlers, plus
+// post-construction listener attachment.
+type l1Settlement interface {
+	l1.SettlementLayer
+	rpccore.L1Client
+	SetListener(l1.EventListener)
+}
+
+// newSettlement validates the Ethereum endpoint URL and dials the L1
+// client using the implementation selected by --l1-client. ws/wss is
+// enforced at the URL level because subscribe-based log delivery
+// (eth_subscribe) requires a long-lived connection that HTTP doesn't
+// provide. The listener is attached separately by the caller (after
+// metrics gauges are wired against the same instance).
+func newSettlement(
+	client, ethNode string,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+) (l1Settlement, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -651,19 +690,42 @@ func newL1Client(
 		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
 	}
 
-	network := chain.Network()
+	// Dial has its own one-minute timeout; this is not the node's
+	// lifetime context (which doesn't exist at construction time).
+	dialCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
-	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
-	}
+	contractAddress := chain.Network().CoreContractAddress
 
-	opts := make([]l1.Option, 0, 1)
-	if includeMetrics {
-		opts = append(opts, l1.WithEventListener(makeL1Metrics(chain, ethSubscriber)))
+	// Empty string matches the geth default; this fallback covers config
+	// paths that bypass cmd flag parsing (e.g. the migration entry point
+	// in node/migration.go) and never populate L1Client.
+	switch client {
+	case "", "geth":
+		s, err := l1.NewGethSettlement(
+			dialCtx,
+			ethNode,
+			contractAddress,
+			l1.WithSettlementLogger(logger),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("set up L1 settlement client (geth): %w", err)
+		}
+		return s, nil
+	case "juno":
+		s, err := l1.NewEthSettlement(
+			dialCtx,
+			ethNode,
+			contractAddress,
+			l1.WithSettlementLogger(logger),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("set up L1 settlement client (juno): %w", err)
+		}
+		return s, nil
+	default:
+		return nil, fmt.Errorf("invalid --l1-client %q (must be %q or %q)", client, "geth", "juno")
 	}
-	return l1.NewClient(ethSubscriber, chain, log, opts...), nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.

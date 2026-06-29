@@ -1,9 +1,10 @@
-package l1
+package l1_test
 
 import (
 	"context"
 	"errors"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -14,14 +15,27 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils/log"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+)
+
+// Aliases keep the diff against the original test small — only the
+// boundary surface needed renaming, not every reference.
+type (
+	StateUpdate         = l1.StateUpdate
+	MockSettlementLayer = mocks.MockSettlementLayer
+)
+
+var (
+	NewClient                 = l1.NewClient
+	WithResubscribeDelay      = l1.WithResubscribeDelay
+	WithPollFinalisedInterval = l1.WithPollFinalisedInterval
+	WithCatchUpChunkSize      = l1.WithCatchUpChunkSize
 )
 
 type fakeSubscription struct {
@@ -59,15 +73,13 @@ type logStateUpdate struct {
 	removed bool
 }
 
-func (logSU *logStateUpdate) ToContractType() *contract.StarknetLogStateUpdate {
-	return &contract.StarknetLogStateUpdate{
-		BlockNumber: new(big.Int).SetUint64(logSU.l2BlockNumber),
-		BlockHash:   new(big.Int).SetUint64(logSU.l2BlockNumber),
-		GlobalRoot:  new(big.Int).SetUint64(logSU.l2BlockNumber),
-		Raw: types.Log{
-			Removed:     logSU.removed,
-			BlockNumber: logSU.l1BlockNumber,
-		},
+func (logSU *logStateUpdate) ToStateUpdate() *StateUpdate {
+	return &StateUpdate{
+		L2BlockNumber: logSU.l2BlockNumber,
+		L2BlockHash:   new(felt.Felt).SetUint64(logSU.l2BlockNumber),
+		StateRoot:     new(felt.Felt).SetUint64(logSU.l2BlockNumber),
+		L1RefHeight:   logSU.l1BlockNumber,
+		Removed:       logSU.removed,
 	}
 }
 
@@ -76,6 +88,62 @@ type l1Block struct {
 	updates             []*logStateUpdate
 	expectedL2BlockHash *felt.Felt
 }
+
+// requireL1Head polls chain.L1Head until it reports the expected L2 block
+// number, or fails the test after a fixed budget. The expected hash and
+// state root are derived from logStateUpdate.ToStateUpdate's convention
+// (both equal to the L2 block number cast to a felt).
+func requireL1Head(t *testing.T, chain *blockchain.Blockchain, wantL2Block uint64) {
+	t.Helper()
+	want := core.L1Head{
+		BlockNumber: wantL2Block,
+		BlockHash:   new(felt.Felt).SetUint64(wantL2Block),
+		StateRoot:   new(felt.Felt).SetUint64(wantL2Block),
+	}
+	require.Eventually(t, func() bool {
+		got, err := chain.L1Head()
+		return err == nil && assert.ObjectsAreEqual(want, got)
+	}, 2*time.Second, 5*time.Millisecond, "L1Head never advanced to l2=%d", wantL2Block)
+}
+
+// swappableSettlement is a test-only SettlementLayer that delegates to a
+// runtime-swappable inner mock. It lets one Client stay alive across
+// scenario iterations while the test rebinds expectations per iteration —
+// previously this was achieved by exposing a SetSettlement hatch on
+// production Client. The hatch is gone; the indirection lives here.
+type swappableSettlement struct {
+	inner atomic.Pointer[mocks.MockSettlementLayer]
+}
+
+func (s *swappableSettlement) set(m *mocks.MockSettlementLayer) { s.inner.Store(m) }
+
+func (s *swappableSettlement) ChainID(ctx context.Context) (*big.Int, error) {
+	return s.inner.Load().ChainID(ctx)
+}
+
+func (s *swappableSettlement) FinalisedHeight(ctx context.Context) (uint64, error) {
+	return s.inner.Load().FinalisedHeight(ctx)
+}
+
+func (s *swappableSettlement) LatestHeight(ctx context.Context) (uint64, error) {
+	return s.inner.Load().LatestHeight(ctx)
+}
+
+func (s *swappableSettlement) WatchStateUpdate(
+	ctx context.Context,
+	sink chan<- *StateUpdate,
+) (eth.Subscription, error) {
+	return s.inner.Load().WatchStateUpdate(ctx, sink)
+}
+
+func (s *swappableSettlement) FilterStateUpdate(
+	ctx context.Context,
+	from, to uint64,
+) ([]*StateUpdate, error) {
+	return s.inner.Load().FilterStateUpdate(ctx, from, to)
+}
+
+func (s *swappableSettlement) Close() { s.inner.Load().Close() }
 
 var longSequenceOfBlocks = []*l1Block{
 	{
@@ -352,8 +420,9 @@ func TestClient(t *testing.T) {
 				blockchain.WithNewState(statetestutils.UseNewState()),
 			)
 
+			swap := &swappableSettlement{}
 			client := NewClient(
-				nil,
+				swap,
 				chain,
 				nopLog,
 				WithResubscribeDelay(0),
@@ -362,13 +431,13 @@ func TestClient(t *testing.T) {
 
 			// We loop over each block and check that the state agrees with our expectations.
 			for _, block := range tt.blocks {
-				subscriber := mocks.NewMockSubscriber(ctrl)
+				subscriber := mocks.NewMockSettlementLayer(ctrl)
 				subscriber.
 					EXPECT().
-					WatchLogStateUpdate(gomock.Any(), gomock.Any()).
-					Do(func(_ context.Context, sink chan<- *contract.StarknetLogStateUpdate) {
+					WatchStateUpdate(gomock.Any(), gomock.Any()).
+					Do(func(_ context.Context, sink chan<- *StateUpdate) {
 						for _, update := range block.updates {
-							sink <- update.ToContractType()
+							sink <- update.ToStateUpdate()
 						}
 					}).
 					Return(newFakeSubscription(), nil).
@@ -388,7 +457,7 @@ func TestClient(t *testing.T) {
 
 				subscriber.
 					EXPECT().
-					FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+					FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, nil).
 					AnyTimes()
 
@@ -400,7 +469,7 @@ func TestClient(t *testing.T) {
 
 				subscriber.EXPECT().Close().Times(1)
 
-				client.l1 = subscriber
+				swap.set(subscriber)
 
 				ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 				require.NoError(t, client.Run(ctx))
@@ -434,8 +503,9 @@ func TestUnreliableSubscription(t *testing.T) {
 		&network,
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
+	swap := &swappableSettlement{}
 	client := NewClient(
-		nil,
+		swap,
 		chain,
 		nopLog,
 		WithResubscribeDelay(0),
@@ -444,7 +514,7 @@ func TestUnreliableSubscription(t *testing.T) {
 
 	err := errors.New("test err")
 	for _, block := range longSequenceOfBlocks {
-		subscriber := mocks.NewMockSubscriber(ctrl)
+		subscriber := mocks.NewMockSettlementLayer(ctrl)
 
 		// The subscription returns an error on each block.
 		// Each time, a second subscription succeeds.
@@ -452,17 +522,17 @@ func TestUnreliableSubscription(t *testing.T) {
 		failedUpdateSub := newFakeSubscription(err)
 		failedUpdateCall := subscriber.
 			EXPECT().
-			WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+			WatchStateUpdate(gomock.Any(), gomock.Any()).
 			Return(failedUpdateSub, nil).
 			Times(1)
 
 		successUpdateSub := newFakeSubscription()
 		subscriber.
 			EXPECT().
-			WatchLogStateUpdate(gomock.Any(), gomock.Any()).
-			Do(func(_ context.Context, sink chan<- *contract.StarknetLogStateUpdate) {
+			WatchStateUpdate(gomock.Any(), gomock.Any()).
+			Do(func(_ context.Context, sink chan<- *StateUpdate) {
 				for _, log := range block.updates {
-					sink <- log.ToContractType()
+					sink <- log.ToStateUpdate()
 				}
 			}).
 			Return(successUpdateSub, nil).
@@ -489,14 +559,14 @@ func TestUnreliableSubscription(t *testing.T) {
 
 		subscriber.
 			EXPECT().
-			FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+			FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil).
 			AnyTimes()
 
 		subscriber.EXPECT().Close().Times(1)
 
 		// Replace the subscriber.
-		client.l1 = subscriber
+		swap.set(subscriber)
 
 		ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 		require.NoError(t, client.Run(ctx))
@@ -524,8 +594,8 @@ func TestUnreliableSubscription(t *testing.T) {
 // newCatchUpFixture builds the boilerplate every catch-up test repeats:
 // a fresh chain, a mock subscriber wired with the chain-id check, an idle
 // live subscription, and the final Close expectation. Per-test variation
-// (heights, FilterLogStateUpdate calls, client options) stays in the test.
-func newCatchUpFixture(t *testing.T) (*blockchain.Blockchain, *mocks.MockSubscriber) {
+// (heights, FilterStateUpdate calls, client options) stays in the test.
+func newCatchUpFixture(t *testing.T) (*blockchain.Blockchain, *MockSettlementLayer) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	network := networks.Mainnet
@@ -535,11 +605,11 @@ func newCatchUpFixture(t *testing.T) (*blockchain.Blockchain, *mocks.MockSubscri
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSubscriber(ctrl)
+	subscriber := mocks.NewMockSettlementLayer(ctrl)
 	subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
 	subscriber.
 		EXPECT().
-		WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+		WatchStateUpdate(gomock.Any(), gomock.Any()).
 		Return(newFakeSubscription(), nil).
 		AnyTimes()
 	subscriber.EXPECT().Close().Times(1)
@@ -556,11 +626,11 @@ func TestCatchUpSetsL1HeadOnStart(t *testing.T) {
 	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
 	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
 
-	backfilled := (&logStateUpdate{l1BlockNumber: 3, l2BlockNumber: 7}).ToContractType()
+	backfilled := (&logStateUpdate{l1BlockNumber: 3, l2BlockNumber: 7}).ToStateUpdate()
 	subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), uint64(1), uint64(10)).
-		Return([]*contract.StarknetLogStateUpdate{backfilled}, nil).
+		FilterStateUpdate(gomock.Any(), uint64(1), uint64(10)).
+		Return([]*StateUpdate{backfilled}, nil).
 		Times(1)
 
 	client := NewClient(subscriber, chain, nopLog,
@@ -596,24 +666,24 @@ func TestCatchUpMultiChunk(t *testing.T) {
 	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(25), nil).Times(1)
 	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
 
-	firstEvent := (&logStateUpdate{l1BlockNumber: 20, l2BlockNumber: 50}).ToContractType()
-	thirdEvent := (&logStateUpdate{l1BlockNumber: 3, l2BlockNumber: 25}).ToContractType()
+	firstEvent := (&logStateUpdate{l1BlockNumber: 20, l2BlockNumber: 50}).ToStateUpdate()
+	thirdEvent := (&logStateUpdate{l1BlockNumber: 3, l2BlockNumber: 25}).ToStateUpdate()
 
 	firstCall := subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), uint64(16), uint64(25)).
-		Return([]*contract.StarknetLogStateUpdate{firstEvent}, nil).
+		FilterStateUpdate(gomock.Any(), uint64(16), uint64(25)).
+		Return([]*StateUpdate{firstEvent}, nil).
 		Times(1)
 	secondCall := subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), uint64(6), uint64(15)).
+		FilterStateUpdate(gomock.Any(), uint64(6), uint64(15)).
 		Return(nil, nil).
 		Times(1).
 		After(firstCall)
 	subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), uint64(0), uint64(5)).
-		Return([]*contract.StarknetLogStateUpdate{thirdEvent}, nil).
+		FilterStateUpdate(gomock.Any(), uint64(0), uint64(5)).
+		Return([]*StateUpdate{thirdEvent}, nil).
 		Times(1).
 		After(secondCall)
 
@@ -649,7 +719,7 @@ func TestCatchUpFilterError(t *testing.T) {
 	rpcErr := errors.New("rpc broken")
 	subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+		FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, rpcErr).
 		Times(1)
 
@@ -670,129 +740,166 @@ func TestCatchUpFilterError(t *testing.T) {
 }
 
 // TestCatchUpHeadAndCachePartition feeds a single chunk with a mix of
-// finalised and non-finalised events and asserts the post-setL1Head state:
-// the highest finalised event wins as L1 head, every finalised entry is
-// evicted from nonFinalisedLogs, and entries above finalisedHeight stay
-// buffered for later commitment.
+// finalised and non-finalised events and verifies the post-setL1Head
+// partition:
+//   - finalised entries (l1=2,3,5) are promoted/evicted during catch-up, the
+//     highest of them (l1=5) wins as the initial L1 head;
+//   - non-finalised entries (l1=7,9) are buffered. We verify they survived
+//     by walking the finalised height forward across the live-poll ticks and
+//     observing L1Head promote each one in turn.
 func TestCatchUpHeadAndCachePartition(t *testing.T) {
 	t.Parallel()
 
 	chain, subscriber := newCatchUpFixture(t)
 	nopLog := log.NewNopZapLogger()
 
-	// catchUpChunkSize default 1000. LatestHeight=10, FinalisedHeight=5 →
-	// single chunk [0, 10]. Five events span the finalised cutoff:
+	// catchUpChunkSize default 1000. LatestHeight=10, initial FinalisedHeight=5
+	// → single chunk [0, 10]. Five events span the finalised cutoff:
 	//   l1=2,3,5  (<= finalised) → all deleted from cache, l1=5 wins as head
 	//   l1=7,9    (>  finalised) → remain buffered for the live loop
 	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
-	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
 
-	finalisedLow := (&logStateUpdate{l1BlockNumber: 2, l2BlockNumber: 20}).ToContractType()
-	finalisedMid := (&logStateUpdate{l1BlockNumber: 3, l2BlockNumber: 30}).ToContractType()
-	finalisedTop := (&logStateUpdate{l1BlockNumber: 5, l2BlockNumber: 50}).ToContractType()
-	pendingLow := (&logStateUpdate{l1BlockNumber: 7, l2BlockNumber: 70}).ToContractType()
-	pendingHigh := (&logStateUpdate{l1BlockNumber: 9, l2BlockNumber: 90}).ToContractType()
+	// Finalised height is dynamic across the test: starts at 5 (so catch-up
+	// commits l1=5 as head and buffers l1=7,9), then the test bumps it to
+	// promote each buffered entry via the live-poll tick.
+	var finalised atomic.Uint64
+	finalised.Store(5)
+	subscriber.
+		EXPECT().
+		FinalisedHeight(gomock.Any()).
+		DoAndReturn(func(_ context.Context) (uint64, error) {
+			return finalised.Load(), nil
+		}).
+		AnyTimes()
+
+	finalisedLow := (&logStateUpdate{l1BlockNumber: 2, l2BlockNumber: 20}).ToStateUpdate()
+	finalisedMid := (&logStateUpdate{l1BlockNumber: 3, l2BlockNumber: 30}).ToStateUpdate()
+	finalisedTop := (&logStateUpdate{l1BlockNumber: 5, l2BlockNumber: 50}).ToStateUpdate()
+	pendingLow := (&logStateUpdate{l1BlockNumber: 7, l2BlockNumber: 70}).ToStateUpdate()
+	pendingHigh := (&logStateUpdate{l1BlockNumber: 9, l2BlockNumber: 90}).ToStateUpdate()
 
 	subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), uint64(0), uint64(10)).
-		Return([]*contract.StarknetLogStateUpdate{
+		FilterStateUpdate(gomock.Any(), uint64(0), uint64(10)).
+		Return([]*StateUpdate{
 			finalisedLow, finalisedMid, finalisedTop, pendingLow, pendingHigh,
 		}, nil).
 		Times(1)
 
+	// Short poll interval so the live loop ticks setL1Head several times
+	// during the test budget.
 	client := NewClient(subscriber, chain, nopLog,
 		WithResubscribeDelay(0),
-		WithPollFinalisedInterval(time.Hour),
+		WithPollFinalisedInterval(10*time.Millisecond),
 	)
 
-	ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
-	require.NoError(t, client.Run(ctx))
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	runErr := make(chan error, 1)
+	go func() { runErr <- client.Run(ctx) }()
+
+	// Step 1: catch-up commits the highest finalised event (l1=5) as L1 head.
+	requireL1Head(t, chain, 50)
+
+	// Step 2: bump finalised so the live loop's setL1Head promotes l1=7.
+	// If catch-up failed to buffer l1=7, L1Head can never advance past l2=50.
+	finalised.Store(7)
+	requireL1Head(t, chain, 70)
+
+	// Step 3: same proof for l1=9 — must have been buffered by catch-up.
+	finalised.Store(9)
+	requireL1Head(t, chain, 90)
+
 	cancel()
-
-	// Highest finalised event (l1=5 → l2=50) commits as L1 head.
-	got, err := chain.L1Head()
-	require.NoError(t, err)
-	assert.Equal(t, core.L1Head{
-		BlockNumber: 50,
-		BlockHash:   new(felt.Felt).SetUint64(50),
-		StateRoot:   new(felt.Felt).SetUint64(50),
-	}, got)
-
-	// Non-finalised entries survive; every finalised entry is evicted
-	// (including the one that became the head).
-	require.Len(t, client.nonFinalisedLogs, 2)
-	assert.Equal(t, pendingLow, client.nonFinalisedLogs[7])
-	assert.Equal(t, pendingHigh, client.nonFinalisedLogs[9])
-	for _, l1Block := range []uint64{2, 3, 5} {
-		_, present := client.nonFinalisedLogs[l1Block]
-		assert.Falsef(t, present, "finalised l1=%d should be deleted from cache", l1Block)
-	}
+	require.NoError(t, <-runErr)
 }
 
 // TestCatchUpPartialProgressPreserved asserts the best-effort contract: when
 // a backward chunk filter call errors mid-walk, entries already merged into
 // nonFinalisedLogs by earlier successful chunks must remain available to the
-// live subscription's setL1Head, instead of being rolled back.
+// live subscription's setL1Head, instead of being rolled back. Observed via
+// promotion: once the finalised height catches up to the buffered entry, the
+// live-poll setL1Head commits it as L1 head.
 func TestCatchUpPartialProgressPreserved(t *testing.T) {
 	t.Parallel()
 
 	chain, subscriber := newCatchUpFixture(t)
 	nopLog := log.NewNopZapLogger()
 
-	// catchUpChunkSize = 1000. LatestHeight=3000, FinalisedHeight=2000:
+	// catchUpChunkSize = 1000. LatestHeight=3000, initial FinalisedHeight=2000:
 	//   chunk 1: [2001, 3000] -> succeeds with non-finalised event at l1=2500
 	//                            (2500 > 2000 finalised, so foundFinalised=false,
 	//                             loop continues to next chunk)
 	//   chunk 2: [1001, 2000] -> errors, catch-up bails out
 	// The chunk-1 event must still be sitting in nonFinalisedLogs after Run.
 	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(3000), nil).Times(1)
-	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(2000), nil).AnyTimes()
 
-	chunkOneEvent := (&logStateUpdate{l1BlockNumber: 2500, l2BlockNumber: 42}).ToContractType()
+	// Finalised height starts at 2000 so the chunk-1 event (l1=2500) stays
+	// buffered. The test later bumps it past 2500 so the live-poll setL1Head
+	// can promote — that promotion only succeeds if catch-up preserved the
+	// entry across the chunk-2 error.
+	var finalised atomic.Uint64
+	finalised.Store(2000)
+	subscriber.
+		EXPECT().
+		FinalisedHeight(gomock.Any()).
+		DoAndReturn(func(_ context.Context) (uint64, error) {
+			return finalised.Load(), nil
+		}).
+		AnyTimes()
+
+	chunkOneEvent := (&logStateUpdate{l1BlockNumber: 2500, l2BlockNumber: 42}).ToStateUpdate()
 	rpcErr := errors.New("rpc broken")
 
 	firstCall := subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), uint64(2001), uint64(3000)).
-		Return([]*contract.StarknetLogStateUpdate{chunkOneEvent}, nil).
+		FilterStateUpdate(gomock.Any(), uint64(2001), uint64(3000)).
+		Return([]*StateUpdate{chunkOneEvent}, nil).
 		Times(1)
 	subscriber.
 		EXPECT().
-		FilterLogStateUpdate(gomock.Any(), uint64(1001), uint64(2000)).
+		FilterStateUpdate(gomock.Any(), uint64(1001), uint64(2000)).
 		Return(nil, rpcErr).
 		Times(1).
 		After(firstCall)
 
-	// Poll interval is 1h so the live loop never ticks setL1Head — the only
-	// thing that could populate nonFinalisedLogs is the catch-up walk.
+	// Short poll interval so the live loop ticks setL1Head shortly after Run
+	// transitions out of catch-up.
 	client := NewClient(subscriber, chain, nopLog,
 		WithResubscribeDelay(0),
-		WithPollFinalisedInterval(time.Hour),
+		WithPollFinalisedInterval(10*time.Millisecond),
 	)
 
-	ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
-	require.NoError(t, client.Run(ctx))
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	runErr := make(chan error, 1)
+	go func() { runErr <- client.Run(ctx) }()
+
+	// Give the live poll a few ticks before bumping finalised. With initial
+	// finalised=2000 and the chunk-1 event at l1=2500, setL1Head finds nothing
+	// to promote, so L1Head must remain unset.
+	time.Sleep(50 * time.Millisecond)
+	_, headErr := chain.L1Head()
+	require.Error(t, headErr, "L1Head must remain unset while finalised < 2500")
+
+	// Bump finalised past l1=2500. The live-poll setL1Head must find the
+	// chunk-1 entry still buffered and promote it. If catch-up rolled state
+	// back on chunk-2's error, L1Head never advances.
+	finalised.Store(2500)
+	requireL1Head(t, chain, 42)
+
 	cancel()
-
-	// Partial state from chunk 1 survived the chunk-2 error.
-	require.Len(t, client.nonFinalisedLogs, 1)
-	got, ok := client.nonFinalisedLogs[2500]
-	require.True(t, ok, "chunk-1 event at l1=2500 should remain buffered")
-	assert.Equal(t, chunkOneEvent, got)
-
-	// Above finalised, so setL1Head wouldn't have committed it anyway.
-	_, err := chain.L1Head()
-	require.Error(t, err)
+	require.NoError(t, <-runErr)
 }
 
-// TestFinalisedHeightReturnsPromptlyOnCancel asserts that when the retry
-// loop is waiting between attempts, a ctx cancellation wakes it up
-// immediately instead of stalling for resubscribeDelay. Runs inside a
-// synctest bubble with a 1h delay: with the fix, virtual time stays at 0;
-// without it, the loop would burn the full hour of virtual time before
-// noticing ctx.Done.
-func TestFinalisedHeightReturnsPromptlyOnCancel(t *testing.T) {
+// TestFinalisedHeightRetryReturnsPromptlyOnCancel drives Run and forces
+// the inner finalisedHeight retry loop into its inter-attempt wait: ChainID
+// and LatestHeight succeed (catch-up gets past its preamble) but every
+// FinalisedHeight call errors. Catch-up bails best-effort; Run enters the
+// live poll loop which ticks setL1Head → finalisedHeight retry → blocks on
+// resubscribeDelay. Cancel ctx, assert Run returns without burning the full
+// hour of virtual time.
+func TestFinalisedHeightRetryReturnsPromptlyOnCancel(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		nopLog := log.NewNopZapLogger()
@@ -803,44 +910,47 @@ func TestFinalisedHeightReturnsPromptlyOnCancel(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		subscriber := mocks.NewMockSubscriber(ctrl)
+		subscriber := mocks.NewMockSettlementLayer(ctrl)
+		subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+		subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
 		subscriber.
 			EXPECT().
 			FinalisedHeight(gomock.Any()).
 			Return(uint64(0), errors.New("boom")).
 			MinTimes(1)
+		subscriber.
+			EXPECT().
+			WatchStateUpdate(gomock.Any(), gomock.Any()).
+			Return(newFakeSubscription(), nil).
+			AnyTimes()
+		subscriber.EXPECT().Close().Times(1)
 
-		client := NewClient(subscriber, chain, nopLog, WithResubscribeDelay(time.Hour))
+		client := NewClient(subscriber, chain, nopLog,
+			WithResubscribeDelay(time.Hour),
+			WithPollFinalisedInterval(time.Nanosecond),
+		)
 
 		ctx, cancel := context.WithCancel(t.Context())
-		type result struct {
-			height uint64
-			found  bool
-		}
-		done := make(chan result, 1)
+		done := make(chan error, 1)
 		start := time.Now()
-		go func() {
-			height, found := client.finalisedHeight(ctx)
-			done <- result{height: height, found: found}
-		}()
+		go func() { done <- client.Run(ctx) }()
 
-		// Wait for the retry loop to durably block in the inter-attempt wait.
+		// Wait until Run is durably blocked inside finalisedHeight's
+		// inter-attempt timer.
 		synctest.Wait()
 		cancel()
 
-		got := <-done
-		require.False(t, got.found)
-		require.Equal(t, uint64(0), got.height)
+		require.NoError(t, <-done)
 		require.Less(t, time.Since(start), time.Minute,
-			"finalisedHeight stalled in time.Sleep after ctx cancel")
+			"Run stalled in finalisedHeight retry after ctx cancel")
 	})
 }
 
-// TestSubscribeToUpdatesReturnsPromptlyOnCancel is the same check for the
-// other retry loop: WatchLogStateUpdate fails repeatedly, the loop enters
-// its inter-attempt wait, ctx is cancelled, and the function must return
-// without consuming resubscribeDelay.
-func TestSubscribeToUpdatesReturnsPromptlyOnCancel(t *testing.T) {
+// TestSubscribeRetryReturnsPromptlyOnCancel is the same check for the other
+// retry loop: WatchStateUpdate fails repeatedly inside subscribeToUpdates,
+// the loop enters its inter-attempt wait, ctx is cancelled, and Run must
+// return without consuming resubscribeDelay.
+func TestSubscribeRetryReturnsPromptlyOnCancel(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		nopLog := log.NewNopZapLogger()
@@ -851,27 +961,133 @@ func TestSubscribeToUpdatesReturnsPromptlyOnCancel(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		subscriber := mocks.NewMockSubscriber(ctrl)
+		subscriber := mocks.NewMockSettlementLayer(ctrl)
+		subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+		subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+		subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
 		subscriber.
 			EXPECT().
-			WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+			FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, nil).
+			AnyTimes()
+		subscriber.
+			EXPECT().
+			WatchStateUpdate(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("boom")).
 			MinTimes(1)
+		subscriber.EXPECT().Close().Times(1)
 
 		client := NewClient(subscriber, chain, nopLog, WithResubscribeDelay(time.Hour))
 
 		ctx, cancel := context.WithCancel(t.Context())
-		done := make(chan event.Subscription, 1)
+		done := make(chan error, 1)
 		start := time.Now()
-		go func() {
-			done <- client.subscribeToUpdates(ctx, make(chan *contract.StarknetLogStateUpdate, 1))
-		}()
+		go func() { done <- client.Run(ctx) }()
 
+		// Wait until Run is durably blocked inside subscribeToUpdates'
+		// inter-attempt timer.
 		synctest.Wait()
 		cancel()
 
-		require.Nil(t, <-done)
+		require.NoError(t, <-done)
 		require.Less(t, time.Since(start), time.Minute,
-			"subscribeToUpdates stalled in time.Sleep after ctx cancel")
+			"Run stalled in subscribeToUpdates retry after ctx cancel")
 	})
+}
+
+// TestCancelDuringMidStreamResubscribeDoesNotPanic is a regression for
+// a nil-deref panic observed on ctrl-C: the first WatchStateUpdate
+// succeeds, the subscription later errors out (transport drop), the
+// inner resubscribe loop fails repeatedly, ctx is cancelled during a
+// retry, watchL1StateUpdates returns nil — and the deferred
+// `updateSub.Unsubscribe()` would deref a nil sub from the failed
+// resubscribe attempt.
+//
+// Goal: Run() returns cleanly with no panic.
+//
+// Real-time (not synctest) because the bug surfaces via a deferred
+// nil-deref at function exit, which we want to trigger on the real
+// scheduler.
+func TestCancelDuringMidStreamResubscribeDoesNotPanic(t *testing.T) {
+	t.Parallel()
+	ctrl := gomock.NewController(t)
+	nopLog := log.NewNopZapLogger()
+	network := networks.Mainnet
+	chain := blockchain.New(
+		memory.New(),
+		&network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	subscriber := mocks.NewMockSettlementLayer(ctrl)
+	subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.
+		EXPECT().
+		FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, nil).
+		AnyTimes()
+
+	// First WatchStateUpdate succeeds with a sub that immediately
+	// errors — drives the inner loop into the resubscribe path.
+	boom := errors.New("transport dropped")
+	firstSub := newFakeSubscription(boom)
+	firstCall := subscriber.
+		EXPECT().
+		WatchStateUpdate(gomock.Any(), gomock.Any()).
+		Return(firstSub, nil).
+		Times(1)
+
+	// Resubscribe attempt fails — leaves updateSub at nil in the caller
+	// when ctx is then cancelled, which is exactly the panic path.
+	resubCh := make(chan struct{}, 1)
+	subscriber.
+		EXPECT().
+		WatchStateUpdate(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ chan<- *StateUpdate) (eth.Subscription, error) {
+			select {
+			case resubCh <- struct{}{}:
+			default:
+			}
+			return nil, errors.New("still dead")
+		}).
+		MinTimes(1).
+		After(firstCall)
+
+	subscriber.EXPECT().Close().Times(1)
+
+	client := NewClient(subscriber, chain, nopLog,
+		WithResubscribeDelay(time.Hour),
+		WithPollFinalisedInterval(time.Millisecond),
+	)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- errors.New("panicked")
+			}
+		}()
+		done <- client.Run(ctx)
+	}()
+
+	// Wait until at least one failing resubscribe has happened — by
+	// then watchL1StateUpdates is parked in subscribeToUpdates'
+	// inter-attempt timer.
+	select {
+	case <-resubCh:
+	case <-time.After(2 * time.Second):
+		cancel()
+		t.Fatal("resubscribe never happened")
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		require.NoError(t, err, "Run must return cleanly without panic")
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after cancel")
+	}
 }
