@@ -1,13 +1,16 @@
-package node
+package node_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // fakeService lets each test drive what Run does.
@@ -23,10 +26,15 @@ func (f *fakeService) Run(ctx context.Context) error { return f.run(ctx) }
 //   - panic  -> shut the node down and propagate the panic
 //   - nil    -> let the service exit without taking the node down
 func TestStartService(t *testing.T) {
-	newNode := func() *Node { return &Node{logger: log.NewNopZapLogger()} }
+	// newNode returns a node logging into an observer so tests can assert on the
+	// messages StartService emits.
+	newNode := func() (*node.Node, *observer.ObservedLogs) {
+		core, logs := observer.New(zapcore.DebugLevel)
+		return node.NewWithLogger(log.NewZapLoggerWithCore(core)), logs
+	}
 
 	t.Run("error shuts the node down", func(t *testing.T) {
-		n := newNode()
+		n, logs := newNode()
 		wg := conc.NewWaitGroup()
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -38,10 +46,12 @@ func TestStartService(t *testing.T) {
 		wg.Wait()
 
 		require.Error(t, ctx.Err(), "a service error should shut the node down")
+		require.Equal(t, 1, logs.FilterMessage("Service error").Len(),
+			"a service error should be logged")
 	})
 
 	t.Run("panic shuts the node down and propagates", func(t *testing.T) {
-		n := newNode()
+		n, _ := newNode()
 		wg := conc.NewWaitGroup()
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -56,7 +66,7 @@ func TestStartService(t *testing.T) {
 	})
 
 	t.Run("clean return keeps the node running", func(t *testing.T) {
-		n := newNode()
+		n, logs := newNode()
 		wg := conc.NewWaitGroup()
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -80,14 +90,16 @@ func TestStartService(t *testing.T) {
 
 		<-exited // the short-lived service has returned cleanly
 
-		// Its clean exit must not cancel the node-wide context...
-		require.NoError(t, ctx.Err(), "a clean service exit should not shut the node down")
-		// ...and the long-running service must still be running.
+		// Its clean exit must not take the long-running service down with it.
 		select {
 		case <-stopped:
 			t.Fatal("long-running service stopped: node was shut down unexpectedly")
 		default:
 		}
+		// And the early return should be flagged as unexpected.
+		const earlyExitMsg = "Service stopped before node shutdown was requested"
+		require.Equal(t, 1, logs.FilterMessage(earlyExitMsg).Len(),
+			"a clean exit before shutdown should be logged")
 
 		// A real shutdown still stops everything.
 		cancel()
