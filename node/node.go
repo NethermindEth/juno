@@ -619,13 +619,26 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
+		settlement, err := newGethSettlement(context.Background(), cfg.EthNode, n.blockchain)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
+
+		// One EventListener is shared between the L1 client (which
+		// fires OnNewL1Head) and the settlement (which fires OnL1Call
+		// for every Ethereum RPC method). Metrics are registered only
+		// when the node is built with --metrics; otherwise the default
+		// no-op SelectiveListener is used.
+		l1Opts := []l1.Option{}
+		if cfg.Metrics {
+			listener := makeL1Metrics(n.blockchain, settlement)
+			settlement.SetListener(listener)
+			l1Opts = append(l1Opts, l1.WithEventListener(listener))
+		}
+
+		l1Client := l1.NewClient(settlement, n.blockchain, n.logger, l1Opts...)
 		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
+		rpcHandler.WithL1Client(settlement)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
@@ -640,9 +653,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	return n, nil
 }
 
-func newL1Client(
-	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log log.StructuredLogger,
-) (*l1.Client, error) {
+// newGethSettlement validates the Ethereum endpoint URL and dials the L1
+// client. ws/wss is enforced at the URL level because subscribe-based
+// log delivery (eth_subscribe) requires a long-lived connection that
+// HTTP doesn't provide. The listener is attached separately by the
+// caller (after metrics gauges are wired against the same instance).
+func newGethSettlement(
+	ctx context.Context,
+	ethNode string,
+	chain *blockchain.Blockchain,
+) (*l1.GethSettlement, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -651,19 +671,16 @@ func newL1Client(
 		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
 	}
 
-	network := chain.Network()
+	// One-minute timeout layered on the caller's ctx so a slow dial
+	// can't outlive node startup or the migration that triggered it.
+	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
 
-	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
+	settlement, err := l1.NewGethSettlement(dialCtx, ethNode, chain.Network().CoreContractAddress)
 	if err != nil {
-		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
+		return nil, fmt.Errorf("set up L1 settlement client: %w", err)
 	}
-
-	opts := make([]l1.Option, 0, 1)
-	if includeMetrics {
-		opts = append(opts, l1.WithEventListener(makeL1Metrics(chain, ethSubscriber)))
-	}
-	return l1.NewClient(ethSubscriber, chain, log, opts...), nil
+	return settlement, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
