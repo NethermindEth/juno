@@ -3,6 +3,7 @@ package main_test
 import (
 	"math"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,6 +19,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func parseURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+	u, err := url.ParseRequestURI(rawURL)
+	require.NoError(t, err)
+	return u
+}
 
 func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
@@ -39,8 +47,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultNetwork := networks.Mainnet
 	defaultCustomNetwork := networks.Network{
 		Name:                "custom",
-		FeederURL:           "http://awesome.feeder",
-		GatewayURL:          "http://awesome.gateway",
+		FeederURL:           parseURL(t, "http://awesome.feeder"),
+		GatewayURL:          parseURL(t, "http://awesome.gateway"),
 		L2ChainID:           "SN_AWESOME",
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
@@ -980,8 +988,8 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.feeder, config.Network.FeederURL)
-			assert.Equal(t, tc.gateway, config.Network.GatewayURL)
+			assert.Equal(t, parseURL(t, tc.feeder), config.Network.FeederURL)
+			assert.Equal(t, parseURL(t, tc.gateway), config.Network.GatewayURL)
 		})
 	}
 }

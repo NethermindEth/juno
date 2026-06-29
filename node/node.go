@@ -361,11 +361,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
 
-		feederURL, err := url.Parse(cfg.Network.FeederURL)
-		if err != nil {
-			return nil, fmt.Errorf("invalid feeder URL %s: %w", cfg.Network.FeederURL, err)
+		if cfg.Network.FeederURL == nil {
+			return nil, fmt.Errorf("network %q has no feeder URL configured", cfg.Network.Name)
 		}
-		client = feeder.NewClient(feederURL).
+		if cfg.Network.GatewayURL == nil {
+			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
+		}
+
+		client = feeder.NewClient(cfg.Network.FeederURL).
 			WithUserAgent(ua).
 			WithLogger(logger).
 			WithTimeouts(timeouts, fixed).

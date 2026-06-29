@@ -439,14 +439,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
 			}
 
-			feederURL := v.GetString(cnFeederURLF)
-			gatewayURL := v.GetString(cnGatewayURLF)
+			rawFeederURL := v.GetString(cnFeederURLF)
+			rawGatewayURL := v.GetString(cnGatewayURLF)
 
-			if err := validateHTTPURL(feederURL); err != nil {
-				return fmt.Errorf("invalid feeder URL %s: %w", feederURL, err)
+			feederURL, err := parseHTTPURL(rawFeederURL)
+			if err != nil {
+				return fmt.Errorf("invalid feeder URL %s: %w", rawFeederURL, err)
 			}
-			if err := validateHTTPURL(gatewayURL); err != nil {
-				return fmt.Errorf("invalid gateway URL %s: %w", gatewayURL, err)
+			gatewayURL, err := parseHTTPURL(rawGatewayURL)
+			if err != nil {
+				return fmt.Errorf("invalid gateway URL %s: %w", rawGatewayURL, err)
 			}
 
 			config.Network = networks.Network{
@@ -703,17 +705,17 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	return junoCmd
 }
 
-func validateHTTPURL(rawURL string) error {
+func parseHTTPURL(rawURL string) (*url.URL, error) {
 	// rejects relative / scheme-less strings
 	u, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
+		return nil, fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
 	}
 	if u.Host == "" {
-		return errors.New("URL must have a host")
+		return nil, errors.New("URL must have a host")
 	}
-	return nil
+	return u, nil
 }
