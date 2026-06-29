@@ -18,7 +18,9 @@ func TestContractAccessors(t *testing.T) {
 	addr := felt.NewUnsafeFromString[felt.Felt]("0x123")
 
 	// storeContract stores a contract with the given values and fails the test on error.
-	storeContract := func(t *testing.T, disk db.KeyValueWriter, nonce, classHash string, height uint64) {
+	storeContract := func(
+		t *testing.T, disk db.KeyValueWriter, nonce, classHash string, height uint64,
+	) {
 		t.Helper()
 		require.NoError(t, state.WriteContract(
 			disk, addr,
