@@ -243,12 +243,8 @@ func TestTransientChainIDErrorDoesNotShutDownNode(t *testing.T) {
 		}).
 		MinTimes(cancelAfter)
 
-	// After cancellation Run unwinds through catch-up and the watch loop; mirror
-	// the happy-path Run test so those downstream calls resolve cleanly.
-	subscriber.EXPECT().WatchLogStateUpdate(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).AnyTimes()
-	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	subscriber.EXPECT().FilterLogStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	// Once ctx is cancelled, Run returns early after verifyChainID without
+	// entering catch-up or the watch loop, so no other Subscriber calls occur.
 
 	client := l1.NewClient(subscriber, chain, nopLog,
 		l1.WithResubscribeDelay(0),

@@ -226,6 +226,11 @@ func (c *Client) Run(ctx context.Context) error {
 	if err := c.verifyChainID(ctx); err != nil {
 		return err
 	}
+	// verifyChainID returns nil on ctx cancellation; don't start any further
+	// RPC work (which would just fail with context canceled) if we're stopping.
+	if ctx.Err() != nil {
+		return nil
+	}
 
 	// catchUpL1HeadUpdates is best-effort: a backward eth_getLogs scan can fail
 	// on free-tier RPC providers that cap range size or rate-limit. On failure
