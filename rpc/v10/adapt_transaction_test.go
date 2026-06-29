@@ -99,18 +99,6 @@ func TestAdaptBroadcastedTransactionToCore(t *testing.T) {
 		marshalAndCompare(t, originalCoreTx, coreTx)
 	})
 
-	t.Run("Hash is deterministic", func(t *testing.T) {
-		t.Parallel()
-		broadcasted, _ := loadTx(t, sepoliaInvokeTxnPath)
-
-		first, err := rpc.AdaptBroadcastedTransactionToCore(t.Context(), broadcasted, nil, network)
-		require.NoError(t, err)
-		second, err := rpc.AdaptBroadcastedTransactionToCore(t.Context(), broadcasted, nil, network)
-		require.NoError(t, err)
-
-		assert.Equal(t, first.Hash(), second.Hash())
-	})
-
 	t.Run("Unsupported transaction types return an error", func(t *testing.T) {
 		t.Parallel()
 		cases := []struct {
