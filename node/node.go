@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
-	"runtime/debug"
 	"slices"
 	"time"
 
@@ -741,14 +740,10 @@ func (n *Node) StartService(
 
 		// A panicking service is critical: trigger a node-wide shutdown so the
 		// other services stop without waiting for the user to hit Ctrl+C, then
-		// re-panic so the WaitGroup can propagate it to the caller.
+		// re-panic so the WaitGroup can propagate it (with its stack) to the
+		// caller.
 		defer func() {
 			if r := recover(); r != nil {
-				// Capture the stack here, while it still points at the original
-				// panic site: the WaitGroup re-panics from wg.Wait(), so the
-				// stack surfaced there would point at the re-panic instead.
-				n.logger.Error("Service panicked, shutting down node",
-					zap.String("name", name), zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
 				cancel()
 				panic(r)
 			}
@@ -756,7 +751,7 @@ func (n *Node) StartService(
 
 		if err := s.Run(ctx); err != nil {
 			// A service that returns an error is critical: bring the node down.
-			n.logger.Error("Service error, shutting down node", zap.String("name", name), zap.Error(err))
+			n.logger.Error("Service error", zap.String("name", name), zap.Error(err))
 			cancel()
 			return
 		}
