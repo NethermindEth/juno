@@ -12,7 +12,7 @@ require (
 	github.com/coder/websocket v1.8.15
 	github.com/consensys/gnark-crypto v0.20.1
 	github.com/davecgh/go-spew v1.1.1
-	github.com/ethereum/go-ethereum v1.17.3
+	github.com/ethereum/go-ethereum v1.17.4
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -71,6 +71,7 @@ require (
 	github.com/ethereum/c-kzg-4844/v2 v2.1.6 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/filecoin-project/go-clock v0.1.0 // indirect
+	github.com/fjl/jsonw v0.1.0 // indirect
 	github.com/flynn/noise v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
@@ -151,7 +152,7 @@ require (
 	github.com/pion/sctp v1.9.2 // indirect
 	github.com/pion/sdp/v3 v3.0.18 // indirect
 	github.com/pion/srtp/v3 v3.0.10 // indirect
-	github.com/pion/stun/v3 v3.1.1 // indirect
+	github.com/pion/stun/v3 v3.1.2 // indirect
 	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pion/turn/v4 v4.1.4 // indirect
 	github.com/pion/webrtc/v4 v4.2.8 // indirect
