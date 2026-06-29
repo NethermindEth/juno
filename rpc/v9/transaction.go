@@ -759,6 +759,11 @@ func (h *Handler) pushToFeederGateway(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
+	tx = &BroadcastedTransaction{
+		Transaction:   tx.Transaction,
+		ContractClass: tx.ContractClass,
+	}
+
 	if tx.Type == TxnDeclare && tx.Version.Cmp(felt.NewFromUint64[felt.Felt](2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
