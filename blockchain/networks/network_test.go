@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -20,6 +21,13 @@ var networkStrings = map[networks.Network]string{
 	networks.SepoliaIntegration: "sepolia-integration",
 }
 
+func parseURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+	u, err := url.ParseRequestURI(rawURL)
+	require.NoError(t, err)
+	return u
+}
+
 func TestNetwork(t *testing.T) {
 	t.Run("string", func(t *testing.T) {
 		for network, str := range networkStrings {
@@ -29,21 +37,21 @@ func TestNetwork(t *testing.T) {
 	t.Run("feeder and gateway url", func(t *testing.T) {
 		testCases := []struct {
 			network    networks.Network
-			feederURL  string
-			gatewayURL string
+			feederURL  *url.URL
+			gatewayURL *url.URL
 		}{
-			{networks.Mainnet, "https://feeder.alpha-mainnet.starknet.io/feeder_gateway/", "https://alpha-mainnet.starknet.io/gateway/"},
-			{networks.Goerli, "https://alpha4.starknet.io/feeder_gateway/", "https://alpha4.starknet.io/gateway/"},
-			{networks.Goerli2, "https://alpha4-2.starknet.io/feeder_gateway/", "https://alpha4-2.starknet.io/gateway/"},
-			{networks.Integration, "https://external.integration.starknet.io/feeder_gateway/", "https://external.integration.starknet.io/gateway/"},
-			{networks.Sepolia, "https://feeder.alpha-sepolia.starknet.io/feeder_gateway/", "https://alpha-sepolia.starknet.io/gateway/"},
-			{networks.SepoliaIntegration, "https://feeder.integration-sepolia.starknet.io/feeder_gateway/", "https://integration-sepolia.starknet.io/gateway/"},
+			{networks.Mainnet, parseURL(t, "https://feeder.alpha-mainnet.starknet.io/feeder_gateway/"), parseURL(t, "https://alpha-mainnet.starknet.io/gateway/")},
+			{networks.Goerli, parseURL(t, "https://alpha4.starknet.io/feeder_gateway/"), parseURL(t, "https://alpha4.starknet.io/gateway/")},
+			{networks.Goerli2, parseURL(t, "https://alpha4-2.starknet.io/feeder_gateway/"), parseURL(t, "https://alpha4-2.starknet.io/gateway/")},
+			{networks.Integration, parseURL(t, "https://external.integration.starknet.io/feeder_gateway/"), parseURL(t, "https://external.integration.starknet.io/gateway/")},
+			{networks.Sepolia, parseURL(t, "https://feeder.alpha-sepolia.starknet.io/feeder_gateway/"), parseURL(t, "https://alpha-sepolia.starknet.io/gateway/")},
+			{networks.SepoliaIntegration, parseURL(t, "https://feeder.integration-sepolia.starknet.io/feeder_gateway/"), parseURL(t, "https://integration-sepolia.starknet.io/gateway/")},
 		}
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("Network %v", tc.network), func(t *testing.T) {
-				assert.Equal(t, tc.feederURL, tc.network.FeederURL.String())
-				assert.Equal(t, tc.gatewayURL, tc.network.GatewayURL.String())
+				assert.Equal(t, tc.feederURL, tc.network.FeederURL)
+				assert.Equal(t, tc.gatewayURL, tc.network.GatewayURL)
 			})
 		}
 	})

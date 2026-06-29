@@ -20,6 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func parseURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+	u, err := url.ParseRequestURI(rawURL)
+	require.NoError(t, err)
+	return u
+}
+
 func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
@@ -38,14 +45,10 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultDBPath := filepath.Join(pwd, "juno")
 	defaultCoreContractAddress := eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
 	defaultNetwork := networks.Mainnet
-	customFeederURL, err := url.Parse("http://awesome.feeder")
-	require.NoError(t, err)
-	customGatewayURL, err := url.Parse("http://awesome.gateway")
-	require.NoError(t, err)
 	defaultCustomNetwork := networks.Network{
 		Name:                "custom",
-		FeederURL:           customFeederURL,
-		GatewayURL:          customGatewayURL,
+		FeederURL:           parseURL(t, "http://awesome.feeder"),
+		GatewayURL:          parseURL(t, "http://awesome.gateway"),
 		L2ChainID:           "SN_AWESOME",
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
@@ -985,8 +988,8 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.feeder, config.Network.FeederURL.String())
-			assert.Equal(t, tc.gateway, config.Network.GatewayURL.String())
+			assert.Equal(t, parseURL(t, tc.feeder), config.Network.FeederURL)
+			assert.Equal(t, parseURL(t, tc.gateway), config.Network.GatewayURL)
 		})
 	}
 }
