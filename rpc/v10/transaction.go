@@ -186,7 +186,7 @@ func (h *Handler) pushToFeederGateway(
 	classPayload, err := ContractClassToGatewayPayload(tx.ContractClass)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
-			fmt.Sprintf("failed to get contract class payload: %v", err),
+			fmt.Sprintf("failed to get contract class payload: %s", err),
 		)
 	}
 
