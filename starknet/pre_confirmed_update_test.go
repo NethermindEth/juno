@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,15 +31,15 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 
 			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
 			require.NoError(t, err)
-			require.Equal(t, uint64(10936237), env.BlockNumber, "latest endpoint carries block_number")
+			assert.Equal(t, uint64(10936237), env.BlockNumber, "latest endpoint carries block_number")
 
 			full, ok := env.Update.(starknet.PreConfirmedBlock)
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
-			require.Equal(t, "0x1cbe25d9", full.BlockIdentifier)
-			require.Equal(t, "PRE_CONFIRMED", full.Status)
-			require.NotZero(t, full.Timestamp)
-			require.NotNil(t, full.SequencerAddress)
-			require.NotNil(t, full.L1GasPrice)
+			assert.Equal(t, "0x1cbe25d9", full.BlockIdentifier)
+			assert.Equal(t, "PRE_CONFIRMED", full.Status)
+			assert.NotZero(t, full.Timestamp)
+			assert.NotNil(t, full.SequencerAddress)
+			assert.NotNil(t, full.L1GasPrice)
 		})
 
 		t.Run("Delta decodes carrying block_number", func(t *testing.T) {
@@ -52,13 +53,13 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 
 			delta, ok := env.Update.(starknet.PreConfirmedDeltaUpdate)
 			require.True(t, ok, "expected PreConfirmedDeltaUpdate, got %T", env.Update)
-			require.Equal(t, "0x1cbe25d9", delta.BlockIdentifier)
-			require.Len(t, delta.Transactions, 1)
-			require.Len(t, delta.Receipts, 1)
-			require.Len(t, delta.TransactionStateDiffs, 1)
+			assert.Equal(t, "0x1cbe25d9", delta.BlockIdentifier)
+			assert.Len(t, delta.Transactions, 1)
+			assert.Len(t, delta.Receipts, 1)
+			assert.Len(t, delta.TransactionStateDiffs, 1)
 			// The appended tx/receipt decoded into real, non-nil wire values.
-			require.NotNil(t, delta.Transactions[0].Hash)
-			require.NotNil(t, delta.Receipts[0].TransactionHash)
+			assert.NotNil(t, delta.Transactions[0].Hash)
+			assert.NotNil(t, delta.Receipts[0].TransactionHash)
 		})
 
 		t.Run("NoChange decodes when nothing was appended", func(t *testing.T) {
@@ -80,13 +81,13 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 
 			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
 			require.NoError(t, err)
-			require.Zero(t, env.BlockNumber, "numbered endpoint omits block_number")
+			assert.Zero(t, env.BlockNumber, "numbered endpoint omits block_number")
 
 			full, ok := env.Update.(starknet.PreConfirmedBlock)
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
-			require.Equal(t, "0x1857317c", full.BlockIdentifier)
-			require.Equal(t, "PRE_CONFIRMED", full.Status)
-			require.NotZero(t, full.Timestamp)
+			assert.Equal(t, "0x1857317c", full.BlockIdentifier)
+			assert.Equal(t, "PRE_CONFIRMED", full.Status)
+			assert.NotZero(t, full.Timestamp)
 		})
 
 		t.Run("Delta decodes omitting block_number", func(t *testing.T) {
@@ -98,7 +99,7 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 
 			delta, ok := env.Update.(starknet.PreConfirmedDeltaUpdate)
 			require.True(t, ok, "expected PreConfirmedDeltaUpdate, got %T", env.Update)
-			require.Equal(t, "0x1857317c", delta.BlockIdentifier)
+			assert.Equal(t, "0x1857317c", delta.BlockIdentifier)
 		})
 
 		t.Run("NoChange decodes when nothing was appended", func(t *testing.T) {
