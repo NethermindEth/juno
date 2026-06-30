@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -141,12 +142,10 @@ func TestMismatchedChainID(t *testing.T) {
 	require.ErrorContains(t, err, "--eth-node")
 }
 
-// TestChainIDCheckTimeout asserts that the startup eth_chainId probe gives up
-// after chainIDCheckTimeout (30s in production) with a user-actionable error
-// when the L1 endpoint accepts the dial but never responds to eth_chainId
-// (e.g. --eth-node pointing at an incorrect RPC URL). The test runs inside a
-// synctest bubble so the 30s wait advances in virtual time and the test
-// completes in microseconds of wallclock.
+// TestChainIDCheckTimeout asserts a chain-ID probe gives up after 30s with a
+// user-actionable error when the L1 endpoint never answers eth_chainId. It uses
+// the one-shot CatchUpL1Head path, which fails fast (Run now retries instead,
+// per issue #1385). synctest advances the 30s wait in virtual time.
 func TestChainIDCheckTimeout(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		network := networks.Mainnet
@@ -171,12 +170,14 @@ func TestChainIDCheckTimeout(t *testing.T) {
 
 		client := l1.NewClient(subscriber, chain, nopLog)
 
-		err := client.Run(t.Context())
+		err := client.CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, "eth_chainId did not respond within")
 		require.ErrorContains(t, err, "--eth-node")
 	})
 }
 
+// TestChainIDFetchError asserts a non-timeout eth_chainId failure is wrapped and
+// surfaced by the fail-fast CatchUpL1Head path (Run retries it instead, #1385).
 func TestChainIDFetchError(t *testing.T) {
 	t.Parallel()
 
@@ -200,11 +201,59 @@ func TestChainIDFetchError(t *testing.T) {
 
 	client := l1.NewClient(subscriber, chain, nopLog)
 
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	t.Cleanup(cancel)
-	err := client.Run(ctx)
+	err := client.CatchUpL1Head(t.Context())
 	require.ErrorContains(t, err, "retrieving Ethereum chain ID")
 	require.ErrorIs(t, err, rpcErr)
+}
+
+// TestTransientChainIDErrorDoesNotShutDownNode is the regression guard for issue
+// #1385: a transient eth_chainId failure (the rate-limit error from the issue) is
+// retried, not fatal. ChainID keeps failing; the node-wide context is cancelled
+// on the third attempt. Run must then return no error, having retried more than
+// once instead of aborting on the first failure (the old, node-killing behaviour).
+func TestTransientChainIDErrorDoesNotShutDownNode(t *testing.T) {
+	t.Parallel()
+
+	network := networks.Mainnet
+	ctrl := gomock.NewController(t)
+	nopLog := log.NewNopZapLogger()
+	chain := blockchain.New(
+		memory.New(),
+		&network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+
+	subscriber := mocks.NewMockSubscriber(ctrl)
+	subscriber.EXPECT().Close().Times(1)
+
+	const cancelAfter = 3
+	var chainIDCalls atomic.Int32
+	rateLimitErr := errors.New("daily request count exceeded, request rate limited")
+	subscriber.
+		EXPECT().
+		ChainID(gomock.Any()).
+		DoAndReturn(func(context.Context) (*big.Int, error) {
+			if chainIDCalls.Add(1) == cancelAfter {
+				cancel() // shut down while L1 is still retrying
+			}
+			return nil, rateLimitErr
+		}).
+		MinTimes(cancelAfter)
+
+	// Once ctx is cancelled, Run returns early after verifyChainID without
+	// entering catch-up or the watch loop, so no other Subscriber calls occur.
+
+	client := l1.NewClient(subscriber, chain, nopLog,
+		l1.WithResubscribeDelay(0),
+		l1.WithPollFinalisedInterval(time.Nanosecond),
+	)
+
+	require.NoError(t, client.Run(ctx))
+	require.GreaterOrEqual(t, chainIDCalls.Load(), int32(cancelAfter),
+		"a transient chain ID error should be retried, not shut the node down")
 }
 
 // TestFinalisedHeightTimeoutDuringCatchUp asserts that the L1 catch-up startup
