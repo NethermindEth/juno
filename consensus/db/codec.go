@@ -159,7 +159,7 @@ func decodeWALRecord[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 	if decoder.remaining() != 0 {
 		return walRecordEnvelope[V, H, A]{}, fmt.Errorf(
-			"trailing WAL record bytes: %d",
+			"unexpected remaining WAL record bytes: %d",
 			decoder.remaining(),
 		)
 	}
