@@ -97,7 +97,7 @@ func appendWALRecordPayload[V types.Hashable[H], H types.Hash, A types.Addr](
 			} else {
 				payload = append(payload, 1)
 				var err error
-				payload, err = appendValue(payload, *proposalMessage.Value)
+				payload, err = appendValue(payload, proposalMessage.Value)
 				if err != nil {
 					return nil, err
 				}
@@ -322,7 +322,7 @@ func appendUint64Array[T ~[4]uint64](payload []byte, value T) []byte {
 	return payload
 }
 
-func appendValue[V any](payload []byte, value V) ([]byte, error) {
+func appendValue[V any](payload []byte, value *V) ([]byte, error) {
 	array, err := valueToUint64Array(value)
 	if err != nil {
 		return nil, err
@@ -426,8 +426,8 @@ func readValue[V any](d *walRecordDecoder) (V, error) {
 	return uint64ArrayToValue[V](array)
 }
 
-func valueToUint64Array[V any](value V) ([4]uint64, error) {
-	reflectValue := reflect.ValueOf(value)
+func valueToUint64Array[V any](value *V) ([4]uint64, error) {
+	reflectValue := reflect.ValueOf(value).Elem()
 	if reflectValue.Kind() != reflect.Array ||
 		reflectValue.Len() != 4 ||
 		reflectValue.Type().Elem().Kind() != reflect.Uint64 {
