@@ -43,10 +43,10 @@ func (m *MockFeederReader) EXPECT() *MockFeederReaderMockRecorder {
 }
 
 // Block mocks base method.
-func (m *MockFeederReader) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
+func (m *MockFeederReader) Block(ctx context.Context, blockID string) (starknet.Block, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Block", ctx, blockID)
-	ret0, _ := ret[0].(*starknet.Block)
+	ret0, _ := ret[0].(starknet.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -73,10 +73,10 @@ func (mr *MockFeederReaderMockRecorder) BlockHeader(ctx, blockID any) *gomock.Ca
 }
 
 // BlockTrace mocks base method.
-func (m *MockFeederReader) BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error) {
+func (m *MockFeederReader) BlockTrace(ctx context.Context, blockHash string) (starknet.BlockTrace, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockTrace", ctx, blockHash)
-	ret0, _ := ret[0].(*starknet.BlockTrace)
+	ret0, _ := ret[0].(starknet.BlockTrace)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -88,10 +88,10 @@ func (mr *MockFeederReaderMockRecorder) BlockTrace(ctx, blockHash any) *gomock.C
 }
 
 // CasmClassDefinition mocks base method.
-func (m *MockFeederReader) CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CasmClass, error) {
+func (m *MockFeederReader) CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (starknet.CasmClass, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CasmClassDefinition", ctx, classHash)
-	ret0, _ := ret[0].(*starknet.CasmClass)
+	ret0, _ := ret[0].(starknet.CasmClass)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,10 +103,10 @@ func (mr *MockFeederReaderMockRecorder) CasmClassDefinition(ctx, classHash any) 
 }
 
 // ClassDefinition mocks base method.
-func (m *MockFeederReader) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
+func (m *MockFeederReader) ClassDefinition(ctx context.Context, classHash *felt.Felt) (starknet.ClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClassDefinition", ctx, classHash)
-	ret0, _ := ret[0].(*starknet.ClassDefinition)
+	ret0, _ := ret[0].(starknet.ClassDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,10 +163,10 @@ func (mr *MockFeederReaderMockRecorder) PublicKey(ctx any) *gomock.Call {
 }
 
 // Signature mocks base method.
-func (m *MockFeederReader) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
+func (m *MockFeederReader) Signature(ctx context.Context, blockID string) (starknet.Signature, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Signature", ctx, blockID)
-	ret0, _ := ret[0].(*starknet.Signature)
+	ret0, _ := ret[0].(starknet.Signature)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -178,10 +178,10 @@ func (mr *MockFeederReaderMockRecorder) Signature(ctx, blockID any) *gomock.Call
 }
 
 // StateUpdate mocks base method.
-func (m *MockFeederReader) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
+func (m *MockFeederReader) StateUpdate(ctx context.Context, blockID string) (starknet.StateUpdate, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateUpdate", ctx, blockID)
-	ret0, _ := ret[0].(*starknet.StateUpdate)
+	ret0, _ := ret[0].(starknet.StateUpdate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -193,10 +193,10 @@ func (mr *MockFeederReaderMockRecorder) StateUpdate(ctx, blockID any) *gomock.Ca
 }
 
 // StateUpdateWithBlock mocks base method.
-func (m *MockFeederReader) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
+func (m *MockFeederReader) StateUpdateWithBlock(ctx context.Context, blockID string) (starknet.StateUpdateWithBlock, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateUpdateWithBlock", ctx, blockID)
-	ret0, _ := ret[0].(*starknet.StateUpdateWithBlock)
+	ret0, _ := ret[0].(starknet.StateUpdateWithBlock)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -208,10 +208,10 @@ func (mr *MockFeederReaderMockRecorder) StateUpdateWithBlock(ctx, blockID any) *
 }
 
 // StateUpdateWithBlockAndSignature mocks base method.
-func (m *MockFeederReader) StateUpdateWithBlockAndSignature(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlockAndSignature, error) {
+func (m *MockFeederReader) StateUpdateWithBlockAndSignature(ctx context.Context, blockID string) (starknet.StateUpdateWithBlockAndSignature, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateUpdateWithBlockAndSignature", ctx, blockID)
-	ret0, _ := ret[0].(*starknet.StateUpdateWithBlockAndSignature)
+	ret0, _ := ret[0].(starknet.StateUpdateWithBlockAndSignature)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -223,10 +223,10 @@ func (mr *MockFeederReaderMockRecorder) StateUpdateWithBlockAndSignature(ctx, bl
 }
 
 // Transaction mocks base method.
-func (m *MockFeederReader) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.DeprecatedTransactionStatus, error) {
+func (m *MockFeederReader) Transaction(ctx context.Context, transactionHash *felt.Felt) (starknet.DeprecatedTransactionStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Transaction", ctx, transactionHash)
-	ret0, _ := ret[0].(*starknet.DeprecatedTransactionStatus)
+	ret0, _ := ret[0].(starknet.DeprecatedTransactionStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -238,10 +238,10 @@ func (mr *MockFeederReaderMockRecorder) Transaction(ctx, transactionHash any) *g
 }
 
 // TransactionStatus mocks base method.
-func (m *MockFeederReader) TransactionStatus(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
+func (m *MockFeederReader) TransactionStatus(ctx context.Context, transactionHash *felt.Felt) (starknet.TransactionStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionStatus", ctx, transactionHash)
-	ret0, _ := ret[0].(*starknet.TransactionStatus)
+	ret0, _ := ret[0].(starknet.TransactionStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

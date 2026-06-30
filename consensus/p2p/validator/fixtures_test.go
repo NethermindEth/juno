@@ -99,15 +99,19 @@ func BuildTestFixture(
 
 	proposer := &common.Address{Elements: ToBytes(*block.Header.SequencerAddress)}
 	concatCounts := calculateConcatCounts(block, stateUpdate)
-	totalGasConsumed := calculateTotalGasConsumed(rawStateUpdate)
+	totalGasConsumed := calculateTotalGasConsumed(&rawStateUpdate)
 
 	proposalInit := buildProposalInit(testCase, proposer)
 	blockInfo := buildBlockInfo(testCase.Height, proposer, block)
 	transactions := buildTransactions(t, gw, block, testCase.TxBatchCount)
-	proposalCommitment := buildProposalCommitment(rawStateUpdate, block, headBlock, proposer, concatCounts, totalGasConsumed)
+	proposalCommitment := buildProposalCommitment(
+		&rawStateUpdate, block, headBlock, proposer, concatCounts, totalGasConsumed,
+	)
 	proposalFin := buildProposalFin(block)
 
-	buildResult := buildBuildResult(t, gw, block, stateUpdate, rawStateUpdate, concatCounts, totalGasConsumed)
+	buildResult := buildBuildResult(
+		t, gw, block, stateUpdate, &rawStateUpdate, concatCounts, totalGasConsumed,
+	)
 
 	proposal := buildProposal(testCase.Round, testCase.ValidRound, block)
 

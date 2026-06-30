@@ -534,7 +534,7 @@ func (h *Handler) fetchTracesFromFeederGateway(
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces, err := AdaptFeederBlockTrace(rpcBlock, blockTrace)
+	traces, err := AdaptFeederBlockTrace(rpcBlock, &blockTrace)
 	if err != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}

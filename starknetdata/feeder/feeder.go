@@ -81,7 +81,7 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		signature = sig.Signature
 	}
 
-	return sn2core.AdaptBlock(response, signature)
+	return sn2core.AdaptBlock(&response, signature)
 }
 
 // Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,
@@ -115,7 +115,14 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDef
 			return nil, cErr
 		}
 
-		return sn2core.AdaptSierraClass(response.Sierra, casmClass)
+		// A deprecated compiled class yields no CASM; pass nil so the adapter
+		// treats the Sierra class as having no compiled counterpart.
+		var compiledClass *starknet.CasmClass
+		if cErr == nil {
+			compiledClass = &casmClass
+		}
+
+		return sn2core.AdaptSierraClass(response.Sierra, compiledClass)
 	case response.DeprecatedCairo != nil:
 		return sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo)
 	default:
@@ -129,7 +136,7 @@ func (f *Feeder) stateUpdate(ctx context.Context, blockID string) (*core.StateUp
 		return nil, err
 	}
 
-	return sn2core.AdaptStateUpdate(response)
+	return sn2core.AdaptStateUpdate(&response)
 }
 
 // StateUpdate gets the state update for a given block number from the feeder,
@@ -155,7 +162,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		if err != nil {
 			return nil, nil, err
 		}
-		stateUpBlock = *resp
+		stateUpBlock = resp
 	} else {
 		resp, err := f.client.StateUpdateWithBlockAndSignature(ctx, blockID)
 		if err != nil {
