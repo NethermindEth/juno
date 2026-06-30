@@ -97,7 +97,8 @@ func TestStartService(t *testing.T) {
 		default:
 		}
 		// And the early return should be flagged as unexpected.
-		require.Equal(t, 1, logs.FilterMessage("Service stopped before node shutdown was requested").Len(),
+		require.Equal(t, 1,
+			logs.FilterMessage("Service stopped before node shutdown was requested").Len(),
 			"a clean exit before shutdown should be logged")
 
 		// A real shutdown still stops everything.
