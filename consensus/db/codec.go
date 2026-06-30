@@ -32,9 +32,8 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 		keyLenBytes           = 1
 		keyBytes              = 4
 		estimatedPayloadBytes = 128
+		estimatedRecordBytes  = kindBytes + keyLenBytes + keyBytes + valueLenBytes + estimatedPayloadBytes
 	)
-	estimatedRecordBytes := kindBytes + keyLenBytes + keyBytes +
-		valueLenBytes + estimatedPayloadBytes
 	estimatedBatchBytes := batchrepr.HeaderLen + len(records)*estimatedRecordBytes
 	if cap(encodedBatch) < estimatedBatchBytes {
 		encodedBatch = make([]byte, batchrepr.HeaderLen, estimatedBatchBytes)
