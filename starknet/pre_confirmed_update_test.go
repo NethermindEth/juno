@@ -1,7 +1,7 @@
 package starknet_test
 
 import (
-	"encoding/json"
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,15 +21,15 @@ func loadFeederTestdata(t *testing.T, relPath string) []byte {
 	return data
 }
 
-func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
+func TestDecodePreConfirmedUpdate(t *testing.T) {
 	// The latest tag carries block_number on the wire (the caller is
 	// discovering the tip), so the envelope unwraps it into BlockNumber.
 	t.Run("latest tag response", func(t *testing.T) {
 		t.Run("Full decodes as a new round carrying block_number", func(t *testing.T) {
 			raw := loadFeederTestdata(t, "sepolia/preconfirmed/latest/full.json")
 
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.NoError(t, json.Unmarshal(raw, &env))
+			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.NoError(t, err)
 			require.Equal(t, uint64(10936237), env.BlockNumber, "latest endpoint carries block_number")
 
 			full, ok := env.Update.(starknet.PreConfirmedBlock)
@@ -46,8 +46,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 			// transactions/receipts/state-diffs appended since the known tx count.
 			raw := loadFeederTestdata(t, "sepolia/preconfirmed/latest/0x1cbe25d9/3.json")
 
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.NoError(t, json.Unmarshal(raw, &env))
+			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.NoError(t, err)
 			require.Equal(t, uint64(10936237), env.BlockNumber, "latest endpoint carries block_number")
 
 			delta, ok := env.Update.(starknet.PreConfirmedDeltaUpdate)
@@ -64,8 +64,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		t.Run("NoChange decodes when nothing was appended", func(t *testing.T) {
 			raw := loadFeederTestdata(t, "sepolia/preconfirmed/latest/0x1cbe25d9/4.json")
 
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.NoError(t, json.Unmarshal(raw, &env))
+			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.NoError(t, err)
 
 			_, ok := env.Update.(starknet.PreConfirmedNoChange)
 			require.True(t, ok, "expected PreConfirmedNoChange, got %T", env.Update)
@@ -78,8 +78,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		t.Run("Full decodes as a new round omitting block_number", func(t *testing.T) {
 			raw := loadFeederTestdata(t, "sepolia/preconfirmed/1781802365/full.json")
 
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.NoError(t, json.Unmarshal(raw, &env))
+			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.NoError(t, err)
 			require.Zero(t, env.BlockNumber, "numbered endpoint omits block_number")
 
 			full, ok := env.Update.(starknet.PreConfirmedBlock)
@@ -92,8 +92,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		t.Run("Delta decodes omitting block_number", func(t *testing.T) {
 			raw := loadFeederTestdata(t, "sepolia/preconfirmed/1781802365/0x1857317c/2.json")
 
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.NoError(t, json.Unmarshal(raw, &env))
+			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.NoError(t, err)
 			require.Zero(t, env.BlockNumber, "numbered endpoint omits block_number")
 
 			delta, ok := env.Update.(starknet.PreConfirmedDeltaUpdate)
@@ -104,8 +104,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		t.Run("NoChange decodes when nothing was appended", func(t *testing.T) {
 			raw := loadFeederTestdata(t, "sepolia/preconfirmed/1781802365/0x1857317c/4.json")
 
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.NoError(t, json.Unmarshal(raw, &env))
+			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.NoError(t, err)
 
 			_, ok := env.Update.(starknet.PreConfirmedNoChange)
 			require.True(t, ok, "expected PreConfirmedNoChange, got %T", env.Update)
@@ -115,8 +115,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 	// Variant discrimination and malformed payloads are endpoint-independent.
 	t.Run("discrimination and malformed payloads", func(t *testing.T) {
 		t.Run("changed absent returns error", func(t *testing.T) {
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.Error(t, json.Unmarshal([]byte(`{}`), &env))
+			_, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader([]byte(`{}`)))
+			require.Error(t, err)
 		})
 
 		t.Run("changed=false ignores additional fields", func(t *testing.T) {
@@ -128,30 +128,30 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 				"transactions": [{"transaction_hash": "0x1"}]
 			}`)
 
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.NoError(t, json.Unmarshal(raw, &env))
+			env, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.NoError(t, err)
 
 			_, ok := env.Update.(starknet.PreConfirmedNoChange)
 			require.True(t, ok, "expected PreConfirmedNoChange, got %T", env.Update)
 		})
 
 		t.Run("invalid JSON returns error", func(t *testing.T) {
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.Error(t, json.Unmarshal([]byte(`{`), &env))
+			_, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader([]byte(`{`)))
+			require.Error(t, err)
 		})
 
 		t.Run("invalid Full payload returns error", func(t *testing.T) {
 			// `timestamp` must be a uint64; passing an object surfaces the inner
 			// decode error rather than being silently dropped.
 			raw := []byte(`{"changed": true, "timestamp": {}}`)
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.Error(t, json.Unmarshal(raw, &env))
+			_, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.Error(t, err)
 		})
 
 		t.Run("invalid Delta payload returns error", func(t *testing.T) {
 			raw := []byte(`{"changed": true, "block_identifier": 7}`)
-			var env starknet.PreConfirmedUpdateEnvelope
-			require.Error(t, json.Unmarshal(raw, &env))
+			_, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(raw))
+			require.Error(t, err)
 		})
 	})
 }

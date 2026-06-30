@@ -4,31 +4,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// PreConfirmedUpdate is a sealed sum type for "get_preconfirmed_block" responses.
-// One of [PreConfirmedNoChange], [PreConfirmedDeltaUpdate], or [PreConfirmedBlock].
+// PreConfirmedUpdate is a sealed sum type for "get_preconfirmed_block" responses:
+// one of [PreConfirmedNoChange], [PreConfirmedDeltaUpdate], or [PreConfirmedBlock].
+//
+// The wire JSON's top-level "changed" boolean is not modelled on any variant;
+// [DecodePreConfirmedUpdate] uses it only to discriminate, then discards it.
 type PreConfirmedUpdate interface {
 	isPreConfirmedUpdate()
 }
 
 // PreConfirmedNoChange means the server's pre_confirmed matches what the caller already has.
-//
-// Note: the wire JSON also carries a top-level `"changed"` boolean which is not
-// modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
-// variant discrimination and discards it before decoding into this struct.
 type PreConfirmedNoChange struct{}
 
 func (PreConfirmedNoChange) isPreConfirmedUpdate() {}
 
 // PreConfirmedDeltaUpdate carries transactions/receipts/state diffs appended since the
 // caller's known transaction count for the same block_identifier.
-//
-// Note: the wire JSON also carries a top-level `"changed"` boolean which is not
-// modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
-// variant discrimination and discards it before decoding into this struct.
 type PreConfirmedDeltaUpdate struct {
 	BlockIdentifier       string                `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
@@ -52,10 +48,6 @@ func (val *PreConfirmedDeltaUpdate) validate() error {
 }
 
 // PreConfirmedBlock carries a full pre_confirmed block for a new round.
-//
-// Note: the wire JSON also carries a top-level `"changed"` boolean which is not
-// modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
-// variant discrimination and discards it before decoding into this struct.
 type PreConfirmedBlock struct {
 	BlockIdentifier       string                `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
@@ -135,53 +127,60 @@ var (
 	_ PreConfirmedUpdate = PreConfirmedBlock{}
 )
 
-// PreConfirmedUpdateEnvelope is the JSON-decodable carrier for a [PreConfirmedUpdate].
-// Discrimination is structural:
-//   - "changed": false                → NoChange
-//   - "changed": true + "timestamp"   → Full (new round)
-//   - "changed": true, no "timestamp" → Delta
+// PreConfirmedUpdateEnvelope is the discriminated carrier for a [PreConfirmedUpdate].
 //
-// BlockNumber is set when the response carries a top-level "block_number"
-// (the "latest" endpoint includes it; the explicit-number endpoint does not,
-// since the caller already knows the requested number).
+// BlockNumber is set when the response carries a top-level "block_number": the
+// "latest" endpoint includes it; the explicit-number endpoint does not, since
+// the caller already knows the requested number.
+//
+// Decode via [DecodePreConfirmedUpdate].
 type PreConfirmedUpdateEnvelope struct {
 	Update      PreConfirmedUpdate
 	BlockNumber uint64
 }
 
-func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
-	var peek struct {
-		Changed     *bool   `json:"changed"`
-		Timestamp   *uint64 `json:"timestamp"`
-		BlockNumber *uint64 `json:"block_number"`
+// preConfirmedWire is the flat shape the decoder fills. Discrimination is structural:
+//   - "changed": false                → NoChange
+//   - "changed": true + "timestamp"   → Full block (new round)
+//   - "changed": true, no "timestamp" → Delta
+type preConfirmedWire struct {
+	Changed     *bool   `json:"changed"`
+	BlockNumber *uint64 `json:"block_number"`
+	PreConfirmedBlock
+}
+
+// DecodePreConfirmedUpdate decodes a "get_preconfirmed_block" response and
+// discriminates it into a [PreConfirmedUpdateEnvelope].
+func DecodePreConfirmedUpdate(r io.Reader) (PreConfirmedUpdateEnvelope, error) {
+	var raw preConfirmedWire
+	if err := json.NewDecoder(r).Decode(&raw); err != nil {
+		return PreConfirmedUpdateEnvelope{}, err
 	}
-	if err := json.Unmarshal(data, &peek); err != nil {
-		return err
+	if raw.Changed == nil {
+		return PreConfirmedUpdateEnvelope{}, errors.New(
+			"pre_confirmed update: missing required \"changed\" field",
+		)
 	}
-	if peek.Changed == nil {
-		return errors.New("pre_confirmed update: missing required \"changed\" field")
-	}
-	if peek.BlockNumber != nil {
-		e.BlockNumber = *peek.BlockNumber
+
+	var env PreConfirmedUpdateEnvelope
+	if raw.BlockNumber != nil {
+		env.BlockNumber = *raw.BlockNumber
 	}
 
 	switch {
-	case !*peek.Changed:
-		e.Update = PreConfirmedNoChange{}
-	case peek.Timestamp != nil:
-		var full PreConfirmedBlock
-		if err := json.Unmarshal(data, &full); err != nil {
-			return err
-		}
-		e.Update = full
+	case !*raw.Changed:
+		env.Update = PreConfirmedNoChange{}
+	case raw.Timestamp != 0:
+		env.Update = raw.PreConfirmedBlock
 	default:
-		var delta PreConfirmedDeltaUpdate
-		if err := json.Unmarshal(data, &delta); err != nil {
-			return err
+		env.Update = PreConfirmedDeltaUpdate{
+			BlockIdentifier:       raw.BlockIdentifier,
+			Transactions:          raw.Transactions,
+			Receipts:              raw.Receipts,
+			TransactionStateDiffs: raw.TransactionStateDiffs,
 		}
-		e.Update = delta
 	}
-	return nil
+	return env, nil
 }
 
 func (e *PreConfirmedUpdateEnvelope) Validate() error {
