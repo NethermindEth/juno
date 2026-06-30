@@ -92,14 +92,14 @@ The CPU time limit counts seconds of CPU actually consumed by the compilation pr
 
 ### Compilation concurrency
 
-`--max-concurrent-compilations` controls how many compilations run at once. At its default of `0`, Juno derives a safe value so concurrent compilations cannot exhaust RAM:
+`--max-concurrent-compilations` controls how many compilations run at once. Left empty (the default), Juno derives a safe value so concurrent compilations cannot exhaust RAM:
 
 ```
 limit = min((available_memory - node_memory_reserve) / max_compilation_memory, cpu_cores)
 ```
 
-- `--max-concurrent-compilations` (default: 0): `0` derives the value as above; any other value is used directly.
-- `--max-compilation-queue` (default: 0): How many requests wait once the concurrency limit is reached before new ones are rejected. `0` uses twice the concurrency limit.
+- `--max-concurrent-compilations` (default: empty): empty derives the value as above; any non-negative integer is used directly (`0` disables compilations).
+- `--max-compilation-queue` (default: empty): How many requests wait once the concurrency limit is reached before new ones are rejected. Empty uses twice the concurrency limit.
 - `--node-memory-reserve` (default: 4096 MB): Memory kept for the rest of the node, excluded from the compilation budget.
 
 The available memory respects container limits (cgroups), so inside a memory-capped container the value reflects the container, not the host. On non-Linux, where the per-compilation memory limit does not apply, the limit is simply the CPU core count.
