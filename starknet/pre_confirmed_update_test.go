@@ -37,9 +37,12 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
 			assert.Equal(t, "0x1cbe25d9", full.BlockIdentifier)
 			assert.Equal(t, "PRE_CONFIRMED", full.Status)
+			assert.Equal(t, "0.14.2", full.Version)
 			assert.NotZero(t, full.Timestamp)
 			assert.NotNil(t, full.SequencerAddress)
 			assert.NotNil(t, full.L1GasPrice)
+			assert.NotNil(t, full.L2GasPrice)
+			assert.NotNil(t, full.L1DataGasPrice)
 		})
 
 		t.Run("Delta decodes carrying block_number", func(t *testing.T) {
@@ -87,7 +90,12 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
 			assert.Equal(t, "0x1857317c", full.BlockIdentifier)
 			assert.Equal(t, "PRE_CONFIRMED", full.Status)
+			assert.Equal(t, "0.14.2", full.Version)
 			assert.NotZero(t, full.Timestamp)
+			assert.NotNil(t, full.SequencerAddress)
+			assert.NotNil(t, full.L1GasPrice)
+			assert.NotNil(t, full.L2GasPrice)
+			assert.NotNil(t, full.L1DataGasPrice)
 		})
 
 		t.Run("Delta decodes omitting block_number", func(t *testing.T) {
