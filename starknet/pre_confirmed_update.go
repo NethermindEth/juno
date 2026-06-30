@@ -75,6 +75,9 @@ func (pb *PreConfirmedBlock) validate() error {
 	if pb.Version == "" {
 		return errors.New("version is required")
 	}
+	if pb.Timestamp == 0 {
+		return errors.New("timestamp is required")
+	}
 	if pb.SequencerAddress == nil {
 		return errors.New("sequencer_address is required")
 	}
