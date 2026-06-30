@@ -335,7 +335,7 @@ func TestAdapterErrorPaths(t *testing.T) {
 	})
 
 	t.Run("PreConfirmedBlockByNumber error", func(t *testing.T) {
-		preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, missing, "", 0)
+		preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, missing, 0, 0)
 		assert.Zero(t, preConfirmed)
 		assert.Error(t, err)
 	})
@@ -361,7 +361,7 @@ func TestPreConfirmedBlock(t *testing.T) {
 	ctx := t.Context()
 	blockNumber := uint64(11252240)
 
-	update, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber, "", 0)
+	update, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber, 0, 0)
 	require.NoError(t, err)
 	full, ok := update.(starknet.PreConfirmedBlock)
 	require.True(t, ok, "expected PreConfirmedBlock, got %T", update)

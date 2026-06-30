@@ -37,7 +37,7 @@ type MockDataSource struct {
 	PreConfirmedFunc           func(
 		ctx context.Context,
 		number uint64,
-		blockIdentifier string,
+		blockIdentifier starknet.BlockIdentifier,
 		knownTransactionCount uint64,
 		numCalls uint,
 	) (starknet.PreConfirmedUpdate, error)
@@ -61,7 +61,7 @@ func (m *MockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest,
 func (m *MockDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	number uint64,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
 	m.numCallsPreConfirmed += 1
@@ -83,7 +83,7 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 	// than the last (count grows with numCalls) so the storage's
 	// preserve-if-richer rotation actually rotates.
 	txCount := int(number%10 + uint64(m.numCallsPreConfirmed)/2)
-	return makeTestPreConfirmedBlock("mock", txCount), nil
+	return makeTestPreConfirmedBlock(0, txCount), nil
 }
 
 // makeTestPreConfirmedBlock returns a starknet.PreConfirmedBlock carrying
@@ -93,7 +93,7 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(
 //
 // The block number is NOT carried by PreConfirmedBlock — it is provided
 // separately to AdaptPreConfirmedBlock by the caller.
-func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfirmedBlock {
+func makeTestPreConfirmedBlock(identifier starknet.BlockIdentifier, txCount int) starknet.PreConfirmedBlock {
 	txs := make([]starknet.Transaction, txCount)
 	receipts := make([]*starknet.TransactionReceipt, txCount)
 	stateDiffs := make([]*starknet.StateDiff, txCount)
@@ -495,18 +495,18 @@ func TestPollPendingData(t *testing.T) {
 		// height 2 — Full → Delta(+1 tx) → Full(new identifier) → NoChange.
 		emptyFelts := []*felt.Felt{}
 		script := []starknet.PreConfirmedUpdate{
-			makeTestPreConfirmedBlock("block1-id", 1),
+			makeTestPreConfirmedBlock(1, 1),
 			starknet.PreConfirmedNoChange{},
-			makeTestPreConfirmedBlock("block2-id", 0),
+			makeTestPreConfirmedBlock(2, 0),
 			starknet.PreConfirmedDeltaUpdate{
-				BlockIdentifier: "block2-id",
+				BlockIdentifier: 2,
 				Transactions: []starknet.Transaction{
 					{Type: starknet.TxnInvoke, CallData: &emptyFelts, Signature: &emptyFelts},
 				},
 				Receipts:              []*starknet.TransactionReceipt{{}},
 				TransactionStateDiffs: []*starknet.StateDiff{{}},
 			},
-			makeTestPreConfirmedBlock("0xdeadbeef", 0),
+			makeTestPreConfirmedBlock(0xdeadbeef, 0),
 			starknet.PreConfirmedNoChange{},
 		}
 
@@ -517,7 +517,7 @@ func TestPollPendingData(t *testing.T) {
 					return pending.PreLatest{}, errors.New("no PreLatest available")
 				},
 				PreConfirmedFunc: func(
-					_ context.Context, _ uint64, _ string, _ uint64, numCalls uint,
+					_ context.Context, _ uint64, _ starknet.BlockIdentifier, _ uint64, numCalls uint,
 				) (starknet.PreConfirmedUpdate, error) {
 					if int(numCalls) > len(script) {
 						return starknet.PreConfirmedNoChange{}, nil
@@ -691,6 +691,6 @@ func seedPreConfirmedAtNumber(t *testing.T, s *Synchronizer, number uint64) {
 		Block: &core.Block{
 			Header: &core.Header{Number: number},
 		},
-		BlockIdentifier: feeder.PreConfirmedBlankIdentifier,
+		BlockIdentifier: uint64(feeder.PreConfirmedBlankIdentifier),
 	})
 }

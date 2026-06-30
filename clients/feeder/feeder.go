@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -22,7 +23,7 @@ const (
 	classHashArg   = "classHash"
 	trueStr        = "true"
 
-	PreConfirmedBlankIdentifier = "0x0"
+	PreConfirmedBlankIdentifier starknet.BlockIdentifier = 0
 )
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
@@ -55,7 +56,7 @@ type Reader interface {
 	PreConfirmedBlockWithIdentifier(
 		ctx context.Context,
 		blockNumber string,
-		blockIdentifier string,
+		blockIdentifier starknet.BlockIdentifier,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
 	PublicKey(ctx context.Context) (*felt.Felt, error)
@@ -379,15 +380,12 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 func (c *Client) PreConfirmedBlockWithIdentifier(
 	ctx context.Context,
 	blockNumber string,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
-	if blockIdentifier == "" {
-		blockIdentifier = PreConfirmedBlankIdentifier
-	}
 	queryURL := buildQueryString(c.url, "get_preconfirmed_block", map[string]string{
 		blockNumberArg:          blockNumber,
-		"blockIdentifier":       blockIdentifier,
+		"blockIdentifier":       fmt.Sprintf("0x%x", blockIdentifier),
 		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
 	})
 

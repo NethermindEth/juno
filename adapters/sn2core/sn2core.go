@@ -578,7 +578,7 @@ func AdaptPreConfirmedBlock(
 		adaptedBlock,
 		&stateUpdate,
 		txStateDiffs,
-		response.BlockIdentifier,
+		uint64(response.BlockIdentifier),
 	)
 	return preConfirmed, nil
 }
@@ -592,7 +592,7 @@ func AdaptPreConfirmedWithDelta(
 	current *pending.PreConfirmed,
 	delta *starknet.PreConfirmedDeltaUpdate,
 ) (pending.PreConfirmed, error) {
-	if current.BlockIdentifier != delta.BlockIdentifier {
+	if current.BlockIdentifier != uint64(delta.BlockIdentifier) {
 		return pending.PreConfirmed{}, ErrPreConfirmedIdentifierMismatch
 	}
 

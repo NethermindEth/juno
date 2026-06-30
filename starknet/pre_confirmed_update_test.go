@@ -36,7 +36,7 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 
 		full, ok := env.Update.(starknet.PreConfirmedBlock)
 		require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
-		require.NotEmpty(t, full.BlockIdentifier, "new-round Full must carry an identifier")
+		require.NotZero(t, full.BlockIdentifier, "new-round Full must carry an identifier")
 		require.Equal(t, "PRE_CONFIRMED", full.Status)
 		require.NotZero(t, full.Timestamp)
 		require.NotNil(t, full.SequencerAddress)
@@ -78,7 +78,7 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 	t.Run("changed=true without timestamp decodes as Delta", func(t *testing.T) {
 		raw := []byte(`{
 			"changed": true,
-			"block_identifier": "abc123",
+			"block_identifier": 123,
 			"transactions": [],
 			"transaction_receipts": [],
 			"transaction_state_diffs": []
@@ -89,7 +89,7 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 
 		delta, ok := env.Update.(starknet.PreConfirmedDeltaUpdate)
 		require.True(t, ok, "expected PreConfirmedDeltaUpdate, got %T", env.Update)
-		require.Equal(t, "abc123", delta.BlockIdentifier)
+		require.Equal(t, starknet.BlockIdentifier(123), delta.BlockIdentifier)
 		require.Empty(t, delta.Transactions)
 	})
 
@@ -106,7 +106,7 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 		var fullFields map[string]json.RawMessage
 		require.NoError(t, json.Unmarshal(fullRaw, &fullFields))
 
-		var blockIdentifier string
+		var blockIdentifier starknet.BlockIdentifier
 		require.NoError(t, json.Unmarshal(fullFields["block_identifier"], &blockIdentifier))
 
 		var txs, receipts, stateDiffs []json.RawMessage
@@ -159,7 +159,7 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 	})
 
 	t.Run("invalid Delta payload returns error", func(t *testing.T) {
-		raw := []byte(`{"changed": true, "block_identifier": 7}`)
+		raw := []byte(`{"changed": true, "block_identifier": {}}`)
 		var env starknet.PreConfirmedUpdateEnvelope
 		require.Error(t, json.Unmarshal(raw, &env))
 	})
@@ -173,7 +173,7 @@ func nonEmptyTx() starknet.Transaction {
 // tests can flip a single field to exercise one failure path at a time.
 func validBlock() starknet.PreConfirmedBlock {
 	return starknet.PreConfirmedBlock{
-		BlockIdentifier:       "abc123",
+		BlockIdentifier:       123,
 		Transactions:          []starknet.Transaction{nonEmptyTx()},
 		Receipts:              []*starknet.TransactionReceipt{{}},
 		TransactionStateDiffs: []*starknet.StateDiff{{}},
@@ -189,7 +189,7 @@ func validBlock() starknet.PreConfirmedBlock {
 // validDelta returns a PreConfirmedDeltaUpdate that passes validate().
 func validDelta() starknet.PreConfirmedDeltaUpdate {
 	return starknet.PreConfirmedDeltaUpdate{
-		BlockIdentifier:       "abc123",
+		BlockIdentifier:       123,
 		Transactions:          []starknet.Transaction{nonEmptyTx()},
 		Receipts:              []*starknet.TransactionReceipt{{}},
 		TransactionStateDiffs: []*starknet.StateDiff{{}},
@@ -252,7 +252,7 @@ func TestPreConfirmedBlock_validate(t *testing.T) {
 		},
 		{
 			name:    "missing block_identifier",
-			mutate:  func(b *starknet.PreConfirmedBlock) { b.BlockIdentifier = "" },
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.BlockIdentifier = 0 },
 			wantErr: true,
 		},
 		{
@@ -342,7 +342,7 @@ func TestPreConfirmedDeltaUpdate_validate(t *testing.T) {
 		},
 		{
 			name:    "missing block_identifier",
-			mutate:  func(d *starknet.PreConfirmedDeltaUpdate) { d.BlockIdentifier = "" },
+			mutate:  func(d *starknet.PreConfirmedDeltaUpdate) { d.BlockIdentifier = 0 },
 			wantErr: true,
 		},
 		{

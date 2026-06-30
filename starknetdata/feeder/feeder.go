@@ -207,7 +207,7 @@ func (f *Feeder) StateUpdateWithBlock(
 func (f *Feeder) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
 	return f.client.PreConfirmedBlockWithIdentifier(

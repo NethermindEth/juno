@@ -272,7 +272,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -455,7 +455,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -727,7 +727,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -909,7 +909,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0.Hash = nil
 		block0.ParentHash = nil
 		block0.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(block0, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(block0, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
