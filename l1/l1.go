@@ -143,54 +143,43 @@ func (c *Client) subscribeToUpdates(
 	}
 }
 
-// chainIDMismatchError marks an L1/L2 network mismatch: a misconfiguration that
-// retrying cannot fix, so verifyChainID treats it as fatal. (Supporting custom
+// errChainIDMismatch marks an L1/L2 network mismatch: a misconfiguration that
+// retrying cannot fix, so ensureChainID treats it as fatal. (Supporting custom
 // forked Starknet networks would mean warning here instead of erroring.)
-type chainIDMismatchError struct {
-	network string
-}
+var errChainIDMismatch = errors.New("mismatched network id between L1 and L2")
 
-func (e *chainIDMismatchError) Error() string {
-	return fmt.Sprintf(
-		"mismatched network id between L1 and L2. L2 network is %s; "+
-			"is --eth-node pointing to the right network?",
-		e.network,
-	)
-}
-
-// verifyChainID checks the L1 node is on the expected network, retrying transient
-// failures (rate limits, timeouts, an unresponsive node) as warnings until the
-// check passes or ctx is cancelled, so a flaky L1 never shuts the node down
-// (issue #1385). A network mismatch is a misconfiguration and is returned fatally.
-func (c *Client) verifyChainID(ctx context.Context) error {
+// ensureChainID checks the L1 node is on the expected network, retrying transient
+// failures (rate limits, timeouts, an unresponsive node) until the check passes,
+// ctx is cancelled, or a network mismatch is found, so a flaky L1 never shuts the
+// node down (issue #1385). A mismatch is a misconfiguration and is returned fatally.
+//
+// The timer is reset after each failed probe, so a full resubscribeDelay always
+// elapses between the end of one attempt and the start of the next (gap is the
+// probe's response time + resubscribeDelay) — never back-to-back requests.
+func (c *Client) ensureChainID(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-timer.C:
-			err := c.checkChainID(ctx)
-			if err == nil {
+			switch err := c.checkChainID(ctx); {
+			case err == nil:
 				return nil
-			}
-
-			var mismatch *chainIDMismatchError
-			if errors.As(err, &mismatch) {
+			case errors.Is(err, errChainIDMismatch):
 				return err
+			case ctx.Err() != nil:
+				// Cancelled mid-probe: return the real cause, don't warn.
+				return ctx.Err()
+			default:
+				c.logger.Warn("Failed to verify L1 chain ID, retrying",
+					zap.Duration("tryAgainIn", c.resubscribeDelay),
+					zap.Error(err),
+				)
+				timer.Reset(c.resubscribeDelay)
 			}
-
-			// Transient: warn and retry, unless we're already shutting down.
-			if ctx.Err() != nil {
-				return nil
-			}
-			// err may contain the L1 URL (with API key), so keep it to Debug.
-			c.logger.Warn("Failed to verify L1 chain ID; retrying",
-				zap.Duration("tryAgainIn", c.resubscribeDelay),
-			)
-			c.logger.Debug("L1 chain ID verification failed", zap.Error(err))
-			timer.Reset(c.resubscribeDelay)
 		}
 	}
 }
@@ -218,18 +207,21 @@ func (c *Client) checkChainID(ctx context.Context) error {
 		return nil
 	}
 
-	return &chainIDMismatchError{network: c.network.String()}
+	return fmt.Errorf(
+		"%w. L2 network is %s; is --eth-node pointing to the right network?",
+		errChainIDMismatch, c.network.String(),
+	)
 }
 
 func (c *Client) Run(ctx context.Context) error {
 	defer c.l1.Close()
-	if err := c.verifyChainID(ctx); err != nil {
+	if err := c.ensureChainID(ctx); err != nil {
+		// A cancelled context means we're shutting down, not a real failure;
+		// a mismatch (the only other non-nil return) is fatal.
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
 		return err
-	}
-	// verifyChainID returns nil on ctx cancellation; don't start any further
-	// RPC work (which would just fail with context canceled) if we're stopping.
-	if ctx.Err() != nil {
-		return nil
 	}
 
 	// catchUpL1HeadUpdates is best-effort: a backward eth_getLogs scan can fail
