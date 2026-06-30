@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -434,7 +435,27 @@ func (c *Client) fetchPreConfirmedUpdate(
 		"blockIdentifier":       blockIdentifier,
 		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
 	})
-	return doRequest[starknet.PreConfirmedUpdateEnvelope](ctx, c, queryURL)
+
+	// PreConfirmedUpdateEnvelope intentionally has no UnmarshalJSON (see its doc),
+	// so it cannot ride the generic doRequest. Decode in a single scan, then run
+	// the same Validate + error-wrap that doRequest applies.
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	env, err := starknet.DecodePreConfirmedUpdate(body)
+	if err != nil {
+		return nil, err
+	}
+	if err := env.Validate(); err != nil {
+		return nil, errors.Join(
+			ErrInvalidFeederResponse,
+			fmt.Errorf("querying %s: %w", queryURL, err),
+		)
+	}
+	return &env, nil
 }
 
 // Deprecated: Transaction calls the get_transaction endpoint which returns
