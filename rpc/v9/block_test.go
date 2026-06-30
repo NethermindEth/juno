@@ -273,7 +273,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 		preConfirmedID := blockIDPreConfirmed(t)
@@ -455,7 +455,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
@@ -726,7 +726,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().
 			PreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmed), nil).
@@ -751,7 +751,7 @@ func TestBlockWithTxs(t *testing.T) {
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 		handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-		tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 
 		baseHeader := *latestBlock.Header
 		baseHeader.Number = latestBlock.Number - 1
@@ -951,7 +951,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0.Hash = nil
 		block0.ParentHash = nil
 		block0.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(block0, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(block0, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 

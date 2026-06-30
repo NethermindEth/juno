@@ -22,13 +22,13 @@ import (
 type DataSource interface {
 	PreConfirmedBlockLatest(
 		ctx context.Context,
-		identifier string,
+		identifier starknet.BlockIdentifier,
 		txCount uint64,
 	) (starknet.PreConfirmedUpdate, uint64, error)
 	PreConfirmedBlockByNumber(
 		ctx context.Context,
 		blockNumber uint64,
-		identifier string,
+		identifier starknet.BlockIdentifier,
 		txCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
 }
@@ -107,7 +107,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	chain := p.storage.SnapshotForHead(head)
 	var (
 		mostRecent *pending.PreConfirmed
-		identifier string
+		identifier starknet.BlockIdentifier
 		txCount    uint64
 	)
 	fromBlock := headPlusOne(head)
@@ -115,7 +115,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	if chain.Length() > 0 {
 		if mostRecent = chain.Head(); mostRecent != nil {
 			fromBlock = mostRecent.Block.Number
-			identifier = mostRecent.BlockIdentifier
+			identifier = starknet.BlockIdentifier(mostRecent.BlockIdentifier)
 			txCount = uint64(len(mostRecent.Block.Transactions))
 		}
 	}
@@ -163,7 +163,7 @@ func (p *Poller) backfill(
 	ctx context.Context,
 	head *core.Header,
 	fromBlockNum uint64,
-	identifier string,
+	identifier starknet.BlockIdentifier,
 	txCount uint64,
 	endExclusive uint64,
 ) error {
@@ -177,7 +177,7 @@ func (p *Poller) backfill(
 	}
 
 	for n := fromBlockNum + 1; n < endExclusive; n++ {
-		update, err := p.dataSource.PreConfirmedBlockByNumber(ctx, n, "", 0)
+		update, err := p.dataSource.PreConfirmedBlockByNumber(ctx, n, 0, 0)
 		if err != nil {
 			return fmt.Errorf("polling pre-confirmed for number %d: %w", n, err)
 		}

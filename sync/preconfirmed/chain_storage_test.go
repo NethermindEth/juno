@@ -2,7 +2,6 @@ package preconfirmed_test
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -22,10 +21,14 @@ import (
 func headAt(n uint64) *core.Header { return &core.Header{Number: n} }
 
 // roundID is the per-slot identifier convention used across the storage
-// tests: slot N's block carries identifier "round-N", so each slot in a
-// chain is structurally distinguishable from every other (and a slot-mixup
-// bug would surface as an identifier mismatch in assertChain).
-func roundID(slot uint64) string { return fmt.Sprintf("round-%d", slot) }
+// tests: slot N's block carries identifier N, so each slot in a chain is
+// structurally distinguishable from every other (and a slot-mixup bug
+// would surface as an identifier mismatch in assertChain).
+func roundID(slot uint64) starknet.BlockIdentifier { return starknet.BlockIdentifier(slot) }
+
+// altRoundID returns an identifier distinct from roundID(slot), used to
+// simulate a new round replacing the previous one at the same slot.
+func altRoundID(slot uint64) starknet.BlockIdentifier { return starknet.BlockIdentifier(slot + 1_000_000) }
 
 // chainBlockNumbers collects block numbers in oldest-first order. Used where
 // the test cares about ordering / contiguity rather than per-slot identity
@@ -46,7 +49,7 @@ func chainBlockNumbers(c *preconfirmed.ChainReader) []uint64 {
 func applyBlock(
 	t *testing.T,
 	s *preconfirmed.ChainStorage,
-	identifier string,
+	identifier starknet.BlockIdentifier,
 	txCount int,
 	number uint64,
 	head *core.Header,
@@ -232,7 +235,7 @@ func testApplyUpdateReplaceTipNewRound(t *testing.T) {
 	before := s.SnapshotForHead(head)
 
 	// Different identifier at slot 2 → new round replaces.
-	bNew := applyBlock(t, s, "round-2-alt", 0, 2, head)
+	bNew := applyBlock(t, s, altRoundID(2), 0, 2, head)
 	after := s.SnapshotForHead(head)
 	require.NotSame(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &b1), entry(2, &bNew))
@@ -259,7 +262,7 @@ func testApplyUpdateReorgNonTipTruncates(t *testing.T) {
 	applyBlock(t, s, roundID(3), 0, 3, head)
 
 	// New round at non-tip slot 2 → slot 3 is truncated.
-	bReorg := applyBlock(t, s, "round-2-alt", 5, 2, head)
+	bReorg := applyBlock(t, s, altRoundID(2), 5, 2, head)
 	view := s.SnapshotForHead(head)
 	assertChain(t, &view, entry(1, &b1), entry(2, &bReorg))
 }
@@ -272,7 +275,7 @@ func testApplyUpdateReorgBottomTruncates(t *testing.T) {
 	}
 
 	// Reorg at slot 1 (bottom) with a new round — everything above truncated.
-	bReorg := applyBlock(t, s, "round-1-alt", 2, 1, head)
+	bReorg := applyBlock(t, s, altRoundID(1), 2, 1, head)
 	view := s.SnapshotForHead(head)
 	assertChain(t, &view, entry(1, &bReorg))
 }
@@ -285,13 +288,13 @@ func testApplyUpdateReorgReExtend(t *testing.T) {
 	applyBlock(t, s, roundID(3), 0, 3, head) // will be truncated
 
 	// Reorg at slot 2.
-	b2Alt := applyBlock(t, s, "round-2-alt", 1, 2, head)
+	b2Alt := applyBlock(t, s, altRoundID(2), 1, 2, head)
 	view := s.SnapshotForHead(head)
 	assertChain(t, &view, entry(1, &b1), entry(2, &b2Alt))
 
 	// Re-extend slots 3 and 4 with new rounds.
-	b3Alt := applyBlock(t, s, "round-3-alt", 0, 3, head)
-	b4Alt := applyBlock(t, s, "round-4-alt", 0, 4, head)
+	b3Alt := applyBlock(t, s, altRoundID(3), 0, 3, head)
+	b4Alt := applyBlock(t, s, altRoundID(4), 0, 4, head)
 	view2 := s.SnapshotForHead(head)
 	assertChain(t, &view2,
 		entry(1, &b1),
@@ -311,7 +314,7 @@ func testApplyUpdateReorgSequential(t *testing.T) {
 	applyBlock(t, s, roundID(5), 0, 5, head)
 
 	// First reorg at slot 4.
-	b4Alt := applyBlock(t, s, "round-4-alt", 0, 4, head)
+	b4Alt := applyBlock(t, s, altRoundID(4), 0, 4, head)
 	view := s.SnapshotForHead(head)
 	assertChain(t, &view,
 		entry(1, &b1),
@@ -321,7 +324,7 @@ func testApplyUpdateReorgSequential(t *testing.T) {
 	)
 
 	// Re-extend slot 5 with a new round.
-	b5Alt := applyBlock(t, s, "round-5-alt", 0, 5, head)
+	b5Alt := applyBlock(t, s, altRoundID(5), 0, 5, head)
 	view2 := s.SnapshotForHead(head)
 	assertChain(t, &view2,
 		entry(1, &b1),
@@ -332,7 +335,7 @@ func testApplyUpdateReorgSequential(t *testing.T) {
 	)
 
 	// Second reorg at slot 3 — truncates everything above.
-	b3Alt := applyBlock(t, s, "round-3-alt", 0, 3, head)
+	b3Alt := applyBlock(t, s, altRoundID(3), 0, 3, head)
 	view3 := s.SnapshotForHead(head)
 	assertChain(t, &view3,
 		entry(1, &b1),
@@ -352,7 +355,7 @@ func testApplyUpdateReorgPreSnapshotIntact(t *testing.T) {
 	pre := s.SnapshotForHead(head)
 
 	// Reorg at slot 2 — slots 3 and 4 truncated in the live chain.
-	b2Alt := applyBlock(t, s, "round-2-alt", 0, 2, head)
+	b2Alt := applyBlock(t, s, altRoundID(2), 0, 2, head)
 	view := s.SnapshotForHead(head)
 	assertChain(t, &view, entry(1, &original[0]), entry(2, &b2Alt))
 
@@ -364,7 +367,7 @@ func testApplyUpdateDeltaAtTip(t *testing.T) {
 	head := headAt(0)
 	s := preconfirmed.NewChainStorage()
 	// Delta and seed MUST share an identifier for the merge to be valid.
-	const round = "round-1"
+	const round = starknet.BlockIdentifier(1)
 	seed := applyBlock(t, s, round, 2, 1, head)
 
 	delta := makeTestDelta(round, 3)
@@ -379,7 +382,7 @@ func testApplyUpdateDeltaAtTip(t *testing.T) {
 func testApplyUpdateDeltaAtNonTipRejected(t *testing.T) {
 	head := headAt(0)
 	s := preconfirmed.NewChainStorage()
-	const slot1Round = "round-1"
+	const slot1Round = starknet.BlockIdentifier(1)
 	applyBlock(t, s, slot1Round, 1, 1, head)
 	applyBlock(t, s, roundID(2), 0, 2, head)
 	applyBlock(t, s, roundID(3), 0, 3, head)
@@ -396,7 +399,7 @@ func testApplyUpdateDeltaAtNonTipRejected(t *testing.T) {
 func testApplyUpdateDeltaWrongBaseTxCount(t *testing.T) {
 	head := headAt(0)
 	s := preconfirmed.NewChainStorage()
-	const round = "round-1"
+	const round = starknet.BlockIdentifier(1)
 	seed := applyBlock(t, s, round, 2, 1, head)
 	before := s.SnapshotForHead(head)
 
@@ -412,10 +415,10 @@ func testApplyUpdateDeltaWrongBaseTxCount(t *testing.T) {
 func testApplyUpdateDeltaIdentifierMismatch(t *testing.T) {
 	head := headAt(0)
 	s := preconfirmed.NewChainStorage()
-	seed := applyBlock(t, s, "round-1", 1, 1, head)
+	seed := applyBlock(t, s, roundID(1), 1, 1, head)
 	before := s.SnapshotForHead(head)
 
-	delta := makeTestDelta("round-1-different", 1)
+	delta := makeTestDelta(altRoundID(1), 1)
 	_, err := s.ApplyUpdate(delta, 1, 1, head)
 	require.Error(t, err)
 	after := s.SnapshotForHead(head)
@@ -735,7 +738,7 @@ type storageWrite struct {
 func applyBlockWithStorageWrites(
 	t *testing.T,
 	s *preconfirmed.ChainStorage,
-	identifier string,
+	identifier starknet.BlockIdentifier,
 	contract *felt.Felt,
 	writes []storageWrite,
 	number uint64,

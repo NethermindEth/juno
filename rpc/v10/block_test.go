@@ -654,7 +654,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
@@ -666,7 +666,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed multi-block chain returns tip count", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 
 		baseHeader := *latestBlock.Header
 		baseHeader.Number = latestBlock.Number - 1

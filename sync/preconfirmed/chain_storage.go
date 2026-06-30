@@ -583,7 +583,7 @@ func validBottomForHead(bottom uint64, head *core.Header) bool {
 // same-identifier block replaces.
 func shouldPreserveSlot(existing, incoming *pending.PreConfirmed) bool {
 	if incoming.BlockIdentifier != existing.BlockIdentifier &&
-		incoming.BlockIdentifier != feeder.PreConfirmedBlankIdentifier {
+		incoming.BlockIdentifier != uint64(feeder.PreConfirmedBlankIdentifier) {
 		return false
 	}
 	if incoming.Block.TransactionCount > existing.Block.TransactionCount {

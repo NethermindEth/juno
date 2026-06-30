@@ -31,7 +31,7 @@ const tickInterval = 100 * time.Millisecond
 // makeTestPreConfirmedBlock returns a starknet.PreConfirmedBlock carrying
 // `txCount` synthesised invoke transactions with matching receipts and per-tx
 // state diffs.
-func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfirmedBlock {
+func makeTestPreConfirmedBlock(identifier starknet.BlockIdentifier, txCount int) starknet.PreConfirmedBlock {
 	txs := make([]starknet.Transaction, txCount)
 	receipts := make([]*starknet.TransactionReceipt, txCount)
 	stateDiffs := make([]*starknet.StateDiff, txCount)
@@ -76,7 +76,7 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 
 // makeTestDelta returns a PreConfirmedDeltaUpdate that appends `addedCount`
 // transactions/receipts/state diffs under the given block identifier.
-func makeTestDelta(identifier string, addedCount int) starknet.PreConfirmedDeltaUpdate {
+func makeTestDelta(identifier starknet.BlockIdentifier, addedCount int) starknet.PreConfirmedDeltaUpdate {
 	txs := make([]starknet.Transaction, addedCount)
 	receipts := make([]*starknet.TransactionReceipt, addedCount)
 	stateDiffs := make([]*starknet.StateDiff, addedCount)
@@ -100,6 +100,17 @@ func makeTestDelta(identifier string, addedCount int) starknet.PreConfirmedDelta
 		TransactionStateDiffs: stateDiffs,
 	}
 }
+
+// r0..r4 and rZ are opaque round identifiers used across poller tests to
+// distinguish rounds; only their distinctness from one another matters.
+const (
+	r0 = starknet.BlockIdentifier(100)
+	r1 = starknet.BlockIdentifier(101)
+	r2 = starknet.BlockIdentifier(102)
+	r3 = starknet.BlockIdentifier(103)
+	r4 = starknet.BlockIdentifier(104)
+	rZ = starknet.BlockIdentifier(999)
+)
 
 type chainFixture struct {
 	bc   *blockchain.Blockchain
@@ -179,7 +190,7 @@ func wirePoller(
 // assertChain to pin down the full storage state after a tick.
 type expectedEntry struct {
 	number     uint64
-	identifier string
+	identifier uint64
 	txCount    int
 }
 
@@ -196,7 +207,7 @@ func entry(
 	for _, d := range deltas {
 		txCount += len(d.Transactions)
 	}
-	return expectedEntry{number, block.BlockIdentifier, txCount}
+	return expectedEntry{number, uint64(block.BlockIdentifier), txCount}
 }
 
 // assertChain pins down a snapshot's full contents in oldest-first order.
@@ -221,11 +232,11 @@ func TestPollerColdBootstrapNoGap(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	block1 := makeTestPreConfirmedBlock("r0", 1)
+	block1 := makeTestPreConfirmedBlock(r0, 1)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), starknet.BlockIdentifier(0), uint64(0)).
 		Return(block1, uint64(1), nil)
 
 	synctest.Test(t, func(t *testing.T) {
@@ -246,9 +257,9 @@ func TestPollerColdBootstrapWithGap(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	block1 := makeTestPreConfirmedBlock("r1", 0)
-	block2 := makeTestPreConfirmedBlock("r2", 0)
-	block3 := makeTestPreConfirmedBlock("r3", 0)
+	block1 := makeTestPreConfirmedBlock(r1, 0)
+	block2 := makeTestPreConfirmedBlock(r2, 0)
+	block3 := makeTestPreConfirmedBlock(r3, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
@@ -257,10 +268,10 @@ func TestPollerColdBootstrapWithGap(t *testing.T) {
 			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(block3, uint64(3), nil),
 		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "", uint64(0)).
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), starknet.BlockIdentifier(0), uint64(0)).
 			Return(block1, nil),
 		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), uint64(2), "", uint64(0)).
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(2), starknet.BlockIdentifier(0), uint64(0)).
 			Return(block2, nil),
 	)
 
@@ -287,11 +298,11 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed := makeTestPreConfirmedBlock("r0", 0)
+	seed := makeTestPreConfirmedBlock(r0, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r0", uint64(0)).
+	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), r0, uint64(0)).
 		Return(starknet.PreConfirmedNoChange{}, uint64(1), nil)
 
 	synctest.Test(t, func(t *testing.T) {
@@ -320,13 +331,13 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed := makeTestPreConfirmedBlock("r0", 0)
-	delta := makeTestDelta("r0", 2)
+	seed := makeTestPreConfirmedBlock(r0, 0)
+	delta := makeTestDelta(r0, 2)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
-	// Delta hint matches mostRecent: identifier="r0", txCount=0.
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r0", uint64(0)).
+	// Delta hint matches mostRecent: identifier=r0, txCount=0.
+	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), r0, uint64(0)).
 		Return(delta, uint64(1), nil)
 
 	synctest.Test(t, func(t *testing.T) {
@@ -355,9 +366,9 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed := makeTestPreConfirmedBlock("r0", 0)
-	finaliseDelta := makeTestDelta("r0", 3) // 3 final txs appended at block 1
-	block2 := makeTestPreConfirmedBlock("r1", 0)
+	seed := makeTestPreConfirmedBlock(r0, 0)
+	finaliseDelta := makeTestDelta(r0, 3) // 3 final txs appended at block 1
+	block2 := makeTestPreConfirmedBlock(r1, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
@@ -368,7 +379,7 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 		// Finalise poll: server replies with a Delta keyed off the stored
 		// identifier+txCount; carries any txs appended since.
 		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "r0", uint64(0)).
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), r0, uint64(0)).
 			Return(finaliseDelta, nil),
 	)
 
@@ -397,11 +408,11 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed := makeTestPreConfirmedBlock("r0", 0)
-	finaliseReply := makeTestPreConfirmedBlock("r0", 0) // same content → slot preserved
-	block2 := makeTestPreConfirmedBlock("r2", 0)
-	block3 := makeTestPreConfirmedBlock("r3", 0)
-	block4 := makeTestPreConfirmedBlock("r4", 0)
+	seed := makeTestPreConfirmedBlock(r0, 0)
+	finaliseReply := makeTestPreConfirmedBlock(r0, 0) // same content → slot preserved
+	block2 := makeTestPreConfirmedBlock(r2, 0)
+	block3 := makeTestPreConfirmedBlock(r3, 0)
+	block4 := makeTestPreConfirmedBlock(r4, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
@@ -411,14 +422,14 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 			Return(block4, uint64(4), nil),
 		// Finalise mostRecent (1) with delta hints.
 		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "r0", uint64(0)).
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), r0, uint64(0)).
 			Return(finaliseReply, nil),
 		// Walk intermediate blocks 2, 3 with blank hints.
 		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), uint64(2), "", uint64(0)).
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(2), starknet.BlockIdentifier(0), uint64(0)).
 			Return(block2, nil),
 		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), uint64(3), "", uint64(0)).
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(3), starknet.BlockIdentifier(0), uint64(0)).
 			Return(block3, nil),
 	)
 
@@ -497,7 +508,7 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	latestReply := makeTestPreConfirmedBlock("r3", 0)
+	latestReply := makeTestPreConfirmedBlock(r3, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
@@ -530,9 +541,9 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	block1 := makeTestPreConfirmedBlock("r1", 0)
-	block2 := makeTestPreConfirmedBlock("r2", 0)
-	block3 := makeTestPreConfirmedBlock("r3", 0)
+	block1 := makeTestPreConfirmedBlock(r1, 0)
+	block2 := makeTestPreConfirmedBlock(r2, 0)
+	block3 := makeTestPreConfirmedBlock(r3, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
@@ -541,17 +552,17 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 	// shouldPreserveSlot keeps the entry instead of replacing it.
 	gomock.InOrder(
 		// Tick 1: cold bootstrap.
-		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), starknet.BlockIdentifier(0), uint64(0)).
 			Return(block1, uint64(1), nil),
 		// Tick 2: sequencer advanced; latest + finalise of block 1.
-		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r1", uint64(0)).
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), r1, uint64(0)).
 			Return(block2, uint64(2), nil),
-		ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "r1", uint64(0)).
+		ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(1), r1, uint64(0)).
 			Return(block1, nil),
 		// Tick 3: advanced again; latest + finalise of block 2.
-		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r2", uint64(0)).
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), r2, uint64(0)).
 			Return(block3, uint64(3), nil),
-		ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(2), "r2", uint64(0)).
+		ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(2), r2, uint64(0)).
 			Return(block2, nil),
 	)
 
@@ -594,14 +605,14 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed1 := makeTestPreConfirmedBlock("r1", 0) // will be dropped after head advances past it
-	seed2 := makeTestPreConfirmedBlock("r2", 0)
+	seed1 := makeTestPreConfirmedBlock(r1, 0) // will be dropped after head advances past it
+	seed2 := makeTestPreConfirmedBlock(r2, 0)
 
 	var latestBlockNumber atomic.Uint64
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
 	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, string, uint64) (starknet.PreConfirmedUpdate, uint64, error) {
+		DoAndReturn(func(context.Context, starknet.BlockIdentifier, uint64) (starknet.PreConfirmedUpdate, uint64, error) {
 			return starknet.PreConfirmedNoChange{}, latestBlockNumber.Load(), nil
 		})
 
@@ -640,17 +651,17 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed1 := makeTestPreConfirmedBlock("r1", 0)
-	seed2 := makeTestPreConfirmedBlock("r2", 0)
-	seed3 := makeTestPreConfirmedBlock("r3", 0)
+	seed1 := makeTestPreConfirmedBlock(r1, 0)
+	seed2 := makeTestPreConfirmedBlock(r2, 0)
+	seed3 := makeTestPreConfirmedBlock(r3, 0)
 	// New round arrives at block 2 with a different identifier — anything
 	// above (block 3) must be dropped.
-	replacement := makeTestPreConfirmedBlock("rZ", 0)
+	replacement := makeTestPreConfirmedBlock(rZ, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
-	// Hint matches the most recent (block 3, "r3", 0 txs) the poller would carry.
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r3", uint64(0)).
+	// Hint matches the most recent (block 3, r3, 0 txs) the poller would carry.
+	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), r3, uint64(0)).
 		Return(replacement, uint64(2), nil)
 
 	synctest.Test(t, func(t *testing.T) {
@@ -683,15 +694,15 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed1 := makeTestPreConfirmedBlock("r1", 0)
-	seed2 := makeTestPreConfirmedBlock("r2", 0)
-	seed3 := makeTestPreConfirmedBlock("r3", 0)
+	seed1 := makeTestPreConfirmedBlock(r1, 0)
+	seed2 := makeTestPreConfirmedBlock(r2, 0)
+	seed3 := makeTestPreConfirmedBlock(r3, 0)
 	// New round at the same slot — different identifier replaces the most recent.
-	replacement := makeTestPreConfirmedBlock("rZ", 0)
+	replacement := makeTestPreConfirmedBlock(rZ, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r3", uint64(0)).
+	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), r3, uint64(0)).
 		Return(replacement, uint64(3), nil)
 
 	synctest.Test(t, func(t *testing.T) {
@@ -726,11 +737,11 @@ func TestPollerBroadcastsOnApply(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	block1 := makeTestPreConfirmedBlock("r0", 1)
+	block1 := makeTestPreConfirmedBlock(r0, 1)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), starknet.BlockIdentifier(0), uint64(0)).
 		Return(block1, uint64(1), nil)
 
 	synctest.Test(t, func(t *testing.T) {
@@ -745,7 +756,7 @@ func TestPollerBroadcastsOnApply(t *testing.T) {
 		case pc := <-h.sub.Recv():
 			require.NotNil(t, pc)
 			require.Equal(t, uint64(1), pc.Block.Number)
-			require.Equal(t, "r0", pc.BlockIdentifier)
+			require.Equal(t, uint64(r0), pc.BlockIdentifier)
 		default:
 			t.Fatal("expected a pre_confirmed broadcast on successful apply")
 		}
@@ -757,11 +768,11 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
-	seed := makeTestPreConfirmedBlock("r0", 0)
+	seed := makeTestPreConfirmedBlock(r0, 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r0", uint64(0)).
+	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), r0, uint64(0)).
 		Return(starknet.PreConfirmedNoChange{}, uint64(1), nil)
 
 	synctest.Test(t, func(t *testing.T) {

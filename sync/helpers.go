@@ -114,7 +114,7 @@ func MakeEmptyPreConfirmedForParent(
 		},
 		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
 		TransactionStateDiffs: make([]*core.StateDiff, 0),
-		BlockIdentifier:       feeder.PreConfirmedBlankIdentifier,
+		BlockIdentifier:       uint64(feeder.PreConfirmedBlankIdentifier),
 	}
 
 	return preConfirmed, nil

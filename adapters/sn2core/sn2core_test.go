@@ -664,7 +664,7 @@ func TestAdaptPreConfirmed(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			blockNumberStr := strconv.FormatUint(test.blockNumber, 10)
-			update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, "", 0)
+			update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), blockNumberStr, 0, 0)
 			require.NoError(t, err)
 			responseFull, ok := update.(starknet.PreConfirmedBlock)
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
@@ -708,7 +708,7 @@ func assertPreConfirmedBlockBasics(
 	assert.Equal(t, response.Version, preConfirmed.Block.ProtocolVersion)
 	assert.Equal(t, response.L1GasPrice.PriceInFri, preConfirmed.Block.L1GasPriceSTRK)
 	assert.Equal(t, response.L1GasPrice.PriceInWei, preConfirmed.Block.L1GasPriceETH)
-	assert.Equal(t, response.BlockIdentifier, preConfirmed.BlockIdentifier)
+	assert.Equal(t, uint64(response.BlockIdentifier), preConfirmed.BlockIdentifier)
 }
 
 func assertStateDiffs(
@@ -816,23 +816,23 @@ func TestAdaptPreConfirmedWithDelta(t *testing.T) {
 
 	t.Run("returns ErrPreConfirmedIdentifierMismatch on identifier drift", func(t *testing.T) {
 		current := &pending.PreConfirmed{
-			BlockIdentifier: "round-a",
+			BlockIdentifier: 1,
 			Block:           &core.Block{Header: &core.Header{}},
 			StateUpdate:     &core.StateUpdate{StateDiff: &core.StateDiff{}},
 		}
-		delta := &starknet.PreConfirmedDeltaUpdate{BlockIdentifier: "round-b"}
+		delta := &starknet.PreConfirmedDeltaUpdate{BlockIdentifier: 2}
 		_, err := sn2core.AdaptPreConfirmedWithDelta(current, delta)
 		require.ErrorIs(t, err, sn2core.ErrPreConfirmedIdentifierMismatch)
 	})
 
 	t.Run("returns error on mismatched delta lengths", func(t *testing.T) {
 		current := &pending.PreConfirmed{
-			BlockIdentifier: "round-a",
+			BlockIdentifier: 1,
 			Block:           &core.Block{Header: &core.Header{}},
 			StateUpdate:     &core.StateUpdate{StateDiff: &core.StateDiff{}},
 		}
 		delta := &starknet.PreConfirmedDeltaUpdate{
-			BlockIdentifier:       "round-a",
+			BlockIdentifier:       1,
 			Transactions:          []starknet.Transaction{{}},
 			Receipts:              []*starknet.TransactionReceipt{{}, {}},
 			TransactionStateDiffs: []*starknet.StateDiff{{}},
@@ -850,7 +850,7 @@ func mustFetchPreConfirmedBlock(
 ) *starknet.PreConfirmedBlock {
 	t.Helper()
 	update, err := client.PreConfirmedBlockWithIdentifier(
-		t.Context(), strconv.FormatUint(number, 10), "", 0,
+		t.Context(), strconv.FormatUint(number, 10), 0, 0,
 	)
 	require.NoError(t, err)
 	full, ok := update.(starknet.PreConfirmedBlock)

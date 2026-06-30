@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -18,6 +20,32 @@ type PreConfirmedUpdate interface {
 	isPreConfirmedUpdate()
 }
 
+type BlockIdentifier uint64
+
+func (b *BlockIdentifier) UnmarshalJSON(data []byte) error {
+	// Handle quoted string like "0x1676efd0"
+	if len(data) > 0 && data[0] == '"' {
+		var str string
+		if err := json.Unmarshal(data, &str); err != nil {
+			return err
+		}
+		str = strings.TrimPrefix(str, "0x")
+		val, err := strconv.ParseUint(str, 16, 64)
+		if err != nil {
+			return err
+		}
+		*b = BlockIdentifier(val)
+		return nil
+	}
+	// Handle bare integer like 123
+	var val uint64
+	if err := json.Unmarshal(data, &val); err != nil {
+		return err
+	}
+	*b = BlockIdentifier(val)
+	return nil
+}
+
 // PreConfirmedNoChange means the server's pre_confirmed matches what the caller already has.
 type PreConfirmedNoChange struct{}
 
@@ -26,7 +54,7 @@ func (PreConfirmedNoChange) isPreConfirmedUpdate() {}
 // PreConfirmedDeltaUpdate carries transactions/receipts/state diffs appended since the
 // caller's known transaction count for the same block_identifier.
 type PreConfirmedDeltaUpdate struct {
-	BlockIdentifier       string                `json:"block_identifier"`
+	BlockIdentifier       BlockIdentifier       `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
@@ -35,7 +63,7 @@ type PreConfirmedDeltaUpdate struct {
 func (PreConfirmedDeltaUpdate) isPreConfirmedUpdate() {}
 
 func (val *PreConfirmedDeltaUpdate) validate() error {
-	if val.BlockIdentifier == "" {
+	if val.BlockIdentifier == 0 {
 		return errors.New("block_identifier is required")
 	}
 	if len(val.Transactions) == 0 {
@@ -49,7 +77,7 @@ func (val *PreConfirmedDeltaUpdate) validate() error {
 
 // PreConfirmedBlock carries a full pre_confirmed block for a new round.
 type PreConfirmedBlock struct {
-	BlockIdentifier       string                `json:"block_identifier"`
+	BlockIdentifier       BlockIdentifier       `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
@@ -66,7 +94,7 @@ type PreConfirmedBlock struct {
 func (PreConfirmedBlock) isPreConfirmedUpdate() {}
 
 func (pb *PreConfirmedBlock) validate() error {
-	if pb.BlockIdentifier == "" {
+	if pb.BlockIdentifier == 0 {
 		return errors.New("block_identifier is required")
 	}
 	if pb.Status != "PRE_CONFIRMED" {
@@ -145,42 +173,57 @@ type PreConfirmedUpdateEnvelope struct {
 // DecodePreConfirmedUpdate decodes a "get_preconfirmed_block" response and
 // discriminates it into a [PreConfirmedUpdateEnvelope].
 func DecodePreConfirmedUpdate(r io.Reader) (PreConfirmedUpdateEnvelope, error) {
-	// preConfirmedWire is the flat shape the decoder fills. Discrimination is structural:
-	//   - "changed": false                → NoChange
-	//   - "changed": true + "timestamp"   → Full block (new round)
-	//   - "changed": true, no "timestamp" → Delta
-	type preConfirmedWire struct {
-		Changed     *bool   `json:"changed"`
-		BlockNumber *uint64 `json:"block_number"`
-		PreConfirmedBlock
-	}
-
-	var raw preConfirmedWire
-	if err := json.NewDecoder(r).Decode(&raw); err != nil {
+	data, err := io.ReadAll(r)
+	if err != nil {
 		return PreConfirmedUpdateEnvelope{}, err
 	}
-	if raw.Changed == nil {
+
+	// The discriminator is decoded on its own first: a NoChange response is
+	// identified purely by "changed": false, and any other field must be
+	// ignored even if malformed, so the full payload is only decoded once
+	// changed is known to be true.
+	var discriminator struct {
+		Changed     *bool   `json:"changed"`
+		BlockNumber *uint64 `json:"block_number"`
+	}
+	if err := json.Unmarshal(data, &discriminator); err != nil {
+		return PreConfirmedUpdateEnvelope{}, err
+	}
+	if discriminator.Changed == nil {
 		return PreConfirmedUpdateEnvelope{}, errors.New(
 			"missing required \"changed\" field",
 		)
 	}
 
 	var env PreConfirmedUpdateEnvelope
-	if raw.BlockNumber != nil {
-		env.BlockNumber = *raw.BlockNumber
+	if discriminator.BlockNumber != nil {
+		env.BlockNumber = *discriminator.BlockNumber
+	}
+
+	if !*discriminator.Changed {
+		env.Update = PreConfirmedNoChange{}
+		return env, nil
+	}
+
+	// Discrimination between Full (new round) and Delta is structural:
+	//   - "timestamp" present → Full block (new round)
+	//   - "timestamp" absent  → Delta
+	var body struct {
+		PreConfirmedBlock
+	}
+	if err := json.Unmarshal(data, &body); err != nil {
+		return PreConfirmedUpdateEnvelope{}, err
 	}
 
 	switch {
-	case !*raw.Changed:
-		env.Update = PreConfirmedNoChange{}
-	case raw.Timestamp != 0:
-		env.Update = raw.PreConfirmedBlock
+	case body.Timestamp != 0:
+		env.Update = body.PreConfirmedBlock
 	default:
 		env.Update = PreConfirmedDeltaUpdate{
-			BlockIdentifier:       raw.BlockIdentifier,
-			Transactions:          raw.Transactions,
-			Receipts:              raw.Receipts,
-			TransactionStateDiffs: raw.TransactionStateDiffs,
+			BlockIdentifier:       body.BlockIdentifier,
+			Transactions:          body.Transactions,
+			Receipts:              body.Receipts,
+			TransactionStateDiffs: body.TransactionStateDiffs,
 		}
 	}
 	return env, nil

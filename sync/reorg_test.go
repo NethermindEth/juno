@@ -65,7 +65,7 @@ func (t *testBlockDataSource) BlockHeaderLatest(ctx context.Context) (*core.Head
 func (t *testBlockDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
 	return nil, errors.New("not implemented")
@@ -73,7 +73,7 @@ func (t *testBlockDataSource) PreConfirmedBlockByNumber(
 
 func (t *testBlockDataSource) PreConfirmedBlockLatest(
 	ctx context.Context,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, uint64, error) {
 	return nil, 0, errors.New("not implemented")

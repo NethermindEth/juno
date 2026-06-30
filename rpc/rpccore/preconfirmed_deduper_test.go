@@ -11,7 +11,7 @@ import (
 func TestPreConfirmedDeduper(t *testing.T) {
 	key1 := "key1"
 	key2 := "key2"
-	const id1, id2 = "round-1", "round-2"
+	const id1, id2 = uint64(1), uint64(2)
 
 	t.Run("dedups within the same round", func(t *testing.T) {
 		d := rpccore.NewPreConfirmedDeduper[string]()
@@ -61,7 +61,7 @@ func TestPreConfirmedDeduper(t *testing.T) {
 
 func BenchmarkPreConfirmedDeduper_MarkSent(b *testing.B) {
 	d := rpccore.NewPreConfirmedDeduper[string]()
-	const id = "round"
+	const id = uint64(1)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := range b.N {

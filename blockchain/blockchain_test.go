@@ -516,7 +516,7 @@ func TestState(t *testing.T) {
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
 	preConfirmedFunc := func() (blockchain.PreConfirmedReader, error) { //nolint:unparam // test stub
-		preConfirmed := pending.NewPreConfirmed(pendingB, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(pendingB, nil, nil, 0)
 		chain, err := preconfirmed.NewChain(&preConfirmed)
 		if err != nil {
 			return nil, err
@@ -771,7 +771,7 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		block, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
 
-		preconfirmed := pending.NewPreConfirmed(block, nil, nil, "")
+		preconfirmed := pending.NewPreConfirmed(block, nil, nil, 0)
 		pcEntries[i-firstPreConfirmedBlock] = &preconfirmed
 	}
 	preconfChain, err := preconfirmed.NewChain(pcEntries...)

@@ -40,7 +40,7 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 		Receipts:     block.Receipts,
 	}
 
-	preConfirmed := pending.NewPreConfirmed(preConfirmedBlock, nil, nil, "")
+	preConfirmed := pending.NewPreConfirmed(preConfirmedBlock, nil, nil, 0)
 
 	// Extract events from the block and convert to emitted events
 	var events []rpc.EmittedEvent

@@ -165,7 +165,7 @@ func (f *Feeder) StateUpdateWithBlock(
 func (f *Feeder) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
 	return f.client.PreConfirmedBlockWithIdentifier(
@@ -181,7 +181,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 // The returned block number is the height the response describes.
 func (f *Feeder) PreConfirmedBlockLatest(
 	ctx context.Context,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, uint64, error) {
 	return f.client.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)

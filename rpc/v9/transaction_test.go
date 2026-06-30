@@ -479,7 +479,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(11252240)
 	update, err := gw.PreConfirmedBlockWithIdentifier(
-		t.Context(), strconv.FormatUint(blockNumber, 10), "", 0,
+		t.Context(), strconv.FormatUint(blockNumber, 10), 0, 0,
 	)
 	require.NoError(t, err)
 	preConfirmedFull := update.(starknet.PreConfirmedBlock)
@@ -516,7 +516,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 		hashes[i] = hash
 		emptySlice := []*felt.Felt{}
 		block := starknet.PreConfirmedBlock{
-			BlockIdentifier:  fmt.Sprintf("round-%d", blockNumber),
+			BlockIdentifier:  starknet.BlockIdentifier(blockNumber),
 			Status:           "PRE_CONFIRMED",
 			Timestamp:        1,
 			Version:          core.Ver0_14_0.String(),
@@ -588,7 +588,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	baseHeader.Number = latestBlock.Number - 1
 	baseHeader.TransactionCount = 0
 	baseEntry := pending.PreConfirmed{Block: &core.Block{Header: &baseHeader}}
-	tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+	tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 
 	mockSyncReader.EXPECT().PreConfirmedChain().
 		Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
@@ -759,7 +759,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil).Times(2)
 		blockID := blockIDPreConfirmed(t)
 
@@ -1867,7 +1867,7 @@ func TestTransactionStatus(t *testing.T) {
 			sepoliaIntClient := feeder.NewTestClient(t, network)
 			sepoliaIntGw := adaptfeeder.New(sepoliaIntClient)
 			blockNumber := uint64(11252240)
-			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, "", 0)
+			update, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber, 0, 0)
 			require.NoError(t, gwErr)
 			full, ok := update.(starknet.PreConfirmedBlock)
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", update)

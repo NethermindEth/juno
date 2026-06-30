@@ -23,7 +23,7 @@ const (
 	classHashArg   = "classHash"
 	trueStr        = "true"
 
-	PreConfirmedBlankIdentifier = "0x0"
+	PreConfirmedBlankIdentifier starknet.BlockIdentifier = 0
 )
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
@@ -56,12 +56,12 @@ type Reader interface {
 	PreConfirmedBlockWithIdentifier(
 		ctx context.Context,
 		blockNumber string,
-		blockIdentifier string,
+		blockIdentifier starknet.BlockIdentifier,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
 	PreConfirmedBlockLatest(
 		ctx context.Context,
-		blockIdentifier string,
+		blockIdentifier starknet.BlockIdentifier,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, uint64, error)
 	PublicKey(ctx context.Context) (felt.Felt, error)
@@ -367,9 +367,10 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 func (c *Client) PreConfirmedBlockWithIdentifier(
 	ctx context.Context,
 	blockNumber string,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
+
 	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(
 		ctx,
 		blockNumber,
@@ -388,7 +389,7 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 // Pass an empty identifier and zero txCount for a full reply.
 func (c *Client) PreConfirmedBlockLatest(
 	ctx context.Context,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, uint64, error) {
 	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(
@@ -414,15 +415,12 @@ func (c *Client) PreConfirmedBlockLatest(
 func (c *Client) fetchPreConfirmedUpdate(
 	ctx context.Context,
 	blockNumber string,
-	blockIdentifier string,
+	blockIdentifier starknet.BlockIdentifier,
 	knownTransactionCount uint64,
 ) (*starknet.PreConfirmedUpdateEnvelope, error) {
-	if blockIdentifier == "" {
-		blockIdentifier = PreConfirmedBlankIdentifier
-	}
 	queryURL := buildQueryString(c.url, "get_preconfirmed_block", map[string]string{
 		blockNumberArg:          blockNumber,
-		"blockIdentifier":       blockIdentifier,
+		"blockIdentifier":       fmt.Sprintf("0x%x", blockIdentifier),
 		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
 	})
 

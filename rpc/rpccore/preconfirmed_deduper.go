@@ -10,7 +10,7 @@ package rpccore
 // synchronisation.
 type PreConfirmedDeduper[K comparable] struct {
 	blockNum   uint64
-	identifier string
+	identifier uint64
 	seen       map[K]struct{}
 }
 
@@ -22,7 +22,7 @@ func NewPreConfirmedDeduper[K comparable]() *PreConfirmedDeduper[K] {
 // MarkSent records key for the given pre_confirmed round (blockNum + identifier) and
 // reports whether it was newly added — i.e. whether it should be sent. Advancing to a
 // different block number or round identifier discards the previous round's keys first.
-func (c *PreConfirmedDeduper[K]) MarkSent(blockNum uint64, identifier string, key *K) bool {
+func (c *PreConfirmedDeduper[K]) MarkSent(blockNum uint64, identifier uint64, key *K) bool {
 	if blockNum != c.blockNum || identifier != c.identifier {
 		clear(c.seen)
 		c.blockNum = blockNum
@@ -39,5 +39,5 @@ func (c *PreConfirmedDeduper[K]) MarkSent(blockNum uint64, identifier string, ke
 func (c *PreConfirmedDeduper[K]) Clear() {
 	clear(c.seen)
 	c.blockNum = 0
-	c.identifier = ""
+	c.identifier = 0
 }

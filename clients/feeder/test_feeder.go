@@ -2,6 +2,7 @@ package feeder
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -160,7 +161,8 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 		// any other identifier selects the exact response fixture at
 		// preconfirmed/<blockNumber>/<identifier>/<knownTransactionCount>.
 		blockNumber := queryMap.Get(blockNumberArg)
-		if identifier := queryMap.Get("blockIdentifier"); identifier != PreConfirmedBlankIdentifier {
+		blankIdentifier := fmt.Sprintf("0x%x", PreConfirmedBlankIdentifier)
+		if identifier := queryMap.Get("blockIdentifier"); identifier != blankIdentifier {
 			return filepath.Join("preconfirmed", blockNumber, identifier), "knownTransactionCount", nil
 		}
 		queryMap["preconfirmedFile"] = []string{"full"}
