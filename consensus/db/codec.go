@@ -71,9 +71,6 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 
 		// batchrepr stores value lengths as uvarints.
 		valueLen := len(encodedBatch) - valueIndex
-		if valueLen > math.MaxUint32 {
-			return nil, errors.New("encodeBatch: WAL record payload too large")
-		}
 		putFixedUvarint32(encodedBatch[valueLenIndex:valueIndex], uint32(valueLen))
 	}
 
