@@ -1,3 +1,4 @@
+// Package state_test exercises the state package via its exported accessors.
 package state_test
 
 import (
