@@ -192,8 +192,13 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 		}
 		stateDiff.Merge(entry.StateUpdate.StateDiff)
 	}
+	// Invariant: blockNumber passed the range check, so a contiguous chain must
+	// contain it. A nil target means the chain has a gap (a bug), not a miss.
 	if target == nil {
-		return nil, nil, pending.ErrPreConfirmedNotFound
+		return nil, nil, fmt.Errorf(
+			"pre_confirmed chain invariant broken: block %d within [%d, %d] but no matching entry",
+			blockNumber, bottom, c.head.preconfirmed.Block.Number,
+		)
 	}
 	if index > uint(len(target.Block.Transactions)) {
 		return nil, nil, pending.ErrTransactionIndexOutOfBounds
@@ -285,9 +290,6 @@ func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
 		return ChainReader{}
 	}
 	want := int(storedTip - wantBottom + 1)
-	if want == c.length {
-		return *c
-	}
 	return ChainReader{head: c.head, length: want}
 }
 
@@ -432,7 +434,7 @@ func computeUpdate(
 	// the apply target is at or below the canonical head (bottom == head+1),
 	// i.e. already committed; the caller is asking us to write into the past.
 	if blockNumber < bottom {
-		return nil, nil, fmt.Errorf("apply target %d below bottom %d", blockNumber, bottom)
+		return nil, nil, fmt.Errorf("applying target %d below bottom %d", blockNumber, bottom)
 	}
 	return replaceSlot(current, update, blockNumber, baseTxCount)
 }
