@@ -418,6 +418,14 @@ func (c *Client) PreConfirmedBlockLatest(
 	if err != nil {
 		return nil, 0, err
 	}
+	// A full block on the latest query must carry its block_number; absent (or genesis 0)
+	// is invalid since the caller relies on it to discover the pre_confirmed tip.
+	if _, ok := preConfirmedEnvelope.Update.(starknet.PreConfirmedBlock); ok &&
+		preConfirmedEnvelope.BlockNumber == 0 {
+		return nil, 0, errors.New(
+			"pre_confirmed latest: full block response is missing block_number",
+		)
+	}
 	return preConfirmedEnvelope.Update, preConfirmedEnvelope.BlockNumber, nil
 }
 

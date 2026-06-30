@@ -1354,4 +1354,9 @@ func TestPreConfirmedBlockLatest(t *testing.T) {
 		require.NoError(t, err)
 		assert.IsType(t, starknet.PreConfirmedNoChange{}, update)
 	})
+
+	t.Run("full block response without block_number is rejected", func(t *testing.T) {
+		_, _, err := client.PreConfirmedBlockLatest(t.Context(), "0xbad", 0)
+		require.ErrorContains(t, err, "missing block_number")
+	})
 }
