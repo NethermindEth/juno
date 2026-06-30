@@ -243,7 +243,7 @@ func TestTransientChainIDErrorDoesNotShutDownNode(t *testing.T) {
 		}).
 		MinTimes(cancelAfter)
 
-	// Once ctx is cancelled, Run returns early after verifyChainID without
+	// Once ctx is cancelled, Run returns early after ensureChainID without
 	// entering catch-up or the watch loop, so no other Subscriber calls occur.
 
 	client := l1.NewClient(subscriber, chain, nopLog,
