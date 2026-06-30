@@ -163,7 +163,7 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 		}
 
 		// push the preconfirmed block to the feed
-		preconfirmed := pending.NewPreConfirmed(s.buildState.PreConfirmedBlock(), nil, nil, nil, "")
+		preconfirmed := pending.NewPreConfirmed(s.buildState.PreConfirmedBlock(), nil, nil, "")
 		s.subPreConfirmed.Send(&preconfirmed)
 		select {
 		case <-ctx.Done():

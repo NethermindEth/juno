@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -211,7 +212,12 @@ func (s *Synchronizer) pollPreConfirmed(
 				ctx, current.Block.Number, current.BlockIdentifier, txCount,
 			)
 			if err != nil {
-				s.logger.Debug("Error while trying to poll pre_confirmed block", zap.Error(err))
+				const msg = "polling pre-confirmed block"
+				if errors.Is(err, feeder.ErrInvalidFeederResponse) {
+					s.logger.Error(msg, zap.Error(err), zap.Uint64("block_number", current.Block.Number))
+					continue
+				}
+				s.logger.Debug(msg, zap.Error(err), zap.Uint64("block_number", current.Block.Number))
 				continue
 			}
 

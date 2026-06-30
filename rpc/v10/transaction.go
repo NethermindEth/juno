@@ -1,10 +1,15 @@
 package rpcv10
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -16,8 +21,20 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"go.uber.org/zap"
+)
+
+var (
+	gzPool = sync.Pool{
+		New: func() any {
+			w, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
+			return w
+		},
+	}
+	bufPool = sync.Pool{
+		New: func() any { return new(bytes.Buffer) },
+	}
 )
 
 // AdaptTransaction adapts a core.Transaction to a local *Transaction.
@@ -41,115 +58,6 @@ func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transacti
 	return tx
 }
 
-func AdaptBroadcastedTransaction(
-	ctx context.Context,
-	compiler compiler.Compiler,
-	broadcastedTxn *BroadcastedTransaction,
-	network *networks.Network,
-) (core.Transaction, core.ClassDefinition, error) {
-	feederTxn := AdaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
-
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	declaredClass, err := handleDeclaredClass(ctx, compiler, broadcastedTxn, txn)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	txnHash, err := core.TransactionHash(txn, network)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	switch t := txn.(type) {
-	case *core.DeclareTransaction:
-		t.TransactionHash = &txnHash
-	case *core.InvokeTransaction:
-		t.TransactionHash = &txnHash
-	case *core.DeployAccountTransaction:
-		t.TransactionHash = &txnHash
-	case *core.L1HandlerTransaction:
-		t.TransactionHash = &txnHash
-	default:
-		return nil, nil, errors.New("unsupported transaction")
-	}
-
-	if txn.Hash() == nil {
-		return nil, nil, errors.New("deprecated transaction type")
-	}
-
-	return txn, declaredClass, nil
-}
-
-func handleDeclaredClass(
-	ctx context.Context,
-	compiler compiler.Compiler,
-	broadcastedTxn *BroadcastedTransaction,
-	txn core.Transaction,
-) (core.ClassDefinition, error) {
-	var declaredClass core.ClassDefinition
-	if len(broadcastedTxn.ContractClass) != 0 {
-		var err error
-		declaredClass, err = adaptDeclaredClass(
-			ctx, compiler, broadcastedTxn.ContractClass,
-		)
-		if err != nil {
-			return nil, err
-		}
-		if t, ok := txn.(*core.DeclareTransaction); ok {
-			classHash, err := declaredClass.Hash()
-			if err != nil {
-				return nil, err
-			}
-			t.ClassHash = &classHash
-		}
-	} else if broadcastedTxn.Type == TxnDeclare {
-		return nil, errors.New("declare without a class definition")
-	}
-	return declaredClass, nil
-}
-
-func adaptDeclaredClass(
-	ctx context.Context,
-	compiler compiler.Compiler,
-	declaredClass json.RawMessage,
-) (core.ClassDefinition, error) {
-	var feederClass starknet.ClassDefinition
-	err := json.Unmarshal(declaredClass, &feederClass)
-	if err != nil {
-		return nil, err
-	}
-
-	switch {
-	case feederClass.Sierra != nil:
-		compiledClass, cErr := compiler.Compile(ctx, feederClass.Sierra)
-		if cErr != nil {
-			return nil, cErr
-		}
-		return sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
-	case feederClass.DeprecatedCairo != nil:
-		program := feederClass.DeprecatedCairo.Program
-
-		// strip the quotes
-		if len(program) < 2 {
-			return nil, errors.New("invalid program")
-		}
-		base64Program := string(program[1 : len(program)-1])
-
-		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
-		if err != nil {
-			return nil, err
-		}
-
-		return sn2core.AdaptDeprecatedCairoClass(feederClass.DeprecatedCairo)
-	default:
-		return nil, errors.New("empty class")
-	}
-}
-
 type AddTxResponse struct {
 	TransactionHash felt.TransactionHash `json:"transaction_hash"`
 	ContractAddress *felt.Address        `json:"contract_address,omitempty"`
@@ -165,52 +73,93 @@ func (h *Handler) AddTransaction(
 		res AddTxResponse
 		err *jsonrpc.Error
 	)
+
 	if h.memPool != nil {
-		res, err = h.addToMempool(ctx, tx)
+		var userTxn core.Transaction
+		res, userTxn, err = h.addToMempool(ctx, tx)
+		if err != nil {
+			return AddTxResponse{}, err
+		}
+
+		if h.receivedTransactionFeed != nil {
+			h.receivedTransactionFeed.Send(userTxn)
+		}
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
-	}
+		if err != nil {
+			return AddTxResponse{}, err
+		}
 
-	if err != nil {
-		return AddTxResponse{}, err
+		if h.receivedTransactionFeed != nil {
+			adaptedTxn, _, aErr := adaptAndCompileBroadcastedTxToCore(
+				ctx, h.compiler, tx, h.bcReader.Network(),
+			)
+			if aErr != nil {
+				// Log error but don't fail the transaction submission
+				h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
+			} else {
+				h.receivedTransactionFeed.Send(adaptedTxn)
+			}
+		}
 	}
 
 	if h.submittedTransactionsCache != nil {
 		h.submittedTransactionsCache.Add((*felt.Felt)(&res.TransactionHash))
 	}
 
-	if h.receivedTransactionFeed != nil {
-		adaptedTxn, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
-		if aErr != nil {
-			// Log error but don't fail the transaction submission
-			h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
-		} else {
-			h.receivedTransactionFeed.Send(adaptedTxn)
-		}
-	}
-
 	return res, nil
+}
+
+func adaptAndCompileBroadcastedTxToCore(
+	ctx context.Context,
+	compiler compiler.Compiler,
+	tx *BroadcastedTransaction,
+	network *networks.Network,
+) (core.Transaction, core.ClassDefinition, error) {
+	var classHash *felt.Felt
+	var sierraClass core.ClassDefinition
+
+	if tx.Type == TxnDeclare {
+		class := adaptContractClassToStarknet(tx.ContractClass)
+		compiledClass, err := compiler.Compile(ctx, &class)
+		if err != nil {
+			return nil, nil, err
+		}
+		sierraClass, err = sn2core.AdaptSierraClass(&class, compiledClass)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		tempClassHash, err := sierraClass.Hash()
+		if err != nil {
+			return nil, nil, err
+		}
+		classHash = &tempClassHash
+	}
+	coreTx, err := AdaptBroadcastedTransactionToCore(ctx, tx, classHash, network)
+	return coreTx, sierraClass, err
 }
 
 func (h *Handler) addToMempool(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
-) (AddTxResponse, *jsonrpc.Error) {
-	userTxn, userClass, err := AdaptBroadcastedTransaction(
+) (AddTxResponse, core.Transaction, *jsonrpc.Error) {
+	userTxn, userClass, err := adaptAndCompileBroadcastedTxToCore(
 		ctx, h.compiler, tx, h.bcReader.Network(),
 	)
 	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
+		if errors.Is(err, throttler.ErrResourceBusy) {
+			return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
 		}
-		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
+		return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
+
 	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		Proof:         tx.Proof,
 	}); err != nil {
-		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
+		return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 	userTxnHash := felt.TransactionHash(*userTxn.Hash())
 	res := AddTxResponse{TransactionHash: userTxnHash}
@@ -224,56 +173,29 @@ func (h *Handler) addToMempool(
 		)
 		res.ContractAddress = (*felt.Address)(&contractAddress)
 	case TxnDeclare:
-		classHash, err := userClass.Hash()
-		if err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
-		}
-		res.ClassHash = (*felt.ClassHash)(&classHash)
+		// Class hash was already computed in adaptAndCompileBroadcastedTxToCore.
+		res.ClassHash = (*felt.ClassHash)(userTxn.(*core.DeclareTransaction).ClassHash)
 	}
-	return res, nil
+	return res, userTxn, nil
 }
 
 func (h *Handler) pushToFeederGateway(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
-	if tx.Transaction.Type == TxnDeclare &&
-		tx.Transaction.Version.Cmp(felt.NewFromUint64[felt.Felt](2)) != -1 {
-		contractClass := make(map[string]any)
-		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
-				fmt.Sprintf("unmarshal contract class: %v", err),
-			)
-		}
-		sierraProg, ok := contractClass["sierra_program"]
-		if !ok {
-			return AddTxResponse{}, jsonrpc.Err(
-				jsonrpc.InvalidParams,
-				"{'sierra_program': ['Missing data for required field.']}",
-			)
-		}
-
-		sierraProgBytes, errIn := json.Marshal(sierraProg)
-		if errIn != nil {
-			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
-		if errIn != nil {
-			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		contractClass["sierra_program"] = gwSierraProg
-		newContractClass, err := json.Marshal(contractClass)
-		if err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
-				fmt.Sprintf("marshal revised contract class: %v", err),
-			)
-		}
-		tx.ContractClass = newContractClass
+	classPayload, err := ContractClassToGatewayPayload(tx.ContractClass)
+	if err != nil {
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+			fmt.Sprintf("failed to get contract class payload: %s", err),
+		)
 	}
 
-	payload := AdaptRPCTxToAddTxGatewayPayload(tx)
+	payload := AddTxGatewayPayload{
+		Transaction:   AdaptBroadcastedTransactionToFeeder(tx),
+		ContractClass: classPayload,
+		Proof:         tx.Proof,
+	}
+
 	txJSON, err := json.Marshal(&payload)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
@@ -310,6 +232,48 @@ func (h *Handler) pushToFeederGateway(
 	}, nil
 }
 
+// ContractClassToGatewayPayload returns the contract class payload in the format
+// expected by the gateway.
+func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
+	if class == nil {
+		return []byte{}, nil
+	}
+
+	sierraBuf := bufPool.Get().(*bytes.Buffer)
+	sierraBuf.Reset()
+	defer bufPool.Put(sierraBuf)
+
+	b64 := base64.NewEncoder(base64.StdEncoding, sierraBuf)
+	gz := gzPool.Get().(*gzip.Writer)
+	gz.Reset(b64)
+	defer gzPool.Put(gz)
+
+	enc := json.NewEncoder(gz)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(class.SierraProgram); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	if err := b64.Close(); err != nil {
+		return nil, err
+	}
+
+	temp := struct {
+		SierraProgram        string                   `json:"sierra_program"`
+		ContractClassVersion string                   `json:"contract_class_version"`
+		EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type"`
+		ABI                  string                   `json:"abi,omitempty"`
+	}{
+		SierraProgram:        sierraBuf.String(),
+		ContractClassVersion: class.ContractClassVersion,
+		EntryPoints:          class.EntryPoints,
+		ABI:                  class.ABI,
+	}
+	return json.Marshal(temp)
+}
+
 func (h *Handler) TransactionStatus(
 	ctx context.Context,
 	hash *felt.Felt,
@@ -323,34 +287,18 @@ func (h *Handler) TransactionStatus(
 			FailureReason: receipt.RevertReason,
 		}, nil
 	case rpccore.ErrTxnHashNotFound:
-		// Search pre-confirmed block for 'CANDIDATE' status
-		var txStatus *starknet.TransactionStatus
-		var err error
-		preConfirmedB, err := h.syncReader.PreConfirmed()
-
-		if err == nil {
-			for _, txn := range preConfirmedB.GetCandidateTransaction() {
-				if txn.Hash().Equal(hash) {
-					txStatus = &starknet.TransactionStatus{FinalityStatus: starknet.Candidate}
-					break
-				}
-			}
+		if h.feederClient == nil {
+			break
 		}
-		// Not Candidate
-		if txStatus == nil {
-			if h.feederClient == nil {
-				break
-			}
 
-			txStatus, err = h.feederClient.TransactionStatus(ctx, hash)
-			if err != nil {
-				return TransactionStatus{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-			}
+		txStatus, err := h.feederClient.TransactionStatus(ctx, hash)
+		if err != nil {
+			return TransactionStatus{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
 
-			if txStatus.FinalityStatus == starknet.NotReceived && h.submittedTransactionsCache != nil {
-				if h.submittedTransactionsCache.Contains(hash) {
-					txStatus.FinalityStatus = starknet.Received
-				}
+		if txStatus.FinalityStatus == starknet.NotReceived && h.submittedTransactionsCache != nil {
+			if h.submittedTransactionsCache.Contains(hash) {
+				txStatus.FinalityStatus = starknet.Received
 			}
 		}
 

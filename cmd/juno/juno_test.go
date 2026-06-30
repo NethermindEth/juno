@@ -3,6 +3,7 @@ package main_test
 import (
 	"math"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,6 +19,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func parseURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+	u, err := url.ParseRequestURI(rawURL)
+	require.NoError(t, err)
+	return u
+}
 
 func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
@@ -39,8 +47,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultNetwork := networks.Mainnet
 	defaultCustomNetwork := networks.Network{
 		Name:                "custom",
-		FeederURL:           "awesome_feeder_url",
-		GatewayURL:          "awesome_gateway_url",
+		FeederURL:           parseURL(t, "http://awesome.feeder"),
+		GatewayURL:          parseURL(t, "http://awesome.gateway"),
 		L2ChainID:           "SN_AWESOME",
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
@@ -59,6 +67,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultPreLatestPollInterval := time.Second
 	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
+	defaultRPCMaxConcurrentRequests := uint(256000)
+	defaultRPCMaxRequestQueue := uint(256000)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
@@ -108,6 +118,8 @@ func TestConfigPrecedence(t *testing.T) {
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
+		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
@@ -156,6 +168,8 @@ func TestConfigPrecedence(t *testing.T) {
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
+		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
@@ -198,7 +212,7 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
 				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "1024",
-				"--cn-name", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
+				"--cn-name", "custom", "--cn-feeder-url", "http://awesome.feeder", "--cn-gateway-url", "http://awesome.gateway",
 				"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
 				"--cn-unverifiable-range", "0,10",
 				"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
@@ -213,8 +227,8 @@ http-port: 4576
 db-path: /home/.juno
 pprof: true
 cn-name: custom
-cn-feeder-url: awesome_feeder_url
-cn-gateway-url: awesome_gateway_url
+cn-feeder-url: http://awesome.feeder
+cn-gateway-url: http://awesome.gateway
 cn-l2-chain-id: SN_AWESOME
 cn-l1-chain-id: 0x1
 cn-core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
@@ -278,6 +292,8 @@ pprof: true
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -332,6 +348,8 @@ http-port: 4576
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -383,6 +401,8 @@ http-port: 4576
 				Colour:                             defaultColour,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -438,6 +458,8 @@ http-port: 4576
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -517,6 +539,8 @@ db-cache-size: 1024
 				PreConfirmedPollInterval:           time.Millisecond,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        9,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -573,6 +597,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -625,6 +651,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -675,6 +703,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -726,6 +756,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -777,6 +809,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -827,6 +861,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				GatewayAPIKey:                      "apikey",
@@ -907,6 +943,55 @@ func TestUnknownFlagDoesNotPrintUsage(t *testing.T) {
 	assert.Contains(t, output, "unknown flag")
 	assert.NotContains(t, output, "Available Commands:")
 	assert.NotContains(t, output, "Global Flags:")
+}
+
+// TestCustomNetworkURLValidation drives URL validation through NewCmd's PreRunE,
+// which validates the custom-network feeder/gateway URLs.
+func TestCustomNetworkURLValidation(t *testing.T) {
+	baseArgs := func(feeder, gateway string) []string {
+		return []string{
+			"--cn-name", "custom",
+			"--cn-feeder-url", feeder,
+			"--cn-gateway-url", gateway,
+			"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
+			"--cn-unverifiable-range", "0,10",
+			"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
+		}
+	}
+
+	feederErr := "invalid feeder URL"
+	gatewayErr := "invalid gateway URL"
+
+	tests := map[string]struct {
+		feeder    string
+		gateway   string
+		errSubstr string
+	}{
+		"both valid http":     {feeder: "http://feeder.host", gateway: "http://gateway.host"},
+		"both valid https":    {feeder: "https://feeder.host", gateway: "https://gateway.host"},
+		"invalid feeder":      {feeder: "feeder_host", gateway: "http://gateway.host", errSubstr: feederErr},
+		"invalid gateway":     {feeder: "http://feeder.host", gateway: "gateway_host", errSubstr: gatewayErr},
+		"feeder bad scheme":   {feeder: "ftp://feeder.host", gateway: "http://gateway.host", errSubstr: feederErr},
+		"feeder missing host": {feeder: "http:///feeder", gateway: "http://gateway.host", errSubstr: feederErr},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := new(node.Config)
+			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+			cmd.SetArgs(baseArgs(tc.feeder, tc.gateway))
+
+			err := cmd.ExecuteContext(t.Context())
+			if tc.errSubstr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tc.errSubstr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, parseURL(t, tc.feeder), config.Network.FeederURL)
+			assert.Equal(t, parseURL(t, tc.gateway), config.Network.GatewayURL)
+		})
+	}
 }
 
 func tempCfgFile(t *testing.T, cfg string) string {

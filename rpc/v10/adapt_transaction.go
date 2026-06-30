@@ -1,18 +1,21 @@
 package rpcv10
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var ErrTransactionNotFound = errors.New("transaction not found")
@@ -25,7 +28,6 @@ type AddTxGatewayPayload struct {
 }
 
 // AdaptCoreTransaction adapts a core.Transaction to a local *Transaction.
-// This is the v10-local equivalent of v9's AdaptTransaction.
 func AdaptCoreTransaction(t core.Transaction) *Transaction {
 	var txn *Transaction
 	switch v := t.(type) {
@@ -68,28 +70,26 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 	return txn
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
+func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
+	l1DataGasResourceBounds := ResourceBounds{
+		MaxAmount:       &felt.Zero,
+		MaxPricePerUnit: &felt.Zero,
+	}
 	// Check if L1DataGas exists in the map
-	var l1DataGasResourceBounds *ResourceBounds
 	if _, ok := rb[core.ResourceL1DataGas]; ok {
-		l1DataGasResourceBounds = &ResourceBounds{
+		l1DataGasResourceBounds = ResourceBounds{
 			MaxAmount:       felt.NewFromUint64[felt.Felt](rb[core.ResourceL1DataGas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
-		}
-	} else {
-		l1DataGasResourceBounds = &ResourceBounds{
-			MaxAmount:       &felt.Zero,
-			MaxPricePerUnit: &felt.Zero,
 		}
 	}
 
 	// As L1Gas & L2Gas will always be present, we can directly assign them
 	rpcResourceBounds := ResourceBoundsMap{
-		L1Gas: &ResourceBounds{
+		L1Gas: ResourceBounds{
 			MaxAmount:       felt.NewFromUint64[felt.Felt](rb[core.ResourceL1Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1Gas].MaxPricePerUnit,
 		},
-		L2Gas: &ResourceBounds{
+		L2Gas: ResourceBounds{
 			MaxAmount:       felt.NewFromUint64[felt.Felt](rb[core.ResourceL2Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
 		},
@@ -98,53 +98,19 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 	return rpcResourceBounds
 }
 
-func AdaptToFeederResourceBounds(
-	rb *ResourceBoundsMap,
-) map[starknet.Resource]starknet.ResourceBounds {
-	if rb == nil {
-		return nil
+func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet.Transaction {
+	resourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
+	resourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
+		MaxAmount:       rpcTx.ResourceBounds.L1Gas.MaxAmount,
+		MaxPricePerUnit: rpcTx.ResourceBounds.L1Gas.MaxPricePerUnit,
 	}
-	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	feederResourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1Gas.MaxAmount,
-		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+	resourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
+		MaxAmount:       rpcTx.ResourceBounds.L2Gas.MaxAmount,
+		MaxPricePerUnit: rpcTx.ResourceBounds.L2Gas.MaxPricePerUnit,
 	}
-	feederResourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L2Gas.MaxAmount,
-		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
-	}
-	feederResourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1DataGas.MaxAmount,
-		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
-	}
-
-	return feederResourceBounds
-}
-
-func AdaptToFeederDAMode(mode *DataAvailabilityMode) starknet.DataAvailabilityMode {
-	if mode == nil {
-		return 0
-	}
-	return starknet.DataAvailabilityMode(*mode)
-}
-
-func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
-	resourceBounds := AdaptToFeederResourceBounds(rpcTx.ResourceBounds)
-	var resourceBoundsPtr *map[starknet.Resource]starknet.ResourceBounds
-	if resourceBounds != nil {
-		resourceBoundsPtr = &resourceBounds
-	}
-
-	var nonceDAModePtr *starknet.DataAvailabilityMode
-	if rpcTx.NonceDAMode != nil {
-		nonceDAMode := AdaptToFeederDAMode(rpcTx.NonceDAMode)
-		nonceDAModePtr = &nonceDAMode
-	}
-
-	var feeDAModePtr *starknet.DataAvailabilityMode
-	if rpcTx.FeeDAMode != nil {
-		feeDAMode := AdaptToFeederDAMode(rpcTx.FeeDAMode)
-		feeDAModePtr = &feeDAMode
+	resourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
+		MaxAmount:       rpcTx.ResourceBounds.L1DataGas.MaxAmount,
+		MaxPricePerUnit: rpcTx.ResourceBounds.L1DataGas.MaxPricePerUnit,
 	}
 
 	return starknet.Transaction{
@@ -162,21 +128,13 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        resourceBoundsPtr,
+		ResourceBounds:        &resourceBounds,
 		Tip:                   rpcTx.Tip,
-		NonceDAMode:           nonceDAModePtr,
-		FeeDAMode:             feeDAModePtr,
+		NonceDAMode:           (*starknet.DataAvailabilityMode)(rpcTx.NonceDAMode),
+		FeeDAMode:             (*starknet.DataAvailabilityMode)(rpcTx.FeeDAMode),
 		AccountDeploymentData: rpcTx.AccountDeploymentData,
 		PaymasterData:         rpcTx.PaymasterData,
 		ProofFacts:            rpcTx.ProofFacts,
-	}
-}
-
-func AdaptRPCTxToAddTxGatewayPayload(rpcTx *BroadcastedTransaction) AddTxGatewayPayload {
-	return AddTxGatewayPayload{
-		Transaction:   AdaptRPCTxToFeederTx(&rpcTx.Transaction),
-		ContractClass: rpcTx.ContractClass,
-		Proof:         rpcTx.Proof,
 	}
 }
 
@@ -314,7 +272,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -342,7 +300,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -367,7 +325,7 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = new(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
@@ -375,6 +333,32 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	return tx
+}
+
+func adaptContractClassToStarknet(class *ContractClass) starknet.SierraClass {
+	handleEntryPoints := func(
+		entryPoints []ContractClassEntryPoint,
+	) []starknet.SierraEntryPoint {
+		starknetEntryPoints := make([]starknet.SierraEntryPoint, len(entryPoints))
+		for i, entryPoint := range entryPoints {
+			starknetEntryPoints[i] = starknet.SierraEntryPoint{
+				Index:    *entryPoint.Index,
+				Selector: entryPoint.Selector,
+			}
+		}
+		return starknetEntryPoints
+	}
+
+	return starknet.SierraClass{
+		Abi:     class.ABI,
+		Version: class.ContractClassVersion,
+		Program: utils.ToPtrSlice(class.SierraProgram),
+		EntryPoints: starknet.SierraEntryPoints{
+			Constructor: handleEntryPoints(class.EntryPoints.Constructor),
+			External:    handleEntryPoints(class.EntryPoints.External),
+			L1Handler:   handleEntryPoints(class.EntryPoints.L1Handler),
+		},
+	}
 }
 
 //nolint:gocyclo // maps gateway error codes to RPC errors
@@ -424,4 +408,148 @@ func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	default:
 		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}
+}
+
+func adaptResourceBoundsToCore(
+	rb *ResourceBoundsMap,
+) map[core.Resource]core.ResourceBounds {
+	coreResourceBounds := make(map[core.Resource]core.ResourceBounds)
+	coreResourceBounds[core.ResourceL1Gas] = core.ResourceBounds{
+		MaxAmount:       rb.L1Gas.MaxAmount.Uint64(),
+		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+	}
+	coreResourceBounds[core.ResourceL2Gas] = core.ResourceBounds{
+		MaxAmount:       rb.L2Gas.MaxAmount.Uint64(),
+		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+	}
+	coreResourceBounds[core.ResourceL1DataGas] = core.ResourceBounds{
+		MaxAmount:       rb.L1DataGas.MaxAmount.Uint64(),
+		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+	}
+
+	return coreResourceBounds
+}
+
+// adapts BroadcastedInvokeTransaction to core.InvokeTransaction.
+// Returns a tx with a nil transaction hash.
+func adaptBroadcastedInvokeToCore(tx *BroadcastedTransaction) *core.InvokeTransaction {
+	return &core.InvokeTransaction{
+		TransactionHash:       nil,
+		CallData:              *tx.CallData,
+		TransactionSignature:  *tx.Signature,
+		Nonce:                 tx.Nonce,
+		Version:               (*core.TransactionVersion)(tx.Version),
+		SenderAddress:         tx.SenderAddress,
+		ResourceBounds:        adaptResourceBoundsToCore(tx.ResourceBounds),
+		Tip:                   tx.Tip.Uint64(),
+		PaymasterData:         *tx.PaymasterData,
+		AccountDeploymentData: *tx.AccountDeploymentData,
+		NonceDAMode:           core.DataAvailabilityMode(*tx.NonceDAMode),
+		FeeDAMode:             core.DataAvailabilityMode(*tx.FeeDAMode),
+		ProofFacts:            utils.DerefSlice(tx.ProofFacts),
+		MaxFee:                nil, // not present in v3 invoke
+		ContractAddress:       nil, // not present in v3 invoke
+		EntryPointSelector:    nil, // not present in v3 invoke
+	}
+}
+
+// adapts BroadcastedDeclareTransaction to core.DeclareTransaction.
+// Returns a tx with a nil transaction hash.
+func adaptBroadcastedDeclareToCore(
+	tx *BroadcastedTransaction,
+	classHash *felt.Felt,
+) *core.DeclareTransaction {
+	return &core.DeclareTransaction{
+		TransactionHash:       nil,
+		ClassHash:             classHash,
+		SenderAddress:         tx.SenderAddress,
+		TransactionSignature:  *tx.Signature,
+		Nonce:                 tx.Nonce,
+		Version:               (*core.TransactionVersion)(tx.Version),
+		CompiledClassHash:     tx.CompiledClassHash,
+		ResourceBounds:        adaptResourceBoundsToCore(tx.ResourceBounds),
+		Tip:                   tx.Tip.Uint64(),
+		PaymasterData:         *tx.PaymasterData,
+		AccountDeploymentData: *tx.AccountDeploymentData,
+		NonceDAMode:           core.DataAvailabilityMode(*tx.NonceDAMode),
+		FeeDAMode:             core.DataAvailabilityMode(*tx.FeeDAMode),
+		MaxFee:                nil, // not present in v3 declare
+	}
+}
+
+// adapts BroadcastedDeployAccountTransaction to core.DeployAccountTransaction.
+// Returns a tx with a nil transaction hash.
+func adaptBroadcastedDeployAccountToCore(
+	tx *BroadcastedTransaction,
+) *core.DeployAccountTransaction {
+	contractAddress := core.ContractAddress(
+		&felt.Zero,
+		tx.ClassHash,
+		tx.ContractAddressSalt,
+		*tx.ConstructorCallData,
+	)
+
+	return &core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     nil,
+			ContractAddressSalt: tx.ContractAddressSalt,
+			ClassHash:           tx.ClassHash,
+			ConstructorCallData: *tx.ConstructorCallData,
+			Version:             (*core.TransactionVersion)(tx.Version),
+			// not present in v3 deploy account, but it is used in the core.TransactionHash function.
+			ContractAddress: &contractAddress,
+		},
+		MaxFee:               nil, // not present in v3 deploy account
+		TransactionSignature: *tx.Signature,
+		Nonce:                tx.Nonce,
+		ResourceBounds:       adaptResourceBoundsToCore(tx.ResourceBounds),
+		Tip:                  tx.Tip.Uint64(),
+		PaymasterData:        *tx.PaymasterData,
+		NonceDAMode:          core.DataAvailabilityMode(*tx.NonceDAMode),
+		FeeDAMode:            core.DataAvailabilityMode(*tx.FeeDAMode),
+	}
+}
+
+// AdaptBroadcastedTransactionToCore adapts a BroadcastedTransaction to a core.Transaction,
+// and populates the transaction hash.
+func AdaptBroadcastedTransactionToCore(
+	ctx context.Context,
+	broadcastedTxn *BroadcastedTransaction,
+	classHash *felt.Felt,
+	network *networks.Network,
+) (core.Transaction, error) {
+	var coreTx core.Transaction
+
+	txType := broadcastedTxn.Type
+	switch txType {
+	case TxnInvoke:
+		txn := adaptBroadcastedInvokeToCore(broadcastedTxn)
+		txnHash, err := core.TransactionHash(txn, network)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
+		}
+		txn.TransactionHash = &txnHash
+		coreTx = txn
+	case TxnDeclare:
+		txn := adaptBroadcastedDeclareToCore(broadcastedTxn, classHash)
+
+		txnHash, err := core.TransactionHash(txn, network)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
+		}
+		txn.TransactionHash = &txnHash
+		coreTx = txn
+	case TxnDeployAccount:
+		txn := adaptBroadcastedDeployAccountToCore(broadcastedTxn)
+		txnHash, err := core.TransactionHash(txn, network)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate transaction hash: %w", err)
+		}
+		txn.TransactionHash = &txnHash
+		coreTx = txn
+	default:
+		return nil, fmt.Errorf("invalid transaction type %q", txType)
+	}
+
+	return coreTx, nil
 }

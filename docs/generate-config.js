@@ -109,6 +109,12 @@ const extractConfigs = (codebase) => {
     if (configName === "max-concurrent-compilations") {
       defaultValue = "CPU Cores";
     }
+    // The registered Cobra default is 0, but pruning is gated on the flag's
+    // presence, not its value — a bare `--prune-mode` enables pruning with the
+    // NoOptDefVal of 128. Show 128 as the effective default when enabled.
+    if (configName === "prune-mode") {
+      defaultValue = 128;
+    }
     if (configName === "max-compilation-queue") {
       defaultValue = "2 * max-concurrent-compilations";
     }
@@ -192,6 +198,11 @@ function parseValue(value) {
   // Prune-mode flag name lives in another package as a string constant.
   if (value === "node.PruneModeFlag") {
     return "prune-mode";
+  }
+
+  // Same for prune-min-age — its flag name is a constant in the node package.
+  if (value === "node.PruneMinAgeFlag") {
+    return "prune-min-age";
   }
 
   // VM default limits live in the `vm` package; hard-code their numeric

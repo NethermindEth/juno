@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -100,7 +101,7 @@ func (h *Handler) Call(
 		false,
 	)
 	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
+		if errors.Is(err, throttler.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
 		return nil, MakeContractError(json.RawMessage(err.Error()))
@@ -192,7 +193,7 @@ func traceTransactionsWithState(
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if vmErr != nil {
-		if errors.Is(vmErr, utils.ErrResourceBusy) {
+		if errors.Is(vmErr, throttler.ErrResourceBusy) {
 			return nil, nil, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
 		return nil, nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(vmErr.Error())

@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -239,7 +240,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
+		if errors.Is(err, throttler.ErrResourceBusy) {
 			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
@@ -387,7 +388,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		false,
 	)
 	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
+		if errors.Is(err, throttler.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
 		return nil, MakeContractError(json.RawMessage(err.Error()))

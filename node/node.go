@@ -134,6 +134,8 @@ type Config struct {
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
 	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
@@ -301,7 +303,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			logger,
 		),
 		cfg.MaxConcurrentCompilations,
-		int32(cfg.MaxCompilationQueue),
+		uint64(cfg.MaxCompilationQueue),
 	)
 
 	if cfg.Sequencer {
@@ -320,7 +322,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			FeeTokenAddresses: feeTokens,
 		}
 		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 		mempool := mempool.New(database, chain, mempoolLimit, logger)
 		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
@@ -358,6 +360,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
+
+		if cfg.Network.FeederURL == nil {
+			return nil, fmt.Errorf("network %q has no feeder URL configured", cfg.Network.Name)
+		}
+		if cfg.Network.GatewayURL == nil {
+			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
+		}
+
 		client = feeder.NewClient(cfg.Network.FeederURL).
 			WithUserAgent(ua).
 			WithLogger(logger).
@@ -380,7 +390,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			FeeTokenAddresses: feeTokens,
 		}
 		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(
@@ -539,6 +549,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
+				cfg.RPCMaxConcurrentRequests,
+				cfg.RPCMaxRequestQueue,
 			),
 		)
 	}

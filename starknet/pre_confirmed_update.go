@@ -3,6 +3,7 @@ package starknet
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -20,6 +21,8 @@ type PreConfirmedUpdate interface {
 // variant discrimination and discards it before decoding into this struct.
 type PreConfirmedNoChange struct{}
 
+func (PreConfirmedNoChange) isPreConfirmedUpdate() {}
+
 // PreConfirmedDeltaUpdate carries transactions/receipts/state diffs appended since the
 // caller's known transaction count for the same block_identifier.
 //
@@ -31,6 +34,21 @@ type PreConfirmedDeltaUpdate struct {
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
+}
+
+func (PreConfirmedDeltaUpdate) isPreConfirmedUpdate() {}
+
+func (val *PreConfirmedDeltaUpdate) validate() error {
+	if val.BlockIdentifier == "" {
+		return errors.New("block_identifier is required")
+	}
+	if len(val.Transactions) == 0 {
+		return errors.New("delta requires at least one transaction")
+	}
+
+	return validateTxsLength(
+		val.Transactions, val.Receipts, val.TransactionStateDiffs,
+	)
 }
 
 // PreConfirmedBlock carries a full pre_confirmed block for a new round.
@@ -53,9 +71,63 @@ type PreConfirmedBlock struct {
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
 }
 
-func (PreConfirmedNoChange) isPreConfirmedUpdate()    {}
-func (PreConfirmedDeltaUpdate) isPreConfirmedUpdate() {}
-func (PreConfirmedBlock) isPreConfirmedUpdate()       {}
+func (PreConfirmedBlock) isPreConfirmedUpdate() {}
+
+func (pb *PreConfirmedBlock) validate() error {
+	if pb.BlockIdentifier == "" {
+		return errors.New("block_identifier is required")
+	}
+	if pb.Status != "PRE_CONFIRMED" {
+		return fmt.Errorf("invalid status: %s", pb.Status)
+	}
+	if pb.Version == "" {
+		return errors.New("version is required")
+	}
+	if pb.SequencerAddress == nil {
+		return errors.New("sequencer_address is required")
+	}
+	if pb.L1GasPrice == nil {
+		return errors.New("l1_gas_price is required")
+	}
+	if pb.L2GasPrice == nil {
+		return errors.New("l2_gas_price is required")
+	}
+	if pb.L1DataGasPrice == nil {
+		return errors.New("l1_data_gas_price is required")
+	}
+	return validateTxsLength(
+		pb.Transactions, pb.Receipts, pb.TransactionStateDiffs,
+	)
+}
+
+func validateTxsLength(
+	txs []Transaction,
+	receipts []*TransactionReceipt,
+	stateDiffs []*StateDiff,
+) error {
+	if len(txs) != len(receipts) || len(txs) != len(stateDiffs) {
+		return fmt.Errorf(
+			"transactions, receipts, and tx_state_diffs must have the same length: "+
+				"txs: %d, receipts: %d, stateDiffs: %d",
+			len(txs),
+			len(receipts),
+			len(stateDiffs),
+		)
+	}
+
+	for i := range txs {
+		if txs[i] == (Transaction{}) {
+			return fmt.Errorf("transaction at index %d is empty", i)
+		}
+		if receipts[i] == nil {
+			return fmt.Errorf("receipt at index %d is nil", i)
+		}
+		if stateDiffs[i] == nil {
+			return fmt.Errorf("transaction state diff at index %d is nil", i)
+		}
+	}
+	return nil
+}
 
 var (
 	_ PreConfirmedUpdate = PreConfirmedNoChange{}
@@ -99,6 +171,23 @@ func (e *PreConfirmedUpdateEnvelope) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		e.Update = delta
+	}
+	return nil
+}
+
+func (e *PreConfirmedUpdateEnvelope) Validate() error {
+	switch update := e.Update.(type) {
+	case PreConfirmedNoChange:
+	case PreConfirmedDeltaUpdate:
+		if err := update.validate(); err != nil {
+			return fmt.Errorf("invalid pre_confirmed delta update: %w", err)
+		}
+	case PreConfirmedBlock:
+		if err := update.validate(); err != nil {
+			return fmt.Errorf("invalid pre_confirmed full block: %w", err)
+		}
+	default:
+		return fmt.Errorf("invalid pre_confirmed update type %T", e.Update)
 	}
 	return nil
 }

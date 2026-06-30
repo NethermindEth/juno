@@ -18,9 +18,8 @@ import (
 //
 // The endpoint receives a vector of finality statuses.
 // An event is fired for each finality status update.
-// It is possible for events for pre-confirmed and
-// candidate transactions to be received multiple times,
-// or not at all.
+// It is possible for events for pre-confirmed transactions to be received
+// multiple times, or not at all.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/785257f27cdc4ea0ca3b62a21b0f7bf51000f9b1/api/starknet_ws_api.json#L264
@@ -93,12 +92,7 @@ func newTransactionsSubscriber(
 		s.onNewHead = state.onNewHead
 	}
 
-	if slices.ContainsFunc(
-		state.finalityStatus,
-		func(status TxnStatusWithoutL1) bool {
-			return status == TxnStatusWithoutL1(TxnStatusPreConfirmed) ||
-				status == TxnStatusWithoutL1(TxnStatusCandidate)
-		}) {
+	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
 		s.onPreConfirmed = state.onPreConfirmed
 		s.onPreLatest = state.onPreLatest
 	}
@@ -152,21 +146,11 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	_ *subscription,
 	preConfirmed *pending.PreConfirmed,
 ) error {
-	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
-		if err := s.processBlock(
-			id,
-			preConfirmed.GetBlock(),
-			TxnStatusWithoutL1(TxnStatusPreConfirmed),
-		); err != nil {
-			return err
-		}
-	}
-
-	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusCandidate)) {
-		return s.processCandidateTransactions(id, preConfirmed)
-	}
-
-	return nil
+	return s.processBlock(
+		id,
+		preConfirmed.GetBlock(),
+		TxnStatusWithoutL1(TxnStatusPreConfirmed),
+	)
 }
 
 func (s *transactionsSubscriberState) processBlock(
@@ -184,28 +168,6 @@ func (s *transactionsSubscriberState) processBlock(
 			b.Number,
 			txn,
 			status,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *transactionsSubscriberState) processCandidateTransactions(
-	id string,
-	preConfirmed *pending.PreConfirmed,
-) error {
-	blockNumber := preConfirmed.GetBlock().Number
-	for _, txn := range preConfirmed.GetCandidateTransaction() {
-		if !filterTxBySender(txn, s.senderAddr) {
-			continue
-		}
-
-		if err := s.sendWithoutDuplicate(
-			id,
-			blockNumber,
-			txn,
-			TxnStatusWithoutL1(TxnStatusCandidate),
 		); err != nil {
 			return err
 		}

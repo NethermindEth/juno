@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/eth"
@@ -43,7 +44,7 @@ func (h *Handler) EstimateFee(
 		simulationFlags = append(simulationFlags, simulationFlag)
 	}
 
-	txnResults, httpHeader, err := h.simulateTransactions(
+	txnResults, httpHeader, err := h.simulateBroadcastedTransactions(
 		ctx,
 		id,
 		broadcastedTxns.Data,
@@ -84,23 +85,33 @@ func (h *Handler) EstimateMessageFee(
 		return FeeEstimate{}, nil, rpccore.ErrContractNotFound
 	}
 
-	tx := BroadcastedTransaction{
-		Transaction: Transaction{
-			Type:               TxnL1Handler,
-			ContractAddress:    &msg.To,
-			EntryPointSelector: &msg.Selector,
-			CallData:           &calldata,
-			Version:            &felt.Zero, // Needed for transaction hash calculation.
-			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
-		},
+	// In order to estimate the message fee, since there's no "message fee" transaction,
+	// we wrap the message in a L1_HANDLER transaction.
+	l1Handler := core.L1HandlerTransaction{
+		ContractAddress:    &msg.To,
+		EntryPointSelector: &msg.Selector,
+		CallData:           calldata,
+		// Needed for L1_HANDLER transaction hash calculation. Every transaction to be
+		// simulated must contain a valid tx hash; since we are just estimating the fees,
+		// we can set the remaining required fields to zero, as we don't care about the
+		// final tx hash.
+		Version: (*core.TransactionVersion)(&felt.Zero),
+		Nonce:   &felt.Zero,
 	}
+	txnHash, hashErr := core.TransactionHash(&l1Handler, h.bcReader.Network())
+	if hashErr != nil {
+		return FeeEstimate{}, nil, rpccore.ErrInternal.CloneWithData(hashErr.Error())
+	}
+	l1Handler.TransactionHash = &txnHash
 
-	bcTxn := [1]BroadcastedTransaction{tx}
-	estimates, httpHeader, err := h.EstimateFee(
-		ctx,
-		rpccore.LimitSlice[BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
-		nil,
+	result, httpHeader, err := h.simulateTransactions(
+		state,
 		id,
+		[]core.Transaction{&l1Handler},
+		nil,  // classes
+		nil,  // simulation flags
+		true, // err on revert
+		true, // is estimate fee
 	)
 	if err != nil {
 		if err.Code == rpccore.ErrTransactionExecutionError.Code {
@@ -109,5 +120,6 @@ func (h *Handler) EstimateMessageFee(
 		}
 		return FeeEstimate{}, httpHeader, err
 	}
-	return estimates[0], httpHeader, nil
+
+	return result.SimulatedTransactions[0].FeeEstimation, httpHeader, nil
 }

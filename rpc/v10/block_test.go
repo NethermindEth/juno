@@ -630,7 +630,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -1151,19 +1151,19 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				CallData:           &tx.CallData,
 				EntryPointSelector: tx.EntryPointSelector,
 				ResourceBounds: &rpc.ResourceBoundsMap{
-					L1Gas: &rpc.ResourceBounds{
+					L1Gas: rpc.ResourceBounds{
 						MaxAmount: felt.NewFromUint64[felt.Felt](
 							tx.ResourceBounds[core.ResourceL1Gas].MaxAmount,
 						),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
-					L2Gas: &rpc.ResourceBounds{
+					L2Gas: rpc.ResourceBounds{
 						MaxAmount: felt.NewFromUint64[felt.Felt](
 							tx.ResourceBounds[core.ResourceL2Gas].MaxAmount,
 						),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
-					L1DataGas: &rpc.ResourceBounds{
+					L1DataGas: rpc.ResourceBounds{
 						MaxAmount:       &felt.Zero,
 						MaxPricePerUnit: &felt.Zero,
 					},
