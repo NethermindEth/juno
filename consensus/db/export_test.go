@@ -28,7 +28,7 @@ func EncodeWALRecordPayload(entry starknet.WALEntry) ([]byte, error) {
 	if err := envelope.setEntry(entry); err != nil {
 		return nil, err
 	}
-	return appendWALRecordPayload(nil, envelope)
+	return appendWALRecordPayload(nil, &envelope)
 }
 
 func DecodeWALRecordPayload(payload []byte) error {

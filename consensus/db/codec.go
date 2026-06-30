@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"slices"
 
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/wal"
@@ -32,7 +33,11 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 		keyLenBytes           = 1
 		keyBytes              = 4
 		estimatedPayloadBytes = 128
-		estimatedRecordBytes  = kindBytes + keyLenBytes + keyBytes + valueLenBytes + estimatedPayloadBytes
+		keyLenOffset          = kindBytes
+		keyOffset             = keyLenOffset + keyLenBytes
+		valueLenOffset        = keyOffset + keyBytes
+		recordHeaderBytes     = valueLenOffset + valueLenBytes
+		estimatedRecordBytes  = recordHeaderBytes + estimatedPayloadBytes
 	)
 	estimatedBatchBytes := batchrepr.HeaderLen + len(records)*estimatedRecordBytes
 	if cap(encodedBatch) < estimatedBatchBytes {
@@ -44,16 +49,18 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 	binary.LittleEndian.PutUint64(encodedBatch[:8], seqNum)
 	binary.LittleEndian.PutUint32(encodedBatch[8:batchrepr.HeaderLen], uint32(len(records)))
 
-	for i, record := range records {
-		// Each batchrepr entry starts with the kind byte and the encoded key.
-		encodedBatch = append(encodedBatch, byte(pebble.InternalKeyKindSet), keyBytes)
-		encodedBatch = binary.BigEndian.AppendUint32(encodedBatch, uint32(i))
-
-		// Reserve space for the value length prefix and backfill it after writing
-		// the record payload.
-		valueLenIndex := len(encodedBatch)
-		encodedBatch = append(encodedBatch, 0, 0, 0, 0, 0)
-		valueIndex := len(encodedBatch)
+	for i := range records {
+		record := &records[i]
+		// Each batchrepr entry starts with the kind byte, the encoded key, and a
+		// value length prefix backfilled once the payload size is known.
+		encodedBatch = slices.Grow(encodedBatch, recordHeaderBytes)
+		headerIndex := len(encodedBatch)
+		valueLenIndex := headerIndex + valueLenOffset
+		valueIndex := headerIndex + recordHeaderBytes
+		encodedBatch = encodedBatch[:valueIndex]
+		encodedBatch[headerIndex] = byte(pebble.InternalKeyKindSet)
+		encodedBatch[headerIndex+keyLenOffset] = keyBytes
+		binary.BigEndian.PutUint32(encodedBatch[headerIndex+keyOffset:valueLenIndex], uint32(i))
 
 		var err error
 		// Append the custom WAL payload as the batchrepr value bytes.
@@ -62,8 +69,7 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 			return nil, fmt.Errorf("encodeBatch: encode WAL envelope: %w", err)
 		}
 
-		// batchrepr stores value lengths as uvarints, so fill that prefix once
-		// the final payload size is known.
+		// batchrepr stores value lengths as uvarints.
 		valueLen := len(encodedBatch) - valueIndex
 		if valueLen > math.MaxUint32 {
 			return nil, errors.New("encodeBatch: WAL record payload too large")
@@ -76,7 +82,7 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 
 func appendWALRecordPayload[V types.Hashable[H], H types.Hash, A types.Addr](
 	payload []byte,
-	record walRecordEnvelope[V, H, A],
+	record *walRecordEnvelope[V, H, A],
 ) ([]byte, error) {
 	payload = append(payload, byte(record.Kind))
 	switch record.Kind {
