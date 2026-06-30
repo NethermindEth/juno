@@ -124,6 +124,28 @@ func TestClassAccessors(t *testing.T) {
 		assert.Equal(t, []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x1")}, sierra.Program)
 	})
 
+	t.Run("overwrite reflects latest values", func(t *testing.T) {
+		disk := memory.New()
+		require.NoError(t, state.WriteClass(disk, classHash, newClass()))
+
+		updated := &core.DeclaredClassDefinition{
+			At: 99,
+			Class: &core.SierraClass{
+				SemanticVersion: "0.2.0",
+				Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x2")},
+			},
+		}
+		require.NoError(t, state.WriteClass(disk, classHash, updated))
+
+		got, err := state.GetClass(disk, classHash)
+		require.NoError(t, err)
+		assert.Equal(t, updated.At, got.At)
+		sierra, ok := got.Class.(*core.SierraClass)
+		require.True(t, ok)
+		assert.Equal(t, "0.2.0", sierra.SemanticVersion)
+		assert.Equal(t, []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x2")}, sierra.Program)
+	})
+
 	t.Run("delete removes the class", func(t *testing.T) {
 		disk := memory.New()
 		require.NoError(t, state.WriteClass(disk, classHash, newClass()))
@@ -279,5 +301,19 @@ func TestGetStateObject(t *testing.T) {
 
 		_, err := state.GetStateObject(disk, nil, addr)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("returns a state object for an existing contract", func(t *testing.T) {
+		disk := memory.New()
+		require.NoError(t, state.WriteContract(
+			disk, addr,
+			felt.UnsafeFromString[felt.Felt]("0x1"),
+			felt.UnsafeFromString[felt.Felt]("0xabc"),
+			42,
+		))
+
+		obj, err := state.GetStateObject(disk, nil, addr)
+		require.NoError(t, err)
+		assert.NotNil(t, obj)
 	})
 }
