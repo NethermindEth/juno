@@ -165,6 +165,7 @@ func nonEmptyTx() starknet.Transaction {
 func validBlock() starknet.PreConfirmedBlock {
 	return starknet.PreConfirmedBlock{
 		BlockIdentifier:       "abc123",
+		Timestamp:             1234567890,
 		Transactions:          []starknet.Transaction{nonEmptyTx()},
 		Receipts:              []*starknet.TransactionReceipt{{}},
 		TransactionStateDiffs: []*starknet.StateDiff{{}},
