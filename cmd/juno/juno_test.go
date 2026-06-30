@@ -82,8 +82,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
 	defaultRPCRequestTimeout := 1 * time.Minute
-	defaultMaxConcurrentCompilations := uint(0) // 0 = derive from memory and CPUs
-	defaultMaxCompilationQueue := uint(0)       // 0 = derive from concurrency
+	defaultMaxConcurrentCompilations := "" // empty derives from memory and CPUs
+	defaultMaxCompilationQueue := ""       // empty derives from concurrency
 	defaultMaxCompilationMemory := uint(4 * 1024)
 	defaultNodeMemoryReserve := uint(4 * 1024)
 	defaultMaxCompilationCPUTime := uint(10)
@@ -203,6 +203,10 @@ func TestConfigPrecedence(t *testing.T) {
 	expectedExplicitCompilationLimits.MaxCompilationMemory = 2048
 	expectedExplicitCompilationLimits.MaxCompilationCPUTime = 5
 
+	expectedNumericCompilationLimits := expectedConfig2
+	expectedNumericCompilationLimits.MaxConcurrentCompilations = "8"
+	expectedNumericCompilationLimits.MaxCompilationQueue = "32"
+
 	tests := map[string]struct {
 		cfgFile         bool
 		cfgFileContents string
@@ -248,6 +252,13 @@ cn-unverifiable-range: [0,10]
 				"--max-compilation-memory", "2048", "--max-compilation-cpu-time", "5",
 			},
 			expectedConfig: &expectedExplicitCompilationLimits,
+		},
+		"numeric compilation limits in config file": {
+			cfgFile: true,
+			cfgFileContents: `max-concurrent-compilations: 8
+max-compilation-queue: 32
+`,
+			expectedConfig: &expectedNumericCompilationLimits,
 		},
 		"config file path is empty string": {
 			inputArgs:      []string{"--config", ""},

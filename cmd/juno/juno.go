@@ -267,15 +267,14 @@ const (
 	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
-		"0 derives a safe value from available memory and CPU count."
+		"Empty derives a safe value from available memory and CPU count; 0 disables compilations."
 	maxCompilationQueueUsage = "Maximum number of compilation requests to queue after " +
 		"reaching max-concurrent-compilations before starting to reject incoming requests. " +
-		"0 uses twice the concurrency limit."
+		"Empty uses twice the concurrency limit."
 	maxCompilationMemoryUsage = "Maximum memory (in MB) each Sierra compilation process may " +
 		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
 	nodeMemoryReserveUsage = "Memory (in MB) reserved for the rest of the node and excluded from " +
-		"the compilation memory budget. Used only when max-concurrent-compilations is 0. " +
-		"Container memory limits (cgroups) are respected."
+		"the compilation memory budget. Used only when max-concurrent-compilations is empty."
 	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
 		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
 		"0 disables the limit."
@@ -488,9 +487,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultNetwork := networks.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
-	defaultMaxConcurrentCompilations := uint(0) // 0 = derive at startup (see node.New).
-	defaultMaxCompilationQueue := uint(0)       // 0 = derive at startup (see node.New).
-	defaultCNUnverifiableRange := []int{}       // Uint64Slice is not supported in Flags()
+	// Empty derives at startup; an explicit 0 disables compilations / the queue.
+	defaultMaxConcurrentCompilations := ""
+	defaultMaxCompilationQueue := ""
+	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
@@ -620,12 +620,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// --- VM & Compilation ---
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().Uint(
+	junoCmd.Flags().String(
 		maxConcurrentCompilationsF,
 		defaultMaxConcurrentCompilations,
 		maxConcurrentCompilationsUsage,
 	)
-	junoCmd.Flags().Uint(
+	junoCmd.Flags().String(
 		maxCompilationQueueF,
 		defaultMaxCompilationQueue,
 		maxCompilationQueueUsage,

@@ -45,7 +45,7 @@ func TestNewNode(t *testing.T) {
 		P2PAddr:                            "",
 		P2PPeers:                           "",
 		SubmittedTransactionsCacheEntryTTL: time.Second,
-		// MaxConcurrentCompilations left 0 to exercise the auto-derive path.
+		// MaxConcurrentCompilations left empty to exercise the auto-derive path.
 	}
 
 	logLevel := log.NewLevel(log.INFO)
@@ -66,7 +66,8 @@ func TestNewNodeRunsOneAtATimeOnLowMemory(t *testing.T) {
 		Network:                            networks.Sepolia,
 		DisableL1Verification:              true,
 		SubmittedTransactionsCacheEntryTTL: time.Second,
-		MaxCompilationMemory:               4096,
+		// MaxConcurrentCompilations left empty: derive, then floor to 1.
+		MaxCompilationMemory: 4096,
 		// Reserve more than the machine has, so nothing fits.
 		NodeMemoryReserve: uint(compiler.AvailableMemoryMB() + 4096),
 	}
@@ -84,7 +85,7 @@ func TestNewNodeSkipsDerivedConcurrency(t *testing.T) {
 		Network:                            networks.Sepolia,
 		DisableL1Verification:              true,
 		SubmittedTransactionsCacheEntryTTL: time.Second,
-		MaxConcurrentCompilations:          2,
+		MaxConcurrentCompilations:          "2",
 	}
 
 	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
