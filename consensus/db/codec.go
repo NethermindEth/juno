@@ -89,9 +89,6 @@ func appendWALRecordPayload[V types.Hashable[H], H types.Hash, A types.Addr](
 		case walEntryStart:
 			payload = appendUint64(payload, uint64(record.StartHeight))
 		case walEntryProposal:
-			if record.ProposalEntry == nil {
-				return nil, errors.New("missing proposal WAL entry payload")
-			}
 			proposalMessage := (*types.Proposal[V, H, A])(record.ProposalEntry)
 			payload = appendMessageHeader(payload, proposalMessage.MessageHeader)
 			payload = appendInt64(payload, int64(proposalMessage.ValidRound))
@@ -106,19 +103,10 @@ func appendWALRecordPayload[V types.Hashable[H], H types.Hash, A types.Addr](
 				}
 			}
 		case walEntryPrevote:
-			if record.PrevoteEntry == nil {
-				return nil, errors.New("missing prevote WAL entry payload")
-			}
 			payload = appendVotePayload(payload, (*types.Vote[H, A])(record.PrevoteEntry))
 		case walEntryPrecommit:
-			if record.PrecommitEntry == nil {
-				return nil, errors.New("missing precommit WAL entry payload")
-			}
 			payload = appendVotePayload(payload, (*types.Vote[H, A])(record.PrecommitEntry))
 		case walEntryTimeout:
-			if record.TimeoutEntry == nil {
-				return nil, errors.New("missing timeout WAL entry payload")
-			}
 			timeoutMessage := (*types.Timeout)(record.TimeoutEntry)
 			payload = append(payload, byte(timeoutMessage.Step))
 			payload = appendUint64(payload, uint64(timeoutMessage.Height))
