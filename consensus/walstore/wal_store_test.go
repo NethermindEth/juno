@@ -1,4 +1,4 @@
-package db_test
+package walstore_test
 
 import (
 	"context"
@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	consensusdb "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/wal"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
@@ -29,7 +29,7 @@ func TestNewTendermintWALStoreRejectsDatabaseWithoutLocalPath(t *testing.T) {
 		require.NoError(t, testDB.Close())
 	}()
 
-	walStore, err := consensusdb.NewTendermintWALStore[
+	walStore, err := walstore.NewTendermintWALStore[
 		starknet.Value,
 		starknet.Hash,
 		starknet.Address,
@@ -204,7 +204,7 @@ func TestWALReopenRejectsWritesAtPrunedHeight(t *testing.T) {
 func assertNoWALLogFiles(t *testing.T, dbPath string) {
 	t.Helper()
 
-	dirEntries, err := os.ReadDir(consensusdb.DefaultWALDir(dbPath))
+	dirEntries, err := os.ReadDir(walstore.DefaultWALDir(dbPath))
 	require.NoError(t, err)
 	for _, entry := range dirEntries {
 		require.False(t, strings.HasSuffix(entry.Name(), ".log"), entry.Name())

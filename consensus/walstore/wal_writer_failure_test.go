@@ -1,8 +1,8 @@
-package db
+package walstore
 
-// These tests assert durability/error-handling behavior, but use package db
+// These tests assert durability/error-handling behavior, but use package walstore
 // so they can inject WAL writer failures that are not reachable through the
-// public DB API.
+// public WAL store API.
 //
 // Invariants covered here:
 //   - failed append/sync aborts to the previous committed offset and remains retryable

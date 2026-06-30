@@ -1,19 +1,19 @@
-package db_test
+package walstore_test
 
 import (
 	"slices"
 	"testing"
 
-	consensusdb "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/core/felt"
 	kvdb "github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/stretchr/testify/require"
 )
 
-type testTendermintWALStore = consensusdb.TendermintWALStore[
+type testTendermintWALStore = walstore.TendermintWALStore[
 	starknet.Value,
 	starknet.Hash,
 	starknet.Address,
@@ -27,7 +27,7 @@ func openTestTendermintWALStore(
 
 	testDB, err := pebblev2.New(dbPath)
 	require.NoError(tb, err)
-	walStore, err := consensusdb.NewTendermintWALStore[
+	walStore, err := walstore.NewTendermintWALStore[
 		starknet.Value,
 		starknet.Hash,
 		starknet.Address,

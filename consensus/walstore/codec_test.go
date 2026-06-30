@@ -1,12 +1,12 @@
-package db_test
+package walstore_test
 
 import (
 	"testing"
 
-	consensusdb "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/wal"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/require"
 )
@@ -73,7 +73,7 @@ func TestWALRecordsRoundTripThroughReopen(t *testing.T) {
 
 func TestWALRecordDecodeRejectsMalformedPayloads(t *testing.T) {
 	start := wal.Start(types.Height(1))
-	valid, err := consensusdb.EncodeWALRecordPayload(&start)
+	valid, err := walstore.EncodeWALRecordPayload(&start)
 	require.NoError(t, err)
 
 	tests := map[string][]byte{
@@ -85,7 +85,7 @@ func TestWALRecordDecodeRejectsMalformedPayloads(t *testing.T) {
 
 	for name, payload := range tests {
 		t.Run(name, func(t *testing.T) {
-			require.Error(t, consensusdb.DecodeWALRecordPayload(payload))
+			require.Error(t, walstore.DecodeWALRecordPayload(payload))
 		})
 	}
 }

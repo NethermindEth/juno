@@ -2,11 +2,11 @@ package consensus
 
 import (
 	"github.com/NethermindEth/juno/blockchain"
-	consensusDB "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/votecounter"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	kvdb "github.com/NethermindEth/juno/db"
 	p2psync "github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -18,8 +18,8 @@ import (
 
 type InitOptionsForTest struct {
 	WrapWALStore func(
-		consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
-	) consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
+		walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
+	) walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
 	WrapBroadcasters func(
 		p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address],
 	) p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]

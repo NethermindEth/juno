@@ -1,4 +1,4 @@
-package db_test
+package walstore_test
 
 import (
 	"io"
@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	consensusdb "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/starknet"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/cockroachdb/pebble/v2/record"
 	pebblewal "github.com/cockroachdb/pebble/v2/wal"
@@ -16,7 +16,7 @@ import (
 
 func TestNewTendermintWALStoreFailsOnCorruptWALBatch(t *testing.T) {
 	dbPath := t.TempDir()
-	walDir := consensusdb.DefaultWALDir(dbPath)
+	walDir := walstore.DefaultWALDir(dbPath)
 	require.NoError(t, os.MkdirAll(walDir, 0o755))
 	walPath := filepath.Join(walDir, pebblewal.NumWAL(1).String()+".log")
 	appendValidWALRecord(t, walPath, []byte("not-a-batch"))
@@ -27,7 +27,7 @@ func TestNewTendermintWALStoreFailsOnCorruptWALBatch(t *testing.T) {
 		require.NoError(t, testDB.Close())
 	}()
 
-	_, err = consensusdb.NewTendermintWALStore[starknet.Value, starknet.Hash, starknet.Address](testDB)
+	_, err = walstore.NewTendermintWALStore[starknet.Value, starknet.Hash, starknet.Address](testDB)
 	require.Error(t, err)
 }
 

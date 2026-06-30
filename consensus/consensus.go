@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
-	consensusDB "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
@@ -16,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/votecounter"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/sync"
@@ -35,8 +35,8 @@ type ConsensusServices struct {
 
 type initOptions struct {
 	wrapWALStore func(
-		consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
-	) consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
+		walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
+	) walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
 	wrapBroadcasters func(
 		p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address],
 	) p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
@@ -90,7 +90,7 @@ func initWithOptions(
 		return ConsensusServices{}, err
 	}
 	currentHeight := types.Height(chainHeight + 1)
-	tendermintWALStore, err := consensusDB.NewTendermintWALStore[
+	tendermintWALStore, err := walstore.NewTendermintWALStore[
 		starknet.Value,
 		starknet.Hash,
 		starknet.Address,

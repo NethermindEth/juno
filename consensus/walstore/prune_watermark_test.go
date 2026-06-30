@@ -1,12 +1,12 @@
-package db_test
+package walstore_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	consensusdb "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,19 +15,19 @@ const testPruneWatermarkHeight = types.Height(1)
 func TestPruneWatermarkRoundTrips(t *testing.T) {
 	walDir := t.TempDir()
 
-	height, err := consensusdb.LoadPruneWatermark(walDir)
+	height, err := walstore.LoadPruneWatermark(walDir)
 	require.NoError(t, err)
 	require.Zero(t, height)
 
-	require.NoError(t, consensusdb.WritePruneWatermark(walDir, testPruneWatermarkHeight))
-	height, err = consensusdb.LoadPruneWatermark(walDir)
+	require.NoError(t, walstore.WritePruneWatermark(walDir, testPruneWatermarkHeight))
+	height, err = walstore.LoadPruneWatermark(walDir)
 	require.NoError(t, err)
 	require.Equal(t, testPruneWatermarkHeight, height)
 }
 
 func TestLoadPruneWatermarkRejectsCorruptFile(t *testing.T) {
 	walDir := t.TempDir()
-	require.NoError(t, consensusdb.WritePruneWatermark(walDir, testPruneWatermarkHeight))
+	require.NoError(t, walstore.WritePruneWatermark(walDir, testPruneWatermarkHeight))
 	validWatermark, err := os.ReadFile(filepath.Join(walDir, "prune-watermark"))
 	require.NoError(t, err)
 
@@ -45,7 +45,7 @@ func TestLoadPruneWatermarkRejectsCorruptFile(t *testing.T) {
 			path := filepath.Join(walDir, "prune-watermark")
 			require.NoError(t, os.WriteFile(path, contents, 0o644))
 
-			_, err := consensusdb.LoadPruneWatermark(walDir)
+			_, err := walstore.LoadPruneWatermark(walDir)
 			require.Error(t, err)
 		})
 	}

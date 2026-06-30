@@ -1,4 +1,4 @@
-package db
+package walstore
 
 import (
 	"github.com/NethermindEth/juno/consensus/starknet"

@@ -1,14 +1,14 @@
-package db_test
+package walstore_test
 
 import (
 	"sort"
 	"testing"
 	"time"
 
-	consensusdb "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	consensuswal "github.com/NethermindEth/juno/consensus/types/wal"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +58,7 @@ func BenchmarkTendermintWALStoreConsensusEntryDurability(b *testing.B) {
 			writeWALFlushGroups(b, walStore, makeHeightWALFlushGroups(height))
 
 			b.StopTimer()
-			consensusdb.ForcePendingCleanup(walStore)
+			walstore.ForcePendingCleanup(walStore)
 			b.StartTimer()
 
 			require.NoError(b, walStore.DeleteWALEntries(height))

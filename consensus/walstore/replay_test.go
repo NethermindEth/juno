@@ -1,11 +1,11 @@
-package db_test
+package walstore_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	consensusdb "github.com/NethermindEth/juno/consensus/db"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestWALReplayTruncatesInvalidLatestWALTail(t *testing.T) {
 	require.NoError(t, walStore.Close())
 	require.NoError(t, testDB.Close())
 
-	walDir := consensusdb.DefaultWALDir(dbPath)
+	walDir := walstore.DefaultWALDir(dbPath)
 	walPath := filepath.Join(walDir, "000001.log")
 
 	info, err := os.Stat(walPath)

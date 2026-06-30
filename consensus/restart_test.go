@@ -10,12 +10,12 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/consensus"
-	consensusDB "github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/driver"
 	consensusP2P "github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	consensuswal "github.com/NethermindEth/juno/consensus/types/wal"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
@@ -49,7 +49,7 @@ type consensusNodeOptions struct {
 }
 
 type observingWALStore struct {
-	consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
+	walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
 	requiredWALEntriesWritten chan<- struct{}
 }
 
@@ -350,8 +350,8 @@ func startConsensusNode(
 	}
 	if options.requiredWALEntriesWritten != nil {
 		initOpts.WrapWALStore = func(
-			walStore consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
-		) consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address] {
+			walStore walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
+		) walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address] {
 			return &observingWALStore{
 				TendermintWALStore:        walStore,
 				requiredWALEntriesWritten: options.requiredWALEntriesWritten,
@@ -458,7 +458,7 @@ func waitForPrecommitFromNode(
 }
 
 func walContainsRequiredReplayEntries(
-	walStore consensusDB.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
+	walStore walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address],
 ) bool {
 	hasStartForHeight := false
 	hasProposalForRound := false

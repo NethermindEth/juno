@@ -7,12 +7,12 @@ import (
 	gosync "sync"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
 	consensusSync "github.com/NethermindEth/juno/consensus/sync"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
@@ -22,7 +22,7 @@ type TimeoutFn func(step types.Step, round types.Round) time.Duration
 
 type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	logger           log.Logger
-	db               db.TendermintWALStore[V, H, A]
+	db               walstore.TendermintWALStore[V, H, A]
 	stateMachine     tendermint.StateMachine[V, H, A]
 	commitListener   CommitListener[V, H]
 	broadcasters     p2p.Broadcasters[V, H, A]
@@ -40,7 +40,7 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	logger log.Logger,
-	db db.TendermintWALStore[V, H, A],
+	db walstore.TendermintWALStore[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
 	commitListener CommitListener[V, H],
 	broadcasters p2p.Broadcasters[V, H, A],

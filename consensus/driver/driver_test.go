@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p"
@@ -14,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	consensuswal "github.com/NethermindEth/juno/consensus/types/wal"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/utils/log"
@@ -26,7 +26,7 @@ import (
 type (
 	listeners          = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
 	broadcasters       = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
-	tendermintWALStore = db.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
+	tendermintWALStore = walstore.TendermintWALStore[starknet.Value, starknet.Hash, starknet.Address]
 	commitListener     = driver.CommitListener[starknet.Value, starknet.Hash]
 )
 
@@ -143,7 +143,7 @@ func newTendermintWALStore(t *testing.T) tendermintWALStore {
 		require.NoError(t, pebbleDB.Close())
 	})
 
-	walStore, err := db.NewTendermintWALStore[
+	walStore, err := walstore.NewTendermintWALStore[
 		starknet.Value,
 		starknet.Hash,
 		starknet.Address,
