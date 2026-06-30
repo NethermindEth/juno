@@ -148,14 +148,8 @@ func (c *Client) subscribeToUpdates(
 // forked Starknet networks would mean warning here instead of erroring.)
 var errChainIDMismatch = errors.New("mismatched network id between L1 and L2")
 
-// ensureChainID checks the L1 node is on the expected network, retrying transient
-// failures (rate limits, timeouts, an unresponsive node) until the check passes,
-// ctx is cancelled, or a network mismatch is found, so a flaky L1 never shuts the
-// node down (issue #1385). A mismatch is a misconfiguration and is returned fatally.
-//
-// The timer is reset after each failed probe, so a full resubscribeDelay always
-// elapses between the end of one attempt and the start of the next (gap is the
-// probe's response time + resubscribeDelay) — never back-to-back requests.
+// ensureChainID checks the L1 node is on the expected network, retrying on
+// transient failures until a valid response is received or context is canceled.
 func (c *Client) ensureChainID(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
