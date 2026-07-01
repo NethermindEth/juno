@@ -2292,7 +2292,6 @@ func createTestEvents(
 				Event:            event,
 				BlockNumber:      blockNumber,
 				BlockHash:        b.Hash,
-				BlockParentHash:  b.ParentHash,
 				TransactionHash:  receipt.TransactionHash,
 				TransactionIndex: uint(txIndex),
 				EventIndex:       uint(i),

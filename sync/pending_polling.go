@@ -6,8 +6,7 @@ import (
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 )
 
-// pollPendingData launches the pre_confirmed chain poller. With pre_latest now
-// subsumed by the head+1 entry of the chain, no separate goroutine is needed.
+// pollPendingData launches the pre_confirmed chain poller.
 func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	if s.preConfirmedPollInterval == 0 {
 		s.logger.Info("Pre-confirmed block polling is disabled")
