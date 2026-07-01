@@ -309,12 +309,11 @@ func (e *EventFilter) pendingEvents(
 		return matchedEvents, ContinuationToken{}, nil
 	}
 
-	// TODO(Ege): Check this again
-	// fromBlock = ^uint64(0) is the sentinel for "BlockID = preConfirmed",
-	// meaning the caller wants every block in the chain. Clamp it so the
-	// per-block skip below doesn't drop the entire chain.
+	// fromBlock = ^uint64(0) is the sentinel for "BlockID = preConfirmed". The
+	// pre_confirmed tag refers to the single most recent block, so pin fromBlock
+	// to the tip and let the per-block skip below drop the rest of the chain.
 	if fromBlock == ^uint64(0) {
-		fromBlock = 0
+		fromBlock = preConfirmed.Head().Block.Number
 	}
 
 	for entry := range preConfirmed.OldestFirst() {

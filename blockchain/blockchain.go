@@ -24,6 +24,7 @@ type L1HeadSubscription struct {
 // imports blockchain).
 type PreConfirmedReader interface {
 	Length() int
+	Head() *pending.PreConfirmed
 	OldestFirst() iter.Seq[*pending.PreConfirmed]
 }
 
