@@ -793,9 +793,11 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		f, err := chain.EventFilter(nil, nil, preConfirmedFunc)
 		require.NoError(t, err)
 		require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
-		// ^uint64(0) is the "include all pre_confirmed" sentinel used by the
-		// RPC layer when the caller specifies the preConfirmed tag.
-		require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+		// PreConfirmedFilterSentinel is the "include all pre_confirmed" sentinel used
+		// by the RPC layer when the caller specifies the preConfirmed tag.
+		require.NoError(t, f.SetRangeEndBlockByNumber(
+			blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
+		))
 		t.Cleanup(func() { require.NoError(t, f.Close()) })
 		return f
 	}
@@ -873,7 +875,7 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		}
 	})
 
-	// from == to == ^uint64(0) is the pre_confirmed tag, which refers to the
+	// from == to == PreConfirmedFilterSentinel is the pre_confirmed tag, which refers to the
 	// single most recent block. The canonical scan is skipped and only the tip
 	// pre_confirmed slot contributes events.
 	t.Run("pre_confirmed tag - tip slot only", func(t *testing.T) {
@@ -881,8 +883,12 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, filter.Close()) })
 
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterFrom, blockchain.PreConfirmedFilterSentinel,
+		))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
+		))
 
 		events, cToken, err := filter.Events(nil, 1024)
 		require.NoError(t, err)
@@ -903,8 +909,12 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, filter.Close()) })
 
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterFrom, blockchain.PreConfirmedFilterSentinel,
+		))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
+		))
 
 		events, cToken, err := filter.Events(nil, 1024)
 		require.NoError(t, err)
@@ -923,8 +933,12 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, filter.Close()) })
 
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
-		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterFrom, blockchain.PreConfirmedFilterSentinel,
+		))
+		require.NoError(t, filter.SetRangeEndBlockByNumber(
+			blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
+		))
 
 		var acc []blockchain.FilteredEvent
 		var token blockchain.ContinuationToken
@@ -960,8 +974,12 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 			f, ferr := chain.EventFilter(nil, nil, preConfirmedFunc)
 			require.NoError(t, ferr)
 			defer func() { require.NoError(t, f.Close()) }()
-			require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, ^uint64(0)))
-			require.NoError(t, f.SetRangeEndBlockByNumber(blockchain.EventFilterTo, ^uint64(0)))
+			require.NoError(t, f.SetRangeEndBlockByNumber(
+				blockchain.EventFilterFrom, blockchain.PreConfirmedFilterSentinel,
+			))
+			require.NoError(t, f.SetRangeEndBlockByNumber(
+				blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
+			))
 			return f.Events(nil, 1024)
 		}()
 		require.NoError(t, err)

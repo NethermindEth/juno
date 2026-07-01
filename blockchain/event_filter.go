@@ -44,6 +44,9 @@ const (
 	EventFilterTo
 )
 
+// PreConfirmedFilterSentinel marks a filter block bound as the pre_confirmed tag.
+const PreConfirmedFilterSentinel uint64 = math.MaxUint64
+
 func newEventFilter(
 	database db.KeyValueStore,
 	contractAddresses []felt.Address,
@@ -303,10 +306,11 @@ func (e *EventFilter) pendingEvents(
 		return matchedEvents, ContinuationToken{}, nil
 	}
 
-	// fromBlock = ^uint64(0) is the sentinel for "BlockID = preConfirmed". The
-	// pre_confirmed tag refers to the single most recent block, so pin fromBlock
-	// to the tip and let the per-block skip below drop the rest of the chain.
-	if fromBlock == ^uint64(0) {
+	// fromBlock = PreConfirmedFilterSentinel is the sentinel for "BlockID =
+	// preConfirmed". The pre_confirmed tag refers to the single most recent block,
+	// so pin fromBlock to the tip and let the per-block skip below drop the rest of
+	// the chain.
+	if fromBlock == PreConfirmedFilterSentinel {
 		fromBlock = preConfirmed.Head().Block.Number
 	}
 
