@@ -58,7 +58,7 @@ type Reader interface {
 		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
-	PublicKey(ctx context.Context) (*felt.Felt, error)
+	PublicKey(ctx context.Context) (felt.Felt, error)
 	Signature(ctx context.Context, blockID string) (starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (starknet.StateUpdate, error)
 	StateUpdateWithBlock(ctx context.Context, blockID string) (starknet.StateUpdateWithBlock, error)
@@ -272,24 +272,24 @@ func (c *Client) CasmClassDefinition(
 		blockNumberArg: "latest",
 	})
 
-	var class starknet.CasmClass
 	body, err := c.get(ctx, queryURL)
 	if err != nil {
-		return class, err
+		return starknet.CasmClass{}, err
 	}
 	defer body.Close()
 
 	definition, err := io.ReadAll(body)
 	if err != nil {
-		return class, err
+		return starknet.CasmClass{}, err
 	}
 
 	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(definition); deprecated {
-		return class, ErrDeprecatedCompiledClass
+		return starknet.CasmClass{}, ErrDeprecatedCompiledClass
 	}
 
+	var class starknet.CasmClass
 	if err = json.Unmarshal(definition, &class); err != nil {
-		return class, err
+		return starknet.CasmClass{}, err
 	}
 	return class, nil
 }
@@ -311,15 +311,15 @@ func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddres
 	return doRequest[starknet.FeeTokenAddresses](ctx, c, queryURL)
 }
 
-func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
+func (c *Client) PublicKey(ctx context.Context) (felt.Felt, error) {
 	queryURL := buildQueryString(c.url, "get_public_key", nil)
 
 	// public key is a hex string
 	publicKey, err := doRequest[starknet.PublicKey](ctx, c, queryURL)
 	if err != nil {
-		return nil, err
+		return felt.Felt{}, err
 	}
-	return felt.NewFromString[felt.Felt](string(publicKey))
+	return felt.FromString[felt.Felt](string(publicKey))
 }
 
 func (c *Client) Signature(ctx context.Context, blockID string) (starknet.Signature, error) {

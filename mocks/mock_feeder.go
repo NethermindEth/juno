@@ -148,10 +148,10 @@ func (mr *MockFeederReaderMockRecorder) PreConfirmedBlockWithIdentifier(ctx, blo
 }
 
 // PublicKey mocks base method.
-func (m *MockFeederReader) PublicKey(ctx context.Context) (*felt.Felt, error) {
+func (m *MockFeederReader) PublicKey(ctx context.Context) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PublicKey", ctx)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
