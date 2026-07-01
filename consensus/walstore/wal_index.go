@@ -20,10 +20,7 @@ func (s *walNumSet) addIfMissing(walNum pebblewal.NumWAL) bool {
 		s.first = walNum
 		return true
 	}
-	if s.first == walNum {
-		return false
-	}
-	if slices.Contains(s.rest, walNum) {
+	if s.first == walNum || slices.Contains(s.rest, walNum) {
 		return false
 	}
 	s.rest = append(s.rest, walNum)
