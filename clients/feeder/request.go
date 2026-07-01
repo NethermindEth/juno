@@ -32,12 +32,13 @@ func doRequest[T any, V Validatable[T]](
 	defer body.Close()
 
 	if err = json.NewDecoder(body).Decode(&result); err != nil {
-		return result, err
+		var zero T
+		return zero, err
 	}
 
-	err = V(&result).Validate()
-	if err != nil {
-		return result, errors.Join(
+	if err = V(&result).Validate(); err != nil {
+		var zero T
+		return zero, errors.Join(
 			ErrInvalidFeederResponse,
 			fmt.Errorf("querying %s: %w", fullURL, err),
 		)
