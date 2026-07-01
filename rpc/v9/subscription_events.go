@@ -149,8 +149,7 @@ func (s *eventSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	// Canonical blocks bypass the deduper: they are published once, and a one-time
-	// duplicate of the boundary block at the historical handoff is acceptable.
+	// Canonical blocks bypass the deduper: they are published once.
 	for event := range matchingEvents(&s.eventMatcher, head) {
 		select {
 		case <-ctx.Done():
