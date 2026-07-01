@@ -703,11 +703,6 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	require.NotEmpty(t, events.Events)
 }
 
-// TestEvents_ChainProgressesWhilePaginating was removed: it exercised the
-// pre_latest → pre_confirmed → canonical promotion path which no longer
-// exists with the multi-preconfirmed model. Equivalent multi-block coverage
-// lives in sync/preconfirmed/chain_storage_test.go.
-
 func TestAddressListUnmarshalJSON(t *testing.T) {
 	addr1 := felt.FromUint64[felt.Address](0x1)
 	addr2 := felt.FromUint64[felt.Address](0x2)

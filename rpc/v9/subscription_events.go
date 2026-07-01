@@ -280,7 +280,7 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 		default:
 			var finalityStatus TxnFinalityStatus
 			switch {
-			case *event.BlockNumber > height: // pre_confirmed or pre_latest block
+			case *event.BlockNumber > height: // pre_confirmed block
 				finalityStatus = TxnPreConfirmed
 			case *event.BlockNumber <= s.l1HeadNumber:
 				finalityStatus = TxnAcceptedOnL1

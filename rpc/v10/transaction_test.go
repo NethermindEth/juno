@@ -26,7 +26,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
-	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
@@ -579,7 +578,7 @@ func TestTransactionByHash(t *testing.T) {
 					},
 				},
 			}), nil)
-			handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 			hash, err := felt.NewFromString[felt.Felt](test.hash)
 			require.NoError(t, err)
@@ -613,7 +612,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
 		mockSyncReader.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, &adaptedPreConfirmed), nil)
-		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpcv10.ResponseFlags{})
+		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpc.ResponseFlags{})
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
 	})
@@ -628,7 +627,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	// Build a three-block preconfirmed chain (bottom=1 .. tip=3) where each
 	// block holds a single, uniquely-hashed transaction with a matching
@@ -672,7 +671,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 		for i, hash := range hashes {
 			t.Run(fmt.Sprintf("block-%d", receiptBlockNumbers[i]), func(t *testing.T) {
 				mockSyncReader.EXPECT().PreConfirmedChain().Return(chain, nil)
-				tx, rpcErr := handler.TransactionByHash(hash, rpcv10.ResponseFlags{})
+				tx, rpcErr := handler.TransactionByHash(hash, rpc.ResponseFlags{})
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, tx.Hash)
 			})
@@ -701,7 +700,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	n := &networks.Mainnet
 	client := feeder.NewTestClient(t, n)
@@ -721,10 +720,10 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	mockSyncReader.EXPECT().PreConfirmedChain().
 		Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 
-	preConfirmedID := rpcv10.BlockIDPreConfirmed()
+	preConfirmedID := rpc.BlockIDPreConfirmed()
 	index := rand.Intn(int(latestBlock.TransactionCount))
-	expected := rpcv10.AdaptTransaction(latestBlock.Transactions[index], false)
-	got, rpcErr := handler.TransactionByBlockIDAndIndex(&preConfirmedID, index, rpcv10.ResponseFlags{})
+	expected := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
+	got, rpcErr := handler.TransactionByBlockIDAndIndex(&preConfirmedID, index, rpc.ResponseFlags{})
 	require.Nil(t, rpcErr)
 	require.Equal(t, &expected, got)
 }
@@ -895,7 +894,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil).Times(2)
-		blockID := rpcv10.BlockIDPreConfirmed()
+		blockID := rpc.BlockIDPreConfirmed()
 
 		t.Run("invalid index", func(t *testing.T) {
 			invalidIndex := len(preConfirmed.Block.Transactions)
@@ -1772,10 +1771,10 @@ func TestTransactionStatus_PreConfirmedMultiBlockChain(t *testing.T) {
 	mockSyncReader.EXPECT().PreConfirmedChain().
 		Return(mustNewChain(t, baseEntry, tipEntry), nil)
 
-	handler := rpcv10.New(mockReader, mockSyncReader, nil, nil).WithFeeder(mainnetClient)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil).WithFeeder(mainnetClient)
 	status, rpcErr := handler.TransactionStatus(t.Context(), hash)
 	require.Nil(t, rpcErr)
-	require.Equal(t, rpcv10.TxnStatusPreConfirmed, status.Finality)
+	require.Equal(t, rpc.TxnStatusPreConfirmed, status.Finality)
 }
 
 func TestSubmittedTransactionsCache(t *testing.T) {

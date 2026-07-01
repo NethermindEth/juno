@@ -1043,8 +1043,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			},
 		}
 
-		// We need to return some status at start, otherwise it will re-try for a while
-		// and mocking `PreConfirmed` will be observed before prelatest feed trigger.
+		// We need to return some status at start, otherwise it will re-try for a while.
 		mockSyncer.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, preConfirmedData1), nil).AnyTimes()
 		id, conn := createTestTxStatusWebsocket(t, handler, targetTxn.Hash())
@@ -2663,7 +2662,6 @@ func createTestEvents(
 				Event:            event,
 				BlockNumber:      blockNumber,
 				BlockHash:        b.Hash,
-				BlockParentHash:  b.ParentHash,
 				TransactionHash:  receipt.TransactionHash,
 				TransactionIndex: uint(txIndex),
 				EventIndex:       uint(i),

@@ -980,7 +980,7 @@ func AdaptReceiptWithBlockInfo(
 ) *TransactionReceipt {
 	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
 
-	// Assign block number for canonical, pre_latest and pre_confirmed block
+	// Assign block number for canonical and pre_confirmed block
 	adaptedReceipt.BlockNumber = &blockNumber
 	adaptedReceipt.BlockHash = blockHash
 
