@@ -293,7 +293,7 @@ func decodeTimeoutRecord(decoder *walRecordDecoder) (*wal.Timeout, error) {
 func appendMessageHeader[A types.Addr](payload []byte, header types.MessageHeader[A]) []byte {
 	payload = appendUint64(payload, uint64(header.Height))
 	payload = appendInt64(payload, int64(header.Round))
-	return appendUint64Array(payload, header.Sender)
+	return appendUint64Array(payload, &header.Sender)
 }
 
 func appendVotePayload[H types.Hash, A types.Addr](payload []byte, vote *types.Vote[H, A]) []byte {
@@ -302,7 +302,7 @@ func appendVotePayload[H types.Hash, A types.Addr](payload []byte, vote *types.V
 		return append(payload, 0)
 	}
 	payload = append(payload, 1)
-	return appendUint64Array(payload, *vote.ID)
+	return appendUint64Array(payload, vote.ID)
 }
 
 func appendUint64(payload []byte, value uint64) []byte {
@@ -314,10 +314,9 @@ func appendInt64(payload []byte, value int64) []byte {
 	return appendUint64(payload, uint64(value))
 }
 
-func appendUint64Array[T ~[4]uint64](payload []byte, value T) []byte {
-	array := [4]uint64(value)
-	for _, limb := range array {
-		payload = appendUint64(payload, limb)
+func appendUint64Array[T ~[4]uint64](payload []byte, value *T) []byte {
+	for i := range 4 {
+		payload = appendUint64(payload, (*value)[i])
 	}
 	return payload
 }
