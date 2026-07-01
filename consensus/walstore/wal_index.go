@@ -44,10 +44,7 @@ func (s *tendermintWALStore[V, H, A]) updateIndexesFromCommittedRecords(
 	for _, record := range records {
 		switch record.Kind {
 		case walRecordEntry:
-			entry, err := record.entry()
-			if err != nil {
-				panic(err)
-			}
+			entry := record.entry()
 			if entry.GetHeight() <= s.prunedUpToHeight {
 				continue
 			}

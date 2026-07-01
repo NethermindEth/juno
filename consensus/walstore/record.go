@@ -79,32 +79,20 @@ func (e *walRecordEnvelope[V, H, A]) setEntry(entry wal.Entry[V, H, A]) error {
 	return nil
 }
 
-func (e walRecordEnvelope[V, H, A]) entry() (wal.Entry[V, H, A], error) {
+func (e walRecordEnvelope[V, H, A]) entry() wal.Entry[V, H, A] {
 	switch e.EntryKind {
 	case walEntryStart:
 		start := wal.Start(e.StartHeight)
-		return &start, nil
+		return &start
 	case walEntryProposal:
-		if e.ProposalEntry == nil {
-			return nil, errors.New("missing proposal WAL entry payload")
-		}
-		return e.ProposalEntry, nil
+		return e.ProposalEntry
 	case walEntryPrevote:
-		if e.PrevoteEntry == nil {
-			return nil, errors.New("missing prevote WAL entry payload")
-		}
-		return e.PrevoteEntry, nil
+		return e.PrevoteEntry
 	case walEntryPrecommit:
-		if e.PrecommitEntry == nil {
-			return nil, errors.New("missing precommit WAL entry payload")
-		}
-		return e.PrecommitEntry, nil
+		return e.PrecommitEntry
 	case walEntryTimeout:
-		if e.TimeoutEntry == nil {
-			return nil, errors.New("missing timeout WAL entry payload")
-		}
-		return e.TimeoutEntry, nil
+		return e.TimeoutEntry
 	default:
-		return nil, fmt.Errorf("unknown WAL entry kind %d", e.EntryKind)
+		panic(fmt.Sprintf("unknown WAL entry kind %d", e.EntryKind))
 	}
 }

@@ -102,10 +102,7 @@ func (s *tendermintWALStore[V, H, A]) applyEncodedRecord(
 
 	switch envelope.Kind {
 	case walRecordEntry:
-		entry, err := envelope.entry()
-		if err != nil {
-			return fmt.Errorf("applyEncodedRecord: %w", err)
-		}
+		entry := envelope.entry()
 		if entry.GetHeight() <= s.prunedUpToHeight {
 			return nil
 		}
