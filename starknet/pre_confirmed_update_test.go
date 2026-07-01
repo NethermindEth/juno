@@ -36,8 +36,8 @@ func TestPreConfirmedUpdateEnvelope_UnmarshalJSON(t *testing.T) {
 
 		full, ok := env.Update.(starknet.PreConfirmedBlock)
 		require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
-		require.NotEmpty(t, full.BlockIdentifier, "new-round Full must carry an identifier")
-		require.Equal(t, "PRE_CONFIRMED", full.Status)
+		require.NotZero(t, full.BlockIdentifier, "new-round Full must carry an identifier")
+		require.Equal(t, starknet.BlockPreConfirmed, full.Status)
 		require.NotZero(t, full.Timestamp)
 		require.NotNil(t, full.SequencerAddress)
 		require.NotNil(t, full.L1GasPrice)
@@ -177,7 +177,7 @@ func validBlock() starknet.PreConfirmedBlock {
 		Transactions:          []starknet.Transaction{nonEmptyTx()},
 		Receipts:              []*starknet.TransactionReceipt{{}},
 		TransactionStateDiffs: []*starknet.StateDiff{{}},
-		Status:                "PRE_CONFIRMED",
+		Status:                starknet.BlockPreConfirmed,
 		Version:               "0.14.0",
 		SequencerAddress:      felt.NewFromUint64[felt.Felt](0xaa),
 		L1GasPrice:            &starknet.GasPrice{},
@@ -217,7 +217,7 @@ func TestPreConfirmedUpdateEnvelope_Validate(t *testing.T) {
 
 	t.Run("invalid Block propagates validate error", func(t *testing.T) {
 		b := validBlock()
-		b.Status = "ACCEPTED_ON_L2"
+		b.Status = starknet.BlockAcceptedOnL2
 		env := &starknet.PreConfirmedUpdateEnvelope{Update: b}
 		err := env.Validate()
 		require.Error(t, err)
@@ -257,7 +257,7 @@ func TestPreConfirmedBlock_validate(t *testing.T) {
 		},
 		{
 			name:    "wrong status",
-			mutate:  func(b *starknet.PreConfirmedBlock) { b.Status = "ACCEPTED_ON_L2" },
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.Status = starknet.BlockAcceptedOnL2 },
 			wantErr: true,
 		},
 		{

@@ -68,7 +68,7 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		return nil, err
 	}
 
-	if blockID == pendingID && response.Status != "PENDING" {
+	if blockID == pendingID && response.Status != starknet.BlockPending {
 		return nil, errors.New("no pending block")
 	}
 

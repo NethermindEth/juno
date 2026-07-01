@@ -480,7 +480,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 		"0x3df24be7b5fed6b41de08d38686b6142944119ca2a345c38793590d6804bba4",
 		block.StateRoot.String(),
 	)
-	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
+	assert.Equal(t, starknet.BlockAcceptedOnL2, block.Status)
 	assert.Equal(t, "0x27ad16775", block.L1GasPriceETH().String())
 	assert.Equal(t, 52, len(block.Transactions))
 	assert.Equal(t, 52, len(block.Receipts))
@@ -510,7 +510,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 		"0x541b796ea02703d02ff31459815f65f410ceefe80a4e3499f7ef9ccc36d26ee",
 		block.StateRoot.String(),
 	)
-	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
+	assert.Equal(t, starknet.BlockAcceptedOnL2, block.Status)
 	assert.Equal(t, "0x31c4e2d75", block.L1GasPriceETH().String())
 	assert.Equal(t, 324, len(block.Transactions))
 	assert.Equal(t, 324, len(block.Receipts))
@@ -548,7 +548,7 @@ func TestBlockHeaderV013Unmarshal(t *testing.T) {
 			"0x2a6b9a8b60e1de80dc50e6b704b415a38e8fd03d82244cec92cbff0821a8975"),
 		block.StateRoot,
 	)
-	require.Equal(t, "ACCEPTED_ON_L2", block.Status)
+	require.Equal(t, starknet.BlockAcceptedOnL2, block.Status)
 	require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x3b9aca08"), block.L1GasPriceETH())
 	require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x2540be400"), block.L1GasPriceSTRK())
 	require.Equal(t, uint64(1700075354), block.Timestamp)

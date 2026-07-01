@@ -129,7 +129,7 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 		Transactions:          txs,
 		Receipts:              receipts,
 		TransactionStateDiffs: stateDiffs,
-		Status:                "PRE_CONFIRMED",
+		Status:                starknet.BlockPreConfirmed,
 		Timestamp:             uint64(time.Now().Unix()),
 		Version:               core.Ver0_14_0.String(),
 		SequencerAddress:      feltOne,

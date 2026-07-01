@@ -61,7 +61,7 @@ type PreConfirmedBlock struct {
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
-	Status                string                `json:"status"`
+	Status                BlockStatus           `json:"status"`
 	Timestamp             uint64                `json:"timestamp"`
 	Version               string                `json:"starknet_version"`
 	SequencerAddress      *felt.Felt            `json:"sequencer_address"`
@@ -77,8 +77,8 @@ func (pb *PreConfirmedBlock) validate() error {
 	if pb.BlockIdentifier == "" {
 		return errors.New("block_identifier is required")
 	}
-	if pb.Status != "PRE_CONFIRMED" {
-		return fmt.Errorf("invalid status: %s", pb.Status)
+	if pb.Status != BlockPreConfirmed {
+		return fmt.Errorf("invalid status: %d", pb.Status)
 	}
 	if pb.Version == "" {
 		return errors.New("version is required")
