@@ -542,8 +542,9 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	require.NotEmpty(t, events.Events)
 }
 
-// TestEvents_MultiPreConfirmed verifies that querying pre_confirmed returns
-// events from every entry of a multi-block chain (not just the tip).
+// TestEvents_MultiPreConfirmed verifies that querying with from=preConfirmed on
+// a multi-block pre_confirmed chain returns only the tip slot's events; the
+// pre_confirmed tag pins to the most recent block.
 func TestEvents_MultiPreConfirmed(t *testing.T) {
 	network := networks.Sepolia
 	numCanonicalBlocks := uint64(5)
@@ -554,13 +555,10 @@ func TestEvents_MultiPreConfirmed(t *testing.T) {
 	block6, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks+1)
 	require.NoError(t, err)
 
-	preConfirmed5, preConfirmed5Events := createEventPreConfirmedFromBlock(block5)
+	preConfirmed5, _ := createEventPreConfirmedFromBlock(block5)
 	preConfirmed6, preConfirmed6Events := createEventPreConfirmedFromBlock(block6)
 	multiChain := mustNewChain(t, &preConfirmed5, &preConfirmed6)
-	expected := append(
-		append([]rpc.EmittedEvent(nil), preConfirmed5Events...),
-		preConfirmed6Events...,
-	)
+	expected := preConfirmed6Events
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

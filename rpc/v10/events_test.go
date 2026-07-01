@@ -548,35 +548,35 @@ func TestEvents(t *testing.T) {
 			expectedEvents: canonicalPreConfirmed,
 		},
 		{
-			description:    "multi pre_confirmed events only - no pagination",
+			// from=to=preConfirmed pins to the tip slot, so only the most
+			// recent pre_confirmed block's events return (not the bottom slot).
+			description:    "multi pre_confirmed - tip slot only - no pagination",
 			args:           onlyPreConfirmedNoPagination,
 			preConfirmed:   &multiPreConfirmed,
-			expectedEvents: multiPreConfirmedEvents,
+			expectedEvents: preConfirmed6Events,
 		},
 		{
-			description:    "multi pre_confirmed events with chunk-size 1 pagination",
+			description:    "multi pre_confirmed - tip slot only with chunk-size 1 pagination",
 			args:           onlyPreConfirmedWithPagination,
 			preConfirmed:   &multiPreConfirmed,
-			expectedEvents: multiPreConfirmedEvents,
+			expectedEvents: preConfirmed6Events,
 		},
 		{
-			description: "multi pre_confirmed events with mid-block pagination",
+			description: "multi pre_confirmed - tip slot only with mid-block pagination",
 			args: rpc.EventArgs{
 				EventFilter: rpc.EventFilter{
 					FromBlock: &preConfirmedID,
 					ToBlock:   &preConfirmedID,
 				},
 				ResultPageRequest: rpc.ResultPageRequest{
-					// Force a continuation token that lands inside the
-					// boundary between the two pre_confirmed blocks for at
-					// least one page boundary (canonical block 5 carries
-					// >1 events on Sepolia testdata).
-					ChunkSize:         uint64(max(1, len(preConfirmed5Events)-1)),
+					// A chunk size below the tip slot's event count forces a
+					// continuation token that resumes inside the tip slot.
+					ChunkSize:         uint64(max(1, len(preConfirmed6Events)-1)),
 					ContinuationToken: "",
 				},
 			},
 			preConfirmed:   &multiPreConfirmed,
-			expectedEvents: multiPreConfirmedEvents,
+			expectedEvents: preConfirmed6Events,
 		},
 		{
 			description:    "canonical + multi pre_confirmed - no pagination",
@@ -591,26 +591,7 @@ func TestEvents(t *testing.T) {
 			expectedEvents: canonicalMultiPreConfirmed,
 		},
 		{
-			// Chunk size equal to bottom slot's event count returns exactly
-			// the bottom slot's events on the first page, with a continuation
-			// token that advances into the tip slot. Final pagination yields
-			// the tip slot's events.
-			description: "multi pre_confirmed - pagination boundary aligns with bottom slot",
-			args: rpc.EventArgs{
-				EventFilter: rpc.EventFilter{
-					FromBlock: &preConfirmedID,
-					ToBlock:   &preConfirmedID,
-				},
-				ResultPageRequest: rpc.ResultPageRequest{
-					ChunkSize:         uint64(len(preConfirmed5Events)),
-					ContinuationToken: "",
-				},
-			},
-			preConfirmed:   &multiPreConfirmed,
-			expectedEvents: multiPreConfirmedEvents,
-		},
-		{
-			description: "multi pre_confirmed - address filter across both slots",
+			description: "multi pre_confirmed - address filter on tip slot",
 			args: rpc.EventArgs{
 				EventFilter: rpc.EventFilter{
 					FromBlock: &preConfirmedID,
@@ -620,10 +601,10 @@ func TestEvents(t *testing.T) {
 				ResultPageRequest: defaultPageRequest,
 			},
 			preConfirmed:   &multiPreConfirmed,
-			expectedEvents: filterEventsByAddress(multiPreConfirmedEvents, &testAddress[0]),
+			expectedEvents: filterEventsByAddress(preConfirmed6Events, &testAddress[0]),
 		},
 		{
-			description: "multi pre_confirmed - address+key filter across both slots with chunk-size 1",
+			description: "multi pre_confirmed - address+key filter on tip slot with chunk-size 1",
 			args: rpc.EventArgs{
 				EventFilter: rpc.EventFilter{
 					FromBlock: &preConfirmedID,
@@ -637,7 +618,7 @@ func TestEvents(t *testing.T) {
 				},
 			},
 			preConfirmed:   &multiPreConfirmed,
-			expectedEvents: filterEventsByAddressAndKey(multiPreConfirmedEvents, &testAddress[0], testKey),
+			expectedEvents: filterEventsByAddressAndKey(preConfirmed6Events, &testAddress[0], testKey),
 		},
 	}
 
