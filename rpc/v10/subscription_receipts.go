@@ -2,6 +2,7 @@ package rpcv10
 
 import (
 	"context"
+	"iter"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -43,18 +44,20 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 	return h.subscribe(ctx, w, sub)
 }
 
+// receiptsSubscriberState is touched only by its single subscription dispatch
+// goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
 type receiptsSubscriberState struct {
-	conn       jsonrpc.Conn
-	senderAddr []felt.Address
-	sentCache  *rpccore.SubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1]
+	conn    jsonrpc.Conn
+	senders []felt.Address
+	deduper *rpccore.PreConfirmedDeduper[felt.TransactionHash]
 }
 
 func newReceiptsSubscriber(
 	conn jsonrpc.Conn,
-	senderAddress []felt.Address,
+	senders []felt.Address,
 	finalityStatuses []TxnFinalityStatusWithoutL1,
 ) (subscriber, *jsonrpc.Error) {
-	if len(senderAddress) > rpccore.MaxEventFilterKeys {
+	if len(senders) > rpccore.MaxEventFilterKeys {
 		return subscriber{}, rpccore.ErrTooManyAddressesInFilter
 	}
 
@@ -67,9 +70,9 @@ func newReceiptsSubscriber(
 	}
 
 	state := &receiptsSubscriberState{
-		conn:       conn,
-		senderAddr: senderAddress,
-		sentCache:  rpccore.NewSubscriptionCache[SentReceipt, TxnFinalityStatusWithoutL1](),
+		conn:    conn,
+		senders: senders,
+		deduper: rpccore.NewPreConfirmedDeduper[felt.TransactionHash](),
 	}
 
 	s := subscriber{
@@ -93,7 +96,7 @@ func (s *receiptsSubscriberState) onReorg(
 	_ *subscription,
 	reorg *sync.ReorgBlockRange,
 ) error {
-	s.sentCache.Clear()
+	s.deduper.Clear()
 	return sendReorg(s.conn, reorg, id)
 }
 
@@ -103,11 +106,13 @@ func (s *receiptsSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	return s.processBlock(
-		id,
-		head,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
-	)
+	// Canonical blocks are published exactly once, so they bypass the deduper.
+	for receipt := range receiptsOf(head, s.senders, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
+		if err := sendTransactionReceipt(s.conn, receipt, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *receiptsSubscriberState) onPreConfirmed(
@@ -116,47 +121,52 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 	_ *subscription,
 	preConfirmed *pending.PreConfirmed,
 ) error {
-	return s.processBlock(
-		id,
-		preConfirmed.GetBlock(),
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
-	)
-}
-
-func (s *receiptsSubscriberState) processBlock(
-	id string,
-	block *core.Block,
-	finalityStatus TxnFinalityStatusWithoutL1,
-) error {
-	for i, txn := range block.Transactions {
-		if !filterTxBySender(txn, s.senderAddr) {
-			continue
-		}
-
-		adaptedReceipt := AdaptReceiptWithBlockInfo(
-			block.Receipts[i],
-			txn,
-			TxnFinalityStatus(finalityStatus),
-			block.Hash,
+	block := preConfirmed.GetBlock()
+	status := TxnFinalityStatusWithoutL1(TxnPreConfirmed)
+	// The pre_confirmed tip is re-published in full on every delta; skip already-sent
+	// receipts. A same-height round replacement changes BlockIdentifier and re-emits.
+	for receipt := range receiptsOf(block, s.senders, status) {
+		shouldSend := s.deduper.MarkSent(
 			block.Number,
+			preConfirmed.BlockIdentifier,
+			(*felt.TransactionHash)(receipt.Hash),
 		)
-
-		sentReceipt := SentReceipt{
-			TransactionHash:  *adaptedReceipt.Hash,
-			TransactionIndex: i,
-		}
-
-		if !s.sentCache.ShouldSend(block.Number, &sentReceipt, &finalityStatus) {
+		if !shouldSend {
 			continue
 		}
 
-		s.sentCache.Put(block.Number, &sentReceipt, &finalityStatus)
-
-		if err := sendTransactionReceipt(s.conn, adaptedReceipt, id); err != nil {
+		if err := sendTransactionReceipt(s.conn, receipt, id); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// receiptsOf yields each sender-matching receipt in the block, adapted to an RPC receipt.
+func receiptsOf(
+	block *core.Block,
+	senders []felt.Address,
+	finalityStatus TxnFinalityStatusWithoutL1,
+) iter.Seq[*TransactionReceipt] {
+	return func(yield func(*TransactionReceipt) bool) {
+		for i, txn := range block.Transactions {
+			if !filterTxBySender(txn, senders) {
+				continue
+			}
+
+			adaptedReceipt := AdaptReceiptWithBlockInfo(
+				block.Receipts[i],
+				txn,
+				TxnFinalityStatus(finalityStatus),
+				block.Hash,
+				block.Number,
+			)
+
+			if !yield(adaptedReceipt) {
+				return
+			}
+		}
+	}
 }
 
 func sendTransactionReceipt(w jsonrpc.Conn, receipt *TransactionReceipt, id string) error {
