@@ -36,7 +36,7 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 			full, ok := env.Update.(starknet.PreConfirmedBlock)
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
 			assert.Equal(t, "0x1cbe25d9", full.BlockIdentifier)
-			assert.Equal(t, "PRE_CONFIRMED", full.Status)
+			assert.Equal(t, starknet.BlockPreConfirmed, full.Status)
 			assert.Equal(t, "0.14.2", full.Version)
 			assert.NotZero(t, full.Timestamp)
 			assert.NotNil(t, full.SequencerAddress)
@@ -89,7 +89,7 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 			full, ok := env.Update.(starknet.PreConfirmedBlock)
 			require.True(t, ok, "expected PreConfirmedBlock, got %T", env.Update)
 			assert.Equal(t, "0x1857317c", full.BlockIdentifier)
-			assert.Equal(t, "PRE_CONFIRMED", full.Status)
+			assert.Equal(t, starknet.BlockPreConfirmed, full.Status)
 			assert.Equal(t, "0.14.2", full.Version)
 			assert.NotZero(t, full.Timestamp)
 			assert.NotNil(t, full.SequencerAddress)
@@ -178,7 +178,7 @@ func validBlock() starknet.PreConfirmedBlock {
 		Transactions:          []starknet.Transaction{nonEmptyTx()},
 		Receipts:              []*starknet.TransactionReceipt{{}},
 		TransactionStateDiffs: []*starknet.StateDiff{{}},
-		Status:                "PRE_CONFIRMED",
+		Status:                starknet.BlockPreConfirmed,
 		Version:               "0.14.0",
 		SequencerAddress:      felt.NewFromUint64[felt.Felt](0xaa),
 		L1GasPrice:            &starknet.GasPrice{},
@@ -218,7 +218,7 @@ func TestPreConfirmedUpdateEnvelope_Validate(t *testing.T) {
 
 	t.Run("invalid Block propagates validate error", func(t *testing.T) {
 		b := validBlock()
-		b.Status = "ACCEPTED_ON_L2"
+		b.Status = starknet.BlockAcceptedOnL2
 		env := &starknet.PreConfirmedUpdateEnvelope{Update: b}
 		err := env.Validate()
 		require.Error(t, err)
@@ -258,7 +258,7 @@ func TestPreConfirmedBlock_validate(t *testing.T) {
 		},
 		{
 			name:    "wrong status",
-			mutate:  func(b *starknet.PreConfirmedBlock) { b.Status = "ACCEPTED_ON_L2" },
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.Status = starknet.BlockAcceptedOnL2 },
 			wantErr: true,
 		},
 		{

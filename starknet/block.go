@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -12,6 +13,33 @@ import (
 type BlockHeader struct {
 	Hash   *felt.Felt `json:"block_hash"`
 	Number uint64     `json:"block_number"`
+}
+type BlockStatus uint8
+
+const (
+	BlockPending BlockStatus = iota + 1
+	BlockAcceptedOnL1
+	BlockAcceptedOnL2
+	BlockRejected
+	BlockPreConfirmed
+)
+
+func (bs *BlockStatus) UnmarshalText(data []byte) error {
+	switch str := string(data); str {
+	case "ACCEPTED_ON_L2":
+		*bs = BlockAcceptedOnL2
+	case "ACCEPTED_ON_L1":
+		*bs = BlockAcceptedOnL1
+	case "REJECTED":
+		*bs = BlockRejected
+	case "PENDING":
+		*bs = BlockPending
+	case "PRE_CONFIRMED":
+		*bs = BlockPreConfirmed
+	default:
+		return fmt.Errorf("unknown BlockStatus %q", str)
+	}
+	return nil
 }
 
 // TODO: placeholder for now to avoid compiler errors. A proper validation
@@ -31,7 +59,7 @@ type Block struct {
 	ReceiptCommitment     *felt.Felt            `json:"receipt_commitment"`
 	StateDiffCommitment   *felt.Felt            `json:"state_diff_commitment"`
 	StateDiffLength       uint64                `json:"state_diff_length"`
-	Status                string                `json:"status"`
+	Status                BlockStatus           `json:"status"`
 	Transactions          []*Transaction        `json:"transactions"`
 	Timestamp             uint64                `json:"timestamp"`
 	Version               string                `json:"starknet_version"`

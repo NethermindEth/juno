@@ -517,7 +517,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 		emptySlice := []*felt.Felt{}
 		block := starknet.PreConfirmedBlock{
 			BlockIdentifier:  fmt.Sprintf("round-%d", blockNumber),
-			Status:           "PRE_CONFIRMED",
+			Status:           starknet.BlockPreConfirmed,
 			Timestamp:        1,
 			Version:          core.Ver0_14_0.String(),
 			SequencerAddress: &felt.One,
