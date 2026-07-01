@@ -1,7 +1,6 @@
 package rpcv9_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -18,6 +17,7 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -60,42 +60,6 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 	}
 
 	return preConfirmed, events
-}
-
-// createEventPreLatestFromBlock creates a pre_latest block from the given block and
-// returns the pre_latest data and emitted events
-func createEventPreLatestFromBlock(block *core.Block) (pending.PreLatest, []rpc.EmittedEvent) {
-	newHeader := &core.Header{
-		ParentHash: block.Header.ParentHash,
-		Number:     block.Header.Number,
-	}
-
-	preLatestBlock := &core.Block{
-		Header:       newHeader,
-		Transactions: block.Transactions,
-		Receipts:     block.Receipts,
-	}
-
-	preLatest := pending.PreLatest{Block: preLatestBlock}
-
-	// Extract events from the block and convert to emitted events
-	var events []rpc.EmittedEvent
-	for _, receipt := range preLatestBlock.Receipts {
-		for _, event := range receipt.Events {
-			events = append(events, rpc.EmittedEvent{
-				Event: &rpc.Event{
-					From: event.From,
-					Keys: event.Keys,
-					Data: event.Data,
-				},
-				BlockNumber:     &preLatestBlock.Number, // Pre-latest events have block number
-				BlockHash:       nil,                    // Pre-latest events have no block hash
-				TransactionHash: receipt.TransactionHash,
-			})
-		}
-	}
-
-	return preLatest, events
 }
 
 // extractCanonicalEvents extracts all events from canonical blocks in the chain
@@ -202,11 +166,7 @@ func TestEvents(t *testing.T) {
 	canonicalEvents := extractCanonicalEvents(t, chain, 0, numCanonicalBlocks-1)
 
 	preConfirmed, preConfirmedEvents := createEventPreConfirmedFromBlock(block5)
-	preLatest, preLatestEvents := createEventPreLatestFromBlock(block5)
-
-	preConfirmedWithPreLatest,
-		preConfirmedWithPreLatestEvents := createEventPreConfirmedFromBlock(block6)
-	preConfirmedWithPreLatest.WithPreLatest(&preLatest)
+	_ = block6
 
 	// Precalculate combined events to avoid repeated allocations
 	canonicalPreConfirmed := make(
@@ -216,18 +176,6 @@ func TestEvents(t *testing.T) {
 	)
 	canonicalPreConfirmed = append(canonicalPreConfirmed, canonicalEvents...)
 	canonicalPreConfirmed = append(canonicalPreConfirmed, preConfirmedEvents...)
-
-	canonicalPreLatestPreConfirmed := make(
-		[]rpc.EmittedEvent,
-		0,
-		len(canonicalEvents)+len(preLatestEvents)+len(preConfirmedWithPreLatestEvents),
-	)
-	canonicalPreLatestPreConfirmed = append(canonicalPreLatestPreConfirmed, canonicalEvents...)
-	canonicalPreLatestPreConfirmed = append(canonicalPreLatestPreConfirmed, preLatestEvents...)
-	canonicalPreLatestPreConfirmed = append(
-		canonicalPreLatestPreConfirmed,
-		preConfirmedWithPreLatestEvents...,
-	)
 
 	l1AcceptedBlockNumber := uint64(4)
 	l1AcceptedBlock, err := gw.BlockByNumber(t.Context(), l1AcceptedBlockNumber)
@@ -515,24 +463,6 @@ func TestEvents(t *testing.T) {
 			preConfirmed:   &preConfirmed,
 			expectedEvents: canonicalPreConfirmed,
 		},
-		{
-			description:    "canonical + pre_latest + pre_confirmed events - no pagination",
-			args:           genesisToPreConfirmedNoPagination,
-			preConfirmed:   &preConfirmedWithPreLatest,
-			expectedEvents: canonicalPreLatestPreConfirmed,
-		},
-		{
-			description:    "canonical + pre_latest + pre_confirmed events with pagination",
-			args:           genesisToPreConfirmedWithPagination,
-			preConfirmed:   &preConfirmedWithPreLatest,
-			expectedEvents: canonicalPreLatestPreConfirmed,
-		},
-		{
-			description:    "pre_confirmed events only - when there is pre-latest",
-			args:           onlyPreConfirmedNoPagination,
-			preConfirmed:   &preConfirmedWithPreLatest,
-			expectedEvents: preConfirmedWithPreLatestEvents,
-		},
 	}
 
 	for _, tc := range testCases {
@@ -545,7 +475,10 @@ func TestEvents(t *testing.T) {
 
 			// Set up mock expectations
 			if tc.preConfirmed != nil {
-				mockSyncReader.EXPECT().PreConfirmed().Return(tc.preConfirmed, nil).AnyTimes()
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(mustNewChain(t, tc.preConfirmed), nil).
+					AnyTimes()
 			}
 
 			// Error cases: assert once and return
@@ -571,7 +504,10 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
+	mockSyncReader.EXPECT().
+		PreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+		AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
 
 	from := felt.NewUnsafeFromString[felt.Address](
@@ -606,129 +542,38 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	require.NotEmpty(t, events.Events)
 }
 
-func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
+// TestEvents_MultiPreConfirmed verifies that querying with from=preConfirmed on
+// a multi-block pre_confirmed chain returns only the tip slot's events; the
+// pre_confirmed tag pins to the most recent block.
+func TestEvents_MultiPreConfirmed(t *testing.T) {
 	network := networks.Sepolia
 	numCanonicalBlocks := uint64(5)
 	chain, gw := setupTestChain(t, &network, numCanonicalBlocks)
 
-	block5, err := gw.BlockByNumber(t.Context(), 5)
+	block5, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks)
+	require.NoError(t, err)
+	block6, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks+1)
 	require.NoError(t, err)
 
-	block6, err := gw.BlockByNumber(t.Context(), 6)
-	require.NoError(t, err)
-
-	expectedEvents := extractCanonicalEvents(t, chain, 0, numCanonicalBlocks-1)
-	preLatest, preLatestEvents := createEventPreLatestFromBlock(block5)
-
-	preConfirmed,
-		preConfirmedEvents := createEventPreConfirmedFromBlock(block6)
-	preConfirmed.WithPreLatest(&preLatest)
-
-	expectedEvents = append(expectedEvents, preLatestEvents...)
-	expectedEvents = append(expectedEvents, preConfirmedEvents...)
+	preConfirmed5, _ := createEventPreConfirmedFromBlock(block5)
+	preConfirmed6, preConfirmed6Events := createEventPreConfirmedFromBlock(block6)
+	multiChain := mustNewChain(t, &preConfirmed5, &preConfirmed6)
+	expected := preConfirmed6Events
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockSyncReader.EXPECT().PreConfirmedChain().Return(multiChain, nil).AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
 
 	preConfirmedID := blockIDPreConfirmed(t)
-	// Test pagination with small chunk size to trigger multiple calls
 	args := rpc.EventArgs{
 		EventFilter: rpc.EventFilter{
-			ToBlock: &preConfirmedID,
+			FromBlock: &preConfirmedID,
+			ToBlock:   &preConfirmedID,
 		},
-		ResultPageRequest: rpc.ResultPageRequest{
-			ChunkSize:         1, // Small chunk to force pagination
-			ContinuationToken: "",
-		},
+		ResultPageRequest: rpc.ResultPageRequest{ChunkSize: 100},
 	}
-
-	// Collect events through pagination until we reach pending (pre_confirmed or pre_latest) blocks
-	var allEvents []rpc.EmittedEvent
-	curArgs := args
-
-	// Collect canonical events
-	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
-	for {
-		chunk, err := handler.Events(curArgs)
-		require.Nil(t, err)
-
-		allEvents = append(allEvents, chunk.Events...)
-		require.NotEmpty(t, chunk.ContinuationToken)
-		// Check if we've reached a pending block (pre_confirmed or pre_latest)
-		var blockNum, processedEvents uint64
-		_, parseErr := fmt.Sscanf(chunk.ContinuationToken, "%d-%d", &blockNum, &processedEvents)
-		require.NoError(t, parseErr)
-
-		curArgs.ContinuationToken = chunk.ContinuationToken
-
-		if blockNum >= numCanonicalBlocks {
-			break
-		}
-	}
-
-	// Read one from pre_latest block 5
-	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
-	chunk, rpcErr := handler.Events(curArgs)
-	require.Nil(t, rpcErr)
-	require.NotEmpty(t, chunk.ContinuationToken)
-	require.Equal(t, uint64(5), *chunk.Events[0].BlockNumber)
-	allEvents = append(allEvents, chunk.Events...)
-	curArgs.ContinuationToken = chunk.ContinuationToken
-
-	// pre-latest becomes latest, continue pagination from block 5
-	fetchAndStoreBlock(t, chain, gw, 5)
-	mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed.WithPreLatest(nil), nil)
-	chunk, rpcErr = handler.Events(curArgs)
-	require.Nil(t, rpcErr)
-	require.NotEmpty(t, chunk.ContinuationToken)
-	require.Equal(t, uint64(5), *chunk.Events[0].BlockNumber)
-	allEvents = append(allEvents, chunk.Events...)
-	curArgs.ContinuationToken = chunk.ContinuationToken
-
-	// continue from pre_confirmed, read one from block 6
-	mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed.WithPreLatest(nil), nil)
-	chunk, rpcErr = handler.Events(curArgs)
-	require.Nil(t, rpcErr)
-	require.NotEmpty(t, chunk.ContinuationToken)
-	require.Equal(t, uint64(6), *chunk.Events[0].BlockNumber)
-	allEvents = append(allEvents, chunk.Events...)
-	curArgs.ContinuationToken = chunk.ContinuationToken
-
-	// pre_confirmed becomes pre_latest, continue pagination from block 6
-	preLatest2, _ := createEventPreLatestFromBlock(block6)
-	preConfirmed2 := pending.PreConfirmed{
-		Block: &core.Block{
-			Header: &core.Header{
-				Number: 7,
-			},
-		},
-		PreLatest: &preLatest2,
-	}
-
-	for {
-		mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed2, nil)
-		chunk, rpcErr = handler.Events(curArgs)
-		require.Nil(t, rpcErr)
-		require.Equal(t, uint64(6), *chunk.Events[0].BlockNumber)
-		allEvents = append(allEvents, chunk.Events...)
-		if chunk.ContinuationToken == "" {
-			break
-		}
-		curArgs.ContinuationToken = chunk.ContinuationToken
-	}
-
-	// Compare events ignoring block hash
-	// Block hash is ignored for this test due to mixing different block types
-	require.Equal(t, len(expectedEvents), len(allEvents))
-	for i, expected := range expectedEvents {
-		actual := allEvents[i]
-		require.Equal(t, expected.BlockNumber, actual.BlockNumber)
-		require.Equal(t, expected.TransactionHash, actual.TransactionHash)
-		require.Equal(t, expected.From, actual.From)
-		require.Equal(t, expected.Keys, actual.Keys)
-		require.Equal(t, expected.Data, actual.Data)
-	}
+	got := collectAllEvents(t, handler, args)
+	require.Equal(t, expected, got)
 }

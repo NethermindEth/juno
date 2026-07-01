@@ -52,12 +52,14 @@ func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
 		if pc == nil {
 			return ChainReader{}, fmt.Errorf("building pre_confirmed chain: entry %d is nil", i)
 		}
+
 		if i > 0 && pc.Block.Number != entries[i-1].Block.Number+1 {
 			return ChainReader{}, fmt.Errorf(
 				"building pre_confirmed chain: non-contiguous block numbers at index %d (%d after %d)",
 				i, pc.Block.Number, entries[i-1].Block.Number,
 			)
 		}
+
 		head = &node{preconfirmed: pc, parent: head}
 	}
 	return ChainReader{head: head, length: len(entries)}, nil

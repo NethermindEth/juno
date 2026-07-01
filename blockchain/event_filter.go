@@ -32,7 +32,7 @@ type EventFilter struct {
 	toBlock        uint64
 	matcher        EventMatcher
 	maxScanned     uint // maximum number of scanned blocks in single call.
-	preConfirmedFn func() (*pending.PreConfirmed, error)
+	preConfirmedFn func() (PreConfirmedReader, error)
 	cachedFilters  *AggregatedBloomFilterCache
 	runningFilter  *core.RunningEventFilter
 }
@@ -44,12 +44,15 @@ const (
 	EventFilterTo
 )
 
+// PreConfirmedFilterSentinel marks a filter block bound as the pre_confirmed tag.
+const PreConfirmedFilterSentinel uint64 = math.MaxUint64
+
 func newEventFilter(
 	database db.KeyValueStore,
 	contractAddresses []felt.Address,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
-	preConfirmedFn func() (*pending.PreConfirmed, error),
+	preConfirmedFn func() (PreConfirmedReader, error),
 	cachedFilters *AggregatedBloomFilterCache,
 	runningFilter *core.RunningEventFilter,
 ) *EventFilter {
@@ -133,14 +136,8 @@ func (c *ContinuationToken) FromString(str string) error {
 
 type FilteredEvent struct {
 	*core.Event
-	BlockNumber *uint64
-	BlockHash   *felt.Felt
-	// BlockParentHash is used to distinguish pre_latest from pre_confirmed blocks
-	// when assigning finality status.
-	// If BlockNumber > latest_canonical_block_number or block hash is nil:
-	//   - BlockParentHash == nil indicates pre_confirmed block
-	//   - BlockParentHash != nil indicates pre_latest block
-	BlockParentHash  *felt.Felt
+	BlockNumber      *uint64
+	BlockHash        *felt.Felt
 	TransactionHash  *felt.Felt
 	TransactionIndex uint
 	EventIndex       uint
@@ -265,7 +262,6 @@ func (e *EventFilter) canonicalEvents(
 			receipts,
 			skippedEvents,
 			chunkSize,
-			false,
 		)
 		if err != nil {
 			// Max events to scan exhausted mid block, continue from next unprocessed event
@@ -289,9 +285,10 @@ func (e *EventFilter) canonicalEvents(
 	return matchedEvents, ContinuationToken{}, nil
 }
 
-// pendingEvents processes pending events
-// Returns events from pre-latest block and pre-confirmed block
-// Support access to pre-confirmed block in isolation when fromBlock > preLatest.Block.Number
+// pendingEvents processes pending events across every pre-confirmed block in
+// the chain (head+1 .. tip), oldest-first. fromBlock and the continuation
+// token's fromBlock select where to resume; the token's processedEvents
+// counter applies to the resume block only.
 func (e *EventFilter) pendingEvents(
 	matchedEvents []FilteredEvent,
 	fromBlock,
@@ -305,96 +302,54 @@ func (e *EventFilter) pendingEvents(
 		}
 		return nil, ContinuationToken{}, err
 	}
+	if preConfirmed == nil || preConfirmed.Length() == 0 {
+		return matchedEvents, ContinuationToken{}, nil
+	}
 
-	preLatest := preConfirmed.GetPreLatest()
-	if preLatest != nil && fromBlock <= preLatest.Block.Number {
-		var cToken ContinuationToken
-		var err error
-		matchedEvents, cToken, err = e.processPreLatestBlock(
+	// fromBlock = PreConfirmedFilterSentinel is the sentinel for "BlockID =
+	// preConfirmed". The pre_confirmed tag refers to the single most recent block,
+	// so pin fromBlock to the tip and let the per-block skip below drop the rest of
+	// the chain.
+	if fromBlock == PreConfirmedFilterSentinel {
+		fromBlock = preConfirmed.Head().Block.Number
+	}
+
+	for entry := range preConfirmed.OldestFirst() {
+		blockNumber := entry.Block.Number
+		if blockNumber < fromBlock {
+			continue
+		}
+		if blockNumber > e.toBlock {
+			break
+		}
+
+		header := entry.GetHeader()
+		if !e.matcher.TestBloom(header.EventsBloom) {
+			// Skipped events are scoped to the resume block; once we step past
+			// it, reset so later blocks aren't under-counted.
+			skippedEvents = 0
+			continue
+		}
+
+		var processedEvents uint64
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
-			preLatest.Block,
+			header,
+			entry.Block.Receipts,
 			skippedEvents,
 			chunkSize,
 		)
 		if err != nil {
+			if errors.Is(err, errChunkSizeReached) {
+				cToken := ContinuationToken{
+					fromBlock:       blockNumber,
+					processedEvents: processedEvents,
+				}
+				return matchedEvents, cToken, nil
+			}
 			return nil, ContinuationToken{}, err
 		}
-
-		if !cToken.IsEmpty() {
-			return matchedEvents, cToken, nil
-		}
 		skippedEvents = 0
-	}
-	// Process pre-confirmed block
-	return e.processPreConfirmedBlock(matchedEvents, preConfirmed, skippedEvents, chunkSize)
-}
-
-// processPreLatestBlock processes pre-latest block events
-func (e *EventFilter) processPreLatestBlock(
-	matchedEvents []FilteredEvent,
-	preLatest *core.Block,
-	skippedEvents,
-	chunkSize uint64,
-) ([]FilteredEvent, ContinuationToken, error) {
-	if !e.matcher.TestBloom(preLatest.EventsBloom) {
-		return matchedEvents, ContinuationToken{}, nil
-	}
-
-	var processedEvents uint64
-	var err error
-	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
-		matchedEvents,
-		preLatest.Header,
-		preLatest.Receipts,
-		skippedEvents,
-		chunkSize,
-		true,
-	)
-	if err != nil {
-		if errors.Is(err, errChunkSizeReached) {
-			cToken := ContinuationToken{
-				fromBlock:       preLatest.Number,
-				processedEvents: processedEvents,
-			}
-			return matchedEvents, cToken, nil
-		}
-		return nil, ContinuationToken{}, err
-	}
-
-	return matchedEvents, ContinuationToken{}, nil
-}
-
-// processPreConfirmedBlock processes pre-confirmed block events
-func (e *EventFilter) processPreConfirmedBlock(
-	matchedEvents []FilteredEvent,
-	preConfirmed *pending.PreConfirmed,
-	skippedEvents,
-	chunkSize uint64,
-) ([]FilteredEvent, ContinuationToken, error) {
-	pendingHeader := preConfirmed.GetHeader()
-	if !e.matcher.TestBloom(pendingHeader.EventsBloom) {
-		return matchedEvents, ContinuationToken{}, nil
-	}
-
-	var processedEvents uint64
-	var err error
-	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
-		matchedEvents,
-		pendingHeader,
-		preConfirmed.GetBlock().Receipts,
-		skippedEvents,
-		chunkSize,
-		false,
-	)
-	if err != nil {
-		if errors.Is(err, errChunkSizeReached) {
-			cToken := ContinuationToken{
-				fromBlock:       preConfirmed.GetBlock().Number,
-				processedEvents: processedEvents,
-			}
-			return matchedEvents, cToken, nil
-		}
-		return nil, ContinuationToken{}, err
 	}
 
 	return matchedEvents, ContinuationToken{}, nil

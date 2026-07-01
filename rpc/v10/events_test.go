@@ -2,7 +2,6 @@ package rpcv10_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -19,6 +18,7 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -26,13 +26,14 @@ import (
 
 // createEventPreConfirmedFromBlock creates a pre_confirmed block from the given block and
 // returns the pre_confirmed data and emitted events
-func createEventPreConfirmedFromBlock(block *core.Block) (
-	pending.PreConfirmed, []rpc.EmittedEvent,
-) {
+func createEventPreConfirmedFromBlock(
+	block *core.Block,
+) (pending.PreConfirmed, []rpc.EmittedEvent) {
 	newHeader := &core.Header{
 		Number:           block.Header.Number,
 		Timestamp:        block.Header.Timestamp,
 		SequencerAddress: block.Header.SequencerAddress,
+		EventsBloom:      core.EventsBloom(block.Receipts),
 	}
 
 	preConfirmedBlock := &core.Block{
@@ -63,44 +64,6 @@ func createEventPreConfirmedFromBlock(block *core.Block) (
 	}
 
 	return preConfirmed, events
-}
-
-// createEventPreLatestFromBlock creates a pre_latest block from the given block and
-// returns the pre_latest data and emitted events
-func createEventPreLatestFromBlock(block *core.Block) (pending.PreLatest, []rpc.EmittedEvent) {
-	newHeader := &core.Header{
-		ParentHash: block.Header.ParentHash,
-		Number:     block.Header.Number,
-	}
-
-	preLatestBlock := &core.Block{
-		Header:       newHeader,
-		Transactions: block.Transactions,
-		Receipts:     block.Receipts,
-	}
-
-	preLatest := pending.PreLatest{Block: preLatestBlock}
-
-	// Extract events from the block and convert to emitted events
-	var events []rpc.EmittedEvent
-	for txIndex, receipt := range preLatestBlock.Receipts {
-		for eventIndex, event := range receipt.Events {
-			events = append(events, rpc.EmittedEvent{
-				Event: &rpc.Event{
-					From: event.From,
-					Keys: event.Keys,
-					Data: event.Data,
-				},
-				BlockNumber:      &preLatestBlock.Number, // Pre-latest events have block number
-				BlockHash:        nil,                    // Pre-latest events have no block hash
-				TransactionHash:  receipt.TransactionHash,
-				TransactionIndex: uint(txIndex),
-				EventIndex:       uint(eventIndex),
-			})
-		}
-	}
-
-	return preLatest, events
 }
 
 // extractCanonicalEvents extracts all events from canonical blocks in the chain
@@ -156,6 +119,34 @@ func collectAllEvents(t *testing.T, h *rpc.Handler, args *rpc.EventArgs) []rpc.E
 	return all
 }
 
+// filterEventsByAddress returns the events emitted from the given address.
+func filterEventsByAddress(events []rpc.EmittedEvent, address *felt.Address) []rpc.EmittedEvent {
+	var filtered []rpc.EmittedEvent
+	for _, event := range events {
+		if event.From != nil && event.From.Equal((*felt.Felt)(address)) {
+			filtered = append(filtered, event)
+		}
+	}
+	return filtered
+}
+
+// filterEventsByAddressAndKey returns the events emitted from
+// the given address whose first key matches.
+func filterEventsByAddressAndKey(
+	events []rpc.EmittedEvent,
+	address *felt.Address,
+	key *felt.Felt,
+) []rpc.EmittedEvent {
+	filtered := []rpc.EmittedEvent{}
+	for _, event := range events {
+		if event.From != nil && event.From.Equal((*felt.Felt)(address)) &&
+			len(event.Keys) > 0 && event.Keys[0].Equal(key) {
+			filtered = append(filtered, event)
+		}
+	}
+	return filtered
+}
+
 // fetchAndStoreBlock fetches a block from the feeder and stores it in the blockchain
 func fetchAndStoreBlock(
 	t *testing.T,
@@ -208,33 +199,39 @@ func TestEvents(t *testing.T) {
 
 	canonicalEvents := extractCanonicalEvents(t, chain, 0, numCanonicalBlocks-1)
 
-	preConfirmed, preConfirmedEvents := createEventPreConfirmedFromBlock(block5)
-	preLatest, preLatestEvents := createEventPreLatestFromBlock(block5)
+	// block5 and block6 sit above the canonical head (head=4) and are used
+	// only as pre_confirmed fixtures — never stored in `chain`. preConfirmed5
+	// is reused across two alternative pre_confirmed ChainReader fixtures
+	// below (singlePreConfirmedChain and the bottom slot of multiPreConfirmed);
+	// each test case selects one via the mock, so the two are never live at
+	// the same time.
+	preConfirmed5, preConfirmed5Events := createEventPreConfirmedFromBlock(block5)
+	preConfirmed6, preConfirmed6Events := createEventPreConfirmedFromBlock(block6)
+	multiPreConfirmed := mustNewChain(t, &preConfirmed5, &preConfirmed6)
 
-	preConfirmedWithPreLatest,
-		preConfirmedWithPreLatestEvents := createEventPreConfirmedFromBlock(block6)
-	preConfirmedWithPreLatest.WithPreLatest(&preLatest)
+	multiPreConfirmedEvents := make(
+		[]rpc.EmittedEvent,
+		0,
+		len(preConfirmed5Events)+len(preConfirmed6Events),
+	)
+	multiPreConfirmedEvents = append(multiPreConfirmedEvents, preConfirmed5Events...)
+	multiPreConfirmedEvents = append(multiPreConfirmedEvents, preConfirmed6Events...)
 
-	// Precalculate combined events to avoid repeated allocations
 	canonicalPreConfirmed := make(
 		[]rpc.EmittedEvent,
 		0,
-		len(canonicalEvents)+len(preConfirmedEvents),
+		len(canonicalEvents)+len(preConfirmed5Events),
 	)
 	canonicalPreConfirmed = append(canonicalPreConfirmed, canonicalEvents...)
-	canonicalPreConfirmed = append(canonicalPreConfirmed, preConfirmedEvents...)
+	canonicalPreConfirmed = append(canonicalPreConfirmed, preConfirmed5Events...)
 
-	canonicalPreLatestPreConfirmed := make(
+	canonicalMultiPreConfirmed := make(
 		[]rpc.EmittedEvent,
 		0,
-		len(canonicalEvents)+len(preLatestEvents)+len(preConfirmedWithPreLatestEvents),
+		len(canonicalEvents)+len(multiPreConfirmedEvents),
 	)
-	canonicalPreLatestPreConfirmed = append(canonicalPreLatestPreConfirmed, canonicalEvents...)
-	canonicalPreLatestPreConfirmed = append(canonicalPreLatestPreConfirmed, preLatestEvents...)
-	canonicalPreLatestPreConfirmed = append(
-		canonicalPreLatestPreConfirmed,
-		preConfirmedWithPreLatestEvents...,
-	)
+	canonicalMultiPreConfirmed = append(canonicalMultiPreConfirmed, canonicalEvents...)
+	canonicalMultiPreConfirmed = append(canonicalMultiPreConfirmed, multiPreConfirmedEvents...)
 
 	l1AcceptedBlockNumber := uint64(4)
 	l1AcceptedBlock, err := gw.BlockByNumber(t.Context(), l1AcceptedBlockNumber)
@@ -251,10 +248,12 @@ func TestEvents(t *testing.T) {
 	type eventTest struct {
 		description    string
 		args           rpc.EventArgs
-		preConfirmed   *pending.PreConfirmed
+		preConfirmed   *preconfirmed.ChainReader
 		expectedEvents []rpc.EmittedEvent
 		expectError    *jsonrpc.Error
 	}
+
+	singlePreConfirmedChain := mustNewChain(t, &preConfirmed5)
 
 	// Test address and key for filtering
 	testAddress := []felt.Address{
@@ -527,44 +526,99 @@ func TestEvents(t *testing.T) {
 		{
 			description:    "pre_confirmed events only - no pagination",
 			args:           onlyPreConfirmedNoPagination,
-			preConfirmed:   &preConfirmed,
-			expectedEvents: preConfirmedEvents,
+			preConfirmed:   &singlePreConfirmedChain,
+			expectedEvents: preConfirmed5Events,
 		},
 		{
 			description:    "pre_confirmed events with pagination",
 			args:           onlyPreConfirmedWithPagination,
-			preConfirmed:   &preConfirmed,
-			expectedEvents: preConfirmedEvents,
+			preConfirmed:   &singlePreConfirmedChain,
+			expectedEvents: preConfirmed5Events,
 		},
 		{
 			description:    "canonical + pre_confirmed events - no pagination",
 			args:           genesisToPreConfirmedNoPagination,
-			preConfirmed:   &preConfirmed,
+			preConfirmed:   &singlePreConfirmedChain,
 			expectedEvents: canonicalPreConfirmed,
 		},
 		{
 			description:    "canonical + pre_confirmed events with pagination",
 			args:           genesisToPreConfirmedWithPagination,
-			preConfirmed:   &preConfirmed,
+			preConfirmed:   &singlePreConfirmedChain,
 			expectedEvents: canonicalPreConfirmed,
 		},
 		{
-			description:    "canonical + pre_latest + pre_confirmed events - no pagination",
-			args:           genesisToPreConfirmedNoPagination,
-			preConfirmed:   &preConfirmedWithPreLatest,
-			expectedEvents: canonicalPreLatestPreConfirmed,
-		},
-		{
-			description:    "canonical + pre_latest + pre_confirmed events with pagination",
-			args:           genesisToPreConfirmedWithPagination,
-			preConfirmed:   &preConfirmedWithPreLatest,
-			expectedEvents: canonicalPreLatestPreConfirmed,
-		},
-		{
-			description:    "pre_confirmed events only - when there is pre-latest",
+			// from=to=preConfirmed pins to the tip slot, so only the most
+			// recent pre_confirmed block's events return (not the bottom slot).
+			description:    "multi pre_confirmed - tip slot only - no pagination",
 			args:           onlyPreConfirmedNoPagination,
-			preConfirmed:   &preConfirmedWithPreLatest,
-			expectedEvents: preConfirmedWithPreLatestEvents,
+			preConfirmed:   &multiPreConfirmed,
+			expectedEvents: preConfirmed6Events,
+		},
+		{
+			description:    "multi pre_confirmed - tip slot only with chunk-size 1 pagination",
+			args:           onlyPreConfirmedWithPagination,
+			preConfirmed:   &multiPreConfirmed,
+			expectedEvents: preConfirmed6Events,
+		},
+		{
+			description: "multi pre_confirmed - tip slot only with mid-block pagination",
+			args: rpc.EventArgs{
+				EventFilter: rpc.EventFilter{
+					FromBlock: &preConfirmedID,
+					ToBlock:   &preConfirmedID,
+				},
+				ResultPageRequest: rpc.ResultPageRequest{
+					// A chunk size below the tip slot's event count forces a
+					// continuation token that resumes inside the tip slot.
+					ChunkSize:         uint64(max(1, len(preConfirmed6Events)-1)),
+					ContinuationToken: "",
+				},
+			},
+			preConfirmed:   &multiPreConfirmed,
+			expectedEvents: preConfirmed6Events,
+		},
+		{
+			description:    "canonical + multi pre_confirmed - no pagination",
+			args:           genesisToPreConfirmedNoPagination,
+			preConfirmed:   &multiPreConfirmed,
+			expectedEvents: canonicalMultiPreConfirmed,
+		},
+		{
+			description:    "canonical + multi pre_confirmed with pagination",
+			args:           genesisToPreConfirmedWithPagination,
+			preConfirmed:   &multiPreConfirmed,
+			expectedEvents: canonicalMultiPreConfirmed,
+		},
+		{
+			description: "multi pre_confirmed - address filter on tip slot",
+			args: rpc.EventArgs{
+				EventFilter: rpc.EventFilter{
+					FromBlock: &preConfirmedID,
+					ToBlock:   &preConfirmedID,
+					Address:   testAddress,
+				},
+				ResultPageRequest: defaultPageRequest,
+			},
+			preConfirmed:   &multiPreConfirmed,
+			expectedEvents: filterEventsByAddress(preConfirmed6Events, &testAddress[0]),
+		},
+		{
+			description: "multi pre_confirmed - address+key filter on tip slot with chunk-size 1",
+			args: rpc.EventArgs{
+				EventFilter: rpc.EventFilter{
+					FromBlock: &preConfirmedID,
+					ToBlock:   &preConfirmedID,
+					Address:   testAddress,
+					Keys:      [][]felt.Felt{{*testKey}},
+				},
+				ResultPageRequest: rpc.ResultPageRequest{
+					ChunkSize:         1,
+					ContinuationToken: "",
+				},
+			},
+			preConfirmed:   &multiPreConfirmed,
+			expectedEvents: filterEventsByAddressAndKey(preConfirmed6Events, &testAddress[0], testKey),
 		},
 	}
 
@@ -578,7 +632,12 @@ func TestEvents(t *testing.T) {
 
 			// Set up mock expectations
 			if tc.preConfirmed != nil {
-				mockSyncReader.EXPECT().PreConfirmed().Return(tc.preConfirmed, nil).AnyTimes()
+				mockSyncReader.EXPECT().PreConfirmedChain().Return(*tc.preConfirmed, nil).AnyTimes()
+			} else {
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+					AnyTimes()
 			}
 
 			// Error cases: assert once and return
@@ -604,7 +663,10 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).AnyTimes()
+	mockSyncReader.EXPECT().
+		PreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+		AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
 
 	from := []felt.Address{
@@ -639,133 +701,6 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	require.Nil(t, err)
 	require.Empty(t, events.ContinuationToken)
 	require.NotEmpty(t, events.Events)
-}
-
-func TestEvents_ChainProgressesWhilePaginating(t *testing.T) {
-	network := networks.Sepolia
-	numCanonicalBlocks := uint64(5)
-	chain, gw := setupTestChain(t, &network, numCanonicalBlocks)
-
-	block5, err := gw.BlockByNumber(t.Context(), 5)
-	require.NoError(t, err)
-
-	block6, err := gw.BlockByNumber(t.Context(), 6)
-	require.NoError(t, err)
-
-	expectedEvents := extractCanonicalEvents(t, chain, 0, numCanonicalBlocks-1)
-	preLatest, preLatestEvents := createEventPreLatestFromBlock(block5)
-
-	preConfirmed,
-		preConfirmedEvents := createEventPreConfirmedFromBlock(block6)
-	preConfirmed.WithPreLatest(&preLatest)
-
-	expectedEvents = append(expectedEvents, preLatestEvents...)
-	expectedEvents = append(expectedEvents, preConfirmedEvents...)
-
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
-
-	preConfirmedID := rpc.BlockIDPreConfirmed()
-	// Test pagination with small chunk size to trigger multiple calls
-	args := rpc.EventArgs{
-		EventFilter: rpc.EventFilter{
-			ToBlock: &preConfirmedID,
-		},
-		ResultPageRequest: rpc.ResultPageRequest{
-			ChunkSize:         1, // Small chunk to force pagination
-			ContinuationToken: "",
-		},
-	}
-
-	// Collect events through pagination until we reach pending blocks
-	var allEvents []rpc.EmittedEvent
-	curArgs := args
-
-	// Collect canonical events
-	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
-	for {
-		chunk, err := handler.Events(&curArgs)
-		require.Nil(t, err)
-
-		allEvents = append(allEvents, chunk.Events...)
-		require.NotEmpty(t, chunk.ContinuationToken)
-		// Check if we've reached a pending block (pre_confirmed or pre_latest)
-		var blockNum, processedEvents uint64
-		_, parseErr := fmt.Sscanf(chunk.ContinuationToken, "%d-%d", &blockNum, &processedEvents)
-		require.NoError(t, parseErr)
-
-		curArgs.ContinuationToken = chunk.ContinuationToken
-
-		if blockNum >= numCanonicalBlocks {
-			break
-		}
-	}
-
-	// Read one from pre_latest block 5
-	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
-	chunk, rpcErr := handler.Events(&curArgs)
-	require.Nil(t, rpcErr)
-	require.NotEmpty(t, chunk.ContinuationToken)
-	require.Equal(t, uint64(5), *chunk.Events[0].BlockNumber)
-	allEvents = append(allEvents, chunk.Events...)
-	curArgs.ContinuationToken = chunk.ContinuationToken
-
-	// pre-latest becomes latest, continue pagination from block 5
-	fetchAndStoreBlock(t, chain, gw, 5)
-	mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed.WithPreLatest(nil), nil)
-	chunk, rpcErr = handler.Events(&curArgs)
-	require.Nil(t, rpcErr)
-	require.NotEmpty(t, chunk.ContinuationToken)
-	require.Equal(t, uint64(5), *chunk.Events[0].BlockNumber)
-	allEvents = append(allEvents, chunk.Events...)
-	curArgs.ContinuationToken = chunk.ContinuationToken
-
-	// continue from pre_confirmed, read one from block 6
-	mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed.WithPreLatest(nil), nil)
-	chunk, rpcErr = handler.Events(&curArgs)
-	require.Nil(t, rpcErr)
-	require.NotEmpty(t, chunk.ContinuationToken)
-	require.Equal(t, uint64(6), *chunk.Events[0].BlockNumber)
-	allEvents = append(allEvents, chunk.Events...)
-	curArgs.ContinuationToken = chunk.ContinuationToken
-
-	// pre_confirmed becomes pre_latest, continue pagination from block 6
-	preLatest2, _ := createEventPreLatestFromBlock(block6)
-	preConfirmed2 := pending.PreConfirmed{
-		Block: &core.Block{
-			Header: &core.Header{
-				Number: 7,
-			},
-		},
-		PreLatest: &preLatest2,
-	}
-
-	for {
-		mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed2, nil)
-		chunk, rpcErr = handler.Events(&curArgs)
-		require.Nil(t, rpcErr)
-		require.Equal(t, uint64(6), *chunk.Events[0].BlockNumber)
-		allEvents = append(allEvents, chunk.Events...)
-		if chunk.ContinuationToken == "" {
-			break
-		}
-		curArgs.ContinuationToken = chunk.ContinuationToken
-	}
-
-	// Compare events ignoring block hash
-	// Block hash is ignored for this test due to mixing different block types
-	require.Equal(t, len(expectedEvents), len(allEvents))
-	for i, expected := range expectedEvents {
-		actual := allEvents[i]
-		require.Equal(t, expected.BlockNumber, actual.BlockNumber)
-		require.Equal(t, expected.TransactionHash, actual.TransactionHash)
-		require.Equal(t, expected.From, actual.From)
-		require.Equal(t, expected.Keys, actual.Keys)
-		require.Equal(t, expected.Data, actual.Data)
-	}
 }
 
 func TestAddressListUnmarshalJSON(t *testing.T) {

@@ -12,11 +12,9 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
@@ -283,125 +281,55 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
 }
 
-// findAndTraceInPreConfirmed searches for a transaction in the following order:
-// 1. Pre-confirmed block
-// 2. Pre-latest block (if available)
-//
-// Returns ErrTxnHashNotFound if the transaction is not found in the pre_confirmed block.
+// findAndTraceInPreConfirmed traces a transaction located in any block of the
+// pre_confirmed chain (head+1 .. tip). The chain is scanned newest-first. The
+// state immediately before txIndex is reconstructed by layering every chain
+// entry's diff from chain bottom up to entry's block, then the entry's own
+// transaction-level diffs up to (but not including) txIndex.
 func (h *Handler) findAndTraceInPreConfirmed(
 	hash *felt.Felt,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	preConfirmed, rpcErr := h.syncReader.PreConfirmed()
-	if rpcErr != nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-	}
-
-	trace, header, err := h.findAndTraceInPreConfirmedBlock(preConfirmed, hash)
-	if err == nil {
-		return trace, header, nil
-	} else if err != rpccore.ErrTxnHashNotFound {
-		return TransactionTrace{}, nil, err
-	}
-	return h.findAndTraceInPrelatestBlock(preConfirmed, hash)
-}
-
-// findAndTraceInPendingBlock finds and traces a transaction in the pre_confirmed block.
-func (h *Handler) findAndTraceInPreConfirmedBlock(
-	preConfirmed *pending.PreConfirmed, hash *felt.Felt,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	block := preConfirmed.GetBlock()
-	txIndex, rpcErr := findTransactionInBlock(block, hash)
-	if rpcErr != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
-	}
-
-	return h.traceInPreConfirmedBlock(preConfirmed, txIndex)
-}
-
-// findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
-func (h *Handler) findAndTraceInPrelatestBlock(
-	preConfirmed *pending.PreConfirmed, hash *felt.Felt,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	preLatest := preConfirmed.GetPreLatest()
-	if preLatest == nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-	}
-
-	txIndex, err := findTransactionInBlock(preLatest.Block, hash)
+	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	return h.traceInPrelatestBlock(preLatest, txIndex)
-}
+	for entry := range chain.NewestFirst() {
+		_, txIndex, err := entry.TransactionByHash(hash)
+		if err != nil {
+			continue
+		}
 
-// traceInPrelatestBlock traces a transaction in the prelatest block.
-func (h *Handler) traceInPrelatestBlock(
-	preLatest *pending.PreLatest, txIndex uint,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	state, closer, err := h.bcReader.StateAtBlockHash(preLatest.Block.ParentHash)
-	if err != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+		state, baseCloser, err := chain.PreConfirmedStateBeforeIndexAt(
+			entry.Block.Number,
+			txIndex,
+			h.bcReader,
+		)
+		if err != nil {
+			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+		//nolint:gocritic // safe to defer in loop: we return on this iteration
+		defer h.callAndLogErr(baseCloser, "Failed to close state in findAndTraceInPreConfirmed")
+
+		blockInfo, rpcErr := h.buildBlockInfo(entry.GetHeader())
+		if rpcErr != nil {
+			return TransactionTrace{}, defaultExecutionHeader(), rpcErr
+		}
+
+		traces, _, httpHeader, rpcErr := traceTransactionsWithState(
+			h.vm,
+			[]core.Transaction{entry.Block.Transactions[txIndex]},
+			state, // execution state
+			state, // class lookup state (same for preconfirmed)
+			&blockInfo,
+			false, // returnInitialReads
+		)
+		if rpcErr != nil {
+			return TransactionTrace{}, httpHeader, rpcErr
+		}
+		return *traces[0].TraceRoot, httpHeader, nil
 	}
-	defer h.callAndLogErr(closer, "Failed to close state in tracePreLatestTransaction")
-
-	preLatestState := pending.NewState(
-		preLatest.StateUpdate.StateDiff,
-		preLatest.NewClasses,
-		state,
-		preLatest.Block.Number,
-	)
-
-	blockInfo, rpcErr := h.buildBlockInfo(preLatest.Block.Header)
-	if rpcErr != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
-	}
-
-	traces, _, httpHeader, rpcErr := traceTransactionsWithState(
-		h.vm,
-		preLatest.Block.Transactions,
-		state,
-		preLatestState,
-		&blockInfo,
-		false, // returnInitialReads
-	)
-	if rpcErr != nil {
-		return TransactionTrace{}, httpHeader, rpcErr
-	}
-
-	return *traces[txIndex].TraceRoot, httpHeader, nil
-}
-
-// traceInPreConfirmedBlock traces a transaction in a preconfirmed block.
-func (h *Handler) traceInPreConfirmedBlock(
-	preConfirmed *pending.PreConfirmed, txIndex uint,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	state, stateCloser, err := sync.PendingStateBeforeIndex(preConfirmed, h.bcReader, txIndex)
-	if err != nil {
-		return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-	defer h.callAndLogErr(stateCloser, "Failed to close state in tracePreConfirmedTransaction")
-
-	transaction := preConfirmed.GetBlock().Transactions[txIndex]
-
-	blockInfo, rpcErr := h.buildBlockInfo(preConfirmed.GetHeader())
-	if rpcErr != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
-	}
-
-	traces, _, httpHeader, rpcErr := traceTransactionsWithState(
-		h.vm,
-		[]core.Transaction{transaction},
-		state, // execution state
-		state, // class lookup state (same for preconfirmed)
-		&blockInfo,
-		false, // returnInitialReads
-	)
-	if rpcErr != nil {
-		return TransactionTrace{}, httpHeader, rpcErr
-	}
-
-	return *traces[0].TraceRoot, httpHeader, nil
+	return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 }
 
 /****************************************************

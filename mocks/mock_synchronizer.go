@@ -13,8 +13,8 @@ import (
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
-	pending "github.com/NethermindEth/juno/core/pending"
 	sync "github.com/NethermindEth/juno/sync"
+	preconfirmed "github.com/NethermindEth/juno/sync/preconfirmed"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -56,19 +56,19 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
 }
 
-// PreConfirmed mocks base method.
-func (m *MockSyncReader) PreConfirmed() (*pending.PreConfirmed, error) {
+// PreConfirmedChain mocks base method.
+func (m *MockSyncReader) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PreConfirmed")
-	ret0, _ := ret[0].(*pending.PreConfirmed)
+	ret := m.ctrl.Call(m, "PreConfirmedChain")
+	ret0, _ := ret[0].(preconfirmed.ChainReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PreConfirmed indicates an expected call of PreConfirmed.
-func (mr *MockSyncReaderMockRecorder) PreConfirmed() *gomock.Call {
+// PreConfirmedChain indicates an expected call of PreConfirmedChain.
+func (mr *MockSyncReaderMockRecorder) PreConfirmedChain() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmed", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedChain", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmedChain))
 }
 
 // StartingBlockNumber mocks base method.
@@ -112,20 +112,6 @@ func (m *MockSyncReader) SubscribePreConfirmed() sync.PreConfirmedDataSubscripti
 func (mr *MockSyncReaderMockRecorder) SubscribePreConfirmed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePreConfirmed", reflect.TypeOf((*MockSyncReader)(nil).SubscribePreConfirmed))
-}
-
-// SubscribePreLatest mocks base method.
-func (m *MockSyncReader) SubscribePreLatest() sync.PreLatestDataSubscription {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribePreLatest")
-	ret0, _ := ret[0].(sync.PreLatestDataSubscription)
-	return ret0
-}
-
-// SubscribePreLatest indicates an expected call of SubscribePreLatest.
-func (mr *MockSyncReaderMockRecorder) SubscribePreLatest() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePreLatest", reflect.TypeOf((*MockSyncReader)(nil).SubscribePreLatest))
 }
 
 // SubscribeReorg mocks base method.

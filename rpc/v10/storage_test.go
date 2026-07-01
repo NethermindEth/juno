@@ -251,13 +251,42 @@ func TestStorageAt(t *testing.T) {
 					StateDiff: &preConfirmedStateDiff,
 				},
 			}
-
-			mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 			mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
 				Return(mockState, nopCloser, nil)
 			preConfirmedID := rpc.BlockIDPreConfirmed()
 			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, noFlags)
 			require.Nil(t, rpcErr)
+			validateStorageAtJSON(t, result, noFlags.IncludeLastUpdateBlock)
+		})
+
+		t.Run("blockID - pre_confirmed multi-block chain returns tip storage", func(t *testing.T) {
+			oldStorage := felt.NewFromUint64[felt.Felt](999)
+
+			baseStateDiff := core.EmptyStateDiff()
+			baseStateDiff.StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{targetSlot: oldStorage}
+			baseStateDiff.DeployedContracts[targetAddressFelt] = felt.NewFromUint64[felt.Felt](123456789)
+
+			tipStateDiff := core.EmptyStateDiff()
+			tipStateDiff.StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{
+				targetSlot: &expectedStorage,
+			}
+
+			baseEntry := &pending.PreConfirmed{
+				Block:       &core.Block{Header: &core.Header{Number: 2}},
+				StateUpdate: &core.StateUpdate{StateDiff: &baseStateDiff},
+			}
+			tipEntry := &pending.PreConfirmed{
+				Block:       &core.Block{Header: &core.Header{Number: 3}},
+				StateUpdate: &core.StateUpdate{StateDiff: &tipStateDiff},
+			}
+			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, baseEntry, tipEntry), nil)
+			mockReader.EXPECT().StateAtBlockNumber(uint64(1)).Return(mockState, nopCloser, nil)
+
+			preConfirmedID := rpc.BlockIDPreConfirmed()
+			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &preConfirmedID, noFlags)
+			require.Nil(t, rpcErr)
+			assert.Equal(t, expectedStorage, result.Value)
 			validateStorageAtJSON(t, result, noFlags.IncludeLastUpdateBlock)
 		})
 
@@ -395,7 +424,7 @@ func TestStorageAt(t *testing.T) {
 					emptyStateDiff := core.EmptyStateDiff()
 					preConfirmed.StateUpdate.StateDiff = &emptyStateDiff
 
-					mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+					mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 						Return(mockState, nopCloser, nil)
 					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
@@ -420,7 +449,7 @@ func TestStorageAt(t *testing.T) {
 						StorageDiffs[targetAddressFelt] = map[felt.Felt]*felt.Felt{targetSlot: &expectedStorage}
 					preConfirmed.StateUpdate.StateDiff = &stateDiff
 
-					mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+					mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 						Return(mockState, nopCloser, nil)
 					mockState.EXPECT().ContractClassHash(&targetAddressFelt).Return(felt.Felt{}, nil)
@@ -444,7 +473,7 @@ func TestStorageAt(t *testing.T) {
 						DeployedContracts[*newDeployedContract] = felt.NewFromUint64[felt.Felt](123456789)
 					preConfirmed.StateUpdate.StateDiff = &stateDiff
 
-					mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+					mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 						Return(mockState, nopCloser, nil)
 
@@ -471,7 +500,7 @@ func TestStorageAt(t *testing.T) {
 						DeployedContracts[*newDeployedContract] = felt.NewFromUint64[felt.Felt](123456789)
 					preConfirmed.StateUpdate.StateDiff = &stateDiff
 
-					mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+					mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 					mockReader.EXPECT().StateAtBlockNumber(preConfirmedBlockNumber-1).
 						Return(mockState, nopCloser, nil)
 
@@ -1373,7 +1402,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
+	synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 
 	require.NoError(t, synchronizer.Run(ctx))

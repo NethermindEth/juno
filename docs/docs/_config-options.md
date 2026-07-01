@@ -20,7 +20,7 @@
 
 | Config Option | Default Value | Description |
 | - | - | - |
-| `disable-received-txn-stream` | `false` | The starknet_subscribeNewTransactions WebSocket API allows users to subscribe to new transactions. By default, it streams transactions that have been accepted on L2. Users can optionally provide a set of finality statuses to be notified about, including transactions from canonical blocks, blocks with softer finality guarantees such as pre-confirmed and pre-latest, as well as transactions not yet part of any block such as received and candidate. When subscribers select the RECEIVED status, they will be notified about transactions that have been submitted through this node — these transactions are local to the node and are not sourced from the network. When this flag is enabled, the node will no longer notify subscribers about transactions submitted through it |
+| `disable-received-txn-stream` | `false` | The starknet_subscribeNewTransactions WebSocket API allows users to subscribe to new transactions. By default, it streams transactions that have been accepted on L2. Users can optionally provide a set of finality statuses to be notified about, including transactions from canonical blocks, blocks with softer finality guarantees such as pre-confirmed, as well as transactions not yet part of any block such as received and candidate. When subscribers select the RECEIVED status, they will be notified about transactions that have been submitted through this node — these transactions are local to the node and are not sourced from the network. When this flag is enabled, the node will no longer notify subscribers about transactions submitted through it |
 | `ws` | `false` | Enables the WebSocket RPC server on the default port |
 | `ws-host` | `localhost` | The interface on which the WebSocket RPC server will listen for requests |
 | `ws-port` | `6061` | The port on which the WebSocket server will listen for requests |
@@ -38,7 +38,6 @@
 | Config Option | Default Value | Description |
 | - | - | - |
 | `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
-| `prelatest-poll-interval` | `1s` | Sets polling interval for pre-latest block updates. (0s will disable polling) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
 

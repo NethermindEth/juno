@@ -68,7 +68,6 @@ func TestSyncBlocks(t *testing.T) {
 			dataSource,
 			logger,
 			time.Duration(0),
-			time.Duration(0),
 			false,
 			testDB,
 		)
@@ -98,7 +97,6 @@ func TestSyncBlocks(t *testing.T) {
 			bc,
 			dataSource,
 			logger,
-			time.Duration(0),
 			time.Duration(0),
 			false,
 			testDB,
@@ -171,7 +169,6 @@ func TestSyncBlocks(t *testing.T) {
 			dataSource,
 			logger,
 			time.Duration(0),
-			time.Duration(0),
 			false,
 			testDB,
 		)
@@ -200,7 +197,7 @@ func TestReorg(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
-	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), 0, 0, false, testDB)
+	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), 0, false, testDB)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -222,7 +219,7 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
-		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), 0, 0, false, testDB)
+		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), 0, false, testDB)
 		sub := synchronizer.SubscribeReorg()
 		// Use a generous timeout with early cancellation once the expected block is stored.
 		// The reorg flow (detect mismatch → revert → re-sync 3 blocks) needs more than 1s on slow CI.
@@ -273,7 +270,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-	syncer := sync.New(chain, dataSource, logger, 0, 0, false, testDB)
+	syncer := sync.New(chain, dataSource, logger, 0, false, testDB)
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -288,49 +285,6 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 	require.Equal(t, want, got)
 	sub.Unsubscribe()
-}
-
-func TestPreConfirmedAfterSync(t *testing.T) {
-	t.Parallel()
-
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
-
-	testDB := memory.New()
-	logger := log.NewNopZapLogger()
-	bc := blockchain.New(
-		testDB,
-		&networks.Mainnet,
-		blockchain.WithNewState(statetestutils.UseNewState()),
-	)
-	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(
-		bc,
-		dataSource,
-		logger,
-		time.Millisecond*100,
-		time.Millisecond*100,
-		false,
-		testDB,
-	)
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
-
-	require.NoError(t, synchronizer.Run(ctx))
-	cancel()
-
-	// After syncing at least one block, an empty pre_confirmed baseline for head+1 is stored.
-	preConfirmed, err := synchronizer.PreConfirmed()
-	require.NoError(t, err)
-	require.NotNil(t, preConfirmed)
-
-	head, err := bc.HeadsHeader()
-	require.NoError(t, err)
-	require.True(
-		t,
-		preConfirmed.Validate(head),
-		"pre-confirmed must be valid for the current head",
-	)
-	require.NotNil(t, preConfirmed.GetBlock())
 }
 
 func TestPreConfirmed(t *testing.T) {
@@ -357,16 +311,15 @@ func TestPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, nil, logger, 0, 0, false, testDB)
+		synchronizer := sync.New(bc, nil, logger, 0, false, testDB)
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
-		result, err := synchronizer.PreConfirmed()
+		result, err := synchronizer.PreConfirmedChain()
 		require.NoError(t, err)
-		require.NotNil(t, result)
-		require.True(t, result.Validate(head))
-		require.Equal(t, head.Number+1, result.Block.Number)
-		require.Empty(t, result.Block.Transactions)
-		require.Nil(t, result.PreLatest)
+		require.Equal(t, 1, result.Length())
+		tip := result.Head()
+		require.Equal(t, head.Number+1, tip.Block.Number)
+		require.Empty(t, tip.Block.Transactions)
 	})
 }

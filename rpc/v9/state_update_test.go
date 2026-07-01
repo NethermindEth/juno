@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,7 +45,9 @@ func TestStateUpdate(t *testing.T) {
 			)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 			logger := log.NewNopZapLogger()
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
@@ -190,13 +193,37 @@ func TestStateUpdate(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
 		preConfirmed := pending.NewPreConfirmed(nil, update21656, nil, "")
-		mockSyncReader.EXPECT().PreConfirmed().Return(
-			&preConfirmed,
-			nil,
-		)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		preConfirmedID := blockIDPreConfirmed(t)
 		update, rpcErr := handler.StateUpdate(&preConfirmedID)
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, &update)
+	})
+
+	t.Run("pre_confirmed multi-block chain returns tip state update", func(t *testing.T) {
+		baseEmpty := core.EmptyStateDiff()
+		baseUpdate := &core.StateUpdate{StateDiff: &baseEmpty}
+		basePc := pending.NewPreConfirmed(
+			&core.Block{Header: &core.Header{Number: 2}},
+			baseUpdate,
+			nil,
+			"",
+		)
+
+		tipUpdate := *update21656
+		tipUpdate.BlockHash = nil
+		tipUpdate.NewRoot = nil
+		tipPc := pending.NewPreConfirmed(
+			&core.Block{Header: &core.Header{Number: 3}},
+			&tipUpdate,
+			nil,
+			"",
+		)
+
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
+		preConfirmedID := blockIDPreConfirmed(t)
+		update, rpcErr := handler.StateUpdate(&preConfirmedID)
+		require.Nil(t, rpcErr)
+		checkUpdate(t, &tipUpdate, &update)
 	})
 }

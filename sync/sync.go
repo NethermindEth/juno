@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/sourcegraph/conc/stream"
 	"go.uber.org/zap"
@@ -49,10 +50,6 @@ type PreConfirmedDataSubscription struct {
 	*feed.Subscription[*pending.PreConfirmed]
 }
 
-type PreLatestDataSubscription struct {
-	*feed.Subscription[*pending.PreLatest]
-}
-
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
@@ -74,8 +71,7 @@ type Reader interface {
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePreConfirmed() PreConfirmedDataSubscription
-	SubscribePreLatest() PreLatestDataSubscription
-	PreConfirmed() (*pending.PreConfirmed, error)
+	PreConfirmedChain() (preconfirmed.ChainReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -101,12 +97,8 @@ func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription 
 	return PreConfirmedDataSubscription{feed.New[*pending.PreConfirmed]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
-	return PreLatestDataSubscription{feed.New[*pending.PreLatest]().Subscribe()}
-}
-
-func (n *NoopSynchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
-	return nil, errors.New("PreConfirmed() is not implemented")
+func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return preconfirmed.ChainReader{}, errors.New("PreConfirmedChain() is not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -120,13 +112,11 @@ type Synchronizer struct {
 	newHeads             *feed.Feed[*core.Block]
 	reorgFeed            *feed.Feed[*ReorgBlockRange]
 	preConfirmedDataFeed *feed.Feed[*pending.PreConfirmed]
-	preLatestDataFeed    *feed.Feed[*pending.PreLatest]
 
 	logger   log.StructuredLogger
 	listener EventListener
 
-	preConfirmed             *PreConfirmedStorage
-	preLatestPollInterval    time.Duration
+	preConfirmed             *preconfirmed.ChainStorage
 	preConfirmedPollInterval time.Duration
 
 	catchUpMode bool
@@ -139,7 +129,6 @@ func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	logger log.StructuredLogger,
-	preLatestPollInterval,
 	preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
 	database db.KeyValueStore,
@@ -152,12 +141,10 @@ func New(
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
-		preLatestDataFeed:        feed.New[*pending.PreLatest](),
-		preLatestPollInterval:    preLatestPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,
-		preConfirmed:             NewPreConfirmedStorage(),
+		preConfirmed:             preconfirmed.NewChainStorage(),
 	}
 	return s
 }
@@ -562,10 +549,6 @@ func (s *Synchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
 	return PreConfirmedDataSubscription{s.preConfirmedDataFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePreLatest() PreLatestDataSubscription {
-	return PreLatestDataSubscription{s.preLatestDataFeed.Subscribe()}
-}
-
 func (s *Synchronizer) pollLatest(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
 
@@ -587,27 +570,27 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	}
 }
 
-func (s *Synchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
+func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, err
+			return preconfirmed.ChainReader{}, err
 		}
 		head = nil
 	}
 
-	preConfirmed := s.preConfirmed.ReadPreConfirmedForHead(head)
-	if preConfirmed != nil {
-		return preConfirmed, nil
+	snapshot := s.preConfirmed.SnapshotForHead(head)
+	if snapshot.Length() > 0 {
+		return snapshot, nil
 	}
 
 	// Fallback: no stored pre-confirmed, or stored data failed validation.
 	if head == nil {
-		return nil, db.ErrKeyNotFound
+		return preconfirmed.ChainReader{}, db.ErrKeyNotFound
 	}
 	emptyPreConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, head)
 	if err != nil {
-		return nil, err
+		return preconfirmed.ChainReader{}, err
 	}
-	return &emptyPreConfirmed, nil
+	return preconfirmed.NewChain(&emptyPreConfirmed)
 }

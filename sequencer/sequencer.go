@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -39,7 +40,6 @@ type Sequencer struct {
 	subNewHeads     *feed.Feed[*core.Block]
 	subPreConfirmed *feed.Feed[*pending.PreConfirmed]
 	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
-	subPreLatest    *feed.Feed[*pending.PreLatest]
 	plugin          plugin.JunoPlugin
 
 	mu syncLock.RWMutex
@@ -64,7 +64,6 @@ func New(
 		subNewHeads:      feed.New[*core.Block](),
 		subPreConfirmed:  feed.New[*pending.PreConfirmed](),
 		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
-		subPreLatest:     feed.New[*pending.PreLatest](),
 	}
 }
 
@@ -105,10 +104,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 		case <-time.After(s.blockTime):
 			s.mu.Lock()
 
-			preConfirmed, err := s.PreConfirmed()
-			if err != nil {
-				s.logger.Infof("Failed to get pending block")
-			}
+			preConfirmed := s.buildState.PreConfirmed
 			if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
 				return err
 			}
@@ -204,8 +200,11 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) PreConfirmed() (*pending.PreConfirmed, error) {
-	return s.buildState.PreConfirmed, nil
+func (s *Sequencer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+	if s.buildState.PreConfirmed == nil {
+		return preconfirmed.ChainReader{}, nil
+	}
+	return preconfirmed.NewChain(s.buildState.PreConfirmed)
 }
 
 func (s *Sequencer) PreConfirmedBlock() *core.Block {
@@ -235,8 +234,4 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 
 func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription {
 	return sync.PreConfirmedDataSubscription{Subscription: s.subPreConfirmed.Subscribe()}
-}
-
-func (s *Sequencer) SubscribePreLatest() sync.PreLatestDataSubscription {
-	return sync.PreLatestDataSubscription{Subscription: s.subPreLatest.Subscribe()}
 }
