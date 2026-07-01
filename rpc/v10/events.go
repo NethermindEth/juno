@@ -91,7 +91,7 @@ func setEventFilterRange(
 
 		switch {
 		case blockID.IsPreConfirmed():
-			return filter.SetRangeEndBlockByNumber(filterRange, ^uint64(0))
+			return filter.SetRangeEndBlockByNumber(filterRange, blockchain.PreConfirmedFilterSentinel)
 		case blockID.IsLatest():
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
 		case blockID.IsHash():
