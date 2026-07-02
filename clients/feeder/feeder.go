@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -58,6 +59,11 @@ type Reader interface {
 		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
+	PreConfirmedBlockLatest(
+		ctx context.Context,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (starknet.PreConfirmedUpdate, uint64, error)
 	PublicKey(ctx context.Context) (*felt.Felt, error)
 	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)
@@ -382,6 +388,53 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
+	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(
+		ctx,
+		blockNumber,
+		blockIdentifier,
+		knownTransactionCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return preConfirmedEnvelope.Update, nil
+}
+
+// PreConfirmedBlockLatest fetches the highest pre_confirmed block the server
+// currently exposes. The response carries its block_number so the caller can
+// discover the pre_confirmed tip without tracking  the height itself.
+// Pass an empty identifier and zero txCount for a full reply.
+func (c *Client) PreConfirmedBlockLatest(
+	ctx context.Context,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, uint64, error) {
+	preConfirmedEnvelope, err := c.fetchPreConfirmedUpdate(
+		ctx,
+		"latest",
+		blockIdentifier,
+		knownTransactionCount,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	// A full block on the latest query must carry its block_number; absent (or genesis 0)
+	// is invalid since the caller relies on it to discover the pre_confirmed tip.
+	if _, ok := preConfirmedEnvelope.Update.(starknet.PreConfirmedBlock); ok &&
+		preConfirmedEnvelope.BlockNumber == 0 {
+		return nil, 0, errors.New(
+			"pre_confirmed latest: full block response is missing block_number",
+		)
+	}
+	return preConfirmedEnvelope.Update, preConfirmedEnvelope.BlockNumber, nil
+}
+
+func (c *Client) fetchPreConfirmedUpdate(
+	ctx context.Context,
+	blockNumber string,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (*starknet.PreConfirmedUpdateEnvelope, error) {
 	if blockIdentifier == "" {
 		blockIdentifier = PreConfirmedBlankIdentifier
 	}
@@ -391,11 +444,26 @@ func (c *Client) PreConfirmedBlockWithIdentifier(
 		"knownTransactionCount": strconv.FormatUint(knownTransactionCount, 10),
 	})
 
-	env, err := doRequest[starknet.PreConfirmedUpdateEnvelope](ctx, c, queryURL)
+	// PreConfirmedUpdateEnvelope intentionally has no UnmarshalJSON (see its doc),
+	// so it cannot ride the generic doRequest. Decode in a single scan, then run
+	// the same Validate + error-wrap that doRequest applies.
+	body, err := c.get(ctx, queryURL)
 	if err != nil {
 		return nil, err
 	}
-	return env.Update, nil
+	defer body.Close()
+
+	env, err := starknet.DecodePreConfirmedUpdate(body)
+	if err != nil {
+		return nil, err
+	}
+	if err := env.Validate(); err != nil {
+		return nil, errors.Join(
+			ErrInvalidFeederResponse,
+			fmt.Errorf("querying %s: %w", queryURL, err),
+		)
+	}
+	return &env, nil
 }
 
 // Deprecated: Transaction calls the get_transaction endpoint which returns
