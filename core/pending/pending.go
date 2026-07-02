@@ -119,7 +119,7 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*core.StateDiff {
 func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, uint, error) {
 	for i, tx := range p.Block.Transactions {
 		if tx.Hash().Equal(hash) {
-			return tx, uint(i), nil // TODO(Ege): maybe use uint16
+			return tx, uint(i), nil
 		}
 	}
 	return nil, 0, ErrTransactionNotFound
