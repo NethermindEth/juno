@@ -865,7 +865,7 @@ func (h *Handler) TransactionStatus(
 			}
 		}
 
-		status, err := AdaptTransactionStatus(txStatus)
+		status, err := AdaptTransactionStatus(&txStatus)
 		if err != nil {
 			if !errors.Is(err, ErrTransactionNotFound) {
 				h.logger.Error("Failed to adapt transaction status", zap.Error(err))

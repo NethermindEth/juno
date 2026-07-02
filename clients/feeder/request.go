@@ -23,27 +23,28 @@ func doRequest[T any, V Validatable[T]](
 	ctx context.Context,
 	client *Client,
 	fullURL *url.URL,
-) (*T, error) {
+) (T, error) {
 	var result T
 	body, err := client.get(ctx, fullURL)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	defer body.Close()
 
 	if err = json.NewDecoder(body).Decode(&result); err != nil {
-		return nil, err
+		var zero T
+		return zero, err
 	}
 
-	err = V(&result).Validate()
-	if err != nil {
-		return nil, errors.Join(
+	if err = V(&result).Validate(); err != nil {
+		var zero T
+		return zero, errors.Join(
 			ErrInvalidFeederResponse,
 			fmt.Errorf("querying %s: %w", fullURL, err),
 		)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // buildQueryString builds the full URL with encoded parameters

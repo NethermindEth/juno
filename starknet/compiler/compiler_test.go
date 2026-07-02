@@ -39,7 +39,7 @@ func TestCompileFFI(t *testing.T) {
 		compiledDef, err := cl.CasmClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
 
-		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)
+		expectedCompiled, err := sn2core.AdaptCompiledClass(&compiledDef)
 		require.NoError(t, err)
 
 		res, err := compiler.CompileFFI(classDef.Sierra)

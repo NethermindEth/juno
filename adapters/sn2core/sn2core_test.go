@@ -108,7 +108,7 @@ func TestAdaptBlock(t *testing.T) {
 			if test.sig != nil {
 				sig = test.sig.Signature
 			}
-			block, err := sn2core.AdaptBlock(response, sig)
+			block, err := sn2core.AdaptBlock(&response, sig)
 			require.NoError(t, err)
 
 			expectedEventCount := uint64(0)
@@ -172,7 +172,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
 			response, err := client.StateUpdate(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
-			feederUpdate, err := sn2core.AdaptStateUpdate(response)
+			feederUpdate, err := sn2core.AdaptStateUpdate(&response)
 			require.NoError(t, err)
 
 			assert.True(t, response.NewRoot.Equal(feederUpdate.NewRoot))
@@ -219,7 +219,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
 			require.NoError(t, err)
-			update, err := sn2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(&feederUpdate)
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -229,7 +229,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("declared Cairo1 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283364")
 			require.NoError(t, err)
-			update, err := sn2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(&feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV1Classes)
@@ -239,7 +239,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("replaced classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283428")
 			require.NoError(t, err)
-			update, err := sn2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(&feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -571,7 +571,7 @@ func TestClassV1(t *testing.T) {
 			compiled, err := client.CasmClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
 
-			v1Class, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiled)
+			v1Class, err := sn2core.AdaptSierraClass(feederClass.Sierra, &compiled)
 			require.NoError(t, err)
 
 			assert.Equal(t, feederClass.Sierra.Abi, v1Class.Abi)
