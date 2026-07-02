@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/binary"
+	"errors"
 	"iter"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -323,6 +324,24 @@ func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, erro
 		return encoder.Unmarshal(data, &header)
 	})
 	return header, err
+}
+
+// Only materialise GlobalStateRoot from the header,
+// callers opening state don't need heavier fields like EventsBloom.
+func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
+	var header struct {
+		GlobalStateRoot *felt.Felt
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if header.GlobalStateRoot == nil {
+		return nil, errors.New("missing GlobalStateRoot in block header")
+	}
+	return header.GlobalStateRoot, nil
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {

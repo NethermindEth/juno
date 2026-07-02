@@ -19,12 +19,12 @@ func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, height)
+	stateRoot, err := core.GetGlobalStateRootByBlockNumber(b.database, height)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	st, err := state.NewStateReader(header.GlobalStateRoot, b.stateDB)
+	st, err := state.NewStateReader(stateRoot, b.stateDB)
 	if err != nil {
 		return nil, nil, err
 	}
