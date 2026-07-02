@@ -621,11 +621,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		// One EventListener is shared between the L1 client (which
-		// fires OnNewL1Head) and the settlement (which fires OnL1Call
-		// for every Ethereum RPC method). Metrics are registered only
-		// when the node is built with --metrics; otherwise the default
-		// no-op SelectiveListener is used.
+		// One EventListener, shared by the L1 client (OnNewL1Head) and
+		// the settlement (OnL1Call), wired only under --metrics.
 		l1Opts := []l1.Option{}
 		settlementOpts := []l1.GethSettlementOption{}
 		if cfg.Metrics {

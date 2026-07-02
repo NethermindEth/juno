@@ -28,18 +28,15 @@ const watchForwarderBuffer = 64
 // finalised block; used as the "block number" arg to HeaderByNumber.
 var gethFinalizedBlockNumber = new(big.Int).SetInt64(rpc.FinalizedBlockNumber.Int64())
 
-// GethSettlement is the go-ethereum-backed implementation of
-// SettlementLayer. It wraps go-ethereum's ethclient plus the abigen-
-// generated StarknetFilterer to talk to the Starknet core L1 bridge.
+// GethSettlement is the go-ethereum-backed SettlementLayer, wrapping
+// ethclient plus the abigen StarknetFilterer to talk to the Starknet
+// core L1 bridge. It also satisfies rpccore.L1Client (via
+// TransactionReceipt), so node.go hands one instance to both the L1
+// sync loop and the RPC handlers.
 //
-// The same instance also satisfies rpccore.L1Client via
-// TransactionReceipt, so node.go can construct one client and hand it
-// to both the L1 sync loop and the RPC handlers.
-//
-// go-ethereum's rpc.Client transparently reconnects unary calls over
-// the WS transport, and any active subscription propagates the drop
-// via its Err() channel, which the upper-layer resubscribe loop in
-// l1.Client.watchL1StateUpdates already handles.
+// WS connection drops are recovered below this layer: rpc.Client
+// reconnects unary calls, and subscription drops surface on Err() for
+// l1.Client.watchL1StateUpdates to resubscribe.
 type GethSettlement struct {
 	contractAddress eth.Address
 	url             string
@@ -94,19 +91,16 @@ type gethSettlementOptions struct {
 	listener EventListener
 }
 
-// WithSettlementListener sets the EventListener that fires OnL1Call for
-// every Ethereum RPC method. Defaults to a no-op SelectiveListener.
-//
-// The listener is supplied at construction because the field is read
-// unlocked from every RPC method, so it must not be mutated once the
-// settlement is handed off to a goroutine (i.e. l1.NewClient in node.go).
+// WithSettlementListener sets the EventListener that fires OnL1Call on
+// every Ethereum RPC method (default: no-op). Set at construction: the
+// listener field is read unlocked from every RPC method, so it must not
+// be mutated once the settlement is shared with a goroutine.
 func WithSettlementListener(l EventListener) GethSettlementOption {
 	return func(o *gethSettlementOptions) { o.listener = l }
 }
 
-// observe wraps an RPC call so OnL1Call fires on both success and
-// failure paths — error rates and latency under failure are as
-// interesting to monitor as success.
+// observe reports OnL1Call latency on return, on both success and
+// failure paths.
 func (s *GethSettlement) observe(method string) func() {
 	t := time.Now()
 	return func() { s.listener.OnL1Call(method, time.Since(t)) }
@@ -224,9 +218,8 @@ func stateUpdateFromGethContract(ev *contract.StarknetLogStateUpdate) *StateUpda
 	}
 }
 
-// gethReceiptToEth shallow-copies the fields of a geth receipt that juno
-// actually reads. Today only Logs is consumed, but every nested Log is
-// converted so the shape matches juno's own eth.Receipt type exactly.
+// gethReceiptToEth copies the receipt fields juno reads. Only Logs is
+// consumed today; a consumer needing other fields must extend this.
 func gethReceiptToEth(r *types.Receipt) *eth.Receipt {
 	logs := make([]eth.Log, len(r.Logs))
 	for i, l := range r.Logs {
@@ -248,12 +241,11 @@ func gethLogToEth(l *types.Log) eth.Log {
 	}
 }
 
-// forwardStateUpdates returns a subscription whose goroutine decodes each
-// contract.StarknetLogStateUpdate event into a neutral StateUpdate and
-// forwards it to sink, until the inner subscription errors or the caller
-// unsubscribes. The subscription lifecycle (once-only close, idempotent
-// Unsubscribe, error delivery, goroutine teardown) is handled by
-// event.NewSubscription; this only owns the type translation.
+// forwardStateUpdates returns a subscription that decodes each raw event
+// into a StateUpdate and forwards it to sink, until inner errors or the
+// caller unsubscribes. Lifecycle (close, Unsubscribe, error delivery,
+// teardown) is owned by event.NewSubscription; this adds only the type
+// translation and the stall-vs-quit select.
 func forwardStateUpdates(
 	inner event.Subscription,
 	raw <-chan *contract.StarknetLogStateUpdate,
@@ -278,8 +270,7 @@ func forwardStateUpdates(
 	})
 }
 
-// Compile-time assertions: GethSettlement satisfies both interfaces it
-// is intended to serve.
+// GethSettlement must satisfy both interfaces it serves.
 var (
 	_ SettlementLayer  = (*GethSettlement)(nil)
 	_ rpccore.L1Client = (*GethSettlement)(nil)

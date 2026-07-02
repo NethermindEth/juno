@@ -264,11 +264,10 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	}
 }
 
-// makeL1Metrics registers the L1 gauges that only need the chain reader
-// and returns the shared EventListener recording per-call latency. The
-// gauges that poll the settlement layer are registered separately by
-// registerL1SettlementMetrics, once the settlement exists — so the
-// listener can be attached at construction instead of via a setter.
+// makeL1Metrics registers the chain-reader gauges and returns the shared
+// EventListener. Settlement-polling gauges are registered separately by
+// registerL1SettlementMetrics so the listener can be attached at
+// construction rather than via a setter.
 func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
 	l2BlockFinalizedOnL1 := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",

@@ -7,17 +7,12 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// SettlementLayer is the interface l1.Client uses to follow the Ethereum
-// L1 chain Starknet settles to: reading heights, watching and replaying
-// LogStateUpdate events, and checking the chain id. GethSettlement is the
-// implementation today; a hand-rolled Ethereum client (to drop the
-// go-ethereum dependency) is intended to slot in behind this same
-// interface, which is why l1.Client depends on the interface rather than a
-// concrete client.
-//
-// Decoded events cross this boundary as StateUpdate, in juno's own types,
-// so no go-ethereum type — nor any implementation's internal types — leaks
-// into the L1 sync loop.
+// SettlementLayer is how l1.Client follows the Ethereum L1 chain Starknet
+// settles to: heights, LogStateUpdate events, and chain id. The interface
+// exists so a hand-rolled Ethereum client can later replace GethSettlement
+// (dropping the go-ethereum dependency) without touching l1.Client. Events
+// cross as StateUpdate in juno's own types, so no go-ethereum type leaks
+// into the sync loop.
 //
 //go:generate mockgen -destination=../mocks/mock_settlement_layer.go -package=mocks github.com/NethermindEth/juno/l1 SettlementLayer
 type SettlementLayer interface {

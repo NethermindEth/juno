@@ -4,10 +4,8 @@ import (
 	"context"
 )
 
-// This file is compiled only with the test binary. It exposes
-// package-private surface to the external l1_test package, which is
-// where the L1 client tests live (separating them avoids a circular
-// import: l1 -> mocks -> l1).
+// Exposes package-private surface to the external l1_test package. The
+// tests live there to avoid a circular import: l1 -> mocks -> l1.
 
 // SetSettlement swaps the underlying settlement layer. Used by tests
 // that rebuild expectations across iterations on a single Client.
