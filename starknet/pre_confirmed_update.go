@@ -142,26 +142,26 @@ type PreConfirmedUpdateEnvelope struct {
 	BlockNumber uint64
 }
 
-// preConfirmedWire is the flat shape the decoder fills. Discrimination is structural:
-//   - "changed": false                → NoChange
-//   - "changed": true + "timestamp"   → Full block (new round)
-//   - "changed": true, no "timestamp" → Delta
-type preConfirmedWire struct {
-	Changed     *bool   `json:"changed"`
-	BlockNumber *uint64 `json:"block_number"`
-	PreConfirmedBlock
-}
-
 // DecodePreConfirmedUpdate decodes a "get_preconfirmed_block" response and
 // discriminates it into a [PreConfirmedUpdateEnvelope].
 func DecodePreConfirmedUpdate(r io.Reader) (PreConfirmedUpdateEnvelope, error) {
+	// preConfirmedWire is the flat shape the decoder fills. Discrimination is structural:
+	//   - "changed": false                → NoChange
+	//   - "changed": true + "timestamp"   → Full block (new round)
+	//   - "changed": true, no "timestamp" → Delta
+	type preConfirmedWire struct {
+		Changed     *bool   `json:"changed"`
+		BlockNumber *uint64 `json:"block_number"`
+		PreConfirmedBlock
+	}
+
 	var raw preConfirmedWire
 	if err := json.NewDecoder(r).Decode(&raw); err != nil {
 		return PreConfirmedUpdateEnvelope{}, err
 	}
 	if raw.Changed == nil {
 		return PreConfirmedUpdateEnvelope{}, errors.New(
-			"pre_confirmed update: missing required \"changed\" field",
+			"missing required \"changed\" field",
 		)
 	}
 

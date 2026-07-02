@@ -267,6 +267,11 @@ func TestPreConfirmedBlock_validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "missing timestamp",
+			mutate:  func(b *starknet.PreConfirmedBlock) { b.Timestamp = 0 },
+			wantErr: true,
+		},
+		{
 			name:    "missing sequencer_address",
 			mutate:  func(b *starknet.PreConfirmedBlock) { b.SequencerAddress = nil },
 			wantErr: true,
