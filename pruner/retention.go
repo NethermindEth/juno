@@ -81,6 +81,38 @@ func HeaderByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (*co
 	return core.GetBlockHeaderByHash(r, blockHash)
 }
 
+// StateRootByNumberIfStateRetained is the lean counterpart to
+// [HeaderByNumberIfStateRetained]: it decodes only the state root rather than
+// the full header. Returns db.ErrKeyNotFound when state is not queryable.
+func StateRootByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*felt.Felt, error) {
+	hash, stateRoot, err := core.GetHashAndGlobalStateRootByBlockNumber(r, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := core.GetBlockHeaderNumberByHash(r, hash); err != nil {
+		return nil, err
+	}
+	return stateRoot, nil
+}
+
+// StateRootByHashIfStateRetained is the lean counterpart to
+// [HeaderByHashIfStateRetained], returning the block number and state root
+// without a full header decode. Returns db.ErrKeyNotFound when state is not queryable.
+func StateRootByHashIfStateRetained(
+	r db.KeyValueReader,
+	blockHash *felt.Felt,
+) (uint64, *felt.Felt, error) {
+	blockNumber, err := core.GetBlockHeaderNumberByHash(r, blockHash)
+	if err != nil {
+		return 0, nil, err
+	}
+	stateRoot, err := core.GetGlobalStateRootByBlockNumber(r, blockNumber)
+	if err != nil {
+		return 0, nil, err
+	}
+	return blockNumber, stateRoot, nil
+}
+
 // OldestRetainedBlock returns the lowest block number still fully retained,
 // found by scanning BlockCommitments — the source of truth, since it has
 // no carve-out (see [PruneUpto]). Returns db.ErrKeyNotFound on an empty

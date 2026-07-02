@@ -152,6 +152,73 @@ func TestHeaderByHashIfStateRetained(t *testing.T) {
 	})
 }
 
+func TestStateRootByNumberIfStateRetained(t *testing.T) {
+	t.Run("fully retained block returns the state root", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		blocks := make([]*testutils.StoredBlock, 5)
+		for i := range uint64(5) {
+			blocks[i] = testutils.StoreBlock(t, database, i)
+		}
+		stateRoot, err := pruner.StateRootByNumberIfStateRetained(database, 3)
+		require.NoError(t, err)
+		assert.Equal(t, blocks[3].Header.GlobalStateRoot, stateRoot)
+	})
+
+	t.Run("block with header but no hash→number is treated as state-pruned", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		blocks := make([]*testutils.StoredBlock, 5)
+		for i := range uint64(5) {
+			blocks[i] = testutils.StoreBlock(t, database, i)
+		}
+		testutils.WithBatch(t, database, func(batch db.Batch) error {
+			return batch.Delete(db.BlockHeaderNumbersByHashKey(blocks[1].Header.Hash))
+		})
+
+		_, err := pruner.StateRootByNumberIfStateRetained(database, 1)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		_, err := pruner.StateRootByNumberIfStateRetained(database, 0)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
+func TestStateRootByHashIfStateRetained(t *testing.T) {
+	t.Run("fully retained block returns number and state root", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		blocks := make([]*testutils.StoredBlock, 5)
+		for i := range uint64(5) {
+			blocks[i] = testutils.StoreBlock(t, database, i)
+		}
+		number, stateRoot, err := pruner.StateRootByHashIfStateRetained(database, blocks[2].Header.Hash)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), number)
+		assert.Equal(t, blocks[2].Header.GlobalStateRoot, stateRoot)
+	})
+
+	t.Run("missing hash returns ErrKeyNotFound", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		unknownHash := felt.NewRandom[felt.Felt]()
+		_, _, err := pruner.StateRootByHashIfStateRetained(database, unknownHash)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("block whose hash→number was deleted is unreachable by hash", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		blocks := make([]*testutils.StoredBlock, 5)
+		for i := range uint64(5) {
+			blocks[i] = testutils.StoreBlock(t, database, i)
+		}
+		testutils.WithBatch(t, database, func(batch db.Batch) error {
+			return batch.Delete(db.BlockHeaderNumbersByHashKey(blocks[1].Header.Hash))
+		})
+		_, _, err := pruner.StateRootByHashIfStateRetained(database, blocks[1].Header.Hash)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
 func TestOldestRetainedBlock(t *testing.T) {
 	t.Run("empty database returns ErrKeyNotFound", func(t *testing.T) {
 		database := testutils.NewPebbleTestDB(t)

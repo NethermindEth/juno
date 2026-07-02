@@ -344,6 +344,28 @@ func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*fel
 	return header.GlobalStateRoot, nil
 }
 
+// GetHashAndGlobalStateRootByBlockNumber decodes only the Hash and
+// GlobalStateRoot, avoiding the full header decode (notably EventsBloom).
+func GetHashAndGlobalStateRootByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (hash, stateRoot *felt.Felt, err error) {
+	var header struct {
+		Hash            *felt.Felt
+		GlobalStateRoot *felt.Felt
+	}
+	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if header.Hash == nil || header.GlobalStateRoot == nil {
+		return nil, nil, fmt.Errorf("missing Hash or GlobalStateRoot in block header %d", blockNum)
+	}
+	return header.Hash, header.GlobalStateRoot, nil
+}
+
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {
 	var blockNum uint64
 	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
