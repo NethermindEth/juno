@@ -67,7 +67,6 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 		Block: &core.Block{
 			Transactions: []core.Transaction{preConfirmedTx},
 		},
-		CandidateTxs: []core.Transaction{},
 	}
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
@@ -469,27 +468,18 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	blockNumber := uint64(1204672)
-	preConfirmedBlockWithCandidates, err := gw.DeprecatedPreConfirmedBlock(
-		t.Context(), strconv.FormatUint(blockNumber, 10),
+	blockNumber := uint64(11252240)
+	update, err := gw.PreConfirmedBlockWithIdentifier(
+		t.Context(), strconv.FormatUint(blockNumber, 10), "", 0,
 	)
 	require.NoError(t, err)
-
-	preConfirmedFull := preConfirmedBlockWithCandidates.AsUpdate().(starknet.PreConfirmedBlock)
+	preConfirmedFull := update.(starknet.PreConfirmedBlock)
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
 	handler := rpc.New(nil, mockSyncReader, nil, nil)
 
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
-		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
-		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
-		require.Nil(t, err)
-		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
-	})
-
-	t.Run("Transaction found in pre_confirmed block - Candidate transactions", func(t *testing.T) {
-		searchTxn := adaptedPreConfirmed.CandidateTxs[0]
 		mockSyncReader.EXPECT().PreConfirmed().Return(&adaptedPreConfirmed, nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
 		require.Nil(t, err)
@@ -672,7 +662,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -1766,7 +1756,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 							(*felt.TransactionHash)(notFoundTest.hash),
 						).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
-						mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(4)
+						mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(2)
 						handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 						_, err := handler.TransactionStatus(ctx, notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
@@ -1786,7 +1776,7 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(test.notFoundTxHash),
 				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(2)
+				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(1)
 				handler := rpc.New(mockReader, mockSyncReader, nil, logger).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, test.notFoundTxHash)
@@ -1853,7 +1843,7 @@ func TestTransactionStatus(t *testing.T) {
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 				(*felt.TransactionHash)(txHash),
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-			mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(2)
+			mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(1)
 
 			status, rpcErr := handler.TransactionStatus(t.Context(), txHash)
 			require.Equal(t, rpcErr, rpccore.ErrTxnHashNotFound)
@@ -2340,7 +2330,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(res.TransactionHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(1)
 
 		status, err := handler.TransactionStatus(ctx, res.TransactionHash)
 		require.Nil(t, err)
@@ -2368,7 +2358,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(res.TransactionHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(1)
 
 		// Expire cache entry
 		for range rpccore.NumTimeBuckets {

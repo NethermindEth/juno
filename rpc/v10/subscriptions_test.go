@@ -984,7 +984,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
-		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
+		block, err := adapterFeeder.BlockByNumber(t.Context(), 1164621)
 		require.NoError(t, err)
 
 		txToBroadcast := BroadcastedTransaction{
@@ -1014,7 +1014,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockSyncer.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound).Times(1)
 
 		id, conn := createTestTxStatusWebsocket(t, handler, (*felt.Felt)(&txHash))
 
@@ -1027,41 +1027,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			UnknownExecution,
 			"",
 		)
-		// Candidate Status
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			&txHash,
-		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		preConfirmed := &pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           block.Number,
-					TransactionCount: 1,
-				},
-			},
-			CandidateTxs: []core.Transaction{block.Transactions[0]},
-		}
-
-		mockSyncer.EXPECT().PreConfirmed().Return(
-			preConfirmed,
-			nil,
-		).Times(2)
-		handler.preConfirmedFeed.Send(preConfirmed)
-		assertNextTxnStatus(
-			t,
-			conn,
-			id,
-			(*felt.Felt)(&txHash),
-			TxnStatusCandidate,
-			UnknownExecution,
-			"",
-		)
-		require.Equal(t, block.Transactions[0].Hash(), (*felt.Felt)(&txHash))
-
 		// PreConfirmed Status
 		rpcTx := AdaptCoreTransaction(block.Transactions[0])
 		rpcTx.Hash = (*felt.Felt)(&txHash)
 
-		preConfirmed = &pending.PreConfirmed{
+		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:           block.Number,
@@ -1072,7 +1042,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				},
 				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
 			},
-			CandidateTxs: []core.Transaction{},
 		}
 		mockSyncer.EXPECT().PreConfirmed().Return(
 			preConfirmed,
@@ -1098,7 +1067,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				Transactions: []core.Transaction{},
 				Receipts:     []*core.TransactionReceipt{},
 			},
-			CandidateTxs: []core.Transaction{},
 		}
 		mockSyncer.EXPECT().PreConfirmed().Return(
 			preConfirmed,
@@ -1670,7 +1638,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				},
 			},
 			{
-				description: "move all candidates moved to PRE_CONFIRMED, without dup.",
+				description: "extended pre_confirmed streams new PRE_CONFIRMED txs only",
 				notify: func() {
 					syncer.preConfirmed.Send(&b1PreConfirmedFull)
 				},
@@ -1712,53 +1680,10 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	}
 
-	onlyCandidate := testCase{
-		description:   "Basic subcription - only CANDIDATE",
-		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusCandidate)},
-		senderAddress: nil,
-		steps: []stepInfo{
-			{
-				description: "on new head do not stream",
-				notify: func() {
-					syncer.newHeads.Send(newHead1)
-				},
-				expect: [][]*SubscriptionNewTransaction{},
-			},
-			{
-				description: "on new pre_confirmed, only stream CANDIDATES",
-				notify: func() {
-					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						b2PreConfirmedPartial.CandidateTxs,
-						TxnStatusWithoutL1(TxnStatusCandidate),
-						false,
-					),
-				},
-			},
-			{
-				description: "on pre_confirmed update, candidates -> PRE_CONFIRMED, no stream",
-				notify: func() {
-					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
-				},
-				expect: [][]*SubscriptionNewTransaction{},
-			},
-			{
-				description: "pre_confirmed become new head do not stream",
-				notify: func() {
-					syncer.newHeads.Send(newHead2)
-				},
-				expect: [][]*SubscriptionNewTransaction{},
-			},
-		},
-	}
-
 	allStatuses := testCase{
 		description: "Basic Subscription- all statuses",
 		statuses: []TxnStatusWithoutL1{
 			TxnStatusWithoutL1(TxnStatusReceived),
-			TxnStatusWithoutL1(TxnStatusCandidate),
 			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
@@ -1791,7 +1716,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				},
 			},
 			{
-				description: "on new pre_confirmed receive PRE_CONFIRMED and CANDIDATE txs",
+				description: "on new pre_confirmed receive PRE_CONFIRMED txs",
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
@@ -1801,15 +1726,10 @@ func TestSubscribeNewTransactions(t *testing.T) {
 						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
-					toTransactionsWithFinalityStatus(
-						b2PreConfirmedPartial.CandidateTxs,
-						TxnStatusWithoutL1(TxnStatusCandidate),
-						false,
-					),
 				},
 			},
 			{
-				description: "on pre_confirmed update, candidates -> PRE_CONFIRMED, no dup",
+				description: "on pre_confirmed update stream new PRE_CONFIRMED txs, no dup",
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
@@ -1822,7 +1742,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				},
 			},
 			{
-				description: "on pre_confirmed update all candidates moved to PRE_CONFIRMED, without dup.",
+				description: "on pre_confirmed extended to full, stream remaining PRE_CONFIRMED txs, no dup",
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
@@ -1870,7 +1790,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		description: "Subscription with sender filter - all statuses",
 		statuses: []TxnStatusWithoutL1{
 			TxnStatusWithoutL1(TxnStatusReceived),
-			TxnStatusWithoutL1(TxnStatusCandidate),
 			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
@@ -1890,20 +1809,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				},
 			},
 			{
-				description: "on new pre_confirmed full of candidates",
-				notify: func() {
-					syncer.preConfirmed.Send(new(CreateTestPreConfirmed(t, newHead2, 0)))
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(
-						senderTransactions,
-						TxnStatusWithoutL1(TxnStatusCandidate),
-						false,
-					),
-				},
-			},
-			{
-				description: "on new pre_confirmed full of preconfirmed",
+				description: "on new pre_confirmed",
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
@@ -1983,7 +1889,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		description: "deduplicate transactions",
 		statuses: []TxnStatusWithoutL1{
 			TxnStatusWithoutL1(TxnStatusReceived),
-			TxnStatusWithoutL1(TxnStatusCandidate),
 			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
@@ -1998,11 +1903,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedPartial.Block.Transactions,
 						TxnStatusWithoutL1(TxnStatusPreConfirmed),
-						false,
-					),
-					toTransactionsWithFinalityStatus(
-						b1PreConfirmedPartial.CandidateTxs,
-						TxnStatusWithoutL1(TxnStatusCandidate),
 						false,
 					),
 				},
@@ -2042,11 +1942,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 					toTransactionsWithFinalityStatus(
 						b2PreConfirmedPartial.Block.Transactions,
 						TxnStatusWithoutL1(TxnStatusPreConfirmed),
-						false,
-					),
-					toTransactionsWithFinalityStatus(
-						b2PreConfirmedPartial.CandidateTxs,
-						TxnStatusWithoutL1(TxnStatusCandidate),
 						false,
 					),
 				},
@@ -2246,7 +2141,6 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	testCases := []testCase{
 		defaultFinality, // onlyAcceptedOnL2
 		onlyPreConfirmed,
-		onlyCandidate,
 		allStatuses,
 		allStatusesWithFilter,
 		preLatestTransactions,
@@ -3061,16 +2955,7 @@ func CreateTestPreConfirmed(
 ) pending.PreConfirmed {
 	t.Helper()
 
-	actualTxCount := len(b.Transactions)
 	var preConfirmed pending.PreConfirmed
-	if candidateCount := actualTxCount - preConfirmedCount; candidateCount > 0 {
-		preConfirmed.CandidateTxs = make([]core.Transaction, candidateCount)
-		candidateIndex := actualTxCount - candidateCount
-		for i := range candidateCount {
-			preConfirmed.CandidateTxs[i] = b.Transactions[candidateIndex]
-			candidateIndex += 1
-		}
-	}
 
 	preConfirmedBlock := core.Block{
 		Header: &core.Header{

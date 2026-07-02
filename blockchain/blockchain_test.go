@@ -515,7 +515,7 @@ func TestState(t *testing.T) {
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
 	preConfirmedFunc := func() (*pending.PreConfirmed, error) { //nolint:unparam // used in tests
-		preConfirmed := pending.NewPreConfirmed(pendingB, nil, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(pendingB, nil, nil, "")
 		return &preConfirmed, nil
 	}
 

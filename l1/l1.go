@@ -143,7 +143,43 @@ func (c *Client) subscribeToUpdates(
 	}
 }
 
-// checkChainID checks that the client is connected to the right L1 client
+// errChainIDMismatch marks an L1/L2 network mismatch: a misconfiguration that
+// retrying cannot fix, so ensureChainID treats it as fatal. (Supporting custom
+// forked Starknet networks would mean warning here instead of erroring.)
+var errChainIDMismatch = errors.New("mismatched network id between L1 and L2")
+
+// ensureChainID checks the L1 node is on the expected network, retrying on
+// transient failures until a valid response is received or context is canceled.
+func (c *Client) ensureChainID(ctx context.Context) error {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			switch err := c.checkChainID(ctx); {
+			case err == nil:
+				return nil
+			case errors.Is(err, errChainIDMismatch):
+				return err
+			case ctx.Err() != nil:
+				// Cancelled mid-probe: return the real cause, don't warn.
+				return ctx.Err()
+			default:
+				c.logger.Warn("Failed to verify L1 chain ID, retrying",
+					zap.Duration("tryAgainIn", c.resubscribeDelay),
+					zap.Error(err),
+				)
+				timer.Reset(c.resubscribeDelay)
+			}
+		}
+	}
+}
+
+// checkChainID runs a single chain-ID verification attempt (no retry); the
+// one-shot CatchUpL1Head migration path relies on it failing fast.
 func (c *Client) checkChainID(ctx context.Context) error {
 	const chainIDCheckTimeout = 30 * time.Second
 	ctx, cancel := context.WithTimeout(ctx, chainIDCheckTimeout)
@@ -165,18 +201,20 @@ func (c *Client) checkChainID(ctx context.Context) error {
 		return nil
 	}
 
-	// NOTE: for now we return an error. If we want to support users who fork
-	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
 	return fmt.Errorf(
-		"mismatched network id between L1 and L2. L2 network is %s; "+
-			"is --eth-node pointing to the right network?",
-		c.network.String(),
+		"%w. L2 network is %s; is --eth-node pointing to the right network?",
+		errChainIDMismatch, c.network.String(),
 	)
 }
 
 func (c *Client) Run(ctx context.Context) error {
 	defer c.l1.Close()
-	if err := c.checkChainID(ctx); err != nil {
+	if err := c.ensureChainID(ctx); err != nil {
+		// A cancelled context means we're shutting down, not a real failure;
+		// a mismatch (the only other non-nil return) is fatal.
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
 		return err
 	}
 

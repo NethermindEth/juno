@@ -3,6 +3,7 @@ package main_test
 import (
 	"math"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,6 +19,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func parseURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+	u, err := url.ParseRequestURI(rawURL)
+	require.NoError(t, err)
+	return u
+}
 
 func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
@@ -39,8 +47,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultNetwork := networks.Mainnet
 	defaultCustomNetwork := networks.Network{
 		Name:                "custom",
-		FeederURL:           "http://awesome.feeder",
-		GatewayURL:          "http://awesome.gateway",
+		FeederURL:           parseURL(t, "http://awesome.feeder"),
+		GatewayURL:          parseURL(t, "http://awesome.gateway"),
 		L2ChainID:           "SN_AWESOME",
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
@@ -59,6 +67,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultPreLatestPollInterval := time.Second
 	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
+	defaultRPCMaxConcurrentRequests := uint(256000)
+	defaultRPCMaxRequestQueue := uint(256000)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
@@ -108,6 +118,8 @@ func TestConfigPrecedence(t *testing.T) {
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
+		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
@@ -156,6 +168,8 @@ func TestConfigPrecedence(t *testing.T) {
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
+		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
@@ -278,6 +292,8 @@ pprof: true
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -332,6 +348,8 @@ http-port: 4576
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -383,6 +401,8 @@ http-port: 4576
 				Colour:                             defaultColour,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -438,6 +458,8 @@ http-port: 4576
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -517,6 +539,8 @@ db-cache-size: 1024
 				PreConfirmedPollInterval:           time.Millisecond,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        9,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -573,6 +597,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -625,6 +651,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -675,6 +703,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -726,6 +756,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -777,6 +809,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
@@ -827,6 +861,8 @@ network: sepolia
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
+				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
+				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
 				DBCacheSize:                        defaultMaxCacheSize,
 				GatewayAPIKey:                      "apikey",
@@ -952,8 +988,8 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.feeder, config.Network.FeederURL)
-			assert.Equal(t, tc.gateway, config.Network.GatewayURL)
+			assert.Equal(t, parseURL(t, tc.feeder), config.Network.FeederURL)
+			assert.Equal(t, parseURL(t, tc.gateway), config.Network.GatewayURL)
 		})
 	}
 }

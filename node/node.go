@@ -134,6 +134,8 @@ type Config struct {
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
 	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
@@ -359,11 +361,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
 
-		feederURL, err := url.Parse(cfg.Network.FeederURL)
-		if err != nil {
-			return nil, fmt.Errorf("invalid feeder URL %s: %w", cfg.Network.FeederURL, err)
+		if cfg.Network.FeederURL == nil {
+			return nil, fmt.Errorf("network %q has no feeder URL configured", cfg.Network.Name)
 		}
-		client = feeder.NewClient(feederURL).
+		if cfg.Network.GatewayURL == nil {
+			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
+		}
+
+		client = feeder.NewClient(cfg.Network.FeederURL).
 			WithUserAgent(ua).
 			WithLogger(logger).
 			WithTimeouts(timeouts, fixed).
@@ -544,6 +549,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
+				cfg.RPCMaxConcurrentRequests,
+				cfg.RPCMaxRequestQueue,
 			),
 		)
 	}

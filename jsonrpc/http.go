@@ -3,6 +3,7 @@ package jsonrpc
 import (
 	"compress/gzip"
 	"context"
+	"errors"
 	"io"
 	"maps"
 	"net/http"
@@ -14,21 +15,25 @@ import (
 	"go.uber.org/zap"
 )
 
-const MaxRequestBodySize = 10 * db.Megabyte
-
 type HTTP struct {
 	rpc    *Server
 	logger log.StructuredLogger
+	// For logging busy warnings without flooding
+	sampledLogger log.StructuredLogger
 
 	listener       NewRequestListener
 	requestTimeout time.Duration
+	gate           *Gate
 }
 
 func NewHTTP(rpc *Server, logger log.StructuredLogger) *HTTP {
+	const busyLogInterval = time.Second
+
 	h := &HTTP{
-		rpc:      rpc,
-		logger:   logger,
-		listener: &SelectiveListener{},
+		rpc:           rpc,
+		logger:        logger,
+		listener:      &SelectiveListener{},
+		sampledLogger: log.Sampled(logger, busyLogInterval, 1, 0),
 	}
 	return h
 }
@@ -46,6 +51,21 @@ func (h *HTTP) WithRequestTimeout(d time.Duration) *HTTP {
 	return h
 }
 
+// WithGate sets an admission-control gate that bounds how many requests are
+// processed concurrently (and queued) on this handler
+func (h *HTTP) WithGate(g *Gate) *HTTP {
+	h.gate = g
+	return h
+}
+
+func (h *HTTP) logServerBusy() {
+	h.sampledLogger.Warn("Rejected RPC request: server is busy",
+		zap.Int("running", h.gate.Running()),
+		zap.Int("queued", h.gate.Queued()),
+		zap.Uint64("rejected", h.gate.Rejected()),
+	)
+}
+
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodGet {
@@ -60,15 +80,36 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
-	h.listener.OnNewRequest("any")
-
 	ctx := req.Context()
 	if h.requestTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, h.requestTimeout)
 		defer cancel()
 	}
+
+	h.listener.OnNewRequest("any")
+
+	if h.gate != nil {
+		if err := h.gate.Acquire(ctx); err != nil {
+			if errors.Is(err, ErrServerBusy) {
+				h.logServerBusy()
+				writer.Header().Set("Retry-After", "1")
+				http.Error(writer, "Server is busy", http.StatusServiceUnavailable)
+				return
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				writer.Header().Set("Retry-After", "1")
+				http.Error(writer, "Request timed out while queued", http.StatusServiceUnavailable)
+				return
+			}
+			// context.Canceled: the client has disconnected, so there is nobody to respond to.
+			return
+		}
+		defer h.gate.Release()
+	}
+
+	const MaxRequestBodySize = 10 * db.Megabyte
+	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	resp, header, err := h.rpc.HandleReader(ctx, req.Body)
 
 	writer.Header().Set("Content-Type", "application/json")

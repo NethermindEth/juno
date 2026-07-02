@@ -175,13 +175,44 @@ func (h *Handler) SimulateTransactions(
 	transactions BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
+	return h.simulateBroadcastedTransactions(ctx, id, transactions.Data, simulationFlags, false, false)
 }
 
-func (h *Handler) simulateTransactions(
+func (h *Handler) simulateBroadcastedTransactions(
 	ctx context.Context,
 	id *BlockID,
 	transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag,
+	errOnRevert bool,
+	isEstimateFee bool,
+) (SimulateTransactionsResponse, http.Header, *jsonrpc.Error) {
+	httpHeader := http.Header{}
+	httpHeader.Set(ExecutionStepsHeader, "0")
+
+	network := h.bcReader.Network()
+	txns, classes, rpcErr := prepareTransactions(
+		ctx, h, transactions, network,
+	)
+	if rpcErr != nil {
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
+	}
+
+	state, closer, rpcErr := h.stateByBlockID(id)
+	if rpcErr != nil {
+		return SimulateTransactionsResponse{}, httpHeader, rpcErr
+	}
+	defer h.callAndLogErr(closer, "Failed to close state after simulating transactions")
+
+	return h.simulateTransactions(
+		state, id, txns, classes, simulationFlags, errOnRevert, isEstimateFee,
+	)
+}
+
+func (h *Handler) simulateTransactions(
+	state core.StateReader,
+	id *BlockID,
+	txns []core.Transaction,
+	classes []core.ClassDefinition,
 	simulationFlags []SimulationFlag,
 	errOnRevert bool,
 	isEstimateFee bool,
@@ -193,21 +224,7 @@ func (h *Handler) simulateTransactions(
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
-	state, closer, rpcErr := h.stateByBlockID(id)
-	if rpcErr != nil {
-		return SimulateTransactionsResponse{}, httpHeader, rpcErr
-	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
-
 	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return SimulateTransactionsResponse{}, httpHeader, rpcErr
-	}
-
-	network := h.bcReader.Network()
-	txns, classes, rpcErr := h.prepareTransactions(
-		ctx, transactions, network,
-	)
 	if rpcErr != nil {
 		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
@@ -283,8 +300,9 @@ func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
 		tx.ResourceBounds == nil
 }
 
-func (h *Handler) prepareTransactions(
+func prepareTransactions(
 	ctx context.Context,
+	h *Handler,
 	transactions []BroadcastedTransaction,
 	network *networks.Network,
 ) ([]core.Transaction, []core.ClassDefinition, *jsonrpc.Error) {
@@ -312,17 +330,14 @@ func (h *Handler) prepareTransactions(
 			)
 		}
 
-		txn, declaredClass, aErr := AdaptBroadcastedTransaction(
-			ctx,
-			h.compiler,
-			&transactions[idx],
-			network,
+		txn, declaredClass, err := adaptAndCompileBroadcastedTxToCore(
+			ctx, h.compiler, &transactions[idx], network,
 		)
-		if aErr != nil {
-			if errors.Is(aErr, throttler.ErrResourceBusy) {
+		if err != nil {
+			if errors.Is(err, throttler.ErrResourceBusy) {
 				return nil, nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledCompilerErr)
 			}
-			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
+			return nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, err.Error())
 		}
 
 		txns[idx] = txn

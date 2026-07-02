@@ -116,7 +116,6 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 		StateUpdate:           &su,
 		NewClasses:            newClasses,
 		TransactionStateDiffs: []*core.StateDiff{},
-		CandidateTxs:          []core.Transaction{},
 	}
 
 	return &BuildState{

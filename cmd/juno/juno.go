@@ -107,6 +107,8 @@ const (
 	dbMemtableCountF                    = "db-memtable-count"
 	dbCompressionF                      = "db-compression"
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
+	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
+	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	maxCompilationQueueF                = "max-compilation-queue"
 	maxCompilationMemoryF               = "max-compilation-memory"
@@ -172,6 +174,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
+	defaultRPCMaxConcurrentRequests           = 256000
+	defaultRPCMaxQueuedRequests               = 256000
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
@@ -256,7 +260,10 @@ const (
 		"queue before stalling writes."
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
-	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
+	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
+	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
+	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
+		"reaching rpc-max-concurrent-requests limit."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
 	maxCompilationQueueUsage       = "Maximum number of compilation requests to queue after " +
 		"reaching max-concurrent-compilations before starting to reject incoming requests."
@@ -432,14 +439,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
 			}
 
-			feederURL := v.GetString(cnFeederURLF)
-			gatewayURL := v.GetString(cnGatewayURLF)
+			rawFeederURL := v.GetString(cnFeederURLF)
+			rawGatewayURL := v.GetString(cnGatewayURLF)
 
-			if err := validateHTTPURL(feederURL); err != nil {
-				return fmt.Errorf("invalid feeder URL %s: %w", feederURL, err)
+			feederURL, err := parseHTTPURL(rawFeederURL)
+			if err != nil {
+				return fmt.Errorf("invalid feeder URL %s: %w", rawFeederURL, err)
 			}
-			if err := validateHTTPURL(gatewayURL); err != nil {
-				return fmt.Errorf("invalid gateway URL %s: %w", gatewayURL, err)
+			gatewayURL, err := parseHTTPURL(rawGatewayURL)
+			if err != nil {
+				return fmt.Errorf("invalid gateway URL %s: %w", rawGatewayURL, err)
 			}
 
 			config.Network = networks.Network{
@@ -484,13 +493,31 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
+	junoCmd.Flags().Uint(
+		rpcMaxConcurrentRequestsF,
+		defaultRPCMaxConcurrentRequests,
+		rpcMaxConcurrentRequestsUsage,
+	)
+	junoCmd.Flags().Uint(
+		rpcMaxRequestQueueF,
+		defaultRPCMaxQueuedRequests,
+		rpcMaxRequestQueueUsage,
+	)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)
 	setCategory(junoCmd, catHTTPRPC,
-		httpF, httpHostF, httpPortF, corsEnableF,
-		rpcMaxBlockScanF, callMaxStepsF, callMaxGasF,
-		rpcRequestTimeoutF, disableRPCBatchRequestsF,
+		httpF,
+		httpHostF,
+		httpPortF,
+		corsEnableF,
+		rpcMaxBlockScanF,
+		callMaxStepsF,
+		callMaxGasF,
+		rpcRequestTimeoutF,
+		rpcMaxConcurrentRequestsF,
+		rpcMaxRequestQueueF,
+		disableRPCBatchRequestsF,
 	)
 
 	// --- WebSocket RPC ---
@@ -678,17 +705,17 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	return junoCmd
 }
 
-func validateHTTPURL(rawURL string) error {
+func parseHTTPURL(rawURL string) (*url.URL, error) {
 	// rejects relative / scheme-less strings
 	u, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
+		return nil, fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
 	}
 	if u.Host == "" {
-		return errors.New("URL must have a host")
+		return nil, errors.New("URL must have a host")
 	}
-	return nil
+	return u, nil
 }

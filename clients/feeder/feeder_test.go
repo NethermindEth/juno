@@ -1247,27 +1247,6 @@ func TestClientRetryBehavior(t *testing.T) {
 	})
 }
 
-func TestPreConfirmedBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-
-	snPreConfirmedBlock, err := client.DeprecatedPreConfirmedBlock(t.Context(), strconv.Itoa(1204672))
-	assert.NoError(t, err)
-
-	assert.Equal(t, "0.14.0", snPreConfirmedBlock.Version)
-	assert.Equal(t, len(snPreConfirmedBlock.Transactions), len(snPreConfirmedBlock.Receipts))
-	assert.Equal(
-		t,
-		len(snPreConfirmedBlock.TransactionStateDiffs),
-		len(snPreConfirmedBlock.Receipts),
-	)
-	assert.NotNil(t, snPreConfirmedBlock.L1DAMode)
-	assert.NotNil(t, snPreConfirmedBlock.L1GasPrice)
-	assert.NotNil(t, snPreConfirmedBlock.L1DataGasPrice)
-	assert.NotNil(t, snPreConfirmedBlock.L2GasPrice)
-	assert.NotNil(t, snPreConfirmedBlock.SequencerAddress)
-	assert.NotNil(t, snPreConfirmedBlock.Timestamp)
-}
-
 func TestBlockHeader(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
