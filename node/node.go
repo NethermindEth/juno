@@ -570,7 +570,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if cfg.HTTPUpdatePort != 0 {
 		logger.Info(
 			"Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
-				cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
+				cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) +
+				"/log/level and /feeder/timeouts",
 		)
 		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
@@ -631,7 +632,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			settlementOpts = append(settlementOpts, l1.WithSettlementListener(listener))
 		}
 
-		settlement, err := newGethSettlement(context.Background(), cfg.EthNode, n.blockchain, settlementOpts...)
+		settlement, err := newGethSettlement(
+			context.Background(), cfg.EthNode, n.blockchain, settlementOpts...,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
@@ -680,7 +683,9 @@ func newGethSettlement(
 	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	settlement, err := l1.NewGethSettlement(dialCtx, ethNode, chain.Network().CoreContractAddress, opts...)
+	settlement, err := l1.NewGethSettlement(
+		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("set up L1 settlement client: %w", err)
 	}
