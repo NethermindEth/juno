@@ -27,12 +27,11 @@ func TestMemoryDBPathLifecycle(t *testing.T) {
 
 func TestMemoryDBCopyGetsIndependentPath(t *testing.T) {
 	memoryDB := memory.New()
-	originalPath := memoryDB.Path()
 
 	copyDB := memoryDB.Copy()
 	copyPath := copyDB.Path()
 	require.NotEmpty(t, copyPath)
-	require.NotEqual(t, originalPath, copyPath)
+	require.NotEqual(t, memoryDB.Path(), copyPath)
 
 	require.NoError(t, memoryDB.Close())
 	require.NoError(t, copyDB.Close())
