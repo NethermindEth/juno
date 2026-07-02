@@ -1,4 +1,4 @@
-package pruner_test
+package pruner
 
 import (
 	"testing"
@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/pruner/testutils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ func storeBlockWithBloom(
 
 func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 	testDB := memory.New()
-	rf := core.NewRunningEventFilterLazy(testDB, pruner.InitializeRunningEventFilter)
+	rf := core.NewRunningEventFilterLazy(testDB, InitializeRunningEventFilter)
 	fromBlock, err := rf.FromBlock()
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), fromBlock)
@@ -77,7 +76,7 @@ func TestRunningEventFilter_LazyInitialization_CaughtUp(t *testing.T) {
 	}
 	require.NoError(t, core.WriteRunningEventFilter(database, snap))
 
-	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
+	rf := core.NewRunningEventFilterLazy(database, InitializeRunningEventFilter)
 	fromBlock, err := rf.FromBlock()
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), fromBlock)
@@ -111,10 +110,10 @@ func TestRunningEventFilter_LazyInitialization_RebuildAnchorless_FillFromFloor(t
 	}
 	require.NoError(t, core.WriteChainHeight(database, latest))
 
-	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
+	_, _, err := pruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
 
-	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
+	rf := core.NewRunningEventFilterLazy(database, InitializeRunningEventFilter)
 	fromBlock, err := rf.FromBlock()
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), fromBlock,
@@ -179,10 +178,10 @@ func setupSameWindowResume(
 	}
 	require.NoError(t, core.WriteRunningEventFilter(database, snap))
 
-	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
+	_, _, err := pruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
 
-	rf = core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
+	rf = core.NewRunningEventFilterLazy(database, InitializeRunningEventFilter)
 	return rf, headerKeys, snapshotKeys
 }
 
@@ -264,7 +263,7 @@ func TestRunningEventFilter_LazyInitialization_SameWindowResumeClamped(t *testin
 // covers the rebuild path when the chain spans past a filter-window
 // boundary. Rebuild starts at floor (= pruneTo), walks through the first
 // window, rotates at N-1, and lands in the second window. Full blocks
-// only for [0, pruneTo] (so PruneUpto's per-block sweep has real
+// only for [0, pruneTo] (so pruneUpto's per-block sweep has real
 // hash-keyed data to delete); headers-only for the rest, batched into
 // a single pebble write.
 func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *testing.T) {
@@ -274,13 +273,13 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 
 	headerKeys := [][]byte{{0xEE}}
 	sharedBloom := testBloomWithKeys(t, headerKeys)
-	// Full block fixture only for blocks PruneUpto will iterate; the
+	// Full block fixture only for blocks pruneUpto will iterate; the
 	// per-block sweep reads hash-keyed data so it needs the full shape.
 	for i := uint64(0); i <= pruneTo; i++ {
 		storeBlockWithBloom(t, database, i, sharedBloom)
 	}
 	// Past pruneTo, only the header (for rebuild fill) and the
-	// commitment (so OldestRetainedBlock keeps reflecting retained
+	// commitment (so oldestRetainedBlock keeps reflecting retained
 	// state) are written.
 	batch := database.NewBatch()
 	for i := pruneTo + 1; i <= latest; i++ {
@@ -299,10 +298,10 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 	require.NoError(t, batch.Write())
 	require.NoError(t, core.WriteChainHeight(database, latest))
 
-	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
+	_, _, err := pruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
 
-	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
+	rf := core.NewRunningEventFilterLazy(database, InitializeRunningEventFilter)
 	fromBlock, err := rf.FromBlock()
 	require.NoError(t, err)
 	require.Equal(t, core.NumBlocksPerFilter, fromBlock,

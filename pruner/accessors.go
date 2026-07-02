@@ -29,12 +29,12 @@ var (
 	)
 )
 
-// PruneUpto deletes every block strictly below endExclusive. Returns the
+// pruneUpto deletes every block strictly below endExclusive. Returns the
 // number of blocks actually pruned (which may be less than the full
 // window if ctx is cancelled mid-loop).
 //
 // Resumes automatically. The lower bound of the per-block sweep is
-// derived from [OldestRetainedBlock] — i.e., wherever the
+// derived from [oldestRetainedBlock] — i.e., wherever the
 // previous call left off — so two consecutive calls do no overlapping
 // per-block work. If a previous call exited mid-loop (ctx cancelled),
 // the next call picks up from the same block. If endExclusive is at or
@@ -58,7 +58,7 @@ var (
 //
 //  2. The hash → number mapping for endExclusive-1. Resolving
 //     StateAtBlockHash(endExclusive.parentHash) needs this single mapping;
-//     it is cleaned up by the next PruneUpto call's oldestKept-1 sweep, so
+//     it is cleaned up by the next pruneUpto call's oldestKept-1 sweep, so
 //     between calls exactly one extra mapping survives below endExclusive.
 //
 // ctx cancellation aborts the per-block loop after the current iteration;
@@ -71,13 +71,13 @@ var (
 // equals endExclusive on full completion). On the no-op paths
 // (empty database, endExclusive ≤ existing oldest), oldestKept reflects
 // the unchanged pre-call state — 0 if the database is empty.
-func PruneUpto(
+func pruneUpto(
 	ctx context.Context,
 	database db.KeyValueStore,
 	endExclusive uint64,
 	targetBatchByteSize int,
 ) (blocksPruned, oldestKept uint64, err error) {
-	start, err := OldestRetainedBlock(database)
+	start, err := oldestRetainedBlock(database)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return 0, 0, nil
 	}
@@ -153,7 +153,7 @@ func PruneBlockDataUpto(w db.KeyValueRangeDeleter, rangeEndExclusive uint64) err
 // pruneHashKeyedUpto deletes the hash-keyed indexes for every block in
 // [start, endExclusive), iterating per-block and rotating the batch
 // whenever its size exceeds targetBatchByteSize. Also point-deletes the
-// carve-out left at start-1 by the previous PruneUpto call. Owns its
+// carve-out left at start-1 by the previous pruneUpto call. Owns its
 // own batch lifecycle and writes the final batch before returning.
 //
 // Indexes touched:
@@ -174,7 +174,7 @@ func pruneHashKeyedUpto(
 	targetBatchByteSize int,
 ) (uint64, error) {
 	batch := database.NewBatch()
-	// Clean up the carve-out left by the previous PruneUpto call.
+	// Clean up the carve-out left by the previous pruneUpto call.
 	if start > 0 {
 		header, err := core.GetBlockHeaderByNumber(database, start-1)
 		if err != nil {
@@ -198,7 +198,7 @@ func pruneHashKeyedUpto(
 
 		// Skip endExclusive-1: its hash→number mapping is the carve-out
 		// resolved by StateAtBlockHash(endExclusive.parentHash). Cleaned up
-		// by the next PruneUpto call via the start-1 branch above.
+		// by the next pruneUpto call via the start-1 branch above.
 		if blockNum != endExclusive-1 {
 			if err := core.DeleteBlockHeaderNumberByHash(batch, su.BlockHash); err != nil {
 				return 0, err

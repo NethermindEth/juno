@@ -321,7 +321,7 @@ func (p *Pruner) sampleHeight() error {
 // seedFloor anchors the per-tick search's lower bound to the oldest
 // retained block, then runs the first sampleHeight.
 func (p *Pruner) seedFloor() error {
-	oldest, err := OldestRetainedBlock(p.database)
+	oldest, err := oldestRetainedBlock(p.database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			// Assumes empty DB
@@ -396,7 +396,7 @@ func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
 func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error {
 	start := time.Now()
 
-	blocksPruned, oldestKept, err := PruneUpto(
+	blocksPruned, oldestKept, err := pruneUpto(
 		ctx,
 		p.database,
 		oldestBlockToKeep,

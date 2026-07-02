@@ -69,7 +69,7 @@ func TestRequireRetained(t *testing.T) {
 		require.True(t, errors.As(err, &bpe))
 		assert.Equal(t, uint64(0), bpe.BlockNumber)
 		assert.Equal(t, uint64(1), bpe.OldestRetained,
-			"OldestRetainedBlock should report block 1 once block 0's commitment is gone")
+			"oldestRetainedBlock should report block 1 once block 0's commitment is gone")
 	})
 
 	t.Run("empty DB reports unknown oldest", func(t *testing.T) {
@@ -177,26 +177,5 @@ func TestHeaderByHashIfStateRetained(t *testing.T) {
 		})
 		_, err := pruner.HeaderByHashIfStateRetained(database, blocks[1].Header.Hash)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
-	})
-}
-
-func TestOldestRetainedBlock(t *testing.T) {
-	t.Run("empty database returns ErrKeyNotFound", func(t *testing.T) {
-		database := testutils.NewPebbleTestDB(t)
-
-		_, err := pruner.OldestRetainedBlock(database)
-		assert.ErrorIs(t, err, db.ErrKeyNotFound)
-	})
-
-	t.Run("returns lowest block number with commitments", func(t *testing.T) {
-		database := testutils.NewPebbleTestDB(t)
-
-		for i := uint64(5); i <= 7; i++ {
-			testutils.StoreBlock(t, database, i)
-		}
-
-		num, err := pruner.OldestRetainedBlock(database)
-		require.NoError(t, err)
-		assert.Equal(t, uint64(5), num)
 	})
 }

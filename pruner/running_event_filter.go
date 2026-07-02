@@ -28,7 +28,7 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*core.RunningEvent
 		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 
-	floor, err := OldestRetainedBlock(snap)
+	floor, err := oldestRetainedBlock(snap)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, fmt.Errorf("getting oldest retained block: %w", err)
 	}

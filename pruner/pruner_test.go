@@ -376,7 +376,7 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		assert.Equal(t, uint64(40), ev1.count)
 
 		// Phase 2: "restart" with retention=40, L1 still at 50 → new floor=10,
-		// below the existing oldestKept (40). PruneUpto early-returns; OnPrune
+		// below the existing oldestKept (40). pruneUpto early-returns; OnPrune
 		// fires with count=0 and oldest unchanged at 40.
 		sp2 := startPrunerService(t, database, 40)
 		ev2 := sp2.sendL1AndAwait(t, 50)
