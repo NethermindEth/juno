@@ -31,11 +31,11 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 	const (
 		kindBytes             = 1
 		keyLenBytes           = 1
-		keyBytes              = 4
+		keySizeBytes          = 4
 		estimatedPayloadBytes = 128
 		keyLenOffset          = kindBytes
 		keyOffset             = keyLenOffset + keyLenBytes
-		valueLenOffset        = keyOffset + keyBytes
+		valueLenOffset        = keyOffset + keySizeBytes
 		recordHeaderBytes     = valueLenOffset + valueLenBytes
 		estimatedRecordBytes  = recordHeaderBytes + estimatedPayloadBytes
 	)
@@ -51,16 +51,20 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 
 	for i := range records {
 		record := &records[i]
-		// Each batchrepr entry starts with the kind byte, the encoded key, and a
-		// value length prefix backfilled once the payload size is known.
+		// batchrepr entry layout: [kind:1][keyLen:1][key:4][valueLen:5][payload...]
+		// keyLen stores the size of the following 4-byte record index key.
+		// valueLen is reserved up front and backfilled after encoding the payload.
 		encodedBatch = slices.Grow(encodedBatch, recordHeaderBytes)
-		headerIndex := len(encodedBatch)
-		valueLenIndex := headerIndex + valueLenOffset
-		valueIndex := headerIndex + recordHeaderBytes
-		encodedBatch = encodedBatch[:valueIndex]
-		encodedBatch[headerIndex] = byte(pebble.InternalKeyKindSet)
-		encodedBatch[headerIndex+keyLenOffset] = keyBytes
-		binary.BigEndian.PutUint32(encodedBatch[headerIndex+keyOffset:valueLenIndex], uint32(i))
+		recordStart := len(encodedBatch)
+		keyLenStart := recordStart + keyLenOffset
+		keyStart := recordStart + keyOffset
+		valueLenStart := recordStart + valueLenOffset
+		payloadStart := recordStart + recordHeaderBytes
+		encodedBatch = encodedBatch[:payloadStart]
+
+		encodedBatch[recordStart] = byte(pebble.InternalKeyKindSet)
+		encodedBatch[keyLenStart] = keySizeBytes
+		binary.BigEndian.PutUint32(encodedBatch[keyStart:valueLenStart], uint32(i))
 
 		var err error
 		// Append the custom WAL payload as the batchrepr value bytes.
@@ -70,8 +74,8 @@ func encodeBatch[V types.Hashable[H], H types.Hash, A types.Addr](
 		}
 
 		// batchrepr stores value lengths as uvarints.
-		valueLen := len(encodedBatch) - valueIndex
-		putFixedUvarint32(encodedBatch[valueLenIndex:valueIndex], uint32(valueLen))
+		valueLen := len(encodedBatch) - payloadStart
+		putFixedUvarint32(encodedBatch[valueLenStart:payloadStart], uint32(valueLen))
 	}
 
 	return encodedBatch, nil
