@@ -479,6 +479,11 @@ func TestEvents(t *testing.T) {
 					PreConfirmedChain().
 					Return(mustNewChain(t, tc.preConfirmed), nil).
 					AnyTimes()
+			} else {
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+					AnyTimes()
 			}
 
 			// Error cases: assert once and return

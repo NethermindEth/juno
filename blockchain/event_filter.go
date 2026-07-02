@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/pruner"
 )
@@ -147,7 +146,17 @@ func (e *EventFilter) Events(
 	cToken *ContinuationToken,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	var matchedEvents []FilteredEvent
+	// Read pre_confirmed before latest. If latest were read first, the head could
+	// advance before this fetch, leaving blocks committed in between scanned by
+	// neither the canonical range (stopped at the stale latest) nor pre_confirmed
+	// (based above them), a gap. This order makes latest >= the snapshot's base,
+	// so the ranges overlap instead. Pinning a fixed head wouldn't help: once a
+	// block commits, SnapshotForHead trims it, so a stale head yields an empty
+	// view. On error, drop it and serve canonical only.
+	preConfirmed, err := e.preConfirmedFn()
+	if err != nil {
+		preConfirmed = nil
+	}
 
 	latest, err := core.GetChainHeight(e.database)
 	if err != nil {
@@ -171,6 +180,7 @@ func (e *EventFilter) Events(
 		}
 	}
 
+	var matchedEvents []FilteredEvent
 	// Case [canonicalBlock, canonicalBlock]
 	if e.toBlock <= latest {
 		return e.canonicalEvents(
@@ -203,8 +213,15 @@ func (e *EventFilter) Events(
 		skippedEvents = 0
 	}
 
-	// Case [canonicalBlock, pre-confirmed] || [pre-confirmed, pre-confirmed]
-	return e.pendingEvents(matchedEvents, startBlock, skippedEvents, chunkSize)
+	// Case [canonicalBlock, pre-confirmed] || [pre-confirmed, pre-confirmed].
+	return e.pendingEvents(
+		matchedEvents,
+		preConfirmed,
+		startBlock,
+		latest,
+		skippedEvents,
+		chunkSize,
+	)
 }
 
 func (e *EventFilter) canonicalEvents(
@@ -291,17 +308,12 @@ func (e *EventFilter) canonicalEvents(
 // counter applies to the resume block only.
 func (e *EventFilter) pendingEvents(
 	matchedEvents []FilteredEvent,
+	preConfirmed PreConfirmedReader,
 	fromBlock,
+	latest,
 	skippedEvents,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	preConfirmed, err := e.preConfirmedFn()
-	if err != nil {
-		if errors.Is(err, pending.ErrPreConfirmedNotFound) {
-			return matchedEvents, ContinuationToken{}, nil
-		}
-		return nil, ContinuationToken{}, err
-	}
 	if preConfirmed == nil || preConfirmed.Length() == 0 {
 		return matchedEvents, ContinuationToken{}, nil
 	}
@@ -314,9 +326,13 @@ func (e *EventFilter) pendingEvents(
 		fromBlock = preConfirmed.Head().Block.Number
 	}
 
+	var err error
 	for entry := range preConfirmed.OldestFirst() {
 		blockNumber := entry.Block.Number
-		if blockNumber < fromBlock {
+		// Skip blocks the canonical scan already covered (numbers <= latest, an
+		// overlap opened by a head advance mid-query) and blocks below the resume
+		// point.
+		if blockNumber <= latest || blockNumber < fromBlock {
 			continue
 		}
 		if blockNumber > e.toBlock {
