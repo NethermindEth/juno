@@ -48,17 +48,17 @@ func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
 		return ChainReader{}, nil
 	}
 	var head *node
-	for i, pc := range entries {
-		if pc == nil {
-			return ChainReader{}, fmt.Errorf("building pre_confirmed chain: entry %d is nil", i)
+	for index, entry := range entries {
+		if entry == nil {
+			return ChainReader{}, fmt.Errorf("entry %d is nil", index)
 		}
-		if i > 0 && pc.Block.Number != entries[i-1].Block.Number+1 {
+		if index > 0 && entry.Block.Number != entries[index-1].Block.Number+1 {
 			return ChainReader{}, fmt.Errorf(
-				"building pre_confirmed chain: non-contiguous block numbers at index %d (%d after %d)",
-				i, pc.Block.Number, entries[i-1].Block.Number,
+				"non-contiguous block numbers at index %d (%d after %d)",
+				index, entry.Block.Number, entries[index-1].Block.Number,
 			)
 		}
-		head = &node{preconfirmed: pc, parent: head}
+		head = &node{preconfirmed: entry, parent: head}
 	}
 	return ChainReader{head: head, length: len(entries)}, nil
 }
@@ -79,12 +79,12 @@ func (c *ChainReader) Head() *pending.PreConfirmed {
 // NewestFirst yields entries from the most recent down to head+1, bounded by Length.
 func (c *ChainReader) NewestFirst() iter.Seq[*pending.PreConfirmed] {
 	return func(yield func(*pending.PreConfirmed) bool) {
-		n := c.head
-		for i := 0; i < c.length && n != nil; i++ {
-			if !yield(n.preconfirmed) {
+		current := c.head
+		for count := 0; count < c.length && current != nil; count++ {
+			if !yield(current.preconfirmed) {
 				return
 			}
-			n = n.parent
+			current = current.parent
 		}
 	}
 }
@@ -233,17 +233,17 @@ func (c *ChainReader) baseState(
 // SnapshotForHead trims entries at or below the canonical head). Returns false
 // when the yield callback aborts iteration. Depth equals the caller's Length.
 func walkOldestFirst(
-	n *node,
+	current *node,
 	remaining int,
 	yield func(*pending.PreConfirmed) bool,
 ) bool {
-	if n == nil || remaining == 0 {
+	if current == nil || remaining == 0 {
 		return true
 	}
-	if !walkOldestFirst(n.parent, remaining-1, yield) {
+	if !walkOldestFirst(current.parent, remaining-1, yield) {
 		return false
 	}
-	return yield(n.preconfirmed)
+	return yield(current.preconfirmed)
 }
 
 // ChainStorage holds a contiguous run of pre-confirmed blocks above the
@@ -276,21 +276,21 @@ func NewChainStorage() *ChainStorage {
 // head+1 (head advanced past the stored tip, or the chain's bottom sits above
 // head+1); callers should branch on Length().
 func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
-	c := s.inner.Load()
-	if c == nil || c.length == 0 {
+	current := s.inner.Load()
+	if current == nil || current.length == 0 {
 		return ChainReader{}
 	}
 	wantBottom := headPlusOne(head)
-	storedTip := c.head.preconfirmed.Block.Number
+	storedTip := current.head.preconfirmed.Block.Number
 	if wantBottom > storedTip {
 		return ChainReader{}
 	}
-	storedBottom := storedTip - uint64(c.length-1)
+	storedBottom := storedTip - uint64(current.length-1)
 	if wantBottom < storedBottom {
 		return ChainReader{}
 	}
 	want := int(storedTip - wantBottom + 1)
-	return ChainReader{head: c.head, length: want}
+	return ChainReader{head: current.head, length: want}
 }
 
 // ApplyUpdate atomically evolves the stored chain from a wire-side update.
@@ -365,12 +365,12 @@ func (s *ChainStorage) AdvanceTo(head *core.Header) bool {
 // original nodes stay reachable for any concurrent walkers of the old chain
 // pointer; once those release, the dropped tail (below the new bottom)
 // becomes unreachable and GC-collectable.
-func rebuild(n *node, keep int) *node {
-	if keep == 0 || n == nil {
+func rebuild(current *node, keep int) *node {
+	if keep == 0 || current == nil {
 		return nil
 	}
-	child := rebuild(n.parent, keep-1)
-	return &node{preconfirmed: n.preconfirmed, parent: child}
+	child := rebuild(current.parent, keep-1)
+	return &node{preconfirmed: current.preconfirmed, parent: child}
 }
 
 // computeUpdate is the pure dispatcher that turns a wire-side update into a
@@ -508,9 +508,9 @@ func replaceSlot(
 	for range depthFromHead {
 		target = target.parent
 	}
-	switch u := update.(type) {
+	switch variant := update.(type) {
 	case starknet.PreConfirmedBlock:
-		next, err := sn2core.AdaptPreConfirmedBlock(&u, blockNumber)
+		next, err := sn2core.AdaptPreConfirmedBlock(&variant, blockNumber)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -534,7 +534,7 @@ func replaceSlot(
 		if uint64(len(target.preconfirmed.Block.Transactions)) != baseTxCount {
 			return nil, nil, ErrBaseTxCountMismatch
 		}
-		next, err := sn2core.AdaptPreConfirmedWithDelta(target.preconfirmed, &u)
+		next, err := sn2core.AdaptPreConfirmedWithDelta(target.preconfirmed, &variant)
 		if err != nil {
 			return nil, nil, err
 		}
