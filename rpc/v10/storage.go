@@ -105,21 +105,28 @@ func (h *Handler) StorageAt(
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
-	// This checks if the contract exists because if a key doesn't exist in contract storage,
-	// the returned value is always zero and error is nil.
-	_, err := stateReader.ContractClassHash(addressFelt)
+	value, err := stateReader.ContractStorage(addressFelt, key)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.logger.Error("Failed to get contract class hash", zap.Error(err))
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	result.Value, err = stateReader.ContractStorage(addressFelt, key)
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
+	// A zero value is ambiguous: an unset slot reads as zero, but so does a
+	// missing contract on the head reader (which returns zero without erroring).
+	// A non-zero value already proves the contract exists, so probe only here.
+	if value.IsZero() {
+		if _, err := stateReader.ContractClassHash(addressFelt); err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return nil, rpccore.ErrContractNotFound
+			}
+			h.logger.Error("Failed to get contract class hash", zap.Error(err))
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
 	}
+
+	result.Value = value
 
 	if !flags.IncludeLastUpdateBlock {
 		return &result, nil
