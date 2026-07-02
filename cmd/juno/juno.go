@@ -112,6 +112,7 @@ const (
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	maxCompilationQueueF                = "max-compilation-queue"
 	maxCompilationMemoryF               = "max-compilation-memory"
+	nodeMemoryReserveF                  = "node-memory-reserve"
 	maxCompilationCPUTimeF              = "max-compilation-cpu-time"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 	newStateF                           = "new-state"
@@ -177,6 +178,7 @@ const (
 	defaultRPCMaxConcurrentRequests           = 256000
 	defaultRPCMaxQueuedRequests               = 256000
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
+	defaultNodeMemoryReserve                  = 4 * 1024 // MB (4 GB) reserved for the rest of the node
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
 	defaultPruneMode                          = uint64(0)
@@ -264,11 +266,15 @@ const (
 	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
 	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit."
-	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	maxCompilationQueueUsage       = "Maximum number of compilation requests to queue after " +
-		"reaching max-concurrent-compilations before starting to reject incoming requests."
+	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
+		"Empty derives a safe value from available memory and CPU count; 0 disables compilations."
+	maxCompilationQueueUsage = "Maximum number of compilation requests to queue after " +
+		"reaching max-concurrent-compilations before starting to reject incoming requests. " +
+		"Empty uses twice the concurrency limit."
 	maxCompilationMemoryUsage = "Maximum memory (in MB) each Sierra compilation process may " +
 		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
+	nodeMemoryReserveUsage = "Memory (in MB) reserved for the rest of the node and excluded from " +
+		"the compilation memory budget. Used only when max-concurrent-compilations is empty."
 	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
 		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
 		"0 disables the limit."
@@ -481,7 +487,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultNetwork := networks.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
-	defaultMaxConcurrentCompilations := runtime.GOMAXPROCS(0)
+	// Empty derives at startup; an explicit 0 disables compilations / the queue.
+	defaultMaxConcurrentCompilations := ""
+	defaultMaxCompilationQueue := ""
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
@@ -612,17 +620,20 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// --- VM & Compilation ---
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().Uint(
+	junoCmd.Flags().String(
 		maxConcurrentCompilationsF,
-		uint(defaultMaxConcurrentCompilations),
+		defaultMaxConcurrentCompilations,
 		maxConcurrentCompilationsUsage,
 	)
-	junoCmd.Flags().Uint(
+	junoCmd.Flags().String(
 		maxCompilationQueueF,
-		2*uint(defaultMaxConcurrentCompilations),
+		defaultMaxCompilationQueue,
 		maxCompilationQueueUsage,
 	)
 	junoCmd.Flags().Uint(maxCompilationMemoryF, defaultMaxCompilationMemory, maxCompilationMemoryUsage)
+	junoCmd.Flags().Uint(
+		nodeMemoryReserveF, defaultNodeMemoryReserve, nodeMemoryReserveUsage,
+	)
 	junoCmd.Flags().Uint(
 		maxCompilationCPUTimeF, defaultMaxCompilationCPUTime, maxCompilationCPUTimeUsage,
 	)
@@ -634,6 +645,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		maxConcurrentCompilationsF,
 		maxCompilationQueueF,
 		maxCompilationMemoryF,
+		nodeMemoryReserveF,
 		maxCompilationCPUTimeF,
 		versionedConstantsFileF,
 	)

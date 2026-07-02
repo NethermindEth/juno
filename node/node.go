@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -133,20 +134,35 @@ type Config struct {
 
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
-	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
-	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
-	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
-	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
-	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
-	NewState                  bool          `mapstructure:"new-state"`
+	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
+	// Empty derives the value at startup; an explicit 0 stays valid (no compilations / no queue).
+	MaxConcurrentCompilations string `mapstructure:"max-concurrent-compilations"`
+	MaxCompilationQueue       string `mapstructure:"max-compilation-queue"`
+	MaxCompilationMemory      uint   `mapstructure:"max-compilation-memory"`   // megabytes
+	NodeMemoryReserve         uint   `mapstructure:"node-memory-reserve"`      // megabytes
+	MaxCompilationCPUTime     uint   `mapstructure:"max-compilation-cpu-time"` // CPU seconds
+	NewState                  bool   `mapstructure:"new-state"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
 	Prune          bool
 	RetainedBlocks uint64        `mapstructure:"prune-mode"`
 	PruneMinAge    time.Duration `mapstructure:"prune-min-age"`
+}
+
+// parseCompilationLimit reads a compilation-sizing flag. An empty value derives the
+// value at startup (derive is true); otherwise it must be a non-negative integer.
+func parseCompilationLimit(value string) (limit uint, derive bool, err error) {
+	if value == "" {
+		return 0, true, nil
+	}
+	n, err := strconv.ParseUint(value, 10, strconv.IntSize)
+	if err != nil {
+		return 0, false, fmt.Errorf("%q is not a non-negative integer", value)
+	}
+	return uint(n), false, nil
 }
 
 type Node struct {
@@ -293,6 +309,39 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
+	concurrent, concurrentAuto, err := parseCompilationLimit(cfg.MaxConcurrentCompilations)
+	if err != nil {
+		return nil, fmt.Errorf("parsing max-concurrent-compilations: %w", err)
+	}
+	var concurrentCompilations uint
+	if concurrentAuto {
+		availableMemoryMB := compiler.AvailableMemoryMB()
+		concurrentCompilations = max(compiler.ConcurrencyLimit(
+			uint(runtime.GOMAXPROCS(0)),
+			availableMemoryMB,
+			uint64(cfg.NodeMemoryReserve),
+			uint64(cfg.MaxCompilationMemory),
+		), 1)
+		logger.Info("deriving Sierra compilation concurrency",
+			zap.Uint("limit", concurrentCompilations),
+			zap.Uint64("availableMemoryMB", availableMemoryMB),
+			zap.Uint("nodeMemoryReserveMB", cfg.NodeMemoryReserve),
+			zap.Uint("maxMemoryPerCompilationMB", cfg.MaxCompilationMemory),
+		)
+	} else {
+		concurrentCompilations = concurrent
+		logger.Info("using configured Sierra compilation concurrency",
+			zap.Uint("limit", concurrentCompilations))
+	}
+
+	queue, queueAuto, err := parseCompilationLimit(cfg.MaxCompilationQueue)
+	if err != nil {
+		return nil, fmt.Errorf("parsing max-compilation-queue: %w", err)
+	}
+	compilationQueue := queue
+	if queueAuto {
+		compilationQueue = 2 * concurrentCompilations
+	}
 	throttledCompiler := NewThrottledCompiler(
 		compiler.New(
 			&compiler.Config{
@@ -302,8 +351,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			"",
 			logger,
 		),
-		cfg.MaxConcurrentCompilations,
-		uint64(cfg.MaxCompilationQueue),
+		concurrentCompilations,
+		uint64(compilationQueue),
 	)
 
 	if cfg.Sequencer {

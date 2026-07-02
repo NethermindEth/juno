@@ -82,9 +82,10 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
 	defaultRPCRequestTimeout := 1 * time.Minute
-	defaultMaxConcurrentCompilations := uint(runtime.GOMAXPROCS(0))
-	defaultMaxCompilationQueue := 2 * defaultMaxConcurrentCompilations
+	defaultMaxConcurrentCompilations := "" // empty derives from memory and CPUs
+	defaultMaxCompilationQueue := ""       // empty derives from concurrency
 	defaultMaxCompilationMemory := uint(4 * 1024)
+	defaultNodeMemoryReserve := uint(4 * 1024)
 	defaultMaxCompilationCPUTime := uint(10)
 	if runtime.GOOS != "linux" {
 		// Limits are enforced on Linux only; PreRunE zeroes the unset
@@ -140,6 +141,7 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 		MaxCompilationQueue:                defaultMaxCompilationQueue,
 		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		NodeMemoryReserve:                  defaultNodeMemoryReserve,
 		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
@@ -190,6 +192,7 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 		MaxCompilationQueue:                defaultMaxCompilationQueue,
 		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		NodeMemoryReserve:                  defaultNodeMemoryReserve,
 		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
@@ -199,6 +202,10 @@ func TestConfigPrecedence(t *testing.T) {
 	expectedExplicitCompilationLimits := expectedConfig2
 	expectedExplicitCompilationLimits.MaxCompilationMemory = 2048
 	expectedExplicitCompilationLimits.MaxCompilationCPUTime = 5
+
+	expectedNumericCompilationLimits := expectedConfig2
+	expectedNumericCompilationLimits.MaxConcurrentCompilations = "8"
+	expectedNumericCompilationLimits.MaxCompilationQueue = "32"
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -245,6 +252,13 @@ cn-unverifiable-range: [0,10]
 				"--max-compilation-memory", "2048", "--max-compilation-cpu-time", "5",
 			},
 			expectedConfig: &expectedExplicitCompilationLimits,
+		},
+		"numeric compilation limits in config file": {
+			cfgFile: true,
+			cfgFileContents: `max-concurrent-compilations: 8
+max-compilation-queue: 32
+`,
+			expectedConfig: &expectedNumericCompilationLimits,
 		},
 		"config file path is empty string": {
 			inputArgs:      []string{"--config", ""},
@@ -314,6 +328,7 @@ pprof: true
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -370,6 +385,7 @@ http-port: 4576
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -425,6 +441,7 @@ http-port: 4576
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -480,6 +497,7 @@ http-port: 4576
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -561,6 +579,7 @@ db-cache-size: 1024
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -619,6 +638,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -673,6 +693,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -725,6 +746,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -778,6 +800,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -830,6 +853,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -884,6 +908,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
