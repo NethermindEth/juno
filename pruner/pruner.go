@@ -370,7 +370,7 @@ func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
 		oldestToKeep = p.applyTimeFloor(standardFloor)
 	}
 
-	return p.pruneUpto(ctx, oldestToKeep)
+	return p.runPruneUpto(ctx, oldestToKeep)
 }
 
 func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
@@ -390,10 +390,10 @@ func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
 
 	oldestBlockToKeep := p.applyTimeFloor(l1Head.BlockNumber - p.numRetainedBlocks)
 
-	return p.pruneUpto(ctx, oldestBlockToKeep)
+	return p.runPruneUpto(ctx, oldestBlockToKeep)
 }
 
-func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error {
+func (p *Pruner) runPruneUpto(ctx context.Context, oldestBlockToKeep uint64) error {
 	start := time.Now()
 
 	blocksPruned, oldestKept, err := pruneUpto(

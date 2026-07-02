@@ -38,7 +38,7 @@ func (e *BlockPrunedError) Is(target error) bool { return target == ErrBlockPrun
 // RequireRetained returns nil if blockNumber is fully retained, otherwise
 // a [*BlockPrunedError]. Retention is probed via BlockCommitments — the
 // source of truth for "block has not been pruned", since it has no
-// carve-out (see [pruneUpto]).
+// carve-out (unlike block headers; see [PruneBlockDataUpto]).
 func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
 	_, err := core.GetBlockCommitmentByBlockNum(r, blockNumber)
 	if err == nil {
@@ -59,7 +59,7 @@ func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
 // block-level data (transactions, receipts, etc.) use [RequireRetained] + the
 // plain core accessors instead — the two checks diverge at oldestKept-1,
 // where state is preserved by carve-out but block-level data is not.
-// See [pruneUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
+// See [PruneBlockDataUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
 // when state at blockNumber is not available.
 func HeaderByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*core.Header, error) {
 	header, err := core.GetBlockHeaderByNumber(r, blockNumber)
@@ -86,7 +86,7 @@ func RequireStateRetainedByBlockNumber(r db.KeyValueReader, blockNumber uint64) 
 // HeaderByHashIfStateRetained returns the header for blockHash only if
 // state at that block is queryable. Use this for state access only; for
 // block-level data use [RequireRetained] + the plain core accessors instead.
-// See [pruneUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
+// See [PruneBlockDataUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
 // when state at blockHash is not available.
 func HeaderByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (*core.Header, error) {
 	return core.GetBlockHeaderByHash(r, blockHash)
@@ -100,8 +100,8 @@ func BlockNumberByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt)
 
 // oldestRetainedBlock returns the lowest block number still fully retained,
 // found by scanning BlockCommitments — the source of truth, since it has
-// no carve-out (see [pruneUpto]). Returns db.ErrKeyNotFound on an empty
-// database.
+// no carve-out (unlike block headers; see [PruneBlockDataUpto]). Returns
+// db.ErrKeyNotFound on an empty database.
 func oldestRetainedBlock(r db.KeyValueReader) (uint64, error) {
 	// Bucket (1 byte) + uint64BE (8 bytes)
 	const blockCommitmentsKeyByteSize = 9
