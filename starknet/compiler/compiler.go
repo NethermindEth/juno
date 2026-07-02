@@ -31,6 +31,11 @@ const (
 	FlagMaxCPUTime = "max-cpu-time" // seconds (RLIMIT_CPU)
 )
 
+// Pin the compile child to a small GOMAXPROCS. A compilation is one Rust FFI call,
+// so extra Go threads don't speed it up; they only add per-thread stacks that grow
+// the child's address space toward the RLIMIT_AS limit on many-core hosts.
+const compileChildGOMAXPROCS = "2"
+
 // Config bounds the resources used by compilation child processes.
 type Config struct {
 	// MaxMemory is the address-space limit (RLIMIT_AS) in bytes
@@ -105,6 +110,7 @@ func (c *compiler) Compile(
 
 	//nolint:gosec // binaryPath is the juno binary, not user input
 	cmd := exec.CommandContext(ctx, c.binaryPath, args...)
+	cmd.Env = append(os.Environ(), "GOMAXPROCS="+compileChildGOMAXPROCS)
 	cmd.Stdin = bytes.NewReader(sierraJSON)
 
 	var stdout, stderr bytes.Buffer
