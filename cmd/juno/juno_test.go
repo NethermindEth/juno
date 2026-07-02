@@ -84,7 +84,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCRequestTimeout := 1 * time.Minute
 	defaultMaxConcurrentCompilations := "" // empty derives from memory and CPUs
 	defaultMaxCompilationQueue := ""       // empty derives from concurrency
-	defaultMaxCompilationMemory := uint(4 * 1024)
+	defaultMaxCompilationMemory := uint(2 * 1024)
 	defaultNodeMemoryReserve := uint(4 * 1024)
 	defaultMaxCompilationCPUTime := uint(10)
 	if runtime.GOOS != "linux" {

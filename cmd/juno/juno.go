@@ -177,7 +177,7 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 256000
 	defaultRPCMaxQueuedRequests               = 256000
-	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
+	defaultMaxCompilationMemory               = 2 * 1024 // MB (2 GB) per compilation process
 	defaultNodeMemoryReserve                  = 4 * 1024 // MB (4 GB) reserved for the rest of the node
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
