@@ -2,16 +2,17 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	gosync "sync"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
 	consensusSync "github.com/NethermindEth/juno/consensus/sync"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
+	"github.com/NethermindEth/juno/consensus/walstore"
 	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ type TimeoutFn func(step types.Step, round types.Round) time.Duration
 
 type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	logger           log.Logger
-	db               db.TendermintDB[V, H, A]
+	db               walstore.TendermintWALStore[V, H, A]
 	stateMachine     tendermint.StateMachine[V, H, A]
 	commitListener   CommitListener[V, H]
 	broadcasters     p2p.Broadcasters[V, H, A]
@@ -39,7 +40,7 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	logger log.Logger,
-	db db.TendermintDB[V, H, A],
+	db walstore.TendermintWALStore[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
 	commitListener CommitListener[V, H],
 	broadcasters p2p.Broadcasters[V, H, A],
@@ -70,11 +71,14 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 // these messages and returns a set of actions to be executed by the Driver.
 // The Driver executes these actions (namely broadcasting messages
 // and triggering scheduled timeouts).
-func (d *Driver[V, H, A]) Run(ctx context.Context) error {
+func (d *Driver[V, H, A]) Run(ctx context.Context) (err error) {
 	defer func() {
 		for _, tm := range d.scheduledTms {
 			tm.Stop()
 		}
+	}()
+	defer func() {
+		err = errors.Join(err, d.db.Close())
 	}()
 
 	if err := d.replay(ctx); err != nil {
@@ -87,7 +91,10 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 func (d *Driver[V, H, A]) replay(ctx context.Context) error {
 	for walEntry, err := range d.db.LoadAllEntries() {
 		if err != nil {
-			return fmt.Errorf("failed to load WAL entries: %w", err)
+			return fmt.Errorf("loading WAL entries: %w", err)
+		}
+		if walEntry.GetHeight() < d.stateMachine.Height() {
+			continue
 		}
 
 		if _, err := d.execute(ctx, true, d.stateMachine.ProcessWAL(walEntry)); err != nil {
@@ -174,7 +181,7 @@ func (d *Driver[V, H, A]) execute(
 	for _, action := range resultActions {
 		if !isReplaying && action.RequiresWALFlush() {
 			if err := d.db.Flush(); err != nil {
-				return false, fmt.Errorf("failed to flush WAL: %w", err)
+				return false, fmt.Errorf("flushing WAL: %w", err)
 			}
 		}
 
@@ -182,7 +189,7 @@ func (d *Driver[V, H, A]) execute(
 		case *actions.WriteWAL[V, H, A]:
 			if !isReplaying {
 				if err := d.db.SetWALEntry(action.Entry); err != nil {
-					return false, fmt.Errorf("failed to write WAL: %w", err)
+					return false, fmt.Errorf("writing WAL: %w", err)
 				}
 			}
 
@@ -226,13 +233,18 @@ func (d *Driver[V, H, A]) commit(ctx context.Context, commit *actions.Commit[V, 
 		zap.Uint("height", uint(commit.Height)),
 		zap.Int("round", int(commit.Round)),
 	)
-	d.commitListener.OnCommit(ctx, commit.Height, *commit.Value)
-
-	if err := d.db.DeleteWALEntries(commit.Height); err != nil {
-		return fmt.Errorf("failed to delete WAL messages during commit: %w", err)
+	if !d.commitListener.OnCommit(ctx, commit.Height, *commit.Value) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return errors.New("commit listener failed")
 	}
 
-	return nil
+	if err := d.db.DeleteWALEntries(commit.Height); err != nil {
+		return fmt.Errorf("deleting WAL messages during commit: %w", err)
+	}
+
+	return d.db.Flush()
 }
 
 func (d *Driver[V, H, A]) triggerSync(ctx context.Context, triggerSync actions.TriggerSync) {

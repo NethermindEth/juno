@@ -46,6 +46,9 @@ type Helper interface {
 	// remove this once the metrics are refactored
 	// Returns the underlying database
 	Impl() any
+	// Returns a local filesystem path for consensus WAL files.
+	// Empty means the DB has no local path.
+	Path() string
 }
 
 // Represents a key-value data store that can handle different operations

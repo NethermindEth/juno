@@ -20,6 +20,7 @@ var _ db.KeyValueStore = (*DB)(nil)
 
 type DB struct {
 	db        *pebble.DB
+	path      string
 	closed    bool
 	writeOpt  *pebble.WriteOptions
 	listener  db.EventListener
@@ -42,10 +43,15 @@ func New(path string, options ...Option) (db.KeyValueStore, error) {
 
 	return &DB{
 		db:        pDB,
+		path:      path,
 		closeLock: new(sync.RWMutex),
 		listener:  &db.SelectiveListener{},
 		writeOpt:  &pebble.WriteOptions{Sync: true}, // TODO: can we use non-sync writes for performance?
 	}, nil
+}
+
+func (d *DB) Path() string {
+	return d.path
 }
 
 func (d *DB) Close() error {

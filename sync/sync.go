@@ -321,7 +321,7 @@ func (s *Synchronizer) verifierTask(
 	)
 	if err != nil {
 		return func() {
-			defer close(committedBlock.Persisted)
+			committedBlock.Persisted <- err
 			s.logger.Warn(
 				"Sanity checks failed",
 				zap.Uint64("number", committedBlock.Block.Number),
@@ -344,9 +344,9 @@ func (s *Synchronizer) storeTask(
 	resetStreams context.CancelFunc,
 	commitments *core.BlockCommitments,
 ) {
-	defer close(committedBlock.Persisted)
 	select {
 	case <-ctx.Done():
+		committedBlock.Persisted <- ctx.Err()
 		return
 	default:
 	}
@@ -356,6 +356,7 @@ func (s *Synchronizer) storeTask(
 	stateUpdate := committedBlock.StateUpdate
 	newClasses := committedBlock.NewClasses
 	if err := s.blockchain.Store(block, commitments, stateUpdate, newClasses); err != nil {
+		committedBlock.Persisted <- err
 		if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 			// Block block.Number - 1 is the parent of this block which doesn't match
 			// so we need to revert the head to block.Number - 2
@@ -368,6 +369,7 @@ func (s *Synchronizer) storeTask(
 		resetStreams()
 		return
 	}
+	committedBlock.Persisted <- nil
 
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
