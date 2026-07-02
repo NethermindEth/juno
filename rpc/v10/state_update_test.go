@@ -157,7 +157,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		update3077642.BlockHash = nil
 		update3077642.NewRoot = nil
-		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
+		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,
@@ -200,7 +200,7 @@ func TestStateUpdate(t *testing.T) {
 		})
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
-			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
+			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, 0)
 			mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
 			id := rpcv10.BlockIDPreConfirmed()
 			emptyFilter := rpcv10.AddressList{}

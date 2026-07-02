@@ -254,12 +254,12 @@ func TestSubscribeEvents(t *testing.T) {
 		// Sending PreConfirmed does nothing — the handler was removed
 		// because it only handled the deprecated pending.Pending variant.
 		pending1 := createTestPendingBlock(t, b2, 3)
-		preConfirmed1 := pendingpkg.NewPreConfirmed(pending1, nil, nil, "")
+		preConfirmed1 := pendingpkg.NewPreConfirmed(pending1, nil, nil, 0)
 		handler.preConfirmedFeed.Send(&preConfirmed1)
 		assertNoMessage(t, clientConn)
 
 		pending2 := createTestPendingBlock(t, b2, 6)
-		preConfirmed2 := pendingpkg.NewPreConfirmed(pending2, nil, nil, "")
+		preConfirmed2 := pendingpkg.NewPreConfirmed(pending2, nil, nil, 0)
 		handler.preConfirmedFeed.Send(&preConfirmed2)
 		assertNoMessage(t, clientConn)
 

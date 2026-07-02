@@ -209,7 +209,7 @@ func (s *Synchronizer) pollPreConfirmed(
 			txCount := uint64(len(current.Block.Transactions))
 
 			update, err := s.dataSource.PreConfirmedBlockByNumber(
-				ctx, current.Block.Number, current.BlockIdentifier, txCount,
+				ctx, current.Block.Number, starknet.BlockIdentifier(current.BlockIdentifier), txCount,
 			)
 			if err != nil {
 				const msg = "polling pre-confirmed block"

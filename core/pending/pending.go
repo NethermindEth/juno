@@ -67,14 +67,14 @@ type PreConfirmed struct {
 	// BlockIdentifier is an identifier returned by the feeder gateway
 	// that uniquely identifies the current round of the pre_confirmed block.
 	// It is used to negotiate delta-sync responses on subsequent polls.
-	BlockIdentifier string
+	BlockIdentifier uint64
 }
 
 func NewPreConfirmed(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	transactionStateDiffs []*core.StateDiff,
-	blockIdentifier string,
+	blockIdentifier uint64,
 ) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,

@@ -1294,7 +1294,7 @@ func TestFeederValidation(t *testing.T) {
 		}`
 		client := clientServingBody(t, body)
 
-		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", "", 0)
+		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", 0, 0)
 		require.NoError(t, err)
 		_, ok := update.(starknet.PreConfirmedDeltaUpdate)
 		require.True(t, ok)
@@ -1311,7 +1311,7 @@ func TestFeederValidation(t *testing.T) {
 		}`
 		client := clientServingBody(t, body)
 
-		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", "", 0)
+		update, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "", 0, 0)
 		require.Error(t, err)
 		require.Nil(t, update)
 		assert.ErrorIs(t, err, feeder.ErrInvalidFeederResponse)

@@ -217,7 +217,7 @@ func shouldPreservePreConfirmed(
 		// placeholder (the wire never sends it) and must not override a real
 		// round at the same height.
 		if incoming.BlockIdentifier != existing.BlockIdentifier &&
-			incoming.BlockIdentifier != feeder.PreConfirmedBlankIdentifier {
+			incoming.BlockIdentifier != uint64(feeder.PreConfirmedBlankIdentifier) {
 			return false
 		}
 		if incomingB.TransactionCount > existingB.TransactionCount {

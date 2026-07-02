@@ -18,6 +18,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Round identifier constants used in tests. BlockIdentifier is uint64 on the
+// wire; these named values preserve the semantic intent of "different rounds".
+const (
+	idRoundA    starknet.BlockIdentifier = 1
+	idRoundB    starknet.BlockIdentifier = 2
+	idRoundC    starknet.BlockIdentifier = 3
+	idRoundD    starknet.BlockIdentifier = 4
+	idRoundE    starknet.BlockIdentifier = 5
+	idRoundF    starknet.BlockIdentifier = 6
+	idRoundG    starknet.BlockIdentifier = 7
+	idDifferent starknet.BlockIdentifier = 99
+)
+
 func TestStorePreConfirmed(t *testing.T) {
 	testDB := memory.New()
 	bc := blockchain.New(
@@ -193,7 +206,7 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 			StateUpdate:     &core.StateUpdate{},
-			BlockIdentifier: "round-a",
+			BlockIdentifier: uint64(idRoundA),
 		}
 		written, err := s.preConfirmed.StorePreConfirmedForHead(&existing, head)
 		require.NoError(t, err)
@@ -208,7 +221,7 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 			StateUpdate:     &core.StateUpdate{},
-			BlockIdentifier: "round-b",
+			BlockIdentifier: uint64(idRoundB),
 		}
 		written, err = s.preConfirmed.StorePreConfirmedForHead(&newRound, head)
 		require.NoError(t, err)
@@ -230,7 +243,7 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 			StateUpdate:     &core.StateUpdate{},
-			BlockIdentifier: "round-a",
+			BlockIdentifier: uint64(idRoundA),
 		}
 		written, err := s.preConfirmed.StorePreConfirmedForHead(&existing, head)
 		require.NoError(t, err)
@@ -246,13 +259,13 @@ func TestStorePreConfirmed(t *testing.T) {
 				},
 			},
 			StateUpdate:     &core.StateUpdate{},
-			BlockIdentifier: feeder.PreConfirmedBlankIdentifier,
+			BlockIdentifier: uint64(feeder.PreConfirmedBlankIdentifier),
 		}
 		written, err = s.preConfirmed.StorePreConfirmedForHead(&blank, head)
 		require.NoError(t, err)
 		require.False(t, written, "blank-identifier baseline must not replace a real round")
 		ptr := s.preConfirmed.ReadUnsafe()
-		require.Equal(t, "round-a", ptr.BlockIdentifier)
+		require.Equal(t, uint64(idRoundA), ptr.BlockIdentifier)
 		require.Equal(t, uint64(5), ptr.Block.TransactionCount)
 	})
 
@@ -376,7 +389,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 
 	s := New(bc, NewFeederGatewayDataSource(bc, gw), logger, 0, 0, false, testDB)
 
-	seedFull := func(t *testing.T, identifier string, txCount uint64) *pending.PreConfirmed {
+	seedFull := func(t *testing.T, identifier starknet.BlockIdentifier, txCount uint64) *pending.PreConfirmed {
 		t.Helper()
 		seed := pending.PreConfirmed{
 			Block: &core.Block{
@@ -390,7 +403,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 				Receipts:     []*core.TransactionReceipt{},
 			},
 			StateUpdate:     &core.StateUpdate{StateDiff: &core.StateDiff{}},
-			BlockIdentifier: identifier,
+			BlockIdentifier: uint64(identifier),
 		}
 		s.preConfirmed.inner.Store(&seed)
 		return &seed
@@ -407,7 +420,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 
 		s.preConfirmed.inner.Store(nil)
 		applied, err = s.preConfirmed.ApplyUpdate(
-			starknet.PreConfirmedDeltaUpdate{BlockIdentifier: "round-a"},
+			starknet.PreConfirmedDeltaUpdate{BlockIdentifier: idRoundA},
 			head.Number+1,
 			0,
 			head,
@@ -418,16 +431,16 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		require.Nil(t, s.preConfirmed.inner.Load())
 
 		s.preConfirmed.inner.Store(nil)
-		full := makeTestPreConfirmedBlock("round-a", 0)
+		full := makeTestPreConfirmedBlock(idRoundA, 0)
 		applied, err = s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
 		require.NotNil(t, applied, "Full carries a complete block and must bootstrap from empty")
-		require.Equal(t, "round-a", applied.BlockIdentifier)
+		require.Equal(t, uint64(idRoundA), applied.BlockIdentifier)
 		require.Same(t, applied, s.preConfirmed.inner.Load())
 	})
 
 	t.Run("NoChange returns (nil, nil) and preserves store", func(t *testing.T) {
-		seed := seedFull(t, "round-a", 3)
+		seed := seedFull(t, idRoundA, 3)
 		applied, err := s.preConfirmed.ApplyUpdate(
 			starknet.PreConfirmedNoChange{}, head.Number+1, 0, head, nil,
 		)
@@ -437,26 +450,26 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 	})
 
 	t.Run("Full adapts, validates and stores", func(t *testing.T) {
-		seedFull(t, "round-a", 0)
-		full := makeTestPreConfirmedBlock("round-b", 0)
+		seedFull(t, idRoundA, 0)
+		full := makeTestPreConfirmedBlock(idRoundB, 0)
 
 		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
 		require.NotNil(t, applied)
-		require.Equal(t, "round-b", applied.BlockIdentifier)
+		require.Equal(t, uint64(idRoundB), applied.BlockIdentifier)
 		require.Equal(t, head.Number+1, applied.Block.Number)
 		require.Same(t, applied, s.preConfirmed.inner.Load(), "store must hold the new pointer")
 	})
 
 	t.Run("Delta with matching identifier merges and stores", func(t *testing.T) {
-		seedFull(t, "round-c", 0)
+		seedFull(t, idRoundC, 0)
 		// Non-empty delta so the merged result is richer than the seed and the
 		// store actually swaps the pointer (an empty delta would correctly be
 		// preserved as not richer — covered elsewhere).
 		hash := new(felt.Felt).SetUint64(0xdead)
 		emptySlice := []*felt.Felt{}
 		delta := starknet.PreConfirmedDeltaUpdate{
-			BlockIdentifier: "round-c",
+			BlockIdentifier: idRoundC,
 			Transactions: []starknet.Transaction{{
 				Hash:      hash,
 				Type:      starknet.TxnInvoke,
@@ -470,15 +483,15 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		applied, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, 0, head, nil)
 		require.NoError(t, err)
 		require.NotNil(t, applied)
-		require.Equal(t, "round-c", applied.BlockIdentifier)
+		require.Equal(t, uint64(idRoundC), applied.BlockIdentifier)
 		require.Len(t, applied.Block.Transactions, 1)
 		require.Same(t, applied, s.preConfirmed.inner.Load())
 	})
 
 	t.Run("Delta with mismatched identifier returns error and preserves store", func(t *testing.T) {
-		seed := seedFull(t, "round-d", 0)
+		seed := seedFull(t, idRoundD, 0)
 		delta := starknet.PreConfirmedDeltaUpdate{
-			BlockIdentifier: "different-round",
+			BlockIdentifier: idDifferent,
 		}
 		_, err := s.preConfirmed.ApplyUpdate(delta, head.Number+1, 0, head, nil)
 		require.ErrorIs(t, err, sn2core.ErrPreConfirmedIdentifierMismatch)
@@ -505,7 +518,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 			},
 			StateUpdate:           &core.StateUpdate{StateDiff: &core.StateDiff{}},
 			TransactionStateDiffs: []*core.StateDiff{{}},
-			BlockIdentifier:       "round-g",
+			BlockIdentifier:       uint64(idRoundG),
 		}
 		s.preConfirmed.inner.Store(&seed)
 
@@ -513,7 +526,7 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 		// it through) but was computed against an older base of 0 transactions.
 		emptySlice := []*felt.Felt{}
 		delta := starknet.PreConfirmedDeltaUpdate{
-			BlockIdentifier: "round-g",
+			BlockIdentifier: idRoundG,
 			Transactions: []starknet.Transaction{{
 				Hash:      &hash,
 				Type:      starknet.TxnInvoke,
@@ -532,10 +545,10 @@ func TestPreConfirmedStorage_ApplyUpdate(t *testing.T) {
 	})
 
 	t.Run("attaches PreLatest to the applied block", func(t *testing.T) {
-		seedFull(t, "round-e", 0)
+		seedFull(t, idRoundE, 0)
 		pl := makeEmptyPreLatestForParent(head)
 
-		full := makeTestPreConfirmedBlock("round-f", 0)
+		full := makeTestPreConfirmedBlock(idRoundF, 0)
 		applied, err := s.preConfirmed.ApplyUpdate(full, head.Number+1, 0, head, &pl)
 		require.NoError(t, err)
 		require.NotNil(t, applied)
@@ -643,13 +656,13 @@ func TestPreConfirmedStorage_UpdatePreLatestAttachment(t *testing.T) {
 func TestShouldPreservePreConfirmed(t *testing.T) {
 	head := &core.Header{Number: 10, Hash: new(felt.Felt).SetUint64(0x10)}
 
-	mkPC := func(number, txCount uint64, identifier string, withPreLatest bool) *pending.PreConfirmed {
+	mkPC := func(number, txCount uint64, identifier starknet.BlockIdentifier, withPreLatest bool) *pending.PreConfirmed {
 		pc := &pending.PreConfirmed{
 			Block: &core.Block{Header: &core.Header{
 				Number:           number,
 				TransactionCount: txCount,
 			}},
-			BlockIdentifier: identifier,
+			BlockIdentifier: uint64(identifier),
 		}
 		if withPreLatest && number == head.Number+2 {
 			pc.PreLatest = &pending.PreLatest{
@@ -670,43 +683,43 @@ func TestShouldPreservePreConfirmed(t *testing.T) {
 		{
 			name:     "nil existing -> do not preserve",
 			existing: nil,
-			incoming: mkPC(head.Number+1, 0, "a", false),
+			incoming: mkPC(head.Number+1, 0, 1, false),
 			want:     false,
 		},
 		{
 			name:     "stale existing (number != head+1, no PreLatest) -> do not preserve",
-			existing: mkPC(head.Number, 5, "a", false),
-			incoming: mkPC(head.Number+1, 0, "a", false),
+			existing: mkPC(head.Number, 5, 1, false),
+			incoming: mkPC(head.Number+1, 0, 1, false),
 			want:     false,
 		},
 		{
 			name:     "incoming newer block -> do not preserve",
-			existing: mkPC(head.Number+1, 5, "a", false),
-			incoming: mkPC(head.Number+2, 0, "a", true),
+			existing: mkPC(head.Number+1, 5, 1, false),
+			incoming: mkPC(head.Number+2, 0, 1, true),
 			want:     false,
 		},
 		{
 			name:     "same number, different identifier -> do not preserve",
-			existing: mkPC(head.Number+1, 5, "a", false),
-			incoming: mkPC(head.Number+1, 0, "b", false),
+			existing: mkPC(head.Number+1, 5, 1, false),
+			incoming: mkPC(head.Number+1, 0, 2, false),
 			want:     false,
 		},
 		{
 			name:     "same number + identifier, incoming richer -> do not preserve",
-			existing: mkPC(head.Number+1, 1, "a", false),
-			incoming: mkPC(head.Number+1, 5, "a", false),
+			existing: mkPC(head.Number+1, 1, 1, false),
+			incoming: mkPC(head.Number+1, 5, 1, false),
 			want:     false,
 		},
 		{
 			name:     "same number + identifier, incoming not richer -> preserve",
-			existing: mkPC(head.Number+1, 5, "a", false),
-			incoming: mkPC(head.Number+1, 1, "a", false),
+			existing: mkPC(head.Number+1, 5, 1, false),
+			incoming: mkPC(head.Number+1, 1, 1, false),
 			want:     true,
 		},
 		{
 			name:     "incoming older -> preserve",
-			existing: mkPC(head.Number+2, 5, "a", true),
-			incoming: mkPC(head.Number+1, 99, "a", false),
+			existing: mkPC(head.Number+2, 5, 1, true),
+			incoming: mkPC(head.Number+1, 99, 1, false),
 			want:     true,
 		},
 	}
@@ -729,7 +742,7 @@ func TestPreConfirmedStorage_RoundTrip(t *testing.T) {
 	}
 
 	expected := &pending.PreConfirmed{
-		BlockIdentifier: "round-a",
+		BlockIdentifier: uint64(idRoundA),
 		Block: &core.Block{
 			Header: &core.Header{
 				Number:          head.Number + 1,

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -12,6 +14,32 @@ import (
 // One of [PreConfirmedNoChange], [PreConfirmedDeltaUpdate], or [PreConfirmedBlock].
 type PreConfirmedUpdate interface {
 	isPreConfirmedUpdate()
+}
+
+type BlockIdentifier uint64
+
+func (b *BlockIdentifier) UnmarshalJSON(data []byte) error {
+	// Handle quoted string like "0x1676efd0"
+	if len(data) > 0 && data[0] == '"' {
+		var str string
+		if err := json.Unmarshal(data, &str); err != nil {
+			return err
+		}
+		str = strings.TrimPrefix(str, "0x")
+		val, err := strconv.ParseUint(str, 16, 64)
+		if err != nil {
+			return err
+		}
+		*b = BlockIdentifier(val)
+		return nil
+	}
+	// Handle bare integer like 123
+	var val uint64
+	if err := json.Unmarshal(data, &val); err != nil {
+		return err
+	}
+	*b = BlockIdentifier(val)
+	return nil
 }
 
 // PreConfirmedNoChange means the server's pre_confirmed matches what the caller already has.
@@ -30,7 +58,7 @@ func (PreConfirmedNoChange) isPreConfirmedUpdate() {}
 // modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
 // variant discrimination and discards it before decoding into this struct.
 type PreConfirmedDeltaUpdate struct {
-	BlockIdentifier       string                `json:"block_identifier"`
+	BlockIdentifier       BlockIdentifier       `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
@@ -39,7 +67,7 @@ type PreConfirmedDeltaUpdate struct {
 func (PreConfirmedDeltaUpdate) isPreConfirmedUpdate() {}
 
 func (val *PreConfirmedDeltaUpdate) validate() error {
-	if val.BlockIdentifier == "" {
+	if val.BlockIdentifier == 0 {
 		return errors.New("block_identifier is required")
 	}
 	if len(val.Transactions) == 0 {
@@ -57,7 +85,7 @@ func (val *PreConfirmedDeltaUpdate) validate() error {
 // modelled here. [PreConfirmedUpdateEnvelope.UnmarshalJSON] peeks at it during
 // variant discrimination and discards it before decoding into this struct.
 type PreConfirmedBlock struct {
-	BlockIdentifier       string                `json:"block_identifier"`
+	BlockIdentifier       BlockIdentifier       `json:"block_identifier"`
 	Transactions          []Transaction         `json:"transactions"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	TransactionStateDiffs []*StateDiff          `json:"transaction_state_diffs"`
@@ -74,7 +102,7 @@ type PreConfirmedBlock struct {
 func (PreConfirmedBlock) isPreConfirmedUpdate() {}
 
 func (pb *PreConfirmedBlock) validate() error {
-	if pb.BlockIdentifier == "" {
+	if pb.BlockIdentifier == 0 {
 		return errors.New("block_identifier is required")
 	}
 	if pb.Status != "PRE_CONFIRMED" {

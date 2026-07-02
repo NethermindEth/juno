@@ -189,7 +189,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		preConfirmed := pending.NewPreConfirmed(nil, update21656, nil, "")
+		preConfirmed := pending.NewPreConfirmed(nil, update21656, nil, 0)
 		mockSyncReader.EXPECT().PreConfirmed().Return(
 			&preConfirmed,
 			nil,

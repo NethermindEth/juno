@@ -133,7 +133,7 @@ func (mr *MockFeederReaderMockRecorder) FeeTokenAddresses(ctx any) *gomock.Call 
 }
 
 // PreConfirmedBlockWithIdentifier mocks base method.
-func (m *MockFeederReader) PreConfirmedBlockWithIdentifier(ctx context.Context, blockNumber, blockIdentifier string, knownTransactionCount uint64) (starknet.PreConfirmedUpdate, error) {
+func (m *MockFeederReader) PreConfirmedBlockWithIdentifier(ctx context.Context, blockNumber string, blockIdentifier starknet.BlockIdentifier, knownTransactionCount uint64) (starknet.PreConfirmedUpdate, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreConfirmedBlockWithIdentifier", ctx, blockNumber, blockIdentifier, knownTransactionCount)
 	ret0, _ := ret[0].(starknet.PreConfirmedUpdate)
