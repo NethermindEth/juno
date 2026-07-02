@@ -264,7 +264,12 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	}
 }
 
-func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.SettlementLayer) l1.EventListener {
+// makeL1Metrics registers the L1 gauges that only need the chain reader
+// and returns the shared EventListener recording per-call latency. The
+// gauges that poll the settlement layer are registered separately by
+// registerL1SettlementMetrics, once the settlement exists — so the
+// listener can be attached at construction instead of via a setter.
+func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
 	l2BlockFinalizedOnL1 := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
 		Name:      "l2_finalised_height",
@@ -277,36 +282,6 @@ func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.SettlementLayer) 
 		return float64(l1Head.BlockNumber)
 	})
 	prometheus.MustRegister(l2BlockFinalizedOnL1)
-
-	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "l1",
-		Name:      "finalised_height",
-		Help:      "Current L1 (Ethereum) finalised blockchain height",
-	}, func() float64 {
-		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
-		defer cancel()
-		height, err := l1Subscriber.FinalisedHeight(ctx)
-		if err != nil {
-			return 0
-		}
-		return float64(height)
-	})
-	prometheus.MustRegister(l1Height)
-
-	l1LatestHeight := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "l1",
-		Name:      "latest_height",
-		Help:      "Current latest L1 (Ethereum) blockchain height",
-	}, func() float64 {
-		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
-		defer cancel()
-		height, err := l1Subscriber.LatestHeight(ctx)
-		if err != nil {
-			return 0
-		}
-		return float64(height)
-	})
-	prometheus.MustRegister(l1LatestHeight)
 
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "l1",
@@ -321,6 +296,41 @@ func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.SettlementLayer) 
 			requestLatencies.WithLabelValues(method).Observe(took.Seconds())
 		},
 	}
+}
+
+// registerL1SettlementMetrics registers the L1 height gauges that poll the
+// settlement layer. Kept separate from makeL1Metrics so the settlement can
+// be constructed with its listener already attached.
+func registerL1SettlementMetrics(settlement l1.SettlementLayer) {
+	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "finalised_height",
+		Help:      "Current L1 (Ethereum) finalised blockchain height",
+	}, func() float64 {
+		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
+		defer cancel()
+		height, err := settlement.FinalisedHeight(ctx)
+		if err != nil {
+			return 0
+		}
+		return float64(height)
+	})
+	prometheus.MustRegister(l1Height)
+
+	l1LatestHeight := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "latest_height",
+		Help:      "Current latest L1 (Ethereum) blockchain height",
+	}, func() float64 {
+		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
+		defer cancel()
+		height, err := settlement.LatestHeight(ctx)
+		if err != nil {
+			return 0
+		}
+		return float64(height)
+	})
+	prometheus.MustRegister(l1LatestHeight)
 }
 
 func makeFeederMetrics() feeder.EventListener {

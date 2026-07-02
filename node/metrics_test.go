@@ -50,7 +50,8 @@ func TestMakeL1Metrics(t *testing.T) {
 		mockSubscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(100), nil).AnyTimes()
 		mockSubscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(101), nil).AnyTimes()
 
-		listener := makeL1Metrics(mockBCReader, mockSubscriber)
+		listener := makeL1Metrics(mockBCReader)
+		registerL1SettlementMetrics(mockSubscriber)
 		require.NotNil(t, listener)
 
 		assertGaugeValue(t, reg, "l1_l2_finalised_height", 42)
@@ -73,7 +74,8 @@ func TestMakeL1Metrics(t *testing.T) {
 		mockSubscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
 		mockSubscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
 
-		listener := makeL1Metrics(mockBCReader, mockSubscriber)
+		listener := makeL1Metrics(mockBCReader)
+		registerL1SettlementMetrics(mockSubscriber)
 		require.NotNil(t, listener)
 
 		assertGaugeValue(t, reg, "l1_l2_finalised_height", 0)

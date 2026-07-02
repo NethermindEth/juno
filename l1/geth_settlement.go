@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/geth/contract"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/utils/log"
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -44,7 +43,6 @@ var gethFinalizedBlockNumber = new(big.Int).SetInt64(rpc.FinalizedBlockNumber.In
 type GethSettlement struct {
 	contractAddress eth.Address
 	url             string
-	logger          log.StructuredLogger
 
 	rpcClient *rpc.Client
 	ethClient *ethclient.Client
@@ -63,34 +61,29 @@ func NewGethSettlement(
 	contractAddress eth.Address,
 	opts ...GethSettlementOption,
 ) (*GethSettlement, error) {
-	o := gethSettlementOptions{}
+	o := gethSettlementOptions{listener: SelectiveListener{}}
 	for _, opt := range opts {
 		opt(&o)
-	}
-	logger := o.logger
-	if logger == nil {
-		logger = log.NewNopZapLogger()
 	}
 
 	rpcClient, err := rpc.DialContext(ctx, rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("dial L1: %w", err)
+		return nil, fmt.Errorf("dialing L1: %w", err)
 	}
 	ethClient := ethclient.NewClient(rpcClient)
 	filterer, err := contract.NewStarknetFilterer(common.Address(contractAddress), ethClient)
 	if err != nil {
 		ethClient.Close()
-		return nil, fmt.Errorf("bind Starknet filterer: %w", err)
+		return nil, fmt.Errorf("binding Starknet filterer: %w", err)
 	}
 
 	return &GethSettlement{
 		contractAddress: contractAddress,
 		url:             rawURL,
-		logger:          logger,
 		rpcClient:       rpcClient,
 		ethClient:       ethClient,
 		filterer:        filterer,
-		listener:        SelectiveListener{},
+		listener:        o.listener,
 	}, nil
 }
 
@@ -98,27 +91,18 @@ func NewGethSettlement(
 type GethSettlementOption func(*gethSettlementOptions)
 
 type gethSettlementOptions struct {
-	logger log.StructuredLogger
+	listener EventListener
 }
 
-// WithSettlementLogger attaches a logger forwarded to the settlement.
-// Surfaces transport-level warnings at debug level.
-func WithSettlementLogger(l log.StructuredLogger) GethSettlementOption {
-	return func(o *gethSettlementOptions) { o.logger = l }
-}
-
-// SetListener swaps the event listener after construction. The metrics
-// listener captures the settlement in a closure (so it can read gauges
-// off it), which means the listener can only be built AFTER the
-// settlement exists — hence a post-construction setter rather than a
-// constructor option.
+// WithSettlementListener sets the EventListener that fires OnL1Call for
+// every Ethereum RPC method. Defaults to a no-op SelectiveListener.
 //
-// Concurrency contract: SetListener MUST be called before the
-// settlement is handed off to any goroutine (i.e. before l1.NewClient
-// in node.go). The field is read unlocked from every RPC method; a
-// concurrent SetListener would be a data race. The single-shot wiring
-// in node.go satisfies this — don't introduce a second caller.
-func (s *GethSettlement) SetListener(l EventListener) { s.listener = l }
+// The listener is supplied at construction because the field is read
+// unlocked from every RPC method, so it must not be mutated once the
+// settlement is handed off to a goroutine (i.e. l1.NewClient in node.go).
+func WithSettlementListener(l EventListener) GethSettlementOption {
+	return func(o *gethSettlementOptions) { o.listener = l }
+}
 
 // observe wraps an RPC call so OnL1Call fires on both success and
 // failure paths — error rates and latency under failure are as
@@ -133,7 +117,7 @@ func (s *GethSettlement) ChainID(ctx context.Context) (*big.Int, error) {
 	defer s.observe("eth_chainId")()
 	id, err := s.ethClient.ChainID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get chain id: %w", err)
+		return nil, fmt.Errorf("getting chain id: %w", err)
 	}
 	return id, nil
 }
@@ -149,7 +133,7 @@ func (s *GethSettlement) FinalisedHeight(ctx context.Context) (uint64, error) {
 		if errors.Is(err, ethereum.NotFound) {
 			return 0, fmt.Errorf("finalised block not found: %w", eth.ErrNotFound)
 		}
-		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
+		return 0, fmt.Errorf("getting finalised Ethereum block: %w", err)
 	}
 	return head.Number.Uint64(), nil
 }
@@ -159,7 +143,7 @@ func (s *GethSettlement) LatestHeight(ctx context.Context) (uint64, error) {
 	defer s.observe("eth_blockNumber")()
 	n, err := s.ethClient.BlockNumber(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("get latest Ethereum block number: %w", err)
+		return 0, fmt.Errorf("getting latest Ethereum block number: %w", err)
 	}
 	return n, nil
 }
@@ -177,7 +161,7 @@ func (s *GethSettlement) FilterStateUpdate(
 		End:     &to,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("filter LogStateUpdate [%d,%d]: %w", from, to, err)
+		return nil, fmt.Errorf("filtering LogStateUpdate [%d,%d]: %w", from, to, err)
 	}
 	out := make([]*StateUpdate, len(events))
 	for i, ev := range events {
@@ -196,11 +180,11 @@ func (s *GethSettlement) FilterStateUpdate(
 func (s *GethSettlement) WatchStateUpdate(
 	ctx context.Context,
 	sink chan<- *StateUpdate,
-) (eth.Subscription, error) {
+) (Subscription, error) {
 	raw := make(chan *contract.StarknetLogStateUpdate, watchForwarderBuffer)
 	inner, err := s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, raw)
 	if err != nil {
-		return nil, fmt.Errorf("subscribe LogStateUpdate: %w", err)
+		return nil, fmt.Errorf("subscribing to LogStateUpdate: %w", err)
 	}
 	return forwardStateUpdates(inner, raw, sink), nil
 }
@@ -215,9 +199,9 @@ func (s *GethSettlement) TransactionReceipt(
 	r, err := s.ethClient.TransactionReceipt(ctx, common.Hash(txHash))
 	if err != nil {
 		if errors.Is(err, ethereum.NotFound) {
-			return nil, fmt.Errorf("get transaction receipt: %w", eth.ErrNotFound)
+			return nil, fmt.Errorf("getting transaction receipt: %w", eth.ErrNotFound)
 		}
-		return nil, fmt.Errorf("get transaction receipt: %w", err)
+		return nil, fmt.Errorf("getting transaction receipt: %w", err)
 	}
 	return gethReceiptToEth(r), nil
 }
@@ -274,7 +258,7 @@ func forwardStateUpdates(
 	inner event.Subscription,
 	raw <-chan *contract.StarknetLogStateUpdate,
 	sink chan<- *StateUpdate,
-) eth.Subscription {
+) Subscription {
 	return event.NewSubscription(func(quit <-chan struct{}) error {
 		defer inner.Unsubscribe()
 		for {

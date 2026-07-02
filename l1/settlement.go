@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/l1/eth"
 )
 
 // SettlementLayer is the interface l1.Client uses to follow the Ethereum
@@ -25,7 +24,7 @@ type SettlementLayer interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	LatestHeight(ctx context.Context) (uint64, error)
-	WatchStateUpdate(ctx context.Context, sink chan<- *StateUpdate) (eth.Subscription, error)
+	WatchStateUpdate(ctx context.Context, sink chan<- *StateUpdate) (Subscription, error)
 	FilterStateUpdate(ctx context.Context, from, to uint64) ([]*StateUpdate, error)
 	Close()
 }

@@ -14,7 +14,6 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1"
-	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +25,7 @@ import (
 // boundary surface needed renaming, not every reference.
 type (
 	StateUpdate         = l1.StateUpdate
+	Subscription        = l1.Subscription
 	MockSettlementLayer = mocks.MockSettlementLayer
 )
 
@@ -573,7 +573,8 @@ func TestCatchUpSetsL1HeadOnStart(t *testing.T) {
 		Return([]*StateUpdate{backfilled}, nil).
 		Times(1)
 
-	client := NewClient(subscriber, chain, nopLog,
+	client := NewClient(
+		subscriber, chain, nopLog,
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 		WithCatchUpChunkSize(10),
@@ -627,7 +628,8 @@ func TestCatchUpMultiChunk(t *testing.T) {
 		Times(1).
 		After(secondCall)
 
-	client := NewClient(subscriber, chain, nopLog,
+	client := NewClient(
+		subscriber, chain, nopLog,
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 		WithCatchUpChunkSize(10),
@@ -665,7 +667,8 @@ func TestCatchUpFilterError(t *testing.T) {
 
 	// Best-effort: catch-up error must NOT terminate Run. It logs and falls
 	// through to the live subscription, which we let idle until ctx expires.
-	client := NewClient(subscriber, chain, nopLog,
+	client := NewClient(
+		subscriber, chain, nopLog,
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 	)
@@ -711,7 +714,8 @@ func TestCatchUpHeadAndCachePartition(t *testing.T) {
 		}, nil).
 		Times(1)
 
-	client := NewClient(subscriber, chain, nopLog,
+	client := NewClient(
+		subscriber, chain, nopLog,
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 	)
@@ -776,7 +780,8 @@ func TestCatchUpPartialProgressPreserved(t *testing.T) {
 
 	// Poll interval is 1h so the live loop never ticks setL1Head — the only
 	// thing that could populate nonFinalisedLogs is the catch-up walk.
-	client := NewClient(subscriber, chain, nopLog,
+	client := NewClient(
+		subscriber, chain, nopLog,
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 	)
@@ -871,7 +876,7 @@ func TestSubscribeToUpdatesReturnsPromptlyOnCancel(t *testing.T) {
 		client := NewClient(subscriber, chain, nopLog, WithResubscribeDelay(time.Hour))
 
 		ctx, cancel := context.WithCancel(t.Context())
-		done := make(chan eth.Subscription, 1)
+		done := make(chan Subscription, 1)
 		start := time.Now()
 		go func() {
 			done <- client.SubscribeToUpdates(ctx, make(chan *StateUpdate, 1))

@@ -2,8 +2,6 @@ package l1
 
 import (
 	"context"
-
-	"github.com/NethermindEth/juno/l1/eth"
 )
 
 // This file is compiled only with the test binary. It exposes
@@ -23,7 +21,7 @@ func (c *Client) NonFinalisedLogs() map[uint64]*StateUpdate {
 
 // SubscribeToUpdates exposes the resubscribe retry loop for testing
 // its interaction with context cancellation and resubscribeDelay.
-func (c *Client) SubscribeToUpdates(ctx context.Context, ch chan *StateUpdate) eth.Subscription {
+func (c *Client) SubscribeToUpdates(ctx context.Context, ch chan *StateUpdate) Subscription {
 	return c.subscribeToUpdates(ctx, ch)
 }
 

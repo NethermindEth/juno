@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/geth/contract"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -35,11 +34,11 @@ func (f *fakeEventSub) Unsubscribe() {
 }
 
 // newForwarderForTest wires forwardStateUpdates to a fake inner subscription
-// and returns the resulting eth.Subscription along with the writable raw
+// and returns the resulting Subscription along with the writable raw
 // channel the test feeds contract events into.
 func newForwarderForTest(
 	sink chan *StateUpdate, inner *fakeEventSub,
-) (eth.Subscription, chan *contract.StarknetLogStateUpdate) {
+) (Subscription, chan *contract.StarknetLogStateUpdate) {
 	raw := make(chan *contract.StarknetLogStateUpdate, 1)
 	sub := forwardStateUpdates(inner, raw, sink)
 	return sub, raw

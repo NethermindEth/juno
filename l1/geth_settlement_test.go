@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/eth"
-	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -136,12 +135,7 @@ func newTestSettlement(t *testing.T, srv *gethJSONRPCServer) *l1.GethSettlement 
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	s, err := l1.NewGethSettlement(
-		ctx,
-		srv.URL(),
-		eth.Address{},
-		l1.WithSettlementLogger(log.NewNopZapLogger()),
-	)
+	s, err := l1.NewGethSettlement(ctx, srv.URL(), eth.Address{})
 	require.NoError(t, err)
 	t.Cleanup(s.Close)
 	return s
@@ -255,7 +249,7 @@ func TestGethSettlement_FilterStateUpdate_ErrorWrap(t *testing.T) {
 	s := newTestSettlement(t, srv)
 	_, err := s.FilterStateUpdate(t.Context(), 0, 100)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "filter LogStateUpdate [0,100]")
+	assert.Contains(t, err.Error(), "filtering LogStateUpdate [0,100]")
 	assert.Contains(t, err.Error(), "synthetic")
 }
 
@@ -315,8 +309,11 @@ func TestGethSettlement_Listener_RecordsCalls(t *testing.T) {
 		return nil, &jsonRPCError{Code: -32000, Message: "synthetic"}
 	})
 	rec := &recordingListener{}
-	s := newTestSettlement(t, srv)
-	s.SetListener(rec)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	s, err := l1.NewGethSettlement(ctx, srv.URL(), eth.Address{}, l1.WithSettlementListener(rec))
+	require.NoError(t, err)
+	t.Cleanup(s.Close)
 	_, _ = s.ChainID(t.Context())
 	_, _ = s.LatestHeight(t.Context())
 	assert.Equal(t, []string{"eth_chainId", "eth_blockNumber"}, rec.methods())
@@ -333,26 +330,6 @@ func TestGethSettlement_Close_Idempotent(t *testing.T) {
 	// Second close shouldn't panic. go-ethereum's rpc.Client.Close is
 	// safe to call repeatedly.
 	require.NotPanics(t, s.Close)
-}
-
-func TestGethSettlement_OptionLogger_Wired(t *testing.T) {
-	srv := newGethJSONRPCServer(t)
-	srv.on("eth_chainId", func(json.RawMessage) (any, *jsonRPCError) { return "0x1", nil })
-	// Verifies that the WithSettlementLogger option compiles and
-	// constructor accepts it. Logger itself is no-op; no behaviour
-	// assertion possible.
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-	s, err := l1.NewGethSettlement(
-		ctx,
-		srv.URL(),
-		eth.Address{},
-		l1.WithSettlementLogger(log.NewNopZapLogger()),
-	)
-	require.NoError(t, err)
-	t.Cleanup(s.Close)
-	_, err = s.ChainID(ctx)
-	require.NoError(t, err)
 }
 
 // zeros returns a string of n '0' characters; helper for fixed-width
