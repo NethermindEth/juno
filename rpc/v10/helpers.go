@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -71,7 +72,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -87,7 +88,7 @@ func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *json
 	case blockID.IsPreConfirmed():
 		reader, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 				return nil, rpccore.ErrBlockNotFound
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -133,7 +134,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -193,7 +194,7 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

@@ -202,7 +202,7 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 
 func (s *Sequencer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	if s.buildState.PreConfirmed == nil {
-		return preconfirmed.ChainReader{}, nil
+		return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 	}
 	return preconfirmed.NewChain(s.buildState.PreConfirmed)
 }

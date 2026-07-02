@@ -588,7 +588,7 @@ func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 
 	// Fallback: no stored pre-confirmed, or stored data failed validation.
 	if head == nil {
-		return preconfirmed.ChainReader{}, db.ErrKeyNotFound
+		return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 	}
 	emptyPreConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, head)
 	if err != nil {
