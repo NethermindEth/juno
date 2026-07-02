@@ -24,21 +24,9 @@ type StateReader struct {
 // NewStateReader creates a read-only view of the state at the given root.
 // Should be used for read operations that don't require state mutations.
 func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*StateReader, error) {
-	contractTrie, err := db.ContractTrie(stateRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	classTrie, err := db.ClassTrie(stateRoot)
-	if err != nil {
-		return nil, err
-	}
-
 	return &StateReader{
-		initRoot:     *stateRoot,
-		db:           db,
-		contractTrie: contractTrie,
-		classTrie:    classTrie,
+		initRoot: *stateRoot,
+		db:       db,
 	}, nil
 }
 
@@ -106,10 +94,24 @@ func (s *StateReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition
 }
 
 func (s *StateReader) ClassTrie() (core.TrieReader, error) {
+	if s.classTrie == nil {
+		classTrie, err := s.db.ClassTrie(&s.initRoot)
+		if err != nil {
+			return nil, err
+		}
+		s.classTrie = classTrie
+	}
 	return s.classTrie, nil
 }
 
 func (s *StateReader) ContractTrie() (core.TrieReader, error) {
+	if s.contractTrie == nil {
+		contractTrie, err := s.db.ContractTrie(&s.initRoot)
+		if err != nil {
+			return nil, err
+		}
+		s.contractTrie = contractTrie
+	}
 	return s.contractTrie, nil
 }
 
@@ -138,11 +140,20 @@ func (s *StateReader) CompiledClassHashV2(
 }
 
 func (s *StateReader) Commitment(protocolVersion string) (felt.Felt, error) {
-	contractRoot, err := s.contractTrie.Hash()
+	contractTrie, err := s.ContractTrie()
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	classRoot, err := s.classTrie.Hash()
+	classTrie, err := s.ClassTrie()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	contractRoot, err := contractTrie.Hash()
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	classRoot, err := classTrie.Hash()
 	if err != nil {
 		return felt.Felt{}, err
 	}
