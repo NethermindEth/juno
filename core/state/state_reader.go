@@ -24,9 +24,13 @@ type StateReader struct {
 // NewStateReader creates a read-only view of the state at the given root.
 // Should be used for read operations that don't require state mutations.
 func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*StateReader, error) {
+	// todo(rdr): change this function to not return an error
 	return &StateReader{
 		initRoot: *stateRoot,
 		db:       db,
+		// Initialized lazily on demand
+		contractTrie: nil,
+		classTrie:    nil,
 	}, nil
 }
 
