@@ -34,7 +34,9 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 func (b *deprecatedStateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	_, err := pruner.HeaderByNumberIfStateRetained(b.database, blockNumber)
+	// The header is only used to confirm state at blockNumber is retained; we
+	// discard it, so decode only the state root instead of the full header.
+	_, err := pruner.StateRootByNumberIfStateRetained(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
