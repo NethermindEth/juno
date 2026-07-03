@@ -158,7 +158,17 @@ func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error
 	if err != nil {
 		return nil, err
 	}
-	return h.Class(id, *classHash)
+
+	class, err := h.Class(id, *classHash)
+	if err != nil {
+		// getClassAt only returns CONTRACT_NOT_FOUND / BLOCK_NOT_FOUND per spec;
+		// a class-hash miss here means the contract is not properly deployed.
+		if err == rpccore.ErrClassHashNotFound {
+			return nil, rpccore.ErrContractNotFound
+		}
+		return nil, err
+	}
+	return class, nil
 }
 
 // ClassHashAt gets the class hash for the contract deployed at the given address
@@ -172,6 +182,11 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
+
+	// System contracts (0x1, 0x2) hold storage but have no Cairo class.
+	if core.IsSystemContract(&address) {
+		return nil, rpccore.ErrContractNotFound
+	}
 
 	classHash, err := stateReader.ContractClassHash(&address)
 	if err != nil {

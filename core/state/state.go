@@ -17,19 +17,9 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
-const (
-	systemContract1Addr = 1
-	systemContract2Addr = 2
-)
-
 var (
-	stateVersion0             = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
-	leafVersion0              = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
-	noClassContractsClassHash = felt.Zero
-	noClassContracts          = map[felt.Felt]struct{}{
-		felt.FromUint64[felt.Felt](systemContract1Addr): {},
-		felt.FromUint64[felt.Felt](systemContract2Addr): {},
-	}
+	stateVersion0 = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
+	leafVersion0  = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
 )
 
 var (
@@ -287,24 +277,23 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 			return felt.Zero, emptyStateUpdate, err
 		}
 
-		// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
-		// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
-		// we can use the lack of key's existence as reason for purging noClassContracts.
-		for nAddr := range noClassContracts {
-			if addr.Equal(&nAddr) {
-				obj := s.stateObjects[addr]
-				root, err := obj.getStorageRoot()
-				if err != nil {
+		// As system contracts are not in StateDiff.DeployedContracts we can only purge them if
+		// their storage no longer exists. Updating contracts with reverse diff will eventually
+		// lead to the deletion of the system contract's storage key from db. Thus,
+		// we can use the lack of key's existence as reason for purging system contracts.
+		if core.IsSystemContract(&addr) {
+			obj := s.stateObjects[addr]
+			root, err := obj.getStorageRoot()
+			if err != nil {
+				return felt.Zero, emptyStateUpdate, err
+			}
+
+			if root.IsZero() {
+				if err := s.contractTrie.Update(&addr, &felt.Zero); err != nil {
 					return felt.Zero, emptyStateUpdate, err
 				}
 
-				if root.IsZero() {
-					if err := s.contractTrie.Update(&nAddr, &felt.Zero); err != nil {
-						return felt.Zero, emptyStateUpdate, err
-					}
-
-					s.stateObjects[nAddr] = nil // mark for deletion
-				}
+				s.stateObjects[addr] = nil // mark for deletion
 			}
 		}
 	}
@@ -486,8 +475,8 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 	for addr, storage := range storage {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
-			if _, ok := noClassContracts[addr]; ok && errors.Is(err, db.ErrKeyNotFound) {
-				contract := newContractDeployed(noClassContractsClassHash, blockNum)
+			if core.IsSystemContract(&addr) && errors.Is(err, db.ErrKeyNotFound) {
+				contract := newContractDeployed(core.SystemContractsClassHash, blockNum)
 				newObj := newStateObject(s, &addr, &contract)
 				obj = &newObj
 				s.stateObjects[addr] = obj

@@ -160,6 +160,26 @@ func TestClassAt(t *testing.T) {
 		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
 		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
 	})
+
+	t.Run("system contracts return contract not found", func(t *testing.T) {
+		for _, addr := range core.SystemContracts {
+			class, rpcErr := handler.ClassAt(latest, addr)
+			require.Nil(t, class)
+			assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+		}
+	})
+
+	t.Run("class hash not found is reported as contract not found", func(t *testing.T) {
+		// Contract resolves to a class hash that has no declared class: getClassAt
+		// must return CONTRACT_NOT_FOUND, not CLASS_HASH_NOT_FOUND.
+		danglingAddress := felt.NewRandom[felt.Felt]()
+		unknownClassHash := felt.NewUnsafeFromString[felt.Felt]("0xdead")
+		mockState.EXPECT().ContractClassHash(danglingAddress).Return(*unknownClassHash, nil)
+
+		class, rpcErr := handler.ClassAt(latest, *danglingAddress)
+		require.Nil(t, class)
+		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+	})
 }
 
 func TestClassHashAt(t *testing.T) {
@@ -213,6 +233,16 @@ func TestClassHashAt(t *testing.T) {
 		classHash, rpcErr := handler.ClassHashAt(latestID, targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+	})
+
+	t.Run("system contracts return contract not found", func(t *testing.T) {
+		for _, addr := range core.SystemContracts {
+			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+
+			classHash, rpcErr := handler.ClassHashAt(latestID, addr)
+			require.Nil(t, classHash)
+			assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+		}
 	})
 
 	expectedClassHash := new(felt.Felt).SetUint64(3)

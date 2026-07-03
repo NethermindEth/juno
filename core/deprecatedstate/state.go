@@ -281,15 +281,6 @@ func (s *State) Update(
 	return s.verifyStateUpdateRoot(update.NewRoot, protocolVersion)
 }
 
-var (
-	systemContractsClassHash = new(felt.Felt).SetUint64(0)
-
-	systemContracts = map[felt.Felt]struct{}{
-		*new(felt.Felt).SetUint64(1): {},
-		*new(felt.Felt).SetUint64(2): {},
-	}
-)
-
 func (s *State) updateContracts(
 	stateTrie *trie.Trie,
 	blockNumber uint64,
@@ -436,9 +427,9 @@ func (s *State) updateContractStorages(
 		addr *felt.Felt
 	}
 
-	// make sure all systemContracts are deployed
+	// make sure all system contracts are deployed
 	for addr := range diffs {
-		if _, ok := systemContracts[addr]; !ok {
+		if !core.IsSystemContract(&addr) {
 			continue
 		}
 
@@ -447,8 +438,8 @@ func (s *State) updateContractStorages(
 			if !errors.Is(err, ErrContractNotDeployed) {
 				return err
 			}
-			// Deploy systemContract
-			err = s.putNewContract(stateTrie, &addr, systemContractsClassHash, blockNumber)
+			// Deploy system contract
+			err = s.putNewContract(stateTrie, &addr, &core.SystemContractsClassHash, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -682,10 +673,11 @@ func (s *State) Revert(
 }
 
 func (s *State) purgesystemContracts() error {
-	// As systemContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
-	// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
-	// we can use the lack of key's existence as reason for purging systemContracts.
-	for addr := range systemContracts {
+	// As system contracts are not in StateDiff.DeployedContracts we can only purge them if
+	// their storage no longer exists. Updating contracts with reverse diff will eventually
+	// lead to the deletion of the system contract's storage key from db. Thus,
+	// we can use the lack of key's existence as reason for purging system contracts.
+	for _, addr := range core.SystemContracts {
 		noClassC, err := NewContractUpdater(&addr, s.txn)
 		if err != nil {
 			if !errors.Is(err, ErrContractNotDeployed) {

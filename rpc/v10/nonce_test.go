@@ -66,6 +66,17 @@ func TestNonce(t *testing.T) {
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
+	t.Run("system contracts return contract not found", func(t *testing.T) {
+		for _, addr := range core.SystemContracts {
+			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+
+			latest := rpc.BlockIDLatest()
+			nonce, rpcErr := handler.Nonce(&latest, &addr)
+			require.Nil(t, nonce)
+			assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+		}
+	})
+
 	expectedNonce := felt.NewFromUint64[felt.Felt](1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
