@@ -17,14 +17,9 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 	//nolint:staticcheck,nolintlint // used by old state
 	txn := b.database.NewIndexedBatch()
 
-	height, err := core.GetChainHeight(txn)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Note(Ege): Why do we fetch header here?
-	_, err = core.GetBlockHeaderByNumber(txn, height)
-	if err != nil {
+	// Fail early if no block has been committed (no head state to open)
+	// only the key's existence matters, not the height itself.
+	if _, err := core.GetChainHeight(txn); err != nil {
 		return nil, nil, err
 	}
 
@@ -34,8 +29,7 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 func (b *deprecatedStateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	_, err := pruner.HeaderByNumberIfStateRetained(b.database, blockNumber)
-	if err != nil {
+	if err := pruner.RequireStateRetainedByBlockNumber(b.database, blockNumber); err != nil {
 		return nil, nil, err
 	}
 	//nolint:staticcheck,nolintlint // used by old state
@@ -56,7 +50,7 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return deprecatedstate.New(txn), NoopStateCloser, nil
 	}
 
-	header, err := pruner.HeaderByHashIfStateRetained(b.database, blockHash)
+	blockNumber, err := pruner.BlockNumberByHashIfStateRetained(b.database, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -64,7 +58,7 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
 	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
-		header.Number,
+		blockNumber,
 	), NoopStateCloser, nil
 }
 
