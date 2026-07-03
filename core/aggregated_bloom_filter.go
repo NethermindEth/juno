@@ -74,6 +74,13 @@ const (
 	NumBlocksPerFilter uint64 = 8192
 )
 
+// wordsPerFilterRow is the number of uint64 words bitset uses to store one
+// NumBlocksPerFilter-bit row.
+var wordsPerFilterRow = func() int {
+	row := makeBitset()
+	return len(row.Words())
+}()
+
 var (
 	ErrAggregatedBloomFilterBlockOutOfRange error = errors.New("block number is not within range")
 	ErrBloomFilterSizeMismatch              error = errors.New("bloom filter len mismatch")
@@ -252,35 +259,61 @@ func (f *AggregatedBloomFilter) MarshalBinary() ([]byte, error) {
 }
 
 func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
-	r := bytes.NewReader(data)
+	const (
+		bytesUint32 = 4
+		bytesUint64 = 8
+		// Header layout (see MarshalBinary): fromBlock + toBlock + count.
+		headerSize = bytesUint64 + bytesUint64 + bytesUint32
+		rowLenSize = bytesUint32
+		bitLenSize = bytesUint64
+	)
 
-	if err := binary.Read(r, binary.BigEndian, &f.fromBlock); err != nil {
-		return err
+	if len(data) < headerSize {
+		return io.ErrUnexpectedEOF
 	}
-	if err := binary.Read(r, binary.BigEndian, &f.toBlock); err != nil {
-		return err
+	f.fromBlock = binary.BigEndian.Uint64(data[0:bytesUint64])
+	f.toBlock = binary.BigEndian.Uint64(data[bytesUint64 : 2*bytesUint64])
+	count := int(binary.BigEndian.Uint32(data[2*bytesUint64 : headerSize]))
+	off := headerSize
+
+	// Every valid row is exactly rowLenSize + bitLenSize + wordsPerFilterRow
+	// words on disk (see the per-row checks below). Reject a count that cannot
+	// fit in the remaining data before allocating for it, so a corrupt length
+	// can't drive an oversized allocation.
+	rowSize := rowLenSize + bitLenSize + wordsPerFilterRow*bytesUint64
+	if count > (len(data)-headerSize)/rowSize {
+		return io.ErrUnexpectedEOF
 	}
 
-	var count uint32
-	if err := binary.Read(r, binary.BigEndian, &count); err != nil {
-		return err
-	}
-
+	backing := make([]uint64, count*wordsPerFilterRow)
 	f.bitmap = make([]bitset.BitSet, count)
+
 	for i := range count {
-		var length uint32
-		if err := binary.Read(r, binary.BigEndian, &length); err != nil {
-			return err
+		if off+rowLenSize > len(data) {
+			return io.ErrUnexpectedEOF
+		}
+		blobLen := int(binary.BigEndian.Uint32(data[off:]))
+		off += rowLenSize
+		if blobLen < bitLenSize || off+blobLen > len(data) {
+			return io.ErrUnexpectedEOF
 		}
 
-		b := make([]byte, length)
-		if _, err := io.ReadFull(r, b); err != nil {
-			return err
+		bitLen := binary.BigEndian.Uint64(data[off:])
+		nWords := (blobLen - bitLenSize) / bytesUint64
+		if bitLen != NumBlocksPerFilter || nWords != wordsPerFilterRow ||
+			(blobLen-bitLenSize)%bytesUint64 != 0 {
+			return ErrBloomFilterSizeMismatch
 		}
 
-		if err := f.bitmap[i].UnmarshalBinary(b); err != nil {
-			return err
+		wordsAt := off + bitLenSize
+		lo := i * wordsPerFilterRow
+		row := backing[lo : lo+wordsPerFilterRow : lo+wordsPerFilterRow]
+		for w := range wordsPerFilterRow {
+			row[w] = binary.BigEndian.Uint64(data[wordsAt+w*bytesUint64:])
 		}
+		f.bitmap[i] = *bitset.FromWithLength(uint(NumBlocksPerFilter), row)
+
+		off += blobLen
 	}
 	return nil
 }
