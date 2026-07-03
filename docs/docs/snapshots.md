@@ -291,11 +291,15 @@ Run the Docker command to start Juno:
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/mainnet:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --eth-node <YOUR-ETH-NODE>
 ```
@@ -307,11 +311,15 @@ docker run -d \
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/mainnet-pruned:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --prune-mode \
   --eth-node <YOUR-ETH-NODE>
@@ -324,11 +332,15 @@ docker run -d \
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/sepolia:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --network sepolia \
   --eth-node <YOUR-ETH-NODE>
@@ -341,11 +353,15 @@ docker run -d \
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/sepolia-integration:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --network sepolia-integration \
   --eth-node <YOUR-ETH-NODE>
@@ -356,4 +372,8 @@ docker run -d \
 
 :::info
 Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL, and make sure it matches the network's L1: Starknet Mainnet settles on Ethereum Mainnet (e.g. `wss://mainnet.infura.io/ws/v3/your-project-id`), while Sepolia and Sepolia-Integration settle on Ethereum Sepolia (e.g. `wss://sepolia.infura.io/ws/v3/your-project-id`). Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
+:::
+
+:::tip
+These examples use Docker. For other ways to run Juno (standalone binary, building from source) and more configuration details, see [Running Juno](running-juno) guide.
 :::
