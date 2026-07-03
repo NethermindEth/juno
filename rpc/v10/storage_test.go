@@ -180,6 +180,16 @@ func TestStorageAt(t *testing.T) {
 			assert.Equal(t, expectedStorage, result.Value)
 		})
 
+		t.Run("zero value on historical reader skips the existence probe", func(t *testing.T) {
+			mockReader.EXPECT().StateAtBlockNumber(uint64(8)).Return(mockState, nopCloser, nil)
+			mockState.EXPECT().ContractStorage(&targetAddressFelt, &targetSlot).Return(felt.Zero, nil)
+
+			blockID := rpc.BlockIDFromNumber(8)
+			result, rpcErr := handler.StorageAt(&targetAddress, &targetSlot, &blockID, noFlags)
+			require.Nil(t, rpcErr)
+			assert.Equal(t, felt.Zero, result.Value)
+		})
+
 		t.Run("internal error while retrieving key", func(t *testing.T) {
 			internalErr := errors.New("some internal error")
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
