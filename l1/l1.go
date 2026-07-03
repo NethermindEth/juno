@@ -113,8 +113,8 @@ func NewClient(
 	}
 }
 
-// subscribeToUpdates blocks until a subscription is established. If context is cancelled,
-// returns nil
+// subscribeToUpdates subscribes to the settlement layer updates on an infinite loop
+// until success is achieved. If context is cancelled, a nil subscription is returned.
 func (c *Client) subscribeToUpdates(
 	ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate,
 ) event.Subscription {
@@ -207,11 +207,12 @@ func (c *Client) checkChainID(ctx context.Context) error {
 	)
 }
 
+// Run fetches and writes the latest L1 head to the database. Then, it tracks live updates until
+// context is cancelled.
 func (c *Client) Run(ctx context.Context) error {
 	defer c.l1.Close()
 	if err := c.ensureChainID(ctx); err != nil {
-		// A cancelled context means we're shutting down, not a real failure;
-		// a mismatch (the only other non-nil return) is fatal.
+		// A cancelled context means we're shutting down
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -232,19 +233,19 @@ func (c *Client) Run(ctx context.Context) error {
 	return c.watchL1StateUpdates(ctx)
 }
 
-// CatchUpL1Head verifies the chain ID then writes the L1 head to the
-// database, without entering the live subscription loop. Closes the
-// underlying Subscriber on return; the Client must not be reused.
+// CatchUpL1Head fetches and writes the latest L1 head to the database. Contrary to [Client.Run]
+// it doesn't track live updates and finishes on the spot. The client must not be re-used after.
 func (c *Client) CatchUpL1Head(ctx context.Context) error {
 	defer c.l1.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
 	}
+
 	return c.catchUpL1HeadUpdates(ctx)
 }
 
 func (c *Client) watchL1StateUpdates(ctx context.Context) error {
-	buffer := 128
+	const buffer = 128
 
 	c.logger.Info("Subscribing to L1 updates...")
 
@@ -259,6 +260,7 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -268,9 +270,7 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 			for {
 				select {
 				case err := <-updateSub.Err():
-					// TODO can we use geth's event.Resubscribe?
-					// We can't use a warn log level here since we guarantee the L1 url will only be printed
-					// in debug logs and panics (to avoid leaking the API key).
+					// Not using warnings to avoid leaking secrets in the L1 url
 					c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
 					updateSub.Unsubscribe()
 
